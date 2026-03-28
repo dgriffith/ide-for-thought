@@ -24,6 +24,13 @@ export function getEditorStore() {
     content = text;
   }
 
+  function clear() {
+    activeFilePath = null;
+    activeFileName = '';
+    content = '';
+    savedContent = '';
+  }
+
   return {
     get activeFilePath() { return activeFilePath; },
     get activeFileName() { return activeFileName; },
@@ -32,5 +39,6 @@ export function getEditorStore() {
     openFile,
     save,
     setContent,
+    clear,
   };
 }

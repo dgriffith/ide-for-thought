@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
+  import TagPanel from './TagPanel.svelte';
 
   interface Props {
     files: NoteFile[];
@@ -10,6 +11,16 @@
   }
 
   let { files, activeFilePath, onFileSelect, onOpenFolder }: Props = $props();
+  let tagPanel = $state<TagPanel>();
+
+  export function refreshTags() {
+    tagPanel?.refresh();
+  }
+
+  export function selectTag(tag: string) {
+    tagPanel?.refresh();
+    setTimeout(() => tagPanel?.selectTag(tag), 50);
+  }
 </script>
 
 <aside class="sidebar">
@@ -23,6 +34,7 @@
     <div class="file-list">
       <FileTree {files} {activeFilePath} {onFileSelect} />
     </div>
+    <TagPanel bind:this={tagPanel} {onFileSelect} />
   {:else}
     <div class="empty">
       <p>No notes yet</p>

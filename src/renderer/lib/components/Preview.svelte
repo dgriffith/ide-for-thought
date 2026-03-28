@@ -6,9 +6,10 @@
   interface Props {
     content: string;
     onNavigate: (target: string) => void;
+    onTagSelect?: (tag: string) => void;
   }
 
-  let { content, onNavigate }: Props = $props();
+  let { content, onNavigate, onTagSelect }: Props = $props();
 
   const md = new MarkdownIt({
     html: true,
@@ -64,7 +65,7 @@
 
   md.renderer.rules.note_tag = (tokens, idx) => {
     const { tag } = tokens[idx].meta;
-    return `<span class="note-tag">#${escapeHtml(tag)}</span>`;
+    return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
   };
 
   function escapeHtml(str: string): string {
@@ -75,16 +76,28 @@
     return escapeHtml(str).replace(/"/g, '&quot;');
   }
 
-  let rendered = $derived(md.render(content));
+  function stripFrontmatter(text: string): string {
+    return text.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  }
+
+  let rendered = $derived(md.render(stripFrontmatter(content)));
 
   function handleClick(e: MouseEvent) {
-    const target = (e.target as HTMLElement).closest<HTMLElement>('.wiki-link');
-    if (target) {
+    const el = e.target as HTMLElement;
+
+    const wikiLink = el.closest<HTMLElement>('.wiki-link');
+    if (wikiLink) {
       e.preventDefault();
-      const linkTarget = target.dataset.target;
-      if (linkTarget) {
-        onNavigate(linkTarget);
-      }
+      const linkTarget = wikiLink.dataset.target;
+      if (linkTarget) onNavigate(linkTarget);
+      return;
+    }
+
+    const tagEl = el.closest<HTMLElement>('.note-tag');
+    if (tagEl) {
+      e.preventDefault();
+      const tag = tagEl.dataset.tag;
+      if (tag && onTagSelect) onTagSelect(tag);
     }
   }
 </script>
@@ -155,7 +168,12 @@
     padding: 1px 8px;
     border-radius: 10px;
     font-size: 13px;
-    cursor: default;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .preview :global(.note-tag:hover) {
+    background: var(--bg-button-hover);
   }
 
   .preview :global(code) {

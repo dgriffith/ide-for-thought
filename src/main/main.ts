@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { registerIpcHandlers } from './ipc';
+import { buildMenu } from './menu';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -34,6 +35,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   const win = createWindow();
   registerIpcHandlers(win);
+  buildMenu(win);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

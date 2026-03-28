@@ -1,27 +1,62 @@
-import { ipcMain, type BrowserWindow } from 'electron';
+import { ipcMain, shell, dialog, type BrowserWindow } from 'electron';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { startWatching, stopWatching } from './notebase/watcher';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
+import { addRecentProject, clearRecentProjects } from './recent-projects';
+import { rebuildMenu } from './menu';
 
 let currentRootPath: string | null = null;
 
 export function registerIpcHandlers(win: BrowserWindow): void {
+  async function openProject(rootPath: string) {
+    stopWatching();
+    currentRootPath = rootPath;
+    addRecentProject(rootPath);
+    rebuildMenu();
+    startWatching(rootPath, win);
+    await graph.initGraph(rootPath);
+    await graph.indexAllNotes(rootPath);
+  }
+
   ipcMain.handle(Channels.NOTEBASE_OPEN, async () => {
     const meta = await notebaseFs.openNotebase();
     if (meta) {
-      // Tear down previous notebase
-      stopWatching();
-
-      currentRootPath = meta.rootPath;
-
-      // Initialize subsystems for this notebase
-      startWatching(meta.rootPath, win);
-      await graph.initGraph(meta.rootPath);
-      await graph.indexAllNotes(meta.rootPath);
+      await openProject(meta.rootPath);
     }
     return meta;
+  });
+
+  ipcMain.handle('notebase:openPath', async (_e, rootPath: string) => {
+    await openProject(rootPath);
+    return { rootPath, name: path.basename(rootPath) };
+  });
+
+  ipcMain.handle('notebase:newProject', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Choose location for new project',
+      buttonLabel: 'Create Project',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const rootPath = result.filePaths[0];
+    await openProject(rootPath);
+    return { rootPath, name: path.basename(rootPath) };
+  });
+
+  ipcMain.handle('notebase:close', () => {
+    stopWatching();
+    currentRootPath = null;
+    return null;
+  });
+
+  ipcMain.handle('recent:clear', () => {
+    clearRecentProjects();
+    rebuildMenu();
   });
 
   ipcMain.handle(Channels.NOTEBASE_LIST_FILES, async () => {
@@ -68,5 +103,49 @@ export function registerIpcHandlers(win: BrowserWindow): void {
   // Graph
   ipcMain.handle(Channels.GRAPH_QUERY, async (_e, sparql: string) => {
     return graph.queryGraph(sparql);
+  });
+
+  // Tags
+  ipcMain.handle(Channels.TAGS_LIST, () => {
+    return graph.listTags();
+  });
+
+  ipcMain.handle(Channels.TAGS_NOTES_BY_TAG, (_e, tag: string) => {
+    return graph.notesByTag(tag);
+  });
+
+  ipcMain.handle(Channels.TAGS_ALL_NAMES, () => {
+    return graph.allTags();
+  });
+
+  // Shell
+  ipcMain.handle(Channels.SHELL_REVEAL_FILE, (_e, relativePath?: string) => {
+    if (!currentRootPath) return;
+    const fullPath = relativePath
+      ? path.join(currentRootPath, relativePath)
+      : currentRootPath;
+    shell.showItemInFolder(fullPath);
+  });
+
+  // Graph management
+  ipcMain.handle(Channels.GRAPH_REBUILD, async () => {
+    if (!currentRootPath) return { count: 0 };
+    const count = await graph.indexAllNotes(currentRootPath);
+    return { count };
+  });
+
+  ipcMain.handle(Channels.GRAPH_EXPORT, async () => {
+    if (!currentRootPath) return;
+    const result = await dialog.showSaveDialog({
+      title: 'Export Graph',
+      defaultPath: 'graph.ttl',
+      filters: [{ name: 'Turtle', extensions: ['ttl'] }],
+    });
+    if (!result.canceled && result.filePath) {
+      await graph.persistGraph();
+      const fs = await import('node:fs/promises');
+      const srcPath = path.join(currentRootPath, '.ide_for_thought', 'graph.ttl');
+      await fs.copyFile(srcPath, result.filePath);
+    }
   });
 }

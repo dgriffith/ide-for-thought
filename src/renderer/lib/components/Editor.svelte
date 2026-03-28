@@ -6,6 +6,8 @@
   import { languages } from '@codemirror/language-data';
   import { EditorState } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
+  import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+  import { api } from '../ipc/client';
 
   interface Props {
     content: string;
@@ -18,6 +20,31 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
+
+  async function tagCompletion(context: CompletionContext): Promise<CompletionResult | null> {
+    // Match # followed by word characters, triggered at the #
+    const match = context.matchBefore(/#[\w-/]*/);
+    if (!match) return null;
+    // Only trigger if the # is at start of line or preceded by whitespace
+    if (match.from > 0) {
+      const charBefore = context.state.doc.sliceString(match.from - 1, match.from);
+      if (charBefore !== ' ' && charBefore !== '\n' && match.from !== 0) return null;
+    }
+
+    const tags = await api.tags.allNames();
+    const typed = match.text.slice(1); // remove the #
+
+    return {
+      from: match.from,
+      options: tags
+        .filter((t) => t.toLowerCase().startsWith(typed.toLowerCase()))
+        .map((tag) => ({
+          label: `#${tag}`,
+          type: 'keyword',
+          apply: `#${tag}`,
+        })),
+    };
+  }
 
   onMount(() => {
     const saveKeymap = keymap.of([
@@ -37,6 +64,11 @@
       ignoreNextUpdate = false;
     });
 
+    const tagAutocomplete = autocompletion({
+      override: [tagCompletion],
+      activateOnTyping: true,
+    });
+
     view = new EditorView({
       state: EditorState.create({
         doc: content,
@@ -46,6 +78,7 @@
           oneDark,
           saveKeymap,
           updateListener,
+          tagAutocomplete,
           EditorView.lineWrapping,
         ],
       }),

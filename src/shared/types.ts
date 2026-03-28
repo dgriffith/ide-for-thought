@@ -9,3 +9,13 @@ export interface NotebaseMeta {
   rootPath: string;
   name: string;
 }
+
+export interface TagInfo {
+  tag: string;
+  count: number;
+}
+
+export interface TaggedNote {
+  title: string;
+  relativePath: string;
+}

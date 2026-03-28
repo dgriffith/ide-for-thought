@@ -131,6 +131,48 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
   }
 }
 
+import type { TagInfo, TaggedNote } from '../../shared/types';
+
+export function listTags(): TagInfo[] {
+  if (!store) return [];
+
+  const tagCounts = new Map<string, number>();
+  const stmts = store.statementsMatching(undefined, IFT('tag'), undefined);
+  for (const st of stmts) {
+    const tag = st.object.value;
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+
+  return [...tagCounts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => a.tag.localeCompare(b.tag));
+}
+
+export function notesByTag(tag: string): TaggedNote[] {
+  if (!store) return [];
+
+  const stmts = store.statementsMatching(undefined, IFT('tag'), $rdf.lit(tag));
+  return stmts.map((st) => {
+    const subject = st.subject;
+    const titleStmts = store!.statementsMatching(subject, DC('title'), undefined);
+    const pathStmts = store!.statementsMatching(subject, IFT('relativePath'), undefined);
+    return {
+      title: titleStmts[0]?.object.value ?? subject.value,
+      relativePath: pathStmts[0]?.object.value ?? '',
+    };
+  }).filter((n) => n.relativePath);
+}
+
+export function allTags(): string[] {
+  if (!store) return [];
+  const tags = new Set<string>();
+  const stmts = store.statementsMatching(undefined, IFT('tag'), undefined);
+  for (const st of stmts) {
+    tags.add(st.object.value);
+  }
+  return [...tags].sort();
+}
+
 export async function persistGraph(): Promise<void> {
   if (!store || !currentRootPath) return;
 

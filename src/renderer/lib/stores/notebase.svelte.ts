@@ -13,6 +13,26 @@ export function getNotebaseStore() {
     }
   }
 
+  async function openPath(rootPath: string) {
+    const result = await api.notebase.openPath(rootPath);
+    meta = result;
+    files = await api.notebase.listFiles();
+  }
+
+  async function newProject() {
+    const result = await api.notebase.newProject();
+    if (result) {
+      meta = result;
+      files = await api.notebase.listFiles();
+    }
+  }
+
+  function close() {
+    api.notebase.close();
+    meta = null;
+    files = [];
+  }
+
   async function refresh() {
     if (meta) {
       files = await api.notebase.listFiles();
@@ -23,6 +43,9 @@ export function getNotebaseStore() {
     get meta() { return meta; },
     get files() { return files; },
     open,
+    openPath,
+    newProject,
+    close,
     refresh,
   };
 }

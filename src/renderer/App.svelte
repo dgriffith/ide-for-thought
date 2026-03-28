@@ -3,14 +3,18 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
+  import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore } from './lib/stores/editor.svelte';
+  import { api } from './lib/ipc/client';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
   let viewMode = $state<ViewMode>('source');
+  let sidebarVisible = $state(true);
+  let sidebar = $state<Sidebar>();
 
   async function handleFileSelect(relativePath: string) {
     await editor.openFile(relativePath);
@@ -20,6 +24,34 @@
     const path = target.endsWith('.md') ? target : `${target}.md`;
     editor.openFile(path);
   }
+
+  function handleTagSelect(tag: string) {
+    sidebar?.refreshTags();
+    setTimeout(() => sidebar?.selectTag(tag), 50);
+  }
+
+  async function handleSave() {
+    await editor.save();
+    sidebar?.refreshTags();
+  }
+
+  async function handleNewNote() {
+    if (!notebase.meta) return;
+    const name = prompt('Note name:');
+    if (!name) return;
+    const filename = name.endsWith('.md') ? name : `${name}.md`;
+    await api.notebase.createFile(filename);
+    await notebase.refresh();
+    await editor.openFile(filename);
+    sidebar?.refreshTags();
+  }
+
+  // Refresh tags when notebase opens
+  const originalOpen = notebase.open;
+  notebase.open = async () => {
+    await originalOpen();
+    setTimeout(() => sidebar?.refreshTags(), 100);
+  };
 
   function cycleViewMode() {
     if (viewMode === 'source') viewMode = 'preview';
@@ -32,7 +64,32 @@
       e.preventDefault();
       cycleViewMode();
     }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+      e.preventDefault();
+      sidebarVisible = !sidebarVisible;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      e.preventDefault();
+      handleNewNote();
+    }
   }
+
+  onMount(() => {
+    // Listen for menu events from main process
+    api.menu.onNewNote(() => handleNewNote());
+    api.menu.onSave(() => handleSave());
+    api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
+    api.menu.onTogglePreview(() => cycleViewMode());
+    api.menu.onOpenProject(() => notebase.open());
+    api.menu.onNewProject(() => notebase.newProject());
+    api.menu.onOpenRecentProject((p) => notebase.openPath(p));
+    api.menu.onCloseProject(() => {
+      notebase.close();
+      editor.clear();
+    });
+    api.menu.onClearRecent(() => api.notebase.clearRecent());
+    api.menu.onQuickOpen(() => { /* TODO: quick open modal */ });
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -46,12 +103,15 @@
 
   <div class="main">
     {#if notebase.meta}
-      <Sidebar
-        files={notebase.files}
-        activeFilePath={editor.activeFilePath}
-        onFileSelect={handleFileSelect}
-        onOpenFolder={notebase.open}
-      />
+      {#if sidebarVisible}
+        <Sidebar
+          bind:this={sidebar}
+          files={notebase.files}
+          activeFilePath={editor.activeFilePath}
+          onFileSelect={handleFileSelect}
+          onOpenFolder={notebase.open}
+        />
+      {/if}
       <div class="editor-pane">
         {#if editor.activeFilePath}
           <div class="toolbar">
@@ -79,7 +139,7 @@
                 <Editor
                   content={editor.content}
                   onContentChange={editor.setContent}
-                  onSave={editor.save}
+                  onSave={handleSave}
                 />
               </div>
             {/if}
@@ -88,6 +148,7 @@
                 <Preview
                   content={editor.content}
                   onNavigate={handleNavigate}
+                  onTagSelect={handleTagSelect}
                 />
               </div>
             {/if}
