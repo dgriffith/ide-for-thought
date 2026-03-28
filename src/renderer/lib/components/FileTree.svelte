@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
+  import FileTree from './FileTree.svelte';
 
   interface Props {
     files: NoteFile[];
@@ -30,7 +31,7 @@
           {file.name}
         </button>
         {#if expanded[file.relativePath] && file.children}
-          <svelte:self
+          <FileTree
             files={file.children}
             {activeFilePath}
             depth={depth + 1}
