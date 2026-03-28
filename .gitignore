@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+.vite/
+.ide_for_thought/
+*.log
+.DS_Store
