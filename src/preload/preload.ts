@@ -82,6 +82,9 @@ contextBridge.exposeInMainWorld('api', {
     onClearRecent: (cb: () => void) => {
       ipcRenderer.on('menu:clearRecent', () => cb());
     },
+    onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
+      ipcRenderer.on('project:opened', (_e, meta) => cb(meta));
+    },
   },
 });
 

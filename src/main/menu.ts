@@ -1,16 +1,15 @@
-import { Menu, shell, app, dialog, type BrowserWindow } from 'electron';
+import { Menu, shell, app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
-
-let currentWin: BrowserWindow;
+import { createWindow, openProjectInWindow } from './window-manager';
 
 function send(channel: string, ...args: unknown[]) {
-  currentWin.webContents.send(channel, ...args);
+  const win = BrowserWindow.getFocusedWindow();
+  if (win) win.webContents.send(channel, ...args);
 }
 
-export function buildMenu(win: BrowserWindow): void {
-  currentWin = win;
+export function buildMenu(_win?: BrowserWindow): void {
   rebuildMenu();
 }
 
@@ -23,7 +22,19 @@ export function rebuildMenu(): void {
         ...recentProjects.map((projectPath) => ({
           label: path.basename(projectPath),
           sublabel: projectPath,
-          click: () => send('menu:openRecentProject', projectPath),
+          click: () => {
+            // Open in focused window if it has no project, otherwise new window
+            const focused = BrowserWindow.getFocusedWindow();
+            if (focused) {
+              send('menu:openRecentProject', projectPath);
+            } else {
+              const win = createWindow();
+              win.webContents.once('did-finish-load', async () => {
+                await openProjectInWindow(win, projectPath);
+                win.webContents.send('project:opened', { rootPath: projectPath, name: path.basename(projectPath) });
+              });
+            }
+          },
         })),
         { type: 'separator' as const },
         {
@@ -65,8 +76,12 @@ export function rebuildMenu(): void {
         },
         { type: 'separator' },
         {
-          label: 'New Project',
+          label: 'New Window',
           accelerator: 'CmdOrCtrl+Shift+N',
+          click: () => createWindow(),
+        },
+        {
+          label: 'New Project',
           click: () => send('menu:newProject'),
         },
         {

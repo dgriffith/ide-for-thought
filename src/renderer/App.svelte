@@ -89,6 +89,11 @@
     });
     api.menu.onClearRecent(() => api.notebase.clearRecent());
     api.menu.onQuickOpen(() => { /* TODO: quick open modal */ });
+    api.menu.onProjectOpened(async (meta) => {
+      // This window was opened by another window with a project path
+      await notebase.openPath(meta.rootPath);
+      sidebar?.refreshTags();
+    });
   });
 </script>
 

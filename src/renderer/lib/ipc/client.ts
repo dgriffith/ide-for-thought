@@ -50,6 +50,7 @@ export interface MenuApi {
   onOpenRecentProject(cb: (path: string) => void): void;
   onCloseProject(cb: () => void): void;
   onClearRecent(cb: () => void): void;
+  onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): void;
 }
 
 export interface IdeApi {
