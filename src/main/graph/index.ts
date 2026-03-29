@@ -260,18 +260,20 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
     const query = $rdf.SPARQLToQuery(sparql, false, store);
     if (!query) return { results: [] };
 
-    const results = store.querySync(query);
-    const serialized = results.map((binding: Record<string, $rdf.Node>) => {
-      const obj: Record<string, string> = {};
-      for (const [key, value] of Object.entries(binding)) {
-        if (value && typeof value.value === 'string') {
-          obj[key] = value.value;
+    return new Promise((resolve) => {
+      const results: Record<string, string>[] = [];
+      store!.query(query, (binding: any) => {
+        const obj: Record<string, string> = {};
+        for (const [key, val] of Object.entries(binding)) {
+          if (val && typeof (val as any).value === 'string') {
+            obj[key] = (val as any).value;
+          }
         }
-      }
-      return obj;
+        results.push(obj);
+      }, undefined, () => {
+        resolve({ results });
+      });
     });
-
-    return { results: serialized };
   } catch (e) {
     return { results: [], error: String(e) } as any;
   }
