@@ -5,6 +5,7 @@ import { getRecentProjects } from './recent-projects';
 import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
 import * as graph from './graph/index';
 import { STOCK_QUERIES } from '../shared/stock-queries';
+import { listSavedQueries, deleteQuery } from './saved-queries';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -268,6 +269,40 @@ export function rebuildMenu(): void {
             sublabel: sq.description,
             click: () => send(Channels.MENU_OPEN_STOCK_QUERY, sq.query),
           })),
+        },
+        {
+          label: 'Saved Queries',
+          submenu: (() => {
+            const win = BrowserWindow.getFocusedWindow();
+            const rootPath = win ? getRootPath(win.id) : null;
+            const saved = listSavedQueries(rootPath);
+            if (saved.length === 0) {
+              return [{ label: 'No Saved Queries', enabled: false }];
+            }
+            const items: Electron.MenuItemConstructorOptions[] = [];
+            const project = saved.filter((q) => q.scope === 'project');
+            const global = saved.filter((q) => q.scope === 'global');
+            if (project.length > 0) {
+              items.push({ label: 'Project', enabled: false });
+              for (const q of project) {
+                items.push({
+                  label: q.name,
+                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, q.query),
+                });
+              }
+            }
+            if (global.length > 0) {
+              if (items.length > 0) items.push({ type: 'separator' });
+              items.push({ label: 'Global', enabled: false });
+              for (const q of global) {
+                items.push({
+                  label: q.name,
+                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, q.query),
+                });
+              }
+            }
+            return items;
+          })(),
         },
         { type: 'separator' },
         {

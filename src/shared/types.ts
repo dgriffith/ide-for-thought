@@ -20,6 +20,15 @@ export interface TaggedNote {
   relativePath: string;
 }
 
+export interface SavedQuery {
+  id: string;
+  name: string;
+  description: string;
+  query: string;
+  scope: 'project' | 'global';
+  filePath: string;
+}
+
 export interface SearchResult {
   relativePath: string;
   title: string;

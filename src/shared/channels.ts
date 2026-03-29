@@ -14,6 +14,11 @@ export const Channels = {
   NOTEBASE_FILE_CREATED: 'notebase:fileCreated',
   NOTEBASE_FILE_DELETED: 'notebase:fileDeleted',
 
+  // Saved queries
+  QUERIES_LIST: 'queries:list',
+  QUERIES_SAVE: 'queries:save',
+  QUERIES_DELETE: 'queries:delete',
+
   // Search
   SEARCH_QUERY: 'search:query',
 

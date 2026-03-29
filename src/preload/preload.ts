@@ -31,6 +31,12 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.NOTEBASE_FILE_DELETED, (_e, p) => cb(p));
     },
   },
+  queries: {
+    list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
+    save: (scope: string, name: string, description: string, query: string) =>
+      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query),
+    delete: (filePath: string) => ipcRenderer.invoke(Channels.QUERIES_DELETE, filePath),
+  },
   search: {
     query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),
   },

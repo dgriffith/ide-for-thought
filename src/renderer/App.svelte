@@ -92,8 +92,21 @@
   }
 
   async function handleSave() {
+    if (editor.activeTab?.type === 'query') {
+      await handleSaveQuery();
+      return;
+    }
     await editor.save();
     sidebar?.refreshTags();
+  }
+
+  async function handleSaveQuery() {
+    const tab = editor.activeQueryTab;
+    if (!tab) return;
+    const name = await showPrompt('Query name:');
+    if (!name) return;
+    await api.queries.save('project', name, '', tab.query);
+    tab.title = name;
   }
 
   async function handleNewNote(directory: string = '') {

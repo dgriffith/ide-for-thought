@@ -5,6 +5,7 @@ import * as notebaseFs from './notebase/fs';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
 import * as search from './search/index';
+import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath } from './window-manager';
@@ -118,6 +119,21 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.deleteFolder(rootPath, relativePath);
+  });
+
+  // Saved queries
+  ipcMain.handle(Channels.QUERIES_LIST, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    return savedQueries.listSavedQueries(rootPath);
+  });
+
+  ipcMain.handle(Channels.QUERIES_SAVE, (e, scope: string, name: string, description: string, query: string) => {
+    const rootPath = rootPathFromEvent(e);
+    return savedQueries.saveQuery(rootPath, scope as 'project' | 'global', name, description, query);
+  });
+
+  ipcMain.handle(Channels.QUERIES_DELETE, (_e, filePath: string) => {
+    savedQueries.deleteQuery(filePath);
   });
 
   // Search
