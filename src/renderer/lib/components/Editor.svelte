@@ -10,6 +10,11 @@
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
   import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection, selectionTracker } from '../editor/commands';
+  import {
+    toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
+    toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
+    insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
+  } from '../editor/formatting';
 
   interface Props {
     content: string;
@@ -53,6 +58,11 @@
   function execCommand(cmd: string) {
     document.execCommand(cmd);
     view?.focus();
+    contextMenu = null;
+  }
+
+  function runCmd(cmd: (v: EditorView) => boolean) {
+    if (view) cmd(view);
     contextMenu = null;
   }
 
@@ -141,6 +151,11 @@
       { key: 'Mod-d', run: duplicateLine },
       { key: 'Alt-ArrowUp', run: extendSelection },
       { key: 'Alt-ArrowDown', run: shrinkSelection },
+      { key: 'Mod-b', run: toggleBold },
+      { key: 'Mod-i', run: toggleItalic },
+      { key: 'Mod-e', run: toggleCode },
+      { key: 'Mod-Shift-x', run: toggleStrikethrough },
+      { key: 'Mod-k', run: insertLink },
     ]));
 
     const updateListener = EditorView.updateListener.of((update) => {
@@ -229,6 +244,28 @@
     <button onclick={() => execCommand('copy')}>Copy</button>
     <button onclick={() => execCommand('paste')}>Paste</button>
     <div class="separator"></div>
+    <span class="menu-label">Format</span>
+    <button onclick={() => runCmd(toggleBold)}>Bold</button>
+    <button onclick={() => runCmd(toggleItalic)}>Italic</button>
+    <button onclick={() => runCmd(toggleCode)}>Code</button>
+    <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
+    <div class="separator"></div>
+    <span class="menu-label">Paragraph</span>
+    <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
+    <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
+    <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
+    <button onclick={() => runCmd(toggleQuote)}>Quote</button>
+    <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
+    <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
+    <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
+    <div class="separator"></div>
+    <span class="menu-label">Insert</span>
+    <button onclick={() => runCmd(insertLink)}>Link</button>
+    <button onclick={() => runCmd(insertImage)}>Image</button>
+    <button onclick={() => runCmd(insertTable)}>Table</button>
+    <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
+    <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
+    <div class="separator"></div>
     <button onclick={() => execCommand('selectAll')}>Select All</button>
   </div>
 {/if}
@@ -255,7 +292,9 @@
     border-radius: 6px;
     padding: 4px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    min-width: 140px;
+    min-width: 160px;
+    max-height: 80vh;
+    overflow-y: auto;
   }
 
   .context-menu button {
@@ -272,6 +311,15 @@
 
   .context-menu button:hover {
     background: var(--bg-button);
+  }
+
+  .menu-label {
+    display: block;
+    padding: 3px 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .separator {
