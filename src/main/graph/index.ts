@@ -6,7 +6,40 @@ import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown } from './parser';
 
+import { DataFactory } from 'rdflib';
+
 let engine: QueryEngine | null = null;
+
+/** Wrap rdflib store as a clean RDF/JS Source for Comunica */
+function asSource(s: $rdf.IndexedFormula): any {
+  const allQuads = () => s.match(null, null, null, null).map(normalizeQuad);
+
+  function normalizeQuad(q: any) {
+    const df = DataFactory;
+    return df.quad(
+      q.subject,
+      q.predicate,
+      q.object,
+      q.graph?.termType === 'DefaultGraph' ? df.defaultGraph() : (q.graph ?? df.defaultGraph()),
+    );
+  }
+
+  return {
+    match(subject?: any, predicate?: any, object?: any, graph?: any) {
+      return s.match(
+        subject ?? null,
+        predicate ?? null,
+        object ?? null,
+        graph ?? null,
+      ).map(normalizeQuad);
+    },
+    get size() { return s.length; },
+    add() { throw new Error('read-only'); },
+    delete() { throw new Error('read-only'); },
+    has(quad: any) { return s.holds(quad.subject, quad.predicate, quad.object, quad.graph); },
+    [Symbol.iterator]() { return allQuads()[Symbol.iterator](); },
+  };
+}
 
 // ── Namespaces ──────────────────────────────────────────────────────────────
 
@@ -264,7 +297,7 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
 
   try {
     const bindingsStream = await engine.queryBindings(sparql, {
-      sources: [store],
+      sources: [asSource(store)],
     });
     const bindings = await bindingsStream.toArray();
 
