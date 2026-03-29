@@ -61,8 +61,8 @@ export async function commitAll(rootPath: string, message: string): Promise<stri
     dir: rootPath,
     message,
     author: {
-      name: 'ide for thought',
-      email: 'user@ide-for-thought.local',
+      name: 'Minerva',
+      email: 'user@minerva.local',
     },
   });
 

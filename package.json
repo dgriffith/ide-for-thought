@@ -1,8 +1,8 @@
 {
-  "name": "ide-for-thought",
+  "name": "minerva",
   "version": "0.1.0",
   "private": true,
-  "description": "Experimental IDE for AI-assisted human thought",
+  "description": "Minerva — an IDE for AI-assisted human thought",
   "main": ".vite/build/main.js",
   "scripts": {
     "dev": "electron-forge start",

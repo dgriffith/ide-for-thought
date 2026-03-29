@@ -17,7 +17,7 @@
         {fileName}{#if isDirty}<span class="dirty">*</span>{/if}
       {/if}
     {:else}
-      ide for thought
+      Minerva
     {/if}
   </span>
 </div>

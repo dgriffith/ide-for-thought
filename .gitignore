@@ -2,6 +2,6 @@ node_modules/
 dist/
 out/
 .vite/
-.ide_for_thought/
+.minerva/
 *.log
 .DS_Store

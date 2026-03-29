@@ -252,7 +252,7 @@ export function rebuildMenu(): void {
         {
           label: 'Report Issue',
           click: () => {
-            shell.openExternal('https://github.com/dgriffith/ide-for-thought/issues');
+            shell.openExternal('https://github.com/dgriffith/minerva/issues');
           },
         },
       ],

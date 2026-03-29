@@ -5,7 +5,7 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    name: 'ide-for-thought',
+    name: 'Minerva',
   },
   makers: [
     new MakerZIP({}, ['darwin', 'linux', 'win32']),

@@ -166,7 +166,7 @@
       </div>
     {:else}
       <div class="welcome">
-        <h1>ide for thought</h1>
+        <h1>Minerva</h1>
         <p>An experimental IDE for AI-assisted human thought.</p>
         <button onclick={notebase.open}>Open Folder</button>
       </div>

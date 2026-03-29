@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 
-const IGNORED_DIRS = new Set(['.git', 'node_modules', '.ide_for_thought', '.obsidian']);
+const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({

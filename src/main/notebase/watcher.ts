@@ -11,7 +11,7 @@ export function startWatching(rootPath: string, win: BrowserWindow, id: number):
     ignored: [
       /(^|[/\\])\./,
       '**/node_modules/**',
-      '**/.ide_for_thought/**',
+      '**/.minerva/**',
     ],
     persistent: true,
     ignoreInitial: true,

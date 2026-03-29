@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseMarkdown } from './parser';
 
-const IFT = $rdf.Namespace('https://ide-for-thought.dev/ns#');
+const IFT = $rdf.Namespace('https://minerva.dev/ns#');
 const DC = $rdf.Namespace('http://purl.org/dc/terms/');
 const RDF = $rdf.Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#');
 
@@ -22,7 +22,7 @@ export async function initGraph(rootPath: string): Promise<void> {
   store = $rdf.graph();
   currentRootPath = rootPath;
 
-  const metaDir = path.join(rootPath, '.ide_for_thought');
+  const metaDir = path.join(rootPath, '.minerva');
   await fs.mkdir(metaDir, { recursive: true });
 
   // Load persisted graph if it exists
@@ -176,7 +176,7 @@ export function allTags(): string[] {
 export async function persistGraph(): Promise<void> {
   if (!store || !currentRootPath) return;
 
-  const graphPath = path.join(currentRootPath, '.ide_for_thought', 'graph.ttl');
+  const graphPath = path.join(currentRootPath, '.minerva', 'graph.ttl');
   const turtle = $rdf.serialize(undefined, store, 'note:', 'text/turtle') ?? '';
   await fs.writeFile(graphPath, turtle, 'utf-8');
 }

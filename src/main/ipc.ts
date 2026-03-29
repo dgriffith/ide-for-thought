@@ -163,7 +163,7 @@ export function registerIpcHandlers(): void {
     if (!result.canceled && result.filePath) {
       await graph.persistGraph();
       const fs = await import('node:fs/promises');
-      const srcPath = path.join(rootPath, '.ide_for_thought', 'graph.ttl');
+      const srcPath = path.join(rootPath, '.minerva', 'graph.ttl');
       await fs.copyFile(srcPath, result.filePath);
     }
   });
