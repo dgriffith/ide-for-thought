@@ -49,7 +49,7 @@ export function rebuildMenu(): void {
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: 'Minerva',
             submenu: [
               { role: 'about' as const },
               { type: 'separator' as const },
