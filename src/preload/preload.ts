@@ -83,6 +83,9 @@ contextBridge.exposeInMainWorld('api', {
     onFindReplace: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FIND_REPLACE, () => cb());
     },
+    onNewQuery: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());
+    },
     onSortLines: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());
     },

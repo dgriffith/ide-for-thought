@@ -3,6 +3,7 @@
   import TabBar from './lib/components/TabBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
+  import QueryPanel from './lib/components/QueryPanel.svelte';
   import Preview from './lib/components/Preview.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
@@ -219,6 +220,12 @@
         showGotoLine = true;
       }
     }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'q') {
+      if (notebase.meta) {
+        e.preventDefault();
+        editor.openQuery();
+      }
+    }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
       e.preventDefault();
       if (!sidebarVisible) sidebarVisible = true;
@@ -244,6 +251,7 @@
     api.menu.onNavForward(() => handleNavForward());
     api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
     api.menu.onQuickOpen(() => { showGotoNote = true; });
+    api.menu.onNewQuery(() => editor.openQuery());
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onProjectOpened(async (meta) => {
       // This window was opened by another window with a project path
@@ -288,7 +296,7 @@
             onReveal={handleRevealInSidebar}
           />
         {/if}
-        {#if editor.activeTab}
+        {#if editor.activeTab?.type === 'note'}
           <div class="toolbar">
             <div class="nav-arrows">
               <button
@@ -330,8 +338,8 @@
                     bind:this={editorComponent}
                     content={editor.content}
                     searchQuery={pendingSearchQuery}
-                    savedEditorState={editor.activeTab?.editorStateJSON}
-                    savedScrollTop={editor.activeTab?.scrollTop}
+                    savedEditorState={editor.activeNoteTab?.editorStateJSON}
+                    savedScrollTop={editor.activeNoteTab?.scrollTop}
                     onContentChange={editor.setContent}
                     onSave={handleSave}
                     onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
@@ -350,6 +358,12 @@
               </div>
             {/if}
           </div>
+        {:else if editor.activeTab?.type === 'query'}
+          <QueryPanel
+            tab={editor.activeQueryTab!}
+            onQueryChange={editor.setQueryText}
+            onExecute={editor.executeQuery}
+          />
         {:else}
           <div class="no-file">
             <p>Select a note from the sidebar</p>

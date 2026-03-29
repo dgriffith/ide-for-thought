@@ -255,10 +255,9 @@ export function rebuildMenu(): void {
       label: 'Graph',
       submenu: [
         {
-          label: 'SPARQL Console',
+          label: 'New Query',
           accelerator: 'CmdOrCtrl+Shift+Q',
-          enabled: false,
-          click: () => {},
+          click: () => send(Channels.MENU_NEW_QUERY),
         },
         { type: 'separator' },
         {

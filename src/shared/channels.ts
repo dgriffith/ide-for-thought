@@ -47,6 +47,9 @@ export const Channels = {
   MENU_DUPLICATE_LINE: 'menu:duplicateLine',
   MENU_SORT_LINES: 'menu:sortLines',
 
+  // Graph
+  MENU_NEW_QUERY: 'menu:newQuery',
+
   // Renderer → main (for menu-triggered main-process actions)
   SHELL_REVEAL_FILE: 'shell:revealFile',
   GRAPH_REBUILD: 'graph:rebuild',

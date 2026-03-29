@@ -39,16 +39,17 @@
     <div
       class="tab"
       class:active={i === activeIndex}
-      class:dirty={tab.content !== tab.savedContent}
+      class:dirty={tab.type === 'note' && tab.content !== tab.savedContent}
       onclick={() => onSwitch(i)}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
-      title={tab.relativePath}
+      title={tab.type === 'note' ? tab.relativePath : tab.title}
       role="tab"
       tabindex="0"
     >
-      <span class="tab-name">{tab.fileName.replace(/\.md$/, '')}</span>
-      {#if tab.content !== tab.savedContent}
+      {#if tab.type === 'query'}<span class="tab-icon">&#x25B7;</span>{/if}
+      <span class="tab-name">{tab.type === 'note' ? tab.fileName.replace(/\.md$/, '') : tab.title}</span>
+      {#if tab.type === 'note' && tab.content !== tab.savedContent}
         <span class="dirty-dot"></span>
       {/if}
       <button
@@ -69,8 +70,10 @@
     <button onclick={() => { onClose(contextMenu!.index); contextMenu = null; }}>Close</button>
     <button onclick={() => { onCloseOthers(contextMenu!.index); contextMenu = null; }}>Close Others</button>
     <button onclick={() => { onCloseAll(); contextMenu = null; }}>Close All</button>
-    <div class="separator"></div>
-    <button onclick={() => { onReveal(tabs[contextMenu!.index].relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
+    {#if tabs[contextMenu.index]?.type === 'note'}
+      <div class="separator"></div>
+      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
+    {/if}
   </div>
 {/if}
 
@@ -110,6 +113,11 @@
   .tab.active {
     background: var(--bg);
     color: var(--text);
+  }
+
+  .tab-icon {
+    font-size: 10px;
+    flex-shrink: 0;
   }
 
   .tab-name {
