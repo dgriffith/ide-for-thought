@@ -139,6 +139,27 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+H',
           click: () => send(Channels.MENU_FIND_REPLACE),
         },
+        { type: 'separator' },
+        {
+          label: 'Toggle Case',
+          accelerator: 'CmdOrCtrl+Shift+U',
+          click: () => send(Channels.MENU_TOGGLE_CASE),
+        },
+        { type: 'separator' },
+        {
+          label: 'Join Lines',
+          accelerator: 'Ctrl+Shift+J',
+          click: () => send(Channels.MENU_JOIN_LINES),
+        },
+        {
+          label: 'Duplicate Line',
+          accelerator: 'CmdOrCtrl+D',
+          click: () => send(Channels.MENU_DUPLICATE_LINE),
+        },
+        {
+          label: 'Sort Lines',
+          click: () => send(Channels.MENU_SORT_LINES),
+        },
       ],
     },
 

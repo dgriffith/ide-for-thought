@@ -37,6 +37,10 @@ export const Channels = {
   MENU_QUICK_OPEN: 'menu:quickOpen',
   MENU_FIND: 'menu:find',
   MENU_FIND_REPLACE: 'menu:findReplace',
+  MENU_TOGGLE_CASE: 'menu:toggleCase',
+  MENU_JOIN_LINES: 'menu:joinLines',
+  MENU_DUPLICATE_LINE: 'menu:duplicateLine',
+  MENU_SORT_LINES: 'menu:sortLines',
 
   // Renderer → main (for menu-triggered main-process actions)
   SHELL_REVEAL_FILE: 'shell:revealFile',

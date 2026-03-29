@@ -9,6 +9,7 @@
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
+  import { toggleCase, joinLines, duplicateLine, sortLines } from '../editor/commands';
 
   interface Props {
     content: string;
@@ -66,11 +67,39 @@
     };
   }
 
+  export function runSortLines() {
+    if (view) sortLines(view);
+  }
+
+  export function gotoLineColumn(line: number, col: number) {
+    if (!view) return;
+    const maxLine = view.state.doc.lines;
+    const clampedLine = Math.max(1, Math.min(line, maxLine));
+    const lineObj = view.state.doc.line(clampedLine);
+    const maxCol = lineObj.length + 1;
+    const clampedCol = Math.max(1, Math.min(col, maxCol));
+    const pos = lineObj.from + clampedCol - 1;
+    view.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+    });
+    view.focus();
+  }
+
+  export function getCursorPosition(): { line: number; column: number } {
+    if (!view) return { line: 1, column: 1 };
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    return { line: line.number, column: pos - line.from + 1 };
+  }
+
   onMount(() => {
-    const saveKeymap = keymap.of([{
-      key: 'Mod-s',
-      run: () => { onSave(); return true; },
-    }]);
+    const appKeymap = keymap.of([
+      { key: 'Mod-s', run: () => { onSave(); return true; } },
+      { key: 'Mod-Shift-u', run: toggleCase },
+      { key: 'Ctrl-Shift-j', run: joinLines },
+      { key: 'Mod-d', run: duplicateLine },
+    ]);
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged && !ignoreNextUpdate) {
@@ -84,7 +113,7 @@
       activateOnTyping: true,
     });
 
-    const allExtensions = [...extensions, saveKeymap, updateListener, tagAutocomplete];
+    const allExtensions = [...extensions, appKeymap, updateListener, tagAutocomplete];
 
     let state: EditorState;
     try {

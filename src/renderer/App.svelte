@@ -9,6 +9,8 @@
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
+  import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
+  import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import { api } from './lib/ipc/client';
 
   type ViewMode = 'source' | 'preview' | 'split';
@@ -18,6 +20,7 @@
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
+  let editorComponent = $state<Editor>();
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
   const suppressedConfirms = new Set<string>(
@@ -62,6 +65,8 @@
   }
 
   let pendingSearchQuery = $state<string | null>(null);
+  let showGotoLine = $state(false);
+  let showGotoNote = $state(false);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
     pendingSearchQuery = searchQuery ?? null;
@@ -157,6 +162,18 @@
         editor.closeTab(editor.activeIndex);
       }
     }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'p') {
+      if (notebase.meta) {
+        e.preventDefault();
+        showGotoNote = !showGotoNote;
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'g') {
+      if (editor.activeTab) {
+        e.preventDefault();
+        showGotoLine = true;
+      }
+    }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
       e.preventDefault();
       if (!sidebarVisible) sidebarVisible = true;
@@ -178,7 +195,8 @@
       editor.clear();
     });
     api.menu.onClearRecent(() => api.notebase.clearRecent());
-    api.menu.onQuickOpen(() => { /* TODO: quick open modal */ });
+    api.menu.onQuickOpen(() => { showGotoNote = true; });
+    api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onProjectOpened(async (meta) => {
       // This window was opened by another window with a project path
       await notebase.openPath(meta.rootPath);
@@ -247,6 +265,7 @@
               <div class="editor-panel">
                 {#key editor.activeFilePath}
                   <Editor
+                    bind:this={editorComponent}
                     content={editor.content}
                     searchQuery={pendingSearchQuery}
                     savedEditorState={editor.activeTab?.editorStateJSON}
@@ -284,6 +303,22 @@
     {/if}
   </div>
 
+  {#if showGotoNote}
+    <GotoNoteDialog
+      files={notebase.files}
+      onSelect={(path) => { showGotoNote = false; handleFileSelect(path); }}
+      onCancel={() => { showGotoNote = false; }}
+    />
+  {/if}
+  {#if showGotoLine}
+    {@const pos = editorComponent?.getCursorPosition() ?? { line: 1, column: 1 }}
+    <GotoLineDialog
+      currentLine={pos.line}
+      currentColumn={pos.column}
+      onGoto={(line, col) => { editorComponent?.gotoLineColumn(line, col); showGotoLine = false; }}
+      onCancel={() => { showGotoLine = false; }}
+    />
+  {/if}
   {#if promptDialog}
     <PromptDialog
       message={promptDialog.message}

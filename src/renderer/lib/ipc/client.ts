@@ -51,6 +51,7 @@ export interface MenuApi {
   onQuickOpen(cb: () => void): void;
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
+  onSortLines(cb: () => void): void;
   onOpenProject(cb: () => void): void;
   onNewProject(cb: () => void): void;
   onOpenRecentProject(cb: (path: string) => void): void;
