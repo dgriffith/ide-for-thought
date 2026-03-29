@@ -252,6 +252,7 @@
     api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onNewQuery(() => editor.openQuery());
+    api.menu.onOpenStockQuery((q) => editor.openQuery(q));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onProjectOpened(async (meta) => {
       // This window was opened by another window with a project path

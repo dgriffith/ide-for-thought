@@ -4,6 +4,7 @@ import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
 import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
 import * as graph from './graph/index';
+import { STOCK_QUERIES } from '../shared/stock-queries';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -258,6 +259,15 @@ export function rebuildMenu(): void {
           label: 'New Query',
           accelerator: 'CmdOrCtrl+Shift+Q',
           click: () => send(Channels.MENU_NEW_QUERY),
+        },
+        { type: 'separator' },
+        {
+          label: 'Stock Queries',
+          submenu: STOCK_QUERIES.map((sq) => ({
+            label: sq.name,
+            sublabel: sq.description,
+            click: () => send(Channels.MENU_OPEN_STOCK_QUERY, sq.query),
+          })),
         },
         { type: 'separator' },
         {

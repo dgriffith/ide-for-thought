@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld('api', {
     notesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_NOTES_BY_TAG, tag),
     allNames: () => ipcRenderer.invoke(Channels.TAGS_ALL_NAMES),
   },
+  export: {
+    csv: (csv: string) => ipcRenderer.invoke(Channels.EXPORT_CSV, csv),
+  },
   shell: {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
@@ -85,6 +88,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onNewQuery: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());
+    },
+    onOpenStockQuery: (cb: (query: string) => void) => {
+      ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, q) => cb(q));
     },
     onSortLines: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());

@@ -49,8 +49,10 @@ export const Channels = {
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
+  MENU_OPEN_STOCK_QUERY: 'menu:openStockQuery',
 
   // Renderer → main (for menu-triggered main-process actions)
+  EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   GRAPH_REBUILD: 'graph:rebuild',
   GRAPH_EXPORT: 'graph:export',

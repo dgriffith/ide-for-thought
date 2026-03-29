@@ -157,6 +157,20 @@ export function registerIpcHandlers(): void {
     return graph.allTags();
   });
 
+  // Export
+  ipcMain.handle(Channels.EXPORT_CSV, async (e, csv: string) => {
+    const win = winFromEvent(e);
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Export as CSV',
+      defaultPath: 'query-results.csv',
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (!result.canceled && result.filePath) {
+      const fs = await import('node:fs/promises');
+      await fs.writeFile(result.filePath, csv, 'utf-8');
+    }
+  });
+
   // Shell
   ipcMain.handle(Channels.SHELL_REVEAL_FILE, (e, relativePath?: string) => {
     const rootPath = rootPathFromEvent(e);

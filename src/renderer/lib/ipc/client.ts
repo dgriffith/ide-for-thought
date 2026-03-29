@@ -39,6 +39,10 @@ export interface TagsApi {
   allNames(): Promise<string[]>;
 }
 
+export interface ExportApi {
+  csv(csv: string): Promise<void>;
+}
+
 export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
 }
@@ -55,6 +59,7 @@ export interface MenuApi {
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
   onNewQuery(cb: () => void): void;
+  onOpenStockQuery(cb: (query: string) => void): void;
   onSortLines(cb: () => void): void;
   onOpenProject(cb: () => void): void;
   onNewProject(cb: () => void): void;
@@ -70,6 +75,7 @@ export interface IdeApi {
   git: GitApi;
   graph: GraphApi;
   tags: TagsApi;
+  export: ExportApi;
   shell: ShellApi;
   menu: MenuApi;
 }

@@ -1,5 +1,18 @@
 <script lang="ts">
   import type { QueryTab } from '../stores/editor.svelte';
+  import { api } from '../ipc/client';
+
+  function toCsv(columns: string[], rows: Record<string, string>[]): string {
+    const escape = (s: string) => {
+      if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const header = columns.map(escape).join(',');
+    const body = rows.map((row) => columns.map((col) => escape(row[col] ?? '')).join(','));
+    return [header, ...body].join('\n');
+  }
 
   interface Props {
     tab: QueryTab;
@@ -115,6 +128,15 @@
   <div class="split-handle" onmousedown={startDrag} class:dragging></div>
 
   <div class="query-results" style:height="{(1 - splitRatio) * 100}%">
+    {#if tab.results && tab.results.length > 0}
+      <div class="results-toolbar">
+        <span class="results-count">{tab.results.length} row{tab.results.length !== 1 ? 's' : ''}</span>
+        <button
+          class="export-btn"
+          onclick={() => api.export.csv(toCsv(tab.columns, tab.results!))}
+        >Export CSV</button>
+      </div>
+    {/if}
     {#if tab.error}
       <div class="error">{tab.error}</div>
     {:else if tab.results && tab.results.length > 0}
@@ -237,6 +259,34 @@
     flex-direction: column;
     overflow: hidden;
     min-height: 40px;
+  }
+
+  .results-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .results-count {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .export-btn {
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .export-btn:hover {
+    background: var(--bg-button-hover);
   }
 
   .table-wrap {
