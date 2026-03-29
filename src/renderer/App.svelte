@@ -147,6 +147,57 @@
     sidebar?.refreshTags();
   }
 
+  // ── Sidebar clipboard ──────────────────────────────────────────────────
+
+  let clipboardItem = $state<{ relativePath: string; isDirectory: boolean; mode: 'cut' | 'copy' } | null>(null);
+
+  function handleCut(relativePath: string, isDirectory: boolean) {
+    clipboardItem = { relativePath, isDirectory, mode: 'cut' };
+  }
+
+  function handleCopy(relativePath: string, isDirectory: boolean) {
+    clipboardItem = { relativePath, isDirectory, mode: 'copy' };
+  }
+
+  async function handlePaste(destDirectory: string) {
+    if (!clipboardItem || !notebase.meta) return;
+    const srcName = clipboardItem.relativePath.split('/').pop()!;
+    const destPath = destDirectory ? `${destDirectory}/${srcName}` : srcName;
+
+    if (clipboardItem.mode === 'cut') {
+      await api.notebase.rename(clipboardItem.relativePath, destPath);
+      // If the moved file was open, update the tab
+      const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === clipboardItem!.relativePath);
+      if (tabIdx !== -1) {
+        const tab = editor.tabs[tabIdx] as any;
+        tab.relativePath = destPath;
+        tab.fileName = srcName;
+      }
+      clipboardItem = null;
+    } else {
+      await api.notebase.copy(clipboardItem.relativePath, destPath);
+    }
+    await notebase.refresh();
+  }
+
+  async function handleRename(relativePath: string) {
+    if (!notebase.meta) return;
+    const oldName = relativePath.split('/').pop()!;
+    const newName = await showPrompt('New name:');
+    if (!newName || newName === oldName) return;
+    const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
+    const newPath = dir ? `${dir}/${newName}` : newName;
+    await api.notebase.rename(relativePath, newPath);
+    // Update open tab if renamed
+    const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === relativePath);
+    if (tabIdx !== -1) {
+      const tab = editor.tabs[tabIdx] as any;
+      tab.relativePath = newPath;
+      tab.fileName = newName;
+    }
+    await notebase.refresh();
+  }
+
   async function handleNavBack() {
     // Save current position before going back
     if (editor.activeFilePath) {
@@ -297,6 +348,11 @@
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
           onDelete={handleDelete}
+          onRename={handleRename}
+          onCut={handleCut}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          canPaste={clipboardItem !== null}
         />
       {/if}
       <div class="editor-pane">

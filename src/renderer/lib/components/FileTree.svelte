@@ -6,13 +6,18 @@
     files: NoteFile[];
     activeFilePath: string | null;
     depth?: number;
+    canPaste?: boolean;
     onFileSelect: (relativePath: string) => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
+    onRename: (relativePath: string) => void;
+    onCut: (relativePath: string, isDirectory: boolean) => void;
+    onCopy: (relativePath: string, isDirectory: boolean) => void;
+    onPaste: (destDirectory: string) => void;
   }
 
-  let { files, activeFilePath, depth = 0, onFileSelect, onNewNote, onNewFolder, onDelete }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
@@ -52,10 +57,15 @@
             files={file.children}
             {activeFilePath}
             depth={depth + 1}
+            {canPaste}
             {onFileSelect}
             {onNewNote}
             {onNewFolder}
             {onDelete}
+            {onRename}
+            {onCut}
+            {onCopy}
+            {onPaste}
           />
         {/if}
       {:else}
@@ -81,9 +91,19 @@
     style:top="{contextMenu.y}px"
   >
     {#if contextMenu.target}
-      <button onclick={() => { navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
-        Copy Path
+      <button onclick={() => { onCut(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+        Cut
       </button>
+      <button onclick={() => { onCopy(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+        Copy
+      </button>
+    {/if}
+    {#if canPaste}
+      <button onclick={() => { onPaste(contextMenu!.dir); contextMenu = null; }}>
+        Paste
+      </button>
+    {/if}
+    {#if contextMenu.target || canPaste}
       <div class="separator"></div>
     {/if}
     <button onclick={() => { onNewNote(contextMenu!.dir); contextMenu = null; }}>
@@ -94,8 +114,15 @@
     </button>
     {#if contextMenu.target}
       <div class="separator"></div>
+      <button onclick={() => { onRename(contextMenu!.target!); contextMenu = null; }}>
+        Rename
+      </button>
+      <button onclick={() => { navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
+        Copy Path
+      </button>
+      <div class="separator"></div>
       <button onclick={() => { onDelete(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
-        Delete {contextMenu.targetIsDir ? 'Folder' : 'Note'}
+        Delete
       </button>
     {/if}
   </div>

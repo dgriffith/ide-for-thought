@@ -101,3 +101,17 @@ export async function deleteFolder(rootPath: string, relativePath: string): Prom
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.rm(fullPath, { recursive: true });
 }
+
+export async function rename(rootPath: string, oldRelPath: string, newRelPath: string): Promise<void> {
+  const oldFull = assertSafePath(rootPath, oldRelPath);
+  const newFull = assertSafePath(rootPath, newRelPath);
+  await fs.mkdir(path.dirname(newFull), { recursive: true });
+  await fs.rename(oldFull, newFull);
+}
+
+export async function copyItem(rootPath: string, srcRelPath: string, destRelPath: string): Promise<void> {
+  const srcFull = assertSafePath(rootPath, srcRelPath);
+  const destFull = assertSafePath(rootPath, destRelPath);
+  await fs.mkdir(path.dirname(destFull), { recursive: true });
+  await fs.cp(srcFull, destFull, { recursive: true });
+}

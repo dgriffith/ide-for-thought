@@ -13,6 +13,8 @@ export interface NotebaseApi {
   deleteFile(relativePath: string): Promise<void>;
   createFolder(relativePath: string): Promise<void>;
   deleteFolder(relativePath: string): Promise<void>;
+  rename(oldRelPath: string, newRelPath: string): Promise<void>;
+  copy(srcRelPath: string, destRelPath: string): Promise<void>;
   onFileChanged(cb: (path: string) => void): void;
   onFileCreated(cb: (path: string) => void): void;
   onFileDeleted(cb: (path: string) => void): void;

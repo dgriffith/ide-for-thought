@@ -121,6 +121,18 @@ export function registerIpcHandlers(): void {
     await notebaseFs.deleteFolder(rootPath, relativePath);
   });
 
+  ipcMain.handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await notebaseFs.rename(rootPath, oldRelPath, newRelPath);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
+  });
+
   // Saved queries
   ipcMain.handle(Channels.QUERIES_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);
