@@ -68,6 +68,15 @@ contextBridge.exposeInMainWorld('api', {
     onQuickOpen: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_QUICK_OPEN, () => cb());
     },
+    onNavBack: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_NAV_BACK, () => cb());
+    },
+    onNavForward: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_NAV_FORWARD, () => cb());
+    },
+    onGotoLine: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_GOTO_LINE, () => cb());
+    },
     onFind: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FIND, () => cb());
     },

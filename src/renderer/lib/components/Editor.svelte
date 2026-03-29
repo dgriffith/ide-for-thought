@@ -93,6 +93,21 @@
     return { line: line.number, column: pos - line.from + 1 };
   }
 
+  export function getOffset(): number {
+    if (!view) return 0;
+    return view.state.selection.main.head;
+  }
+
+  export function gotoOffset(offset: number) {
+    if (!view) return;
+    const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
+    view.dispatch({
+      selection: { anchor: clamped },
+      effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
+    });
+    view.focus();
+  }
+
   onMount(() => {
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },

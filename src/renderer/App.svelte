@@ -12,11 +12,13 @@
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import { api } from './lib/ipc/client';
+  import { getNavigationStore } from './lib/stores/navigation.svelte';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
+  const nav = getNavigationStore();
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
@@ -69,8 +71,13 @@
   let showGotoNote = $state(false);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
+    // Record current position before navigating away
+    if (editor.activeFilePath && editorComponent) {
+      nav.record({ relativePath: editor.activeFilePath, offset: editorComponent.getOffset() });
+    }
     pendingSearchQuery = searchQuery ?? null;
     await editor.openFile(relativePath);
+    nav.record({ relativePath, offset: 0 });
   }
 
   function handleNavigate(target: string) {
@@ -126,6 +133,36 @@
     sidebar?.refreshTags();
   }
 
+  async function handleNavBack() {
+    // Save current position before going back
+    if (editor.activeFilePath) {
+      const offset = editorComponent?.getOffset() ?? 0;
+      nav.record({ relativePath: editor.activeFilePath, offset });
+    }
+    const pos = nav.goBack();
+    if (!pos) return;
+    await editor.openFile(pos.relativePath);
+    // Defer so the editor mounts first
+    requestAnimationFrame(() => {
+      editorComponent?.gotoOffset(pos.offset);
+      nav.doneNavigating();
+    });
+  }
+
+  async function handleNavForward() {
+    if (editor.activeFilePath) {
+      const offset = editorComponent?.getOffset() ?? 0;
+      nav.record({ relativePath: editor.activeFilePath, offset });
+    }
+    const pos = nav.goForward();
+    if (!pos) return;
+    await editor.openFile(pos.relativePath);
+    requestAnimationFrame(() => {
+      editorComponent?.gotoOffset(pos.offset);
+      nav.doneNavigating();
+    });
+  }
+
   function handleRevealInSidebar(relativePath: string) {
     api.shell.revealFile(relativePath);
   }
@@ -144,6 +181,14 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === '[') {
+      e.preventDefault();
+      handleNavBack();
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === ']') {
+      e.preventDefault();
+      handleNavForward();
+    }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'p') {
       e.preventDefault();
       cycleViewMode();
@@ -195,6 +240,9 @@
       editor.clear();
     });
     api.menu.onClearRecent(() => api.notebase.clearRecent());
+    api.menu.onNavBack(() => handleNavBack());
+    api.menu.onNavForward(() => handleNavForward());
+    api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onProjectOpened(async (meta) => {
@@ -242,6 +290,20 @@
         {/if}
         {#if editor.activeTab}
           <div class="toolbar">
+            <div class="nav-arrows">
+              <button
+                class="nav-btn"
+                disabled={!nav.canGoBack}
+                onclick={handleNavBack}
+                title="Back (Cmd+[)"
+              >&#x2190;</button>
+              <button
+                class="nav-btn"
+                disabled={!nav.canGoForward}
+                onclick={handleNavForward}
+                title="Forward (Cmd+])"
+              >&#x2192;</button>
+            </div>
             <div class="view-toggle">
               <button
                 class:active={viewMode === 'source'}
@@ -315,7 +377,18 @@
     <GotoLineDialog
       currentLine={pos.line}
       currentColumn={pos.column}
-      onGoto={(line, col) => { editorComponent?.gotoLineColumn(line, col); showGotoLine = false; }}
+      onGoto={(line, col) => {
+        if (editor.activeFilePath && editorComponent) {
+          nav.record({ relativePath: editor.activeFilePath, offset: editorComponent.getOffset() });
+        }
+        editorComponent?.gotoLineColumn(line, col);
+        showGotoLine = false;
+        if (editor.activeFilePath && editorComponent) {
+          requestAnimationFrame(() => {
+            nav.record({ relativePath: editor.activeFilePath!, offset: editorComponent!.getOffset() });
+          });
+        }
+      }}
       onCancel={() => { showGotoLine = false; }}
     />
   {/if}
@@ -359,11 +432,38 @@
 
   .toolbar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding: 4px 8px;
     background: var(--bg-titlebar);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+  }
+
+  .nav-arrows {
+    display: flex;
+    gap: 2px;
+  }
+
+  .nav-btn {
+    padding: 2px 6px;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .nav-btn:hover:not(:disabled) {
+    background: var(--bg-button);
+  }
+
+  .nav-btn:disabled {
+    color: var(--text-muted);
+    opacity: 0.4;
+    cursor: default;
   }
 
   .view-toggle {

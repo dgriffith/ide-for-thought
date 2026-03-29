@@ -188,14 +188,30 @@ export function rebuildMenu(): void {
       ],
     },
 
-    // Go
+    // Navigate
     {
-      label: 'Go',
+      label: 'Navigate',
       submenu: [
+        {
+          label: 'Back',
+          accelerator: 'CmdOrCtrl+[',
+          click: () => send(Channels.MENU_NAV_BACK),
+        },
+        {
+          label: 'Forward',
+          accelerator: 'CmdOrCtrl+]',
+          click: () => send(Channels.MENU_NAV_FORWARD),
+        },
+        { type: 'separator' },
         {
           label: 'Quick Open',
           accelerator: 'CmdOrCtrl+P',
           click: () => send(Channels.MENU_QUICK_OPEN),
+        },
+        {
+          label: 'Go to Line',
+          accelerator: 'CmdOrCtrl+G',
+          click: () => send(Channels.MENU_GOTO_LINE),
         },
       ],
     },

@@ -49,6 +49,9 @@ export interface MenuApi {
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
+  onNavBack(cb: () => void): void;
+  onNavForward(cb: () => void): void;
+  onGotoLine(cb: () => void): void;
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
   onSortLines(cb: () => void): void;
