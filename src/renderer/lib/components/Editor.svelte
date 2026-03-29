@@ -4,7 +4,7 @@
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
-  import { EditorState } from '@codemirror/state';
+  import { EditorState, Prec } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
@@ -94,12 +94,12 @@
   }
 
   onMount(() => {
-    const appKeymap = keymap.of([
+    const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
       { key: 'Mod-Shift-u', run: toggleCase },
       { key: 'Ctrl-Shift-j', run: joinLines },
       { key: 'Mod-d', run: duplicateLine },
-    ]);
+    ]));
 
     const updateListener = EditorView.updateListener.of((update) => {
       if (update.docChanged && !ignoreNextUpdate) {
