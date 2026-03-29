@@ -244,27 +244,37 @@
     <button onclick={() => execCommand('copy')}>Copy</button>
     <button onclick={() => execCommand('paste')}>Paste</button>
     <div class="separator"></div>
-    <span class="menu-label">Format</span>
-    <button onclick={() => runCmd(toggleBold)}>Bold</button>
-    <button onclick={() => runCmd(toggleItalic)}>Italic</button>
-    <button onclick={() => runCmd(toggleCode)}>Code</button>
-    <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
-    <div class="separator"></div>
-    <span class="menu-label">Paragraph</span>
-    <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
-    <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
-    <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
-    <button onclick={() => runCmd(toggleQuote)}>Quote</button>
-    <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
-    <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
-    <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
-    <div class="separator"></div>
-    <span class="menu-label">Insert</span>
-    <button onclick={() => runCmd(insertLink)}>Link</button>
-    <button onclick={() => runCmd(insertImage)}>Image</button>
-    <button onclick={() => runCmd(insertTable)}>Table</button>
-    <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
-    <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
+    <div class="submenu-item">
+      <span class="submenu-trigger">Format &#x25B8;</span>
+      <div class="submenu">
+        <button onclick={() => runCmd(toggleBold)}>Bold</button>
+        <button onclick={() => runCmd(toggleItalic)}>Italic</button>
+        <button onclick={() => runCmd(toggleCode)}>Code</button>
+        <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
+      </div>
+    </div>
+    <div class="submenu-item">
+      <span class="submenu-trigger">Paragraph &#x25B8;</span>
+      <div class="submenu">
+        <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
+        <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
+        <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
+        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
+        <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
+        <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
+        <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
+      </div>
+    </div>
+    <div class="submenu-item">
+      <span class="submenu-trigger">Insert &#x25B8;</span>
+      <div class="submenu">
+        <button onclick={() => runCmd(insertLink)}>Link</button>
+        <button onclick={() => runCmd(insertImage)}>Image</button>
+        <button onclick={() => runCmd(insertTable)}>Table</button>
+        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
+        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
+      </div>
+    </div>
     <div class="separator"></div>
     <button onclick={() => execCommand('selectAll')}>Select All</button>
   </div>
@@ -293,8 +303,6 @@
     padding: 4px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 160px;
-    max-height: 80vh;
-    overflow-y: auto;
   }
 
   .context-menu button {
@@ -313,13 +321,37 @@
     background: var(--bg-button);
   }
 
-  .menu-label {
+  .submenu-item {
+    position: relative;
+  }
+
+  .submenu-trigger {
     display: block;
-    padding: 3px 12px;
-    font-size: 10px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: default;
+  }
+
+  .submenu-item:hover > .submenu-trigger {
+    background: var(--bg-button);
+  }
+
+  .submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: -4px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 150px;
+  }
+
+  .submenu-item:hover > .submenu {
+    display: block;
   }
 
   .separator {
