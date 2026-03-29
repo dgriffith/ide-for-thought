@@ -40,7 +40,7 @@ pnpm lint
 # Run tests
 pnpm test
 
-# Package the app
+# Package the appOn
 pnpm package
 
 # Build distributable

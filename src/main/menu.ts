@@ -1,8 +1,9 @@
-import { Menu, shell, app, BrowserWindow } from 'electron';
+import { Menu, shell, app, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
-import { createWindow, openProjectInWindow } from './window-manager';
+import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
+import * as graph from './graph/index';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -214,11 +215,30 @@ export function rebuildMenu(): void {
         { type: 'separator' },
         {
           label: 'Rebuild Index',
-          click: () => send(Channels.GRAPH_REBUILD),
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            await graph.indexAllNotes(rootPath);
+          },
         },
         {
-          label: 'Export Graph (Turtle)',
-          click: () => send(Channels.GRAPH_EXPORT),
+          label: 'Export as Turtle',
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            const result = await dialog.showSaveDialog(win, {
+              title: 'Export Graph',
+              defaultPath: `${path.basename(rootPath)}.ttl`,
+              filters: [{ name: 'Turtle', extensions: ['ttl'] }],
+            });
+            if (!result.canceled && result.filePath) {
+              await graph.exportGraph(result.filePath);
+            }
+          },
         },
       ],
     },

@@ -1,0 +1,89 @@
+Exc@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:      <http://purl.org/dc/terms/> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+
+# ── Ontology ────────────────────────────────────────────────────────────────
+
+minerva: a owl:Ontology ;
+    rdfs:label "Minerva Ontology" ;
+    rdfs:comment "An ontology for markdown-based knowledge bases managed by Minerva." ;
+    owl:versionInfo "0.1.0" .
+
+# ── Classes ─────────────────────────────────────────────────────────────────
+
+minerva:Project a owl:Class ;
+    rdfs:label "Project" ;
+    rdfs:comment "A Minerva project — a directory of notes managed as a knowledge base." .
+
+minerva:Note a owl:Class ;
+    rdfs:label "Note" ;
+    rdfs:comment "A markdown note within a project." .
+
+minerva:Folder a owl:Class ;
+    rdfs:label "Folder" ;
+    rdfs:comment "A directory containing notes or sub-folders within a project." .
+
+minerva:Tag a owl:Class ;
+    rdfs:label "Tag" ;
+    rdfs:comment "A topic tag used to categorize notes." .
+
+# ── Object Properties ──────────────────────────────────────────────────────
+
+minerva:containsNote a owl:ObjectProperty ;
+    rdfs:label "contains note" ;
+    rdfs:comment "Relates a project to one of its notes." ;
+    rdfs:domain minerva:Project ;
+    rdfs:range minerva:Note .
+
+minerva:containsFolder a owl:ObjectProperty ;
+    rdfs:label "contains folder" ;
+    rdfs:comment "Relates a project to one of its top-level or nested folders." ;
+    rdfs:domain minerva:Project ;
+    rdfs:range minerva:Folder .
+
+minerva:inFolder a owl:ObjectProperty ;
+    rdfs:label "in folder" ;
+    rdfs:comment "Relates a note or folder to its parent folder." ;
+    rdfs:domain [ a owl:Class ; owl:unionOf ( minerva:Note minerva:Folder ) ] ;
+    rdfs:range minerva:Folder .
+
+minerva:linksTo a owl:ObjectProperty ;
+    rdfs:label "links to" ;
+    rdfs:comment "A wiki-link reference from one note to another." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:hasTag a owl:ObjectProperty ;
+    rdfs:label "has tag" ;
+    rdfs:comment "Associates a note with a topic tag." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Tag .
+
+# ── Datatype Properties ────────────────────────────────────────────────────
+
+minerva:relativePath a owl:DatatypeProperty ;
+    rdfs:label "relative path" ;
+    rdfs:comment "Path of the note or folder relative to the project root." ;
+    rdfs:range xsd:string .
+
+minerva:filename a owl:DatatypeProperty ;
+    rdfs:label "filename" ;
+    rdfs:comment "Base filename of the note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range xsd:string .
+
+minerva:tagName a owl:DatatypeProperty ;
+    rdfs:label "tag name" ;
+    rdfs:comment "The string name of a tag." ;
+    rdfs:domain minerva:Tag ;
+    rdfs:range xsd:string .
+
+# ── Reused Vocabulary ──────────────────────────────────────────────────────
+#
+# dc:title       — Title of a note or project (xsd:string)
+# dc:modified    — Last-modified timestamp (xsd:dateTime)
+# dc:created     — Creation timestamp (xsd:dateTime)
+# dc:description — Optional description from frontmatter (xsd:string)
