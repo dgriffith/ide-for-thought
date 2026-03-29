@@ -41,6 +41,8 @@ export const Channels = {
   MENU_FIND: 'menu:find',
   MENU_FIND_REPLACE: 'menu:findReplace',
   MENU_TOGGLE_CASE: 'menu:toggleCase',
+  MENU_EXTEND_SELECTION: 'menu:extendSelection',
+  MENU_SHRINK_SELECTION: 'menu:shrinkSelection',
   MENU_JOIN_LINES: 'menu:joinLines',
   MENU_DUPLICATE_LINE: 'menu:duplicateLine',
   MENU_SORT_LINES: 'menu:sortLines',

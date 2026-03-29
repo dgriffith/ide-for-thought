@@ -147,6 +147,17 @@ export function rebuildMenu(): void {
         },
         { type: 'separator' },
         {
+          label: 'Extend Selection',
+          accelerator: 'Alt+Up',
+          click: () => send(Channels.MENU_EXTEND_SELECTION),
+        },
+        {
+          label: 'Shrink Selection',
+          accelerator: 'Alt+Down',
+          click: () => send(Channels.MENU_SHRINK_SELECTION),
+        },
+        { type: 'separator' },
+        {
           label: 'Join Lines',
           accelerator: 'Ctrl+Shift+J',
           click: () => send(Channels.MENU_JOIN_LINES),

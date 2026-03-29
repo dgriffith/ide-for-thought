@@ -9,7 +9,7 @@
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
-  import { toggleCase, joinLines, duplicateLine, sortLines } from '../editor/commands';
+  import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection, selectionTracker } from '../editor/commands';
 
   interface Props {
     content: string;
@@ -47,6 +47,7 @@
       top: true,
       scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: 'center' }),
     }),
+    selectionTracker,
     EditorView.lineWrapping,
   ];
 
@@ -114,6 +115,8 @@
       { key: 'Mod-Shift-u', run: toggleCase },
       { key: 'Ctrl-Shift-j', run: joinLines },
       { key: 'Mod-d', run: duplicateLine },
+      { key: 'Alt-ArrowUp', run: extendSelection },
+      { key: 'Alt-ArrowDown', run: shrinkSelection },
     ]));
 
     const updateListener = EditorView.updateListener.of((update) => {
