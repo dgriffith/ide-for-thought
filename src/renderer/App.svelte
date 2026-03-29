@@ -35,15 +35,25 @@
     sidebar?.refreshTags();
   }
 
-  async function handleNewNote() {
+  async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
     const name = prompt('Note name:');
     if (!name) return;
     const filename = name.endsWith('.md') ? name : `${name}.md`;
-    await api.notebase.createFile(filename);
+    const relativePath = directory ? `${directory}/${filename}` : filename;
+    await api.notebase.createFile(relativePath);
     await notebase.refresh();
-    await editor.openFile(filename);
+    await editor.openFile(relativePath);
     sidebar?.refreshTags();
+  }
+
+  async function handleNewFolder(directory: string = '') {
+    if (!notebase.meta) return;
+    const name = prompt('Folder name:');
+    if (!name) return;
+    const relativePath = directory ? `${directory}/${name}` : name;
+    await api.notebase.createFolder(relativePath);
+    await notebase.refresh();
   }
 
   // Refresh tags when notebase opens
@@ -115,6 +125,8 @@
           activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
           onOpenFolder={notebase.open}
+          onNewNote={handleNewNote}
+          onNewFolder={handleNewFolder}
         />
       {/if}
       <div class="editor-pane">

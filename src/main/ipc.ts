@@ -102,6 +102,12 @@ export function registerIpcHandlers(): void {
     await notebaseFs.deleteFile(rootPath, relativePath);
   });
 
+  ipcMain.handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await notebaseFs.createFolder(rootPath, relativePath);
+  });
+
   // Git
   ipcMain.handle(Channels.GIT_STATUS, async (e) => {
     const rootPath = rootPathFromEvent(e);

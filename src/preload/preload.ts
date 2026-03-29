@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_CREATE_FILE, relativePath),
     deleteFile: (relativePath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_DELETE_FILE, relativePath),
+    createFolder: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_CREATE_FOLDER, relativePath),
     onFileChanged: (cb: (path: string) => void) => {
       ipcRenderer.on(Channels.NOTEBASE_FILE_CHANGED, (_e, p) => cb(p));
     },

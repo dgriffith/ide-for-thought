@@ -8,9 +8,11 @@
     activeFilePath: string | null;
     onFileSelect: (relativePath: string) => void;
     onOpenFolder: () => void;
+    onNewNote: (directory: string) => void;
+    onNewFolder: (directory: string) => void;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder }: Props = $props();
   let tagPanel = $state<TagPanel>();
 
   export function refreshTags() {
@@ -32,7 +34,7 @@
 
   {#if files.length > 0}
     <div class="file-list">
-      <FileTree {files} {activeFilePath} {onFileSelect} />
+      <FileTree {files} {activeFilePath} {onFileSelect} {onNewNote} {onNewFolder} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} />
   {:else}

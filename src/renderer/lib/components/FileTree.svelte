@@ -7,14 +7,28 @@
     activeFilePath: string | null;
     depth?: number;
     onFileSelect: (relativePath: string) => void;
+    onNewNote: (directory: string) => void;
+    onNewFolder: (directory: string) => void;
   }
 
-  let { files, activeFilePath, depth = 0, onFileSelect }: Props = $props();
+  let { files, activeFilePath, depth = 0, onFileSelect, onNewNote, onNewFolder }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
+  let contextMenu = $state<{ x: number; y: number; dir: string } | null>(null);
 
   function toggleDir(path: string) {
     expanded[path] = !expanded[path];
+  }
+
+  function handleContextMenu(e: MouseEvent, dirPath: string) {
+    e.preventDefault();
+    contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath };
+    const close = () => {
+      contextMenu = null;
+      window.removeEventListener('click', close);
+    };
+    // Close on next click anywhere
+    setTimeout(() => window.addEventListener('click', close), 0);
   }
 </script>
 
@@ -26,6 +40,7 @@
           class="tree-item dir"
           style:padding-left="{depth * 16 + 8}px"
           onclick={() => toggleDir(file.relativePath)}
+          oncontextmenu={(e) => handleContextMenu(e, file.relativePath)}
         >
           <span class="icon">{expanded[file.relativePath] ? '▾' : '▸'}</span>
           {file.name}
@@ -36,6 +51,8 @@
             {activeFilePath}
             depth={depth + 1}
             {onFileSelect}
+            {onNewNote}
+            {onNewFolder}
           />
         {/if}
       {:else}
@@ -52,6 +69,21 @@
     </li>
   {/each}
 </ul>
+
+{#if contextMenu}
+  <div
+    class="context-menu"
+    style:left="{contextMenu.x}px"
+    style:top="{contextMenu.y}px"
+  >
+    <button onclick={() => { onNewNote(contextMenu!.dir); contextMenu = null; }}>
+      New Note Here
+    </button>
+    <button onclick={() => { onNewFolder(contextMenu!.dir); contextMenu = null; }}>
+      New Folder
+    </button>
+  </div>
+{/if}
 
 <style>
   .file-tree {
@@ -97,5 +129,32 @@
 
   .dir .icon {
     font-size: 12px;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+  }
+
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .context-menu button:hover {
+    background: var(--bg-button);
   }
 </style>

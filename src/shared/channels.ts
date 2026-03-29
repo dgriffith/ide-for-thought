@@ -6,6 +6,7 @@ export const Channels = {
   NOTEBASE_WRITE_FILE: 'notebase:writeFile',
   NOTEBASE_CREATE_FILE: 'notebase:createFile',
   NOTEBASE_DELETE_FILE: 'notebase:deleteFile',
+  NOTEBASE_CREATE_FOLDER: 'notebase:createFolder',
 
   // File watcher events (main → renderer)
   NOTEBASE_FILE_CHANGED: 'notebase:fileChanged',
