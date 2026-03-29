@@ -14,6 +14,9 @@ export const Channels = {
   NOTEBASE_FILE_CREATED: 'notebase:fileCreated',
   NOTEBASE_FILE_DELETED: 'notebase:fileDeleted',
 
+  // Search
+  SEARCH_QUERY: 'search:query',
+
   // Git (stubs)
   GIT_STATUS: 'git:status',
   GIT_COMMIT: 'git:commit',

@@ -4,6 +4,7 @@ import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
+import * as search from './search/index';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath } from './window-manager';
@@ -87,6 +88,8 @@ export function registerIpcHandlers(): void {
     await notebaseFs.writeFile(rootPath, relativePath, content);
     await graph.indexNote(relativePath, content);
     await graph.persistGraph();
+    search.indexNote(relativePath, content);
+    await search.persist();
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
@@ -94,12 +97,15 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.createFile(rootPath, relativePath);
     await graph.indexNote(relativePath, '');
+    search.indexNote(relativePath, '');
   });
 
   ipcMain.handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.deleteFile(rootPath, relativePath);
+    search.removeNote(relativePath);
+    await search.persist();
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
@@ -112,6 +118,11 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.deleteFolder(rootPath, relativePath);
+  });
+
+  // Search
+  ipcMain.handle(Channels.SEARCH_QUERY, (_e, query: string) => {
+    return search.search(query);
   });
 
   // Git

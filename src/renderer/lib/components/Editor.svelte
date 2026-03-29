@@ -6,16 +6,19 @@
   import { languages } from '@codemirror/language-data';
   import { EditorState } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
+  import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
 
   interface Props {
     content: string;
+    searchQuery?: string | null;
     onContentChange: (text: string) => void;
     onSave: () => void;
+    onSearchQueryConsumed?: () => void;
   }
 
-  let { content, onContentChange, onSave }: Props = $props();
+  let { content, searchQuery = null, onContentChange, onSave, onSearchQueryConsumed }: Props = $props();
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
@@ -76,6 +79,10 @@
           basicSetup,
           markdown({ codeLanguages: languages }),
           oneDark,
+          search({
+            top: true,
+            scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: 'center' }),
+          }),
           saveKeymap,
           updateListener,
           tagAutocomplete,
@@ -99,6 +106,34 @@
         },
       });
     }
+  });
+
+  $effect(() => {
+    if (!view || !searchQuery) return;
+    const q = searchQuery;
+
+    // Defer so the content effect has time to dispatch first
+    requestAnimationFrame(() => {
+      if (!view) return;
+
+      // Set the search query and open the panel
+      view.dispatch({
+        effects: setSearchQuery.of(new SearchQuery({ search: q })),
+      });
+      openSearchPanel(view);
+
+      // Find first match, select it, and scroll centered
+      const doc = view.state.doc.toString();
+      const idx = doc.toLowerCase().indexOf(q.toLowerCase());
+      if (idx !== -1) {
+        view.dispatch({
+          selection: { anchor: idx, head: idx + q.length },
+          effects: EditorView.scrollIntoView(idx, { y: 'center' }),
+        });
+      }
+    });
+
+    onSearchQueryConsumed?.();
   });
 </script>
 

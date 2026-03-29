@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SearchResult } from '../../../shared/types';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -16,6 +16,10 @@ export interface NotebaseApi {
   onFileChanged(cb: (path: string) => void): void;
   onFileCreated(cb: (path: string) => void): void;
   onFileDeleted(cb: (path: string) => void): void;
+}
+
+export interface SearchApi {
+  query(query: string): Promise<SearchResult[]>;
 }
 
 export interface GitApi {
@@ -57,6 +61,7 @@ export interface MenuApi {
 
 export interface IdeApi {
   notebase: NotebaseApi;
+  search: SearchApi;
   git: GitApi;
   graph: GraphApi;
   tags: TagsApi;

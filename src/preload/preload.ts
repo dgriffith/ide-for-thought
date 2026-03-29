@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.NOTEBASE_FILE_DELETED, (_e, p) => cb(p));
     },
   },
+  search: {
+    query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),
+  },
   git: {
     status: () => ipcRenderer.invoke(Channels.GIT_STATUS),
     commit: (message: string) => ipcRenderer.invoke(Channels.GIT_COMMIT, message),

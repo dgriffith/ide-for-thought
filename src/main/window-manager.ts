@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { startWatching, stopWatching } from './notebase/watcher';
 import * as graph from './graph/index';
+import * as search from './search/index';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
@@ -117,7 +118,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   watchers.set(win.id, rootPath);
 
   await graph.initGraph(rootPath);
-  await graph.indexAllNotes(rootPath);
+  await Promise.all([
+    graph.indexAllNotes(rootPath),
+    search.indexAllNotes(rootPath),
+  ]);
   persistSession();
 }
 

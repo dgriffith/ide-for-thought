@@ -14,6 +14,7 @@
   "dependencies": {
     "chokidar": "^4.0.0",
     "isomorphic-git": "^1.27.1",
+    "minisearch": "^7.2.0",
     "rdflib": "^2.2.35"
   },
   "pnpm": {

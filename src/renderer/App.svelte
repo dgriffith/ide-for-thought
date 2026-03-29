@@ -60,7 +60,10 @@
     confirmDialog = null;
   }
 
-  async function handleFileSelect(relativePath: string) {
+  let pendingSearchQuery = $state<string | null>(null);
+
+  async function handleFileSelect(relativePath: string, searchQuery?: string) {
+    pendingSearchQuery = searchQuery ?? null;
     await editor.openFile(relativePath);
   }
 
@@ -144,6 +147,11 @@
       e.preventDefault();
       handleNewNote();
     }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
+      e.preventDefault();
+      if (!sidebarVisible) sidebarVisible = true;
+      sidebar?.focusSearch();
+    }
   }
 
   onMount(() => {
@@ -218,8 +226,10 @@
               <div class="editor-panel">
                 <Editor
                   content={editor.content}
+                  searchQuery={pendingSearchQuery}
                   onContentChange={editor.setContent}
                   onSave={handleSave}
+                  onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
                 />
               </div>
             {/if}

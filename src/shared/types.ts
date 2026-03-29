@@ -19,3 +19,10 @@ export interface TaggedNote {
   title: string;
   relativePath: string;
 }
+
+export interface SearchResult {
+  relativePath: string;
+  title: string;
+  snippet: string;
+  score: number;
+}

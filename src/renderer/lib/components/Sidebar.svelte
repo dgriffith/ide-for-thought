@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
+  import SearchPanel from './SearchPanel.svelte';
   import TagPanel from './TagPanel.svelte';
 
   interface Props {
     files: NoteFile[];
     activeFilePath: string | null;
-    onFileSelect: (relativePath: string) => void;
+    onFileSelect: (relativePath: string, searchQuery?: string) => void;
     onOpenFolder: () => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
@@ -15,6 +16,7 @@
 
   let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete }: Props = $props();
   let tagPanel = $state<TagPanel>();
+  let searchPanel = $state<SearchPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
 
   function handleContextMenu(e: MouseEvent) {
@@ -34,6 +36,10 @@
     tagPanel?.refresh();
   }
 
+  export function focusSearch() {
+    searchPanel?.focus();
+  }
+
   export function selectTag(tag: string) {
     tagPanel?.refresh();
     setTimeout(() => tagPanel?.selectTag(tag), 50);
@@ -46,6 +52,8 @@
       Open Folder
     </button>
   </div>
+
+  <SearchPanel bind:this={searchPanel} {onFileSelect} />
 
   {#if files.length > 0}
     <div class="file-list" oncontextmenu={handleContextMenu}>
