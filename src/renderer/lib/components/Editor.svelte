@@ -38,6 +38,23 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
+  let contextMenu = $state<{ x: number; y: number } | null>(null);
+
+  function showContextMenu(e: MouseEvent) {
+    e.preventDefault();
+    contextMenu = { x: e.clientX, y: e.clientY };
+    const close = () => {
+      contextMenu = null;
+      window.removeEventListener('click', close);
+    };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function execCommand(cmd: string) {
+    document.execCommand(cmd);
+    view?.focus();
+    contextMenu = null;
+  }
 
   const extensions = [
     basicSetup,
@@ -49,6 +66,12 @@
     }),
     selectionTracker,
     EditorView.lineWrapping,
+    EditorView.domEventHandlers({
+      contextmenu: (e) => {
+        showContextMenu(e);
+        return true;
+      },
+    }),
   ];
 
   async function tagCompletion(context: CompletionContext): Promise<CompletionResult | null> {
@@ -195,6 +218,20 @@
 
 <div class="editor-wrapper" bind:this={editorContainer}></div>
 
+{#if contextMenu}
+  <div
+    class="context-menu"
+    style:left="{contextMenu.x}px"
+    style:top="{contextMenu.y}px"
+  >
+    <button onclick={() => execCommand('cut')}>Cut</button>
+    <button onclick={() => execCommand('copy')}>Copy</button>
+    <button onclick={() => execCommand('paste')}>Paste</button>
+    <div class="separator"></div>
+    <button onclick={() => execCommand('selectAll')}>Select All</button>
+  </div>
+{/if}
+
 <style>
   .editor-wrapper {
     flex: 1;
@@ -207,5 +244,38 @@
 
   .editor-wrapper :global(.cm-scroller) {
     overflow: auto;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+  }
+
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .context-menu button:hover {
+    background: var(--bg-button);
+  }
+
+  .separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
   }
 </style>

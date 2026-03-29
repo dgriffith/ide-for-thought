@@ -80,6 +80,12 @@
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >
+    {#if contextMenu.target}
+      <button onclick={() => { navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
+        Copy Path
+      </button>
+      <div class="separator"></div>
+    {/if}
     <button onclick={() => { onNewNote(contextMenu!.dir); contextMenu = null; }}>
       New Note Here
     </button>
