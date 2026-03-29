@@ -1,9 +1,12 @@
 import * as $rdf from 'rdflib';
+import { QueryEngine } from '@comunica/query-sparql-rdfjs';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown } from './parser';
+
+let engine: QueryEngine | null = null;
 
 // ── Namespaces ──────────────────────────────────────────────────────────────
 
@@ -99,6 +102,9 @@ export async function initGraph(rootPath: string): Promise<void> {
 
   // Resolve (or coin) the stable base URI for this project
   baseUri = resolveBaseUri(rootPath);
+
+  // Initialize Comunica engine
+  if (!engine) engine = new QueryEngine();
 
   // Load the ontology definitions into the store
   addOntologyToStore();
@@ -254,26 +260,23 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
 // ── Query ───────────────────────────────────────────────────────────────────
 
 export async function queryGraph(sparql: string): Promise<{ results: unknown[] }> {
-  if (!store) return { results: [] };
+  if (!store || !engine) return { results: [] };
 
   try {
-    const query = $rdf.SPARQLToQuery(sparql, false, store);
-    if (!query) return { results: [] };
-
-    return new Promise((resolve) => {
-      const results: Record<string, string>[] = [];
-      store!.query(query, (binding: any) => {
-        const obj: Record<string, string> = {};
-        for (const [key, val] of Object.entries(binding)) {
-          if (val && typeof (val as any).value === 'string') {
-            obj[key] = (val as any).value;
-          }
-        }
-        results.push(obj);
-      }, undefined, () => {
-        resolve({ results });
-      });
+    const bindingsStream = await engine.queryBindings(sparql, {
+      sources: [store],
     });
+    const bindings = await bindingsStream.toArray();
+
+    const results = bindings.map((binding) => {
+      const obj: Record<string, string> = {};
+      for (const [variable, term] of binding) {
+        obj[variable.value] = term.value;
+      }
+      return obj;
+    });
+
+    return { results };
   } catch (e) {
     return { results: [], error: String(e) } as any;
   }
