@@ -39,15 +39,12 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
 
     if (entry.isDirectory()) {
       const children = await readDirectory(fullPath, rootPath);
-      // Only include directories that contain markdown files (directly or nested)
-      if (children.length > 0) {
-        files.push({
-          name: entry.name,
-          relativePath,
-          isDirectory: true,
-          children,
-        });
-      }
+      files.push({
+        name: entry.name,
+        relativePath,
+        isDirectory: true,
+        children,
+      });
     } else if (entry.name.endsWith('.md')) {
       files.push({
         name: entry.name,
@@ -98,4 +95,9 @@ export async function deleteFile(rootPath: string, relativePath: string): Promis
 export async function createFolder(rootPath: string, relativePath: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(fullPath, { recursive: true });
+}
+
+export async function deleteFolder(rootPath: string, relativePath: string): Promise<void> {
+  const fullPath = assertSafePath(rootPath, relativePath);
+  await fs.rm(fullPath, { recursive: true });
 }

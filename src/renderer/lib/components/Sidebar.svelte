@@ -10,10 +10,25 @@
     onOpenFolder: () => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
+    onDelete: (relativePath: string, isDirectory: boolean) => void;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete }: Props = $props();
   let tagPanel = $state<TagPanel>();
+  let contextMenu = $state<{ x: number; y: number } | null>(null);
+
+  function handleContextMenu(e: MouseEvent) {
+    // Let FileTree's own context menu handle clicks on tree items
+    const target = e.target as HTMLElement;
+    if (target.closest('.tree-item')) return;
+    e.preventDefault();
+    contextMenu = { x: e.clientX, y: e.clientY };
+    const close = () => {
+      contextMenu = null;
+      window.removeEventListener('click', close);
+    };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
 
   export function refreshTags() {
     tagPanel?.refresh();
@@ -33,13 +48,27 @@
   </div>
 
   {#if files.length > 0}
-    <div class="file-list">
-      <FileTree {files} {activeFilePath} {onFileSelect} {onNewNote} {onNewFolder} />
+    <div class="file-list" oncontextmenu={handleContextMenu}>
+      <FileTree {files} {activeFilePath} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} />
   {:else}
-    <div class="empty">
+    <div class="empty" oncontextmenu={handleContextMenu}>
       <p>No notes yet</p>
+    </div>
+  {/if}
+{#if contextMenu}
+    <div
+      class="context-menu"
+      style:left="{contextMenu.x}px"
+      style:top="{contextMenu.y}px"
+    >
+      <button onclick={() => { onNewNote(''); contextMenu = null; }}>
+        New Note
+      </button>
+      <button onclick={() => { onNewFolder(''); contextMenu = null; }}>
+        New Folder
+      </button>
     </div>
   {/if}
 </aside>
@@ -92,5 +121,32 @@
   .empty p {
     color: var(--text-muted);
     font-size: 13px;
+  }
+
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+  }
+
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .context-menu button:hover {
+    background: var(--bg-button);
   }
 </style>

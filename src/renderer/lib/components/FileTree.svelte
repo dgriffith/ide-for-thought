@@ -9,20 +9,22 @@
     onFileSelect: (relativePath: string) => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
+    onDelete: (relativePath: string, isDirectory: boolean) => void;
   }
 
-  let { files, activeFilePath, depth = 0, onFileSelect, onNewNote, onNewFolder }: Props = $props();
+  let { files, activeFilePath, depth = 0, onFileSelect, onNewNote, onNewFolder, onDelete }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
-  let contextMenu = $state<{ x: number; y: number; dir: string } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
 
   function toggleDir(path: string) {
     expanded[path] = !expanded[path];
   }
 
-  function handleContextMenu(e: MouseEvent, dirPath: string) {
+  function handleContextMenu(e: MouseEvent, dirPath: string, target?: string, targetIsDir?: boolean) {
     e.preventDefault();
-    contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath };
+    e.stopPropagation();
+    contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath, target, targetIsDir };
     const close = () => {
       contextMenu = null;
       window.removeEventListener('click', close);
@@ -40,7 +42,7 @@
           class="tree-item dir"
           style:padding-left="{depth * 16 + 8}px"
           onclick={() => toggleDir(file.relativePath)}
-          oncontextmenu={(e) => handleContextMenu(e, file.relativePath)}
+          oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
         >
           <span class="icon">{expanded[file.relativePath] ? '▾' : '▸'}</span>
           {file.name}
@@ -53,6 +55,7 @@
             {onFileSelect}
             {onNewNote}
             {onNewFolder}
+            {onDelete}
           />
         {/if}
       {:else}
@@ -61,6 +64,7 @@
           class:active={activeFilePath === file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
           onclick={() => onFileSelect(file.relativePath)}
+          oncontextmenu={(e) => handleContextMenu(e, file.relativePath.includes('/') ? file.relativePath.substring(0, file.relativePath.lastIndexOf('/')) : '', file.relativePath, false)}
         >
           <span class="icon">📄</span>
           {file.name.replace(/\.md$/, '')}
@@ -82,6 +86,12 @@
     <button onclick={() => { onNewFolder(contextMenu!.dir); contextMenu = null; }}>
       New Folder
     </button>
+    {#if contextMenu.target}
+      <div class="separator"></div>
+      <button onclick={() => { onDelete(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+        Delete {contextMenu.targetIsDir ? 'Folder' : 'Note'}
+      </button>
+    {/if}
   </div>
 {/if}
 
@@ -156,5 +166,11 @@
 
   .context-menu button:hover {
     background: var(--bg-button);
+  }
+
+  .separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
   }
 </style>

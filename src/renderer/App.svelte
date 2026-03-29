@@ -6,6 +6,8 @@
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore } from './lib/stores/editor.svelte';
+  import PromptDialog from './lib/components/PromptDialog.svelte';
+  import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import { api } from './lib/ipc/client';
 
   type ViewMode = 'source' | 'preview' | 'split';
@@ -15,6 +17,48 @@
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
+  let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
+  let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
+  const suppressedConfirms = new Set<string>(
+    JSON.parse(localStorage.getItem('suppressedConfirms') ?? '[]')
+  );
+
+  function showPrompt(message: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      promptDialog = { message, resolve };
+    });
+  }
+
+  function showConfirm(message: string, key: string, confirmLabel = 'OK'): Promise<boolean> {
+    if (suppressedConfirms.has(key)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      confirmDialog = { message, confirmLabel, key, resolve };
+    });
+  }
+
+  function handlePromptConfirm(value: string) {
+    promptDialog?.resolve(value);
+    promptDialog = null;
+  }
+
+  function handlePromptCancel() {
+    promptDialog?.resolve(null);
+    promptDialog = null;
+  }
+
+  function handleConfirmOk(dontAskAgain: boolean) {
+    if (dontAskAgain && confirmDialog) {
+      suppressedConfirms.add(confirmDialog.key);
+      localStorage.setItem('suppressedConfirms', JSON.stringify([...suppressedConfirms]));
+    }
+    confirmDialog?.resolve(true);
+    confirmDialog = null;
+  }
+
+  function handleConfirmCancel() {
+    confirmDialog?.resolve(false);
+    confirmDialog = null;
+  }
 
   async function handleFileSelect(relativePath: string) {
     await editor.openFile(relativePath);
@@ -37,7 +81,7 @@
 
   async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
-    const name = prompt('Note name:');
+    const name = await showPrompt('Note name:');
     if (!name) return;
     const filename = name.endsWith('.md') ? name : `${name}.md`;
     const relativePath = directory ? `${directory}/${filename}` : filename;
@@ -49,11 +93,29 @@
 
   async function handleNewFolder(directory: string = '') {
     if (!notebase.meta) return;
-    const name = prompt('Folder name:');
+    const name = await showPrompt('Folder name:');
     if (!name) return;
     const relativePath = directory ? `${directory}/${name}` : name;
     await api.notebase.createFolder(relativePath);
     await notebase.refresh();
+  }
+
+  async function handleDelete(relativePath: string, isDirectory: boolean) {
+    if (!notebase.meta) return;
+    const label = isDirectory ? 'folder' : 'note';
+    const name = relativePath.split('/').pop();
+    const confirmed = await showConfirm(`Delete ${label} "${name}"?`, 'confirm-delete', 'Delete');
+    if (!confirmed) return;
+    if (isDirectory) {
+      await api.notebase.deleteFolder(relativePath);
+    } else {
+      await api.notebase.deleteFile(relativePath);
+      if (editor.activeFilePath === relativePath) {
+        editor.clear();
+      }
+    }
+    await notebase.refresh();
+    sidebar?.refreshTags();
   }
 
   // Refresh tags when notebase opens
@@ -127,6 +189,7 @@
           onOpenFolder={notebase.open}
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
+          onDelete={handleDelete}
         />
       {/if}
       <div class="editor-pane">
@@ -184,6 +247,22 @@
       </div>
     {/if}
   </div>
+
+  {#if promptDialog}
+    <PromptDialog
+      message={promptDialog.message}
+      onConfirm={handlePromptConfirm}
+      onCancel={handlePromptCancel}
+    />
+  {/if}
+  {#if confirmDialog}
+    <ConfirmDialog
+      message={confirmDialog.message}
+      confirmLabel={confirmDialog.confirmLabel}
+      onConfirm={handleConfirmOk}
+      onCancel={handleConfirmCancel}
+    />
+  {/if}
 </div>
 
 <style>
