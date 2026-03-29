@@ -6,39 +6,40 @@ import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown } from './parser';
 
-import { DataFactory } from 'rdflib';
+import * as N3 from 'n3';
 
 let engine: QueryEngine | null = null;
 
-/** Wrap rdflib store as a clean RDF/JS Source for Comunica */
-function asSource(s: $rdf.IndexedFormula): any {
-  const allQuads = () => s.match(null, null, null, null).map(normalizeQuad);
+/** Build an N3.Store from rdflib's IndexedFormula for Comunica to query */
+function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
+  const n3Store = new N3.Store();
+  const df = N3.DataFactory;
 
-  function normalizeQuad(q: any) {
-    const df = DataFactory;
-    return df.quad(
-      q.subject,
-      q.predicate,
-      q.object,
-      q.graph?.termType === 'DefaultGraph' ? df.defaultGraph() : (q.graph ?? df.defaultGraph()),
-    );
+  for (const st of s.statements) {
+    try {
+      const subject = convertTerm(st.subject, df);
+      const predicate = convertTerm(st.predicate, df) as N3.NamedNode;
+      const object = convertTerm(st.object, df);
+      if (subject && predicate && object) {
+        n3Store.addQuad(subject as any, predicate, object as any, df.defaultGraph());
+      }
+    } catch { /* skip malformed triples */ }
   }
 
-  return {
-    match(subject?: any, predicate?: any, object?: any, graph?: any) {
-      return s.match(
-        subject ?? null,
-        predicate ?? null,
-        object ?? null,
-        graph ?? null,
-      ).map(normalizeQuad);
-    },
-    get size() { return s.length; },
-    add() { throw new Error('read-only'); },
-    delete() { throw new Error('read-only'); },
-    has(quad: any) { return s.holds(quad.subject, quad.predicate, quad.object, quad.graph); },
-    [Symbol.iterator]() { return allQuads()[Symbol.iterator](); },
-  };
+  return n3Store;
+}
+
+function convertTerm(term: any, df: typeof N3.DataFactory): N3.Term | null {
+  if (!term || !term.termType) return null;
+  switch (term.termType) {
+    case 'NamedNode': return df.namedNode(term.value);
+    case 'BlankNode': return df.blankNode(term.value);
+    case 'Literal':
+      if (term.datatype) return df.literal(term.value, df.namedNode(term.datatype.value));
+      if (term.language) return df.literal(term.value, term.language);
+      return df.literal(term.value);
+    default: return null;
+  }
 }
 
 // ── Namespaces ──────────────────────────────────────────────────────────────
@@ -296,8 +297,9 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
   if (!store || !engine) return { results: [] };
 
   try {
+    const n3Store = buildN3Store(store);
     const bindingsStream = await engine.queryBindings(sparql, {
-      sources: [asSource(store)],
+      sources: [n3Store],
     });
     const bindings = await bindingsStream.toArray();
 

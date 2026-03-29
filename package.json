@@ -16,6 +16,7 @@
     "chokidar": "^4.0.0",
     "isomorphic-git": "^1.27.1",
     "minisearch": "^7.2.0",
+    "n3": "^2.0.3",
     "rdflib": "^2.2.35"
   },
   "pnpm": {
@@ -36,6 +37,7 @@
     "@electron-forge/plugin-vite": "^7.6.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@types/markdown-it": "^14.1.2",
+    "@types/n3": "^1.26.1",
     "codemirror": "^6.0.1",
     "electron": "^33.3.1",
     "highlight.js": "^11.11.1",

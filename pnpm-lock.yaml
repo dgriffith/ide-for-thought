@@ -20,6 +20,9 @@ importers:
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0
+      n3:
+        specifier: ^2.0.3
+        version: 2.0.3
       rdflib:
         specifier: ^2.2.35
         version: 2.3.6(encoding@0.1.13)
@@ -51,6 +54,9 @@ importers:
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
+      '@types/n3':
+        specifier: ^1.26.1
+        version: 1.26.1
       codemirror:
         specifier: ^6.0.1
         version: 6.0.2
