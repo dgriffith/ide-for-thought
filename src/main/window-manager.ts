@@ -4,6 +4,7 @@ import { startWatching, stopWatching } from './notebase/watcher';
 import * as graph from './graph/index';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
+import { saveSession, type WindowState } from './session';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -16,10 +17,35 @@ interface WindowContext {
 const contexts = new Map<number, WindowContext>();
 const watchers = new Map<number, string>();
 
-export function createWindow(): BrowserWindow {
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+
+function persistSession(): void {
+  // Debounce to avoid writing on every pixel of a resize/move
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    const windows: WindowState[] = [];
+    for (const win of BrowserWindow.getAllWindows()) {
+      const ctx = contexts.get(win.id);
+      if (ctx?.rootPath && !win.isDestroyed()) {
+        const bounds = win.getBounds();
+        windows.push({
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          rootPath: ctx.rootPath,
+        });
+      }
+    }
+    saveSession(windows);
+  }, 500);
+}
+
+export function createWindow(opts?: { x?: number; y?: number; width?: number; height?: number }): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: opts?.width ?? 1200,
+    height: opts?.height ?? 800,
+    ...(opts?.x != null && opts?.y != null ? { x: opts.x, y: opts.y } : {}),
     minWidth: 600,
     minHeight: 400,
     titleBarStyle: 'hiddenInset',
@@ -48,7 +74,11 @@ export function createWindow(): BrowserWindow {
       watchers.delete(win.id);
     }
     contexts.delete(win.id);
+    persistSession();
   });
+
+  win.on('move', persistSession);
+  win.on('resize', persistSession);
 
   win.on('focus', () => {
     rebuildMenu();
@@ -88,6 +118,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
 
   await graph.initGraph(rootPath);
   await graph.indexAllNotes(rootPath);
+  persistSession();
 }
 
 export function closeProjectInWindow(winId: number): void {
@@ -99,6 +130,7 @@ export function closeProjectInWindow(winId: number): void {
     }
     ctx.rootPath = null;
   }
+  persistSession();
 }
 
 export function getWindowById(id: number): BrowserWindow | null {
