@@ -1,5 +1,6 @@
 <script lang="ts">
   import TitleBar from './lib/components/TitleBar.svelte';
+  import TabBar from './lib/components/TabBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
@@ -113,12 +114,15 @@
       await api.notebase.deleteFolder(relativePath);
     } else {
       await api.notebase.deleteFile(relativePath);
-      if (editor.activeFilePath === relativePath) {
-        editor.clear();
-      }
+      const tabIdx = editor.tabs.findIndex((t) => t.relativePath === relativePath);
+      if (tabIdx !== -1) editor.closeTab(tabIdx);
     }
     await notebase.refresh();
     sidebar?.refreshTags();
+  }
+
+  function handleRevealInSidebar(relativePath: string) {
+    api.shell.revealFile(relativePath);
   }
 
   // Refresh tags when notebase opens
@@ -146,6 +150,12 @@
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
       e.preventDefault();
       handleNewNote();
+    }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'w') {
+      if (editor.activeIndex >= 0) {
+        e.preventDefault();
+        editor.closeTab(editor.activeIndex);
+      }
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
       e.preventDefault();
@@ -201,7 +211,18 @@
         />
       {/if}
       <div class="editor-pane">
-        {#if editor.activeFilePath}
+        {#if editor.tabs.length > 0}
+          <TabBar
+            tabs={editor.tabs}
+            activeIndex={editor.activeIndex}
+            onSwitch={editor.switchTab}
+            onClose={editor.closeTab}
+            onCloseOthers={editor.closeOthers}
+            onCloseAll={editor.closeAll}
+            onReveal={handleRevealInSidebar}
+          />
+        {/if}
+        {#if editor.activeTab}
           <div class="toolbar">
             <div class="view-toggle">
               <button
@@ -224,13 +245,18 @@
           <div class="editor-content" class:split={viewMode === 'split'}>
             {#if viewMode === 'source' || viewMode === 'split'}
               <div class="editor-panel">
-                <Editor
-                  content={editor.content}
-                  searchQuery={pendingSearchQuery}
-                  onContentChange={editor.setContent}
-                  onSave={handleSave}
-                  onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
-                />
+                {#key editor.activeFilePath}
+                  <Editor
+                    content={editor.content}
+                    searchQuery={pendingSearchQuery}
+                    savedEditorState={editor.activeTab?.editorStateJSON}
+                    savedScrollTop={editor.activeTab?.scrollTop}
+                    onContentChange={editor.setContent}
+                    onSave={handleSave}
+                    onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
+                    onEditorStateSave={editor.saveEditorState}
+                  />
+                {/key}
               </div>
             {/if}
             {#if viewMode === 'preview' || viewMode === 'split'}
