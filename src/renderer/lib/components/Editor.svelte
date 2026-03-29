@@ -107,7 +107,8 @@
       selection: { anchor: pos },
       effects: EditorView.scrollIntoView(pos, { y: 'center' }),
     });
-    view.focus();
+    // Defer focus so the Enter keyup from the dialog doesn't fire in CM
+    requestAnimationFrame(() => view.focus());
   }
 
   export function getCursorPosition(): { line: number; column: number } {
