@@ -3,6 +3,8 @@ import { registerIpcHandlers } from './ipc';
 import { buildMenu } from './menu';
 import { createWindow } from './window-manager';
 
+app.setName('Minerva');
+
 app.whenReady().then(() => {
   registerIpcHandlers();
   const win = createWindow();
