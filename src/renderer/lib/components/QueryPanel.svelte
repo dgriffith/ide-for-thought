@@ -18,9 +18,10 @@
     tab: QueryTab;
     onQueryChange: (text: string) => void;
     onExecute: () => void;
+    onSave: () => void;
   }
 
-  let { tab, onQueryChange, onExecute }: Props = $props();
+  let { tab, onQueryChange, onExecute, onSave }: Props = $props();
 
   let textareaEl = $state<HTMLTextAreaElement>();
   let splitRatio = $state(0.4); // 40% editor, 60% results
@@ -105,6 +106,11 @@
       >
         {tab.executing ? 'Running...' : 'Run'}
       </button>
+      <button
+        class="save-query-btn"
+        onclick={onSave}
+        title="Save query"
+      >Save</button>
       {#if tab.executionTime != null}
         <span class="status-text">
           {tab.results ? `${tab.results.length} result${tab.results.length !== 1 ? 's' : ''}` : 'Error'}
@@ -215,6 +221,20 @@
   .run-btn:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .save-query-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .save-query-btn:hover {
+    background: var(--bg-button-hover);
   }
 
   .status-text {

@@ -265,6 +265,7 @@
     api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onNewQuery(() => editor.openQuery());
+    api.menu.onSaveQuery(() => handleSaveQuery());
     api.menu.onOpenStockQuery((q) => editor.openQuery(q));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onProjectOpened(async (meta) => {
@@ -377,6 +378,7 @@
             tab={editor.activeQueryTab!}
             onQueryChange={editor.setQueryText}
             onExecute={editor.executeQuery}
+            onSave={handleSaveQuery}
           />
         {:else}
           <div class="no-file">

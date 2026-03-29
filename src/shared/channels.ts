@@ -54,6 +54,7 @@ export const Channels = {
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
+  MENU_SAVE_QUERY: 'menu:saveQuery',
   MENU_OPEN_STOCK_QUERY: 'menu:openStockQuery',
 
   // Renderer → main (for menu-triggered main-process actions)

@@ -65,6 +65,7 @@ export interface MenuApi {
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
   onNewQuery(cb: () => void): void;
+  onSaveQuery(cb: () => void): void;
   onOpenStockQuery(cb: (query: string) => void): void;
   onSortLines(cb: () => void): void;
   onOpenProject(cb: () => void): void;

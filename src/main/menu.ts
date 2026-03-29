@@ -261,6 +261,10 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+Shift+Q',
           click: () => send(Channels.MENU_NEW_QUERY),
         },
+        {
+          label: 'Save Current Query',
+          click: () => send(Channels.MENU_SAVE_QUERY),
+        },
         { type: 'separator' },
         {
           label: 'Stock Queries',

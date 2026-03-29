@@ -95,6 +95,9 @@ contextBridge.exposeInMainWorld('api', {
     onNewQuery: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());
     },
+    onSaveQuery: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SAVE_QUERY, () => cb());
+    },
     onOpenStockQuery: (cb: (query: string) => void) => {
       ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, q) => cb(q));
     },
