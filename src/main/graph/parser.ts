@@ -12,7 +12,7 @@ export interface ParsedNote {
 }
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
-const TYPED_WIKI_LINK_RE = /\[\[(?:([a-z][\w-]*)::((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\]|\[\[((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\])/g;
+const WIKI_LINK_RE = /\[\[([^\]]+?)\]\]/g;
 const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
 const HEADING_RE = /^#\s+(.+)$/m;
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
@@ -54,29 +54,33 @@ function extractLinks(content: string): ParsedLink[] {
   const seen = new Set<string>();
   let match;
 
-  // Reset regex state
-  TYPED_WIKI_LINK_RE.lastIndex = 0;
+  WIKI_LINK_RE.lastIndex = 0;
 
-  while ((match = TYPED_WIKI_LINK_RE.exec(content)) !== null) {
-    if (match[1] !== undefined) {
-      // Typed link: [[type::target]] or [[type::target|display]]
-      const type = match[1];
-      const target = match[2].trim();
-      const displayText = match[3]?.trim();
-      const key = `${type}::${target}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        links.push({ target, type, displayText });
-      }
-    } else if (match[4] !== undefined) {
-      // Plain link: [[target]] or [[target|display]]
-      const target = match[4].trim();
-      const displayText = match[5]?.trim();
-      const key = `references::${target}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        links.push({ target, type: 'references', displayText });
-      }
+  while ((match = WIKI_LINK_RE.exec(content)) !== null) {
+    const inner = match[1];
+
+    // Check for typed link: type::rest
+    const typeMatch = inner.match(/^([a-z][\w-]*)::(.+)$/);
+    let type: string;
+    let rest: string;
+
+    if (typeMatch) {
+      type = typeMatch[1];
+      rest = typeMatch[2];
+    } else {
+      type = 'references';
+      rest = inner;
+    }
+
+    // Split rest on | for display text
+    const pipeIdx = rest.indexOf('|');
+    const target = (pipeIdx >= 0 ? rest.slice(0, pipeIdx) : rest).trim();
+    const displayText = pipeIdx >= 0 ? rest.slice(pipeIdx + 1).trim() : undefined;
+
+    const key = `${type}::${target}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      links.push({ target, type, displayText });
     }
   }
 
