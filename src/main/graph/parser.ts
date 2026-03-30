@@ -1,11 +1,18 @@
+export interface ParsedLink {
+  target: string;
+  type: string;       // link type name (e.g. 'supports', 'references')
+  displayText?: string;
+}
+
 export interface ParsedNote {
   title: string | null;
   tags: string[];
-  links: string[];
+  links: ParsedLink[];
   frontmatter: Record<string, string>;
 }
 
-const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;
+// [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
+const TYPED_WIKI_LINK_RE = /\[\[(?:([a-z][\w-]*)::((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\]|\[\[((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\])/g;
 const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
 const HEADING_RE = /^#\s+(.+)$/m;
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
@@ -42,15 +49,38 @@ function extractTags(content: string): string[] {
   return [...tags];
 }
 
-function extractLinks(content: string): string[] {
-  const links = new Set<string>();
+function extractLinks(content: string): ParsedLink[] {
+  const links: ParsedLink[] = [];
+  const seen = new Set<string>();
   let match;
-  while ((match = WIKI_LINK_RE.exec(content)) !== null) {
-    // Handle [[link|display text]] format
-    const target = match[1].split('|')[0].trim();
-    links.add(target);
+
+  // Reset regex state
+  TYPED_WIKI_LINK_RE.lastIndex = 0;
+
+  while ((match = TYPED_WIKI_LINK_RE.exec(content)) !== null) {
+    if (match[1] !== undefined) {
+      // Typed link: [[type::target]] or [[type::target|display]]
+      const type = match[1];
+      const target = match[2].trim();
+      const displayText = match[3]?.trim();
+      const key = `${type}::${target}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        links.push({ target, type, displayText });
+      }
+    } else if (match[4] !== undefined) {
+      // Plain link: [[target]] or [[target|display]]
+      const target = match[4].trim();
+      const displayText = match[5]?.trim();
+      const key = `references::${target}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        links.push({ target, type: 'references', displayText });
+      }
+    }
   }
-  return [...links];
+
+  return links;
 }
 
 function extractFrontmatter(content: string): Record<string, string> {

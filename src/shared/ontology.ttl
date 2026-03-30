@@ -52,7 +52,74 @@ minerva:inFolder a owl:ObjectProperty ;
 
 minerva:linksTo a owl:ObjectProperty ;
     rdfs:label "links to" ;
-    rdfs:comment "A wiki-link reference from one note to another." ;
+    rdfs:comment "A wiki-link reference from one note to another (generic, untyped)." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+# ── Typed Link Properties ─────────────────────────────────────────────────
+# Each is a sub-property of minerva:linksTo, so SPARQL queries on linksTo
+# will also return typed links.
+
+minerva:references a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "references" ;
+    rdfs:comment "A plain wiki-link reference from one note to another." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:supports a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "supports" ;
+    rdfs:comment "This note provides evidence for the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:rebuts a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "rebuts" ;
+    rdfs:comment "This note provides counter-evidence to the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:expands a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "expands" ;
+    rdfs:comment "This note elaborates on the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:dependsOn a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "depends on" ;
+    rdfs:comment "This note requires the target note as a prerequisite." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:implements a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "implements" ;
+    rdfs:comment "This note is an execution or implementation of the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:alternativeTo a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "alternative to" ;
+    rdfs:comment "This note presents a competing approach to the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:supersedes a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "supersedes" ;
+    rdfs:comment "This note replaces the target note." ;
+    rdfs:domain minerva:Note ;
+    rdfs:range minerva:Note .
+
+minerva:relatedTo a owl:ObjectProperty ;
+    rdfs:subPropertyOf minerva:linksTo ;
+    rdfs:label "related to" ;
+    rdfs:comment "A generic association between notes." ;
     rdfs:domain minerva:Note ;
     rdfs:range minerva:Note .
 

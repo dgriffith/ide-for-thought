@@ -5,6 +5,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown } from './parser';
+import { getLinkType } from '../../shared/link-types';
 
 import * as N3 from 'n3';
 
@@ -198,10 +199,11 @@ export async function indexNote(relativePath: string, content: string): Promise<
     store.add(subject, MINERVA('hasTag'), tagNode);
   }
 
-  // Wiki-links
+  // Wiki-links — typed predicates
   for (const link of parsed.links) {
-    const target = link.endsWith('.md') ? link : `${link}.md`;
-    store.add(subject, MINERVA('linksTo'), noteUri(target));
+    const target = link.target.endsWith('.md') ? link.target : `${link.target}.md`;
+    const linkType = getLinkType(link.type);
+    store.add(subject, MINERVA(linkType.predicate), noteUri(target));
   }
 
   // Frontmatter as dc: or minerva: properties

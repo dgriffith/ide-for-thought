@@ -2,6 +2,7 @@
   import MarkdownIt from 'markdown-it';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
+  import { getLinkType } from '../../../shared/link-types';
 
   interface Props {
     content: string;
@@ -25,26 +26,33 @@
     },
   });
 
-  // Wiki-link plugin: [[target]] or [[target|display]]
+  // Wiki-link plugin: [[type::target|display]], [[type::target]], [[target|display]], [[target]]
   md.inline.ruler.push('wiki_link', (state, silent) => {
     const src = state.src.slice(state.pos);
-    const match = src.match(/^\[\[([^\]]+)\]\]/);
+    // Match typed: [[type::target|display]] or [[type::target]]
+    // Or plain: [[target|display]] or [[target]]
+    const match = src.match(/^\[\[(?:([a-z][\w-]*)::)?((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\]/);
     if (!match) return false;
     if (!silent) {
       const token = state.push('wiki_link', '', 0);
-      const parts = match[1].split('|');
-      token.meta = {
-        target: parts[0].trim(),
-        display: (parts[1] ?? parts[0]).trim(),
-      };
+      const linkTypeName = match[1] ?? 'references';
+      const target = match[2].trim();
+      const display = match[3]?.trim() ?? target;
+      token.meta = { target, display, linkType: linkTypeName };
     }
     state.pos += match[0].length;
     return true;
   });
 
   md.renderer.rules.wiki_link = (tokens, idx) => {
-    const { target, display } = tokens[idx].meta;
-    return `<a class="wiki-link" data-target="${escapeAttr(target)}">${escapeHtml(display)}</a>`;
+    const { target, display, linkType: typeName } = tokens[idx].meta;
+    const linkType = getLinkType(typeName);
+    if (typeName === 'references') {
+      // Plain links render as before
+      return `<a class="wiki-link" data-target="${escapeAttr(target)}">${escapeHtml(display)}</a>`;
+    }
+    // Typed links render with a colored badge
+    return `<a class="wiki-link typed-link" data-target="${escapeAttr(target)}" style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span>${escapeHtml(display)}</a>`;
   };
 
   // Tag plugin: #tag (but not inside URLs or after non-whitespace)
@@ -159,6 +167,26 @@
 
   .preview :global(.wiki-link:hover) {
     opacity: 0.8;
+  }
+
+  .preview :global(.typed-link) {
+    color: var(--link-color, var(--accent));
+    border-bottom-color: var(--link-color, var(--accent));
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .preview :global(.link-type-badge) {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    vertical-align: baseline;
   }
 
   .preview :global(.note-tag) {
