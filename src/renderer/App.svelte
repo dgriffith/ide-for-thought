@@ -405,6 +405,12 @@
                 title="Preview"
               >Preview</button>
             </div>
+            <button
+              class="nav-btn sidebar-toggle"
+              class:active={rightSidebarVisible}
+              onclick={() => { rightSidebarVisible = !rightSidebarVisible; }}
+              title="Toggle Right Sidebar (Cmd+Shift+B)"
+            >&#x2759;</button>
           </div>
           <div class="editor-content" class:split={viewMode === 'split'}>
             {#if viewMode === 'source' || viewMode === 'split'}
@@ -564,6 +570,14 @@
     color: var(--text-muted);
     opacity: 0.4;
     cursor: default;
+  }
+
+  .sidebar-toggle {
+    margin-left: auto;
+  }
+
+  .sidebar-toggle.active {
+    color: var(--accent);
   }
 
   .view-toggle {
