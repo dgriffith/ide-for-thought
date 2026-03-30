@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { LINK_TYPES, type LinkType } from '../../../shared/link-types';
 import { EditorSelection } from '@codemirror/state';
 import type { Command } from '@codemirror/view';
 
@@ -191,5 +192,59 @@ export const insertImage: Command = (view: EditorView) => {
     changes: { from: pos, insert: '![alt](url)' },
     selection: { anchor: pos + 2, head: pos + 5 },
   });
+  return true;
+};
+
+// ── Typed link insert commands ─────────────────────────────────────────────
+
+function makeInsertTypedLink(linkType: LinkType): Command {
+  return (view: EditorView) => {
+    const { state } = view;
+    const { from, to } = state.selection.main;
+    const selected = state.sliceDoc(from, to);
+
+    if (selected) {
+      // Wrap selection as the target
+      const insert = `[[${linkType.name}::${selected}]]`;
+      view.dispatch({
+        changes: { from, to, insert },
+        selection: { anchor: from + insert.length },
+      });
+    } else {
+      // Insert template with cursor at target position
+      const prefix = `[[${linkType.name}::`;
+      view.dispatch({
+        changes: { from, insert: `${prefix}]]` },
+        selection: { anchor: from + prefix.length },
+      });
+    }
+    return true;
+  };
+}
+
+/** Pre-built insert commands for each link type (excluding 'references' — that's a plain [[link]]) */
+export const insertTypedLinks: { linkType: LinkType; command: Command }[] =
+  LINK_TYPES.filter((lt) => lt.name !== 'references').map((lt) => ({
+    linkType: lt,
+    command: makeInsertTypedLink(lt),
+  }));
+
+export const insertWikiLink: Command = (view: EditorView) => {
+  const { state } = view;
+  const { from, to } = state.selection.main;
+  const selected = state.sliceDoc(from, to);
+
+  if (selected) {
+    const insert = `[[${selected}]]`;
+    view.dispatch({
+      changes: { from, to, insert },
+      selection: { anchor: from + insert.length },
+    });
+  } else {
+    view.dispatch({
+      changes: { from, insert: '[[]]' },
+      selection: { anchor: from + 2 },
+    });
+  }
   return true;
 };

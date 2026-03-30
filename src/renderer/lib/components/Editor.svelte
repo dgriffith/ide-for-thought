@@ -14,6 +14,7 @@
     toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
     toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
+    insertWikiLink, insertTypedLinks,
   } from '../editor/formatting';
 
   interface Props {
@@ -268,11 +269,19 @@
     <div class="submenu-item">
       <span class="submenu-trigger">Insert &#x25B8;</span>
       <div class="submenu">
-        <button onclick={() => runCmd(insertLink)}>Link</button>
+        <button onclick={() => runCmd(insertWikiLink)}>Wiki Link</button>
+        <button onclick={() => runCmd(insertLink)}>URL Link</button>
         <button onclick={() => runCmd(insertImage)}>Image</button>
         <button onclick={() => runCmd(insertTable)}>Table</button>
         <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
         <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
+        <div class="submenu-separator"></div>
+        {#each insertTypedLinks as { linkType, command }}
+          <button onclick={() => runCmd(command)}>
+            <span class="typed-link-dot" style:background={linkType.color}></span>
+            {linkType.label} Link
+          </button>
+        {/each}
       </div>
     </div>
     <div class="separator"></div>
@@ -352,6 +361,21 @@
 
   .submenu-item:hover > .submenu {
     display: block;
+  }
+
+  .submenu-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  .typed-link-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
   }
 
   .separator {
