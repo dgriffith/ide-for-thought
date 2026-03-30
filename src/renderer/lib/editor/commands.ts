@@ -4,10 +4,10 @@ import type { Command } from '@codemirror/view';
 
 // ── Toggle Case ─────────────────────────────────────────────────────────────
 
-function isAllLower(s: string): boolean { return s === s.toLowerCase() && s !== s.toUpperCase(); }
-function isAllUpper(s: string): boolean { return s === s.toUpperCase() && s !== s.toLowerCase(); }
+export function isAllLower(s: string): boolean { return s === s.toLowerCase() && s !== s.toUpperCase(); }
+export function isAllUpper(s: string): boolean { return s === s.toUpperCase() && s !== s.toLowerCase(); }
 
-function toTitleCase(s: string): string {
+export function toTitleCase(s: string): string {
   return s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
 }
 
@@ -167,7 +167,7 @@ const PAIRS: Record<string, string> = {
   '"': '"', "'": "'", '`': '`',
 };
 
-function findEnclosingPair(doc: Text, from: number, to: number): { from: number; to: number } | null {
+export function findEnclosingPair(doc: Text, from: number, to: number): { from: number; to: number } | null {
   const text = doc.toString();
 
   // Search outward for matching bracket/quote pairs
@@ -213,7 +213,7 @@ function findEnclosingPair(doc: Text, from: number, to: number): { from: number;
   return null;
 }
 
-function findWord(doc: Text, pos: number): { from: number; to: number } | null {
+export function findWord(doc: Text, pos: number): { from: number; to: number } | null {
   const line = doc.lineAt(pos);
   const text = line.text;
   const col = pos - line.from;
@@ -224,13 +224,13 @@ function findWord(doc: Text, pos: number): { from: number; to: number } | null {
   return { from: line.from + wStart, to: line.from + wEnd };
 }
 
-function findLine(doc: Text, from: number, to: number): { from: number; to: number } {
+export function findLine(doc: Text, from: number, to: number): { from: number; to: number } {
   const fromLine = doc.lineAt(from);
   const toLine = doc.lineAt(to);
   return { from: fromLine.from, to: toLine.to };
 }
 
-function findSentence(doc: Text, from: number, to: number): { from: number; to: number } | null {
+export function findSentence(doc: Text, from: number, to: number): { from: number; to: number } | null {
   const text = doc.toString();
   // Sentence boundaries: start after a sentence-ending punctuation + whitespace, or start of text
   // End at sentence-ending punctuation followed by whitespace or end of text
@@ -264,7 +264,7 @@ function findSentence(doc: Text, from: number, to: number): { from: number; to: 
   return null;
 }
 
-function findParagraph(doc: Text, from: number, to: number): { from: number; to: number } {
+export function findParagraph(doc: Text, from: number, to: number): { from: number; to: number } {
   const text = doc.toString();
   // Expand backward to empty line or start
   let pStart = from;
@@ -288,7 +288,7 @@ function findParagraph(doc: Text, from: number, to: number): { from: number; to:
   return { from: pStart, to: endLine.to };
 }
 
-function findHeadingSection(doc: Text, from: number, to: number): { from: number; to: number } | null {
+export function findHeadingSection(doc: Text, from: number, to: number): { from: number; to: number } | null {
   const text = doc.toString();
   // Find the heading above `from`
   let headingLine = -1;
@@ -322,7 +322,7 @@ function findHeadingSection(doc: Text, from: number, to: number): { from: number
   return null;
 }
 
-function nextExpansion(doc: Text, from: number, to: number): { from: number; to: number } | null {
+export function nextExpansion(doc: Text, from: number, to: number): { from: number; to: number } | null {
   const candidates: { from: number; to: number }[] = [];
 
   // If cursor (no selection), start with word

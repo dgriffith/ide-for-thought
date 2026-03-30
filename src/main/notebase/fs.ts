@@ -62,7 +62,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
   return files;
 }
 
-function assertSafePath(rootPath: string, relativePath: string): string {
+export function assertSafePath(rootPath: string, relativePath: string): string {
   const resolved = path.resolve(rootPath, relativePath);
   if (!resolved.startsWith(rootPath + path.sep) && resolved !== rootPath) {
     throw new Error('Path traversal detected');

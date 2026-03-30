@@ -23,37 +23,39 @@ function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-function parseQueryFile(filePath: string, scope: 'project' | 'global'): SavedQuery {
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const id = path.basename(filePath, '.rq');
-
+/** Parse query content string into metadata + body (pure, no I/O) */
+export function parseQueryContent(content: string, id: string, scope: 'project' | 'global'): Omit<SavedQuery, 'filePath'> {
   let name = id;
   let description = '';
 
-  // Parse comment header
   const nameMatch = content.match(/^#\s*@name\s+(.+)$/m);
   if (nameMatch) name = nameMatch[1].trim();
   const descMatch = content.match(/^#\s*@description\s+(.+)$/m);
   if (descMatch) description = descMatch[1].trim();
 
-  // Strip the metadata comments to get the query body
   const query = content
     .split('\n')
     .filter((line) => !line.match(/^#\s*@(name|description)\s/))
     .join('\n')
     .trim();
 
-  return { id, name, description, query, scope, filePath };
+  return { id, name, description, query, scope };
 }
 
-function serializeQuery(name: string, description: string, query: string): string {
+function parseQueryFile(filePath: string, scope: 'project' | 'global'): SavedQuery {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const id = path.basename(filePath, '.rq');
+  return { ...parseQueryContent(content, id, scope), filePath };
+}
+
+export function serializeQuery(name: string, description: string, query: string): string {
   const lines = [`# @name ${name}`];
   if (description) lines.push(`# @description ${description}`);
   lines.push('', query.trim(), '');
   return lines.join('\n');
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 }
 

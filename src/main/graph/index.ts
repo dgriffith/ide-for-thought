@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown } from './parser';
 import { getLinkType } from '../../shared/link-types';
+import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
 
@@ -74,41 +75,30 @@ function writeConfig(rootPath: string, config: ProjectConfig): void {
   fsSync.writeFileSync(configPath(rootPath), JSON.stringify(config, null, 2), 'utf-8');
 }
 
-function coinBaseUri(rootPath: string): string {
-  const username = os.userInfo().username;
-  const projectName = path.basename(rootPath);
-  // Sanitize to URL-safe segments
-  const safeName = (s: string) => encodeURIComponent(s.toLowerCase().replace(/\s+/g, '-'));
-  return `https://project.minerva.dev/${safeName(username)}/${safeName(projectName)}/`;
-}
-
 function resolveBaseUri(rootPath: string): string {
   const existing = readConfig(rootPath);
   if (existing?.baseUri) return existing.baseUri;
-  const coined = coinBaseUri(rootPath);
+  const coined = uriHelpers.coinBaseUri(rootPath);
   writeConfig(rootPath, { baseUri: coined });
   return coined;
 }
 
-// ── URI helpers ─────────────────────────────────────────────────────────────
+// ── URI helpers (delegate to uri-helpers module) ────────────────────────────
 
 function noteUri(relativePath: string): $rdf.NamedNode {
-  // note/path/to/file (without .md extension)
-  const clean = relativePath.replace(/\.md$/, '');
-  return $rdf.sym(`${baseUri}note/${clean}`);
+  return $rdf.sym(uriHelpers.noteUri(baseUri, relativePath));
 }
 
 function tagUri(tagName: string): $rdf.NamedNode {
-  return $rdf.sym(`${baseUri}tag/${encodeURIComponent(tagName)}`);
+  return $rdf.sym(uriHelpers.tagUri(baseUri, tagName));
 }
 
 function folderUri(relativePath: string): $rdf.NamedNode {
-  return $rdf.sym(`${baseUri}folder/${relativePath}`);
+  return $rdf.sym(uriHelpers.folderUri(baseUri, relativePath));
 }
 
 function projectUri(): $rdf.NamedNode {
-  // The project itself is the base URI (without trailing slash)
-  return $rdf.sym(baseUri.replace(/\/$/, ''));
+  return $rdf.sym(uriHelpers.projectUri(baseUri));
 }
 
 function dateLit(iso: string): $rdf.Literal {
