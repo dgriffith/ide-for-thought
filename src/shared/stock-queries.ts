@@ -100,4 +100,38 @@ SELECT ?title ?path WHERE {
 }
 ORDER BY ?title`,
   },
+  {
+    name: 'Typed outgoing links',
+    description: 'All typed links from each note (supports, rebuts, expands, etc.)',
+    query: `${PREFIXES}
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?sourceTitle ?linkType ?targetTitle WHERE {
+  ?source rdf:type minerva:Note .
+  ?source dc:title ?sourceTitle .
+  ?source ?predicate ?target .
+  ?target rdf:type minerva:Note .
+  ?target dc:title ?targetTitle .
+  ?predicate rdfs:subPropertyOf minerva:linksTo .
+  BIND(REPLACE(STR(?predicate), "https://minerva.dev/ontology#", "") AS ?linkType)
+}
+ORDER BY ?sourceTitle ?linkType`,
+  },
+  {
+    name: 'Typed backlinks',
+    description: 'All typed links pointing to each note (who supports/rebuts/expands this note)',
+    query: `${PREFIXES}
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?targetTitle ?linkType ?sourceTitle WHERE {
+  ?source rdf:type minerva:Note .
+  ?source dc:title ?sourceTitle .
+  ?source ?predicate ?target .
+  ?target rdf:type minerva:Note .
+  ?target dc:title ?targetTitle .
+  ?predicate rdfs:subPropertyOf minerva:linksTo .
+  BIND(REPLACE(STR(?predicate), "https://minerva.dev/ontology#", "") AS ?linkType)
+}
+ORDER BY ?targetTitle ?linkType`,
+  },
 ];
