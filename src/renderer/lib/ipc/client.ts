@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink } from '../../../shared/types';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -18,6 +18,11 @@ export interface NotebaseApi {
   onFileChanged(cb: (path: string) => void): void;
   onFileCreated(cb: (path: string) => void): void;
   onFileDeleted(cb: (path: string) => void): void;
+}
+
+export interface LinksApi {
+  outgoing(relativePath: string): Promise<OutgoingLink[]>;
+  backlinks(relativePath: string): Promise<Backlink[]>;
 }
 
 export interface QueriesApi {
@@ -61,6 +66,7 @@ export interface MenuApi {
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
+  onToggleRightSidebar(cb: () => void): void;
   onNavBack(cb: () => void): void;
   onNavForward(cb: () => void): void;
   onGotoLine(cb: () => void): void;
@@ -80,6 +86,7 @@ export interface MenuApi {
 
 export interface IdeApi {
   notebase: NotebaseApi;
+  links: LinksApi;
   queries: QueriesApi;
   search: SearchApi;
   git: GitApi;

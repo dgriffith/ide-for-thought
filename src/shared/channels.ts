@@ -16,6 +16,10 @@ export const Channels = {
   NOTEBASE_FILE_CREATED: 'notebase:fileCreated',
   NOTEBASE_FILE_DELETED: 'notebase:fileDeleted',
 
+  // Links
+  LINKS_OUTGOING: 'links:outgoing',
+  LINKS_BACKLINKS: 'links:backlinks',
+
   // Saved queries
   QUERIES_LIST: 'queries:list',
   QUERIES_SAVE: 'queries:save',
@@ -41,6 +45,7 @@ export const Channels = {
   MENU_SAVE: 'menu:save',
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',
+  MENU_TOGGLE_RIGHT_SIDEBAR: 'menu:toggleRightSidebar',
   MENU_QUICK_OPEN: 'menu:quickOpen',
   MENU_NAV_BACK: 'menu:navBack',
   MENU_NAV_FORWARD: 'menu:navForward',

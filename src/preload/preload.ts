@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.NOTEBASE_FILE_DELETED, (_e, p) => cb(p));
     },
   },
+  links: {
+    outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),
+    backlinks: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BACKLINKS, relativePath),
+  },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
     save: (scope: string, name: string, description: string, query: string) =>
@@ -80,6 +84,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onQuickOpen: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_QUICK_OPEN, () => cb());
+    },
+    onToggleRightSidebar: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_TOGGLE_RIGHT_SIDEBAR, () => cb());
     },
     onNavBack: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NAV_BACK, () => cb());

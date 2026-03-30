@@ -29,6 +29,23 @@ export interface SavedQuery {
   filePath: string;
 }
 
+export interface OutgoingLink {
+  target: string;
+  targetTitle: string;
+  linkType: string;
+  linkLabel: string;
+  linkColor: string;
+  exists: boolean;
+}
+
+export interface Backlink {
+  source: string;
+  sourceTitle: string;
+  linkType: string;
+  linkLabel: string;
+  linkColor: string;
+}
+
 export interface SearchResult {
   relativePath: string;
   title: string;

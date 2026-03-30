@@ -181,9 +181,14 @@ export function rebuildMenu(): void {
       label: 'View',
       submenu: [
         {
-          label: 'Toggle Sidebar',
+          label: 'Toggle Left Sidebar',
           accelerator: 'CmdOrCtrl+B',
           click: () => send(Channels.MENU_TOGGLE_SIDEBAR),
+        },
+        {
+          label: 'Toggle Right Sidebar',
+          accelerator: 'CmdOrCtrl+Shift+B',
+          click: () => send(Channels.MENU_TOGGLE_RIGHT_SIDEBAR),
         },
         {
           label: 'Cycle Preview Mode',

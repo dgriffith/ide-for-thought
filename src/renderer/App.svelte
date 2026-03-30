@@ -4,6 +4,7 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import QueryPanel from './lib/components/QueryPanel.svelte';
+  import RightSidebar from './lib/components/RightSidebar.svelte';
   import Preview from './lib/components/Preview.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
@@ -23,6 +24,8 @@
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
+  let rightSidebar = $state<RightSidebar>();
+  let rightSidebarVisible = $state(false);
   let editorComponent = $state<Editor>();
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
@@ -98,6 +101,7 @@
     }
     await editor.save();
     sidebar?.refreshTags();
+    rightSidebar?.refresh();
   }
 
   async function handleSaveQuery() {
@@ -258,9 +262,9 @@
       e.preventDefault();
       cycleViewMode();
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'b') {
       e.preventDefault();
-      sidebarVisible = !sidebarVisible;
+      rightSidebarVisible = !rightSidebarVisible;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
       e.preventDefault();
@@ -302,6 +306,7 @@
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
     api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
+    api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
     api.menu.onTogglePreview(() => cycleViewMode());
     api.menu.onOpenProject(() => notebase.open());
     api.menu.onNewProject(() => notebase.newProject());
@@ -442,6 +447,15 @@
           </div>
         {/if}
       </div>
+      {#if rightSidebarVisible && editor.activeTab?.type === 'note'}
+        <RightSidebar
+          bind:this={rightSidebar}
+          activeFilePath={editor.activeFilePath}
+          content={editor.content}
+          onFileSelect={handleFileSelect}
+          onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
+        />
+      {/if}
     {:else}
       <div class="welcome">
         <h1>Minerva</h1>

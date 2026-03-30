@@ -359,6 +359,68 @@ export function allTags(): string[] {
   return [...tags].sort();
 }
 
+// ── Link queries ────────────────────────────────────────────────────────────
+
+import type { OutgoingLink, Backlink } from '../../shared/types';
+import { LINK_TYPES } from '../../shared/link-types';
+
+export function outgoingLinks(relativePath: string): OutgoingLink[] {
+  if (!store) return [];
+
+  const subject = noteUri(relativePath);
+  const results: OutgoingLink[] = [];
+
+  for (const lt of LINK_TYPES) {
+    const stmts = store.statementsMatching(subject, MINERVA(lt.predicate), undefined);
+    for (const st of stmts) {
+      const targetNode = st.object as $rdf.NamedNode;
+      const pathStmts = store.statementsMatching(targetNode, MINERVA('relativePath'), undefined);
+      const titleStmts = store.statementsMatching(targetNode, DC('title'), undefined);
+      const typeStmts = store.statementsMatching(targetNode, RDF('type'), MINERVA('Note'));
+
+      results.push({
+        target: pathStmts[0]?.object.value ?? '',
+        targetTitle: titleStmts[0]?.object.value ?? targetNode.value,
+        linkType: lt.name,
+        linkLabel: lt.label,
+        linkColor: lt.color,
+        exists: typeStmts.length > 0,
+      });
+    }
+  }
+
+  return results;
+}
+
+export function backlinks(relativePath: string): Backlink[] {
+  if (!store) return [];
+
+  const target = noteUri(relativePath);
+  const results: Backlink[] = [];
+
+  for (const lt of LINK_TYPES) {
+    const stmts = store.statementsMatching(undefined, MINERVA(lt.predicate), target);
+    for (const st of stmts) {
+      const sourceNode = st.subject;
+      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+      const titleStmts = store.statementsMatching(sourceNode, DC('title'), undefined);
+
+      const sourcePath = pathStmts[0]?.object.value ?? '';
+      if (!sourcePath) continue;
+
+      results.push({
+        source: sourcePath,
+        sourceTitle: titleStmts[0]?.object.value ?? sourceNode.value,
+        linkType: lt.name,
+        linkLabel: lt.label,
+        linkColor: lt.color,
+      });
+    }
+  }
+
+  return results;
+}
+
 // ── Persistence & Export ────────────────────────────────────────────────────
 
 export async function persistGraph(): Promise<void> {

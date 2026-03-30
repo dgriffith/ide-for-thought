@@ -133,6 +133,15 @@ export function registerIpcHandlers(): void {
     await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
   });
 
+  // Links
+  ipcMain.handle(Channels.LINKS_OUTGOING, (_e, relativePath: string) => {
+    return graph.outgoingLinks(relativePath);
+  });
+
+  ipcMain.handle(Channels.LINKS_BACKLINKS, (_e, relativePath: string) => {
+    return graph.backlinks(relativePath);
+  });
+
   // Saved queries
   ipcMain.handle(Channels.QUERIES_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);
