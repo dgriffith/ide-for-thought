@@ -38,6 +38,7 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@types/markdown-it": "^14.1.2",
     "@types/n3": "^1.26.1",
+    "@vitest/coverage-v8": "^2.1.9",
     "codemirror": "^6.0.1",
     "electron": "^33.3.1",
     "highlight.js": "^11.11.1",
