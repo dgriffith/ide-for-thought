@@ -13,13 +13,14 @@
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
-  import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection, selectionTracker } from '../editor/commands';
+  import { sortLines, selectionTracker } from '../editor/commands';
   import {
     toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
     toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
     insertWikiLink, insertTypedLinks,
   } from '../editor/formatting';
+  import { resolveKeyBindings } from '../editor/command-registry';
 
   export interface CursorInfo {
     line: number;
@@ -236,18 +237,10 @@
   }
 
   onMount(() => {
+    const resolved = resolveKeyBindings();
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
-      { key: 'Mod-Shift-u', run: toggleCase },
-      { key: 'Ctrl-Shift-j', run: joinLines },
-      { key: 'Mod-d', run: duplicateLine },
-      { key: 'Alt-ArrowUp', run: extendSelection },
-      { key: 'Alt-ArrowDown', run: shrinkSelection },
-      { key: 'Mod-b', run: toggleBold },
-      { key: 'Mod-i', run: toggleItalic },
-      { key: 'Mod-e', run: toggleCode },
-      { key: 'Mod-Shift-x', run: toggleStrikethrough },
-      { key: 'Mod-k', run: insertLink },
+      ...resolved.map(({ key: k, command: run }) => ({ key: k, run })),
     ]));
 
     const updateListener = EditorView.updateListener.of((update) => {
