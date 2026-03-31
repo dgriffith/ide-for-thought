@@ -200,6 +200,21 @@ export function rebuildMenu(): void {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
+        {
+          label: 'Increase Editor Font Size',
+          accelerator: 'CmdOrCtrl+Shift+=',
+          click: () => send(Channels.MENU_FONT_INCREASE),
+        },
+        {
+          label: 'Decrease Editor Font Size',
+          accelerator: 'CmdOrCtrl+Shift+-',
+          click: () => send(Channels.MENU_FONT_DECREASE),
+        },
+        {
+          label: 'Reset Editor Font Size',
+          click: () => send(Channels.MENU_FONT_RESET),
+        },
+        { type: 'separator' },
         { role: 'togglefullscreen' },
         { type: 'separator' },
         { role: 'toggleDevTools', label: 'Developer Tools' },

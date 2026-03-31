@@ -85,6 +85,15 @@ contextBridge.exposeInMainWorld('api', {
     onQuickOpen: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_QUICK_OPEN, () => cb());
     },
+    onFontIncrease: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FONT_INCREASE, () => cb());
+    },
+    onFontDecrease: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FONT_DECREASE, () => cb());
+    },
+    onFontReset: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FONT_RESET, () => cb());
+    },
     onToggleRightSidebar: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_TOGGLE_RIGHT_SIDEBAR, () => cb());
     },

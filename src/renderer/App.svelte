@@ -5,6 +5,8 @@
   import Editor from './lib/components/Editor.svelte';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
+  import StatusBar from './lib/components/StatusBar.svelte';
+  import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
@@ -27,6 +29,8 @@
   let rightSidebar = $state<RightSidebar>();
   let rightSidebarVisible = $state(false);
   let editorComponent = $state<Editor>();
+  let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
+  let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
   const suppressedConfirms = new Set<string>(
@@ -305,6 +309,9 @@
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
+    api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
+    api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
+    api.menu.onFontReset(() => { editorComponent?.resetFontSize(); editorFontSize = 14; });
     api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
     api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
     api.menu.onTogglePreview(() => cycleViewMode());
@@ -426,6 +433,7 @@
                     onSave={handleSave}
                     onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
                     onEditorStateSave={editor.saveEditorState}
+                    onCursorChange={(info) => { cursorInfo = info; }}
                   />
                 {/key}
               </div>
@@ -440,6 +448,7 @@
               </div>
             {/if}
           </div>
+          <StatusBar cursor={cursorInfo} fontSize={editorFontSize} onGotoLine={() => { showGotoLine = true; }} />
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
             tab={editor.activeQueryTab!}

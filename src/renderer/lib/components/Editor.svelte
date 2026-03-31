@@ -4,7 +4,7 @@
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
-  import { EditorState, Prec } from '@codemirror/state';
+  import { EditorState, Prec, Compartment } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
@@ -17,17 +17,23 @@
     insertWikiLink, insertTypedLinks,
   } from '../editor/formatting';
 
+  export interface CursorInfo {
+    line: number;
+    column: number;
+    selectionLength: number;
+    wordCount: number;
+  }
+
   interface Props {
     content: string;
     searchQuery?: string | null;
-    /** Saved CM state JSON from a previous tab session */
     savedEditorState?: unknown;
     savedScrollTop?: number;
     onContentChange: (text: string) => void;
     onSave: () => void;
     onSearchQueryConsumed?: () => void;
-    /** Called on unmount — parent should store the returned state */
     onEditorStateSave?: (stateJSON: unknown, scrollTop: number) => void;
+    onCursorChange?: (info: CursorInfo) => void;
   }
 
   let {
@@ -39,12 +45,49 @@
     onSave,
     onSearchQueryConsumed,
     onEditorStateSave,
+    onCursorChange,
   }: Props = $props();
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
   let contextMenu = $state<{ x: number; y: number } | null>(null);
+
+  const fontSizeCompartment = new Compartment();
+  const MIN_FONT = 10;
+  const MAX_FONT = 24;
+  const DEFAULT_FONT = 14;
+
+  function getFontSize(): number {
+    return parseInt(localStorage.getItem('editorFontSize') ?? String(DEFAULT_FONT), 10);
+  }
+
+  function fontSizeTheme(size: number) {
+    return EditorView.theme({
+      '.cm-content': { fontSize: `${size}px` },
+      '.cm-gutters': { fontSize: `${size}px` },
+    });
+  }
+
+  export function changeFontSize(delta: number) {
+    const current = getFontSize();
+    const next = Math.max(MIN_FONT, Math.min(MAX_FONT, current + delta));
+    localStorage.setItem('editorFontSize', String(next));
+    if (view) {
+      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(next)) });
+    }
+  }
+
+  export function resetFontSize() {
+    localStorage.setItem('editorFontSize', String(DEFAULT_FONT));
+    if (view) {
+      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(DEFAULT_FONT)) });
+    }
+  }
+
+  export function currentFontSize(): number {
+    return getFontSize();
+  }
 
   function showContextMenu(e: MouseEvent) {
     e.preventDefault();
@@ -76,6 +119,7 @@
       scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: 'center' }),
     }),
     selectionTracker,
+    fontSizeCompartment.of(fontSizeTheme(getFontSize())),
     EditorView.lineWrapping,
     EditorView.domEventHandlers({
       contextmenu: (e) => {
@@ -164,6 +208,20 @@
         onContentChange(update.state.doc.toString());
       }
       ignoreNextUpdate = false;
+
+      if (update.selectionSet || update.docChanged) {
+        const { state } = update;
+        const pos = state.selection.main.head;
+        const line = state.doc.lineAt(pos);
+        const sel = state.selection.main;
+        const docText = state.doc.toString();
+        onCursorChange?.({
+          line: line.number,
+          column: pos - line.from + 1,
+          selectionLength: Math.abs(sel.to - sel.from),
+          wordCount: docText.trim() ? docText.trim().split(/\s+/).length : 0,
+        });
+      }
     });
 
     const tagAutocomplete = autocompletion({

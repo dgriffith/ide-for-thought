@@ -66,6 +66,9 @@ export interface MenuApi {
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
+  onFontIncrease(cb: () => void): void;
+  onFontDecrease(cb: () => void): void;
+  onFontReset(cb: () => void): void;
   onToggleRightSidebar(cb: () => void): void;
   onNavBack(cb: () => void): void;
   onNavForward(cb: () => void): void;
