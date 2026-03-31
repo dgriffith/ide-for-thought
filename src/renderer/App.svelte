@@ -169,6 +169,22 @@
     clipboardItem = { relativePath, isDirectory, mode: 'copy' };
   }
 
+  async function handleMove(srcPath: string, destDirectory: string) {
+    if (!notebase.meta) return;
+    const srcName = srcPath.split('/').pop()!;
+    const destPath = destDirectory ? `${destDirectory}/${srcName}` : srcName;
+    if (srcPath === destPath) return;
+    await api.notebase.rename(srcPath, destPath);
+    // Update open tab if the moved file was open
+    const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === srcPath);
+    if (tabIdx !== -1) {
+      const tab = editor.tabs[tabIdx] as any;
+      tab.relativePath = destPath;
+      tab.fileName = srcName;
+    }
+    await notebase.refresh();
+  }
+
   async function handlePaste(destDirectory: string) {
     if (!clipboardItem || !notebase.meta) return;
     const srcName = clipboardItem.relativePath.split('/').pop()!;
@@ -377,6 +393,7 @@
           onCut={handleCut}
           onCopy={handleCopy}
           onPaste={handlePaste}
+          onMove={handleMove}
           canPaste={clipboardItem !== null}
         />
       {/if}

@@ -15,12 +15,38 @@
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
+    onMove: (srcPath: string, destDirectory: string) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
+  let dropTarget = $state<string | null>(null);
+
+  function handleDragStart(e: DragEvent, relativePath: string) {
+    e.dataTransfer!.setData('text/plain', relativePath);
+    e.dataTransfer!.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e: DragEvent, dirPath: string) {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = 'move';
+    dropTarget = dirPath;
+  }
+
+  function handleDragLeave() {
+    dropTarget = null;
+  }
+
+  function handleDrop(e: DragEvent, destDir: string) {
+    e.preventDefault();
+    dropTarget = null;
+    const srcPath = e.dataTransfer!.getData('text/plain');
+    if (srcPath && srcPath !== destDir) {
+      onMove(srcPath, destDir);
+    }
+  }
 
   function toggleDir(path: string) {
     expanded[path] = !expanded[path];
@@ -45,9 +71,15 @@
       {#if file.isDirectory}
         <button
           class="tree-item dir"
+          class:drop-hover={dropTarget === file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
           onclick={() => toggleDir(file.relativePath)}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
+          draggable={true}
+          ondragstart={(e) => handleDragStart(e, file.relativePath)}
+          ondragover={(e) => handleDragOver(e, file.relativePath)}
+          ondragleave={handleDragLeave}
+          ondrop={(e) => handleDrop(e, file.relativePath)}
         >
           <span class="icon">{expanded[file.relativePath] ? '▾' : '▸'}</span>
           {file.name}
@@ -66,6 +98,7 @@
             {onCut}
             {onCopy}
             {onPaste}
+            {onMove}
           />
         {/if}
       {:else}
@@ -75,6 +108,8 @@
           style:padding-left="{depth * 16 + 8}px"
           onclick={() => onFileSelect(file.relativePath)}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath.includes('/') ? file.relativePath.substring(0, file.relativePath.lastIndexOf('/')) : '', file.relativePath, false)}
+          draggable={true}
+          ondragstart={(e) => handleDragStart(e, file.relativePath)}
         >
           <span class="icon">📄</span>
           {file.name.replace(/\.md$/, '')}
@@ -161,6 +196,12 @@
   .tree-item.active {
     background: var(--bg-button-hover);
     color: var(--accent);
+  }
+
+  .tree-item.drop-hover {
+    background: var(--bg-button-hover);
+    outline: 1px dashed var(--accent);
+    outline-offset: -1px;
   }
 
   .icon {

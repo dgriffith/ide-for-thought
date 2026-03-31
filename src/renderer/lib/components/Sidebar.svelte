@@ -16,10 +16,11 @@
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
+    onMove: (srcPath: string, destDirectory: string) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, canPaste = false }: Props = $props();
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
@@ -62,7 +63,7 @@
 
   {#if files.length > 0}
     <div class="file-list" oncontextmenu={handleContextMenu}>
-      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} />
+      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} />
   {:else}
