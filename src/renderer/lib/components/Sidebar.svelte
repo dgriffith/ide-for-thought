@@ -21,6 +21,7 @@
   }
 
   let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, canPaste = false }: Props = $props();
+  let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
@@ -62,7 +63,14 @@
   <SearchPanel bind:this={searchPanel} {onFileSelect} />
 
   {#if files.length > 0}
-    <div class="file-list" oncontextmenu={handleContextMenu}>
+    <div
+      class="file-list"
+      class:root-drop-hover={rootDropHover}
+      oncontextmenu={handleContextMenu}
+      ondragover={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = 'move'; rootDropHover = true; }}
+      ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
+      ondrop={(e) => { e.preventDefault(); rootDropHover = false; const src = e.dataTransfer!.getData('text/plain'); if (src) onMove(src, ''); }}
+    >
       <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} />
@@ -123,6 +131,11 @@
     flex: 1;
     overflow-y: auto;
     padding: 4px 0;
+  }
+
+  .file-list.root-drop-hover {
+    outline: 1px dashed var(--accent);
+    outline-offset: -2px;
   }
 
   .empty {
