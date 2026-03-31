@@ -4,10 +4,12 @@
   interface Props {
     cursor: CursorInfo;
     fontSize: number;
+    theme: string;
     onGotoLine: () => void;
+    onCycleTheme: () => void;
   }
 
-  let { cursor, fontSize, onGotoLine }: Props = $props();
+  let { cursor, fontSize, theme, onGotoLine, onCycleTheme }: Props = $props();
 </script>
 
 <div class="status-bar">
@@ -22,6 +24,7 @@
   <div class="status-right">
     <span class="status-item">{cursor.wordCount} words</span>
     <span class="status-item">{fontSize}px</span>
+    <button class="status-item clickable" onclick={onCycleTheme} title="Cycle Theme (Cmd+Shift+T)">{theme}</button>
     <span class="status-item">Markdown</span>
   </div>
 </div>

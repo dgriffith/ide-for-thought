@@ -17,6 +17,7 @@
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
+  import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
@@ -31,6 +32,7 @@
   let editorComponent = $state<Editor>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
+  let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
   const suppressedConfirms = new Set<string>(
@@ -236,6 +238,11 @@
     });
   }
 
+  function handleCycleTheme() {
+    themeLabel = cycleTheme();
+    editorComponent?.updateTheme();
+  }
+
   function handleRevealInSidebar(relativePath: string) {
     api.shell.revealFile(relativePath);
   }
@@ -269,6 +276,10 @@
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'b') {
       e.preventDefault();
       rightSidebarVisible = !rightSidebarVisible;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
+      e.preventDefault();
+      handleCycleTheme();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
       e.preventDefault();
@@ -306,9 +317,11 @@
   }
 
   onMount(() => {
+    initTheme();
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
+    api.menu.onCycleTheme(() => handleCycleTheme());
     api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontReset(() => { editorComponent?.resetFontSize(); editorFontSize = 14; });
@@ -448,7 +461,13 @@
               </div>
             {/if}
           </div>
-          <StatusBar cursor={cursorInfo} fontSize={editorFontSize} onGotoLine={() => { showGotoLine = true; }} />
+          <StatusBar
+            cursor={cursorInfo}
+            fontSize={editorFontSize}
+            theme={themeLabel}
+            onGotoLine={() => { showGotoLine = true; }}
+            onCycleTheme={handleCycleTheme}
+          />
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
             tab={editor.activeQueryTab!}

@@ -46,6 +46,7 @@ export const Channels = {
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',
   MENU_TOGGLE_RIGHT_SIDEBAR: 'menu:toggleRightSidebar',
+  MENU_CYCLE_THEME: 'menu:cycleTheme',
   MENU_FONT_INCREASE: 'menu:fontIncrease',
   MENU_FONT_DECREASE: 'menu:fontDecrease',
   MENU_FONT_RESET: 'menu:fontReset',

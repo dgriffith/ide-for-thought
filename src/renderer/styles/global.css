@@ -1,4 +1,5 @@
 :root {
+  /* Dark theme (default) */
   --bg: #1e1e2e;
   --bg-titlebar: #181825;
   --bg-sidebar: #1e1e2e;
@@ -8,6 +9,18 @@
   --text-muted: #6c7086;
   --border: #313244;
   --accent: #89b4fa;
+}
+
+[data-theme="light"] {
+  --bg: #eff1f5;
+  --bg-titlebar: #e6e9ef;
+  --bg-sidebar: #eff1f5;
+  --bg-button: #ccd0da;
+  --bg-button-hover: #bcc0cc;
+  --text: #4c4f69;
+  --text-muted: #8c8fa1;
+  --border: #ccd0da;
+  --accent: #1e66f5;
 }
 
 * {

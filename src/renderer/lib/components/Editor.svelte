@@ -6,6 +6,7 @@
   import { languages } from '@codemirror/language-data';
   import { EditorState, Prec, Compartment } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
+  import { getEffectiveTheme, getThemeMode } from '../theme';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
@@ -54,6 +55,17 @@
   let contextMenu = $state<{ x: number; y: number } | null>(null);
 
   const fontSizeCompartment = new Compartment();
+  const themeCompartment = new Compartment();
+
+  function cmTheme(): any {
+    return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
+  }
+
+  export function updateTheme() {
+    if (view) {
+      view.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
+    }
+  }
   const MIN_FONT = 10;
   const MAX_FONT = 24;
   const DEFAULT_FONT = 14;
@@ -113,7 +125,7 @@
   const extensions = [
     basicSetup,
     markdown({ codeLanguages: languages }),
-    oneDark,
+    themeCompartment.of(cmTheme()),
     search({
       top: true,
       scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: 'center' }),

@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('api', {
     onQuickOpen: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_QUICK_OPEN, () => cb());
     },
+    onCycleTheme: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_CYCLE_THEME, () => cb());
+    },
     onFontIncrease: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FONT_INCREASE, () => cb());
     },

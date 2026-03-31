@@ -196,6 +196,12 @@ export function rebuildMenu(): void {
           click: () => send(Channels.MENU_TOGGLE_PREVIEW),
         },
         { type: 'separator' },
+        {
+          label: 'Cycle Theme (Dark/Light/System)',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => send(Channels.MENU_CYCLE_THEME),
+        },
+        { type: 'separator' },
         { role: 'resetZoom', label: 'Actual Size' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
