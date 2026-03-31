@@ -7,6 +7,9 @@
   import { EditorState, Prec, Compartment } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
+  import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
+  import { indentUnit } from '@codemirror/language';
+  import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
@@ -56,6 +59,10 @@
 
   const fontSizeCompartment = new Compartment();
   const themeCompartment = new Compartment();
+  const tabSizeCompartment = new Compartment();
+  const wrapCompartment = new Compartment();
+  const lineNumbersCompartment = new Compartment();
+  const whitespaceCompartment = new Compartment();
 
   function cmTheme(): any {
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
@@ -101,6 +108,24 @@
     return getFontSize();
   }
 
+  export function applySettings(settings: EditorSettings) {
+    if (!view) return;
+    saveEditorSettings(settings);
+    view.dispatch({
+      effects: [
+        tabSizeCompartment.reconfigure([
+          EditorState.tabSize.of(settings.tabSize),
+          indentUnit.of(' '.repeat(settings.tabSize)),
+        ]),
+        wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
+        lineNumbersCompartment.reconfigure(settings.lineNumbers ? [] : EditorView.theme({
+          '.cm-gutters': { display: 'none' },
+        })),
+        whitespaceCompartment.reconfigure(settings.showWhitespace ? highlightWhitespace() : []),
+      ],
+    });
+  }
+
   function showContextMenu(e: MouseEvent) {
     e.preventDefault();
     contextMenu = { x: e.clientX, y: e.clientY };
@@ -122,6 +147,8 @@
     contextMenu = null;
   }
 
+  const initSettings = getEditorSettings();
+
   const extensions = [
     basicSetup,
     markdown({ codeLanguages: languages }),
@@ -132,7 +159,15 @@
     }),
     selectionTracker,
     fontSizeCompartment.of(fontSizeTheme(getFontSize())),
-    EditorView.lineWrapping,
+    tabSizeCompartment.of([
+      EditorState.tabSize.of(initSettings.tabSize),
+      indentUnit.of(' '.repeat(initSettings.tabSize)),
+    ]),
+    wrapCompartment.of(initSettings.wordWrap ? EditorView.lineWrapping : []),
+    lineNumbersCompartment.of(initSettings.lineNumbers ? [] : EditorView.theme({
+      '.cm-gutters': { display: 'none' },
+    })),
+    whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
     EditorView.domEventHandlers({
       contextmenu: (e) => {
         showContextMenu(e);
