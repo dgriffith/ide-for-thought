@@ -1,4 +1,5 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
@@ -8,7 +9,7 @@ import * as search from './search/index';
 import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
-import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath } from './window-manager';
+import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled } from './window-manager';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -17,6 +18,41 @@ function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
 function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   const win = winFromEvent(e);
   return getRootPath(win.id);
+}
+
+async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
+  if (!relativePath.endsWith('.md')) return;
+  const content = await notebaseFs.readFile(rootPath, relativePath);
+  await graph.indexNote(relativePath, content);
+  search.indexNote(relativePath, content);
+}
+
+function removeFromIndexes(relativePath: string): void {
+  if (!relativePath.endsWith('.md')) return;
+  search.removeNote(relativePath);
+  graph.removeNote(relativePath);
+}
+
+async function listMdFiles(rootPath: string, relDir: string): Promise<string[]> {
+  const results: string[] = [];
+  const absDir = path.join(rootPath, relDir);
+  try {
+    const entries = await fs.readdir(absDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        results.push(...await listMdFiles(rootPath, rel));
+      } else if (entry.name.endsWith('.md')) {
+        results.push(rel);
+      }
+    }
+  } catch { /* directory may not exist */ }
+  return results;
+}
+
+async function persistIndexes(): Promise<void> {
+  await Promise.all([search.persist(), graph.persistGraph()]);
 }
 
 export function registerIpcHandlers(): void {
@@ -86,6 +122,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, content);
     await graph.indexNote(relativePath, content);
     await graph.persistGraph();
@@ -96,6 +133,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    markPathHandled(relativePath);
     await notebaseFs.createFile(rootPath, relativePath);
     await graph.indexNote(relativePath, '');
     search.indexNote(relativePath, '');
@@ -104,9 +142,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    markPathHandled(relativePath);
     await notebaseFs.deleteFile(rootPath, relativePath);
-    search.removeNote(relativePath);
-    await search.persist();
+    removeFromIndexes(relativePath);
+    await persistIndexes();
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
@@ -118,19 +157,46 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_DELETE_FOLDER, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    const files = await listMdFiles(rootPath, relativePath);
     await notebaseFs.deleteFolder(rootPath, relativePath);
+    for (const f of files) removeFromIndexes(f);
+    await persistIndexes();
   });
 
   ipcMain.handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    markPathHandled(oldRelPath);
+    markPathHandled(newRelPath);
     await notebaseFs.rename(rootPath, oldRelPath, newRelPath);
+    // Check if directory or file
+    const stat = await fs.stat(path.join(rootPath, newRelPath));
+    if (stat.isDirectory()) {
+      const newFiles = await listMdFiles(rootPath, newRelPath);
+      for (const f of newFiles) {
+        const oldEquivalent = oldRelPath + f.slice(newRelPath.length);
+        removeFromIndexes(oldEquivalent);
+        await reindexFile(rootPath, f);
+      }
+    } else {
+      removeFromIndexes(oldRelPath);
+      await reindexFile(rootPath, newRelPath);
+    }
+    await persistIndexes();
   });
 
   ipcMain.handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
+    const stat = await fs.stat(path.join(rootPath, destRelPath));
+    if (stat.isDirectory()) {
+      const files = await listMdFiles(rootPath, destRelPath);
+      for (const f of files) await reindexFile(rootPath, f);
+    } else {
+      await reindexFile(rootPath, destRelPath);
+    }
+    await persistIndexes();
   });
 
   // Links

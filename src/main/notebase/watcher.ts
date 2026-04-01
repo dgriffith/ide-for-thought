@@ -2,9 +2,20 @@ import { watch, type FSWatcher } from 'chokidar';
 import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 
+export interface WatcherCallbacks {
+  onFileChanged: (relativePath: string) => void;
+  onFileCreated: (relativePath: string) => void;
+  onFileDeleted: (relativePath: string) => void;
+}
+
 const watchers = new Map<number, FSWatcher>();
 
-export function startWatching(rootPath: string, win: BrowserWindow, id: number): void {
+export function startWatching(
+  rootPath: string,
+  win: BrowserWindow,
+  id: number,
+  callbacks?: WatcherCallbacks,
+): void {
   stopWatching(id);
 
   const watcher = watch(rootPath, {
@@ -21,6 +32,7 @@ export function startWatching(rootPath: string, win: BrowserWindow, id: number):
     if (filePath.endsWith('.md') && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
+      callbacks?.onFileChanged(relative);
     }
   });
 
@@ -28,6 +40,7 @@ export function startWatching(rootPath: string, win: BrowserWindow, id: number):
     if (filePath.endsWith('.md') && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
+      callbacks?.onFileCreated(relative);
     }
   });
 
@@ -35,6 +48,7 @@ export function startWatching(rootPath: string, win: BrowserWindow, id: number):
     if (filePath.endsWith('.md') && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
+      callbacks?.onFileDeleted(relative);
     }
   });
 

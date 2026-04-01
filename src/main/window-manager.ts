@@ -1,8 +1,10 @@
 import { BrowserWindow } from 'electron';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { startWatching, stopWatching } from './notebase/watcher';
 import * as graph from './graph/index';
 import * as search from './search/index';
+import * as notebaseFs from './notebase/fs';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
@@ -17,6 +19,12 @@ interface WindowContext {
 
 const contexts = new Map<number, WindowContext>();
 const watchers = new Map<number, string>();
+const recentlyHandledPaths = new Map<string, number>();
+
+/** Mark a path as recently handled by IPC to avoid duplicate watcher re-indexing */
+export function markPathHandled(relativePath: string): void {
+  recentlyHandledPaths.set(relativePath, Date.now());
+}
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -114,7 +122,47 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   addRecentProject(rootPath);
   rebuildMenu();
 
-  startWatching(rootPath, win, win.id);
+  // Deduplication: IPC handlers mark paths they've already indexed
+  const wasHandled = (p: string) => {
+    const ts = recentlyHandledPaths.get(p);
+    if (!ts || Date.now() - ts > 2000) { recentlyHandledPaths.delete(p); return false; }
+    return true;
+  };
+
+  let indexPersistTimer: ReturnType<typeof setTimeout> | null = null;
+  const debouncedPersist = () => {
+    if (indexPersistTimer) clearTimeout(indexPersistTimer);
+    indexPersistTimer = setTimeout(async () => {
+      await Promise.all([search.persist(), graph.persistGraph()]);
+    }, 1000);
+  };
+
+  startWatching(rootPath, win, win.id, {
+    onFileChanged: async (relativePath) => {
+      if (wasHandled(relativePath)) return;
+      try {
+        const content = await notebaseFs.readFile(rootPath, relativePath);
+        await graph.indexNote(relativePath, content);
+        search.indexNote(relativePath, content);
+        debouncedPersist();
+      } catch { /* file may have been deleted between events */ }
+    },
+    onFileCreated: async (relativePath) => {
+      if (wasHandled(relativePath)) return;
+      try {
+        const content = await notebaseFs.readFile(rootPath, relativePath);
+        await graph.indexNote(relativePath, content);
+        search.indexNote(relativePath, content);
+        debouncedPersist();
+      } catch { /* race condition */ }
+    },
+    onFileDeleted: (relativePath) => {
+      if (wasHandled(relativePath)) return;
+      search.removeNote(relativePath);
+      graph.removeNote(relativePath);
+      debouncedPersist();
+    },
+  });
   watchers.set(win.id, rootPath);
 
   await graph.initGraph(rootPath);

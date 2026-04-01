@@ -209,6 +209,17 @@ export async function indexNote(relativePath: string, content: string): Promise<
   }
 }
 
+export function removeNote(relativePath: string): void {
+  if (!store) return;
+  const subject = noteUri(relativePath);
+  store.removeMatches(subject, undefined, undefined);
+  const proj = projectUri();
+  const containsStmt = store.statementsMatching(proj, MINERVA('containsNote'), subject);
+  for (const st of containsStmt) {
+    store.remove(st);
+  }
+}
+
 function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
   if (!store) return;
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
