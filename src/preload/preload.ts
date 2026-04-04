@@ -69,6 +69,18 @@ contextBridge.exposeInMainWorld('api', {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
   },
+  tools: {
+    execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
+    cancel: () => ipcRenderer.invoke(Channels.TOOL_CANCEL),
+    onStream: (cb: (chunk: string) => void) => {
+      ipcRenderer.on(Channels.TOOL_STREAM, (_e, chunk) => cb(chunk));
+    },
+    getSettings: () => ipcRenderer.invoke(Channels.TOOL_GET_SETTINGS),
+    setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
+    onInvoke: (cb: (toolId: string) => void) => {
+      ipcRenderer.on(Channels.TOOL_INVOKE, (_e, toolId) => cb(toolId));
+    },
+  },
   menu: {
     onNewNote: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_NOTE, () => cb());

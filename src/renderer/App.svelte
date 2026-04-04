@@ -8,28 +8,34 @@
   import StatusBar from './lib/components/StatusBar.svelte';
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
+  import ToolPanel from './lib/components/ToolPanel.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
+  import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
+  import { gatherContext } from './lib/tools/context';
+  import { getAllToolInfos } from './lib/tools/tool-registry';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
   const nav = getNavigationStore();
+  const toolPanel = getToolPanelStore();
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
   let rightSidebar = $state<RightSidebar>();
   let rightSidebarVisible = $state(false);
   let editorComponent = $state<Editor>();
+  let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
@@ -85,9 +91,21 @@
     if (editor.activeFilePath && editorComponent) {
       nav.record({ relativePath: editor.activeFilePath, offset: editorComponent.getOffset() });
     }
+    // Look up saved position for the target tab before switching
+    const existingTab = editor.tabs.find((t) => t.type === 'note' && t.relativePath === relativePath) as import('./lib/stores/editor.svelte').NoteTab | undefined;
+    const savedOffset = existingTab?.cursorOffset;
+    const savedScroll = existingTab?.scrollTop;
     pendingSearchQuery = searchQuery ?? null;
     await editor.openFile(relativePath);
-    nav.record({ relativePath, offset: 0 });
+    if (!searchQuery && savedOffset != null) {
+      await tick();
+      requestAnimationFrame(() => {
+        editorComponent?.restorePosition(savedOffset, savedScroll);
+      });
+      nav.record({ relativePath, offset: savedOffset });
+    } else {
+      nav.record({ relativePath, offset: 0 });
+    }
   }
 
   function handleNavigate(target: string) {
@@ -105,7 +123,7 @@
       await handleSaveQuery();
       return;
     }
-    await editor.save();
+    editor.flushAutoSave(); // cancel pending auto-save, save immediately
     sidebar?.refreshTags();
     rightSidebar?.refresh();
   }
@@ -259,6 +277,33 @@
     editorComponent?.updateTheme();
   }
 
+  async function handleSwitchTab(index: number) {
+    const targetTab = editor.tabs[index];
+    const savedOffset = targetTab?.type === 'note' ? (targetTab as any).cursorOffset : undefined;
+    const savedScroll = targetTab?.type === 'note' ? (targetTab as any).scrollTop : undefined;
+    if (targetTab?.type === 'note') {
+      await editor.openFile((targetTab as any).relativePath);
+      if (savedOffset != null) {
+        requestAnimationFrame(() => {
+          editorComponent?.restorePosition(savedOffset, savedScroll);
+        });
+      }
+    } else {
+      editor.switchTab(index);
+    }
+  }
+
+  async function handleToolInvoke(toolId: string) {
+    const allTools = getAllToolInfos();
+    const toolInfo = allTools.find(t => t.id === toolId);
+    if (!toolInfo) return;
+    const ctx = await gatherContext(toolInfo.context, editorComponent?.getView());
+    toolPanel.open(toolInfo, ctx);
+    if (!toolInfo.parameters || toolInfo.parameters.length === 0) {
+      requestAnimationFrame(() => toolPanelComponent?.startExecution());
+    }
+  }
+
   function handleRevealInSidebar(relativePath: string) {
     api.shell.revealFile(relativePath);
   }
@@ -334,6 +379,14 @@
 
   onMount(() => {
     initTheme();
+
+    // Auto-save
+    editor.onAutoSaved = () => {
+      sidebar?.refreshTags();
+      rightSidebar?.refresh();
+    };
+    window.addEventListener('beforeunload', () => editor.flushAutoSave());
+
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
@@ -360,6 +413,14 @@
     api.menu.onSaveQuery(() => handleSaveQuery());
     api.menu.onOpenStockQuery((q) => editor.openQuery(q));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
+
+    // Tools for Thought — stream listener (once)
+    api.tools.onStream((chunk) => {
+      toolPanel.appendChunk(chunk);
+    });
+
+    api.tools.onInvoke((toolId) => handleToolInvoke(toolId));
+
     api.menu.onProjectOpened(async (meta) => {
       // This window was opened by another window with a project path
       await notebase.openPath(meta.rootPath);
@@ -402,7 +463,7 @@
           <TabBar
             tabs={editor.tabs}
             activeIndex={editor.activeIndex}
-            onSwitch={editor.switchTab}
+            onSwitch={handleSwitchTab}
             onClose={editor.closeTab}
             onCloseOthers={editor.closeOthers}
             onCloseAll={editor.closeAll}
@@ -455,15 +516,15 @@
                 {#key editor.activeFilePath}
                   <Editor
                     bind:this={editorComponent}
+                    filePath={editor.activeFilePath!}
                     content={editor.content}
                     searchQuery={pendingSearchQuery}
-                    savedEditorState={editor.activeNoteTab?.editorStateJSON}
-                    savedScrollTop={editor.activeNoteTab?.scrollTop}
                     onContentChange={editor.setContent}
                     onSave={handleSave}
                     onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
                     onEditorStateSave={editor.saveEditorState}
                     onCursorChange={(info) => { cursorInfo = info; }}
+                    onToolInvoke={handleToolInvoke}
                   />
                 {/key}
               </div>
@@ -484,6 +545,10 @@
             theme={themeLabel}
             onGotoLine={() => { showGotoLine = true; }}
             onCycleTheme={handleCycleTheme}
+          />
+          <ToolPanel
+            bind:this={toolPanelComponent}
+            onNoteCreated={() => { notebase.refresh(); sidebar?.refreshTags(); }}
           />
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
@@ -511,7 +576,7 @@
       <div class="welcome">
         <h1>Minerva</h1>
         <p>An experimental IDE for AI-assisted human thought.</p>
-        <button onclick={notebase.open}>Open Folder</button>
+        <button onclick={notebase.open}>Open Thoughtbase</button>
       </div>
     {/if}
   </div>

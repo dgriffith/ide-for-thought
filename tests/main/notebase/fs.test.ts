@@ -49,12 +49,12 @@ describe('listFiles', () => {
     expect(names).not.toContain('.minerva');
   });
 
-  it('only includes .md files', async () => {
+  it('only includes .md and .ttl files', async () => {
     const files = await listFiles(FIXTURE_DIR);
     function checkLeaves(items: typeof files) {
       for (const f of items) {
         if (!f.isDirectory) {
-          expect(f.name).toMatch(/\.md$/);
+          expect(f.name).toMatch(/\.(md|ttl)$/);
         }
         if (f.children) checkLeaves(f.children);
       }

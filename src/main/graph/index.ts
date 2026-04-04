@@ -105,6 +105,28 @@ function dateLit(iso: string): $rdf.Literal {
   return $rdf.lit(iso, undefined, XSD('dateTime'));
 }
 
+const STANDARD_PREFIXES: [string, string][] = [
+  ['minerva', 'https://minerva.dev/ontology#'],
+  ['dc', 'http://purl.org/dc/terms/'],
+  ['rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'],
+  ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
+  ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
+];
+
+function injectPrefixes(turtle: string, noteIri: string): string {
+  const lines: string[] = [];
+  for (const [prefix, iri] of STANDARD_PREFIXES) {
+    if (!turtle.includes(`@prefix ${prefix}:`)) {
+      lines.push(`@prefix ${prefix}: <${iri}> .`);
+    }
+  }
+  if (!turtle.includes('@prefix this:')) {
+    lines.push(`@prefix this: <${noteIri}> .`);
+  }
+  lines.push('');
+  return lines.join('\n') + turtle;
+}
+
 // ── Ontology bootstrap ──────────────────────────────────────────────────────
 
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
@@ -150,74 +172,124 @@ export async function indexNote(relativePath: string, content: string): Promise<
   if (!store) return;
 
   const subject = noteUri(relativePath);
+  const graph = subject; // named graph = note URI, for clean removal on re-index
 
-  // Remove existing triples for this note
+  // Remove ALL triples from this note's graph (handles arbitrary turtle subjects)
+  store.removeMatches(undefined, undefined, undefined, graph);
+  // Also remove any legacy triples with no graph (from before named-graph tracking)
   store.removeMatches(subject, undefined, undefined);
 
+  if (relativePath.endsWith('.ttl')) {
+    indexTurtleFile(relativePath, content, subject, graph);
+    return;
+  }
+
   // Type
-  store.add(subject, RDF('type'), MINERVA('Note'));
+  store.add(subject, RDF('type'), MINERVA('Note'), graph);
 
   // Parse markdown
   const parsed = parseMarkdown(content);
 
   // Title
   const title = parsed.title ?? path.basename(relativePath, '.md');
-  store.add(subject, DC('title'), $rdf.lit(title));
+  store.add(subject, DC('title'), $rdf.lit(title), graph);
 
   // File info
-  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)));
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath));
+  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
 
   // Timestamps
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()));
+  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
 
   // Folder membership
   const dir = path.dirname(relativePath);
   if (dir && dir !== '.') {
-    const folder = folderUri(dir);
-    store.add(subject, MINERVA('inFolder'), folder);
+    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
     ensureFolder(dir);
   }
 
   // Project membership
-  store.add(projectUri(), MINERVA('containsNote'), subject);
+  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
 
   // Tags — modeled as resources
   for (const tag of parsed.tags) {
     const tagNode = tagUri(tag);
     ensureTag(tagNode, tag);
-    store.add(subject, MINERVA('hasTag'), tagNode);
+    store.add(subject, MINERVA('hasTag'), tagNode, graph);
   }
 
   // Wiki-links — typed predicates
   for (const link of parsed.links) {
     const target = link.target.endsWith('.md') ? link.target : `${link.target}.md`;
     const linkType = getLinkType(link.type);
-    store.add(subject, MINERVA(linkType.predicate), noteUri(target));
+    store.add(subject, MINERVA(linkType.predicate), noteUri(target), graph);
   }
 
   // Frontmatter as dc: or minerva: properties
   for (const [key, value] of Object.entries(parsed.frontmatter)) {
     if (key === 'title') continue;
     if (key === 'description') {
-      store.add(subject, DC('description'), $rdf.lit(value));
+      store.add(subject, DC('description'), $rdf.lit(value), graph);
     } else if (key === 'created') {
-      store.add(subject, DC('created'), dateLit(value));
+      store.add(subject, DC('created'), dateLit(value), graph);
     } else {
-      store.add(subject, MINERVA(`meta-${key}`), $rdf.lit(value));
+      store.add(subject, MINERVA(`meta-${key}`), $rdf.lit(value), graph);
     }
+  }
+
+  // Embedded turtle blocks — parse into the note's named graph
+  for (const block of parsed.turtleBlocks) {
+    try {
+      const prefixed = injectPrefixes(block, subject.value);
+      $rdf.parse(prefixed, store, graph.value, 'text/turtle');
+    } catch (e) {
+      console.error(`[minerva] Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+
+function indexTurtleFile(
+  relativePath: string,
+  content: string,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+): void {
+  if (!store) return;
+
+  // Basic file metadata
+  store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  const title = path.basename(relativePath, '.ttl');
+  store.add(subject, DC('title'), $rdf.lit(title), graph);
+  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+
+  // Folder membership
+  const dir = path.dirname(relativePath);
+  if (dir && dir !== '.') {
+    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
+    ensureFolder(dir);
+  }
+
+  // Project membership
+  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
+
+  // Parse the entire file as Turtle into the note's named graph
+  try {
+    const prefixed = injectPrefixes(content, subject.value);
+    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
+  } catch (e) {
+    console.error(`[minerva] Failed to parse turtle file ${relativePath}:`, e instanceof Error ? e.message : e);
   }
 }
 
 export function removeNote(relativePath: string): void {
   if (!store) return;
   const subject = noteUri(relativePath);
+  // Remove all triples in this note's named graph
+  store.removeMatches(undefined, undefined, undefined, subject);
+  // Also remove any legacy triples with no graph
   store.removeMatches(subject, undefined, undefined);
-  const proj = projectUri();
-  const containsStmt = store.statementsMatching(proj, MINERVA('containsNote'), subject);
-  for (const st of containsStmt) {
-    store.remove(st);
-  }
 }
 
 function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
@@ -282,7 +354,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
         const rel = path.relative(root, fullPath);
         ensureFolder(rel);
         await walkAndIndex(fullPath, root);
-      } else if (entry.name.endsWith('.md')) {
+      } else if (entry.name.endsWith('.md') || entry.name.endsWith('.ttl')) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         await indexNote(relativePath, content);

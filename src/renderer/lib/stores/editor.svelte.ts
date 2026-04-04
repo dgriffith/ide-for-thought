@@ -8,7 +8,7 @@ export interface NoteTab {
   fileName: string;
   content: string;
   savedContent: string;
-  editorStateJSON?: unknown;
+  cursorOffset?: number;
   scrollTop?: number;
 }
 
@@ -37,6 +37,9 @@ let queryCounter = 0;
 
 let tabs = $state<Tab[]>([]);
 let activeIndex = $state(-1);
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let onAutoSaved: (() => void) | null = null;
+const AUTO_SAVE_DELAY = 1000;
 
 export function getEditorStore() {
   function activeTab(): Tab | null {
@@ -84,13 +87,33 @@ export function getEditorStore() {
 
   function setContent(text: string) {
     const tab = activeNoteTab();
-    if (tab) tab.content = text;
+    if (tab) {
+      tab.content = text;
+      scheduleAutoSave();
+    }
   }
 
-  function saveEditorState(stateJSON: unknown, scrollTop: number) {
-    const tab = activeNoteTab();
+  function scheduleAutoSave() {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async () => {
+      autoSaveTimer = null;
+      await save();
+      onAutoSaved?.();
+    }, AUTO_SAVE_DELAY);
+  }
+
+  function flushAutoSave() {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = null;
+      save();
+    }
+  }
+
+  function saveEditorState(relativePath: string, cursorOffset: number, scrollTop: number) {
+    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
     if (tab) {
-      tab.editorStateJSON = stateJSON;
+      tab.cursorOffset = cursorOffset;
       tab.scrollTop = scrollTop;
     }
   }
@@ -154,6 +177,7 @@ export function getEditorStore() {
 
   function closeTab(index: number) {
     if (index < 0 || index >= tabs.length) return;
+    if (index === activeIndex) flushAutoSave();
     tabs.splice(index, 1);
     if (tabs.length === 0) {
       activeIndex = -1;
@@ -170,17 +194,20 @@ export function getEditorStore() {
   }
 
   function closeAll() {
+    flushAutoSave();
     tabs.length = 0;
     activeIndex = -1;
   }
 
   function switchTab(index: number) {
     if (index >= 0 && index < tabs.length) {
+      flushAutoSave();
       activeIndex = index;
     }
   }
 
   function clear() {
+    flushAutoSave();
     tabs.length = 0;
     activeIndex = -1;
   }
@@ -202,6 +229,8 @@ export function getEditorStore() {
     openFile,
     save,
     setContent,
+    flushAutoSave,
+    set onAutoSaved(cb: (() => void) | null) { onAutoSaved = cb; },
     closeTab,
     closeOthers,
     closeAll,

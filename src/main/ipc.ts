@@ -10,6 +10,9 @@ import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled } from './window-manager';
+import { executeTool } from './tools/executor';
+import { getSettings, saveSettings } from './llm/settings';
+import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -20,20 +23,28 @@ function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   return getRootPath(win.id);
 }
 
+const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
+
+function isIndexable(relativePath: string): boolean {
+  return INDEXABLE_EXTS.has(path.extname(relativePath));
+}
+
 async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
-  if (!relativePath.endsWith('.md')) return;
+  if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
   await graph.indexNote(relativePath, content);
-  search.indexNote(relativePath, content);
+  if (relativePath.endsWith('.md')) {
+    search.indexNote(relativePath, content);
+  }
 }
 
 function removeFromIndexes(relativePath: string): void {
-  if (!relativePath.endsWith('.md')) return;
+  if (!isIndexable(relativePath)) return;
   search.removeNote(relativePath);
   graph.removeNote(relativePath);
 }
 
-async function listMdFiles(rootPath: string, relDir: string): Promise<string[]> {
+async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
   const absDir = path.join(rootPath, relDir);
   try {
@@ -42,8 +53,8 @@ async function listMdFiles(rootPath: string, relDir: string): Promise<string[]> 
       if (entry.name.startsWith('.')) continue;
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
-        results.push(...await listMdFiles(rootPath, rel));
-      } else if (entry.name.endsWith('.md')) {
+        results.push(...await listIndexableFiles(rootPath, rel));
+      } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
         results.push(rel);
       }
     }
@@ -74,8 +85,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('notebase:newProject', async (e) => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
-      title: 'Choose location for new project',
-      buttonLabel: 'Create Project',
+      title: 'Choose location for new thoughtbase',
+      buttonLabel: 'Create Thoughtbase',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
 
@@ -157,7 +168,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_DELETE_FOLDER, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    const files = await listMdFiles(rootPath, relativePath);
+    const files = await listIndexableFiles(rootPath, relativePath);
     await notebaseFs.deleteFolder(rootPath, relativePath);
     for (const f of files) removeFromIndexes(f);
     await persistIndexes();
@@ -172,7 +183,7 @@ export function registerIpcHandlers(): void {
     // Check if directory or file
     const stat = await fs.stat(path.join(rootPath, newRelPath));
     if (stat.isDirectory()) {
-      const newFiles = await listMdFiles(rootPath, newRelPath);
+      const newFiles = await listIndexableFiles(rootPath, newRelPath);
       for (const f of newFiles) {
         const oldEquivalent = oldRelPath + f.slice(newRelPath.length);
         removeFromIndexes(oldEquivalent);
@@ -191,7 +202,7 @@ export function registerIpcHandlers(): void {
     await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
     const stat = await fs.stat(path.join(rootPath, destRelPath));
     if (stat.isDirectory()) {
-      const files = await listMdFiles(rootPath, destRelPath);
+      const files = await listIndexableFiles(rootPath, destRelPath);
       for (const f of files) await reindexFile(rootPath, f);
     } else {
       await reindexFile(rootPath, destRelPath);
@@ -307,4 +318,41 @@ export function registerIpcHandlers(): void {
       await fs.copyFile(srcPath, result.filePath);
     }
   });
+
+  // Tools for Thought
+  const activeAbortControllers = new Map<number, AbortController>();
+
+  ipcMain.handle(Channels.TOOL_EXECUTE, async (e, request: ToolExecutionRequest) => {
+    const win = winFromEvent(e);
+    const controller = new AbortController();
+    activeAbortControllers.set(win.id, controller);
+
+    try {
+      const result = await executeTool(
+        request,
+        (chunk: string) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.TOOL_STREAM, chunk);
+          }
+        },
+        controller.signal,
+      );
+      return result;
+    } finally {
+      activeAbortControllers.delete(win.id);
+    }
+  });
+
+  ipcMain.handle(Channels.TOOL_CANCEL, (e) => {
+    const win = winFromEvent(e);
+    const controller = activeAbortControllers.get(win.id);
+    if (controller) {
+      controller.abort();
+      activeAbortControllers.delete(win.id);
+    }
+  });
+
+  ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
+
+  ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, settings: LLMSettings) => saveSettings(settings));
 }

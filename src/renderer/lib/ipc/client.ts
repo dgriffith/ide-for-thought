@@ -1,4 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink } from '../../../shared/types';
+import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -60,6 +61,15 @@ export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
 }
 
+export interface ToolsApi {
+  execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
+  cancel(): Promise<void>;
+  onStream(cb: (chunk: string) => void): void;
+  getSettings(): Promise<LLMSettings>;
+  setSettings(settings: LLMSettings): Promise<void>;
+  onInvoke(cb: (toolId: string) => void): void;
+}
+
 export interface MenuApi {
   onNewNote(cb: () => void): void;
   onSave(cb: () => void): void;
@@ -98,6 +108,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;
+  tools: ToolsApi;
   menu: MenuApi;
 }
 

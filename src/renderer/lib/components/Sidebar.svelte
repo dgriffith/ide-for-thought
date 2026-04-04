@@ -55,8 +55,8 @@
 
 <aside class="sidebar">
   <div class="sidebar-header">
-    <button class="sidebar-btn" onclick={onOpenFolder} title="Open folder">
-      Open Folder
+    <button class="sidebar-btn" onclick={onOpenFolder} title="Open thoughtbase">
+      Open Thoughtbase
     </button>
   </div>
 

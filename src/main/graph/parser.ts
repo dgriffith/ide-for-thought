@@ -9,6 +9,7 @@ export interface ParsedNote {
   tags: string[];
   links: ParsedLink[];
   frontmatter: Record<string, string>;
+  turtleBlocks: string[];
 }
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
@@ -17,8 +18,12 @@ const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
 const HEADING_RE = /^#\s+(.+)$/m;
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---/;
 const CODE_BLOCK_RE = /```[\s\S]*?```|`[^`\n]+`/g;
+const TURTLE_BLOCK_RE = /```turtle\n([\s\S]*?)```/g;
 
 export function parseMarkdown(content: string): ParsedNote {
+  // Extract turtle blocks before stripping code blocks
+  const turtleBlocks = extractTurtleBlocks(content);
+
   // Strip code blocks so we don't extract links/tags from them
   const stripped = content.replace(CODE_BLOCK_RE, '');
 
@@ -27,7 +32,18 @@ export function parseMarkdown(content: string): ParsedNote {
   const links = extractLinks(stripped);
   const frontmatter = extractFrontmatter(content);
 
-  return { title, tags, links, frontmatter };
+  return { title, tags, links, frontmatter, turtleBlocks };
+}
+
+function extractTurtleBlocks(content: string): string[] {
+  const blocks: string[] = [];
+  let match;
+  TURTLE_BLOCK_RE.lastIndex = 0;
+  while ((match = TURTLE_BLOCK_RE.exec(content)) !== null) {
+    const block = match[1].trim();
+    if (block) blocks.push(block);
+  }
+  return blocks;
 }
 
 function extractTitle(content: string): string | null {

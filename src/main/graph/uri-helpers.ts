@@ -9,7 +9,7 @@ export function coinBaseUri(rootPath: string): string {
 }
 
 export function noteUri(baseUri: string, relativePath: string): string {
-  const clean = relativePath.replace(/\.md$/, '');
+  const clean = relativePath.replace(/\.(md|ttl)$/, '');
   return `${baseUri}note/${clean}`;
 }
 

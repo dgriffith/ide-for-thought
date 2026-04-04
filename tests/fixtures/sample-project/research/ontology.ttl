@@ -1,0 +1,34 @@
+@prefix : <https://minerva.dev/ontology#> .
+@prefix dc: <http://purl.org/dc/terms/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# Domain concepts for this research thoughtbase
+
+:Concept rdf:type rdfs:Class ;
+    rdfs:label "Concept" ;
+    rdfs:comment "An abstract idea or notion in the knowledge base" .
+
+:ResearchQuestion rdf:type rdfs:Class ;
+    rdfs:label "Research Question" ;
+    rdfs:comment "An open question guiding investigation" .
+
+:investigates rdf:type rdf:Property ;
+    rdfs:label "investigates" ;
+    rdfs:domain :Note ;
+    rdfs:range :ResearchQuestion .
+
+:addressedBy rdf:type rdf:Property ;
+    rdfs:label "addressed by" ;
+    rdfs:domain :ResearchQuestion ;
+    rdfs:range :Note .
+
+# Instances
+
+:rq-type-safety rdf:type :ResearchQuestion ;
+    rdfs:label "How do type systems improve software correctness?" ;
+    dc:description "Exploring the relationship between type theory and program verification" .
+
+:rq-knowledge-rep rdf:type :ResearchQuestion ;
+    rdfs:label "What are effective representations for personal knowledge?" ;
+    dc:description "Comparing graph, hierarchical, and flat note structures" .

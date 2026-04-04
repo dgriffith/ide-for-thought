@@ -29,29 +29,34 @@
     wordCount: number;
   }
 
+  import { getToolInfosByCategory } from '../tools/tool-registry';
+
   interface Props {
+    filePath: string;
     content: string;
     searchQuery?: string | null;
-    savedEditorState?: unknown;
-    savedScrollTop?: number;
     onContentChange: (text: string) => void;
     onSave: () => void;
     onSearchQueryConsumed?: () => void;
-    onEditorStateSave?: (stateJSON: unknown, scrollTop: number) => void;
+    onEditorStateSave?: (filePath: string, cursorOffset: number, scrollTop: number) => void;
     onCursorChange?: (info: CursorInfo) => void;
+    onToolInvoke?: (toolId: string) => void;
   }
 
   let {
+    filePath,
     content,
     searchQuery = null,
-    savedEditorState,
-    savedScrollTop,
     onContentChange,
     onSave,
     onSearchQueryConsumed,
     onEditorStateSave,
     onCursorChange,
+    onToolInvoke,
   }: Props = $props();
+
+  const analysisTools = getToolInfosByCategory('analysis');
+  const planningTools = getToolInfosByCategory('planning');
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
@@ -226,6 +231,10 @@
     return view.state.selection.main.head;
   }
 
+  export function getView(): EditorView | undefined {
+    return view;
+  }
+
   export function gotoOffset(offset: number) {
     if (!view) return;
     const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
@@ -233,6 +242,21 @@
       selection: { anchor: clamped },
       effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
     });
+    view.focus();
+  }
+
+  export function restorePosition(offset: number, scrollTop?: number) {
+    if (!view) return;
+    const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
+    if (scrollTop && scrollTop > 0) {
+      view.dispatch({ selection: { anchor: clamped } });
+      view.scrollDOM.scrollTop = scrollTop;
+    } else if (clamped > 0) {
+      view.dispatch({
+        selection: { anchor: clamped },
+        effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
+      });
+    }
     view.focus();
   }
 
@@ -271,27 +295,18 @@
 
     const allExtensions = [...extensions, appKeymap, updateListener, tagAutocomplete];
 
-    let state: EditorState;
-    try {
-      state = savedEditorState
-        ? EditorState.fromJSON(savedEditorState as any, { extensions: allExtensions })
-        : EditorState.create({ doc: content, extensions: allExtensions });
-    } catch {
-      // Fallback if state deserialization fails
-      state = EditorState.create({ doc: content, extensions: allExtensions });
-    }
-
+    const state = EditorState.create({ doc: content, extensions: allExtensions });
     view = new EditorView({ state, parent: editorContainer });
 
-    if (savedEditorState && savedScrollTop != null) {
-      requestAnimationFrame(() => {
-        view.scrollDOM.scrollTop = savedScrollTop!;
-      });
-    }
+    // Track scrollTop continuously — by cleanup time the DOM may already be detached
+    let lastScrollTop = 0;
+    const onScroll = () => { lastScrollTop = view.scrollDOM.scrollTop; };
+    view.scrollDOM.addEventListener('scroll', onScroll);
 
+    const mountedFilePath = filePath;
     return () => {
-      // Save state before unmount so it can be restored on tab switch
-      onEditorStateSave?.(view.state.toJSON(), view.scrollDOM.scrollTop);
+      view.scrollDOM.removeEventListener('scroll', onScroll);
+      onEditorStateSave?.(mountedFilePath, view.state.selection.main.head, lastScrollTop);
       view.destroy();
     };
   });
@@ -382,6 +397,29 @@
         {/each}
       </div>
     </div>
+    {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0)}
+      <div class="separator"></div>
+      {#if analysisTools.length > 0}
+        <div class="submenu-item">
+          <span class="submenu-trigger">Analysis &#x25B8;</span>
+          <div class="submenu">
+            {#each analysisTools as tool}
+              <button onclick={() => { contextMenu = null; onToolInvoke?.(tool.id); }}>{tool.name}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+      {#if planningTools.length > 0}
+        <div class="submenu-item">
+          <span class="submenu-trigger">Planning &#x25B8;</span>
+          <div class="submenu">
+            {#each planningTools as tool}
+              <button onclick={() => { contextMenu = null; onToolInvoke?.(tool.id); }}>{tool.name}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/if}
     <div class="separator"></div>
     <button onclick={() => execCommand('selectAll')}>Select All</button>
   </div>

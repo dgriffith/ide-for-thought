@@ -1,6 +1,9 @@
 import { watch, type FSWatcher } from 'chokidar';
+import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
+
+const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
 
 export interface WatcherCallbacks {
   onFileChanged: (relativePath: string) => void;
@@ -29,7 +32,7 @@ export function startWatching(
   });
 
   watcher.on('change', (filePath) => {
-    if (filePath.endsWith('.md') && !win.isDestroyed()) {
+    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
       callbacks?.onFileChanged(relative);
@@ -37,7 +40,7 @@ export function startWatching(
   });
 
   watcher.on('add', (filePath) => {
-    if (filePath.endsWith('.md') && !win.isDestroyed()) {
+    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
       callbacks?.onFileCreated(relative);
@@ -45,7 +48,7 @@ export function startWatching(
   });
 
   watcher.on('unlink', (filePath) => {
-    if (filePath.endsWith('.md') && !win.isDestroyed()) {
+    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
       callbacks?.onFileDeleted(relative);

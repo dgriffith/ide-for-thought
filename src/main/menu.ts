@@ -6,6 +6,8 @@ import { createWindow, openProjectInWindow, getRootPath } from './window-manager
 import * as graph from './graph/index';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries, deleteQuery } from './saved-queries';
+import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
+import '../shared/tools/definitions/index';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -41,11 +43,11 @@ export function rebuildMenu(): void {
         })),
         { type: 'separator' as const },
         {
-          label: 'Clear Recent Projects',
+          label: 'Clear Recent Thoughtbases',
           click: () => send('menu:clearRecent'),
         },
       ]
-    : [{ label: 'No Recent Projects', enabled: false }];
+    : [{ label: 'No Recent Thoughtbases', enabled: false }];
 
   const template: Electron.MenuItemConstructorOptions[] = [
     // App menu (macOS only)
@@ -84,21 +86,21 @@ export function rebuildMenu(): void {
           click: () => createWindow(),
         },
         {
-          label: 'New Project',
+          label: 'New Thoughtbase',
           click: () => send('menu:newProject'),
         },
         {
-          label: 'Open Project',
+          label: 'Open Thoughtbase',
           accelerator: 'CmdOrCtrl+O',
           click: () => send('menu:openProject'),
         },
         {
-          label: 'Recent Projects',
+          label: 'Recent Thoughtbases',
           submenu: recentSubmenu,
         },
         { type: 'separator' },
         {
-          label: 'Close Project',
+          label: 'Close Thoughtbase',
           accelerator: 'CmdOrCtrl+Shift+W',
           click: () => send('menu:closeProject'),
         },
@@ -313,7 +315,7 @@ export function rebuildMenu(): void {
             const project = saved.filter((q) => q.scope === 'project');
             const global = saved.filter((q) => q.scope === 'global');
             if (project.length > 0) {
-              items.push({ label: 'Project', enabled: false });
+              items.push({ label: 'Thoughtbase', enabled: false });
               for (const q of project) {
                 items.push({
                   label: q.name,
@@ -364,6 +366,18 @@ export function rebuildMenu(): void {
         },
       ],
     },
+
+    // Tools for Thought — dynamic menus from tool registry
+    ...CATEGORIES
+      .filter(cat => getToolsByCategory(cat.id).length > 0)
+      .map(cat => ({
+        label: cat.label,
+        submenu: getToolsByCategory(cat.id).map(tool => ({
+          label: tool.name,
+          sublabel: tool.description,
+          click: () => send(Channels.TOOL_INVOKE, tool.id),
+        })),
+      } as Electron.MenuItemConstructorOptions)),
 
     // Window (macOS)
     ...(isMac

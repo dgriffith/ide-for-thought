@@ -225,3 +225,43 @@ describe('fixture: type-theory.md', () => {
     expect(result.links.find((l) => l.type === 'related-to')?.target).toBe('research/papers/lambda-calculus');
   });
 });
+
+// ── Turtle block extraction ────────────────────────────────────────────────
+
+describe('turtle block extraction', () => {
+  it('extracts a single turtle block', () => {
+    const result = parseMarkdown('# Note\n\nSome text\n\n```turtle\n@prefix ex: <http://example.org/> .\nex:A ex:rel ex:B .\n```\n\nMore text');
+    expect(result.turtleBlocks).toHaveLength(1);
+    expect(result.turtleBlocks[0]).toContain('ex:A ex:rel ex:B');
+  });
+
+  it('extracts multiple turtle blocks', () => {
+    const result = parseMarkdown('```turtle\nex:A ex:r ex:B .\n```\n\nProse\n\n```turtle\nex:C ex:r ex:D .\n```');
+    expect(result.turtleBlocks).toHaveLength(2);
+    expect(result.turtleBlocks[0]).toContain('ex:A');
+    expect(result.turtleBlocks[1]).toContain('ex:C');
+  });
+
+  it('returns empty array when no turtle blocks', () => {
+    const result = parseMarkdown('# Just a normal note\n\nNo turtle here');
+    expect(result.turtleBlocks).toEqual([]);
+  });
+
+  it('ignores empty turtle blocks', () => {
+    const result = parseMarkdown('```turtle\n\n```');
+    expect(result.turtleBlocks).toEqual([]);
+  });
+
+  it('does not extract tags or links from turtle blocks', () => {
+    const result = parseMarkdown('```turtle\n# This is not a heading\n#not-a-tag\n[[not-a-link]]\n```');
+    expect(result.tags).toEqual([]);
+    expect(result.links).toEqual([]);
+    expect(result.turtleBlocks).toHaveLength(1);
+  });
+
+  it('does not confuse other code blocks with turtle', () => {
+    const result = parseMarkdown('```javascript\nconst x = 1;\n```\n\n```turtle\nex:A ex:r ex:B .\n```');
+    expect(result.turtleBlocks).toHaveLength(1);
+    expect(result.turtleBlocks[0]).toContain('ex:A');
+  });
+});

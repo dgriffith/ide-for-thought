@@ -4,11 +4,12 @@ import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
+const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Open Notebase',
+    title: 'Open Thoughtbase',
   });
 
   if (result.canceled || result.filePaths.length === 0) {
@@ -45,7 +46,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
         isDirectory: true,
         children,
       });
-    } else if (entry.name.endsWith('.md')) {
+    } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
       files.push({
         name: entry.name,
         relativePath,

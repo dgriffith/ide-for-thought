@@ -68,6 +68,14 @@ export const Channels = {
   MENU_SAVE_QUERY: 'menu:saveQuery',
   MENU_OPEN_STOCK_QUERY: 'menu:openStockQuery',
 
+  // Tools for Thought
+  TOOL_INVOKE: 'tool:invoke',
+  TOOL_EXECUTE: 'tool:execute',
+  TOOL_STREAM: 'tool:stream',
+  TOOL_CANCEL: 'tool:cancel',
+  TOOL_GET_SETTINGS: 'tool:getSettings',
+  TOOL_SET_SETTINGS: 'tool:setSettings',
+
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
