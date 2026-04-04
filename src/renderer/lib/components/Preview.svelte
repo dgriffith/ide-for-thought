@@ -116,14 +116,33 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     }
     if (!found) return false;
 
-    // Extract query content between the fences
+    // Extract body between the fences
     const contentStart = state.bMarks[startLine + 1];
     const contentEnd = state.bMarks[nextLine];
-    const queryContent = state.src.slice(contentStart, contentEnd).trim();
+    const body = state.src.slice(contentStart, contentEnd).trim();
+
+    // Split on --- separator: config above, query below. If no separator, entire body is the query.
+    const sepIdx = body.indexOf('\n---\n');
+    let config: Record<string, string> = {};
+    let query: string;
+    if (sepIdx >= 0) {
+      const configBlock = body.slice(0, sepIdx).trim();
+      query = body.slice(sepIdx + 5).trim();
+      for (const line of configBlock.split('\n')) {
+        const colonIdx = line.indexOf(':');
+        if (colonIdx > 0) {
+          const key = line.slice(0, colonIdx).trim();
+          const value = line.slice(colonIdx + 1).trim();
+          if (key && value) config[key] = value;
+        }
+      }
+    } else {
+      query = body;
+    }
 
     const token = state.push('query_directive', 'div', 0);
-    token.content = queryContent;
-    token.meta = { type: directiveType };
+    token.content = query;
+    token.meta = { type: directiveType, config };
     token.map = [startLine, nextLine + 1];
     state.line = nextLine + 1;
     return true;
@@ -131,8 +150,9 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
   md.renderer.rules.query_directive = (tokens: any[], idx: number) => {
     const query = tokens[idx].content;
-    const type = tokens[idx].meta.type;
-    return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"><span class="query-loading">Loading...</span></div>`;
+    const { type, config } = tokens[idx].meta;
+    const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
+    return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
   };
 
   function escapeHtml(str: string): string {
@@ -164,10 +184,13 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     const type = el.dataset.type;
     if (!query) return;
 
+    let config: Record<string, string> = {};
+    try { config = JSON.parse(el.dataset.config ?? '{}'); } catch { /* ignore */ }
+
     // Check cache first
     const cached = queryCache.get(query);
     if (cached) {
-      renderQueryResults(el, type ?? 'list', cached.results, cached.error);
+      renderQueryResults(el, type ?? 'list', config, cached.results, cached.error);
       return;
     }
 
@@ -178,35 +201,85 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
       const response = await api.graph.query(prefixed);
       const results = response.results;
       queryCache.set(query, { results });
-      renderQueryResults(el, type ?? 'list', results);
+      renderQueryResults(el, type ?? 'list', config, results);
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
       queryCache.set(query, { results: [], error });
-      renderQueryResults(el, type ?? 'list', [], error);
+      renderQueryResults(el, type ?? 'list', config, [], error);
     }
   }
 
-  function renderQueryResults(el: HTMLElement, type: string, results: unknown[], error?: string) {
+  function renderQueryResults(el: HTMLElement, type: string, config: Record<string, string>, results: unknown[], error?: string) {
     if (error) {
       el.innerHTML = `<p class="query-error">${escapeHtml(error)}</p>`;
       return;
     }
 
+    const title = config.title;
+    const titleHtml = title ? `<h4 class="query-title">${escapeHtml(title)}</h4>` : '';
+
     if (type === 'list') {
-      const items = (results as Record<string, string>[]).map((r) => {
-        const title = r.title ?? r.name ?? r.label ?? r.path ?? 'Untitled';
-        const path = r.path ?? '';
-        if (path) {
-          return `<li><a class="wiki-link" data-target="${escapeAttr(path)}">${escapeHtml(title)}</a></li>`;
-        }
-        return `<li>${escapeHtml(title)}</li>`;
-      });
-      el.innerHTML = items.length > 0
-        ? `<ul class="query-result-list">${items.join('')}</ul>`
-        : '<p class="query-empty">No results</p>';
+      renderAsList(el, config, results, titleHtml);
+    } else if (type === 'table') {
+      renderAsTable(el, config, results, titleHtml);
     } else {
       el.innerHTML = `<p class="query-error">Unknown directive type: ${escapeHtml(type)}</p>`;
     }
+  }
+
+  function renderAsList(el: HTMLElement, config: Record<string, string>, results: unknown[], titleHtml: string) {
+    // "link" config key specifies which column contains the navigable path (default: "path")
+    const linkCol = config.link ?? 'path';
+    const rows = results as Record<string, string>[];
+
+    const items = rows.map((r) => {
+      const label = r.title ?? r.name ?? r.label ?? r[linkCol] ?? 'Untitled';
+      const path = r[linkCol] ?? '';
+      if (path) {
+        return `<li><a class="wiki-link" data-target="${escapeAttr(path)}">${escapeHtml(label)}</a></li>`;
+      }
+      return `<li>${escapeHtml(label)}</li>`;
+    });
+    el.innerHTML = items.length > 0
+      ? `${titleHtml}<ul class="query-result-list">${items.join('')}</ul>`
+      : `${titleHtml}<p class="query-empty">No results</p>`;
+  }
+
+  function renderAsTable(el: HTMLElement, config: Record<string, string>, results: unknown[], titleHtml: string) {
+    const rows = results as Record<string, string>[];
+    if (rows.length === 0) {
+      el.innerHTML = `${titleHtml}<p class="query-empty">No results</p>`;
+      return;
+    }
+
+    // "link" config key specifies which column contains navigable paths
+    const linkCol = config.link ?? '';
+    // "columns" config key can restrict/reorder visible columns (comma-separated)
+    const allCols = Object.keys(rows[0]);
+    const visibleCols = config.columns
+      ? config.columns.split(',').map(c => c.trim()).filter(c => allCols.includes(c))
+      : allCols;
+
+    const headers = visibleCols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+    const body = rows.map(r => {
+      const cells = visibleCols.map(c => {
+        const val = r[c] ?? '';
+        if (c === linkCol || (linkCol === '' && c === 'path')) {
+          return `<td><a class="wiki-link" data-target="${escapeAttr(val)}">${escapeHtml(val)}</a></td>`;
+        }
+        // If this cell looks like a path and there's a link column, make it a link using that path
+        if (linkCol && r[linkCol]) {
+          // Only make the title/name/label column clickable
+          if (c === 'title' || c === 'name' || c === 'label') {
+            return `<td><a class="wiki-link" data-target="${escapeAttr(r[linkCol])}">${escapeHtml(val)}</a></td>`;
+          }
+        }
+        return `<td>${escapeHtml(val)}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+
+    el.innerHTML = `${titleHtml}<table class="query-result-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
   }
 
   function handleClick(e: MouseEvent) {
@@ -428,5 +501,31 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     background: var(--bg-button);
     padding: 8px 12px;
     border-radius: 4px;
+  }
+
+  .preview :global(.query-title) {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    color: var(--text);
+  }
+
+  .preview :global(.query-result-table) {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+
+  .preview :global(.query-result-table th) {
+    background: var(--bg-button);
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+  }
+
+  .preview :global(.query-result-table td) {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
   }
 </style>
