@@ -108,6 +108,7 @@ function dateLit(iso: string): $rdf.Literal {
 
 const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
+  ['thought', 'https://minerva.dev/ontology/thought#'],
   ['dc', 'http://purl.org/dc/terms/'],
   ['rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'],
   ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
@@ -132,12 +133,18 @@ function injectPrefixes(turtle: string, noteIri: string): string {
 // ── Ontology bootstrap ──────────────────────────────────────────────────────
 
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
+import THOUGHT_ONTOLOGY_TTL from '../../shared/ontology-thought.ttl?raw';
+
+const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 
 function addOntologyToStore(): void {
   if (!store) return;
   try {
     $rdf.parse(ONTOLOGY_TTL, store, MINERVA('').value, 'text/turtle');
   } catch { /* ontology parse failure is non-fatal */ }
+  try {
+    $rdf.parse(THOUGHT_ONTOLOGY_TTL, store, THOUGHT('').value, 'text/turtle');
+  } catch { /* thought ontology parse failure is non-fatal */ }
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
@@ -417,12 +424,28 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
 
 // ── Query ───────────────────────────────────────────────────────────────────
 
+const SPARQL_PREFIXES = STANDARD_PREFIXES
+  .map(([prefix, iri]) => `PREFIX ${prefix}: <${iri}>`)
+  .join('\n') + '\n';
+
+function injectSparqlPrefixes(sparql: string): string {
+  // Only inject prefixes that aren't already declared in the query
+  const lines: string[] = [];
+  for (const [prefix, iri] of STANDARD_PREFIXES) {
+    if (!sparql.includes(`PREFIX ${prefix}:`) && !sparql.includes(`prefix ${prefix}:`)) {
+      lines.push(`PREFIX ${prefix}: <${iri}>`);
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') + '\n' + sparql : sparql;
+}
+
 export async function queryGraph(sparql: string): Promise<{ results: unknown[] }> {
   if (!store || !engine) return { results: [] };
 
   try {
     const n3Store = buildN3Store(store);
-    const bindingsStream = await engine.queryBindings(sparql, {
+    const prefixed = injectSparqlPrefixes(sparql);
+    const bindingsStream = await engine.queryBindings(prefixed, {
       sources: [n3Store],
     });
     const bindings = await bindingsStream.toArray();

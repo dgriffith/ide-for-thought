@@ -1,0 +1,421 @@
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix dc:      <http://purl.org/dc/terms/> .
+@prefix minerva: <https://minerva.dev/ontology#> .
+@prefix thought: <https://minerva.dev/ontology/thought#> .
+
+# ── Ontology ────────────────────────────────────────────────────────────────
+
+thought: a owl:Ontology ;
+    rdfs:label "Minerva Thought Ontology" ;
+    rdfs:comment "An ontology for decomposing the epistemic structure of a thoughtbase. Extends Toulmin argumentation to cover explanation, inquiry, research, learning, planning, and other modes of thought." ;
+    owl:versionInfo "0.1.0" ;
+    owl:imports minerva: .
+
+# ── Abstract Superclass ────────────────────────────────────────────────────
+
+thought:Component a owl:Class ;
+    rdfs:label "Thought Component" ;
+    rdfs:comment "Abstract superclass for all components of thought structure." .
+
+# ── Core Epistemic Components (extended Toulmin) ───────────────────────────
+
+thought:Claim a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Claim" ;
+    rdfs:comment "An assertion presented as true — the central node of an argument." .
+
+thought:Grounds a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Grounds" ;
+    rdfs:comment "Evidence, data, or facts offered in support of a claim." .
+
+thought:Warrant a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Warrant" ;
+    rdfs:comment "The reasoning principle that connects grounds to claim." .
+
+thought:Backing a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Backing" ;
+    rdfs:comment "Support for the warrant itself — why the reasoning principle holds." .
+
+thought:Qualifier a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Qualifier" ;
+    rdfs:comment "Conditions or degree of certainty limiting a claim." .
+
+thought:Rebuttal a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Rebuttal" ;
+    rdfs:comment "Conditions under which the claim does not hold." .
+
+# ── Beyond Argumentation ───────────────────────────────────────────────────
+
+thought:Question a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Question" ;
+    rdfs:comment "An open inquiry — something the thoughtbase is trying to answer." .
+
+thought:Hypothesis a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Hypothesis" ;
+    rdfs:comment "A tentative claim offered for investigation, not yet established." .
+
+thought:Definition a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Definition" ;
+    rdfs:comment "A stipulative or descriptive definition of a term or concept." .
+
+thought:Distinction a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Distinction" ;
+    rdfs:comment "A differentiation between two concepts that might be confused." .
+
+thought:Assumption a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Assumption" ;
+    rdfs:comment "A premise taken as given, not argued for within the current scope." .
+
+thought:Principle a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Principle" ;
+    rdfs:comment "A general rule, heuristic, or law appealed to in reasoning." .
+
+thought:Example a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Example" ;
+    rdfs:comment "A concrete instance illustrating a more abstract component." .
+
+thought:Analogy a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Analogy" ;
+    rdfs:comment "A structural mapping between two domains." .
+
+thought:Narrative a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Narrative" ;
+    rdfs:comment "A causal or temporal sequence organizing events or ideas." .
+
+thought:Goal a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Goal" ;
+    rdfs:comment "A desired outcome motivating planning or action." .
+
+thought:Plan a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Plan" ;
+    rdfs:comment "A proposed sequence of actions toward a goal." .
+
+thought:Observation a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Observation" ;
+    rdfs:comment "A noted phenomenon or pattern, prior to interpretation." .
+
+thought:Interpretation a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Interpretation" ;
+    rdfs:comment "A reading or construal of an observation or text." .
+
+thought:Tension a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Tension" ;
+    rdfs:comment "An unresolved conflict between two components." .
+
+thought:Synthesis a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Synthesis" ;
+    rdfs:comment "An integration of multiple components into a unified position." .
+
+thought:Implication a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Implication" ;
+    rdfs:comment "A consequence that follows from one or more components." .
+
+# ── Research & Evidence ────────────────────────────────────────────────────
+
+thought:Source a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Source" ;
+    rdfs:comment "A cited or referenced external authority or text." .
+
+thought:Finding a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Finding" ;
+    rdfs:comment "A reported result from research or investigation." .
+
+thought:Methodology a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Methodology" ;
+    rdfs:comment "An approach or procedure used to produce findings." .
+
+thought:Gap a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Gap" ;
+    rdfs:comment "An identified absence in knowledge or coverage." .
+
+thought:Corroboration a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Corroboration" ;
+    rdfs:comment "Independent evidence converging on the same conclusion." .
+
+thought:Contradiction a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Contradiction" ;
+    rdfs:comment "Evidence or reasoning that directly conflicts with another component." .
+
+# ── Learning & Understanding ──────────────────────────────────────────────
+
+thought:Concept a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Concept" ;
+    rdfs:comment "A unit of understanding — a named idea to be grasped." .
+
+thought:Prerequisite a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Prerequisite" ;
+    rdfs:comment "A concept or skill required before another can be understood." .
+
+thought:Misconception a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Misconception" ;
+    rdfs:comment "A commonly held but incorrect understanding." .
+
+thought:Insight a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Insight" ;
+    rdfs:comment "A non-obvious understanding that shifts perspective." .
+
+thought:Connection a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Connection" ;
+    rdfs:comment "A recognized relationship between previously separate ideas." .
+
+# ── Meta-Epistemic ────────────────────────────────────────────────────────
+
+thought:Framework a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Framework" ;
+    rdfs:comment "A conceptual lens or paradigm organizing analysis." .
+
+thought:Criterion a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Criterion" ;
+    rdfs:comment "A standard by which something is evaluated." .
+
+thought:Scope a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Scope" ;
+    rdfs:comment "A boundary condition defining what is and isn't under consideration." .
+
+thought:Confidence a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Confidence" ;
+    rdfs:comment "An epistemic status assessment of a component." .
+
+thought:Status a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Status" ;
+    rdfs:comment "Epistemic lifecycle state: proposed, explored, established, challenged, revised, abandoned." .
+
+# ── Structural Relations ──────────────────────────────────────────────────
+
+thought:supports a owl:ObjectProperty ;
+    rdfs:label "supports" ;
+    rdfs:comment "This component provides evidence or reasoning for another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:challenges a owl:ObjectProperty ;
+    rdfs:label "challenges" ;
+    rdfs:comment "This component undermines or questions another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:qualifies a owl:ObjectProperty ;
+    rdfs:label "qualifies" ;
+    rdfs:comment "This component limits or conditions another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:refines a owl:ObjectProperty ;
+    rdfs:label "refines" ;
+    rdfs:comment "This component clarifies or sharpens another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:presupposes a owl:ObjectProperty ;
+    rdfs:label "presupposes" ;
+    rdfs:comment "This component requires another to be accepted." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:exemplifies a owl:ObjectProperty ;
+    rdfs:label "exemplifies" ;
+    rdfs:comment "This component is a concrete instance of another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:contrasts a owl:ObjectProperty ;
+    rdfs:label "contrasts" ;
+    rdfs:comment "This component is distinguished from another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:synthesizes a owl:ObjectProperty ;
+    rdfs:label "synthesizes" ;
+    rdfs:comment "This component integrates multiple others." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:motivates a owl:ObjectProperty ;
+    rdfs:label "motivates" ;
+    rdfs:comment "This component provides rationale for another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:addresses a owl:ObjectProperty ;
+    rdfs:label "addresses" ;
+    rdfs:comment "This component responds to a question." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Question .
+
+thought:raises a owl:ObjectProperty ;
+    rdfs:label "raises" ;
+    rdfs:comment "This component generates a new question." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Question .
+
+thought:resolves a owl:ObjectProperty ;
+    rdfs:label "resolves" ;
+    rdfs:comment "This component resolves a tension." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Tension .
+
+thought:contradicts a owl:ObjectProperty ;
+    rdfs:label "contradicts" ;
+    rdfs:comment "This component directly conflicts with another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:corroborates a owl:ObjectProperty ;
+    rdfs:label "corroborates" ;
+    rdfs:comment "This component independently confirms another." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:requires a owl:ObjectProperty ;
+    rdfs:label "requires" ;
+    rdfs:comment "Understanding this component requires another (learning prerequisite)." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:corrects a owl:ObjectProperty ;
+    rdfs:label "corrects" ;
+    rdfs:comment "This component addresses a misconception." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Misconception .
+
+thought:cites a owl:ObjectProperty ;
+    rdfs:label "cites" ;
+    rdfs:comment "This component draws on an external source." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Source .
+
+thought:identifies a owl:ObjectProperty ;
+    rdfs:label "identifies" ;
+    rdfs:comment "This component identifies a gap in knowledge." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Gap .
+
+thought:connects a owl:ObjectProperty ;
+    rdfs:label "connects" ;
+    rdfs:comment "This component reveals a relationship between others." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+# ── Grounding (linking back to source text) ───────────────────────────────
+
+thought:groundedIn a owl:ObjectProperty ;
+    rdfs:label "grounded in" ;
+    rdfs:comment "The note containing the source text for this component." ;
+    rdfs:domain thought:Component ;
+    rdfs:range minerva:Note .
+
+thought:sourceOffset a owl:DatatypeProperty ;
+    rdfs:label "source offset" ;
+    rdfs:comment "Character offset in the note where this component begins." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:integer .
+
+thought:sourceLength a owl:DatatypeProperty ;
+    rdfs:label "source length" ;
+    rdfs:comment "Length of the source passage in characters." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:integer .
+
+thought:sourceText a owl:DatatypeProperty ;
+    rdfs:label "source text" ;
+    rdfs:comment "The verbatim passage (for display without re-reading the file)." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:string .
+
+# ── Metadata ──────────────────────────────────────────────────────────────
+
+thought:label a owl:DatatypeProperty ;
+    rdfs:label "label" ;
+    rdfs:comment "Short human-readable summary of a thought component." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:string .
+
+thought:extractedBy a owl:DatatypeProperty ;
+    rdfs:label "extracted by" ;
+    rdfs:comment "Agent or method that identified this component." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:string .
+
+thought:confidenceValue a owl:DatatypeProperty ;
+    rdfs:label "confidence" ;
+    rdfs:comment "0.0–1.0 confidence in the extraction." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:decimal .
+
+thought:belongsTo a owl:ObjectProperty ;
+    rdfs:label "belongs to" ;
+    rdfs:comment "Framework under which this component is analyzed." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Framework .
+
+thought:hasStatus a owl:ObjectProperty ;
+    rdfs:label "has status" ;
+    rdfs:comment "Epistemic lifecycle state of this component." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Status .
+
+# ── Status Individuals ────────────────────────────────────────────────────
+
+thought:proposed a thought:Status ;
+    rdfs:label "Proposed" ;
+    rdfs:comment "Newly introduced, not yet investigated." .
+
+thought:explored a thought:Status ;
+    rdfs:label "Explored" ;
+    rdfs:comment "Under active investigation or development." .
+
+thought:established a thought:Status ;
+    rdfs:label "Established" ;
+    rdfs:comment "Well-supported and accepted within the current scope." .
+
+thought:challenged a thought:Status ;
+    rdfs:label "Challenged" ;
+    rdfs:comment "Faces significant counter-evidence or counter-argument." .
+
+thought:revised a thought:Status ;
+    rdfs:label "Revised" ;
+    rdfs:comment "Modified in response to challenges or new evidence." .
+
+thought:abandoned a thought:Status ;
+    rdfs:label "Abandoned" ;
+    rdfs:comment "No longer considered viable." .

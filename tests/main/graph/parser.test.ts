@@ -180,7 +180,7 @@ describe('fixture: architecture.md', () => {
 
   it('extracts typed links', () => {
     const supports = result.links.find((l) => l.type === 'supports');
-    expect(supports?.target).toBe('design-patterns');
+    expect(supports?.target).toBe('notes/design-patterns');
     const expands = result.links.find((l) => l.type === 'expands');
     expect(expands?.target).toBe('research/overview');
   });

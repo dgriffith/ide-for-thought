@@ -19,6 +19,7 @@
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
 
   const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
+PREFIX thought: <https://minerva.dev/ontology/thought#>
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
