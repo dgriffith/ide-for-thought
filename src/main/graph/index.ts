@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { parseMarkdown } from './parser';
+import { parseMarkdown, type ParsedTable } from './parser';
 import { getLinkType } from '../../shared/link-types';
 import * as uriHelpers from './uri-helpers';
 
@@ -50,6 +50,7 @@ const MINERVA = $rdf.Namespace('https://minerva.dev/ontology#');
 const DC      = $rdf.Namespace('http://purl.org/dc/terms/');
 const RDF     = $rdf.Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#');
 const XSD     = $rdf.Namespace('http://www.w3.org/2001/XMLSchema#');
+const CSVW    = $rdf.Namespace('http://www.w3.org/ns/csvw#');
 
 let baseUri = '';      // e.g. https://project.minerva.dev/dave/my-notes/
 let store: $rdf.IndexedFormula | null = null;
@@ -111,6 +112,7 @@ const STANDARD_PREFIXES: [string, string][] = [
   ['rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#'],
   ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
   ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
+  ['csvw', 'http://www.w3.org/ns/csvw#'],
 ];
 
 function injectPrefixes(turtle: string, noteIri: string): string {
@@ -244,6 +246,53 @@ export async function indexNote(relativePath: string, content: string): Promise<
       $rdf.parse(prefixed, store, graph.value, 'text/turtle');
     } catch (e) {
       console.error(`[minerva] Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Markdown tables — CSVW triples
+  for (let ti = 0; ti < parsed.tables.length; ti++) {
+    indexTable(parsed.tables[ti], ti, subject, graph);
+  }
+}
+
+function indexTable(
+  table: ParsedTable,
+  tableIndex: number,
+  noteNode: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+): void {
+  if (!store) return;
+
+  const tableUri = $rdf.sym(`${noteNode.value}/table/${tableIndex}`);
+  store.add(tableUri, RDF('type'), CSVW('Table'), graph);
+  store.add(tableUri, CSVW('inNote'), noteNode, graph);
+
+  // Columns
+  const colNodes: $rdf.NamedNode[] = [];
+  for (let ci = 0; ci < table.headers.length; ci++) {
+    const colName = table.headers[ci];
+    const colUri = $rdf.sym(`${tableUri.value}/column/${encodeURIComponent(colName)}`);
+    colNodes.push(colUri);
+    store.add(colUri, RDF('type'), CSVW('Column'), graph);
+    store.add(colUri, CSVW('name'), $rdf.lit(colName), graph);
+    store.add(colUri, CSVW('columnIndex'), $rdf.lit(String(ci), undefined, XSD('integer')), graph);
+    store.add(tableUri, CSVW('column'), colUri, graph);
+  }
+
+  // Rows and cells
+  for (let ri = 0; ri < table.rows.length; ri++) {
+    const rowUri = $rdf.sym(`${tableUri.value}/row/${ri}`);
+    store.add(rowUri, RDF('type'), CSVW('Row'), graph);
+    store.add(rowUri, CSVW('rowIndex'), $rdf.lit(String(ri), undefined, XSD('integer')), graph);
+    store.add(tableUri, CSVW('row'), rowUri, graph);
+
+    for (let ci = 0; ci < table.headers.length; ci++) {
+      const value = table.rows[ri][ci] ?? '';
+      const cellUri = $rdf.sym(`${rowUri.value}/cell/${encodeURIComponent(table.headers[ci])}`);
+      store.add(cellUri, RDF('type'), CSVW('Cell'), graph);
+      store.add(cellUri, CSVW('column'), colNodes[ci], graph);
+      store.add(cellUri, RDF('value'), $rdf.lit(value), graph);
+      store.add(rowUri, CSVW('cell'), cellUri, graph);
     }
   }
 }

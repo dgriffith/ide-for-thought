@@ -4,12 +4,18 @@ export interface ParsedLink {
   displayText?: string;
 }
 
+export interface ParsedTable {
+  headers: string[];
+  rows: string[][];
+}
+
 export interface ParsedNote {
   title: string | null;
   tags: string[];
   links: ParsedLink[];
   frontmatter: Record<string, string>;
   turtleBlocks: string[];
+  tables: ParsedTable[];
 }
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
@@ -31,8 +37,9 @@ export function parseMarkdown(content: string): ParsedNote {
   const tags = extractTags(stripped);
   const links = extractLinks(stripped);
   const frontmatter = extractFrontmatter(content);
+  const tables = extractTables(stripped);
 
-  return { title, tags, links, frontmatter, turtleBlocks };
+  return { title, tags, links, frontmatter, turtleBlocks, tables };
 }
 
 function extractTurtleBlocks(content: string): string[] {
@@ -119,4 +126,47 @@ function extractFrontmatter(content: string): Record<string, string> {
     }
   }
   return result;
+}
+
+function extractTables(content: string): ParsedTable[] {
+  const tables: ParsedTable[] = [];
+  const lines = content.split('\n');
+
+  let i = 0;
+  while (i < lines.length) {
+    // Look for a header row: | col1 | col2 | ...
+    const headerLine = lines[i].trim();
+    if (!headerLine.startsWith('|') || !headerLine.endsWith('|')) { i++; continue; }
+
+    // Next line must be the separator: |---|---|
+    const sepLine = lines[i + 1]?.trim();
+    if (!sepLine || !/^\|[\s:?-]+(\|[\s:?-]+)+\|$/.test(sepLine)) { i++; continue; }
+
+    // Parse headers
+    const headers = headerLine
+      .slice(1, -1)
+      .split('|')
+      .map(h => h.trim());
+
+    // Parse data rows
+    const rows: string[][] = [];
+    let j = i + 2;
+    while (j < lines.length) {
+      const rowLine = lines[j].trim();
+      if (!rowLine.startsWith('|') || !rowLine.endsWith('|')) break;
+      const cells = rowLine
+        .slice(1, -1)
+        .split('|')
+        .map(c => c.trim());
+      rows.push(cells);
+      j++;
+    }
+
+    if (headers.length > 0 && rows.length > 0) {
+      tables.push({ headers, rows });
+    }
+    i = j;
+  }
+
+  return tables;
 }

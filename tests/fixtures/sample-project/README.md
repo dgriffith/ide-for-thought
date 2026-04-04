@@ -60,3 +60,22 @@ SELECT ?source (COUNT(?target) AS ?links) WHERE {
   ?s dc:title ?source .
 } GROUP BY ?source ORDER BY ?source
 :::
+
+## Technology Stack (from Architecture note)
+
+:::query-table
+title: Tech Stack (queried from markdown table)
+columns: layer, tech, purpose
+---
+SELECT ?layer ?tech ?purpose WHERE {
+  ?table csvw:inNote ?note .
+  ?note dc:title "Architecture Overview" .
+  ?row csvw:cell ?cellLayer, ?cellTech, ?cellPurpose .
+  ?cellLayer csvw:column/csvw:name "Layer" .
+  ?cellLayer rdf:value ?layer .
+  ?cellTech csvw:column/csvw:name "Technology" .
+  ?cellTech rdf:value ?tech .
+  ?cellPurpose csvw:column/csvw:name "Purpose" .
+  ?cellPurpose rdf:value ?purpose .
+}
+:::

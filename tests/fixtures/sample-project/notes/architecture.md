@@ -25,6 +25,16 @@ arch:LayeredPattern rdf:type minerva:Concept .
 arch:LayeredPattern dc:description "Separates concerns into distinct layers" .
 ```
 
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| UI | Svelte 5 | Reactive rendering |
+| Editor | CodeMirror 6 | Text editing |
+| Graph | RDFLib + N3 | Knowledge representation |
+| Query | Comunica | SPARQL execution |
+| Storage | Git | Version control |
+
 ```python
 # This [[fake-link]] inside a code block should be ignored
 x = "[[also-not-a-link]]"

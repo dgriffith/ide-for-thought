@@ -265,3 +265,48 @@ describe('turtle block extraction', () => {
     expect(result.turtleBlocks[0]).toContain('ex:A');
   });
 });
+
+// ── Table extraction ───────────────────────────────────────────────────────
+
+describe('table extraction', () => {
+  it('extracts a simple table', () => {
+    const md = '| Name | Age |\n|------|-----|\n| Alice | 30 |\n| Bob | 25 |';
+    const result = parseMarkdown(md);
+    expect(result.tables).toHaveLength(1);
+    expect(result.tables[0].headers).toEqual(['Name', 'Age']);
+    expect(result.tables[0].rows).toEqual([['Alice', '30'], ['Bob', '25']]);
+  });
+
+  it('extracts multiple tables', () => {
+    const md = '| A | B |\n|---|---|\n| 1 | 2 |\n\nSome text\n\n| X | Y |\n|---|---|\n| 3 | 4 |';
+    const result = parseMarkdown(md);
+    expect(result.tables).toHaveLength(2);
+    expect(result.tables[0].headers).toEqual(['A', 'B']);
+    expect(result.tables[1].headers).toEqual(['X', 'Y']);
+  });
+
+  it('returns empty array when no tables', () => {
+    const result = parseMarkdown('# Just a heading\n\nNo tables here');
+    expect(result.tables).toEqual([]);
+  });
+
+  it('ignores tables inside code blocks', () => {
+    const md = '```\n| A | B |\n|---|---|\n| 1 | 2 |\n```';
+    const result = parseMarkdown(md);
+    expect(result.tables).toEqual([]);
+  });
+
+  it('handles tables with alignment markers', () => {
+    const md = '| Left | Center | Right |\n|:-----|:------:|------:|\n| a | b | c |';
+    const result = parseMarkdown(md);
+    expect(result.tables).toHaveLength(1);
+    expect(result.tables[0].headers).toEqual(['Left', 'Center', 'Right']);
+    expect(result.tables[0].rows).toEqual([['a', 'b', 'c']]);
+  });
+
+  it('trims whitespace from cells', () => {
+    const md = '|  Name  |  Value  |\n|--------|--------|\n|  foo   |  bar   |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].rows[0]).toEqual(['foo', 'bar']);
+  });
+});
