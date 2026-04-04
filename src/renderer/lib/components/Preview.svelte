@@ -1,8 +1,10 @@
 <script lang="ts">
   import MarkdownIt from 'markdown-it';
+  import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
   import { getLinkType } from '../../../shared/link-types';
+  import { api } from '../ipc/client';
 
   interface Props {
     content: string;
@@ -11,6 +13,16 @@
   }
 
   let { content, onNavigate, onTagSelect }: Props = $props();
+
+  // Query result cache: query text → results (survives re-renders)
+  const queryCache = new Map<string, { results: unknown[]; error?: string }>();
+
+  const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
+PREFIX dc: <http://purl.org/dc/terms/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+`;
 
   const md = new MarkdownIt({
     html: true,
@@ -76,6 +88,53 @@
     return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
   };
 
+  // Query directive plugin: :::query-list ... :::
+  md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
+    const startPos = state.bMarks[startLine] + state.tShift[startLine];
+    const startMax = state.eMarks[startLine];
+    const lineText = state.src.slice(startPos, startMax);
+
+    // Match opening :::query-TYPE
+    const openMatch = lineText.match(/^:::query-(\w+)\s*$/);
+    if (!openMatch) return false;
+    if (silent) return true;
+
+    const directiveType = openMatch[1]; // 'list', etc.
+
+    // Find closing :::
+    let nextLine = startLine + 1;
+    let found = false;
+    while (nextLine < endLine) {
+      const pos = state.bMarks[nextLine] + state.tShift[nextLine];
+      const max = state.eMarks[nextLine];
+      const line = state.src.slice(pos, max).trim();
+      if (line === ':::') {
+        found = true;
+        break;
+      }
+      nextLine++;
+    }
+    if (!found) return false;
+
+    // Extract query content between the fences
+    const contentStart = state.bMarks[startLine + 1];
+    const contentEnd = state.bMarks[nextLine];
+    const queryContent = state.src.slice(contentStart, contentEnd).trim();
+
+    const token = state.push('query_directive', 'div', 0);
+    token.content = queryContent;
+    token.meta = { type: directiveType };
+    token.map = [startLine, nextLine + 1];
+    state.line = nextLine + 1;
+    return true;
+  });
+
+  md.renderer.rules.query_directive = (tokens: any[], idx: number) => {
+    const query = tokens[idx].content;
+    const type = tokens[idx].meta.type;
+    return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"><span class="query-loading">Loading...</span></div>`;
+  };
+
   function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -89,6 +148,66 @@
   }
 
   let rendered = $derived(md.render(stripFrontmatter(content)));
+  let previewEl = $state<HTMLDivElement>();
+
+  // After render, find query-block placeholders and execute queries
+  $effect(() => {
+    rendered; // track dependency on rendered HTML
+    requestAnimationFrame(() => {
+      const blocks = previewEl?.querySelectorAll('.query-block');
+      blocks?.forEach((el) => executeQueryBlock(el as HTMLElement));
+    });
+  });
+
+  async function executeQueryBlock(el: HTMLElement) {
+    const query = el.dataset.query;
+    const type = el.dataset.type;
+    if (!query) return;
+
+    // Check cache first
+    const cached = queryCache.get(query);
+    if (cached) {
+      renderQueryResults(el, type ?? 'list', cached.results, cached.error);
+      return;
+    }
+
+    el.innerHTML = '<span class="query-loading">Loading...</span>';
+
+    try {
+      const prefixed = QUERY_PREFIXES + query;
+      const response = await api.graph.query(prefixed);
+      const results = response.results;
+      queryCache.set(query, { results });
+      renderQueryResults(el, type ?? 'list', results);
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      queryCache.set(query, { results: [], error });
+      renderQueryResults(el, type ?? 'list', [], error);
+    }
+  }
+
+  function renderQueryResults(el: HTMLElement, type: string, results: unknown[], error?: string) {
+    if (error) {
+      el.innerHTML = `<p class="query-error">${escapeHtml(error)}</p>`;
+      return;
+    }
+
+    if (type === 'list') {
+      const items = (results as Record<string, string>[]).map((r) => {
+        const title = r.title ?? r.name ?? r.label ?? r.path ?? 'Untitled';
+        const path = r.path ?? '';
+        if (path) {
+          return `<li><a class="wiki-link" data-target="${escapeAttr(path)}">${escapeHtml(title)}</a></li>`;
+        }
+        return `<li>${escapeHtml(title)}</li>`;
+      });
+      el.innerHTML = items.length > 0
+        ? `<ul class="query-result-list">${items.join('')}</ul>`
+        : '<p class="query-empty">No results</p>';
+    } else {
+      el.innerHTML = `<p class="query-error">Unknown directive type: ${escapeHtml(type)}</p>`;
+    }
+  }
 
   function handleClick(e: MouseEvent) {
     const el = e.target as HTMLElement;
@@ -111,7 +230,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="preview" onclick={handleClick}>
+<div class="preview" bind:this={previewEl} onclick={handleClick}>
   {@html rendered}
 </div>
 
@@ -269,6 +388,45 @@
 
   .preview :global(img) {
     max-width: 100%;
+    border-radius: 4px;
+  }
+
+  .preview :global(.query-block) {
+    margin: 0 0 16px;
+  }
+
+  .preview :global(.query-result-list) {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .preview :global(.query-result-list li) {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .preview :global(.query-result-list li:last-child) {
+    border-bottom: none;
+  }
+
+  .preview :global(.query-loading) {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .preview :global(.query-empty) {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  .preview :global(.query-error) {
+    color: var(--text-muted);
+    font-size: 13px;
+    background: var(--bg-button);
+    padding: 8px 12px;
     border-radius: 4px;
   }
 </style>
