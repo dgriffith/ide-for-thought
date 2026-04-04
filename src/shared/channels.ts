@@ -76,6 +76,10 @@ export const Channels = {
   TOOL_GET_SETTINGS: 'tool:getSettings',
   TOOL_SET_SETTINGS: 'tool:setSettings',
 
+  // Tab session
+  TABS_SAVE: 'tabs:save',
+  TABS_LOAD: 'tabs:load',
+
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',

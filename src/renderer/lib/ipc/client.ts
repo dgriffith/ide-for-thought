@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
@@ -61,6 +61,11 @@ export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
 }
 
+export interface TabsApi {
+  save(session: TabSession): Promise<void>;
+  load(): Promise<TabSession | null>;
+}
+
 export interface ToolsApi {
   execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
   cancel(): Promise<void>;
@@ -108,6 +113,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;
+  tabs: TabsApi;
   tools: ToolsApi;
   menu: MenuApi;
 }

@@ -13,6 +13,7 @@ import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, m
 import { executeTool } from './tools/executor';
 import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
+import type { TabSession } from '../shared/types';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -355,4 +356,25 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
 
   ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, settings: LLMSettings) => saveSettings(settings));
+
+  // Tab session persistence
+  ipcMain.handle(Channels.TABS_SAVE, async (e, session: TabSession) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return;
+    const tabsPath = path.join(rootPath, '.minerva', 'tabs.json');
+    await fs.mkdir(path.dirname(tabsPath), { recursive: true });
+    await fs.writeFile(tabsPath, JSON.stringify(session, null, 2), 'utf-8');
+  });
+
+  ipcMain.handle(Channels.TABS_LOAD, async (e): Promise<TabSession | null> => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    try {
+      const tabsPath = path.join(rootPath, '.minerva', 'tabs.json');
+      const data = await fs.readFile(tabsPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  });
 }

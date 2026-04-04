@@ -69,6 +69,10 @@ contextBridge.exposeInMainWorld('api', {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
   },
+  tabs: {
+    save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
+    load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
+  },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
     cancel: () => ipcRenderer.invoke(Channels.TOOL_CANCEL),

@@ -87,11 +87,7 @@
   let showGotoNote = $state(false);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
-    // Record current position before navigating away
-    if (editor.activeFilePath && editorComponent) {
-      nav.record({ relativePath: editor.activeFilePath, offset: editorComponent.getOffset() });
-    }
-    // Look up saved position for the target tab before switching
+    recordCurrentPosition();
     const existingTab = editor.tabs.find((t) => t.type === 'note' && t.relativePath === relativePath) as import('./lib/stores/editor.svelte').NoteTab | undefined;
     const savedOffset = existingTab?.cursorOffset;
     const savedScroll = existingTab?.scrollTop;
@@ -102,15 +98,17 @@
       requestAnimationFrame(() => {
         editorComponent?.restorePosition(savedOffset, savedScroll);
       });
-      nav.record({ relativePath, offset: savedOffset });
+      nav.record({ type: 'note', relativePath, offset: savedOffset });
     } else {
-      nav.record({ relativePath, offset: 0 });
+      nav.record({ type: 'note', relativePath, offset: 0 });
     }
   }
 
   function handleNavigate(target: string) {
-    const path = target.endsWith('.md') ? target : `${target}.md`;
-    editor.openFile(path);
+    recordCurrentPosition();
+    const notePath = target.endsWith('.md') ? target : `${target}.md`;
+    editor.openFile(notePath);
+    nav.record({ type: 'note', relativePath: notePath, offset: 0 });
   }
 
   function handleTagSelect(tag: string) {
@@ -242,34 +240,44 @@
     await notebase.refresh();
   }
 
-  async function handleNavBack() {
-    // Save current position before going back
-    if (editor.activeFilePath) {
-      const offset = editorComponent?.getOffset() ?? 0;
-      nav.record({ relativePath: editor.activeFilePath, offset });
+  function recordCurrentPosition() {
+    const activeTab = editor.activeTab;
+    if (!activeTab) return;
+    if (activeTab.type === 'note' && editor.activeFilePath) {
+      nav.record({ type: 'note', relativePath: editor.activeFilePath, offset: editorComponent?.getOffset() ?? 0 });
+    } else if (activeTab.type === 'query') {
+      nav.record({ type: 'query', tabId: activeTab.id });
     }
+  }
+
+  async function navigateToPosition(pos: import('./lib/stores/navigation.svelte').NavPosition) {
+    if (pos.type === 'note') {
+      await editor.openFile(pos.relativePath);
+      requestAnimationFrame(() => {
+        editorComponent?.gotoOffset(pos.offset);
+        nav.doneNavigating();
+      });
+    } else {
+      const idx = editor.tabs.findIndex((t) => t.type === 'query' && t.id === pos.tabId);
+      if (idx >= 0) {
+        editor.switchTab(idx);
+      }
+      nav.doneNavigating();
+    }
+  }
+
+  async function handleNavBack() {
+    recordCurrentPosition();
     const pos = nav.goBack();
     if (!pos) return;
-    await editor.openFile(pos.relativePath);
-    // Defer so the editor mounts first
-    requestAnimationFrame(() => {
-      editorComponent?.gotoOffset(pos.offset);
-      nav.doneNavigating();
-    });
+    await navigateToPosition(pos);
   }
 
   async function handleNavForward() {
-    if (editor.activeFilePath) {
-      const offset = editorComponent?.getOffset() ?? 0;
-      nav.record({ relativePath: editor.activeFilePath, offset });
-    }
+    recordCurrentPosition();
     const pos = nav.goForward();
     if (!pos) return;
-    await editor.openFile(pos.relativePath);
-    requestAnimationFrame(() => {
-      editorComponent?.gotoOffset(pos.offset);
-      nav.doneNavigating();
-    });
+    await navigateToPosition(pos);
   }
 
   function handleCycleTheme() {
@@ -278,6 +286,8 @@
   }
 
   async function handleSwitchTab(index: number) {
+    recordCurrentPosition();
+
     const targetTab = editor.tabs[index];
     const savedOffset = targetTab?.type === 'note' ? (targetTab as any).cursorOffset : undefined;
     const savedScroll = targetTab?.type === 'note' ? (targetTab as any).scrollTop : undefined;
@@ -288,6 +298,10 @@
           editorComponent?.restorePosition(savedOffset, savedScroll);
         });
       }
+      nav.record({ type: 'note', relativePath: (targetTab as any).relativePath, offset: savedOffset ?? 0 });
+    } else if (targetTab?.type === 'query') {
+      editor.switchTab(index);
+      nav.record({ type: 'query', tabId: targetTab.id });
     } else {
       editor.switchTab(index);
     }
@@ -385,7 +399,19 @@
       sidebar?.refreshTags();
       rightSidebar?.refresh();
     };
-    window.addEventListener('beforeunload', () => editor.flushAutoSave());
+    window.addEventListener('beforeunload', () => {
+      // Capture current editor state before persisting — the Editor
+      // only saves on unmount, which hasn't happened yet on window close
+      if (editor.activeFilePath && editorComponent) {
+        editor.saveEditorState(
+          editor.activeFilePath,
+          editorComponent.getOffset(),
+          editorComponent.getView()?.scrollDOM.scrollTop ?? 0,
+        );
+      }
+      editor.flushAutoSave();
+      editor.persistTabs();
+    });
 
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
@@ -422,9 +448,17 @@
     api.tools.onInvoke((toolId) => handleToolInvoke(toolId));
 
     api.menu.onProjectOpened(async (meta) => {
-      // This window was opened by another window with a project path
       await notebase.openPath(meta.rootPath);
+      await editor.restoreTabs();
       sidebar?.refreshTags();
+      // Restore position for the active tab after tabs are rendered
+      const activeTab = editor.activeNoteTab;
+      if (activeTab?.cursorOffset != null) {
+        await tick();
+        requestAnimationFrame(() => {
+          editorComponent?.restorePosition(activeTab.cursorOffset!, activeTab.scrollTop);
+        });
+      }
     });
   });
 </script>
@@ -436,6 +470,10 @@
     notebaseName={notebase.meta?.name ?? ''}
     fileName={editor.activeFileName}
     isDirty={editor.isDirty}
+    canGoBack={nav.canGoBack}
+    canGoForward={nav.canGoForward}
+    onNavBack={handleNavBack}
+    onNavForward={handleNavForward}
   />
 
   <div class="main">
@@ -472,20 +510,6 @@
         {/if}
         {#if editor.activeTab?.type === 'note'}
           <div class="toolbar">
-            <div class="nav-arrows">
-              <button
-                class="nav-btn"
-                disabled={!nav.canGoBack}
-                onclick={handleNavBack}
-                title="Back (Cmd+[)"
-              >&#x2190;</button>
-              <button
-                class="nav-btn"
-                disabled={!nav.canGoForward}
-                onclick={handleNavForward}
-                title="Forward (Cmd+])"
-              >&#x2192;</button>
-            </div>
             <div class="view-toggle">
               <button
                 class:active={viewMode === 'source'}
@@ -594,14 +618,12 @@
       currentLine={pos.line}
       currentColumn={pos.column}
       onGoto={(line, col) => {
-        if (editor.activeFilePath && editorComponent) {
-          nav.record({ relativePath: editor.activeFilePath, offset: editorComponent.getOffset() });
-        }
+        recordCurrentPosition();
         editorComponent?.gotoLineColumn(line, col);
         showGotoLine = false;
         if (editor.activeFilePath && editorComponent) {
           requestAnimationFrame(() => {
-            nav.record({ relativePath: editor.activeFilePath!, offset: editorComponent!.getOffset() });
+            nav.record({ type: 'note', relativePath: editor.activeFilePath!, offset: editorComponent!.getOffset() });
           });
         }
       }}
@@ -654,32 +676,6 @@
     background: var(--bg-titlebar);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-  }
-
-  .nav-arrows {
-    display: flex;
-    gap: 2px;
-  }
-
-  .nav-btn {
-    padding: 2px 6px;
-    border: none;
-    border-radius: 3px;
-    background: none;
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    line-height: 1;
-  }
-
-  .nav-btn:hover:not(:disabled) {
-    background: var(--bg-button);
-  }
-
-  .nav-btn:disabled {
-    color: var(--text-muted);
-    opacity: 0.4;
-    cursor: default;
   }
 
   .sidebar-toggle {

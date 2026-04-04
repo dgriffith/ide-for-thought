@@ -1,8 +1,15 @@
-export interface NavPosition {
+export interface NoteNavPosition {
+  type: 'note';
   relativePath: string;
-  /** Character offset in the document */
   offset: number;
 }
+
+export interface QueryNavPosition {
+  type: 'query';
+  tabId: string;
+}
+
+export type NavPosition = NoteNavPosition | QueryNavPosition;
 
 const MAX_HISTORY = 100;
 
@@ -14,13 +21,12 @@ let current = $state<NavPosition | null>(null);
 let navigating = false;
 
 export function getNavigationStore() {
-  /** Record a new position. Called on file open, goto, search nav, etc. */
+  /** Record a new position. Called on file open, goto, search nav, tab switch, etc. */
   function record(pos: NavPosition) {
     if (navigating) return;
-    // Don't record if it's the same position
-    if (current && current.relativePath === pos.relativePath && current.offset === pos.offset) return;
-    // Don't record if same file and close offset (within 20 chars)
-    if (current && current.relativePath === pos.relativePath && Math.abs(current.offset - pos.offset) < 20) return;
+
+    // Dedup: don't record if same position
+    if (current && isSamePosition(current, pos)) return;
 
     if (current) {
       backStack.push(current);
@@ -29,6 +35,15 @@ export function getNavigationStore() {
     current = pos;
     // New navigation clears forward stack
     forwardStack.length = 0;
+  }
+
+  function isSamePosition(a: NavPosition, b: NavPosition): boolean {
+    if (a.type !== b.type) return false;
+    if (a.type === 'query' && b.type === 'query') return a.tabId === b.tabId;
+    if (a.type === 'note' && b.type === 'note') {
+      return a.relativePath === b.relativePath && Math.abs(a.offset - b.offset) < 20;
+    }
+    return false;
   }
 
   function goBack(): NavPosition | null {

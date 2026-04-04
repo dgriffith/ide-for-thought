@@ -52,3 +52,23 @@ export interface SearchResult {
   snippet: string;
   score: number;
 }
+
+export interface SavedNoteTab {
+  type: 'note';
+  relativePath: string;
+  cursorOffset?: number;
+  scrollTop?: number;
+}
+
+export interface SavedQueryTab {
+  type: 'query';
+  title: string;
+  query: string;
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab;
+
+export interface TabSession {
+  activeIndex: number;
+  tabs: SavedTab[];
+}

@@ -1,4 +1,5 @@
 import { api } from '../ipc/client';
+import type { TabSession, SavedTab } from '../../../shared/types';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 
@@ -38,8 +39,10 @@ let queryCounter = 0;
 let tabs = $state<Tab[]>([]);
 let activeIndex = $state(-1);
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let tabPersistTimer: ReturnType<typeof setTimeout> | null = null;
 let onAutoSaved: (() => void) | null = null;
 const AUTO_SAVE_DELAY = 1000;
+const TAB_PERSIST_DELAY = 500;
 
 export function getEditorStore() {
   function activeTab(): Tab | null {
@@ -76,6 +79,7 @@ export function getEditorStore() {
     };
     tabs.push(tab);
     activeIndex = tabs.length - 1;
+    schedulePersistTabs();
   }
 
   async function save() {
@@ -115,6 +119,76 @@ export function getEditorStore() {
     if (tab) {
       tab.cursorOffset = cursorOffset;
       tab.scrollTop = scrollTop;
+      schedulePersistTabs();
+    }
+  }
+
+  // ── Tab session persistence ────────────────────────────────────────────
+
+  function schedulePersistTabs() {
+    if (tabPersistTimer) clearTimeout(tabPersistTimer);
+    tabPersistTimer = setTimeout(() => {
+      tabPersistTimer = null;
+      persistTabs();
+    }, TAB_PERSIST_DELAY);
+  }
+
+  function persistTabs() {
+    const savedTabs: SavedTab[] = tabs.map((t): SavedTab => {
+      if (isNote(t)) {
+        return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
+      } else {
+        return { type: 'query', title: t.title, query: t.query };
+      }
+    });
+    const session: TabSession = { activeIndex, tabs: savedTabs };
+    api.tabs.save(session);
+  }
+
+  async function restoreTabs() {
+    const session = await api.tabs.load();
+    if (!session || session.tabs.length === 0) return;
+
+    for (const saved of session.tabs) {
+      if (saved.type === 'note') {
+        try {
+          const text = await api.notebase.readFile(saved.relativePath);
+          const fileName = saved.relativePath.split('/').pop() ?? '';
+          const tab: NoteTab = {
+            type: 'note',
+            relativePath: saved.relativePath,
+            fileName,
+            content: text,
+            savedContent: text,
+            cursorOffset: saved.cursorOffset,
+            scrollTop: saved.scrollTop,
+          };
+          tabs.push(tab);
+        } catch {
+          // File may have been deleted since last session
+        }
+      } else {
+        queryCounter++;
+        const tab: QueryTab = {
+          type: 'query',
+          id: `query-${queryCounter}-${Date.now()}`,
+          title: saved.title,
+          query: saved.query,
+          results: null,
+          columns: [],
+          error: null,
+          executing: false,
+          executionTime: null,
+        };
+        tabs.push(tab);
+      }
+    }
+
+    // Clamp activeIndex to valid range
+    if (session.activeIndex >= 0 && session.activeIndex < tabs.length) {
+      activeIndex = session.activeIndex;
+    } else if (tabs.length > 0) {
+      activeIndex = 0;
     }
   }
 
@@ -135,6 +209,7 @@ export function getEditorStore() {
     };
     tabs.push(tab);
     activeIndex = tabs.length - 1;
+    schedulePersistTabs();
   }
 
   function setQueryText(text: string) {
@@ -184,6 +259,7 @@ export function getEditorStore() {
     } else if (index <= activeIndex) {
       activeIndex = Math.max(0, activeIndex - 1);
     }
+    schedulePersistTabs();
   }
 
   function closeOthers(index: number) {
@@ -191,18 +267,21 @@ export function getEditorStore() {
     tabs.length = 0;
     tabs.push(kept);
     activeIndex = 0;
+    schedulePersistTabs();
   }
 
   function closeAll() {
     flushAutoSave();
     tabs.length = 0;
     activeIndex = -1;
+    schedulePersistTabs();
   }
 
   function switchTab(index: number) {
     if (index >= 0 && index < tabs.length) {
       flushAutoSave();
       activeIndex = index;
+      schedulePersistTabs();
     }
   }
 
@@ -240,5 +319,7 @@ export function getEditorStore() {
     openQuery,
     setQueryText,
     executeQuery,
+    restoreTabs,
+    persistTabs,
   };
 }
