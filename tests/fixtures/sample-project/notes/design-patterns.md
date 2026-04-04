@@ -1,5 +1,6 @@
 ---
 title: Design Patterns
+created: "2025-04-02T11:00:00Z"
 ---
 
 # Design Patterns

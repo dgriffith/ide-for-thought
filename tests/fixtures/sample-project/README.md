@@ -28,3 +28,35 @@ SELECT ?tag ?title ?path WHERE {
   ?note minerva:relativePath ?path .
 } ORDER BY ?tag ?title
 :::
+
+## Notes Over Time
+
+:::query-timeseries
+title: Notes Created
+x: month
+y: count
+type: bar
+height: 250
+---
+SELECT ?month (COUNT(?note) AS ?count) WHERE {
+  ?note rdf:type minerva:Note .
+  ?note dc:created ?date .
+  BIND(SUBSTR(STR(?date), 1, 7) AS ?month)
+} GROUP BY ?month ORDER BY ?month
+:::
+
+## Connections Per Note
+
+:::query-timeseries
+title: Outgoing Links by Note
+x: source
+y: links
+type: bar
+height: 250
+---
+SELECT ?source (COUNT(?target) AS ?links) WHERE {
+  ?s ?pred ?target .
+  ?pred rdfs:subPropertyOf minerva:linksTo .
+  ?s dc:title ?source .
+} GROUP BY ?source ORDER BY ?source
+:::

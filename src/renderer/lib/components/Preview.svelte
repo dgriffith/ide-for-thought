@@ -5,6 +5,7 @@
   import 'highlight.js/styles/github-dark.min.css';
   import { getLinkType } from '../../../shared/link-types';
   import { api } from '../ipc/client';
+  import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
 
   interface Props {
     content: string;
@@ -169,10 +170,16 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
   let rendered = $derived(md.render(stripFrontmatter(content)));
   let previewEl = $state<HTMLDivElement>();
+  let activeCharts: ChartHandle[] = [];
 
   // After render, find query-block placeholders and execute queries
   $effect(() => {
     rendered; // track dependency on rendered HTML
+
+    // Destroy previous chart instances before re-rendering
+    activeCharts.forEach(c => c.destroy());
+    activeCharts = [];
+
     requestAnimationFrame(() => {
       const blocks = previewEl?.querySelectorAll('.query-block');
       blocks?.forEach((el) => executeQueryBlock(el as HTMLElement));
@@ -222,6 +229,8 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
       renderAsList(el, config, results, titleHtml);
     } else if (type === 'table') {
       renderAsTable(el, config, results, titleHtml);
+    } else if (type === 'timeseries') {
+      renderAsTimeseries(el, config, results);
     } else {
       el.innerHTML = `<p class="query-error">Unknown directive type: ${escapeHtml(type)}</p>`;
     }
@@ -280,6 +289,51 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     }).join('');
 
     el.innerHTML = `${titleHtml}<table class="query-result-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  function renderAsTimeseries(el: HTMLElement, config: Record<string, string>, results: unknown[]) {
+    const rows = results as Record<string, string>[];
+    if (rows.length === 0) {
+      const title = config.title;
+      el.innerHTML = title
+        ? `<h4 class="query-title">${escapeHtml(title)}</h4><p class="query-empty">No results</p>`
+        : '<p class="query-empty">No results</p>';
+      return;
+    }
+
+    const allCols = Object.keys(rows[0]);
+    const xCol = config.x ?? allCols[0];
+    const yCols = config.y
+      ? config.y.split(',').map(c => c.trim())
+      : allCols.filter(c => c !== xCol);
+    const chartType = (config.type ?? 'line') as 'line' | 'bar' | 'area';
+    const height = parseInt(config.height ?? '300', 10);
+
+    const series: ChartSeries[] = yCols.map(col => ({
+      label: col,
+      data: rows.map(r => ({
+        x: r[xCol] ?? '',
+        y: parseFloat(r[col] ?? '0') || 0,
+      })),
+    }));
+
+    const chartConfig: ChartConfig = {
+      title: config.title,
+      type: chartType,
+      height,
+      series,
+    };
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'query-chart-wrapper';
+    wrapper.style.height = `${height}px`;
+    const canvas = document.createElement('canvas');
+    wrapper.appendChild(canvas);
+    el.innerHTML = '';
+    el.appendChild(wrapper);
+
+    const handle = renderChart(canvas, chartConfig);
+    activeCharts.push(handle);
   }
 
   function handleClick(e: MouseEvent) {
@@ -527,5 +581,10 @@ PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
   .preview :global(.query-result-table td) {
     padding: 5px 12px;
     border: 1px solid var(--border);
+  }
+
+  .preview :global(.query-chart-wrapper) {
+    position: relative;
+    margin: 0 0 16px;
   }
 </style>
