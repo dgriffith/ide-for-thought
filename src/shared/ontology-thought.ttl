@@ -421,6 +421,186 @@ thought:abandoned a thought:Status ;
     rdfs:comment "No longer considered viable." .
 
 # ════════════════════════════════════════════════════════════════════════════
+# PROPOSALS — LLM-originated changes awaiting approval
+# ════════════════════════════════════════════════════════════════════════════
+
+thought:Proposal a owl:Class ;
+    rdfs:label "Proposal" ;
+    rdfs:comment "An LLM-proposed mutation to the knowledge graph, subject to human review. Not a Component — proposals describe pending changes TO the graph." .
+
+thought:ProposalStatus a owl:Class ;
+    rdfs:label "Proposal Status" ;
+    rdfs:comment "Lifecycle state of a proposal." .
+
+# ── Proposal Status Individuals ───────────────────────────────────────────
+
+thought:pending a thought:ProposalStatus ;
+    rdfs:label "Pending" ;
+    rdfs:comment "Awaiting human review." .
+
+thought:approved a thought:ProposalStatus ;
+    rdfs:label "Approved" ;
+    rdfs:comment "Reviewed and accepted — mutation has been applied." .
+
+thought:rejected a thought:ProposalStatus ;
+    rdfs:label "Rejected" ;
+    rdfs:comment "Reviewed and declined — mutation was not applied." .
+
+thought:expired a thought:ProposalStatus ;
+    rdfs:label "Expired" ;
+    rdfs:comment "Auto-expired without review within the configured window." .
+
+# ── Proposal Properties ───────────────────────────────────────────────────
+
+thought:proposalStatus a owl:ObjectProperty ;
+    rdfs:label "proposal status" ;
+    rdfs:comment "Current lifecycle state of this proposal." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range thought:ProposalStatus .
+
+thought:proposedBy a owl:DatatypeProperty ;
+    rdfs:label "proposed by" ;
+    rdfs:comment "The agent or model that originated this proposal (e.g. 'llm:claude-sonnet-4')." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:string .
+
+thought:proposedAt a owl:DatatypeProperty ;
+    rdfs:label "proposed at" ;
+    rdfs:comment "Timestamp when the proposal was created." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:dateTime .
+
+thought:autoExpires a owl:DatatypeProperty ;
+    rdfs:label "auto-expires" ;
+    rdfs:comment "Timestamp after which the proposal auto-reverts to expired if not reviewed." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:dateTime .
+
+thought:proposalDiff a owl:DatatypeProperty ;
+    rdfs:label "proposal diff" ;
+    rdfs:comment "Serialized representation of the proposed graph mutation (Turtle or JSON)." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:string .
+
+thought:proposalNote a owl:DatatypeProperty ;
+    rdfs:label "proposal note" ;
+    rdfs:comment "Human-readable description of what this proposal does and why." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:string .
+
+thought:operationType a owl:DatatypeProperty ;
+    rdfs:label "operation type" ;
+    rdfs:comment "The kind of graph mutation (e.g. 'new_claim', 'evidence_link', 'confidence_update', 'tag_addition', 'staleness_flag')." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range xsd:string .
+
+thought:affectsNode a owl:ObjectProperty ;
+    rdfs:label "affects node" ;
+    rdfs:comment "The graph node that this proposal would modify or create." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range owl:Thing .
+
+thought:conversationRef a owl:ObjectProperty ;
+    rdfs:label "conversation reference" ;
+    rdfs:comment "The conversation that produced this proposal." ;
+    rdfs:domain thought:Proposal ;
+    rdfs:range thought:Conversation .
+
+# ── Approval Policy ───────────────────────────────────────────────────────
+
+thought:ApprovalPolicy a owl:Class ;
+    rdfs:label "Approval Policy" ;
+    rdfs:comment "Determines the approval tier for a given operation type: requires_approval, notify_only, or autonomous." .
+
+thought:approvalTier a owl:DatatypeProperty ;
+    rdfs:label "approval tier" ;
+    rdfs:comment "The approval requirement: 'requires_approval', 'notify_only', or 'autonomous'." ;
+    rdfs:domain thought:ApprovalPolicy ;
+    rdfs:range xsd:string .
+
+thought:forOperationType a owl:DatatypeProperty ;
+    rdfs:label "for operation type" ;
+    rdfs:comment "The operation type this policy applies to." ;
+    rdfs:domain thought:ApprovalPolicy ;
+    rdfs:range xsd:string .
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONVERSATIONS — scoped interactions with LLM agents
+# ════════════════════════════════════════════════════════════════════════════
+
+thought:Conversation a owl:Class ;
+    rdfs:label "Conversation" ;
+    rdfs:comment "A scoped, bounded interaction between the user and an LLM agent, initiated from a graph context." .
+
+thought:ConversationStatus a owl:Class ;
+    rdfs:label "Conversation Status" ;
+    rdfs:comment "Lifecycle state of a conversation." .
+
+# ── Conversation Status Individuals ───────────────────────────────────────
+
+thought:active a thought:ConversationStatus ;
+    rdfs:label "Active" ;
+    rdfs:comment "Conversation is in progress." .
+
+thought:resolved a thought:ConversationStatus ;
+    rdfs:label "Resolved" ;
+    rdfs:comment "Conversation completed with results filed to the graph." .
+
+thought:abandonedConversation a thought:ConversationStatus ;
+    rdfs:label "Abandoned" ;
+    rdfs:comment "Conversation closed without filing results." .
+
+# ── Conversation Properties ───────────────────────────────────────────────
+
+thought:conversationStatus a owl:ObjectProperty ;
+    rdfs:label "conversation status" ;
+    rdfs:comment "Current lifecycle state of this conversation." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range thought:ConversationStatus .
+
+thought:startedAt a owl:DatatypeProperty ;
+    rdfs:label "started at" ;
+    rdfs:comment "Timestamp when the conversation began." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range xsd:dateTime .
+
+thought:resolvedAt a owl:DatatypeProperty ;
+    rdfs:label "resolved at" ;
+    rdfs:comment "Timestamp when the conversation was resolved." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range xsd:dateTime .
+
+thought:trigger a owl:ObjectProperty ;
+    rdfs:label "trigger" ;
+    rdfs:comment "The graph node or component that triggered this conversation." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range owl:Thing .
+
+thought:contextNote a owl:ObjectProperty ;
+    rdfs:label "context note" ;
+    rdfs:comment "A note that was part of this conversation's context bundle." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range minerva:Note .
+
+thought:conversationContent a owl:DatatypeProperty ;
+    rdfs:label "conversation content" ;
+    rdfs:comment "The full conversation transcript (JSON-serialized message array)." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range xsd:string .
+
+thought:producedProposal a owl:ObjectProperty ;
+    rdfs:label "produced proposal" ;
+    rdfs:comment "A proposal that emerged from this conversation." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range thought:Proposal .
+
+thought:producedComponent a owl:ObjectProperty ;
+    rdfs:label "produced component" ;
+    rdfs:comment "A thought component that was crystallized from this conversation." ;
+    rdfs:domain thought:Conversation ;
+    rdfs:range thought:Component .
+
+# ════════════════════════════════════════════════════════════════════════════
 # EPISTEMIC DEFECTS — what goes wrong in thinking
 # ════════════════════════════════════════════════════════════════════════════
 #
