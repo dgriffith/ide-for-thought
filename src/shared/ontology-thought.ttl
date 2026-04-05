@@ -419,3 +419,249 @@ thought:revised a thought:Status ;
 thought:abandoned a thought:Status ;
     rdfs:label "Abandoned" ;
     rdfs:comment "No longer considered viable." .
+
+# ════════════════════════════════════════════════════════════════════════════
+# EPISTEMIC DEFECTS — what goes wrong in thinking
+# ════════════════════════════════════════════════════════════════════════════
+#
+# Real thoughtbases contain flawed reasoning, biased thinking, rhetorical
+# moves that persuade without warranting, and structural gaps. Agents need
+# vocabulary to diagnose what's broken, not just what's well-formed.
+
+# ── Defect Superclass ─────────────────────────────────────────────────────
+
+thought:Defect a owl:Class ;
+    rdfs:label "Epistemic Defect" ;
+    rdfs:comment "Abstract superclass for all identified problems in reasoning. Not itself a Component — defects describe problems WITH components." .
+
+# ── Logical Fallacies ─────────────────────────────────────────────────────
+# Categories of invalid reasoning. Instances name the specific fallacy.
+
+thought:FormalFallacy a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Formal Fallacy" ;
+    rdfs:comment "An error in logical structure — the argument form is invalid regardless of content. E.g., affirming the consequent, denying the antecedent, undistributed middle." .
+
+thought:InformalFallacy a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Informal Fallacy" ;
+    rdfs:comment "An error in reasoning that is not purely structural. Includes fallacies of relevance, presumption, and ambiguity." .
+
+thought:FallacyOfRelevance a owl:Class ;
+    rdfs:subClassOf thought:InformalFallacy ;
+    rdfs:label "Fallacy of Relevance" ;
+    rdfs:comment "Premises are logically irrelevant to the conclusion. E.g., ad hominem, appeal to emotion, appeal to authority, red herring, tu quoque, appeal to popularity." .
+
+thought:FallacyOfPresumption a owl:Class ;
+    rdfs:subClassOf thought:InformalFallacy ;
+    rdfs:label "Fallacy of Presumption" ;
+    rdfs:comment "The argument presumes what it needs to prove or smuggles in unwarranted assumptions. E.g., begging the question, false dilemma, loaded question, complex question, slippery slope." .
+
+thought:FallacyOfAmbiguity a owl:Class ;
+    rdfs:subClassOf thought:InformalFallacy ;
+    rdfs:label "Fallacy of Ambiguity" ;
+    rdfs:comment "The argument exploits unclear or shifting meaning. E.g., equivocation, amphiboly, accent, composition, division." .
+
+thought:FallacyOfInduction a owl:Class ;
+    rdfs:subClassOf thought:InformalFallacy ;
+    rdfs:label "Fallacy of Induction" ;
+    rdfs:comment "An error in generalizing from evidence. E.g., hasty generalization, cherry-picking, survivorship bias, base rate neglect, false cause, post hoc." .
+
+# ── Cognitive Biases ──────────────────────────────────────────────────────
+# Systematic patterns of deviation from rational judgment.
+
+thought:CognitiveBias a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Cognitive Bias" ;
+    rdfs:comment "A systematic pattern of deviation from rational judgment. Not a logical error but a predictable tendency in how humans process information." .
+
+thought:ConfirmationBias a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Confirmation Bias" ;
+    rdfs:comment "Favoring information that confirms existing beliefs while discounting disconfirming evidence." .
+
+thought:AnchoringBias a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Anchoring Bias" ;
+    rdfs:comment "Over-relying on the first piece of information encountered when making judgments." .
+
+thought:AvailabilityBias a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Availability Bias" ;
+    rdfs:comment "Overestimating the likelihood of events that come easily to mind." .
+
+thought:FramingEffect a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Framing Effect" ;
+    rdfs:comment "Drawing different conclusions from the same information depending on how it is presented." .
+
+thought:DunningKruger a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Dunning-Kruger Effect" ;
+    rdfs:comment "Overestimating one's competence in areas where one lacks expertise." .
+
+thought:StatusQuoBias a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Status Quo Bias" ;
+    rdfs:comment "Preference for the current state of affairs regardless of merit." .
+
+thought:SunkCostFallacy a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Sunk Cost Fallacy" ;
+    rdfs:comment "Continuing an endeavor because of previously invested resources rather than future value." .
+
+thought:HindsightBias a owl:Class ;
+    rdfs:subClassOf thought:CognitiveBias ;
+    rdfs:label "Hindsight Bias" ;
+    rdfs:comment "Believing after the fact that an outcome was predictable, distorting assessment of reasoning quality." .
+
+# ── Rhetorical Moves ─────────────────────────────────────────────────────
+# Persuasion techniques that substitute for warranted reasoning.
+
+thought:RhetoricalMove a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Rhetorical Move" ;
+    rdfs:comment "A persuasion technique that substitutes social or emotional force for epistemic warrant." .
+
+thought:Strawman a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Strawman" ;
+    rdfs:comment "Misrepresenting an opposing position to make it easier to attack." .
+
+thought:Motte_and_Bailey a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Motte-and-Bailey" ;
+    rdfs:comment "Conflating a defensible claim (motte) with a more ambitious one (bailey), retreating to the motte when challenged." .
+
+thought:Deepity a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Deepity" ;
+    rdfs:comment "A statement that sounds profound but on one reading is trivially true and on another is false." .
+
+thought:Whataboutism a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Whataboutism" ;
+    rdfs:comment "Deflecting criticism by pointing to someone else's failings rather than addressing the point." .
+
+thought:GishGallop a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Gish Gallop" ;
+    rdfs:comment "Overwhelming with many weak arguments rather than building strong ones." .
+
+thought:SeaLioning a owl:Class ;
+    rdfs:subClassOf thought:RhetoricalMove ;
+    rdfs:label "Sea-Lioning" ;
+    rdfs:comment "Persistent, bad-faith requests for evidence or explanation disguised as genuine inquiry." .
+
+# ── Structural Defects ────────────────────────────────────────────────────
+# Problems with how an argument or analysis is constructed.
+
+thought:StructuralDefect a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Structural Defect" ;
+    rdfs:comment "A problem with how reasoning is assembled, independent of content." .
+
+thought:CircularReasoning a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Circular Reasoning" ;
+    rdfs:comment "The conclusion is assumed in the premises." .
+
+thought:NonSequitur a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Non Sequitur" ;
+    rdfs:comment "The conclusion does not follow from the premises." .
+
+thought:UnsupportedClaim a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Unsupported Claim" ;
+    rdfs:comment "A claim made without grounds, warrant, or evidence." .
+
+thought:MissingWarrant a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Missing Warrant" ;
+    rdfs:comment "Grounds are offered for a claim but the reasoning connecting them is unstated." .
+
+thought:OverGeneralization a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Over-Generalization" ;
+    rdfs:comment "A conclusion drawn more broadly than the evidence supports." .
+
+thought:FalseEquivalence a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "False Equivalence" ;
+    rdfs:comment "Treating significantly different things as if they were the same." .
+
+thought:MovingGoalposts a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Moving Goalposts" ;
+    rdfs:comment "Changing the criteria for success after evidence is presented." .
+
+thought:UnfalsifiableClaim a owl:Class ;
+    rdfs:subClassOf thought:StructuralDefect ;
+    rdfs:label "Unfalsifiable Claim" ;
+    rdfs:comment "A claim structured so that no possible evidence could count against it." .
+
+# ── Epistemic Vices ───────────────────────────────────────────────────────
+# Dispositional failures in how a thinker relates to inquiry.
+
+thought:EpistemicVice a owl:Class ;
+    rdfs:subClassOf thought:Defect ;
+    rdfs:label "Epistemic Vice" ;
+    rdfs:comment "A dispositional failure in how a thinker relates to evidence, argument, and inquiry." .
+
+thought:Dogmatism a owl:Class ;
+    rdfs:subClassOf thought:EpistemicVice ;
+    rdfs:label "Dogmatism" ;
+    rdfs:comment "Holding a position with more certainty than evidence warrants, resistant to revision." .
+
+thought:IntellectualCowardice a owl:Class ;
+    rdfs:subClassOf thought:EpistemicVice ;
+    rdfs:label "Intellectual Cowardice" ;
+    rdfs:comment "Avoiding positions or arguments because they are socially costly, not because they are unwarranted." .
+
+thought:MotivatedReasoning a owl:Class ;
+    rdfs:subClassOf thought:EpistemicVice ;
+    rdfs:label "Motivated Reasoning" ;
+    rdfs:comment "Reasoning toward a desired conclusion rather than following evidence wherever it leads." .
+
+thought:IntellectualDishonesty a owl:Class ;
+    rdfs:subClassOf thought:EpistemicVice ;
+    rdfs:label "Intellectual Dishonesty" ;
+    rdfs:comment "Knowingly misrepresenting evidence, arguments, or one's own beliefs." .
+
+thought:Incuriosity a owl:Class ;
+    rdfs:subClassOf thought:EpistemicVice ;
+    rdfs:label "Incuriosity" ;
+    rdfs:comment "Failure to investigate relevant questions or follow up on anomalies." .
+
+# ── Defect Relations ──────────────────────────────────────────────────────
+
+thought:affects a owl:ObjectProperty ;
+    rdfs:label "affects" ;
+    rdfs:comment "The thought component that this defect undermines or distorts." ;
+    rdfs:domain thought:Defect ;
+    rdfs:range thought:Component .
+
+thought:severity a owl:DatatypeProperty ;
+    rdfs:label "severity" ;
+    rdfs:comment "How seriously the defect undermines the affected component: minor, moderate, severe, fatal." ;
+    rdfs:domain thought:Defect ;
+    rdfs:range xsd:string .
+
+thought:remediation a owl:DatatypeProperty ;
+    rdfs:label "remediation" ;
+    rdfs:comment "Suggested action to address the defect." ;
+    rdfs:domain thought:Defect ;
+    rdfs:range xsd:string .
+
+thought:defectLabel a owl:DatatypeProperty ;
+    rdfs:label "defect label" ;
+    rdfs:comment "Human-readable name for this specific defect instance (e.g., the specific fallacy name)." ;
+    rdfs:domain thought:Defect ;
+    rdfs:range xsd:string .
+
+thought:defectIn a owl:ObjectProperty ;
+    rdfs:label "defect in" ;
+    rdfs:comment "The note where the defect was identified." ;
+    rdfs:domain thought:Defect ;
+    rdfs:range minerva:Note .
