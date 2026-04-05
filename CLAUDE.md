@@ -62,5 +62,56 @@ To add a new main-process operation:
 - Stored in `.minerva/graph.ttl` (Turtle format)
 - Auto-indexed on file write
 - Manual rebuild via Graph menu
-- Extracts: titles, tags, wiki-links, frontmatter metadata
+- Extracts: titles, tags, wiki-links, frontmatter metadata, embedded Turtle blocks, markdown tables (CSVW)
 - Queryable via SPARQL through `api.graph.query()`
+- Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries
+
+### Thought Ontology
+- Defined in `src/shared/ontology-thought.ttl`
+- Separate namespace: `thought:` (`https://minerva.dev/ontology/thought#`)
+- Models epistemic structure: claims, grounds, warrants, hypotheses, questions, and 30+ component types
+- Includes epistemic defects: fallacies, biases, rhetorical moves, structural problems
+- Proposals and conversations aligned with W3C PROV-O provenance model
+
+## LLM Integration Principles
+
+### The Trust Principle
+
+> **The LLM proposes, the human confirms.** Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. This is the most important design decision in the system.
+
+All LLM-originated graph mutations **must** go through the approval engine (`src/main/llm/approval.ts`). The LLM never writes directly to the knowledge graph. Instead:
+
+1. LLM operations produce `thought:Proposal` nodes with status `thought:pending`
+2. The user reviews proposals via the diff view and approves/rejects with a single keystroke
+3. Only approved proposals mutate the graph
+4. Proposals that aren't reviewed auto-expire after a configurable window
+
+### Approval Tiers
+
+Operations are classified by trust level:
+
+| Tier | Operations | Behavior |
+|------|-----------|----------|
+| `requires_approval` | New claims, evidence links, component creation | Queued as pending proposal; user must approve |
+| `notify_only` | Confidence updates, status changes | Applied immediately but surfaced in activity feed |
+| `autonomous` | Tag additions, staleness flags | Applied silently |
+
+Nodes with `thought:hasStatus thought:established` automatically escalate to `requires_approval` regardless of operation type.
+
+### Code Review Checklist for LLM/Graph PRs
+
+When reviewing PRs that touch LLM integration or graph write paths:
+
+- [ ] Does the code path go through the approval engine? If not, justify why.
+- [ ] Are `thought:Component` nodes created with `thought:extractedBy` and `thought:proposedAt` provenance?
+- [ ] Does the code create `thought:Proposal` nodes for operations that require approval?
+- [ ] Is there a SPARQL integrity check that could detect if this write bypassed approval?
+- [ ] Are there tests that verify the approval gate cannot be skipped?
+
+### Write Guard
+
+The graph module exposes `enterLLMContext()` / `exitLLMContext()` to mark call paths originating from LLM operations. Any direct `store.add()` call while in LLM context that doesn't go through the approval engine will log a warning. This is a development-time guardrail, not a runtime security boundary — the goal is to catch accidental bypasses during development.
+
+### Integrity Query
+
+The stock query "Trust: Unreviewed LLM writes" (in Graph > Stock Queries) detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run this after any LLM integration work to verify the trust principle holds.

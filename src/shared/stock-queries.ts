@@ -7,6 +7,7 @@ export interface StockQuery {
 const PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 `;
 
 export const STOCK_QUERIES: StockQuery[] = [
@@ -133,5 +134,58 @@ SELECT ?targetTitle ?linkType ?sourceTitle WHERE {
   BIND(REPLACE(STR(?predicate), "https://minerva.dev/ontology#", "") AS ?linkType)
 }
 ORDER BY ?targetTitle ?linkType`,
+  },
+  {
+    name: 'Trust: Unreviewed LLM writes',
+    description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?component ?label ?extractedBy WHERE {
+  ?component rdf:type/rdfs:subClassOf* thought:Component .
+  ?component thought:extractedBy ?extractedBy .
+  FILTER(CONTAINS(LCASE(?extractedBy), "llm"))
+  OPTIONAL { ?component thought:label ?label }
+  FILTER NOT EXISTS {
+    ?proposal rdf:type thought:Proposal .
+    ?proposal thought:affectsNode ?component .
+    ?proposal thought:proposalStatus thought:approved .
+  }
+}
+ORDER BY ?component`,
+  },
+  {
+    name: 'Pending proposals',
+    description: 'All proposals awaiting human review',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?proposal ?note ?operationType ?proposedBy ?proposedAt WHERE {
+  ?proposal rdf:type thought:Proposal .
+  ?proposal thought:proposalStatus thought:pending .
+  ?proposal thought:operationType ?operationType .
+  ?proposal thought:proposedBy ?proposedBy .
+  ?proposal thought:proposedAt ?proposedAt .
+  OPTIONAL { ?proposal thought:proposalNote ?note }
+}
+ORDER BY ?proposedAt`,
+  },
+  {
+    name: 'Conversation history',
+    description: 'All recorded conversations with their status and trigger',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?conversation ?status ?startedAt ?triggerTitle WHERE {
+  ?conversation rdf:type thought:Conversation .
+  ?conversation thought:conversationStatus ?statusNode .
+  ?statusNode rdfs:label ?status .
+  ?conversation thought:startedAt ?startedAt .
+  OPTIONAL {
+    ?conversation thought:trigger ?trigger .
+    ?trigger dc:title ?triggerTitle .
+  }
+}
+ORDER BY DESC(?startedAt)`,
   },
 ];

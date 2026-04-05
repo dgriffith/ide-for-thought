@@ -56,6 +56,48 @@ let baseUri = '';      // e.g. https://project.minerva.dev/dave/my-notes/
 let store: $rdf.IndexedFormula | null = null;
 let currentRootPath: string | null = null;
 
+// ── LLM Write Guard ───────────────────────────────────────────────────────
+// Tracks whether the current call path originates from an LLM operation.
+// Direct graph writes from LLM context that bypass the approval engine
+// are logged as warnings during development.
+
+let llmContextDepth = 0;
+
+/** Mark the start of an LLM-originated operation. Nest-safe. */
+export function enterLLMContext(): void {
+  llmContextDepth++;
+}
+
+/** Mark the end of an LLM-originated operation. */
+export function exitLLMContext(): void {
+  if (llmContextDepth > 0) llmContextDepth--;
+}
+
+/** Returns true if currently in an LLM call path. */
+export function isInLLMContext(): boolean {
+  return llmContextDepth > 0;
+}
+
+/**
+ * Add a triple to the store with write-guard checking.
+ * In LLM context, logs a warning unless the write is to a Proposal node.
+ */
+function guardedAdd(
+  s: $rdf.NamedNode,
+  p: $rdf.NamedNode,
+  o: $rdf.Node,
+  graph?: $rdf.NamedNode,
+): void {
+  if (!store) return;
+  if (llmContextDepth > 0) {
+    const isProposal = s.value.includes('/proposal/') || o.value?.includes?.('Proposal');
+    if (!isProposal) {
+      console.warn(`[minerva:trust] Direct graph write from LLM context: ${s.value} ${p.value} — should go through approval engine`);
+    }
+  }
+  store.add(s, p, o, graph);
+}
+
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
 
 interface ProjectConfig {
