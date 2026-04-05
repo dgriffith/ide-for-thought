@@ -587,6 +587,12 @@
                     onToolInvoke={handleToolInvoke}
                     onOpenConversation={openConversation}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
+                    onInsertQueryList={async () => {
+                      const tag = await showPrompt('Tag name:');
+                      if (!tag) return;
+                      const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
+                      editorComponent?.insertText(block);
+                    }}
                   />
                 {/key}
               </div>

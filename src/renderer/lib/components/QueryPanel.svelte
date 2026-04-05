@@ -137,10 +137,31 @@
     {#if tab.results && tab.results.length > 0}
       <div class="results-toolbar">
         <span class="results-count">{tab.results.length} row{tab.results.length !== 1 ? 's' : ''}</span>
-        <button
-          class="export-btn"
-          onclick={() => api.export.csv(toCsv(tab.columns, tab.results!))}
-        >Export CSV</button>
+        <div class="toolbar-actions">
+          <button
+            class="export-btn"
+            onclick={() => {
+              const block = `:::query-list\n${tab.query.trim()}\n:::`;
+              navigator.clipboard.writeText(block);
+            }}
+            title="Copy a :::query-list directive to paste into a note"
+          >Copy as List</button>
+          <button
+            class="export-btn"
+            onclick={() => {
+              const cols = tab.columns.join(', ');
+              const linkCol = tab.columns.includes('path') ? 'path' : '';
+              const config = linkCol ? `columns: ${cols}\nlink: ${linkCol}\n---\n` : `columns: ${cols}\n---\n`;
+              const block = `:::query-table\n${config}${tab.query.trim()}\n:::`;
+              navigator.clipboard.writeText(block);
+            }}
+            title="Copy a :::query-table directive to paste into a note"
+          >Copy as Table</button>
+          <button
+            class="export-btn"
+            onclick={() => api.export.csv(toCsv(tab.columns, tab.results!))}
+          >Export CSV</button>
+        </div>
       </div>
     {/if}
     {#if tab.error}
@@ -293,6 +314,11 @@
   .results-count {
     font-size: 11px;
     color: var(--text-muted);
+  }
+
+  .toolbar-actions {
+    display: flex;
+    gap: 4px;
   }
 
   .export-btn {
