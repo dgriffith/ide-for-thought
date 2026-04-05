@@ -629,6 +629,16 @@ export async function persistGraph(): Promise<void> {
   await fs.writeFile(graphPath, turtle, 'utf-8');
 }
 
+/** Parse a Turtle string and add its triples to the store. Used by the approval engine. */
+export function parseIntoStore(turtle: string): void {
+  if (!store) return;
+  try {
+    $rdf.parse(turtle, store, 'urn:x-minerva:void', 'text/turtle');
+  } catch (e) {
+    console.error('[minerva] Failed to parse turtle into store:', e instanceof Error ? e.message : e);
+  }
+}
+
 export function serializeGraph(): string {
   if (!store) return '';
   // Pass a dummy base that doesn't match any of our URIs,

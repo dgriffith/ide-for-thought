@@ -73,6 +73,13 @@ contextBridge.exposeInMainWorld('api', {
     openInTerminal: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
   },
+  proposals: {
+    list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),
+    detail: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_DETAIL, uri),
+    approve: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_APPROVE, uri),
+    reject: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_REJECT, uri),
+    expire: () => ipcRenderer.invoke(Channels.PROPOSAL_EXPIRE),
+  },
   tabs: {
     save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
     load: () => ipcRenderer.invoke(Channels.TABS_LOAD),

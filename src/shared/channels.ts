@@ -76,6 +76,13 @@ export const Channels = {
   TOOL_GET_SETTINGS: 'tool:getSettings',
   TOOL_SET_SETTINGS: 'tool:setSettings',
 
+  // Proposals
+  PROPOSAL_LIST: 'proposal:list',
+  PROPOSAL_DETAIL: 'proposal:detail',
+  PROPOSAL_APPROVE: 'proposal:approve',
+  PROPOSAL_REJECT: 'proposal:reject',
+  PROPOSAL_EXPIRE: 'proposal:expire',
+
   // Tab session
   TABS_SAVE: 'tabs:save',
   TABS_LOAD: 'tabs:load',

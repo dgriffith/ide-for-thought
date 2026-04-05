@@ -14,6 +14,7 @@ import { executeTool } from './tools/executor';
 import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';
+import * as approval from './llm/approval';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -374,6 +375,13 @@ export function registerIpcHandlers(): void {
       activeAbortControllers.delete(win.id);
     }
   });
+
+  // Proposals
+  ipcMain.handle(Channels.PROPOSAL_LIST, (_e, status?: string) => approval.listProposals(status));
+  ipcMain.handle(Channels.PROPOSAL_DETAIL, (_e, uri: string) => approval.getProposal(uri));
+  ipcMain.handle(Channels.PROPOSAL_APPROVE, (_e, uri: string) => approval.approveProposal(uri));
+  ipcMain.handle(Channels.PROPOSAL_REJECT, (_e, uri: string) => approval.rejectProposal(uri));
+  ipcMain.handle(Channels.PROPOSAL_EXPIRE, () => approval.expireProposals());
 
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
 

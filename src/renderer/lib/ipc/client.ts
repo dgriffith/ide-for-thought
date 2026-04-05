@@ -63,6 +63,14 @@ export interface ShellApi {
   openInTerminal(relativePath?: string): Promise<void>;
 }
 
+export interface ProposalsApi {
+  list(status?: string): Promise<unknown[]>;
+  detail(uri: string): Promise<unknown | null>;
+  approve(uri: string): Promise<boolean>;
+  reject(uri: string): Promise<boolean>;
+  expire(): Promise<number>;
+}
+
 export interface TabsApi {
   save(session: TabSession): Promise<void>;
   load(): Promise<TabSession | null>;
@@ -118,6 +126,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;
+  proposals: ProposalsApi;
   tabs: TabsApi;
   tools: ToolsApi;
   menu: MenuApi;
