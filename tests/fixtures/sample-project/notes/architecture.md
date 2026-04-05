@@ -9,7 +9,7 @@ status: draft
 
 The system #architecture uses a layered approach.
 
-This [[supports::design-patterns]] and [[expands::research/overview]].
+This [[supports::notes/design-patterns]] and [[expands::research/overview]].
 It also [[references::research/papers/lambda-calculus|Lambda Calculus paper]].
 
 ## Components

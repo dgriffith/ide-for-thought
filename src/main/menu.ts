@@ -199,7 +199,7 @@ export function rebuildMenu(): void {
         },
         { type: 'separator' },
         {
-          label: 'Cycle Theme (Dark/Light/System)',
+          label: 'Cycle Theme (Dark/Light/Contrast/System)',
           accelerator: 'CmdOrCtrl+Shift+T',
           click: () => send(Channels.MENU_CYCLE_THEME),
         },

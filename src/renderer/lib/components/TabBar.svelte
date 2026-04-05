@@ -80,7 +80,7 @@
 <style>
   .tab-bar {
     display: flex;
-    background: var(--bg-titlebar);
+    background: var(--bg-tabbar);
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
     flex-shrink: 0;

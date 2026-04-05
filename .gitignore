@@ -3,5 +3,7 @@ dist/
 out/
 .vite/
 .minerva/
+coverage/
+.idea/
 *.log
 .DS_Store

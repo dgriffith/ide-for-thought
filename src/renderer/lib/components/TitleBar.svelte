@@ -67,25 +67,25 @@
     border: none;
     border-radius: 3px;
     background: none;
-    color: var(--text);
+    color: var(--titlebar-text);
     font-size: 14px;
     cursor: pointer;
     line-height: 1;
   }
 
   .nav-btn:hover:not(:disabled) {
-    background: var(--bg-button);
+    background: var(--titlebar-button);
   }
 
   .nav-btn:disabled {
-    color: var(--text-muted);
+    color: var(--titlebar-text-muted);
     opacity: 0.4;
     cursor: default;
   }
 
   .titlebar-text {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--titlebar-text-muted);
     user-select: none;
   }
 

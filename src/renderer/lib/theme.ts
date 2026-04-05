@@ -1,4 +1,4 @@
-export type ThemeMode = 'dark' | 'light' | 'system';
+export type ThemeMode = 'dark' | 'light' | 'contrast' | 'system';
 
 const STORAGE_KEY = 'themeMode';
 
@@ -11,7 +11,7 @@ export function setThemeMode(mode: ThemeMode): void {
   applyTheme(mode);
 }
 
-export function getEffectiveTheme(mode: ThemeMode): 'dark' | 'light' {
+export function getEffectiveTheme(mode: ThemeMode): 'dark' | 'light' | 'contrast' {
   if (mode === 'system') {
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   }
@@ -20,16 +20,20 @@ export function getEffectiveTheme(mode: ThemeMode): 'dark' | 'light' {
 
 export function applyTheme(mode: ThemeMode): void {
   const effective = getEffectiveTheme(mode);
-  if (effective === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-  } else {
+  if (effective === 'dark') {
     document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', effective);
   }
 }
 
 export function cycleTheme(): ThemeMode {
   const current = getThemeMode();
-  const next: ThemeMode = current === 'dark' ? 'light' : current === 'light' ? 'system' : 'dark';
+  const next: ThemeMode =
+    current === 'dark' ? 'light'
+    : current === 'light' ? 'contrast'
+    : current === 'contrast' ? 'system'
+    : 'dark';
   setThemeMode(next);
   return next;
 }
