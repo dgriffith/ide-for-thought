@@ -439,6 +439,9 @@
     api.menu.onSaveQuery(() => handleSaveQuery());
     api.menu.onOpenStockQuery((q) => editor.openQuery(q));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
+    api.menu.onPrint(() => window.print());
+    api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
+    api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
 
     // Tools for Thought — stream listener (once)
     api.tools.onStream((chunk) => {

@@ -421,6 +421,15 @@
       {/if}
     {/if}
     <div class="separator"></div>
+    <div class="submenu-item">
+      <span class="submenu-trigger">Open In &#x25B8;</span>
+      <div class="submenu">
+        <button onclick={() => { api.shell.revealFile(filePath); contextMenu = null; }}>Reveal in Finder</button>
+        <button onclick={() => { api.shell.openInDefault(filePath); contextMenu = null; }}>Open in Default App</button>
+        <button onclick={() => { api.shell.openInTerminal(filePath); contextMenu = null; }}>Open in Terminal</button>
+      </div>
+    </div>
+    <div class="separator"></div>
     <button onclick={() => execCommand('selectAll')}>Select All</button>
   </div>
 {/if}

@@ -110,11 +110,48 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+S',
           click: () => send(Channels.MENU_SAVE),
         },
+        {
+          label: 'Print...',
+          click: () => send('menu:print'),
+        },
+        {
+          label: 'Export as PDF...',
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const result = await dialog.showSaveDialog(win, {
+              title: 'Export as PDF',
+              defaultPath: 'note.pdf',
+              filters: [{ name: 'PDF', extensions: ['pdf'] }],
+            });
+            if (!result.canceled && result.filePath) {
+              const data = await win.webContents.printToPDF({
+                pageSize: 'Letter',
+                printBackground: true,
+              });
+              const fs = await import('node:fs/promises');
+              await fs.writeFile(result.filePath, data);
+            }
+          },
+        },
         { type: 'separator' },
         {
-          label: 'Reveal in Finder',
-          accelerator: 'CmdOrCtrl+Shift+R',
-          click: () => send(Channels.SHELL_REVEAL_FILE),
+          label: 'Open In',
+          submenu: [
+            {
+              label: 'Reveal in Finder',
+              accelerator: 'CmdOrCtrl+Shift+R',
+              click: () => send(Channels.SHELL_REVEAL_FILE),
+            },
+            {
+              label: 'Open in Default App',
+              click: () => send('menu:openInDefault'),
+            },
+            {
+              label: 'Open in Terminal',
+              click: () => send('menu:openInTerminal'),
+            },
+          ],
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },

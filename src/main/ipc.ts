@@ -296,6 +296,28 @@ export function registerIpcHandlers(): void {
     shell.showItemInFolder(fullPath);
   });
 
+  ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return;
+    shell.openPath(path.join(rootPath, relativePath));
+  });
+
+  ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, (e, relativePath?: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return;
+    const dir = relativePath
+      ? path.join(rootPath, path.dirname(relativePath))
+      : rootPath;
+    const { exec } = require('child_process');
+    if (process.platform === 'darwin') {
+      exec(`open -a Terminal "${dir}"`);
+    } else if (process.platform === 'win32') {
+      exec(`start cmd /K "cd /d ${dir}"`);
+    } else {
+      exec(`x-terminal-emulator --working-directory="${dir}" || xterm -e "cd '${dir}' && $SHELL"`);
+    }
+  });
+
   // Graph management
   ipcMain.handle(Channels.GRAPH_REBUILD, async (e) => {
     const rootPath = rootPathFromEvent(e);

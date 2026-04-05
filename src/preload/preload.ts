@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('api', {
   shell: {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
+    openInDefault: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.SHELL_OPEN_IN_DEFAULT, relativePath),
+    openInTerminal: (relativePath?: string) =>
+      ipcRenderer.invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
   },
   tabs: {
     save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
@@ -157,6 +161,15 @@ contextBridge.exposeInMainWorld('api', {
     },
     onClearRecent: (cb: () => void) => {
       ipcRenderer.on('menu:clearRecent', () => cb());
+    },
+    onPrint: (cb: () => void) => {
+      ipcRenderer.on('menu:print', () => cb());
+    },
+    onOpenInDefault: (cb: () => void) => {
+      ipcRenderer.on('menu:openInDefault', () => cb());
+    },
+    onOpenInTerminal: (cb: () => void) => {
+      ipcRenderer.on('menu:openInTerminal', () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

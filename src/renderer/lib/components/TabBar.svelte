@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Tab } from '../stores/editor.svelte';
+  import { api } from '../ipc/client';
 
   interface Props {
     tabs: Tab[];
@@ -73,6 +74,14 @@
     {#if tabs[contextMenu.index]?.type === 'note'}
       <div class="separator"></div>
       <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
+      <div class="submenu-item">
+        <span class="submenu-trigger">Open In &#x25B8;</span>
+        <div class="submenu">
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.openInTerminal(t.relativePath); contextMenu = null; }}>Open in Terminal</button>
+        </div>
+      </div>
     {/if}
   </div>
 {/if}
@@ -192,5 +201,38 @@
     height: 1px;
     background: var(--border);
     margin: 4px 0;
+  }
+
+  .submenu-item {
+    position: relative;
+  }
+
+  .submenu-trigger {
+    display: block;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: default;
+  }
+
+  .submenu-trigger:hover {
+    background: var(--bg-button);
+  }
+
+  .submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+  }
+
+  .submenu-item:hover .submenu {
+    display: block;
   }
 </style>

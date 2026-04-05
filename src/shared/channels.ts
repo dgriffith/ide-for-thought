@@ -83,6 +83,8 @@ export const Channels = {
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
+  SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
+  SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',
   GRAPH_REBUILD: 'graph:rebuild',
   GRAPH_EXPORT: 'graph:export',
 } as const;
