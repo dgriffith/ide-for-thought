@@ -15,6 +15,7 @@
   --titlebar-button: var(--bg-button);
   --titlebar-button-hover: var(--bg-button-hover);
   --bg-tabbar: var(--bg-titlebar);
+  --bg-toolbar: var(--bg-titlebar);
 }
 
 [data-theme="light"] {
@@ -31,7 +32,7 @@
 
 [data-theme="contrast"] {
   --bg: #ffffff;
-  --bg-titlebar: #1e1e2e;
+  --bg-titlebar: #3a3a4a;
   --bg-sidebar: #f5f5f7;
   --bg-button: #e8e8ec;
   --bg-button-hover: #d8d8de;
@@ -44,6 +45,8 @@
   --titlebar-button: #313244;
   --titlebar-button-hover: #45475a;
   --bg-tabbar: var(--bg-sidebar);
+  --bg-toolbar: var(--bg-sidebar);
+  --bg-code: #eaeaef;
 }
 
 * {

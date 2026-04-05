@@ -461,7 +461,7 @@ PREFIX csvw: <http://www.w3.org/ns/csvw#>
   }
 
   .preview :global(pre) {
-    background: var(--bg-titlebar);
+    background: var(--bg-code, var(--bg-titlebar));
     padding: 16px;
     border-radius: 8px;
     overflow-x: auto;

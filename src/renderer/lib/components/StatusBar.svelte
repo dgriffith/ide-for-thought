@@ -36,7 +36,7 @@
     align-items: center;
     padding: 0 8px;
     height: 22px;
-    background: var(--bg-titlebar);
+    background: var(--bg-toolbar);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
   }

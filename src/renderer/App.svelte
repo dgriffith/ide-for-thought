@@ -673,7 +673,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 4px 8px;
-    background: var(--bg-titlebar);
+    background: var(--bg-toolbar);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
