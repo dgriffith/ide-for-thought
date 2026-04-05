@@ -114,6 +114,7 @@ const STANDARD_PREFIXES: [string, string][] = [
   ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
   ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
   ['csvw', 'http://www.w3.org/ns/csvw#'],
+  ['prov', 'http://www.w3.org/ns/prov#'],
 ];
 
 function injectPrefixes(turtle: string, noteIri: string): string {
