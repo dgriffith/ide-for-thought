@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
@@ -61,6 +61,16 @@ export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
   openInDefault(relativePath: string): Promise<void>;
   openInTerminal(relativePath?: string): Promise<void>;
+}
+
+export interface ConversationsApi {
+  create(contextBundle: ContextBundle, triggerNodeUri?: string, systemMessage?: string): Promise<Conversation>;
+  append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
+  resolve(id: string): Promise<Conversation>;
+  abandon(id: string): Promise<Conversation>;
+  load(id: string): Promise<Conversation | null>;
+  list(): Promise<Conversation[]>;
+  listActive(): Promise<Conversation[]>;
 }
 
 export interface ProposalsApi {
@@ -126,6 +136,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;
+  conversations: ConversationsApi;
   proposals: ProposalsApi;
   tabs: TabsApi;
   tools: ToolsApi;

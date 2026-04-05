@@ -73,6 +73,17 @@ contextBridge.exposeInMainWorld('api', {
     openInTerminal: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
   },
+  conversations: {
+    create: (contextBundle: unknown, triggerNodeUri?: string, systemMessage?: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, systemMessage),
+    append: (id: string, role: string, content: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_APPEND, id, role, content),
+    resolve: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_RESOLVE, id),
+    abandon: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_ABANDON, id),
+    load: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_LOAD, id),
+    list: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST),
+    listActive: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST_ACTIVE),
+  },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),
     detail: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_DETAIL, uri),

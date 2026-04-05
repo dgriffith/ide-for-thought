@@ -72,3 +72,38 @@ export interface TabSession {
   activeIndex: number;
   tabs: SavedTab[];
 }
+
+// ── Conversations ────────────────────────────────────────────────────────
+
+export interface ContextBundleNode {
+  uri: string;
+  type: string;
+  label: string;
+}
+
+export interface ContextBundle {
+  triggerNode?: ContextBundleNode;
+  evidenceSet?: ContextBundleNode[];
+  neighborhood?: (ContextBundleNode & { relation: string })[];
+  pendingFlags?: string[];
+  noteContent?: string;
+  notePath?: string;
+}
+
+export interface ConversationMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+}
+
+export type ConversationStatus = 'active' | 'resolved' | 'abandoned';
+
+export interface Conversation {
+  id: string;
+  triggerNodeUri?: string;
+  contextBundle: ContextBundle;
+  messages: ConversationMessage[];
+  status: ConversationStatus;
+  startedAt: string;
+  resolvedAt?: string;
+}

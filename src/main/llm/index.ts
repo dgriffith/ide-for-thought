@@ -5,19 +5,57 @@ export interface StreamCallbacks {
   signal?: AbortSignal;
 }
 
-export async function complete(prompt: string, callbacks?: StreamCallbacks): Promise<string> {
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface CompleteOptions {
+  /** System prompt (sets context for the conversation) */
+  system?: string;
+  /** Multi-turn message history (alternative to single prompt) */
+  messages?: ChatMessage[];
+  /** Streaming callbacks */
+  callbacks?: StreamCallbacks;
+}
+
+/**
+ * Call the Anthropic Messages API.
+ * Supports single prompt (backward-compatible) or multi-turn with system prompt.
+ */
+export async function complete(prompt: string, callbacksOrOptions?: StreamCallbacks | CompleteOptions): Promise<string> {
   const settings = await getSettings();
 
   if (!settings.apiKey) {
     throw new Error('Anthropic API key not configured. Set it in the LLM settings or ANTHROPIC_API_KEY environment variable.');
   }
 
-  const body = {
+  // Resolve overloaded second argument
+  let system: string | undefined;
+  let messages: { role: string; content: string }[];
+  let callbacks: StreamCallbacks | undefined;
+
+  if (callbacksOrOptions && 'onChunk' in callbacksOrOptions) {
+    // Legacy: complete(prompt, streamCallbacks)
+    callbacks = callbacksOrOptions;
+    messages = [{ role: 'user', content: prompt }];
+  } else if (callbacksOrOptions) {
+    // New: complete(prompt, { system, messages, callbacks })
+    const opts = callbacksOrOptions as CompleteOptions;
+    system = opts.system;
+    callbacks = opts.callbacks;
+    messages = opts.messages ?? [{ role: 'user', content: prompt }];
+  } else {
+    messages = [{ role: 'user', content: prompt }];
+  }
+
+  const body: Record<string, unknown> = {
     model: settings.model,
     max_tokens: 4096,
     stream: !!callbacks,
-    messages: [{ role: 'user', content: prompt }],
+    messages,
   };
+  if (system) body.system = system;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

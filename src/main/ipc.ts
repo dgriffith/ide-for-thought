@@ -15,6 +15,8 @@ import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';
 import * as approval from './llm/approval';
+import * as conversation from './llm/conversation';
+import type { ContextBundle, ConversationMessage } from '../shared/types';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -382,6 +384,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.PROPOSAL_APPROVE, (_e, uri: string) => approval.approveProposal(uri));
   ipcMain.handle(Channels.PROPOSAL_REJECT, (_e, uri: string) => approval.rejectProposal(uri));
   ipcMain.handle(Channels.PROPOSAL_EXPIRE, () => approval.expireProposals());
+
+  // Conversations
+  ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, systemMessage?: string) =>
+    conversation.create(contextBundle, triggerNodeUri, systemMessage));
+  ipcMain.handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
+    conversation.appendMessage(id, role, content));
+  ipcMain.handle(Channels.CONVERSATION_RESOLVE, (_e, id: string) => conversation.resolve(id));
+  ipcMain.handle(Channels.CONVERSATION_ABANDON, (_e, id: string) => conversation.abandon(id));
+  ipcMain.handle(Channels.CONVERSATION_LOAD, (_e, id: string) => conversation.load(id));
+  ipcMain.handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
+  ipcMain.handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
 
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
 

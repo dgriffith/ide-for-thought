@@ -83,6 +83,15 @@ export const Channels = {
   PROPOSAL_REJECT: 'proposal:reject',
   PROPOSAL_EXPIRE: 'proposal:expire',
 
+  // Conversations
+  CONVERSATION_CREATE: 'conversation:create',
+  CONVERSATION_APPEND: 'conversation:append',
+  CONVERSATION_RESOLVE: 'conversation:resolve',
+  CONVERSATION_ABANDON: 'conversation:abandon',
+  CONVERSATION_LOAD: 'conversation:load',
+  CONVERSATION_LIST: 'conversation:list',
+  CONVERSATION_LIST_ACTIVE: 'conversation:listActive',
+
   // Tab session
   TABS_SAVE: 'tabs:save',
   TABS_LOAD: 'tabs:load',
