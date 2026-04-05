@@ -448,6 +448,25 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, settings: LLMSettings) => saveSettings(settings));
 
+  // Bookmarks
+  ipcMain.handle(Channels.BOOKMARKS_LOAD, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    try {
+      const bmPath = path.join(rootPath, '.minerva', 'bookmarks.json');
+      const data = await fs.readFile(bmPath, 'utf-8');
+      return JSON.parse(data);
+    } catch { return []; }
+  });
+
+  ipcMain.handle(Channels.BOOKMARKS_SAVE, async (e, tree: unknown) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return;
+    const bmPath = path.join(rootPath, '.minerva', 'bookmarks.json');
+    await fs.mkdir(path.dirname(bmPath), { recursive: true });
+    await fs.writeFile(bmPath, JSON.stringify(tree, null, 2), 'utf-8');
+  });
+
   // Tab session persistence
   ipcMain.handle(Channels.TABS_SAVE, async (e, session: TabSession) => {
     const rootPath = rootPathFromEvent(e);

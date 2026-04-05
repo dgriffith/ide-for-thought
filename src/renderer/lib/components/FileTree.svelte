@@ -17,9 +17,10 @@
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
+    onBookmark?: (relativePath: string) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
@@ -156,6 +157,9 @@
       <button onclick={() => { navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
         Copy Path
       </button>
+      {#if !contextMenu.targetIsDir}
+        <button onclick={() => { onBookmark?.(contextMenu!.target!); contextMenu = null; }}>Bookmark</button>
+      {/if}
       <div class="submenu-item">
         <span class="submenu-trigger">Open In &#x25B8;</span>
         <div class="submenu">

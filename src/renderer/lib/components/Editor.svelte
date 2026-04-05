@@ -41,6 +41,8 @@
     onEditorStateSave?: (filePath: string, cursorOffset: number, scrollTop: number) => void;
     onCursorChange?: (info: CursorInfo) => void;
     onToolInvoke?: (toolId: string) => void;
+    onOpenConversation?: () => void;
+    onBookmark?: () => void;
   }
 
   let {
@@ -53,6 +55,8 @@
     onEditorStateSave,
     onCursorChange,
     onToolInvoke,
+    onOpenConversation,
+    onBookmark,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -420,6 +424,9 @@
         </div>
       {/if}
     {/if}
+    <div class="separator"></div>
+    <button onclick={() => { contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
+    <button onclick={() => { contextMenu = null; onBookmark?.(); }}>Bookmark This Note</button>
     <div class="separator"></div>
     <div class="submenu-item">
       <span class="submenu-trigger">Open In &#x25B8;</span>

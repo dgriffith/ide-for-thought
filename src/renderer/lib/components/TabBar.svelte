@@ -10,9 +10,11 @@
     onCloseOthers: (index: number) => void;
     onCloseAll: () => void;
     onReveal: (relativePath: string) => void;
+    onOpenConversation?: () => void;
+    onBookmark?: (relativePath: string) => void;
   }
 
-  let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal }: Props = $props();
+  let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; index: number } | null>(null);
 
@@ -74,6 +76,8 @@
     {#if tabs[contextMenu.index]?.type === 'note'}
       <div class="separator"></div>
       <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
+      <button onclick={() => { onSwitch(contextMenu!.index); contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
+      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onBookmark?.(t.relativePath); contextMenu = null; }}>Bookmark This Note</button>
       <div class="submenu-item">
         <span class="submenu-trigger">Open In &#x25B8;</span>
         <div class="submenu">

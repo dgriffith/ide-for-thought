@@ -95,6 +95,10 @@ export const Channels = {
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
 
+  // Bookmarks
+  BOOKMARKS_LOAD: 'bookmarks:load',
+  BOOKMARKS_SAVE: 'bookmarks:save',
+
   // Tab session
   TABS_SAVE: 'tabs:save',
   TABS_LOAD: 'tabs:load',

@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
@@ -61,6 +61,11 @@ export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
   openInDefault(relativePath: string): Promise<void>;
   openInTerminal(relativePath?: string): Promise<void>;
+}
+
+export interface BookmarksApi {
+  load(): Promise<BookmarkNode[]>;
+  save(tree: BookmarkNode[]): Promise<void>;
 }
 
 export interface ConversationsApi {
@@ -139,6 +144,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;
+  bookmarks: BookmarksApi;
   conversations: ConversationsApi;
   proposals: ProposalsApi;
   tabs: TabsApi;

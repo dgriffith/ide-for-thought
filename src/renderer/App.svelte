@@ -22,6 +22,7 @@
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationStore } from './lib/stores/conversation.svelte';
+  import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -33,6 +34,7 @@
   const nav = getNavigationStore();
   const toolPanel = getToolPanelStore();
   const convStore = getConversationStore();
+  const bookmarkStore = getBookmarksStore();
   let showConversation = $state(false);
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
@@ -480,6 +482,7 @@
     api.menu.onProjectOpened(async (meta) => {
       await notebase.openPath(meta.rootPath);
       await editor.restoreTabs();
+      await bookmarkStore.load();
       sidebar?.refreshTags();
       // Restore position for the active tab after tabs are rendered
       const activeTab = editor.activeNoteTab;
@@ -523,6 +526,7 @@
           onCopy={handleCopy}
           onPaste={handlePaste}
           onMove={handleMove}
+          onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl)$/, '') ?? path, path)}
           canPaste={clipboardItem !== null}
         />
       {/if}
@@ -536,6 +540,8 @@
             onCloseOthers={editor.closeOthers}
             onCloseAll={editor.closeAll}
             onReveal={handleRevealInSidebar}
+            onOpenConversation={openConversation}
+            onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl)$/, '') ?? path, path)}
           />
         {/if}
         {#if editor.activeTab?.type === 'note'}
@@ -579,6 +585,8 @@
                     onEditorStateSave={editor.saveEditorState}
                     onCursorChange={(info) => { cursorInfo = info; }}
                     onToolInvoke={handleToolInvoke}
+                    onOpenConversation={openConversation}
+                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                   />
                 {/key}
               </div>
@@ -636,6 +644,7 @@
           content={editor.content}
           onFileSelect={handleFileSelect}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
+          onShowPrompt={showPrompt}
         />
       {/if}
     {:else}

@@ -73,6 +73,25 @@ export interface TabSession {
   tabs: SavedTab[];
 }
 
+// ── Bookmarks ────────────────────────────────────────────────────────────
+
+export interface Bookmark {
+  type: 'bookmark';
+  id: string;
+  name: string;
+  relativePath: string;
+  cursorOffset?: number;
+}
+
+export interface BookmarkFolder {
+  type: 'folder';
+  id: string;
+  name: string;
+  children: BookmarkNode[];
+}
+
+export type BookmarkNode = Bookmark | BookmarkFolder;
+
 // ── Conversations ────────────────────────────────────────────────────────
 
 export interface ContextBundleNode {

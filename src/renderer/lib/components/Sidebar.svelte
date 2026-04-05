@@ -17,10 +17,11 @@
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
+    onBookmark?: (relativePath: string) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
@@ -71,7 +72,7 @@
       ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
       ondrop={(e) => { e.preventDefault(); rootDropHover = false; const src = e.dataTransfer!.getData('text/plain'); if (src) onMove(src, ''); }}
     >
-      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} />
+      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} />
   {:else}

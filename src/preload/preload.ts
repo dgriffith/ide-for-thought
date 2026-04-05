@@ -97,6 +97,10 @@ contextBridge.exposeInMainWorld('api', {
     reject: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_REJECT, uri),
     expire: () => ipcRenderer.invoke(Channels.PROPOSAL_EXPIRE),
   },
+  bookmarks: {
+    load: () => ipcRenderer.invoke(Channels.BOOKMARKS_LOAD),
+    save: (tree: unknown) => ipcRenderer.invoke(Channels.BOOKMARKS_SAVE, tree),
+  },
   tabs: {
     save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
     load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
