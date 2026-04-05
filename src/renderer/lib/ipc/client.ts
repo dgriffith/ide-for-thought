@@ -71,6 +71,9 @@ export interface ConversationsApi {
   load(id: string): Promise<Conversation | null>;
   list(): Promise<Conversation[]>;
   listActive(): Promise<Conversation[]>;
+  send(convId: string, userMessage: string, systemPrompt?: string): Promise<Conversation>;
+  onStream(cb: (chunk: string) => void): void;
+  cancel(): Promise<void>;
 }
 
 export interface ProposalsApi {

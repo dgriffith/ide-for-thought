@@ -396,6 +396,54 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
   ipcMain.handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
 
+  // Conversation send + LLM streaming
+  const convAbortControllers = new Map<number, AbortController>();
+
+  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string) => {
+    const win = winFromEvent(e);
+    const controller = new AbortController();
+    convAbortControllers.set(win.id, controller);
+
+    try {
+      // Append user message
+      const conv = await conversation.appendMessage(convId, 'user', userMessage);
+
+      // Build message history for the LLM
+      const { complete: llmComplete } = await import('./llm/index');
+      const messages = conv.messages
+        .filter(m => m.role !== 'system')
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+      const output = await llmComplete('', {
+        system: systemPrompt,
+        messages,
+        callbacks: {
+          onChunk: (chunk: string) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+            }
+          },
+          signal: controller.signal,
+        },
+      });
+
+      // Append assistant response
+      const updated = await conversation.appendMessage(convId, 'assistant', output);
+      return updated;
+    } finally {
+      convAbortControllers.delete(win.id);
+    }
+  });
+
+  ipcMain.handle(Channels.CONVERSATION_CANCEL, (e) => {
+    const win = winFromEvent(e);
+    const controller = convAbortControllers.get(win.id);
+    if (controller) {
+      controller.abort();
+      convAbortControllers.delete(win.id);
+    }
+  });
+
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
 
   ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, settings: LLMSettings) => saveSettings(settings));

@@ -3,8 +3,9 @@
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
+  import ProposalsPanel from './right-sidebar/ProposalsPanel.svelte';
 
-  type PanelType = 'outline' | 'outgoing' | 'backlinks' | 'tags';
+  type PanelType = 'outline' | 'outgoing' | 'backlinks' | 'tags' | 'proposals';
 
   interface Props {
     activeFilePath: string | null;
@@ -49,6 +50,12 @@
       onclick={() => activePanel = 'tags'}
       title="Tags"
     >#</button>
+    <button
+      class="panel-tab"
+      class:active={activePanel === 'proposals'}
+      onclick={() => activePanel = 'proposals'}
+      title="Proposals"
+    >&#x2713;</button>
   </div>
 
   <div class="panel-content">
@@ -60,6 +67,8 @@
       <BacklinksPanel {activeFilePath} {revision} {onFileSelect} />
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} />
+    {:else if activePanel === 'proposals'}
+      <ProposalsPanel {revision} />
     {/if}
   </div>
 </aside>

@@ -83,6 +83,12 @@ contextBridge.exposeInMainWorld('api', {
     load: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_LOAD, id),
     list: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST),
     listActive: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST_ACTIVE),
+    send: (convId: string, userMessage: string, systemPrompt?: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt),
+    onStream: (cb: (chunk: string) => void) => {
+      ipcRenderer.on(Channels.CONVERSATION_STREAM, (_e, chunk) => cb(chunk));
+    },
+    cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
   },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),

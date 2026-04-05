@@ -91,6 +91,9 @@ export const Channels = {
   CONVERSATION_LOAD: 'conversation:load',
   CONVERSATION_LIST: 'conversation:list',
   CONVERSATION_LIST_ACTIVE: 'conversation:listActive',
+  CONVERSATION_SEND: 'conversation:send',
+  CONVERSATION_STREAM: 'conversation:stream',
+  CONVERSATION_CANCEL: 'conversation:cancel',
 
   // Tab session
   TABS_SAVE: 'tabs:save',

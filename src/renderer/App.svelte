@@ -16,12 +16,15 @@
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
+  import ConversationDialog from './lib/components/ConversationDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
+  import { getConversationStore } from './lib/stores/conversation.svelte';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
+  import type { ContextBundle } from '../shared/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
@@ -29,6 +32,8 @@
   const editor = getEditorStore();
   const nav = getNavigationStore();
   const toolPanel = getToolPanelStore();
+  const convStore = getConversationStore();
+  let showConversation = $state(false);
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
@@ -307,6 +312,20 @@
     }
   }
 
+  async function openConversation() {
+    const bundle: ContextBundle = {
+      notePath: editor.activeFilePath ?? undefined,
+      noteContent: editor.content || undefined,
+      triggerNode: editor.activeFilePath ? {
+        uri: editor.activeFilePath,
+        type: 'minerva:Note',
+        label: editor.activeFileName || editor.activeFilePath,
+      } : undefined,
+    };
+    await convStore.start(bundle, undefined, undefined);
+    showConversation = true;
+  }
+
   async function handleToolInvoke(toolId: string) {
     const allTools = getAllToolInfos();
     const toolInfo = allTools.find(t => t.id === toolId);
@@ -382,6 +401,14 @@
       if (notebase.meta) {
         e.preventDefault();
         editor.openQuery();
+      }
+    }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
+      e.preventDefault();
+      if (showConversation) {
+        showConversation = false;
+      } else {
+        openConversation();
       }
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
@@ -577,6 +604,12 @@
             bind:this={toolPanelComponent}
             onNoteCreated={() => { notebase.refresh(); sidebar?.refreshTags(); }}
           />
+          {#if showConversation}
+            <ConversationDialog
+              onClose={() => { showConversation = false; }}
+              onNavigate={handleNavigate}
+            />
+          {/if}
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
             tab={editor.activeQueryTab!}
@@ -584,6 +617,12 @@
             onExecute={editor.executeQuery}
             onSave={handleSaveQuery}
           />
+          {#if showConversation}
+            <ConversationDialog
+              onClose={() => { showConversation = false; }}
+              onNavigate={handleNavigate}
+            />
+          {/if}
         {:else}
           <div class="no-file">
             <p>Select a note from the sidebar</p>
