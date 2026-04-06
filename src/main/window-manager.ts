@@ -6,6 +6,7 @@ import * as graph from './graph/index';
 import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
 import * as conversation from './llm/conversation';
+import * as healthChecks from './graph/health-checks';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
@@ -172,6 +173,9 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     graph.indexAllNotes(rootPath),
     search.indexAllNotes(rootPath),
   ]);
+  // Run health checks after initial indexing, then periodically
+  healthChecks.runAllChecks();
+  healthChecks.startPeriodicChecks();
   persistSession();
 }
 

@@ -45,6 +45,8 @@ export interface GraphApi {
   query(sparql: string): Promise<{ results: unknown[] }>;
   rebuild(): Promise<{ count: number }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
+  inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
+  runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
   export(): Promise<void>;
 }
 
