@@ -14,6 +14,7 @@ registerTool({
   context: ['selectedText', 'fullNote'],
   outputMode: 'newNote',
   outputNotePrefix: 'steelman',
+  slashCommand: '/steelman',
   buildPrompt: (ctx: ToolContext) => {
     const text = ctx.selectedText || ctx.fullNoteContent || '';
     const sourceLabel = ctx.selectedText ? 'Selected Text' : 'Note';

@@ -79,6 +79,7 @@ export interface ConversationsApi {
   send(convId: string, userMessage: string, systemPrompt?: string): Promise<Conversation>;
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
+  slashCommand(convId: string, slashCmd: string, argText: string): Promise<Conversation>;
 }
 
 export interface ProposalsApi {
