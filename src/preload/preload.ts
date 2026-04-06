@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.CONVERSATION_STREAM, (_e, chunk) => cb(chunk));
     },
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
+    slashCommand: (convId: string, slashCmd: string, argText: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_SLASH_COMMAND, convId, slashCmd, argText),
   },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),

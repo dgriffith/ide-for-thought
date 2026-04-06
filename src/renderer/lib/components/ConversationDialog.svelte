@@ -2,6 +2,8 @@
   import { getConversationStore } from '../stores/conversation.svelte';
   import { api } from '../ipc/client';
   import { onMount } from 'svelte';
+  import { getSlashCommands } from '../tools/tool-registry';
+  import type { ThinkingToolInfo } from '../../../shared/tools/types';
 
   interface Props {
     onClose: () => void;
@@ -15,6 +17,36 @@
   let streaming = $state(false);
   let streamedChunks = $state('');
   let messagesEl = $state<HTMLDivElement>();
+  let showSlashMenu = $state(false);
+  let slashFilter = $state('');
+  let selectedSlashIndex = $state(0);
+
+  const allSlashCommands = getSlashCommands();
+
+  let filteredCommands = $derived(
+    slashFilter
+      ? allSlashCommands.filter(t =>
+          t.slashCommand!.toLowerCase().includes(slashFilter.toLowerCase()) ||
+          t.name.toLowerCase().includes(slashFilter.toLowerCase())
+        )
+      : allSlashCommands
+  );
+
+  function updateSlashMenu() {
+    if (input.startsWith('/')) {
+      const spaceIdx = input.indexOf(' ');
+      if (spaceIdx === -1) {
+        // Still typing the command name
+        slashFilter = input.slice(1);
+        showSlashMenu = true;
+        selectedSlashIndex = 0;
+      } else {
+        showSlashMenu = false;
+      }
+    } else {
+      showSlashMenu = false;
+    }
+  }
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -34,11 +66,31 @@
     if (!text || !conv.active || streaming) return;
 
     input = '';
+    showSlashMenu = false;
     streaming = true;
     streamedChunks = '';
 
+    // Check for slash command
+    if (text.startsWith('/')) {
+      const spaceIdx = text.indexOf(' ');
+      const cmd = spaceIdx >= 0 ? text.slice(0, spaceIdx) : text;
+      const argText = spaceIdx >= 0 ? text.slice(spaceIdx + 1).trim() : '';
+
+      try {
+        await api.conversations.slashCommand(conv.active.id, cmd, argText);
+        await conv.resumeConversation(conv.active.id);
+      } catch (e) {
+        if (String(e).includes('abort')) return;
+        console.error('[conversation] slash command error:', e);
+      } finally {
+        streaming = false;
+        streamedChunks = '';
+        scrollToBottom();
+      }
+      return;
+    }
+
     try {
-      // Build a system prompt from context bundle
       const ctx = conv.active.contextBundle;
       let system = 'You are a thoughtful epistemic partner helping the user analyze and develop ideas in their knowledge base.';
       if (ctx.noteContent) {
@@ -49,16 +101,20 @@
       }
 
       await api.conversations.send(conv.active.id, text, system);
-      // Reload the conversation to get the persisted assistant message
       await conv.resumeConversation(conv.active.id);
     } catch (e) {
-      if (String(e).includes('abort')) return; // cancelled
+      if (String(e).includes('abort')) return;
       console.error('[conversation] send error:', e);
     } finally {
       streaming = false;
       streamedChunks = '';
       scrollToBottom();
     }
+  }
+
+  function selectSlashCommand(tool: ThinkingToolInfo) {
+    input = tool.slashCommand + ' ';
+    showSlashMenu = false;
   }
 
   async function handleCancel() {
@@ -78,6 +134,30 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (showSlashMenu) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        selectedSlashIndex = Math.min(selectedSlashIndex + 1, filteredCommands.length - 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        selectedSlashIndex = Math.max(selectedSlashIndex - 1, 0);
+        return;
+      }
+      if (e.key === 'Tab' || (e.key === 'Enter' && filteredCommands.length > 0)) {
+        e.preventDefault();
+        if (filteredCommands[selectedSlashIndex]) {
+          selectSlashCommand(filteredCommands[selectedSlashIndex]);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        showSlashMenu = false;
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -136,11 +216,27 @@
       {/if}
     </div>
 
+    {#if showSlashMenu && filteredCommands.length > 0}
+      <div class="slash-menu">
+        {#each filteredCommands as cmd, i}
+          <button
+            class="slash-item"
+            class:selected={i === selectedSlashIndex}
+            onclick={() => selectSlashCommand(cmd)}
+          >
+            <span class="slash-cmd">{cmd.slashCommand}</span>
+            <span class="slash-desc">{cmd.description}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     <div class="conv-input">
       <textarea
         bind:value={input}
         onkeydown={handleKeydown}
-        placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
+        oninput={updateSlashMenu}
+        placeholder="Type a message or / for commands... (Enter to send)"
         rows="2"
         disabled={streaming || conv.active.status !== 'active'}
       ></textarea>
@@ -281,6 +377,47 @@
 
   .streaming .msg-content {
     opacity: 0.8;
+  }
+
+  .slash-menu {
+    border-top: 1px solid var(--border);
+    background: var(--bg-sidebar);
+    max-height: 150px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .slash-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .slash-item:hover, .slash-item.selected {
+    background: var(--bg-button);
+  }
+
+  .slash-cmd {
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+  }
+
+  .slash-desc {
+    color: var(--text-muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .conv-input {

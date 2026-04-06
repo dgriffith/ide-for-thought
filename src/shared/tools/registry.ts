@@ -26,6 +26,17 @@ export function getAllToolInfos(): ThinkingToolInfo[] {
   return getAllTools().map(toInfo);
 }
 
+export function getToolBySlashCommand(cmd: string): ThinkingToolDef | undefined {
+  const normalized = cmd.startsWith('/') ? cmd : `/${cmd}`;
+  return [...tools.values()].find(t => t.slashCommand === normalized);
+}
+
+export function getSlashCommands(): ThinkingToolInfo[] {
+  return [...tools.values()]
+    .filter(t => t.slashCommand)
+    .map(toInfo);
+}
+
 function toInfo(tool: ThinkingToolDef): ThinkingToolInfo {
   const { buildPrompt: _, ...info } = tool;
   return info;

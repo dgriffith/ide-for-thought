@@ -22,6 +22,7 @@ registerTool({
   ],
   outputMode: 'newNote',
   outputNotePrefix: 'taboo',
+  slashCommand: '/taboo',
   buildPrompt: (ctx: ToolContext) => {
     const text = ctx.selectedText || ctx.fullNoteContent || '';
     const term = ctx.parameterValues?.term || '[unspecified term]';

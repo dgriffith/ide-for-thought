@@ -43,6 +43,8 @@ export interface ThinkingToolDef {
   parameters?: ToolParameter[];
   outputMode: OutputMode;
   outputNotePrefix?: string;
+  /** Slash command trigger (e.g., "/excavate"). If set, usable in conversations. */
+  slashCommand?: string;
   buildPrompt: (ctx: ToolContext) => string;
 }
 
@@ -57,6 +59,7 @@ export interface ThinkingToolInfo {
   parameters?: ToolParameter[];
   outputMode: OutputMode;
   outputNotePrefix?: string;
+  slashCommand?: string;
 }
 
 export interface ToolExecutionRequest {
