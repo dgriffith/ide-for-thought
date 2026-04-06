@@ -5,11 +5,13 @@
     cursor: CursorInfo;
     fontSize: number;
     theme: string;
+    inspectionCount?: number;
     onGotoLine: () => void;
     onCycleTheme: () => void;
+    onShowInspections?: () => void;
   }
 
-  let { cursor, fontSize, theme, onGotoLine, onCycleTheme }: Props = $props();
+  let { cursor, fontSize, theme, inspectionCount = 0, onGotoLine, onCycleTheme, onShowInspections }: Props = $props();
 </script>
 
 <div class="status-bar">
@@ -22,6 +24,11 @@
     {/if}
   </div>
   <div class="status-right">
+    {#if inspectionCount > 0}
+      <button class="status-item clickable inspection-count" onclick={onShowInspections} title="Show inspections">
+        &#x26A0; {inspectionCount}
+      </button>
+    {/if}
     <span class="status-item">{cursor.wordCount} words</span>
     <span class="status-item">{fontSize}px</span>
     <button class="status-item clickable" onclick={onCycleTheme} title="Cycle Theme (Cmd+Shift+T)">{theme}</button>
@@ -64,5 +71,9 @@
 
   .status-item.clickable:hover {
     color: var(--text);
+  }
+
+  .inspection-count {
+    color: #f9e2af;
   }
 </style>
