@@ -48,6 +48,7 @@ registerTool({
   ],
   outputMode: 'newNote',
   outputNotePrefix: 'excavate',
+  slashCommand: '/excavate',
   buildPrompt: (ctx: ToolContext) => {
     const text = ctx.selectedText || ctx.fullNoteContent || '';
     const depth = ctx.parameterValues?.depth || 'standard';

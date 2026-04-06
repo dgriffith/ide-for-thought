@@ -43,6 +43,7 @@ export interface ThinkingToolDef {
   parameters?: ToolParameter[];
   outputMode: OutputMode;
   outputNotePrefix?: string;
+  slashCommand?: string;
   buildPrompt: (ctx: ToolContext) => string;
 }
 
@@ -57,6 +58,7 @@ export interface ThinkingToolInfo {
   parameters?: ToolParameter[];
   outputMode: OutputMode;
   outputNotePrefix?: string;
+  slashCommand?: string;
 }
 
 export interface ToolExecutionRequest {
