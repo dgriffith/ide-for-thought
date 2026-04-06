@@ -15,6 +15,8 @@
   let streaming = $state(false);
   let streamedChunks = $state('');
   let messagesEl = $state<HTMLDivElement>();
+  let crystallizing = $state(false);
+  let crystallizeResult = $state<{ componentCount: number } | null>(null);
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
@@ -77,6 +79,31 @@
     onClose();
   }
 
+  async function handleCrystallize(text: string) {
+    if (!conv.active || crystallizing) return;
+    crystallizing = true;
+    crystallizeResult = null;
+    try {
+      const result = await api.conversations.crystallize(text, conv.active.id);
+      crystallizeResult = result;
+      if (result.componentCount > 0) {
+        // Brief notification, then clear
+        setTimeout(() => { crystallizeResult = null; }, 4000);
+      }
+    } catch (e) {
+      console.error('[crystallize] error:', e);
+    } finally {
+      crystallizing = false;
+    }
+  }
+
+  async function handleCrystallizeSelection() {
+    const selection = window.getSelection()?.toString()?.trim();
+    if (selection && conv.active) {
+      await handleCrystallize(selection);
+    }
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -102,6 +129,7 @@
         <span class="conv-status">{conv.active.status}</span>
       </div>
       <div class="conv-actions">
+        <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="File selected text as thought components">File Selection</button>
         <button class="conv-btn" onclick={handleResolve} title="Resolve — file results to graph">Resolve</button>
         <button class="conv-btn" onclick={handleAbandon} title="Abandon — close without filing">Abandon</button>
         <button class="conv-btn close" onclick={onClose} title="Hide (conversation stays active)">&#x2715;</button>
@@ -124,7 +152,17 @@
     <div class="conv-messages" bind:this={messagesEl}>
       {#each conv.messages as msg}
         <div class="conv-msg {msg.role}">
-          <span class="msg-role">{msg.role}</span>
+          <div class="msg-header">
+            <span class="msg-role">{msg.role}</span>
+            {#if msg.role === 'assistant'}
+              <button
+                class="file-btn"
+                onclick={() => handleCrystallize(msg.content)}
+                disabled={crystallizing}
+                title="Extract thought components from this message"
+              >{crystallizing ? 'Filing...' : 'File This'}</button>
+            {/if}
+          </div>
           <div class="msg-content">{msg.content}</div>
         </div>
       {/each}
@@ -132,6 +170,11 @@
         <div class="conv-msg assistant streaming">
           <span class="msg-role">assistant</span>
           <div class="msg-content">{streamedChunks}</div>
+        </div>
+      {/if}
+      {#if crystallizeResult}
+        <div class="crystallize-notice">
+          Filed {crystallizeResult.componentCount} component{crystallizeResult.componentCount !== 1 ? 's' : ''} as proposal{crystallizeResult.componentCount !== 1 ? 's' : ''} — review in Proposals panel
         </div>
       {/if}
     </div>
@@ -277,6 +320,33 @@
     font-size: 12px;
     color: var(--text-muted);
     font-style: italic;
+  }
+
+  .msg-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file-btn {
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  .file-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .file-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .crystallize-notice {
+    padding: 6px 10px;
+    background: var(--bg-button);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent);
   }
 
   .streaming .msg-content {

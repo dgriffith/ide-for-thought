@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.CONVERSATION_STREAM, (_e, chunk) => cb(chunk));
     },
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
+    crystallize: (text: string, conversationId: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_CRYSTALLIZE, text, conversationId),
   },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),

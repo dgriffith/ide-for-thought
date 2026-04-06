@@ -94,6 +94,7 @@ export const Channels = {
   CONVERSATION_SEND: 'conversation:send',
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
+  CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',
