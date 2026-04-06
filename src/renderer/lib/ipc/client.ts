@@ -80,6 +80,7 @@ export interface ConversationsApi {
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
   crystallize(text: string, conversationId: string): Promise<{ turtle: string; componentCount: number }>;
+  slashCommand(convId: string, slashCmd: string, argText: string): Promise<Conversation>;
 }
 
 export interface ProposalsApi {
