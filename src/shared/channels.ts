@@ -94,7 +94,6 @@ export const Channels = {
   CONVERSATION_SEND: 'conversation:send',
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
-  CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',

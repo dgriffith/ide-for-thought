@@ -11,8 +11,6 @@ import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled } from './window-manager';
 import { executeTool } from './tools/executor';
-import { getToolBySlashCommand } from '../shared/tools/registry';
-import '../shared/tools/definitions/index';
 import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';
@@ -442,52 +440,6 @@ export function registerIpcHandlers(): void {
     const controller = convAbortControllers.get(win.id);
     if (controller) {
       controller.abort();
-      convAbortControllers.delete(win.id);
-    }
-  });
-
-  // Slash commands in conversations
-  ipcMain.handle(Channels.CONVERSATION_SLASH_COMMAND, async (e, convId: string, slashCmd: string, argText: string) => {
-    const win = winFromEvent(e);
-    const tool = getToolBySlashCommand(slashCmd);
-    if (!tool) throw new Error(`Unknown slash command: ${slashCmd}`);
-
-    // Load conversation to get context
-    const conv = await conversation.load(convId);
-    if (!conv) throw new Error(`Conversation not found: ${convId}`);
-
-    // Build tool context from conversation's context bundle
-    const ctx = {
-      selectedText: argText || undefined,
-      fullNoteContent: conv.contextBundle.noteContent,
-      fullNotePath: conv.contextBundle.notePath,
-      fullNoteTitle: conv.contextBundle.triggerNode?.label,
-    };
-
-    const prompt = tool.buildPrompt(ctx);
-
-    // Append a system message noting the slash command
-    await conversation.appendMessage(convId, 'user', `${slashCmd}${argText ? ' ' + argText : ''}`);
-
-    const controller = new AbortController();
-    convAbortControllers.set(win.id, controller);
-
-    try {
-      const { complete: llmComplete } = await import('./llm/index');
-      const output = await llmComplete(prompt, {
-        callbacks: {
-          onChunk: (chunk: string) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
-            }
-          },
-          signal: controller.signal,
-        },
-      });
-
-      await conversation.appendMessage(convId, 'assistant', output);
-      return await conversation.load(convId);
-    } finally {
       convAbortControllers.delete(win.id);
     }
   });

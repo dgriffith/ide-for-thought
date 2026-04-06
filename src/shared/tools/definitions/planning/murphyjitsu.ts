@@ -21,7 +21,6 @@ registerTool({
   ],
   outputMode: 'newNote',
   outputNotePrefix: 'murphyjitsu',
-  slashCommand: '/murphyjitsu',
   buildPrompt: (ctx: ToolContext) => {
     const planParam = ctx.parameterValues?.plan?.trim();
     const text = planParam || ctx.selectedText || ctx.fullNoteContent || '';
