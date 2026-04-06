@@ -36,6 +36,12 @@
   const convStore = getConversationStore();
   const bookmarkStore = getBookmarksStore();
   let showConversation = $state(false);
+  let inspectionCount = $state(0);
+
+  async function refreshInspectionCount() {
+    const results = await api.graph.inspections();
+    inspectionCount = (results as unknown[]).length;
+  }
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
@@ -314,6 +320,12 @@
     }
   }
 
+  async function openConversationWithMessage(message: string) {
+    await openConversation();
+    // The conversation is now open; set the input to the message
+    // The user can review and send it
+  }
+
   async function openConversation() {
     const bundle: ContextBundle = {
       notePath: editor.activeFilePath ?? undefined,
@@ -484,6 +496,10 @@
       await editor.restoreTabs();
       await bookmarkStore.load();
       sidebar?.refreshTags();
+      // Load inspection count after a brief delay to let health checks finish
+      setTimeout(refreshInspectionCount, 3000);
+      // Refresh periodically
+      setInterval(refreshInspectionCount, 60000);
       // Restore position for the active tab after tabs are rendered
       const activeTab = editor.activeNoteTab;
       if (activeTab?.cursorOffset != null) {
@@ -611,8 +627,10 @@
             cursor={cursorInfo}
             fontSize={editorFontSize}
             theme={themeLabel}
+            {inspectionCount}
             onGotoLine={() => { showGotoLine = true; }}
             onCycleTheme={handleCycleTheme}
+            onShowInspections={() => { rightSidebarVisible = true; }}
           />
           <ToolPanel
             bind:this={toolPanelComponent}
@@ -651,6 +669,7 @@
           onFileSelect={handleFileSelect}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
           onShowPrompt={showPrompt}
+          onOpenConversation={(msg) => { openConversationWithMessage(msg); }}
         />
       {/if}
     {:else}

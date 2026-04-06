@@ -4,9 +4,10 @@
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
   import BookmarksPanel from './right-sidebar/BookmarksPanel.svelte';
+  import InspectionsPanel from './right-sidebar/InspectionsPanel.svelte';
   import ProposalsPanel from './right-sidebar/ProposalsPanel.svelte';
 
-  type PanelType = 'outline' | 'outgoing' | 'backlinks' | 'tags' | 'bookmarks' | 'proposals';
+  type PanelType = 'outline' | 'outgoing' | 'backlinks' | 'tags' | 'bookmarks' | 'inspections' | 'proposals';
 
   interface Props {
     activeFilePath: string | null;
@@ -14,9 +15,10 @@
     onFileSelect: (relativePath: string) => void;
     onScrollToLine: (line: number) => void;
     onShowPrompt: (message: string) => Promise<string | null>;
+    onOpenConversation?: (message: string) => void;
   }
 
-  let { activeFilePath, content, onFileSelect, onScrollToLine, onShowPrompt }: Props = $props();
+  let { activeFilePath, content, onFileSelect, onScrollToLine, onShowPrompt, onOpenConversation }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
   let revision = $state(0);
@@ -60,6 +62,12 @@
     >&#x2606;</button>
     <button
       class="panel-tab"
+      class:active={activePanel === 'inspections'}
+      onclick={() => activePanel = 'inspections'}
+      title="Inspections"
+    >&#x26A0;</button>
+    <button
+      class="panel-tab"
       class:active={activePanel === 'proposals'}
       onclick={() => activePanel = 'proposals'}
       title="Proposals"
@@ -77,6 +85,8 @@
       <TagsPanel {content} {onFileSelect} />
     {:else if activePanel === 'bookmarks'}
       <BookmarksPanel {onFileSelect} {onShowPrompt} />
+    {:else if activePanel === 'inspections'}
+      <InspectionsPanel {revision} {onOpenConversation} />
     {:else if activePanel === 'proposals'}
       <ProposalsPanel {revision} />
     {/if}
