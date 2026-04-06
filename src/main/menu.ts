@@ -8,6 +8,7 @@ import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries, deleteQuery } from './saved-queries';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
+import * as healthChecks from './graph/health-checks';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -375,6 +376,12 @@ export function rebuildMenu(): void {
         },
         { type: 'separator' },
         {
+          label: 'Run Health Checks',
+          click: async () => {
+            await healthChecks.runAllChecks();
+          },
+        },
+        {
           label: 'Rebuild Index',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
@@ -426,6 +433,23 @@ export function rebuildMenu(): void {
               { role: 'zoom' as const },
               { type: 'separator' as const },
               { role: 'front' as const },
+              { type: 'separator' as const },
+              ...BrowserWindow.getAllWindows()
+                .filter(w => !w.isDestroyed())
+                .map(w => {
+                  const rootPath = getRootPath(w.id);
+                  const label = rootPath ? path.basename(rootPath) : 'Untitled';
+                  const focused = w === BrowserWindow.getFocusedWindow();
+                  return {
+                    label,
+                    type: 'checkbox' as const,
+                    checked: focused,
+                    click: () => {
+                      if (w.isMinimized()) w.restore();
+                      w.focus();
+                    },
+                  };
+                }),
             ],
           },
         ]

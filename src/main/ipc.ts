@@ -11,6 +11,7 @@ import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled } from './window-manager';
 import { executeTool } from './tools/executor';
+import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
 import { getSettings, saveSettings } from './llm/settings';
@@ -323,6 +324,10 @@ export function registerIpcHandlers(): void {
       exec(`x-terminal-emulator --working-directory="${dir}" || xterm -e "cd '${dir}' && $SHELL"`);
     }
   });
+
+  // Inspections
+  ipcMain.handle(Channels.INSPECTIONS_LIST, () => healthChecks.getInspections());
+  ipcMain.handle(Channels.INSPECTIONS_RUN, () => healthChecks.runAllChecks());
 
   // Grounding check — fuzzy match a claim against graph labels
   ipcMain.handle(Channels.GRAPH_GROUND_CHECK, async (_e, claimText: string) => {

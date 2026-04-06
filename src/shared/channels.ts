@@ -97,6 +97,8 @@ export const Channels = {
   CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
   CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
+  INSPECTIONS_LIST: 'inspections:list',
+  INSPECTIONS_RUN: 'inspections:run',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',
