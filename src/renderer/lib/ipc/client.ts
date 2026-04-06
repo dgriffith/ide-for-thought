@@ -79,6 +79,7 @@ export interface ConversationsApi {
   send(convId: string, userMessage: string, systemPrompt?: string): Promise<Conversation>;
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
+  crystallize(text: string, conversationId: string): Promise<{ turtle: string; componentCount: number }>;
 }
 
 export interface ProposalsApi {

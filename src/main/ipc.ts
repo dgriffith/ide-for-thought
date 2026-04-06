@@ -16,6 +16,7 @@ import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';
 import * as approval from './llm/approval';
 import * as conversation from './llm/conversation';
+import { crystallize } from './llm/crystallize';
 import type { ContextBundle, ConversationMessage } from '../shared/types';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
@@ -442,6 +443,11 @@ export function registerIpcHandlers(): void {
       controller.abort();
       convAbortControllers.delete(win.id);
     }
+  });
+
+  ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (_e, text: string, conversationId: string) => {
+    const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
+    return crystallize(text, convUri);
   });
 
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());

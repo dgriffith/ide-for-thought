@@ -411,6 +411,8 @@
             {linkType.label} Link
           </button>
         {/each}
+        <div class="submenu-separator"></div>
+        <button onclick={() => { contextMenu = null; onInsertQueryList?.(); }}>Link List for Tag...</button>
       </div>
     </div>
     {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0)}
@@ -439,7 +441,6 @@
     <div class="separator"></div>
     <button onclick={() => { contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
     <button onclick={() => { contextMenu = null; onBookmark?.(); }}>Bookmark This Note</button>
-    <button onclick={() => { contextMenu = null; onInsertQueryList?.(); }}>Insert Link List for Tag...</button>
     <div class="separator"></div>
     <div class="submenu-item">
       <span class="submenu-trigger">Open In &#x25B8;</span>
