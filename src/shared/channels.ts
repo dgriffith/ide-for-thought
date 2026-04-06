@@ -96,6 +96,7 @@ export const Channels = {
   CONVERSATION_CANCEL: 'conversation:cancel',
   CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
   CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
+  GRAPH_GROUND_CHECK: 'graph:groundCheck',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',
