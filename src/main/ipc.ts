@@ -324,6 +324,23 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // Grounding check — fuzzy match a claim against graph labels
+  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, async (_e, claimText: string) => {
+    const escaped = claimText.replace(/"/g, '\\"').replace(/\n/g, ' ');
+    const results = await graph.queryGraph(`
+      PREFIX dc: <http://purl.org/dc/terms/>
+      PREFIX thought: <https://minerva.dev/ontology/thought#>
+      PREFIX minerva: <https://minerva.dev/ontology#>
+      SELECT ?node ?label ?type WHERE {
+        { ?node dc:title ?label . ?node a minerva:Note . BIND("note" AS ?type) }
+        UNION
+        { ?node thought:label ?label . ?node a ?cls . ?cls rdfs:subClassOf thought:Component . BIND("component" AS ?type) }
+        FILTER(CONTAINS(LCASE(?label), LCASE("${escaped}")))
+      } LIMIT 5
+    `);
+    return results.results;
+  });
+
   // Graph management
   ipcMain.handle(Channels.GRAPH_REBUILD, async (e) => {
     const rootPath = rootPathFromEvent(e);

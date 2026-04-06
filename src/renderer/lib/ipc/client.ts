@@ -44,6 +44,7 @@ export interface GitApi {
 export interface GraphApi {
   query(sparql: string): Promise<{ results: unknown[] }>;
   rebuild(): Promise<{ count: number }>;
+  groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
   export(): Promise<void>;
 }
 

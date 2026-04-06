@@ -19,6 +19,48 @@
   let messagesEl = $state<HTMLDivElement>();
   let crystallizing = $state(false);
   let crystallizeResult = $state<{ componentCount: number } | null>(null);
+  let groundingCache = new Map<string, { grounded: boolean; label?: string; type?: string }>();
+
+  // Parse [[claim: ...]] annotations in assistant output
+  function renderAnnotatedContent(text: string): string {
+    return text.replace(/\[\[claim:\s*(.+?)\]\]/g, (_match, claim) => {
+      const escaped = claim.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return `<span class="llm-claim" data-claim="${escaped}" title="Checking grounding...">${escaped}</span>`;
+    });
+  }
+
+  async function checkGrounding(el: HTMLElement) {
+    const claim = el.dataset.claim;
+    if (!claim) return;
+
+    const cached = groundingCache.get(claim);
+    if (cached) {
+      applyGroundingState(el, cached);
+      return;
+    }
+
+    try {
+      const results = await api.graph.groundCheck(claim);
+      const match = (results as any[])?.[0];
+      const state = match
+        ? { grounded: true, label: match.label, type: match.type }
+        : { grounded: false };
+      groundingCache.set(claim, state);
+      applyGroundingState(el, state);
+    } catch {
+      el.title = 'Grounding check failed';
+    }
+  }
+
+  function applyGroundingState(el: HTMLElement, state: { grounded: boolean; label?: string; type?: string }) {
+    if (state.grounded) {
+      el.classList.add('grounded');
+      el.title = `Grounded: matches "${state.label}" (${state.type})`;
+    } else {
+      el.classList.add('ungrounded');
+      el.title = 'Ungrounded LLM assertion — not found in your knowledge base';
+    }
+  }
   let showSlashMenu = $state(false);
   let slashFilter = $state('');
   let selectedSlashIndex = $state(0);
@@ -67,6 +109,15 @@
     });
   });
 
+  // Run grounding checks on claim annotations after messages render
+  $effect(() => {
+    conv.messages; // track dependency
+    requestAnimationFrame(() => {
+      const claims = messagesEl?.querySelectorAll('.llm-claim:not(.grounded):not(.ungrounded)');
+      claims?.forEach((el) => checkGrounding(el as HTMLElement));
+    });
+  });
+
   async function handleSend() {
     const text = input.trim();
     if (!text || !conv.active || streaming) return;
@@ -97,7 +148,7 @@
 
     try {
       const ctx = conv.active.contextBundle;
-      let system = 'You are a thoughtful epistemic partner helping the user analyze and develop ideas in their knowledge base.';
+      let system = 'You are a thoughtful epistemic partner helping the user analyze and develop ideas in their knowledge base. When you make a substantive claim, assertion, or finding, wrap it in [[claim: your claim here]] notation so it can be checked against the knowledge base.';
       if (ctx.noteContent) {
         system += `\n\nCurrent note content:\n${ctx.noteContent}`;
       }
@@ -219,16 +270,17 @@
         <div class="conv-msg {msg.role}">
           <div class="msg-header">
             <span class="msg-role">{msg.role}</span>
-            {#if msg.role === 'assistant'}
-              <button
-                class="file-btn"
-                onclick={() => handleCrystallize(msg.content)}
-                disabled={crystallizing}
-                title="Extract thought components from this message"
-              >{crystallizing ? 'Filing...' : 'File This'}</button>
-            {/if}
           </div>
-          <div class="msg-content">{msg.content}</div>
+          {#if msg.role === 'assistant'}
+            <div class="msg-content">{@html renderAnnotatedContent(msg.content)}</div>
+            <div class="msg-actions">
+              <button class="msg-action-btn" onclick={() => { input = 'Tell me more about this.'; handleSend(); }} title="Continue exploring this topic">Explore Further</button>
+              <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Extract thought components">{crystallizing ? 'Filing...' : 'File This'}</button>
+              <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Flag for later review">Flag for Later</button>
+            </div>
+          {:else}
+            <div class="msg-content">{msg.content}</div>
+          {/if}
         </div>
       {/each}
       {#if streaming && streamedChunks}
@@ -424,6 +476,41 @@
     border-radius: 4px;
     font-size: 12px;
     color: var(--accent);
+  }
+
+  .msg-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .msg-action-btn {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    cursor: pointer;
+  }
+
+  .msg-action-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .msg-action-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .msg-content :global(.llm-claim) {
+    border-bottom: 1px dashed var(--text-muted);
+    cursor: help;
+    transition: border-color 0.15s;
+  }
+
+  .msg-content :global(.llm-claim.grounded) {
+    border-bottom-color: #a6e3a1;
+    color: #a6e3a1;
+  }
+
+  .msg-content :global(.llm-claim.ungrounded) {
+    border-bottom-color: #fab387;
+    border-bottom-style: dotted;
   }
 
   .streaming .msg-content {
