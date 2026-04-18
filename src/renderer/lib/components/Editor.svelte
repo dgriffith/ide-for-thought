@@ -21,6 +21,7 @@
     insertWikiLink, insertTypedLinks,
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
+  import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
 
   export interface CursorInfo {
     line: number;
@@ -44,6 +45,7 @@
     onOpenConversation?: () => void;
     onBookmark?: () => void;
     onInsertQueryList?: () => void;
+    onNavigate?: (target: string) => void;
   }
 
   let {
@@ -59,6 +61,7 @@
     onOpenConversation,
     onBookmark,
     onInsertQueryList,
+    onNavigate,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -67,7 +70,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null } | null>(null);
 
   const fontSizeCompartment = new Compartment();
   const themeCompartment = new Compartment();
@@ -183,12 +186,35 @@
 
   function showContextMenu(e: MouseEvent) {
     e.preventDefault();
-    contextMenu = { x: e.clientX, y: e.clientY };
+    let link: LinkRange | null = null;
+    if (view) {
+      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+      if (pos != null) link = findLinkAt(view.state, pos);
+    }
+    contextMenu = { x: e.clientX, y: e.clientY, link };
     const close = () => {
       contextMenu = null;
       window.removeEventListener('click', close);
     };
     setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function openLink(link: LinkRange) {
+    if (link.kind === 'wiki') {
+      onNavigate?.(link.href);
+    } else {
+      api.shell.openExternal(link.href);
+    }
+    contextMenu = null;
+  }
+
+  function editLink(link: LinkRange) {
+    if (!view) return;
+    view.dispatch({
+      selection: { anchor: link.editFrom, head: link.editTo },
+    });
+    view.focus();
+    contextMenu = null;
   }
 
   function execCommand(cmd: string) {
@@ -223,6 +249,14 @@
       '.cm-gutters': { display: 'none' },
     })),
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
+    linkDecorations({
+      onOpenNote: (target: string) => {
+        if (onNavigate) onNavigate(target);
+      },
+      onOpenExternal: (url: string) => {
+        api.shell.openExternal(url);
+      },
+    }),
     EditorView.domEventHandlers({
       contextmenu: (e) => {
         showContextMenu(e);
@@ -418,6 +452,11 @@
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >
+    {#if contextMenu.link}
+      <button onclick={() => openLink(contextMenu!.link!)}>Open Link</button>
+      <button onclick={() => editLink(contextMenu!.link!)}>Edit Link</button>
+      <div class="separator"></div>
+    {/if}
     <button onclick={() => execCommand('cut')}>Cut</button>
     <button onclick={() => execCommand('copy')}>Copy</button>
     <button onclick={() => execCommand('paste')}>Paste</button>
