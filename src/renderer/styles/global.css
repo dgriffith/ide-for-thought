@@ -40,8 +40,8 @@
   --text-muted: #6b6b80;
   --border: #d0d0d8;
   --accent: #1e66f5;
-  --titlebar-text: #cdd6f4;
-  --titlebar-text-muted: #6c7086;
+  --titlebar-text: #ffffff;
+  --titlebar-text-muted: #cdd6f4;
   --titlebar-button: #313244;
   --titlebar-button-hover: #45475a;
   --bg-tabbar: var(--bg-sidebar);

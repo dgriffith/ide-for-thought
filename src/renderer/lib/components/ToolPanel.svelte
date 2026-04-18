@@ -203,12 +203,12 @@
   .tool-name {
     font-weight: 600;
     font-size: 13px;
-    color: var(--text);
+    color: var(--titlebar-text);
   }
 
   .tool-desc {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--titlebar-text-muted);
   }
 
   .close-btn {
@@ -216,14 +216,14 @@
     border: none;
     border-radius: 3px;
     background: none;
-    color: var(--text-muted);
+    color: var(--titlebar-text-muted);
     cursor: pointer;
     font-size: 12px;
   }
 
   .close-btn:hover {
-    background: var(--bg-button);
-    color: var(--text);
+    background: var(--titlebar-button);
+    color: var(--titlebar-text);
   }
 
   .tool-body {
