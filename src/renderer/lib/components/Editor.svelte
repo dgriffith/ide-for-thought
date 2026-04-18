@@ -71,6 +71,7 @@
   let view: EditorView;
   let ignoreNextUpdate = false;
   let contextMenu = $state<{ x: number; y: number; link: LinkRange | null } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
 
   const fontSizeCompartment = new Compartment();
   const themeCompartment = new Compartment();
@@ -226,6 +227,36 @@
   function runCmd(cmd: (v: EditorView) => boolean) {
     if (view) cmd(view);
     contextMenu = null;
+  }
+
+  // Flip a submenu up/left if its default position (right of + below the parent
+  // item) would extend past the viewport. Called on submenu-item hover.
+  function adjustSubmenu(event: MouseEvent) {
+    const item = event.currentTarget as HTMLElement;
+    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
+    if (!submenu) return;
+
+    // Reset any prior inline overrides so we measure the default CSS position.
+    submenu.style.top = '';
+    submenu.style.bottom = '';
+    submenu.style.left = '';
+    submenu.style.right = '';
+
+    requestAnimationFrame(() => {
+      const rect = submenu.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const MARGIN = 8;
+
+      if (rect.bottom > vh - MARGIN) {
+        submenu.style.top = 'auto';
+        submenu.style.bottom = '-4px';
+      }
+      if (rect.right > vw - MARGIN) {
+        submenu.style.left = 'auto';
+        submenu.style.right = '100%';
+      }
+    });
   }
 
   const initSettings = getEditorSettings();
@@ -419,6 +450,30 @@
     }
   });
 
+  // Keep the context menu inside the viewport — flip it up/left when it
+  // would otherwise extend past the bottom or right edge.
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const rect = contextMenuEl.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const MARGIN = 8;
+
+    let nextX = contextMenu.x;
+    let nextY = contextMenu.y;
+
+    if (rect.bottom > vh - MARGIN) {
+      nextY = Math.max(MARGIN, vh - rect.height - MARGIN);
+    }
+    if (rect.right > vw - MARGIN) {
+      nextX = Math.max(MARGIN, vw - rect.width - MARGIN);
+    }
+
+    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
+      contextMenu = { ...contextMenu, x: nextX, y: nextY };
+    }
+  });
+
   $effect(() => {
     if (!view || !searchQuery) return;
     const q = searchQuery;
@@ -449,6 +504,7 @@
 {#if contextMenu}
   <div
     class="context-menu"
+    bind:this={contextMenuEl}
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >
@@ -461,7 +517,7 @@
     <button onclick={() => execCommand('copy')}>Copy</button>
     <button onclick={() => execCommand('paste')}>Paste</button>
     <div class="separator"></div>
-    <div class="submenu-item">
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Format &#x25B8;</span>
       <div class="submenu">
         <button onclick={() => runCmd(toggleBold)}>Bold</button>
@@ -470,7 +526,7 @@
         <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
       </div>
     </div>
-    <div class="submenu-item">
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Paragraph &#x25B8;</span>
       <div class="submenu">
         <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
@@ -482,7 +538,7 @@
         <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
       </div>
     </div>
-    <div class="submenu-item">
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Insert &#x25B8;</span>
       <div class="submenu">
         <button onclick={() => runCmd(insertWikiLink)}>Wiki Link</button>
@@ -505,7 +561,7 @@
     {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0)}
       <div class="separator"></div>
       {#if analysisTools.length > 0}
-        <div class="submenu-item">
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Analysis &#x25B8;</span>
           <div class="submenu">
             {#each analysisTools as tool}
@@ -515,7 +571,7 @@
         </div>
       {/if}
       {#if planningTools.length > 0}
-        <div class="submenu-item">
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Planning &#x25B8;</span>
           <div class="submenu">
             {#each planningTools as tool}
@@ -529,7 +585,7 @@
     <button onclick={() => { contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
     <button onclick={() => { contextMenu = null; onBookmark?.(); }}>Bookmark This Note</button>
     <div class="separator"></div>
-    <div class="submenu-item">
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Open In &#x25B8;</span>
       <div class="submenu">
         <button onclick={() => { api.shell.revealFile(filePath); contextMenu = null; }}>Reveal in Finder</button>
