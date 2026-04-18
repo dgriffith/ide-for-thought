@@ -118,6 +118,14 @@
     });
   });
 
+  function hostOfUrl(url: string): string {
+    try {
+      return new URL(url).host.replace(/^www\./, '');
+    } catch {
+      return url;
+    }
+  }
+
   async function handleSend() {
     const text = input.trim();
     if (!text || !conv.active || streaming) return;
@@ -273,6 +281,23 @@
           </div>
           {#if msg.role === 'assistant'}
             <div class="msg-content">{@html renderAnnotatedContent(msg.content)}</div>
+            {#if msg.citations && msg.citations.length > 0}
+              <ol class="citations">
+                {#each msg.citations as cite, i}
+                  <li>
+                    <button
+                      class="citation-link"
+                      onclick={() => api.shell.openExternal(cite.url)}
+                      title={cite.citedText}
+                    >
+                      <span class="citation-num">[{i + 1}]</span>
+                      <span class="citation-title">{cite.title ?? hostOfUrl(cite.url)}</span>
+                      <span class="citation-host">{hostOfUrl(cite.url)}</span>
+                    </button>
+                  </li>
+                {/each}
+              </ol>
+            {/if}
             <div class="msg-actions">
               <button class="msg-action-btn" onclick={() => { input = 'Tell me more about this.'; handleSend(); }} title="Continue exploring this topic">Explore Further</button>
               <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Extract thought components">{crystallizing ? 'Filing...' : 'File This'}</button>
@@ -476,6 +501,54 @@
     border-radius: 4px;
     font-size: 12px;
     color: var(--accent);
+  }
+
+  .citations {
+    list-style: none;
+    margin: 8px 0 4px 0;
+    padding: 6px 10px;
+    border-left: 2px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .citation-link {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    padding: 2px 0;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 11px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .citation-link:hover .citation-title {
+    text-decoration: underline;
+  }
+
+  .citation-num {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .citation-title {
+    color: var(--accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .citation-host {
+    color: var(--text-muted);
+    font-size: 10px;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   .msg-actions {

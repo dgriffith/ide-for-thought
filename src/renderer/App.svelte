@@ -17,9 +17,11 @@
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
+  import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
+  import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationStore } from './lib/stores/conversation.svelte';
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
@@ -36,6 +38,7 @@
   const convStore = getConversationStore();
   const bookmarkStore = getBookmarksStore();
   let showConversation = $state(false);
+  let showSettings = $state(false);
   let inspectionCount = $state(0);
 
   async function refreshInspectionCount() {
@@ -434,6 +437,7 @@
 
   onMount(() => {
     initTheme();
+    initAppearance();
 
     // Auto-save
     editor.onAutoSaved = () => {
@@ -483,6 +487,7 @@
     api.menu.onPrint(() => window.print());
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
+    api.menu.onOpenSettings(() => { showSettings = true; });
 
     // Tools for Thought — stream listener (once)
     api.tools.onStream((chunk) => {
@@ -719,6 +724,16 @@
       confirmLabel={confirmDialog.confirmLabel}
       onConfirm={handleConfirmOk}
       onCancel={handleConfirmCancel}
+    />
+  {/if}
+  {#if showSettings}
+    <SettingsDialog
+      onApplyEditor={(s) => editorComponent?.applySettings(s)}
+      onThemeChanged={() => {
+        themeLabel = getThemeMode();
+        editorComponent?.updateTheme();
+      }}
+      onClose={() => { showSettings = false; }}
     />
   {/if}
 </div>

@@ -59,6 +59,12 @@ export function rebuildMenu(): void {
             submenu: [
               { role: 'about' as const },
               { type: 'separator' as const },
+              {
+                label: 'Preferences\u2026',
+                accelerator: 'Cmd+,',
+                click: () => send(Channels.MENU_OPEN_SETTINGS),
+              },
+              { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
               { role: 'hide' as const },
@@ -213,6 +219,16 @@ export function rebuildMenu(): void {
           label: 'Sort Lines',
           click: () => send(Channels.MENU_SORT_LINES),
         },
+        ...(!isMac
+          ? [
+              { type: 'separator' as const },
+              {
+                label: 'Preferences\u2026',
+                accelerator: 'Ctrl+,',
+                click: () => send(Channels.MENU_OPEN_SETTINGS),
+              },
+            ]
+          : []),
       ],
     },
 

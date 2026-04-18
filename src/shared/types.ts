@@ -109,10 +109,17 @@ export interface ContextBundle {
   notePath?: string;
 }
 
+export interface Citation {
+  url: string;
+  title?: string;
+  citedText: string;
+}
+
 export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
+  citations?: Citation[];
 }
 
 export type ConversationStatus = 'active' | 'resolved' | 'abandoned';

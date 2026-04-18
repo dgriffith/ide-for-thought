@@ -26,6 +26,47 @@ function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
 }
 
+const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
+  'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
+  'The user is working inside a thoughtbase: a collection of interlinked notes backed by an RDF knowledge graph.',
+  '',
+  'You have six tools. Prefer the thoughtbase tools for anything inside the user\'s notes; use the web tools for facts, events, documentation, or sources outside the thoughtbase.',
+  '',
+  'Thoughtbase tools:',
+  '- search_notes: full-text search across the thoughtbase.',
+  '- read_note: read a specific note by its relative path.',
+  '- query_graph: run a SPARQL query against the knowledge graph (minerva/thought prefixes are auto-injected).',
+  '- describe_graph_schema: fetch the full ontology TTL. Call this before writing a non-trivial SPARQL query if you are unsure about class or predicate names.',
+  '',
+  'Web tools:',
+  '- web_search: search the web for current information, news, documentation, or external references.',
+  '- web_fetch: fetch the contents of a specific URL — use this after web_search to read a promising result in full, or when the user gives you a URL directly.',
+  '',
+  'Usage guidance:',
+  '- For questions about the user\'s notes or ideas they\'ve captured, use search_notes and read_note.',
+  '- For structural questions (what links to what, which notes share a tag, which claims cite a source), use query_graph; fall back to describe_graph_schema if a query fails or you are guessing at predicates.',
+  '- For current events, external facts, recent research, or things outside the thoughtbase, use web_search.',
+  '- It\'s often useful to combine tools: search_notes to see what the user already has, then web_search to fill in what they don\'t. Cite your web sources.',
+  '',
+  'You cannot modify the graph or create notes. If the user asks you to change something, describe the change clearly so they can apply it — or note that an approval-gated proposal tool will be added later.',
+  '',
+  'Answer in GitHub-flavored markdown. When you reference a note, cite its relative path so the user can open it.',
+].join('\n');
+
+function buildConversationSystemPrompt(
+  userSystem: string | undefined,
+  contextBundle: ContextBundle,
+): string {
+  const parts = [DEFAULT_CONVERSATION_SYSTEM_PROMPT];
+  if (contextBundle.notePath) {
+    parts.push('', `The user started this conversation from the note: ${contextBundle.notePath}`);
+  }
+  if (userSystem && userSystem.trim()) {
+    parts.push('', userSystem.trim());
+  }
+  return parts.join('\n');
+}
+
 function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   const win = winFromEvent(e);
   return getRootPath(win.id);
@@ -325,6 +366,20 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(Channels.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+    // Only http(s) — don't let anyone (or the LLM) coerce us into opening
+    // file://, javascript:, etc.
+    if (typeof url !== 'string') return;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+    await shell.openExternal(parsed.toString());
+  });
+
   // Inspections
   ipcMain.handle(Channels.INSPECTIONS_LIST, () => healthChecks.getInspections());
   ipcMain.handle(Channels.INSPECTIONS_RUN, () => healthChecks.runAllChecks());
@@ -426,22 +481,28 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string) => {
     const win = winFromEvent(e);
+    const rootPath = rootPathFromEvent(e);
     const controller = new AbortController();
     convAbortControllers.set(win.id, controller);
 
     try {
-      // Append user message
       const conv = await conversation.appendMessage(convId, 'user', userMessage);
 
-      // Build message history for the LLM
-      const { complete: llmComplete } = await import('./llm/index');
+      const { completeWithTools } = await import('./llm/index');
       const messages = conv.messages
         .filter(m => m.role !== 'system')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      const output = await llmComplete('', {
-        system: systemPrompt,
+      const effectiveSystem = buildConversationSystemPrompt(systemPrompt, conv.contextBundle);
+
+      if (!rootPath) {
+        throw new Error('No thoughtbase is open — cannot send conversation message.');
+      }
+
+      const result = await completeWithTools({
+        system: effectiveSystem,
         messages,
+        toolContext: { rootPath },
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
@@ -452,8 +513,12 @@ export function registerIpcHandlers(): void {
         },
       });
 
-      // Append assistant response
-      const updated = await conversation.appendMessage(convId, 'assistant', output);
+      const updated = await conversation.appendMessage(
+        convId,
+        'assistant',
+        result.text,
+        { citations: result.citations },
+      );
       return updated;
     } finally {
       convAbortControllers.delete(win.id);

@@ -74,7 +74,20 @@ export interface ToolExecutionResult {
   sections?: { title: string; content: string }[];
 }
 
+export interface WebSettings {
+  enabled: boolean;
+  allowedDomains: string[];
+  blockedDomains: string[];
+}
+
 export interface LLMSettings {
   apiKey: string;
   model: string;
+  web?: WebSettings;
 }
+
+export const DEFAULT_WEB_SETTINGS: WebSettings = {
+  enabled: true,
+  allowedDomains: [],
+  blockedDomains: [],
+};
