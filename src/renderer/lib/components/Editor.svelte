@@ -72,6 +72,10 @@
   let ignoreNextUpdate = false;
   let contextMenu = $state<{ x: number; y: number; link: LinkRange | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+  // Snapshot of the selection taken when the context menu opens, so
+  // commands from the menu can run against what the user had selected
+  // regardless of what the right-click and menu focus do in between.
+  let savedSelection: { anchor: number; head: number } | null = null;
 
   const fontSizeCompartment = new Compartment();
   const themeCompartment = new Compartment();
@@ -194,10 +198,26 @@
     }
     contextMenu = { x: e.clientX, y: e.clientY, link };
     const close = () => {
-      contextMenu = null;
+      closeMenu();
       window.removeEventListener('click', close);
     };
     setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function closeMenu() {
+    contextMenu = null;
+    savedSelection = null;
+  }
+
+  /** Restore the selection we snapshotted on right-click and refocus the
+   * editor, so menu-triggered commands operate on the original selection
+   * regardless of what happened to focus/selection in between. */
+  function restoreSelection(): void {
+    if (!view) return;
+    if (savedSelection) {
+      view.dispatch({ selection: savedSelection });
+    }
+    view.focus();
   }
 
   function openLink(link: LinkRange) {
@@ -206,7 +226,7 @@
     } else {
       api.shell.openExternal(link.href);
     }
-    contextMenu = null;
+    closeMenu();
   }
 
   function editLink(link: LinkRange) {
@@ -215,18 +235,27 @@
       selection: { anchor: link.editFrom, head: link.editTo },
     });
     view.focus();
-    contextMenu = null;
+    closeMenu();
+  }
+
+  /** Run an inline menu action with selection restored and focus in the
+   * editor. Use this for the onclick handlers on template menu buttons. */
+  function handleMenuAction(action: () => void) {
+    restoreSelection();
+    closeMenu();
+    action();
   }
 
   function execCommand(cmd: string) {
+    restoreSelection();
     document.execCommand(cmd);
-    view?.focus();
-    contextMenu = null;
+    closeMenu();
   }
 
   function runCmd(cmd: (v: EditorView) => boolean) {
+    restoreSelection();
     if (view) cmd(view);
-    contextMenu = null;
+    closeMenu();
   }
 
   // Flip a submenu up/left if its default position (right of + below the parent
@@ -289,7 +318,33 @@
       },
     }),
     EditorView.domEventHandlers({
+      // Snapshot the selection at the very start of a right-click, before
+      // any built-in handling can collapse it. Then, when the click is
+      // inside the selection, preventDefault so CM's own mousedown doesn't
+      // move the caret and visually wipe the highlight.
+      mousedown: (e, view) => {
+        if (e.button !== 2) return false;
+        const sel = view.state.selection.main;
+        savedSelection = sel.from !== sel.to
+          ? { anchor: sel.anchor, head: sel.head }
+          : null;
+        const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+        if (pos == null) return false;
+        if (sel.from !== sel.to && pos >= sel.from && pos <= sel.to) {
+          e.preventDefault();
+          return true;
+        }
+        return false;
+      },
       contextmenu: (e) => {
+        // Backup snapshot — covers the context-menu keyboard shortcut,
+        // where no right-click mousedown fires.
+        if (!savedSelection && view) {
+          const sel = view.state.selection.main;
+          if (sel.from !== sel.to) {
+            savedSelection = { anchor: sel.anchor, head: sel.head };
+          }
+        }
         showContextMenu(e);
         return true;
       },
@@ -502,11 +557,13 @@
 <div class="editor-wrapper" bind:this={editorContainer}></div>
 
 {#if contextMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="context-menu"
     bind:this={contextMenuEl}
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
+    onmousedown={(e) => e.preventDefault()}
   >
     {#if contextMenu.link}
       <button onclick={() => openLink(contextMenu!.link!)}>Open Link</button>
@@ -555,7 +612,7 @@
           </button>
         {/each}
         <div class="submenu-separator"></div>
-        <button onclick={() => { contextMenu = null; onInsertQueryList?.(); }}>Link List for Tag...</button>
+        <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>
     </div>
     {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0)}
@@ -565,7 +622,7 @@
           <span class="submenu-trigger">Analysis &#x25B8;</span>
           <div class="submenu">
             {#each analysisTools as tool}
-              <button onclick={() => { contextMenu = null; onToolInvoke?.(tool.id); }}>{tool.name}</button>
+              <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
             {/each}
           </div>
         </div>
@@ -575,22 +632,22 @@
           <span class="submenu-trigger">Planning &#x25B8;</span>
           <div class="submenu">
             {#each planningTools as tool}
-              <button onclick={() => { contextMenu = null; onToolInvoke?.(tool.id); }}>{tool.name}</button>
+              <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
             {/each}
           </div>
         </div>
       {/if}
     {/if}
     <div class="separator"></div>
-    <button onclick={() => { contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
-    <button onclick={() => { contextMenu = null; onBookmark?.(); }}>Bookmark This Note</button>
+    <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
+    <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Open In &#x25B8;</span>
       <div class="submenu">
-        <button onclick={() => { api.shell.revealFile(filePath); contextMenu = null; }}>Reveal in Finder</button>
-        <button onclick={() => { api.shell.openInDefault(filePath); contextMenu = null; }}>Open in Default App</button>
-        <button onclick={() => { api.shell.openInTerminal(filePath); contextMenu = null; }}>Open in Terminal</button>
+        <button onclick={() => { api.shell.revealFile(filePath); closeMenu(); }}>Reveal in Finder</button>
+        <button onclick={() => { api.shell.openInDefault(filePath); closeMenu(); }}>Open in Default App</button>
+        <button onclick={() => { api.shell.openInTerminal(filePath); closeMenu(); }}>Open in Terminal</button>
       </div>
     </div>
     <div class="separator"></div>
