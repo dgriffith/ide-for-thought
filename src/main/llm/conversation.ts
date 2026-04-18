@@ -56,12 +56,21 @@ export async function appendMessage(
   id: string,
   role: ConversationMessage['role'],
   content: string,
+  extra?: Partial<Pick<ConversationMessage, 'citations'>>,
 ): Promise<Conversation> {
   const conv = await load(id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
   if (conv.status !== 'active') throw new Error(`Conversation ${id} is ${conv.status}, cannot append`);
 
-  conv.messages.push({ role, content, timestamp: new Date().toISOString() });
+  const message: ConversationMessage = {
+    role,
+    content,
+    timestamp: new Date().toISOString(),
+  };
+  if (extra?.citations && extra.citations.length > 0) {
+    message.citations = extra.citations;
+  }
+  conv.messages.push(message);
   await persist(conv);
   return conv;
 }

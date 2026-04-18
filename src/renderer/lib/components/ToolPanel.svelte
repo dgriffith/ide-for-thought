@@ -61,14 +61,14 @@
 
   async function handleSaveAsNote() {
     if (!panel.result) return;
-    await handleToolOutput(panel.result, 'newNote');
+    await handleToolOutput(panel.result, 'newNote', $state.snapshot(panel.context));
     onNoteCreated?.();
     panel.close();
   }
 
   async function handleAppend() {
     if (!panel.result) return;
-    await handleToolOutput(panel.result, 'appendToNote');
+    await handleToolOutput(panel.result, 'appendToNote', $state.snapshot(panel.context));
     panel.close();
   }
 

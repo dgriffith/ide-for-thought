@@ -3,6 +3,7 @@ export interface EditorSettings {
   wordWrap: boolean;
   lineNumbers: boolean;
   showWhitespace: boolean;
+  alwaysCollapseFrontmatter: boolean;
 }
 
 const STORAGE_KEY = 'editorSettings';
@@ -12,6 +13,7 @@ const DEFAULTS: EditorSettings = {
   wordWrap: true,
   lineNumbers: true,
   showWhitespace: false,
+  alwaysCollapseFrontmatter: false,
 };
 
 export function getEditorSettings(): EditorSettings {

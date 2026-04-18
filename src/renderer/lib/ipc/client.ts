@@ -64,6 +64,7 @@ export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
   openInDefault(relativePath: string): Promise<void>;
   openInTerminal(relativePath?: string): Promise<void>;
+  openExternal(url: string): Promise<void>;
 }
 
 export interface BookmarksApi {
@@ -128,6 +129,7 @@ export interface MenuApi {
   onSaveQuery(cb: () => void): void;
   onOpenStockQuery(cb: (query: string) => void): void;
   onSortLines(cb: () => void): void;
+  onOpenSettings(cb: () => void): void;
   onPrint(cb: () => void): void;
   onOpenInDefault(cb: () => void): void;
   onOpenInTerminal(cb: () => void): void;

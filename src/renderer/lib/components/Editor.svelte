@@ -8,7 +8,7 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
   import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
-  import { indentUnit } from '@codemirror/language';
+  import { indentUnit, foldEffect, unfoldEffect, foldedRanges } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
@@ -136,6 +136,49 @@
         whitespaceCompartment.reconfigure(settings.showWhitespace ? highlightWhitespace() : []),
       ],
     });
+    if (settings.alwaysCollapseFrontmatter) {
+      foldFrontmatter();
+    } else {
+      unfoldFrontmatter();
+    }
+  }
+
+  function findFrontmatterRange(): { from: number; to: number } | null {
+    if (!view) return null;
+    const doc = view.state.doc;
+    if (doc.lines < 2) return null;
+    const firstLine = doc.line(1);
+    if (firstLine.text.trim() !== '---') return null;
+    for (let i = 2; i <= doc.lines; i++) {
+      const line = doc.line(i);
+      if (line.text.trim() === '---') {
+        // Fold range spans the content between the --- markers, keeping
+        // both fences visible as "---" lines in the gutter-collapsed view.
+        return { from: firstLine.to, to: line.to };
+      }
+    }
+    return null;
+  }
+
+  function foldFrontmatter() {
+    if (!view) return;
+    const range = findFrontmatterRange();
+    if (!range) return;
+    // Avoid dispatching if already folded at that range.
+    const existing = foldedRanges(view.state);
+    let alreadyFolded = false;
+    existing.between(range.from, range.to, (from, to) => {
+      if (from === range.from && to === range.to) alreadyFolded = true;
+    });
+    if (alreadyFolded) return;
+    view.dispatch({ effects: foldEffect.of(range) });
+  }
+
+  function unfoldFrontmatter() {
+    if (!view) return;
+    const range = findFrontmatterRange();
+    if (!range) return;
+    view.dispatch({ effects: unfoldEffect.of(range) });
   }
 
   function showContextMenu(e: MouseEvent) {
@@ -313,6 +356,11 @@
 
     const state = EditorState.create({ doc: content, extensions: allExtensions });
     view = new EditorView({ state, parent: editorContainer });
+
+    if (initSettings.alwaysCollapseFrontmatter) {
+      // Defer so the folding extension is active before we dispatch
+      requestAnimationFrame(() => foldFrontmatter());
+    }
 
     // Track scrollTop continuously — by cleanup time the DOM may already be detached
     let lastScrollTop = 0;

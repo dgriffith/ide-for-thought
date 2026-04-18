@@ -62,6 +62,7 @@ export const Channels = {
   MENU_JOIN_LINES: 'menu:joinLines',
   MENU_DUPLICATE_LINE: 'menu:duplicateLine',
   MENU_SORT_LINES: 'menu:sortLines',
+  MENU_OPEN_SETTINGS: 'menu:openSettings',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
@@ -113,6 +114,7 @@ export const Channels = {
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
   SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',
+  SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   GRAPH_REBUILD: 'graph:rebuild',
   GRAPH_EXPORT: 'graph:export',
 } as const;

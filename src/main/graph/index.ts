@@ -180,14 +180,28 @@ import THOUGHT_ONTOLOGY_TTL from '../../shared/ontology-thought.ttl?raw';
 
 const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 
+// Ontology triples are loaded fresh on every startup and are not persisted
+// to .minerva/graph.ttl. Holding the parsed statements lets us (1) self-heal
+// old graph.ttl files that included the ontology by removing any matching
+// triples, and (2) strip them before writing on persistGraph().
+let ontologyStatements: $rdf.Statement[] = [];
+
 function addOntologyToStore(): void {
   if (!store) return;
+  const tempStore = $rdf.graph();
   try {
-    $rdf.parse(ONTOLOGY_TTL, store, MINERVA('').value, 'text/turtle');
+    $rdf.parse(ONTOLOGY_TTL, tempStore, MINERVA('').value, 'text/turtle');
   } catch { /* ontology parse failure is non-fatal */ }
   try {
-    $rdf.parse(THOUGHT_ONTOLOGY_TTL, store, THOUGHT('').value, 'text/turtle');
+    $rdf.parse(THOUGHT_ONTOLOGY_TTL, tempStore, THOUGHT('').value, 'text/turtle');
   } catch { /* thought ontology parse failure is non-fatal */ }
+  ontologyStatements = tempStore.statements.slice();
+  for (const st of ontologyStatements) {
+    store.removeMatches(st.subject, st.predicate, st.object);
+  }
+  for (const st of ontologyStatements) {
+    store.add(st.subject, st.predicate, st.object, st.graph);
+  }
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
@@ -205,9 +219,6 @@ export async function initGraph(rootPath: string): Promise<void> {
   // Initialize Comunica engine
   if (!engine) engine = new QueryEngine();
 
-  // Load the ontology definitions into the store
-  addOntologyToStore();
-
   // Load persisted graph if it exists
   const graphPath = path.join(metaDir, 'graph.ttl');
   try {
@@ -216,6 +227,11 @@ export async function initGraph(rootPath: string): Promise<void> {
   } catch {
     // No persisted graph yet, start fresh
   }
+
+  // Load ontology last: addOntologyToStore() strips any matching triples
+  // before re-adding, which self-heals graph.ttl files written by older
+  // versions that persisted the ontology alongside the user's data.
+  addOntologyToStore();
 }
 
 // ── Indexing ────────────────────────────────────────────────────────────────
@@ -625,7 +641,16 @@ export async function persistGraph(): Promise<void> {
   if (!store || !currentRootPath) return;
 
   const graphPath = path.join(currentRootPath, '.minerva', 'graph.ttl');
+  // Strip ontology triples before serializing — they're re-loaded fresh
+  // from the embedded resource on startup, so persisting them would
+  // cause duplication on the next load.
+  for (const st of ontologyStatements) {
+    store.removeMatches(st.subject, st.predicate, st.object);
+  }
   const turtle = serializeGraph();
+  for (const st of ontologyStatements) {
+    store.add(st.subject, st.predicate, st.object, st.graph);
+  }
   await fs.writeFile(graphPath, turtle, 'utf-8');
 }
 

@@ -75,6 +75,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SHELL_OPEN_IN_DEFAULT, relativePath),
     openInTerminal: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
+    openExternal: (url: string) =>
+      ipcRenderer.invoke(Channels.SHELL_OPEN_EXTERNAL, url),
   },
   conversations: {
     create: (contextBundle: unknown, triggerNodeUri?: string, systemMessage?: string) =>
@@ -181,6 +183,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onSortLines: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());
+    },
+    onOpenSettings: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_OPEN_SETTINGS, () => cb());
     },
     onOpenProject: (cb: () => void) => {
       ipcRenderer.on('menu:openProject', () => cb());

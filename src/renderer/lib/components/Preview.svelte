@@ -373,6 +373,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     line-height: 1.7;
     color: var(--text);
     max-width: 800px;
+    font-family: var(--content-font-family, inherit);
   }
 
   .preview :global(h1) {
