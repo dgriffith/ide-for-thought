@@ -607,6 +607,7 @@
                     onCursorChange={(info) => { cursorInfo = info; }}
                     onToolInvoke={handleToolInvoke}
                     onOpenConversation={openConversation}
+                    onNavigate={handleNavigate}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
