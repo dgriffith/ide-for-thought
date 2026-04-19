@@ -1,22 +1,23 @@
 <script lang="ts">
-  import type { TagInfo, TaggedNote } from '../../../shared/types';
+  import type { TagInfo, TaggedNote, TaggedSource } from '../../../shared/types';
   import { api } from '../ipc/client';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
+    onSourceSelect?: (sourceId: string) => void;
   }
 
-  let { onFileSelect }: Props = $props();
+  let { onFileSelect, onSourceSelect }: Props = $props();
 
   let tags = $state<TagInfo[]>([]);
   let activeTag = $state<string | null>(null);
   let taggedNotes = $state<TaggedNote[]>([]);
+  let taggedSources = $state<TaggedSource[]>([]);
+  let showSources = $state(true);
 
   export async function refresh() {
     tags = await api.tags.list();
-    if (activeTag) {
-      taggedNotes = await api.tags.notesByTag(activeTag);
-    }
+    if (activeTag) await loadForTag(activeTag);
   }
 
   export function selectTag(tag: string) {
@@ -27,15 +28,31 @@
     if (activeTag === tag) {
       activeTag = null;
       taggedNotes = [];
+      taggedSources = [];
       return;
     }
     activeTag = tag;
-    taggedNotes = await api.tags.notesByTag(tag);
+    await loadForTag(tag);
+  }
+
+  async function loadForTag(tag: string) {
+    const [notes, sources] = await Promise.all([
+      api.tags.notesByTag(tag),
+      api.tags.sourcesByTag(tag),
+    ]);
+    taggedNotes = notes;
+    taggedSources = sources;
   }
 </script>
 
 <div class="tag-panel">
-  <div class="panel-header">Tags</div>
+  <div class="panel-header">
+    <span>Tags</span>
+    <label class="sources-toggle" title="Include sources in tag results">
+      <input type="checkbox" bind:checked={showSources} />
+      <span>sources</span>
+    </label>
+  </div>
 
   {#if tags.length === 0}
     <div class="empty">No tags yet</div>
@@ -54,18 +71,33 @@
     </div>
   {/if}
 
-  {#if activeTag && taggedNotes.length > 0}
-    <div class="notes-section">
-      <div class="notes-header">Notes tagged #{activeTag}</div>
-      {#each taggedNotes as note}
-        <button
-          class="note-item"
-          onclick={() => onFileSelect(note.relativePath)}
-        >
-          {note.title}
-        </button>
-      {/each}
-    </div>
+  {#if activeTag}
+    {@const visibleSources = showSources ? taggedSources : []}
+    {#if taggedNotes.length > 0 || visibleSources.length > 0}
+      <div class="notes-section">
+        <div class="notes-header">
+          Tagged #{activeTag}
+        </div>
+        {#each taggedNotes as note}
+          <button
+            class="note-item"
+            onclick={() => onFileSelect(note.relativePath)}
+          >
+            <span>{note.title}</span>
+          </button>
+        {/each}
+        {#each visibleSources as source}
+          <button
+            class="note-item"
+            onclick={() => onSourceSelect?.(source.sourceId)}
+            title={`Source: ${source.sourceId}`}
+          >
+            <span class="kind-tag">SRC</span>
+            <span>{source.title}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -84,6 +116,24 @@
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sources-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 400;
+    text-transform: lowercase;
+    letter-spacing: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sources-toggle input {
+    cursor: pointer;
   }
 
   .empty {
@@ -140,7 +190,9 @@
   }
 
   .note-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     width: 100%;
     padding: 4px 12px;
     border: none;
@@ -153,5 +205,16 @@
 
   .note-item:hover {
     background: var(--bg-button);
+  }
+
+  .kind-tag {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: var(--bg-button);
+    color: var(--text-muted);
+    flex-shrink: 0;
   }
 </style>

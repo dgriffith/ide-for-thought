@@ -166,11 +166,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     },
     onSourceMetaChanged: async (sourceId) => {
       try {
-        const relPath = `.minerva/sources/${sourceId}/meta.ttl`;
-        const content = await notebaseFs.readFile(rootPath, relPath);
-        graph.indexSource(sourceId, content);
+        const metaContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
+        let bodyContent: string | undefined;
+        try {
+          bodyContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/body.md`);
+        } catch { /* body optional */ }
+        graph.indexSource(sourceId, metaContent, bodyContent);
         debouncedPersist();
-      } catch { /* file may have been deleted between events */ }
+      } catch { /* meta.ttl may have been deleted between events */ }
     },
     onSourceMetaDeleted: (sourceId) => {
       graph.removeSource(sourceId);

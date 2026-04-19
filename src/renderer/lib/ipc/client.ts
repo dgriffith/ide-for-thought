@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
@@ -55,6 +55,7 @@ export interface GraphApi {
 export interface TagsApi {
   list(): Promise<TagInfo[]>;
   notesByTag(tag: string): Promise<TaggedNote[]>;
+  sourcesByTag(tag: string): Promise<TaggedSource[]>;
   allNames(): Promise<string[]>;
 }
 

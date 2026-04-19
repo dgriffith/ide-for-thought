@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('api', {
   tags: {
     list: () => ipcRenderer.invoke(Channels.TAGS_LIST),
     notesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_NOTES_BY_TAG, tag),
+    sourcesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_SOURCES_BY_TAG, tag),
     allNames: () => ipcRenderer.invoke(Channels.TAGS_ALL_NAMES),
   },
   export: {
