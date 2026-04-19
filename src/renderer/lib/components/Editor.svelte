@@ -11,7 +11,7 @@
   import { indentUnit, foldEffect, unfoldEffect, foldedRanges } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
-  import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+  import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
@@ -22,6 +22,7 @@
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
+  import { linkCompletionSource } from '../editor/link-autocomplete';
 
   export interface CursorInfo {
     line: number;
@@ -46,6 +47,8 @@
     onBookmark?: () => void;
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
+    /** Live list of note paths for wiki-link autocomplete. */
+    getNotePaths?: () => string[];
   }
 
   let {
@@ -62,6 +65,7 @@
     onBookmark,
     onInsertQueryList,
     onNavigate,
+    getNotePaths,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -443,6 +447,10 @@
     const resolved = resolveKeyBindings();
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
+      // Tab accepts the active completion; acceptCompletion returns false
+      // when no completion panel is open, so Tab-for-indent still works
+      // everywhere else.
+      { key: 'Tab', run: acceptCompletion },
       ...resolved.map(({ key: k, command: run }) => ({ key: k, run })),
     ]));
 
@@ -467,12 +475,18 @@
       }
     });
 
-    const tagAutocomplete = autocompletion({
-      override: [tagCompletion],
-      activateOnTyping: true,
+    const linkCompletion = linkCompletionSource({
+      getNotePaths: () => getNotePaths?.() ?? [],
+      readNote: (p) => api.notebase.readFile(p),
     });
 
-    const allExtensions = [...extensions, appKeymap, updateListener, tagAutocomplete];
+    const completion = autocompletion({
+      override: [tagCompletion, linkCompletion],
+      activateOnTyping: true,
+      closeOnBlur: true,
+    });
+
+    const allExtensions = [...extensions, appKeymap, updateListener, completion];
 
     const state = EditorState.create({ doc: content, extensions: allExtensions });
     view = new EditorView({ state, parent: editorContainer });

@@ -177,6 +177,19 @@
     handleOpenSource(result.sourceId, excerptId);
   }
 
+  /** Flatten the sidebar file tree to a list of indexable relative paths. */
+  function flattenNotePaths(files: import('../shared/types').NoteFile[]): string[] {
+    const out: string[] = [];
+    const walk = (xs: import('../shared/types').NoteFile[]) => {
+      for (const f of xs) {
+        if (f.isDirectory) walk(f.children ?? []);
+        else if (/\.(md|ttl)$/.test(f.relativePath)) out.push(f.relativePath);
+      }
+    };
+    walk(files);
+    return out;
+  }
+
   function handleTagSelect(tag: string) {
     sidebar?.refreshTags();
     setTimeout(() => sidebar?.selectTag(tag), 50);
@@ -693,6 +706,7 @@
                     onToolInvoke={handleToolInvoke}
                     onOpenConversation={openConversation}
                     onNavigate={handleNavigate}
+                    getNotePaths={() => flattenNotePaths(notebase.files)}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
