@@ -144,8 +144,24 @@ function sourceUri(sourceId: string): $rdf.NamedNode {
   return $rdf.sym(uriHelpers.sourceUri(baseUri, sourceId));
 }
 
+function excerptUri(excerptId: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.excerptUri(baseUri, excerptId));
+}
+
 function linkPredicate(lt: LinkType) {
   return lt.predicateNamespace === 'thought' ? THOUGHT(lt.predicate) : MINERVA(lt.predicate);
+}
+
+function resolveLinkTarget(lt: LinkType, target: string) {
+  if (lt.targetKind === 'source') return sourceUri(target);
+  if (lt.targetKind === 'excerpt') return excerptUri(target);
+  return noteUri(target.endsWith('.md') ? target : `${target}.md`);
+}
+
+function existsPredicateFor(lt: LinkType) {
+  if (lt.targetKind === 'source') return MINERVA('sourceId');
+  if (lt.targetKind === 'excerpt') return MINERVA('excerptId');
+  return MINERVA('relativePath');
 }
 
 function projectUri(): $rdf.NamedNode {
@@ -174,6 +190,16 @@ function injectPrefixes(turtle: string, noteIri: string): string {
   for (const [prefix, iri] of STANDARD_PREFIXES) {
     if (!turtle.includes(`@prefix ${prefix}:`)) {
       lines.push(`@prefix ${prefix}: <${iri}> .`);
+    }
+  }
+  // Project-scoped shortcuts for referring to other sources/excerpts in
+  // this thoughtbase by bare id: `sources:smith-2023`, `excerpts:p42`.
+  if (baseUri) {
+    if (!turtle.includes('@prefix sources:')) {
+      lines.push(`@prefix sources: <${baseUri}source/> .`);
+    }
+    if (!turtle.includes('@prefix excerpts:')) {
+      lines.push(`@prefix excerpts: <${baseUri}excerpt/> .`);
     }
   }
   if (!turtle.includes('@prefix this:')) {
@@ -300,9 +326,7 @@ export async function indexNote(relativePath: string, content: string): Promise<
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = linkType.targetKind === 'source'
-      ? sourceUri(link.target)
-      : noteUri(link.target.endsWith('.md') ? link.target : `${link.target}.md`);
+    const targetNode = resolveLinkTarget(linkType, link.target);
     store.add(subject, predicate, targetNode, graph);
   }
 
@@ -467,6 +491,57 @@ export function parseSourceIdFromPath(relativePath: string): string | null {
   return id;
 }
 
+// ── Excerpt indexing ────────────────────────────────────────────────────────
+// An "excerpt" is a verbatim quotation lifted from a Source, stored at
+// .minerva/excerpts/<id>.ttl. The excerpt node's URI is `${baseUri}excerpt/<id>`.
+// Inside the .ttl file, `this:` resolves to that URI, and `sources:` resolves
+// to `${baseUri}source/`, so users can write:
+//   this: a thought:Excerpt ;
+//       thought:fromSource sources:smith-2023 ;
+//       thought:citedText "..." ;
+//       thought:page 42 .
+
+export function indexExcerpt(excerptId: string, metaTtl: string): void {
+  if (!store) return;
+
+  const subject = excerptUri(excerptId);
+  const graph = subject;
+  const relativePath = `${uriHelpers.EXCERPTS_DIR}/${excerptId}.ttl`;
+
+  store.removeMatches(undefined, undefined, undefined, graph);
+  store.removeMatches(subject, undefined, undefined);
+
+  store.add(subject, MINERVA('excerptId'), $rdf.lit(excerptId), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(projectUri(), MINERVA('containsExcerpt'), subject, graph);
+
+  try {
+    const prefixed = injectPrefixes(metaTtl, subject.value);
+    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
+  } catch (e) {
+    console.error(`[minerva] Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+export function removeExcerpt(excerptId: string): void {
+  if (!store) return;
+  const subject = excerptUri(excerptId);
+  store.removeMatches(undefined, undefined, undefined, subject);
+  store.removeMatches(subject, undefined, undefined);
+}
+
+/** Parse `<id>` out of `.minerva/excerpts/<id>.ttl`. Returns null for other paths. */
+export function parseExcerptIdFromPath(relativePath: string): string | null {
+  const normalized = relativePath.replace(/\\/g, '/');
+  const prefix = `${uriHelpers.EXCERPTS_DIR}/`;
+  if (!normalized.startsWith(prefix)) return null;
+  if (!normalized.endsWith('.ttl')) return null;
+  const id = normalized.slice(prefix.length, -'.ttl'.length);
+  if (!id || id.includes('/')) return null;
+  return id;
+}
+
 function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
   if (!store) return;
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
@@ -519,6 +594,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
   count += await walkAndIndexSources(rootPath);
+  count += await walkAndIndexExcerpts(rootPath);
   await persistGraph();
 
   async function walkAndIndex(dirPath: string, root: string) {
@@ -561,6 +637,30 @@ async function walkAndIndexSources(rootPath: string): Promise<number> {
       count++;
     } catch {
       // No meta.ttl in this directory — skip
+    }
+  }
+  return count;
+}
+
+async function walkAndIndexExcerpts(rootPath: string): Promise<number> {
+  const excerptsRoot = path.join(rootPath, uriHelpers.EXCERPTS_DIR);
+  let count = 0;
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await fs.readdir(excerptsRoot, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.ttl')) continue;
+    const excerptId = entry.name.slice(0, -'.ttl'.length);
+    const filePath = path.join(excerptsRoot, entry.name);
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      indexExcerpt(excerptId, content);
+      count++;
+    } catch {
+      // Couldn't read — skip
     }
   }
   return count;
@@ -675,11 +775,12 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
       const targetNode = st.object as $rdf.NamedNode;
       const pathStmts = store.statementsMatching(targetNode, MINERVA('relativePath'), undefined);
       const titleStmts = store.statementsMatching(targetNode, DC('title'), undefined);
-      const existsPredicate = lt.targetKind === 'source' ? MINERVA('sourceId') : MINERVA('relativePath');
+      const existsPredicate = existsPredicateFor(lt);
       const typeStmts = store.statementsMatching(targetNode, existsPredicate, undefined);
+      const isExternalTarget = lt.targetKind === 'source' || lt.targetKind === 'excerpt';
 
       results.push({
-        target: pathStmts[0]?.object.value ?? (lt.targetKind === 'source' ? targetNode.value : ''),
+        target: pathStmts[0]?.object.value ?? (isExternalTarget ? targetNode.value : ''),
         targetTitle: titleStmts[0]?.object.value ?? targetNode.value,
         linkType: lt.name,
         linkLabel: lt.label,

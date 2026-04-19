@@ -20,6 +20,8 @@
 
   // Cite-label cache: sourceId → resolved label text (survives re-renders)
   const citeLabelCache = new Map<string, string>();
+  // Quote-label cache: excerptId → resolved label text (survives re-renders)
+  const quoteLabelCache = new Map<string, string>();
 
   const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -70,16 +72,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // Plain links render as before
       return `<a class="wiki-link" data-target="${escapeAttr(target)}">${escapeHtml(display)}</a>`;
     }
-    // Cite links get a placeholder class so the post-render effect can
-    // swap the display text for "Title — Author (Year)" when the user
-    // didn't supply their own |display override.
-    const extraClasses = linkType.targetKind === 'source' ? ' cite-link' : '';
+    // Cite/quote links get a placeholder class so the post-render effect can
+    // swap the display text for resolved metadata when the user didn't supply
+    // their own |display override.
     const hasOverride = display !== target;
-    const citeData = linkType.targetKind === 'source'
-      ? ` data-source-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`
-      : '';
+    let extraClasses = '';
+    let resolveData = '';
+    if (linkType.targetKind === 'source') {
+      extraClasses = ' cite-link';
+      resolveData = ` data-source-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`;
+    } else if (linkType.targetKind === 'excerpt') {
+      extraClasses = ' quote-link';
+      resolveData = ` data-excerpt-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`;
+    }
     // Typed links render with a colored badge
-    return `<a class="wiki-link typed-link${extraClasses}" data-target="${escapeAttr(target)}"${citeData} style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span><span class="link-display">${escapeHtml(display)}</span></a>`;
+    return `<a class="wiki-link typed-link${extraClasses}" data-target="${escapeAttr(target)}"${resolveData} style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span><span class="link-display">${escapeHtml(display)}</span></a>`;
   };
 
   // Tag plugin: #tag (but not inside URLs or after non-whitespace)
@@ -199,6 +206,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       blocks?.forEach((el) => executeQueryBlock(el as HTMLElement));
       const cites = previewEl?.querySelectorAll('.cite-link');
       cites?.forEach((el) => resolveCiteLabel(el as HTMLElement));
+      const quotes = previewEl?.querySelectorAll('.quote-link');
+      quotes?.forEach((el) => resolveQuoteLabel(el as HTMLElement));
     });
   });
 
@@ -242,6 +251,54 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     if (title) return title;
     if (byline) return byline;
     return sourceId;
+  }
+
+  async function resolveQuoteLabel(el: HTMLElement) {
+    const excerptId = el.dataset.excerptId;
+    if (!excerptId) return;
+    if (el.dataset.displayOverride === '1') return;
+
+    const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
+    if (!displayEl) return;
+
+    const cached = quoteLabelCache.get(excerptId);
+    if (cached) { displayEl.textContent = cached; return; }
+
+    try {
+      const idEsc = excerptId.replace(/"/g, '\\"');
+      const sparql = `SELECT ?citedText ?sourceTitle ?sourceCreator WHERE {
+        ?ex minerva:excerptId "${idEsc}" .
+        OPTIONAL { ?ex thought:citedText ?citedText }
+        OPTIONAL {
+          ?ex thought:fromSource ?src .
+          OPTIONAL { ?src dc:title ?sourceTitle }
+          OPTIONAL { ?src dc:creator ?sourceCreator }
+        }
+      } LIMIT 1`;
+      const response = await api.graph.query(QUERY_PREFIXES + sparql);
+      const row = response.results[0] as Record<string, string> | undefined;
+      const label = formatQuoteLabel(excerptId, row);
+      quoteLabelCache.set(excerptId, label);
+      displayEl.textContent = label;
+    } catch {
+      // Fall back to the excerpt-id already rendered.
+    }
+  }
+
+  function formatQuoteLabel(excerptId: string, row: Record<string, string> | undefined): string {
+    if (!row) return excerptId;
+    const quoted = row.citedText;
+    const src = row.sourceTitle || row.sourceCreator;
+    const snippet = quoted ? truncate(quoted, 80) : '';
+    if (snippet && src) return `“${snippet}” — ${src}`;
+    if (snippet) return `“${snippet}”`;
+    if (src) return src;
+    return excerptId;
+  }
+
+  function truncate(s: string, max: number): string {
+    if (s.length <= max) return s;
+    return s.slice(0, max - 1).trimEnd() + '…';
   }
 
   async function executeQueryBlock(el: HTMLElement) {

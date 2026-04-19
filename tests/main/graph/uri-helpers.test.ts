@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coinBaseUri, noteUri, tagUri, folderUri, projectUri, sourceUri } from '../../../src/main/graph/uri-helpers';
+import { coinBaseUri, noteUri, tagUri, folderUri, projectUri, sourceUri, excerptUri } from '../../../src/main/graph/uri-helpers';
 
 const BASE = 'https://project.minerva.dev/testuser/sample-project/';
 
@@ -73,5 +73,17 @@ describe('sourceUri', () => {
   it('encodes unsafe characters in the id', () => {
     const uri = sourceUri(BASE, 'arxiv/2401.12345');
     expect(uri).toBe(`${BASE}source/${encodeURIComponent('arxiv/2401.12345')}`);
+  });
+});
+
+describe('excerptUri', () => {
+  it('maps a simple id to an excerpt URI', () => {
+    const uri = excerptUri(BASE, 'smith-2023-p42');
+    expect(uri).toBe(`${BASE}excerpt/smith-2023-p42`);
+  });
+
+  it('encodes unsafe characters in the id', () => {
+    const uri = excerptUri(BASE, 'doc/quote#1');
+    expect(uri).toBe(`${BASE}excerpt/${encodeURIComponent('doc/quote#1')}`);
   });
 });

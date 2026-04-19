@@ -52,3 +52,16 @@ describe('cite link type', () => {
     expect(cite.targetKind).toBe('source');
   });
 });
+
+describe('quote link type', () => {
+  const quote = getLinkType('quote');
+
+  it('has predicate quotes in the thought namespace', () => {
+    expect(quote.predicate).toBe('quotes');
+    expect(quote.predicateNamespace).toBe('thought');
+  });
+
+  it('targets an excerpt', () => {
+    expect(quote.targetKind).toBe('excerpt');
+  });
+});

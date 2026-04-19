@@ -12,19 +12,27 @@ export interface WatcherCallbacks {
   onFileDeleted: (relativePath: string) => void;
   onSourceMetaChanged?: (sourceId: string) => void;
   onSourceMetaDeleted?: (sourceId: string) => void;
+  onExcerptChanged?: (excerptId: string) => void;
+  onExcerptDeleted?: (excerptId: string) => void;
 }
 
 interface WatcherPair {
   notes: FSWatcher;
-  sources: FSWatcher;
+  minervaData: FSWatcher;
 }
 
 const watchers = new Map<number, WatcherPair>();
 
 const SOURCE_META_RE = /(?:^|[/\\])\.minerva[/\\]sources[/\\]([^/\\]+)[/\\]meta\.ttl$/;
+const EXCERPT_RE = /(?:^|[/\\])\.minerva[/\\]excerpts[/\\]([^/\\]+)\.ttl$/;
 
 function extractSourceId(absPath: string): string | null {
   const m = absPath.match(SOURCE_META_RE);
+  return m ? m[1] : null;
+}
+
+function extractExcerptId(absPath: string): string | null {
+  const m = absPath.match(EXCERPT_RE);
   return m ? m[1] : null;
 }
 
@@ -70,37 +78,48 @@ export function startWatching(
     }
   });
 
-  // Separate watcher scoped to .minerva/sources so meta.ttl changes reindex
-  // without un-ignoring all of .minerva (bookmarks, tabs, graph.ttl, etc.).
+  // Separate watcher scoped to .minerva/{sources,excerpts} so graph-backing
+  // .ttl changes reindex without un-ignoring all of .minerva (bookmarks,
+  // tabs, graph.ttl, etc.).
   const sourcesRoot = path.join(rootPath, '.minerva', 'sources');
+  const excerptsRoot = path.join(rootPath, '.minerva', 'excerpts');
   // chokidar can miss directories that don't exist at startup, so materialize
   // the tree before registering. Safe: recursive mkdir no-ops if present.
   try { fs.mkdirSync(sourcesRoot, { recursive: true }); } catch { /* ignore */ }
-  const sources = watch(sourcesRoot, {
+  try { fs.mkdirSync(excerptsRoot, { recursive: true }); } catch { /* ignore */ }
+  const minervaData = watch([sourcesRoot, excerptsRoot], {
     persistent: true,
     ignoreInitial: true,
     depth: 2,
   });
 
-  const handleSourceEvent = (filePath: string, kind: 'upsert' | 'delete') => {
+  const handleMinervaEvent = (filePath: string, kind: 'upsert' | 'delete') => {
+    if (win.isDestroyed()) return;
     const sourceId = extractSourceId(filePath);
-    if (!sourceId || win.isDestroyed()) return;
-    if (kind === 'upsert') callbacks?.onSourceMetaChanged?.(sourceId);
-    else callbacks?.onSourceMetaDeleted?.(sourceId);
+    if (sourceId) {
+      if (kind === 'upsert') callbacks?.onSourceMetaChanged?.(sourceId);
+      else callbacks?.onSourceMetaDeleted?.(sourceId);
+      return;
+    }
+    const excerptId = extractExcerptId(filePath);
+    if (excerptId) {
+      if (kind === 'upsert') callbacks?.onExcerptChanged?.(excerptId);
+      else callbacks?.onExcerptDeleted?.(excerptId);
+    }
   };
 
-  sources.on('change', (filePath) => handleSourceEvent(filePath, 'upsert'));
-  sources.on('add', (filePath) => handleSourceEvent(filePath, 'upsert'));
-  sources.on('unlink', (filePath) => handleSourceEvent(filePath, 'delete'));
+  minervaData.on('change', (filePath) => handleMinervaEvent(filePath, 'upsert'));
+  minervaData.on('add', (filePath) => handleMinervaEvent(filePath, 'upsert'));
+  minervaData.on('unlink', (filePath) => handleMinervaEvent(filePath, 'delete'));
 
-  watchers.set(id, { notes, sources });
+  watchers.set(id, { notes, minervaData });
 }
 
 export function stopWatching(id: number): void {
   const pair = watchers.get(id);
   if (pair) {
     pair.notes.close();
-    pair.sources.close();
+    pair.minervaData.close();
     watchers.delete(id);
   }
 }
