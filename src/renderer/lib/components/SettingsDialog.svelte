@@ -12,6 +12,12 @@
   import type { LLMSettings, WebSettings } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
   import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
+  import {
+    getRefactorSettings,
+    setRefactorSettings,
+    type DestinationMode,
+    type RefactorSettings,
+  } from '../refactor/settings';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -21,13 +27,25 @@
 
   let { onApplyEditor, onThemeChanged, onClose }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'web' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'web' | 'ai';
   const TABS: { id: TabId; label: string }[] = [
     { id: 'editor', label: 'Editor' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'behaviors', label: 'Behaviors' },
+    { id: 'refactoring', label: 'Refactoring' },
     { id: 'web', label: 'Web' },
     { id: 'ai', label: 'AI' },
+  ];
+
+  let refactor = $state<RefactorSettings>({ ...getRefactorSettings() });
+  function patchRefactor(patch: Partial<RefactorSettings>): void {
+    refactor = { ...refactor, ...patch };
+    setRefactorSettings(patch);
+  }
+  const DESTINATION_OPTIONS: { value: DestinationMode; label: string }[] = [
+    { value: 'same-folder', label: 'Same folder as source note' },
+    { value: 'root', label: 'Thoughtbase root' },
+    { value: 'custom', label: 'Custom folder (template)' },
   ];
 
   const confirmSuppression = getConfirmSuppressionStore();
@@ -287,6 +305,69 @@
             >Show all confirmations again</button>
             <p class="hint">
               Clears every muted dialog at once.
+            </p>
+          </div>
+
+        {:else if activeTab === 'refactoring'}
+          <div class="field">
+            <label for="destination">Destination for new notes</label>
+            <select
+              id="destination"
+              value={refactor.destination}
+              onchange={(e) => patchRefactor({ destination: (e.currentTarget as HTMLSelectElement).value as DestinationMode })}
+            >
+              {#each DESTINATION_OPTIONS as opt}
+                <option value={opt.value}>{opt.label}</option>
+              {/each}
+            </select>
+            <p class="hint">
+              Applies to Extract Selection, Split Here, and Split by Heading.
+            </p>
+          </div>
+          {#if refactor.destination === 'custom'}
+            <div class="field">
+              <label for="destination-template">Custom folder template</label>
+              <input
+                id="destination-template"
+                type="text"
+                value={refactor.destinationTemplate}
+                oninput={(e) => patchRefactor({ destinationTemplate: (e.currentTarget as HTMLInputElement).value })}
+                placeholder="e.g. notes/{{date:YYYY}}/{{date:MM}}"
+              />
+              <p class="hint">
+                Tokens: <code>{'{{date:YYYY}}'}</code>, <code>{'{{date:MM}}'}</code>,
+                <code>{'{{date:DD}}'}</code>, <code>{'{{title}}'}</code>,
+                <code>{'{{source}}'}</code>. Leave blank to use the thoughtbase root.
+              </p>
+            </div>
+          {/if}
+          <div class="field">
+            <label for="filename-prefix">Filename prefix</label>
+            <input
+              id="filename-prefix"
+              type="text"
+              value={refactor.filenamePrefix}
+              oninput={(e) => patchRefactor({ filenamePrefix: (e.currentTarget as HTMLInputElement).value })}
+              placeholder="e.g. {{date:YYYYMMDDHHmm}}-"
+            />
+            <p class="hint">
+              Prepended to every refactored note's filename. Supports the same tokens.
+              Zettelkasten users often set something like <code>{'{{date:YYYYMMDDHHmm}}-'}</code>.
+            </p>
+          </div>
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={refactor.normalizeHeadings}
+                onchange={(e) => patchRefactor({ normalizeHeadings: (e.currentTarget as HTMLInputElement).checked })}
+              />
+              Normalize heading levels in extracted notes
+            </label>
+            <p class="hint">
+              When the extracted body's shallowest heading is H2 or deeper, shift every
+              heading up so it becomes H1. Only affects the new note's body; the source
+              is never touched.
             </p>
           </div>
 

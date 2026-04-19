@@ -36,6 +36,7 @@
     todayDateString,
   } from './lib/refactor/extract';
   import { planSplitByHeading } from './lib/refactor/split-by-heading';
+  import { getRefactorSettings } from './lib/refactor/settings';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -245,6 +246,7 @@
       selection,
       title,
       today: todayDateString(),
+      settings: getRefactorSettings(),
     });
 
     await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
@@ -274,6 +276,7 @@
       sourceContent: tab.content,
       level: level as 1 | 2 | 3,
       today: todayDateString(),
+      settings: getRefactorSettings(),
     });
 
     if (plan.newNotes.length === 0) return;
@@ -305,6 +308,7 @@
       cursor,
       title,
       today: todayDateString(),
+      settings: getRefactorSettings(),
     });
 
     await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
