@@ -3,7 +3,14 @@
  * into one new note per heading at the chosen level.
  */
 
-import { sanitizeFilename } from './extract';
+import {
+  sanitizeFilename,
+  resolveDestinationFolder,
+  renderFilenamePrefix,
+  normalizeHeadingLevels,
+} from './extract';
+import type { RefactorSettings } from './settings';
+import { DEFAULT_REFACTOR_SETTINGS } from './settings';
 
 export interface SplitByHeadingPlan {
   /** Files to write (order doesn't matter; caller writes each). */
@@ -18,14 +25,11 @@ export interface PlanSplitByHeadingOptions {
   /** Heading level to split on (1, 2, or 3). */
   level: 1 | 2 | 3;
   today: string;
+  settings?: RefactorSettings;
+  now?: Date;
 }
 
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
-
-function dirOf(relativePath: string): string {
-  const idx = relativePath.lastIndexOf('/');
-  return idx < 0 ? '' : relativePath.slice(0, idx);
-}
 
 function basenameWithoutExt(relativePath: string): string {
   const file = relativePath.split('/').pop() ?? relativePath;
@@ -76,20 +80,23 @@ function findHeadings(body: string, level: number): Array<{ lineStart: number; t
  * Assign a unique filename stem per heading, suffixing (-2, -3, …) on
  * collisions so two `## Changes` sections don't overwrite each other.
  */
-function assignStems(headings: Array<{ text: string }>): string[] {
+function assignStems(headings: Array<{ text: string }>, prefix = ''): string[] {
   const out: string[] = [];
   const counts = new Map<string, number>();
   for (const h of headings) {
     const baseStem = sanitizeFilename(h.text) || 'section';
     const n = counts.get(baseStem) ?? 0;
     counts.set(baseStem, n + 1);
-    out.push(n === 0 ? baseStem : `${baseStem}-${n + 1}`);
+    const stem = n === 0 ? baseStem : `${baseStem}-${n + 1}`;
+    out.push(`${prefix}${stem}`);
   }
   return out;
 }
 
 export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHeadingPlan {
   const { sourceRelativePath, sourceContent, level, today } = opts;
+  const settings = opts.settings ?? DEFAULT_REFACTOR_SETTINGS;
+  const now = opts.now;
 
   const { frontmatter, body } = splitFrontmatter(sourceContent);
   const headings = findHeadings(body, level);
@@ -107,10 +114,11 @@ export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHead
     sections.push(body.slice(start, end));
   }
 
-  const srcDir = dirOf(sourceRelativePath);
+  const parentDir = resolveDestinationFolder(sourceRelativePath, settings, now);
   const base = basenameWithoutExt(sourceRelativePath);
-  const subfolder = srcDir ? `${srcDir}/${base}` : base;
-  const stems = assignStems(headings);
+  const subfolder = parentDir ? `${parentDir}/${base}` : base;
+  const prefix = renderFilenamePrefix(sourceRelativePath, settings, now);
+  const stems = assignStems(headings, prefix);
 
   const newNotes: Array<{ relativePath: string; content: string }> = [];
   const links: string[] = [];
@@ -119,7 +127,7 @@ export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHead
     const stem = stems[i];
     const relativePath = `${subfolder}/${stem}.md`;
     const title = headings[i].text;
-    const sectionBody = sections[i].trimEnd() + '\n';
+    const sectionBody = normalizeHeadingLevels(sections[i].trimEnd(), settings) + '\n';
     const content = buildFrontmatter(title, sourceRelativePath, today) + sectionBody;
     newNotes.push({ relativePath, content });
     links.push(`- [[${subfolder}/${stem}|${title}]]`);

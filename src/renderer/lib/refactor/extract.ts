@@ -7,10 +7,18 @@
  * just string transformation so every edge case gets unit tests.
  *
  * Shared conventions match `lib/tools/output.ts`:
- *   - new note lives in the same folder as the source
+ *   - new note lives in the same folder as the source (by default)
  *   - frontmatter carries title, created, source
  *   - source is rewritten to carry a `[[path-without-md]]` wiki-link
+ *
+ * Settings (#123, #125) let users override the destination folder,
+ * prepend a filename prefix, and normalize heading levels in the
+ * extracted body.
  */
+
+import type { RefactorSettings } from './settings';
+import { DEFAULT_REFACTOR_SETTINGS } from './settings';
+import { renderTemplate } from './tokens';
 
 export interface ExtractPlan {
   /** Relative path of the new note, including `.md`. */
@@ -32,6 +40,10 @@ export interface PlanExtractOptions {
   title: string;
   /** `YYYY-MM-DD` — allow tests to pin a deterministic value. */
   today: string;
+  /** Refactoring settings; falls back to defaults when omitted. */
+  settings?: RefactorSettings;
+  /** Pin "now" for tests; defaults to the `today` date at midnight local time. */
+  now?: Date;
 }
 
 export interface PlanSplitHereOptions {
@@ -41,6 +53,8 @@ export interface PlanSplitHereOptions {
   cursor: number;
   title: string;
   today: string;
+  settings?: RefactorSettings;
+  now?: Date;
 }
 
 /**
@@ -87,6 +101,80 @@ function dirOf(relativePath: string): string {
   return idx < 0 ? '' : relativePath.slice(0, idx);
 }
 
+/**
+ * Decide where a new refactored note should go, honoring
+ * destination-mode / folder-template settings. Returns a folder (no
+ * trailing slash) or '' for the thoughtbase root.
+ */
+export function resolveDestinationFolder(
+  sourceRelativePath: string,
+  settings: RefactorSettings,
+  now?: Date,
+): string {
+  switch (settings.destination) {
+    case 'root':
+      return '';
+    case 'custom': {
+      const rendered = renderTemplate(settings.destinationTemplate, {
+        title: basenameTitle(sourceRelativePath),
+        source: sourceRelativePath,
+        now,
+      }).trim();
+      return rendered.replace(/\/+$/, '');
+    }
+    case 'same-folder':
+    default:
+      return dirOf(sourceRelativePath);
+  }
+}
+
+function basenameTitle(relativePath: string): string {
+  const file = relativePath.split('/').pop() ?? relativePath;
+  return file.replace(/\.md$/, '');
+}
+
+/** Render the user-configured filename prefix, returning '' when unset. */
+export function renderFilenamePrefix(
+  sourceRelativePath: string,
+  settings: RefactorSettings,
+  now?: Date,
+): string {
+  if (!settings.filenamePrefix) return '';
+  return renderTemplate(settings.filenamePrefix, {
+    title: basenameTitle(sourceRelativePath),
+    source: sourceRelativePath,
+    now,
+  });
+}
+
+/**
+ * Shift heading levels in `body` so the shallowest-present heading becomes
+ * H1. No-op when settings.normalizeHeadings is off or no headings exist.
+ */
+export function normalizeHeadingLevels(body: string, settings: RefactorSettings): string {
+  if (!settings.normalizeHeadings) return body;
+  const lines = body.split('\n');
+  let inFence = false;
+  let minLevel = Infinity;
+  for (const line of lines) {
+    if (/^```/.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = line.match(/^(#{1,6})\s+\S/);
+    if (m) minLevel = Math.min(minLevel, m[1].length);
+  }
+  if (!isFinite(minLevel) || minLevel <= 1) return body;
+  const shift = minLevel - 1;
+  inFence = false;
+  return lines.map((line) => {
+    if (/^```/.test(line)) { inFence = !inFence; return line; }
+    if (inFence) return line;
+    const m = line.match(/^(#{1,6})(\s+.+)$/);
+    if (!m) return line;
+    const newLevel = Math.max(1, m[1].length - shift);
+    return '#'.repeat(newLevel) + m[2];
+  }).join('\n');
+}
+
 function yamlQuote(s: string): string {
   if (!/[:#]/.test(s)) return s;
   return `"${s.replace(/"/g, '\\"')}"`;
@@ -124,14 +212,19 @@ function wikiLinkTarget(relativePath: string): string {
  */
 export function planExtract(opts: PlanExtractOptions): ExtractPlan {
   const { sourceRelativePath, sourceContent, selection, title, today } = opts;
+  const settings = opts.settings ?? DEFAULT_REFACTOR_SETTINGS;
+  const now = opts.now;
 
   const selected = sourceContent.slice(selection.from, selection.to);
-  const dir = dirOf(sourceRelativePath);
-  const stem = sanitizeFilename(title) || `note-${Date.now()}`;
+  const body = normalizeHeadingLevels(selected.replace(/^\s+|\s+$/g, ''), settings) + '\n';
+
+  const dir = resolveDestinationFolder(sourceRelativePath, settings, now);
+  const prefix = renderFilenamePrefix(sourceRelativePath, settings, now);
+  const stem = `${prefix}${sanitizeFilename(title) || `note-${Date.now()}`}`;
   const newNotePath = dir ? `${dir}/${stem}.md` : `${stem}.md`;
 
   const frontmatter = buildFrontmatter(title, sourceRelativePath, today);
-  const newNoteContent = frontmatter + selected.replace(/^\s+|\s+$/g, '') + '\n';
+  const newNoteContent = frontmatter + body;
 
   const linkBack = `[[${wikiLinkTarget(newNotePath)}]]`;
   const updatedSourceContent =
@@ -152,6 +245,8 @@ export function planExtract(opts: PlanExtractOptions): ExtractPlan {
  */
 export function planSplitHere(opts: PlanSplitHereOptions): ExtractPlan {
   const { sourceRelativePath, sourceContent, cursor, title, today } = opts;
+  const settings = opts.settings ?? DEFAULT_REFACTOR_SETTINGS;
+  const now = opts.now;
 
   const { frontmatter } = splitFrontmatter(sourceContent);
   const minOffset = frontmatter ? frontmatter.length : 0;
@@ -163,9 +258,11 @@ export function planSplitHere(opts: PlanSplitHereOptions): ExtractPlan {
     return i;
   })();
 
-  const tail = sourceContent.slice(lineStart).replace(/^\s+/, '');
-  const dir = dirOf(sourceRelativePath);
-  const stem = sanitizeFilename(title) || `note-${Date.now()}`;
+  const tailRaw = sourceContent.slice(lineStart).replace(/^\s+/, '');
+  const tail = normalizeHeadingLevels(tailRaw, settings);
+  const dir = resolveDestinationFolder(sourceRelativePath, settings, now);
+  const prefix = renderFilenamePrefix(sourceRelativePath, settings, now);
+  const stem = `${prefix}${sanitizeFilename(title) || `note-${Date.now()}`}`;
   const newNotePath = dir ? `${dir}/${stem}.md` : `${stem}.md`;
 
   const newNoteContent = buildFrontmatter(title, sourceRelativePath, today) + tail + (tail.endsWith('\n') ? '' : '\n');
