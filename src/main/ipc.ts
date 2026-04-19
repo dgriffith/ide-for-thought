@@ -307,6 +307,14 @@ export function registerIpcHandlers(): void {
     return graph.queryGraph(sparql);
   });
 
+  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (_e, sourceId: string) => {
+    return graph.getSourceDetail(sourceId);
+  });
+
+  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, (_e, excerptId: string) => {
+    return graph.getExcerptSource(excerptId);
+  });
+
   // Tags
   ipcMain.handle(Channels.TAGS_LIST, () => {
     return graph.listTags();

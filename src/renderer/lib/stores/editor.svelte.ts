@@ -25,12 +25,20 @@ export interface QueryTab {
   executionTime: number | null;
 }
 
-export type Tab = NoteTab | QueryTab;
+export interface SourceTab {
+  type: 'source';
+  sourceId: string;
+  /** If the user arrived via a [[quote::id]] click, highlight this excerpt in the detail view. */
+  highlightExcerptId?: string;
+}
+
+export type Tab = NoteTab | QueryTab | SourceTab;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function isNote(tab: Tab): tab is NoteTab { return tab.type === 'note'; }
 function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
+function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
 
 let queryCounter = 0;
 
@@ -57,6 +65,32 @@ export function getEditorStore() {
   function activeQueryTab(): QueryTab | null {
     const tab = activeTab();
     return tab && isQuery(tab) ? tab : null;
+  }
+
+  function activeSourceTab(): SourceTab | null {
+    const tab = activeTab();
+    return tab && isSource(tab) ? tab : null;
+  }
+
+  // ── Source operations ───────────────────────────────────────────────────
+
+  function openSource(sourceId: string, opts?: { highlightExcerptId?: string }) {
+    const existing = tabs.findIndex((t) => isSource(t) && t.sourceId === sourceId);
+    if (existing !== -1) {
+      const existingTab = tabs[existing] as SourceTab;
+      existingTab.highlightExcerptId = opts?.highlightExcerptId;
+      activeIndex = existing;
+      schedulePersistTabs();
+      return;
+    }
+    const tab: SourceTab = {
+      type: 'source',
+      sourceId,
+      highlightExcerptId: opts?.highlightExcerptId,
+    };
+    tabs.push(tab);
+    activeIndex = tabs.length - 1;
+    schedulePersistTabs();
   }
 
   // ── Note operations ─────────────────────────────────────────────────────
@@ -137,8 +171,10 @@ export function getEditorStore() {
     const savedTabs: SavedTab[] = tabs.map((t): SavedTab => {
       if (isNote(t)) {
         return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
-      } else {
+      } else if (isQuery(t)) {
         return { type: 'query', title: t.title, query: t.query };
+      } else {
+        return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
       }
     });
     const session: TabSession = { activeIndex, tabs: savedTabs };
@@ -167,7 +203,7 @@ export function getEditorStore() {
         } catch {
           // File may have been deleted since last session
         }
-      } else {
+      } else if (saved.type === 'query') {
         queryCounter++;
         const tab: QueryTab = {
           type: 'query',
@@ -181,6 +217,12 @@ export function getEditorStore() {
           executionTime: null,
         };
         tabs.push(tab);
+      } else {
+        tabs.push({
+          type: 'source',
+          sourceId: saved.sourceId,
+          highlightExcerptId: saved.highlightExcerptId,
+        });
       }
     }
 
@@ -297,6 +339,7 @@ export function getEditorStore() {
     get activeTab() { return activeTab(); },
     get activeNoteTab() { return activeNoteTab(); },
     get activeQueryTab() { return activeQueryTab(); },
+    get activeSourceTab() { return activeSourceTab(); },
     get activeFilePath() { return activeNoteTab()?.relativePath ?? null; },
     get activeFileName() { return activeNoteTab()?.fileName ?? ''; },
     get content() { return activeNoteTab()?.content ?? ''; },
@@ -306,6 +349,7 @@ export function getEditorStore() {
     },
     get hasAnyDirty() { return tabs.some((t) => isNote(t) && t.content !== t.savedContent); },
     openFile,
+    openSource,
     save,
     setContent,
     flushAutoSave,

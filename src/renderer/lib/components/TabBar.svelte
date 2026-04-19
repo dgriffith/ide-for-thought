@@ -46,12 +46,17 @@
       onclick={() => onSwitch(i)}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
-      title={tab.type === 'note' ? tab.relativePath : tab.title}
+      title={tab.type === 'note' ? tab.relativePath : tab.type === 'query' ? tab.title : `Source: ${tab.sourceId}`}
       role="tab"
       tabindex="0"
     >
       {#if tab.type === 'query'}<span class="tab-icon">&#x25B7;</span>{/if}
-      <span class="tab-name">{tab.type === 'note' ? tab.fileName.replace(/\.md$/, '') : tab.title}</span>
+      {#if tab.type === 'source'}<span class="tab-icon">&#x1F4D6;</span>{/if}
+      <span class="tab-name">
+        {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
+        {:else if tab.type === 'query'}{tab.title}
+        {:else}{tab.sourceId}{/if}
+      </span>
       {#if tab.type === 'note' && tab.content !== tab.savedContent}
         <span class="dirty-dot"></span>
       {/if}

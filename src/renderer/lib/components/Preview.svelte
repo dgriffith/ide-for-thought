@@ -11,9 +11,11 @@
     content: string;
     onNavigate: (target: string) => void;
     onTagSelect?: (tag: string) => void;
+    onOpenSource?: (sourceId: string) => void;
+    onOpenExcerpt?: (excerptId: string) => void;
   }
 
-  let { content, onNavigate, onTagSelect }: Props = $props();
+  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt }: Props = $props();
 
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
@@ -524,6 +526,22 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
   function handleClick(e: MouseEvent) {
     const el = e.target as HTMLElement;
+
+    const citeLink = el.closest<HTMLElement>('.cite-link');
+    if (citeLink) {
+      e.preventDefault();
+      const sourceId = citeLink.dataset.sourceId;
+      if (sourceId && onOpenSource) onOpenSource(sourceId);
+      return;
+    }
+
+    const quoteLink = el.closest<HTMLElement>('.quote-link');
+    if (quoteLink) {
+      e.preventDefault();
+      const excerptId = quoteLink.dataset.excerptId;
+      if (excerptId && onOpenExcerpt) onOpenExcerpt(excerptId);
+      return;
+    }
 
     const wikiLink = el.closest<HTMLElement>('.wiki-link');
     if (wikiLink) {

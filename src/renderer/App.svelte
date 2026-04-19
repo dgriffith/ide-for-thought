@@ -8,6 +8,7 @@
   import StatusBar from './lib/components/StatusBar.svelte';
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
+  import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore } from './lib/stores/editor.svelte';
@@ -125,6 +126,18 @@
     const notePath = target.endsWith('.md') ? target : `${target}.md`;
     editor.openFile(notePath);
     nav.record({ type: 'note', relativePath: notePath, offset: 0 });
+  }
+
+  function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
+    recordCurrentPosition();
+    editor.openSource(sourceId, { highlightExcerptId });
+    nav.record({ type: 'source', sourceId, highlightExcerptId });
+  }
+
+  async function handleOpenExcerpt(excerptId: string) {
+    const result = await api.graph.excerptSource(excerptId);
+    if (!result) return;
+    handleOpenSource(result.sourceId, excerptId);
   }
 
   function handleTagSelect(tag: string) {
@@ -273,6 +286,9 @@
         editorComponent?.gotoOffset(pos.offset);
         nav.doneNavigating();
       });
+    } else if (pos.type === 'source') {
+      editor.openSource(pos.sourceId, { highlightExcerptId: pos.highlightExcerptId });
+      nav.doneNavigating();
     } else {
       const idx = editor.tabs.findIndex((t) => t.type === 'query' && t.id === pos.tabId);
       if (idx >= 0) {
@@ -625,6 +641,8 @@
                   content={editor.content}
                   onNavigate={handleNavigate}
                   onTagSelect={handleTagSelect}
+                  onOpenSource={handleOpenSource}
+                  onOpenExcerpt={handleOpenExcerpt}
                 />
               </div>
             {/if}
@@ -661,6 +679,14 @@
               onNavigate={handleNavigate}
             />
           {/if}
+        {:else if editor.activeTab?.type === 'source'}
+          {#key editor.activeTab.sourceId}
+            <SourceDetail
+              sourceId={editor.activeTab.sourceId}
+              highlightExcerptId={editor.activeTab.highlightExcerptId}
+              onNavigate={handleNavigate}
+            />
+          {/key}
         {:else}
           <div class="no-file">
             <p>Select a note from the sidebar</p>

@@ -822,6 +822,156 @@ export function backlinks(relativePath: string): Backlink[] {
   return results;
 }
 
+// ── Source detail queries ───────────────────────────────────────────────────
+
+import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink } from '../../shared/types';
+
+const BIBO = $rdf.Namespace('http://purl.org/ontology/bibo/');
+
+export function getSourceDetail(sourceId: string): SourceDetail | null {
+  if (!store) return null;
+
+  const subject = sourceUri(sourceId);
+  // Probe for existence via sourceId triple (which indexSource always writes).
+  const exists = store.statementsMatching(subject, MINERVA('sourceId'), undefined).length > 0;
+  if (!exists) return null;
+
+  const metadata = collectSourceMetadata(sourceId, subject);
+  const excerpts = collectExcerptsForSource(subject);
+  const backlinks = collectSourceBacklinks(subject, excerpts);
+
+  return { metadata, excerpts, backlinks };
+}
+
+function collectSourceMetadata(sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
+  if (!store) {
+    return {
+      sourceId, subtype: null, title: null, creators: [], year: null,
+      publisher: null, doi: null, uri: null, abstract: null,
+    };
+  }
+
+  // Pick the most specific thought:* type we recognize (not the generic Source).
+  let subtype: string | null = null;
+  const typeStmts = store.statementsMatching(subject, RDF('type'), undefined);
+  for (const st of typeStmts) {
+    const val = st.object.value;
+    if (!val.startsWith(THOUGHT('').value)) continue;
+    const local = val.slice(THOUGHT('').value.length);
+    if (local === 'Source' || local === 'Component') continue;
+    subtype = local;
+    break;
+  }
+
+  const creators: string[] = [];
+  for (const st of store.statementsMatching(subject, DC('creator'), undefined)) {
+    const v = st.object.value;
+    if (!creators.includes(v)) creators.push(v);
+  }
+
+  const first = (pred: ReturnType<typeof MINERVA>): string | null => {
+    const stmts = store!.statementsMatching(subject, pred, undefined);
+    return stmts[0]?.object.value ?? null;
+  };
+
+  const issued = first(DC('issued'));
+  return {
+    sourceId,
+    subtype,
+    title: first(DC('title')),
+    creators,
+    year: issued ? issued.slice(0, 4) : null,
+    publisher: first(DC('publisher')),
+    doi: first(BIBO('doi')),
+    uri: first(BIBO('uri')),
+    abstract: first(DC('abstract')),
+  };
+}
+
+function collectExcerptsForSource(sourceSubject: $rdf.NamedNode): SourceExcerpt[] {
+  if (!store) return [];
+
+  const excerpts: SourceExcerpt[] = [];
+  const seen = new Set<string>();
+  const stmts = store.statementsMatching(undefined, THOUGHT('fromSource'), sourceSubject);
+  for (const st of stmts) {
+    const ex = st.subject as $rdf.NamedNode;
+    const idStmts = store.statementsMatching(ex, MINERVA('excerptId'), undefined);
+    const id = idStmts[0]?.object.value;
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+
+    const first = (pred: ReturnType<typeof MINERVA>): string | null => {
+      const s = store!.statementsMatching(ex, pred, undefined);
+      return s[0]?.object.value ?? null;
+    };
+
+    excerpts.push({
+      excerptId: id,
+      citedText: first(THOUGHT('citedText')),
+      page: first(THOUGHT('page')),
+      pageRange: first(THOUGHT('pageRange')),
+      locationText: first(THOUGHT('locationText')),
+    });
+  }
+  excerpts.sort((a, b) => a.excerptId.localeCompare(b.excerptId));
+  return excerpts;
+}
+
+function collectSourceBacklinks(
+  sourceSubject: $rdf.NamedNode,
+  excerpts: SourceExcerpt[],
+): SourceBacklink[] {
+  if (!store) return [];
+
+  const results: SourceBacklink[] = [];
+  const seen = new Set<string>();
+
+  const pushBacklink = (noteSubject: $rdf.NamedNode, kind: 'cite' | 'quote', viaExcerptId?: string) => {
+    const pathStmts = store!.statementsMatching(noteSubject, MINERVA('relativePath'), undefined);
+    const relativePath = pathStmts[0]?.object.value;
+    if (!relativePath) return;
+    const key = `${kind}::${relativePath}::${viaExcerptId ?? ''}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    const titleStmts = store!.statementsMatching(noteSubject, DC('title'), undefined);
+    results.push({
+      relativePath,
+      title: titleStmts[0]?.object.value ?? relativePath,
+      kind,
+      viaExcerptId,
+    });
+  };
+
+  // Direct cites
+  for (const st of store.statementsMatching(undefined, THOUGHT('cites'), sourceSubject)) {
+    pushBacklink(st.subject as $rdf.NamedNode, 'cite');
+  }
+
+  // Quotes of excerpts that belong to this source
+  for (const ex of excerpts) {
+    const exNode = excerptUri(ex.excerptId);
+    for (const st of store.statementsMatching(undefined, THOUGHT('quotes'), exNode)) {
+      pushBacklink(st.subject as $rdf.NamedNode, 'quote', ex.excerptId);
+    }
+  }
+
+  results.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return results;
+}
+
+/** Resolve an excerpt-id to the sourceId of its fromSource, or null if not found. */
+export function getExcerptSource(excerptId: string): { sourceId: string } | null {
+  if (!store) return null;
+  const ex = excerptUri(excerptId);
+  const stmts = store.statementsMatching(ex, THOUGHT('fromSource'), undefined);
+  const sourceNode = stmts[0]?.object as $rdf.NamedNode | undefined;
+  if (!sourceNode) return null;
+  const idStmts = store.statementsMatching(sourceNode, MINERVA('sourceId'), undefined);
+  const id = idStmts[0]?.object.value;
+  return id ? { sourceId: id } : null;
+}
+
 // ── Persistence & Export ────────────────────────────────────────────────────
 
 export async function persistGraph(): Promise<void> {

@@ -9,7 +9,13 @@ export interface QueryNavPosition {
   tabId: string;
 }
 
-export type NavPosition = NoteNavPosition | QueryNavPosition;
+export interface SourceNavPosition {
+  type: 'source';
+  sourceId: string;
+  highlightExcerptId?: string;
+}
+
+export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition;
 
 const MAX_HISTORY = 100;
 
@@ -42,6 +48,9 @@ export function getNavigationStore() {
     if (a.type === 'query' && b.type === 'query') return a.tabId === b.tabId;
     if (a.type === 'note' && b.type === 'note') {
       return a.relativePath === b.relativePath && Math.abs(a.offset - b.offset) < 20;
+    }
+    if (a.type === 'source' && b.type === 'source') {
+      return a.sourceId === b.sourceId && a.highlightExcerptId === b.highlightExcerptId;
     }
     return false;
   }
