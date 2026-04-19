@@ -40,6 +40,18 @@ contextBridge.exposeInMainWorld('api', {
     onRewritten: (cb: (paths: string[]) => void) => {
       ipcRenderer.on(Channels.NOTEBASE_REWRITTEN, (_e, paths) => cb(paths));
     },
+    onHeadingRenameSuggested: (cb: (candidate: {
+      relativePath: string;
+      oldSlug: string;
+      oldText: string;
+      newSlug: string;
+      newText: string;
+      incomingLinkCount: number;
+    }) => void) => {
+      ipcRenderer.on(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, (_e, c) => cb(c));
+    },
+    renameAnchor: (targetRelativePath: string, oldSlug: string, newSlug: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
   },
   links: {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),

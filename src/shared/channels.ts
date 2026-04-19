@@ -19,6 +19,10 @@ export const Channels = {
   NOTEBASE_RENAMED: 'notebase:renamed',
   /** Emitted after link-rewrites touched other notes' content. Payload is string[] (relativePaths). */
   NOTEBASE_REWRITTEN: 'notebase:rewritten',
+  /** Emitted when indexNote detects a single-heading rename with incoming links (main → renderer). */
+  NOTEBASE_HEADING_RENAME_SUGGESTED: 'notebase:headingRenameSuggested',
+  /** Renderer-initiated rewrite of `[[path#oldSlug]]` → `[[path#newSlug]]`. */
+  NOTEBASE_RENAME_ANCHOR: 'notebase:renameAnchor',
 
   // Links
   LINKS_OUTGOING: 'links:outgoing',

@@ -21,6 +21,17 @@ export interface NotebaseApi {
   onFileDeleted(cb: (path: string) => void): void;
   onRenamed(cb: (transitions: Array<{ old: string; new: string }>) => void): void;
   onRewritten(cb: (paths: string[]) => void): void;
+  onHeadingRenameSuggested(cb: (candidate: HeadingRenameCandidate) => void): void;
+  renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
+}
+
+export interface HeadingRenameCandidate {
+  relativePath: string;
+  oldSlug: string;
+  oldText: string;
+  newSlug: string;
+  newText: string;
+  incomingLinkCount: number;
 }
 
 export interface LinksApi {
