@@ -29,6 +29,12 @@
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
+  import {
+    planExtract,
+    planSplitHere,
+    deriveProposedTitle,
+    todayDateString,
+  } from './lib/refactor/extract';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -211,6 +217,72 @@
     if (!name) return;
     await api.queries.save('project', name, '', tab.query);
     tab.title = name;
+  }
+
+  // ── Note refactoring: extract / split ──────────────────────────────────
+
+  async function resolveTitle(body: string): Promise<string | null> {
+    const derived = deriveProposedTitle(body);
+    if (derived) return derived;
+    return showPrompt('New note name:');
+  }
+
+  async function handleExtractSelection() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) return;
+    const selection = editorComponent?.getSelectionRange();
+    if (!selection) return;
+    const selectedText = tab.content.slice(selection.from, selection.to);
+    const title = await resolveTitle(selectedText);
+    if (!title) return;
+
+    editor.flushAutoSave();
+    const plan = planExtract({
+      sourceRelativePath: tab.relativePath,
+      sourceContent: tab.content,
+      selection,
+      title,
+      today: todayDateString(),
+    });
+
+    await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
+    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    // The active tab still holds the pre-extract content in memory; reload
+    // it from disk so the user sees the wiki-link and so the next auto-save
+    // doesn't overwrite our rewrite.
+    await editor.reloadTabFromDisk(tab.relativePath);
+    await notebase.refresh();
+    await editor.openFile(plan.newNotePath);
+    sidebar?.refreshTags();
+  }
+
+  async function handleSplitHere() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) return;
+    const cursor = editorComponent?.getOffset() ?? 0;
+    if (cursor >= tab.content.length) return;
+
+    const tail = tab.content.slice(cursor);
+    const title = await resolveTitle(tail);
+    if (!title) return;
+
+    editor.flushAutoSave();
+    const plan = planSplitHere({
+      sourceRelativePath: tab.relativePath,
+      sourceContent: tab.content,
+      cursor,
+      title,
+      today: todayDateString(),
+    });
+
+    await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
+    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    await editor.reloadTabFromDisk(tab.relativePath);
+    await notebase.refresh();
+    await editor.openFile(plan.newNotePath);
+    sidebar?.refreshTags();
   }
 
   async function handleNewNote(directory: string = '') {
@@ -708,6 +780,8 @@
                     onNavigate={handleNavigate}
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
+                    onExtractSelection={handleExtractSelection}
+                    onSplitHere={handleSplitHere}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;

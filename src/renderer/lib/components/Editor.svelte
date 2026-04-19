@@ -47,6 +47,8 @@
     onBookmark?: () => void;
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
+    onExtractSelection?: () => void;
+    onSplitHere?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -65,6 +67,8 @@
     onBookmark,
     onInsertQueryList,
     onNavigate,
+    onExtractSelection,
+    onSplitHere,
     getNotePaths,
   }: Props = $props();
 
@@ -74,7 +78,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
   // Snapshot of the selection taken when the context menu opens, so
   // commands from the menu can run against what the user had selected
@@ -196,11 +200,14 @@
   function showContextMenu(e: MouseEvent) {
     e.preventDefault();
     let link: LinkRange | null = null;
+    let hasSelection = false;
     if (view) {
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
       if (pos != null) link = findLinkAt(view.state, pos);
+      const sel = view.state.selection.main;
+      hasSelection = sel.from !== sel.to;
     }
-    contextMenu = { x: e.clientX, y: e.clientY, link };
+    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection };
     const close = () => {
       closeMenu();
       window.removeEventListener('click', close);
@@ -406,6 +413,13 @@
 
   export function getView(): EditorView | undefined {
     return view;
+  }
+
+  export function getSelectionRange(): { from: number; to: number } | null {
+    if (!view) return null;
+    const main = view.state.selection.main;
+    if (main.from === main.to) return null;
+    return { from: main.from, to: main.to };
   }
 
   export function gotoOffset(offset: number) {
@@ -653,6 +667,23 @@
       {/if}
     {/if}
     <div class="separator"></div>
+    {#if onExtractSelection || onSplitHere}
+      <div class="submenu-item" onmouseenter={adjustSubmenu}>
+        <span class="submenu-trigger">Refactor &#x25B8;</span>
+        <div class="submenu">
+          {#if onExtractSelection}
+            <button
+              onclick={() => handleMenuAction(() => onExtractSelection?.())}
+              disabled={!contextMenu.hasSelection}
+            >Extract Selection to New Note</button>
+          {/if}
+          {#if onSplitHere}
+            <button onclick={() => handleMenuAction(() => onSplitHere?.())}>Split Note Here</button>
+          {/if}
+        </div>
+      </div>
+      <div class="separator"></div>
+    {/if}
     <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
     <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
     <div class="separator"></div>
