@@ -11,7 +11,7 @@
   import { indentUnit, foldEffect, unfoldEffect, foldedRanges } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
-  import { autocompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+  import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { api } from '../ipc/client';
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
@@ -447,6 +447,10 @@
     const resolved = resolveKeyBindings();
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
+      // Tab accepts the active completion; acceptCompletion returns false
+      // when no completion panel is open, so Tab-for-indent still works
+      // everywhere else.
+      { key: 'Tab', run: acceptCompletion },
       ...resolved.map(({ key: k, command: run }) => ({ key: k, run })),
     ]));
 
