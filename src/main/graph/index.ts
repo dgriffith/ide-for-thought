@@ -939,6 +939,31 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
   return results;
 }
 
+/**
+ * Return the relative paths of notes with outgoing wiki-links pointing at
+ * the given note. Used by the rename handler to decide which notes need
+ * link rewrites.
+ *
+ * Only note-targeted link types are considered — cite/quote links point at
+ * sources/excerpts and are handled by a separate rename path.
+ */
+export function findNotesLinkingTo(targetRelativePath: string): string[] {
+  if (!store) return [];
+  const target = noteUri(targetRelativePath);
+  const seen = new Set<string>();
+  for (const lt of LINK_TYPES) {
+    if (lt.targetKind && lt.targetKind !== 'note') continue;
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), target);
+    for (const st of stmts) {
+      const sourceNode = st.subject;
+      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+      const sourcePath = pathStmts[0]?.object.value;
+      if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
+    }
+  }
+  return [...seen];
+}
+
 export function backlinks(relativePath: string): Backlink[] {
   if (!store) return [];
 

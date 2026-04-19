@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
+import { renameWithLinkRewrites } from './notebase/rename';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
 import * as search from './search/index';
@@ -226,22 +227,15 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    markPathHandled(oldRelPath);
-    markPathHandled(newRelPath);
-    await notebaseFs.rename(rootPath, oldRelPath, newRelPath);
-    // Check if directory or file
-    const stat = await fs.stat(path.join(rootPath, newRelPath));
-    if (stat.isDirectory()) {
-      const newFiles = await listIndexableFiles(rootPath, newRelPath);
-      for (const f of newFiles) {
-        const oldEquivalent = oldRelPath + f.slice(newRelPath.length);
-        removeFromIndexes(oldEquivalent);
-        await reindexFile(rootPath, f);
-      }
-    } else {
-      removeFromIndexes(oldRelPath);
-      await reindexFile(rootPath, newRelPath);
-    }
+
+    await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
+      markPathHandled,
+      reindexHook: (relPath, content) => {
+        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+      },
+      removeHook: (relPath) => search.removeNote(relPath),
+    });
+
     await persistIndexes();
   });
 
