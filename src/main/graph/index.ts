@@ -5,7 +5,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { parseMarkdown, type ParsedTable } from './parser';
-import { getLinkType } from '../../shared/link-types';
+import { getLinkType, type LinkType } from '../../shared/link-types';
 import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
@@ -140,6 +140,14 @@ function folderUri(relativePath: string): $rdf.NamedNode {
   return $rdf.sym(uriHelpers.folderUri(baseUri, relativePath));
 }
 
+function sourceUri(sourceId: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.sourceUri(baseUri, sourceId));
+}
+
+function linkPredicate(lt: LinkType) {
+  return lt.predicateNamespace === 'thought' ? THOUGHT(lt.predicate) : MINERVA(lt.predicate);
+}
+
 function projectUri(): $rdf.NamedNode {
   return $rdf.sym(uriHelpers.projectUri(baseUri));
 }
@@ -157,6 +165,8 @@ const STANDARD_PREFIXES: [string, string][] = [
   ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
   ['csvw', 'http://www.w3.org/ns/csvw#'],
   ['prov', 'http://www.w3.org/ns/prov#'],
+  ['bibo', 'http://purl.org/ontology/bibo/'],
+  ['schema', 'http://schema.org/'],
 ];
 
 function injectPrefixes(turtle: string, noteIri: string): string {
@@ -288,9 +298,12 @@ export async function indexNote(relativePath: string, content: string): Promise<
 
   // Wiki-links — typed predicates
   for (const link of parsed.links) {
-    const target = link.target.endsWith('.md') ? link.target : `${link.target}.md`;
     const linkType = getLinkType(link.type);
-    store.add(subject, MINERVA(linkType.predicate), noteUri(target), graph);
+    const predicate = linkPredicate(linkType);
+    const targetNode = linkType.targetKind === 'source'
+      ? sourceUri(link.target)
+      : noteUri(link.target.endsWith('.md') ? link.target : `${link.target}.md`);
+    store.add(subject, predicate, targetNode, graph);
   }
 
   // Frontmatter as dc: or minerva: properties
@@ -407,6 +420,53 @@ export function removeNote(relativePath: string): void {
   store.removeMatches(subject, undefined, undefined);
 }
 
+// ── Source indexing ─────────────────────────────────────────────────────────
+// A "source" is a citable external work (Article, Book, WebPage, …) whose
+// canonical metadata lives at .minerva/sources/<id>/meta.ttl. The source
+// node's URI is `${baseUri}source/<id>`; inside meta.ttl, `this:` resolves
+// to that URI so users can write `this: a thought:Article ; dc:title ...`.
+
+export function indexSource(sourceId: string, metaTtl: string): void {
+  if (!store) return;
+
+  const subject = sourceUri(sourceId);
+  const graph = subject;
+  const relativePath = `${uriHelpers.SOURCES_DIR}/${sourceId}/meta.ttl`;
+
+  store.removeMatches(undefined, undefined, undefined, graph);
+  store.removeMatches(subject, undefined, undefined);
+
+  store.add(subject, MINERVA('sourceId'), $rdf.lit(sourceId), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(projectUri(), MINERVA('containsSource'), subject, graph);
+
+  try {
+    const prefixed = injectPrefixes(metaTtl, subject.value);
+    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
+  } catch (e) {
+    console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
+  }
+}
+
+export function removeSource(sourceId: string): void {
+  if (!store) return;
+  const subject = sourceUri(sourceId);
+  store.removeMatches(undefined, undefined, undefined, subject);
+  store.removeMatches(subject, undefined, undefined);
+}
+
+/** Parse `<id>` out of `.minerva/sources/<id>/meta.ttl`. Returns null for other paths. */
+export function parseSourceIdFromPath(relativePath: string): string | null {
+  const normalized = relativePath.replace(/\\/g, '/');
+  const prefix = `${uriHelpers.SOURCES_DIR}/`;
+  if (!normalized.startsWith(prefix)) return null;
+  if (!normalized.endsWith('/meta.ttl')) return null;
+  const id = normalized.slice(prefix.length, -'/meta.ttl'.length);
+  if (!id || id.includes('/')) return null;
+  return id;
+}
+
 function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
   if (!store) return;
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
@@ -458,6 +518,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
 
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
+  count += await walkAndIndexSources(rootPath);
   await persistGraph();
 
   async function walkAndIndex(dirPath: string, root: string) {
@@ -478,6 +539,30 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
     }
   }
 
+  return count;
+}
+
+async function walkAndIndexSources(rootPath: string): Promise<number> {
+  const sourcesRoot = path.join(rootPath, uriHelpers.SOURCES_DIR);
+  let count = 0;
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await fs.readdir(sourcesRoot, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const sourceId = entry.name;
+    const metaPath = path.join(sourcesRoot, sourceId, 'meta.ttl');
+    try {
+      const content = await fs.readFile(metaPath, 'utf-8');
+      indexSource(sourceId, content);
+      count++;
+    } catch {
+      // No meta.ttl in this directory — skip
+    }
+  }
   return count;
 }
 
@@ -585,15 +670,16 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
   const results: OutgoingLink[] = [];
 
   for (const lt of LINK_TYPES) {
-    const stmts = store.statementsMatching(subject, MINERVA(lt.predicate), undefined);
+    const stmts = store.statementsMatching(subject, linkPredicate(lt), undefined);
     for (const st of stmts) {
       const targetNode = st.object as $rdf.NamedNode;
       const pathStmts = store.statementsMatching(targetNode, MINERVA('relativePath'), undefined);
       const titleStmts = store.statementsMatching(targetNode, DC('title'), undefined);
-      const typeStmts = store.statementsMatching(targetNode, RDF('type'), MINERVA('Note'));
+      const existsPredicate = lt.targetKind === 'source' ? MINERVA('sourceId') : MINERVA('relativePath');
+      const typeStmts = store.statementsMatching(targetNode, existsPredicate, undefined);
 
       results.push({
-        target: pathStmts[0]?.object.value ?? '',
+        target: pathStmts[0]?.object.value ?? (lt.targetKind === 'source' ? targetNode.value : ''),
         targetTitle: titleStmts[0]?.object.value ?? targetNode.value,
         linkType: lt.name,
         linkLabel: lt.label,
@@ -613,7 +699,7 @@ export function backlinks(relativePath: string): Backlink[] {
   const results: Backlink[] = [];
 
   for (const lt of LINK_TYPES) {
-    const stmts = store.statementsMatching(undefined, MINERVA(lt.predicate), target);
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), target);
     for (const st of stmts) {
       const sourceNode = st.subject;
       const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);

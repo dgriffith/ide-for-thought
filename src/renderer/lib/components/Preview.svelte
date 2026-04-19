@@ -18,6 +18,9 @@
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
 
+  // Cite-label cache: sourceId → resolved label text (survives re-renders)
+  const citeLabelCache = new Map<string, string>();
+
   const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX thought: <https://minerva.dev/ontology/thought#>
 PREFIX dc: <http://purl.org/dc/terms/>
@@ -67,8 +70,16 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // Plain links render as before
       return `<a class="wiki-link" data-target="${escapeAttr(target)}">${escapeHtml(display)}</a>`;
     }
+    // Cite links get a placeholder class so the post-render effect can
+    // swap the display text for "Title — Author (Year)" when the user
+    // didn't supply their own |display override.
+    const extraClasses = linkType.targetKind === 'source' ? ' cite-link' : '';
+    const hasOverride = display !== target;
+    const citeData = linkType.targetKind === 'source'
+      ? ` data-source-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`
+      : '';
     // Typed links render with a colored badge
-    return `<a class="wiki-link typed-link" data-target="${escapeAttr(target)}" style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span>${escapeHtml(display)}</a>`;
+    return `<a class="wiki-link typed-link${extraClasses}" data-target="${escapeAttr(target)}"${citeData} style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span><span class="link-display">${escapeHtml(display)}</span></a>`;
   };
 
   // Tag plugin: #tag (but not inside URLs or after non-whitespace)
@@ -186,8 +197,52 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     requestAnimationFrame(() => {
       const blocks = previewEl?.querySelectorAll('.query-block');
       blocks?.forEach((el) => executeQueryBlock(el as HTMLElement));
+      const cites = previewEl?.querySelectorAll('.cite-link');
+      cites?.forEach((el) => resolveCiteLabel(el as HTMLElement));
     });
   });
+
+  async function resolveCiteLabel(el: HTMLElement) {
+    const sourceId = el.dataset.sourceId;
+    if (!sourceId) return;
+    // Don't overwrite user-supplied [[cite::id|display]] text.
+    if (el.dataset.displayOverride === '1') return;
+
+    const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
+    if (!displayEl) return;
+
+    const cached = citeLabelCache.get(sourceId);
+    if (cached) { displayEl.textContent = cached; return; }
+
+    try {
+      const idEsc = sourceId.replace(/"/g, '\\"');
+      const sparql = `SELECT ?title ?creator ?issued WHERE {
+        ?src minerva:sourceId "${idEsc}" .
+        OPTIONAL { ?src dc:title ?title }
+        OPTIONAL { ?src dc:creator ?creator }
+        OPTIONAL { ?src dc:issued ?issued }
+      } LIMIT 1`;
+      const response = await api.graph.query(QUERY_PREFIXES + sparql);
+      const row = response.results[0] as Record<string, string> | undefined;
+      const label = formatCiteLabel(sourceId, row);
+      citeLabelCache.set(sourceId, label);
+      displayEl.textContent = label;
+    } catch {
+      // Fall back to the source-id already rendered.
+    }
+  }
+
+  function formatCiteLabel(sourceId: string, row: Record<string, string> | undefined): string {
+    if (!row) return sourceId;
+    const title = row.title;
+    const creator = row.creator;
+    const year = row.issued ? row.issued.slice(0, 4) : '';
+    const byline = creator && year ? `${creator} (${year})` : creator || (year ? `(${year})` : '');
+    if (title && byline) return `${title} — ${byline}`;
+    if (title) return title;
+    if (byline) return byline;
+    return sourceId;
+  }
 
   async function executeQueryBlock(el: HTMLElement) {
     const query = el.dataset.query;

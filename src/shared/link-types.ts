@@ -10,8 +10,12 @@ export interface LinkType {
   name: string;
   /** Human-readable label */
   label: string;
-  /** OWL predicate local name (appended to minerva: namespace) */
+  /** OWL predicate local name (appended to predicateNamespace, default minerva:) */
   predicate: string;
+  /** Namespace the predicate belongs to. Default: 'minerva'. */
+  predicateNamespace?: 'minerva' | 'thought';
+  /** What the target resolves to. Default: 'note'. */
+  targetKind?: 'note' | 'source';
   /** CSS color for preview rendering */
   color: string;
 }
@@ -70,6 +74,14 @@ export const LINK_TYPES: LinkType[] = [
     label: 'Related To',
     predicate: 'relatedTo',
     color: '#9399b2', // grey
+  },
+  {
+    name: 'cite',
+    label: 'Cites',
+    predicate: 'cites',
+    predicateNamespace: 'thought',
+    targetKind: 'source',
+    color: '#94e2d5', // teal-green — distinct from references/implements
   },
 ];
 

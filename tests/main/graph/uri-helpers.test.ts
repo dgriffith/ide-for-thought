@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coinBaseUri, noteUri, tagUri, folderUri, projectUri } from '../../../src/main/graph/uri-helpers';
+import { coinBaseUri, noteUri, tagUri, folderUri, projectUri, sourceUri } from '../../../src/main/graph/uri-helpers';
 
 const BASE = 'https://project.minerva.dev/testuser/sample-project/';
 
@@ -61,5 +61,17 @@ describe('projectUri', () => {
   it('removes trailing slash from base', () => {
     const uri = projectUri(BASE);
     expect(uri).toBe(BASE.replace(/\/$/, ''));
+  });
+});
+
+describe('sourceUri', () => {
+  it('maps a simple id to a source URI', () => {
+    const uri = sourceUri(BASE, 'smith-2023');
+    expect(uri).toBe(`${BASE}source/smith-2023`);
+  });
+
+  it('encodes unsafe characters in the id', () => {
+    const uri = sourceUri(BASE, 'arxiv/2401.12345');
+    expect(uri).toBe(`${BASE}source/${encodeURIComponent('arxiv/2401.12345')}`);
   });
 });

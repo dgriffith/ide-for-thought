@@ -21,6 +21,12 @@ export function folderUri(baseUri: string, relativePath: string): string {
   return `${baseUri}folder/${relativePath}`;
 }
 
+export function sourceUri(baseUri: string, sourceId: string): string {
+  return `${baseUri}source/${encodeURIComponent(sourceId)}`;
+}
+
+export const SOURCES_DIR = '.minerva/sources';
+
 export function projectUri(baseUri: string): string {
   return baseUri.replace(/\/$/, '');
 }

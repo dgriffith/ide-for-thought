@@ -39,3 +39,16 @@ describe('LINK_TYPE_MAP', () => {
     expect(LINK_TYPE_MAP.get('nonexistent')).toBeUndefined();
   });
 });
+
+describe('cite link type', () => {
+  const cite = getLinkType('cite');
+
+  it('has predicate cites in the thought namespace', () => {
+    expect(cite.predicate).toBe('cites');
+    expect(cite.predicateNamespace).toBe('thought');
+  });
+
+  it('targets a source, not a note', () => {
+    expect(cite.targetKind).toBe('source');
+  });
+});
