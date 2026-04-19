@@ -49,6 +49,7 @@
     onNavigate?: (target: string) => void;
     onExtractSelection?: () => void;
     onSplitHere?: () => void;
+    onSplitByHeading?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -69,6 +70,7 @@
     onNavigate,
     onExtractSelection,
     onSplitHere,
+    onSplitByHeading,
     getNotePaths,
   }: Props = $props();
 
@@ -667,7 +669,7 @@
       {/if}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
@@ -679,6 +681,9 @@
           {/if}
           {#if onSplitHere}
             <button onclick={() => handleMenuAction(() => onSplitHere?.())}>Split Note Here</button>
+          {/if}
+          {#if onSplitByHeading}
+            <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading…</button>
           {/if}
         </div>
       </div>

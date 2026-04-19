@@ -35,6 +35,7 @@
     deriveProposedTitle,
     todayDateString,
   } from './lib/refactor/extract';
+  import { planSplitByHeading } from './lib/refactor/split-by-heading';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -254,6 +255,35 @@
     await editor.reloadTabFromDisk(tab.relativePath);
     await notebase.refresh();
     await editor.openFile(plan.newNotePath);
+    sidebar?.refreshTags();
+  }
+
+  async function handleSplitByHeading() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) return;
+
+    const answer = await showPrompt('Heading level to split on (1, 2, or 3):');
+    if (!answer) return;
+    const level = parseInt(answer.trim(), 10);
+    if (level !== 1 && level !== 2 && level !== 3) return;
+
+    editor.flushAutoSave();
+    const plan = planSplitByHeading({
+      sourceRelativePath: tab.relativePath,
+      sourceContent: tab.content,
+      level: level as 1 | 2 | 3,
+      today: todayDateString(),
+    });
+
+    if (plan.newNotes.length === 0) return;
+
+    for (const note of plan.newNotes) {
+      await api.notebase.writeFile(note.relativePath, note.content);
+    }
+    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    await editor.reloadTabFromDisk(tab.relativePath);
+    await notebase.refresh();
     sidebar?.refreshTags();
   }
 
@@ -782,6 +812,7 @@
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
+                    onSplitByHeading={handleSplitByHeading}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
