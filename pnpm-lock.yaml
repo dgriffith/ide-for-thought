@@ -11,6 +11,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.90.0
         version: 0.90.0
+      '@codemirror/autocomplete':
+        specifier: ^6.20.1
+        version: 6.20.1
       '@comunica/query-sparql-rdfjs':
         specifier: ^5.1.3
         version: 5.1.3(encoding@0.1.13)
