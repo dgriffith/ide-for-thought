@@ -18,10 +18,11 @@
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
+    onSourceSelect?: (sourceId: string) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
@@ -74,7 +75,7 @@
     >
       <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} />
     </div>
-    <TagPanel bind:this={tagPanel} {onFileSelect} />
+    <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
   {:else}
     <div class="empty" oncontextmenu={handleContextMenu}>
       <p>No notes yet</p>

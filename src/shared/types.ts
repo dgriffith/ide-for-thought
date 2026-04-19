@@ -20,6 +20,11 @@ export interface TaggedNote {
   relativePath: string;
 }
 
+export interface TaggedSource {
+  title: string;
+  sourceId: string;
+}
+
 export interface SavedQuery {
   id: string;
   name: string;

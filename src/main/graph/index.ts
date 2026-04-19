@@ -536,7 +536,7 @@ export function removeNote(relativePath: string): void {
 // node's URI is `${baseUri}source/<id>`; inside meta.ttl, `this:` resolves
 // to that URI so users can write `this: a thought:Article ; dc:title ...`.
 
-export function indexSource(sourceId: string, metaTtl: string): void {
+export function indexSource(sourceId: string, metaTtl: string, bodyMd?: string): void {
   if (!store) return;
 
   const subject = sourceUri(sourceId);
@@ -556,6 +556,39 @@ export function indexSource(sourceId: string, metaTtl: string): void {
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
     console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
+  }
+
+  if (bodyMd) indexSourceBody(sourceId, bodyMd, subject, graph);
+}
+
+/** Parse body.md for a source — tags and wiki-links attach to the source URI. */
+function indexSourceBody(
+  _sourceId: string,
+  bodyMd: string,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+): void {
+  if (!store) return;
+  const parsed = parseMarkdown(bodyMd);
+
+  // Body tags → hasTag edges on the source.
+  const tags = new Set(parsed.tags);
+  const fmTags = parsed.frontmatter.tags;
+  if (fmTags !== undefined) {
+    for (const t of flattenFrontmatterStrings(fmTags)) if (t) tags.add(t);
+  }
+  for (const tag of tags) {
+    const tagNode = tagUri(tag);
+    ensureTag(tagNode, tag);
+    store.add(subject, MINERVA('hasTag'), tagNode, graph);
+  }
+
+  // Body wiki-links → typed edges on the source (same plumbing as notes).
+  for (const link of parsed.links) {
+    const linkType = getLinkType(link.type);
+    const predicate = linkPredicate(linkType);
+    const targetNode = resolveLinkTarget(linkType, link.target);
+    store.add(subject, predicate, targetNode, graph);
   }
 }
 
@@ -717,9 +750,12 @@ async function walkAndIndexSources(rootPath: string): Promise<number> {
     if (!entry.isDirectory()) continue;
     const sourceId = entry.name;
     const metaPath = path.join(sourcesRoot, sourceId, 'meta.ttl');
+    const bodyPath = path.join(sourcesRoot, sourceId, 'body.md');
     try {
-      const content = await fs.readFile(metaPath, 'utf-8');
-      indexSource(sourceId, content);
+      const metaContent = await fs.readFile(metaPath, 'utf-8');
+      let bodyContent: string | undefined;
+      try { bodyContent = await fs.readFile(bodyPath, 'utf-8'); } catch { /* body optional */ }
+      indexSource(sourceId, metaContent, bodyContent);
       count++;
     } catch {
       // No meta.ttl in this directory — skip
@@ -796,7 +832,7 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
 
 // ── Tag queries ─────────────────────────────────────────────────────────────
 
-import type { TagInfo, TaggedNote } from '../../shared/types';
+import type { TagInfo, TaggedNote, TaggedSource } from '../../shared/types';
 
 export function listTags(): TagInfo[] {
   if (!store) return [];
@@ -820,15 +856,39 @@ export function notesByTag(tag: string): TaggedNote[] {
 
   const tagNode = tagUri(tag);
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
-  return stmts.map((st) => {
+  return stmts.flatMap((st) => {
     const subject = st.subject;
+    // Sources also carry hasTag edges (body.md tags); filter them out —
+    // sourcesByTag handles those.
+    const isNote = store!.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
+    if (!isNote) return [];
     const titleStmts = store!.statementsMatching(subject, DC('title'), undefined);
     const pathStmts = store!.statementsMatching(subject, MINERVA('relativePath'), undefined);
-    return {
+    const relativePath = pathStmts[0]?.object.value ?? '';
+    if (!relativePath) return [];
+    return [{
       title: titleStmts[0]?.object.value ?? subject.value,
-      relativePath: pathStmts[0]?.object.value ?? '',
-    };
-  }).filter((n) => n.relativePath);
+      relativePath,
+    }];
+  });
+}
+
+export function sourcesByTag(tag: string): TaggedSource[] {
+  if (!store) return [];
+
+  const tagNode = tagUri(tag);
+  const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
+  return stmts.flatMap((st) => {
+    const subject = st.subject;
+    const idStmts = store!.statementsMatching(subject, MINERVA('sourceId'), undefined);
+    const sourceId = idStmts[0]?.object.value;
+    if (!sourceId) return [];
+    const titleStmts = store!.statementsMatching(subject, DC('title'), undefined);
+    return [{
+      sourceId,
+      title: titleStmts[0]?.object.value ?? sourceId,
+    }];
+  });
 }
 
 export function allTags(): string[] {

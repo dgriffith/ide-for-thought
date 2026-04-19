@@ -564,6 +564,7 @@
           onPaste={handlePaste}
           onMove={handleMove}
           onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl)$/, '') ?? path, path)}
+          onSourceSelect={(id) => handleOpenSource(id)}
           canPaste={clipboardItem !== null}
         />
       {/if}

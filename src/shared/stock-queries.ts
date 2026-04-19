@@ -136,6 +136,88 @@ SELECT ?targetTitle ?linkType ?sourceTitle WHERE {
 ORDER BY ?targetTitle ?linkType`,
   },
   {
+    name: 'Sources: all with authors and year',
+    description: 'Every indexed Source with its title, first author, and year',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?sourceId ?title ?creator ?year WHERE {
+  ?src minerva:sourceId ?sourceId .
+  OPTIONAL { ?src dc:title ?title }
+  OPTIONAL { ?src dc:creator ?creator }
+  OPTIONAL { ?src dc:issued ?issued . BIND(SUBSTR(STR(?issued), 1, 4) AS ?year) }
+}
+ORDER BY ?sourceId`,
+  },
+  {
+    name: 'Sources: most-cited',
+    description: 'Sources ranked by the number of distinct notes citing or quoting them',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {
+  ?src minerva:sourceId ?sourceId .
+  OPTIONAL { ?src dc:title ?title }
+  {
+    ?note thought:cites ?src .
+  } UNION {
+    ?note thought:quotes ?excerpt .
+    ?excerpt thought:fromSource ?src .
+  }
+}
+GROUP BY ?src ?sourceId ?title
+ORDER BY DESC(?citations)`,
+  },
+  {
+    name: 'Sources: cited by N or more notes',
+    description: 'Sources that cross a citation threshold (edit MIN_COUNT)',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+# Edit MIN_COUNT to change the threshold.
+SELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {
+  ?src minerva:sourceId ?sourceId .
+  OPTIONAL { ?src dc:title ?title }
+  {
+    ?note thought:cites ?src .
+  } UNION {
+    ?note thought:quotes ?excerpt .
+    ?excerpt thought:fromSource ?src .
+  }
+}
+GROUP BY ?src ?sourceId ?title
+HAVING (COUNT(DISTINCT ?note) >= 2)
+ORDER BY DESC(?citations)`,
+  },
+  {
+    name: 'Sources: most-quoted',
+    description: 'Sources ranked by the number of linked Excerpts',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?sourceId ?title (COUNT(?excerpt) AS ?excerptCount) WHERE {
+  ?src minerva:sourceId ?sourceId .
+  OPTIONAL { ?src dc:title ?title }
+  ?excerpt thought:fromSource ?src .
+}
+GROUP BY ?src ?sourceId ?title
+ORDER BY DESC(?excerptCount)`,
+  },
+  {
+    name: 'Sources: missing metadata',
+    description: 'Sources that are missing a title, an author, or both (stub records)',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?sourceId ?title ?creator WHERE {
+  ?src minerva:sourceId ?sourceId .
+  OPTIONAL { ?src dc:title ?title }
+  OPTIONAL { ?src dc:creator ?creator }
+  FILTER(!BOUND(?title) || !BOUND(?creator))
+}
+ORDER BY ?sourceId`,
+  },
+  {
     name: 'Trust: Unreviewed LLM writes',
     description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
     query: `${PREFIXES}

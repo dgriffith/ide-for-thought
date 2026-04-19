@@ -324,6 +324,10 @@ export function registerIpcHandlers(): void {
     return graph.notesByTag(tag);
   });
 
+  ipcMain.handle(Channels.TAGS_SOURCES_BY_TAG, (_e, tag: string) => {
+    return graph.sourcesByTag(tag);
+  });
+
   ipcMain.handle(Channels.TAGS_ALL_NAMES, () => {
     return graph.allTags();
   });

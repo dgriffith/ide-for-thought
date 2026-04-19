@@ -40,6 +40,7 @@ export const Channels = {
   // Tags
   TAGS_LIST: 'tags:list',
   TAGS_NOTES_BY_TAG: 'tags:notesByTag',
+  TAGS_SOURCES_BY_TAG: 'tags:sourcesByTag',
   TAGS_ALL_NAMES: 'tags:allNames',
 
   // Menu → renderer events (main sends, renderer listens)

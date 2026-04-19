@@ -23,11 +23,12 @@ interface WatcherPair {
 
 const watchers = new Map<number, WatcherPair>();
 
-const SOURCE_META_RE = /(?:^|[/\\])\.minerva[/\\]sources[/\\]([^/\\]+)[/\\]meta\.ttl$/;
+const SOURCE_DIR_RE = /(?:^|[/\\])\.minerva[/\\]sources[/\\]([^/\\]+)[/\\](meta\.ttl|body\.md)$/;
 const EXCERPT_RE = /(?:^|[/\\])\.minerva[/\\]excerpts[/\\]([^/\\]+)\.ttl$/;
 
+/** Returns the source id if the path is .minerva/sources/<id>/{meta.ttl,body.md}. */
 function extractSourceId(absPath: string): string | null {
-  const m = absPath.match(SOURCE_META_RE);
+  const m = absPath.match(SOURCE_DIR_RE);
   return m ? m[1] : null;
 }
 
