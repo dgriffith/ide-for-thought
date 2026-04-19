@@ -15,7 +15,7 @@ export interface LinkType {
   /** Namespace the predicate belongs to. Default: 'minerva'. */
   predicateNamespace?: 'minerva' | 'thought';
   /** What the target resolves to. Default: 'note'. */
-  targetKind?: 'note' | 'source';
+  targetKind?: 'note' | 'source' | 'excerpt';
   /** CSS color for preview rendering */
   color: string;
 }
@@ -82,6 +82,14 @@ export const LINK_TYPES: LinkType[] = [
     predicateNamespace: 'thought',
     targetKind: 'source',
     color: '#94e2d5', // teal-green — distinct from references/implements
+  },
+  {
+    name: 'quote',
+    label: 'Quotes',
+    predicate: 'quotes',
+    predicateNamespace: 'thought',
+    targetKind: 'excerpt',
+    color: '#b4befe', // lavender — adjacent to cite but distinct
   },
 ];
 

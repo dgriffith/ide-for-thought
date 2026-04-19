@@ -176,6 +176,18 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       graph.removeSource(sourceId);
       debouncedPersist();
     },
+    onExcerptChanged: async (excerptId) => {
+      try {
+        const relPath = `.minerva/excerpts/${excerptId}.ttl`;
+        const content = await notebaseFs.readFile(rootPath, relPath);
+        graph.indexExcerpt(excerptId, content);
+        debouncedPersist();
+      } catch { /* file may have been deleted between events */ }
+    },
+    onExcerptDeleted: (excerptId) => {
+      graph.removeExcerpt(excerptId);
+      debouncedPersist();
+    },
   });
   watchers.set(win.id, rootPath);
 

@@ -286,6 +286,77 @@ thought:Finding a owl:Class ;
     rdfs:label "Finding" ;
     rdfs:comment "A reported result from research or investigation." .
 
+# ── Excerpts ──────────────────────────────────────────────────────────────
+# An Excerpt is the atomic "I read this and pulled this out" unit: a verbatim
+# quotation from a Source, with enough location metadata to point back at
+# exactly where it came from. Claims cite Sources; they quote Excerpts.
+
+thought:Excerpt a owl:Class ;
+    rdfs:subClassOf thought:Component ;
+    rdfs:label "Excerpt" ;
+    rdfs:comment "A verbatim quotation lifted out of a Source. Excerpts are the atomic evidentiary unit — most claims that rest on external reading are supported via an Excerpt, which in turn knows its Source." .
+
+thought:fromSource a owl:ObjectProperty ;
+    rdfs:label "from source" ;
+    rdfs:comment "The Source that this Excerpt was lifted from." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range thought:Source .
+
+thought:citedText a owl:DatatypeProperty ;
+    rdfs:label "cited text" ;
+    rdfs:comment "The verbatim quoted passage. Should be exactly what appears in the source — not paraphrased." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:string .
+
+thought:quotes a owl:ObjectProperty ;
+    rdfs:label "quotes" ;
+    rdfs:comment "This component quotes / references the named Excerpt. The edge created by [[quote::excerpt-id]]." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Excerpt .
+
+# ── Excerpt Location ──────────────────────────────────────────────────────
+# Structured predicates for pinning an Excerpt to a spot in its Source.
+# These are compatible (a PDF excerpt can set both page and charStart/charEnd),
+# and locationText is the escape hatch for anything else. Distinct from
+# thought:sourceOffset / thought:sourceLength, which ground a component to
+# a character range inside a note in the thoughtbase.
+
+thought:page a owl:DatatypeProperty ;
+    rdfs:label "page" ;
+    rdfs:comment "Page number in the Source where this Excerpt begins (1-based)." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:integer .
+
+thought:pageRange a owl:DatatypeProperty ;
+    rdfs:label "page range" ;
+    rdfs:comment "Page range in the Source covered by this Excerpt (e.g. '42-45')." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:string .
+
+thought:charStart a owl:DatatypeProperty ;
+    rdfs:label "char start" ;
+    rdfs:comment "0-based character offset of the excerpt's first character within the Source's extracted body." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:integer .
+
+thought:charEnd a owl:DatatypeProperty ;
+    rdfs:label "char end" ;
+    rdfs:comment "Exclusive 0-based character offset of the excerpt's end within the Source's extracted body." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:integer .
+
+thought:selector a owl:DatatypeProperty ;
+    rdfs:label "selector" ;
+    rdfs:comment "CSS selector or XPath identifying the excerpt within an HTML Source." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:string .
+
+thought:locationText a owl:DatatypeProperty ;
+    rdfs:label "location text" ;
+    rdfs:comment "Free-form fallback location description for cases that don't fit the structured predicates (e.g. 'Chapter 3, §2.1' or 'timestamp 00:14:32')." ;
+    rdfs:domain thought:Excerpt ;
+    rdfs:range xsd:string .
+
 thought:Methodology a owl:Class ;
     rdfs:subClassOf thought:Component ;
     rdfs:label "Methodology" ;

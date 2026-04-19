@@ -25,7 +25,12 @@ export function sourceUri(baseUri: string, sourceId: string): string {
   return `${baseUri}source/${encodeURIComponent(sourceId)}`;
 }
 
+export function excerptUri(baseUri: string, excerptId: string): string {
+  return `${baseUri}excerpt/${encodeURIComponent(excerptId)}`;
+}
+
 export const SOURCES_DIR = '.minerva/sources';
+export const EXCERPTS_DIR = '.minerva/excerpts';
 
 export function projectUri(baseUri: string): string {
   return baseUri.replace(/\/$/, '');
