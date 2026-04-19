@@ -23,6 +23,10 @@ export const Channels = {
   NOTEBASE_HEADING_RENAME_SUGGESTED: 'notebase:headingRenameSuggested',
   /** Renderer-initiated rewrite of `[[path#oldSlug]]` → `[[path#newSlug]]`. */
   NOTEBASE_RENAME_ANCHOR: 'notebase:renameAnchor',
+  /** Rename a Source (directory under `.minerva/sources/`) and rewrite `[[cite::id]]`. */
+  NOTEBASE_RENAME_SOURCE: 'notebase:renameSource',
+  /** Rename an Excerpt (file under `.minerva/excerpts/`) and rewrite `[[quote::id]]`. */
+  NOTEBASE_RENAME_EXCERPT: 'notebase:renameExcerpt',
 
   // Links
   LINKS_OUTGOING: 'links:outgoing',

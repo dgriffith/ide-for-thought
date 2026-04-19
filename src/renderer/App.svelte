@@ -561,6 +561,7 @@
     // link rewrite silently.
     api.notebase.onRenamed((transitions) => {
       editor.applyRenameTransitions(transitions);
+      bookmarkStore.applyRenameTransitions(transitions);
     });
     api.notebase.onRewritten(async (paths) => {
       for (const p of paths) {

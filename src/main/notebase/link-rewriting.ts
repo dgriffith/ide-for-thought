@@ -82,6 +82,27 @@ export function rewriteWikiLinks(content: string, rewrites: Map<string, string>)
 }
 
 /**
+ * Rewrite the target id of every `[[<linkTypeName>::id]]` link whose id
+ * appears in the rewrites map. Used for cite/quote renames where the
+ * target is an id (not a path) and the type prefix is required to match.
+ * Preserves anchor and display.
+ */
+export function rewriteTypedIdLinks(
+  content: string,
+  linkTypeName: string,
+  rewrites: Map<string, string>,
+): string {
+  if (rewrites.size === 0) return content;
+  return content.replace(WIKI_LINK_RE, (match, inner) => {
+    const parsed = parseWikiInner(inner);
+    if (parsed.type !== linkTypeName) return match;
+    const newId = rewrites.get(parsed.target);
+    if (newId === undefined) return match;
+    return reassembleWikiLink(parsed, newId);
+  });
+}
+
+/**
  * Rewrite the anchor portion of every wiki-link whose target path matches
  * `targetPath` (normalized) AND whose anchor equals `oldAnchor`. Preserves
  * the target path (including `.md` extension shape), the type prefix, and

@@ -1,5 +1,6 @@
 import { api } from '../ipc/client';
 import type { BookmarkNode, Bookmark, BookmarkFolder } from '../../../shared/types';
+import { applyBookmarkPathTransitions } from '../../../shared/bookmark-transitions';
 
 let tree = $state<BookmarkNode[]>([]);
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -75,6 +76,13 @@ export function getBookmarksStore() {
     schedulePersist();
   }
 
+  /** Fold note rename/move path transitions into every matching bookmark. */
+  function applyRenameTransitions(transitions: Array<{ old: string; new: string }>) {
+    if (applyBookmarkPathTransitions(tree, transitions)) {
+      schedulePersist();
+    }
+  }
+
   function move(id: string, targetFolderId: string | null) {
     const node = findNode(tree, id);
     if (!node) return;
@@ -100,6 +108,7 @@ export function getBookmarksStore() {
     rename,
     remove,
     move,
+    applyRenameTransitions,
   };
 }
 

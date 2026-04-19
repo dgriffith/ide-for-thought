@@ -555,6 +555,35 @@ function detectHeadingRename(
   };
 }
 
+/** Notes with a `thought:cites` edge to the given source URI. */
+export function findNotesCitingSource(sourceId: string): string[] {
+  if (!store) return [];
+  const target = sourceUri(sourceId);
+  return collectNotePathsWithPredicate(THOUGHT('cites'), target);
+}
+
+/** Notes with a `thought:quotes` edge to the given excerpt URI. */
+export function findNotesQuotingExcerpt(excerptId: string): string[] {
+  if (!store) return [];
+  const target = excerptUri(excerptId);
+  return collectNotePathsWithPredicate(THOUGHT('quotes'), target);
+}
+
+function collectNotePathsWithPredicate(
+  predicate: ReturnType<typeof MINERVA>,
+  target: $rdf.NamedNode,
+): string[] {
+  if (!store) return [];
+  const stmts = store.statementsMatching(undefined, predicate, target);
+  const seen = new Set<string>();
+  for (const st of stmts) {
+    const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
+    const p = pathStmts[0]?.object.value;
+    if (p && p.endsWith('.md')) seen.add(p);
+  }
+  return [...seen];
+}
+
 /** Like findNotesLinkingTo, but scoped to links whose anchor is exactly `slug`. */
 export function findNotesLinkingToAnchor(targetRelativePath: string, slug: string): string[] {
   if (!store) return [];

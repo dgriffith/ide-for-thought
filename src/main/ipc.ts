@@ -5,6 +5,7 @@ import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { renameWithLinkRewrites } from './notebase/rename';
 import { renameAnchor } from './notebase/rename-anchor';
+import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
 import * as search from './search/index';
@@ -257,6 +258,41 @@ export function registerIpcHandlers(): void {
     }
 
     await persistIndexes();
+  });
+
+  const broadcastRewritten = (rootPath: string, paths: string[]) => {
+    if (paths.length === 0) return;
+    for (const targetWin of windowsForProject(rootPath)) {
+      targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, paths);
+    }
+  };
+
+  ipcMain.handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const { rewrittenPaths } = await renameSource(rootPath, oldId, newId, {
+      markPathHandled,
+      reindexHook: (relPath, content) => {
+        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+      },
+    });
+    broadcastRewritten(rootPath, rewrittenPaths);
+    await persistIndexes();
+    return { rewrittenPaths };
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_RENAME_EXCERPT, async (e, oldId: string, newId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const { rewrittenPaths } = await renameExcerpt(rootPath, oldId, newId, {
+      markPathHandled,
+      reindexHook: (relPath, content) => {
+        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+      },
+    });
+    broadcastRewritten(rootPath, rewrittenPaths);
+    await persistIndexes();
+    return { rewrittenPaths };
   });
 
   ipcMain.handle(

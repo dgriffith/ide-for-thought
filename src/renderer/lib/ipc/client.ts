@@ -23,6 +23,8 @@ export interface NotebaseApi {
   onRewritten(cb: (paths: string[]) => void): void;
   onHeadingRenameSuggested(cb: (candidate: HeadingRenameCandidate) => void): void;
   renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
+  renameSource(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
+  renameExcerpt(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
 }
 
 export interface HeadingRenameCandidate {
