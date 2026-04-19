@@ -22,6 +22,7 @@
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
+  import { slugify } from '../shared/slug';
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationStore } from './lib/stores/conversation.svelte';
@@ -121,11 +122,47 @@
     }
   }
 
-  function handleNavigate(target: string) {
+  let pendingPreviewAnchor = $state<string | null>(null);
+
+  async function handleNavigate(target: string) {
     recordCurrentPosition();
-    const notePath = target.endsWith('.md') ? target : `${target}.md`;
-    editor.openFile(notePath);
+    const hashIdx = target.indexOf('#');
+    const pathPart = hashIdx >= 0 ? target.slice(0, hashIdx) : target;
+    const anchor = hashIdx >= 0 ? target.slice(hashIdx + 1) : null;
+    const notePath = pathPart.endsWith('.md') ? pathPart : `${pathPart}.md`;
+    await editor.openFile(notePath);
+    // Route anchors: preview scrolls by element id; editor jumps by doc offset.
+    if (anchor) {
+      pendingPreviewAnchor = anchor;
+      if (viewMode === 'source' || viewMode === 'split') {
+        const content = editor.content;
+        const offset = findAnchorOffset(content, anchor);
+        if (offset !== null) {
+          requestAnimationFrame(() => editorComponent?.gotoOffset(offset));
+        }
+      }
+    }
     nav.record({ type: 'note', relativePath: notePath, offset: 0 });
+  }
+
+  /**
+   * Locate a heading (by slug) or block-id inside raw markdown and return
+   * the character offset of its line. Shared between source and split modes.
+   */
+  function findAnchorOffset(text: string, anchor: string): number | null {
+    const isBlockId = anchor.startsWith('^');
+    const lines = text.split('\n');
+    let offset = 0;
+    for (const line of lines) {
+      if (isBlockId) {
+        if (line.trimEnd().endsWith(anchor)) return offset;
+      } else {
+        const m = line.match(/^(#{1,6})\s+(.+?)\s*$/);
+        if (m && slugify(m[2]) === anchor) return offset;
+      }
+      offset += line.length + 1;
+    }
+    return null;
   }
 
   function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
@@ -665,6 +702,8 @@
                   onTagSelect={handleTagSelect}
                   onOpenSource={handleOpenSource}
                   onOpenExcerpt={handleOpenExcerpt}
+                  pendingAnchor={pendingPreviewAnchor}
+                  onAnchorResolved={() => { pendingPreviewAnchor = null; }}
                 />
               </div>
             {/if}

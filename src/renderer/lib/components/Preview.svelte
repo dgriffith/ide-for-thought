@@ -4,6 +4,7 @@
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
   import { getLinkType } from '../../../shared/link-types';
+  import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
 
@@ -13,9 +14,13 @@
     onTagSelect?: (tag: string) => void;
     onOpenSource?: (sourceId: string) => void;
     onOpenExcerpt?: (excerptId: string) => void;
+    /** If set, the effect below will scroll the preview to the matching heading / block after render. */
+    pendingAnchor?: string | null;
+    /** Called when the effect successfully scrolls, so the caller can clear its pending state. */
+    onAnchorResolved?: () => void;
   }
 
-  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt }: Props = $props();
+  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved }: Props = $props();
 
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
@@ -63,6 +68,47 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       return '';
     },
   });
+
+  // Give every heading an id derived from its text so [[note#heading]] anchor
+  // navigation can target it. Slugs must match the indexer's convention.
+  const defaultHeadingOpen = md.renderer.rules.heading_open;
+  md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+    const inline = tokens[idx + 1];
+    const text = inline && inline.type === 'inline' ? inline.content : '';
+    const slug = slugify(text);
+    if (slug) tokens[idx].attrSet('id', slug);
+    return defaultHeadingOpen
+      ? defaultHeadingOpen(tokens, idx, options, env, self)
+      : self.renderToken(tokens, idx, options);
+  };
+
+  // Watch for block-id paragraphs (`^block-id` at paragraph end) and mirror
+  // them onto the rendered <p> so [[note#^id]] scrolls can find the target.
+  const BLOCK_ID_RE = /\s*\^([\w-]+)\s*$/;
+  const defaultParagraphOpen = md.renderer.rules.paragraph_open;
+  md.renderer.rules.paragraph_open = (tokens, idx, options, env, self) => {
+    const inline = tokens[idx + 1];
+    if (inline && inline.type === 'inline') {
+      const m = inline.content.match(BLOCK_ID_RE);
+      if (m) {
+        tokens[idx].attrSet('id', `^${m[1]}`);
+        // Strip the marker from what renders.
+        inline.content = inline.content.replace(BLOCK_ID_RE, '');
+        if (inline.children) {
+          for (let i = inline.children.length - 1; i >= 0; i--) {
+            const child = inline.children[i];
+            if (child.type === 'text') {
+              const stripped = child.content.replace(BLOCK_ID_RE, '');
+              if (stripped !== child.content) { child.content = stripped; break; }
+            }
+          }
+        }
+      }
+    }
+    return defaultParagraphOpen
+      ? defaultParagraphOpen(tokens, idx, options, env, self)
+      : self.renderToken(tokens, idx, options);
+  };
 
   // Wiki-link plugin: [[type::target|display]], [[type::target]], [[target|display]], [[target]]
   md.inline.ruler.push('wiki_link', (state, silent) => {
@@ -225,6 +271,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       cites?.forEach((el) => resolveCiteLabel(el as HTMLElement));
       const quotes = previewEl?.querySelectorAll('.quote-link');
       quotes?.forEach((el) => resolveQuoteLabel(el as HTMLElement));
+    });
+  });
+
+  // After render, if the caller asked us to jump to a heading or block, do it.
+  $effect(() => {
+    if (!pendingAnchor || !previewEl) return;
+    const anchor = pendingAnchor;
+    requestAnimationFrame(() => {
+      if (!previewEl) return;
+      const id = anchor.startsWith('^') ? anchor : slugify(anchor);
+      const target = previewEl.querySelector(`[id="${CSS.escape(id)}"]`);
+      if (target) {
+        target.scrollIntoView({ block: 'start', behavior: 'auto' });
+        onAnchorResolved?.();
+      }
     });
   });
 
