@@ -656,7 +656,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     max-width: 360px;
     min-width: 180px;
     padding: 10px 12px;
-    background: var(--bg-titlebar, var(--bg-button));
+    background: var(--bg-button);
     color: var(--text);
     border: 1px solid var(--border);
     border-radius: 6px;
