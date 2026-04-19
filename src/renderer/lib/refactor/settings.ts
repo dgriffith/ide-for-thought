@@ -28,6 +28,25 @@ export interface RefactorSettings {
    * shallowest level becomes H1. Doesn't affect the source note (#125).
    */
   normalizeHeadings: boolean;
+  /**
+   * When true (and linkTemplate is empty), extract/split commands emit
+   * `![[new-note]]` instead of `[[new-note]]` so the source transcludes
+   * the extracted content in preview (#124).
+   */
+  transcludeByDefault: boolean;
+  /**
+   * Multiline template used in place of the default `[[new-note]]` link
+   * when the source is rewritten. Empty disables. Tokens: {{title}},
+   * {{new_note_title}}, {{date}}, {{source}}. When set, overrides the
+   * transclude toggle.
+   */
+  linkTemplate: string;
+  /**
+   * Multiline template wrapping the extracted note's body. Empty disables.
+   * Tokens: {{new_note_title}}, {{new_note_content}}, {{title}}, {{source}},
+   * {{date}}.
+   */
+  refactoredNoteTemplate: string;
 }
 
 export const DEFAULT_REFACTOR_SETTINGS: RefactorSettings = {
@@ -35,6 +54,9 @@ export const DEFAULT_REFACTOR_SETTINGS: RefactorSettings = {
   destinationTemplate: '',
   filenamePrefix: '',
   normalizeHeadings: false,
+  transcludeByDefault: false,
+  linkTemplate: '',
+  refactoredNoteTemplate: '',
 };
 
 const STORAGE_KEY = 'refactorSettings';

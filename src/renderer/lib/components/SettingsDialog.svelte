@@ -370,6 +370,54 @@
               is never touched.
             </p>
           </div>
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={refactor.transcludeByDefault}
+                onchange={(e) => patchRefactor({ transcludeByDefault: (e.currentTarget as HTMLInputElement).checked })}
+                disabled={!!refactor.linkTemplate}
+              />
+              Transclude by default
+            </label>
+            <p class="hint">
+              Refactor commands emit <code>![[new-note]]</code> in the source so the
+              preview inlines the extracted content. Overridden when a link template
+              is set below.
+            </p>
+          </div>
+          <div class="field">
+            <label for="link-template">Link template</label>
+            <textarea
+              id="link-template"
+              rows="3"
+              value={refactor.linkTemplate}
+              oninput={(e) => patchRefactor({ linkTemplate: (e.currentTarget as HTMLTextAreaElement).value })}
+              placeholder={'e.g. > See [[{{new_note_title}}]] — split from {{title}} on {{date}}'}
+            ></textarea>
+            <p class="hint">
+              What to put in the source note in place of the extracted content. When
+              blank, Minerva uses a plain wiki-link (or <code>![[…]]</code> if
+              transclude is enabled). Tokens: <code>{'{{new_note_title}}'}</code>,
+              <code>{'{{title}}'}</code>, <code>{'{{source}}'}</code>,
+              <code>{'{{date}}'}</code>.
+            </p>
+          </div>
+          <div class="field">
+            <label for="refactored-note-template">Refactored note template</label>
+            <textarea
+              id="refactored-note-template"
+              rows="4"
+              value={refactor.refactoredNoteTemplate}
+              oninput={(e) => patchRefactor({ refactoredNoteTemplate: (e.currentTarget as HTMLTextAreaElement).value })}
+              placeholder={'e.g. > Extracted from [[{{source}}]] on {{date}}\n\n{{new_note_content}}'}
+            ></textarea>
+            <p class="hint">
+              Wraps each extracted note's body. Leave blank to use the raw extracted
+              content unchanged. Must reference <code>{'{{new_note_content}}'}</code>
+              somewhere or the body will be dropped.
+            </p>
+          </div>
 
         {:else if activeTab === 'web'}
           <div class="field checkbox">

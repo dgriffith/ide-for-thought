@@ -8,6 +8,8 @@ import {
   resolveDestinationFolder,
   renderFilenamePrefix,
   normalizeHeadingLevels,
+  renderLinkBack,
+  renderExtractedBody,
 } from './extract';
 import type { RefactorSettings } from './settings';
 import { DEFAULT_REFACTOR_SETTINGS } from './settings';
@@ -30,6 +32,12 @@ export interface PlanSplitByHeadingOptions {
 }
 
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+function extractSourceTitle(relativePath: string, content: string): string {
+  const m = content.match(/^#\s+(.+)$/m);
+  if (m) return m[1].trim();
+  return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
+}
 
 function basenameWithoutExt(relativePath: string): string {
   const file = relativePath.split('/').pop() ?? relativePath;
@@ -123,14 +131,33 @@ export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHead
   const newNotes: Array<{ relativePath: string; content: string }> = [];
   const links: string[] = [];
 
+  const sourceTitle = extractSourceTitle(sourceRelativePath, sourceContent);
+
   for (let i = 0; i < headings.length; i++) {
     const stem = stems[i];
     const relativePath = `${subfolder}/${stem}.md`;
     const title = headings[i].text;
-    const sectionBody = normalizeHeadingLevels(sections[i].trimEnd(), settings) + '\n';
-    const content = buildFrontmatter(title, sourceRelativePath, today) + sectionBody;
+    const rawBody = normalizeHeadingLevels(sections[i].trimEnd(), settings);
+    const templateCtx = {
+      sourceRelativePath,
+      sourceTitle,
+      newNoteTitle: title,
+      now,
+    };
+    const wrappedBody = renderExtractedBody(rawBody, settings, templateCtx);
+    const bodyWithTrailingNewline = wrappedBody + (wrappedBody.endsWith('\n') ? '' : '\n');
+    const content = buildFrontmatter(title, sourceRelativePath, today) + bodyWithTrailingNewline;
     newNotes.push({ relativePath, content });
-    links.push(`- [[${subfolder}/${stem}|${title}]]`);
+
+    // Contents-list entry: respect linkTemplate / transcludeByDefault, fall
+    // back to a bulleted `- [[path|title]]` line.
+    if (settings.linkTemplate) {
+      links.push(renderLinkBack(relativePath, settings, templateCtx));
+    } else if (settings.transcludeByDefault) {
+      links.push(`- ![[${subfolder}/${stem}]]`);
+    } else {
+      links.push(`- [[${subfolder}/${stem}|${title}]]`);
+    }
   }
 
   // Rebuild the source: keep the frontmatter, keep any preamble prose, then
