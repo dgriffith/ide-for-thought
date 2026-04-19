@@ -34,6 +34,12 @@ contextBridge.exposeInMainWorld('api', {
     onFileDeleted: (cb: (path: string) => void) => {
       ipcRenderer.on(Channels.NOTEBASE_FILE_DELETED, (_e, p) => cb(p));
     },
+    onRenamed: (cb: (transitions: Array<{ old: string; new: string }>) => void) => {
+      ipcRenderer.on(Channels.NOTEBASE_RENAMED, (_e, transitions) => cb(transitions));
+    },
+    onRewritten: (cb: (paths: string[]) => void) => {
+      ipcRenderer.on(Channels.NOTEBASE_REWRITTEN, (_e, paths) => cb(paths));
+    },
   },
   links: {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),

@@ -111,6 +111,16 @@ export function getRootPath(winId: number): string | null {
   return contexts.get(winId)?.rootPath ?? null;
 }
 
+/** Every live BrowserWindow whose context has the given rootPath open. */
+export function windowsForProject(rootPath: string): BrowserWindow[] {
+  const hits: BrowserWindow[] = [];
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue;
+    if (contexts.get(win.id)?.rootPath === rootPath) hits.push(win);
+  }
+  return hits;
+}
+
 export async function openProjectInWindow(win: BrowserWindow, rootPath: string): Promise<void> {
   const ctx = getContext(win.id);
 

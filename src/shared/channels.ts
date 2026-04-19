@@ -15,6 +15,10 @@ export const Channels = {
   NOTEBASE_FILE_CHANGED: 'notebase:fileChanged',
   NOTEBASE_FILE_CREATED: 'notebase:fileCreated',
   NOTEBASE_FILE_DELETED: 'notebase:fileDeleted',
+  /** Emitted by the main process after a note rename completes. Payload is PathTransition[]. */
+  NOTEBASE_RENAMED: 'notebase:renamed',
+  /** Emitted after link-rewrites touched other notes' content. Payload is string[] (relativePaths). */
+  NOTEBASE_REWRITTEN: 'notebase:rewritten',
 
   // Links
   LINKS_OUTGOING: 'links:outgoing',

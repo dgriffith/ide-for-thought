@@ -254,18 +254,19 @@
   async function handleRename(relativePath: string) {
     if (!notebase.meta) return;
     const oldName = relativePath.split('/').pop()!;
-    const newName = await showPrompt('New name:');
-    if (!newName || newName === oldName) return;
+    const rawNewName = await showPrompt('New name:');
+    if (!rawNewName || rawNewName === oldName) return;
+    // Preserve the old extension when the user didn't include one. A file
+    // that drops its .md / .ttl suffix falls out of the indexed set and
+    // effectively disappears from the sidebar; almost always a mistake.
+    const oldDotIdx = oldName.lastIndexOf('.');
+    const oldExt = oldDotIdx > 0 ? oldName.slice(oldDotIdx) : '';
+    const newName = !rawNewName.includes('.') && oldExt ? `${rawNewName}${oldExt}` : rawNewName;
     const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
     const newPath = dir ? `${dir}/${newName}` : newName;
+    // Tab path + content refresh is handled by the NOTEBASE_RENAMED /
+    // NOTEBASE_REWRITTEN listeners registered in onMount — don't duplicate.
     await api.notebase.rename(relativePath, newPath);
-    // Update open tab if renamed
-    const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === relativePath);
-    if (tabIdx !== -1) {
-      const tab = editor.tabs[tabIdx] as any;
-      tab.relativePath = newPath;
-      tab.fileName = newName;
-    }
     await notebase.refresh();
   }
 
@@ -504,6 +505,26 @@
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
     api.menu.onOpenSettings(() => { showSettings = true; });
+
+    // Notebase rename/rewrite notifications from main — keep open tabs
+    // consistent with disk so the next auto-save doesn't overwrite a
+    // link rewrite silently.
+    api.notebase.onRenamed((transitions) => {
+      editor.applyRenameTransitions(transitions);
+    });
+    api.notebase.onRewritten(async (paths) => {
+      for (const p of paths) {
+        if (editor.isPathDirty(p)) {
+          const keepDisk = await showConfirm(
+            `"${p}" was updated on disk by a link rewrite. Discard your unsaved edits and load the new version?`,
+            'confirm-rewrite-conflict',
+            'Load disk',
+          );
+          if (!keepDisk) continue;
+        }
+        await editor.reloadTabFromDisk(p);
+      }
+    });
 
     // Tools for Thought — stream listener (once)
     api.tools.onStream((chunk) => {
