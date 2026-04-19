@@ -248,6 +248,10 @@
 
     await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
     await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    // The active tab still holds the pre-extract content in memory; reload
+    // it from disk so the user sees the wiki-link and so the next auto-save
+    // doesn't overwrite our rewrite.
+    await editor.reloadTabFromDisk(tab.relativePath);
     await notebase.refresh();
     await editor.openFile(plan.newNotePath);
     sidebar?.refreshTags();
@@ -275,6 +279,7 @@
 
     await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
     await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    await editor.reloadTabFromDisk(tab.relativePath);
     await notebase.refresh();
     await editor.openFile(plan.newNotePath);
     sidebar?.refreshTags();
