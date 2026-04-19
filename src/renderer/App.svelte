@@ -505,6 +505,26 @@
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
     api.menu.onOpenSettings(() => { showSettings = true; });
 
+    // Notebase rename/rewrite notifications from main — keep open tabs
+    // consistent with disk so the next auto-save doesn't overwrite a
+    // link rewrite silently.
+    api.notebase.onRenamed((transitions) => {
+      editor.applyRenameTransitions(transitions);
+    });
+    api.notebase.onRewritten(async (paths) => {
+      for (const p of paths) {
+        if (editor.isPathDirty(p)) {
+          const keepDisk = await showConfirm(
+            `"${p}" was updated on disk by a link rewrite. Discard your unsaved edits and load the new version?`,
+            'confirm-rewrite-conflict',
+            'Load disk',
+          );
+          if (!keepDisk) continue;
+        }
+        await editor.reloadTabFromDisk(p);
+      }
+    });
+
     // Tools for Thought — stream listener (once)
     api.tools.onStream((chunk) => {
       toolPanel.appendChunk(chunk);

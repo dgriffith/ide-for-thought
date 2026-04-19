@@ -10,7 +10,7 @@ import * as search from './search/index';
 import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
-import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled } from './window-manager';
+import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool } from './tools/executor';
 import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
@@ -228,13 +228,24 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
 
-    await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
+    const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
       reindexHook: (relPath, content) => {
         if (relPath.endsWith('.md')) search.indexNote(relPath, content);
       },
       removeHook: (relPath) => search.removeNote(relPath),
     });
+
+    // Broadcast to every window showing this project so their editor tabs
+    // refresh paths and content instead of silently overwriting on next save.
+    for (const targetWin of windowsForProject(rootPath)) {
+      if (transitions.length > 0) {
+        targetWin.webContents.send(Channels.NOTEBASE_RENAMED, transitions);
+      }
+      if (rewrittenPaths.length > 0) {
+        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
+      }
+    }
 
     await persistIndexes();
   });

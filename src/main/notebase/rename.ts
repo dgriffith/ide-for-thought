@@ -37,20 +37,30 @@ export interface RenameWithLinksOptions {
   removeHook?: (relativePath: string) => void;
 }
 
+export interface PathTransition {
+  old: string;
+  new: string;
+}
+
+export interface RenameResult {
+  /** One transition per renamed indexable file (a single entry for file renames; many for folder renames). */
+  transitions: PathTransition[];
+  /** Paths of OTHER notes whose content was rewritten by the pass. */
+  rewrittenPaths: string[];
+}
+
 /**
  * Rename a note file or folder and rewrite every wiki-link in the thoughtbase
  * that pointed at the old location.
  *
- * Returns the set of relative paths whose content was rewritten (not including
- * the renamed files themselves). Callers are responsible for persisting the
- * graph after this resolves.
+ * Callers are responsible for persisting the graph after this resolves.
  */
 export async function renameWithLinkRewrites(
   rootPath: string,
   oldRelPath: string,
   newRelPath: string,
   opts: RenameWithLinksOptions = {},
-): Promise<{ rewrittenPaths: string[] }> {
+): Promise<RenameResult> {
   const { markPathHandled, reindexHook, removeHook } = opts;
 
   // Determine whether this is a directory rename BEFORE the fs.rename call
@@ -82,7 +92,8 @@ export async function renameWithLinkRewrites(
   markPathHandled?.(newRelPath);
   await notebaseFs.rename(rootPath, oldRelPath, newRelPath);
 
-  // Re-index the renamed file(s) at their new location.
+  // Re-index the renamed file(s) at their new location, recording transitions.
+  const transitions: PathTransition[] = [];
   if (isDirectory) {
     const newFiles = await listIndexableFiles(rootPath, newRelPath);
     for (const f of newFiles) {
@@ -95,6 +106,7 @@ export async function renameWithLinkRewrites(
         const content = await notebaseFs.readFile(rootPath, f);
         await graph.indexNote(f, content);
         reindexHook?.(f, content);
+        transitions.push({ old: oldEquivalent, new: f });
       }
     }
   } else if (isIndexable(oldRelPath)) {
@@ -103,6 +115,7 @@ export async function renameWithLinkRewrites(
     const content = await notebaseFs.readFile(rootPath, newRelPath);
     await graph.indexNote(newRelPath, content);
     reindexHook?.(newRelPath, content);
+    transitions.push({ old: oldRelPath, new: newRelPath });
   }
 
   // Rewrite wiki-links in every referring note. If a referring note was itself
@@ -127,5 +140,5 @@ export async function renameWithLinkRewrites(
     }
   }
 
-  return { rewrittenPaths };
+  return { transitions, rewrittenPaths };
 }

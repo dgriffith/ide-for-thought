@@ -123,6 +123,51 @@ export function getEditorStore() {
     tab.savedContent = tab.content;
   }
 
+  // ── External change handlers (rename / content rewrite on disk) ─────────
+
+  /** Return true if the tab for this path has unsaved local edits. */
+  function isPathDirty(relativePath: string): boolean {
+    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    return tab ? tab.content !== tab.savedContent : false;
+  }
+
+  /**
+   * Apply file renames (from the main process) to tab paths. Content is
+   * unchanged, so no reload is needed — the tab's buffer is still correct.
+   */
+  function applyRenameTransitions(transitions: Array<{ old: string; new: string }>): void {
+    if (transitions.length === 0) return;
+    const byOld = new Map(transitions.map((t) => [t.old, t.new]));
+    let touched = false;
+    for (const tab of tabs) {
+      if (!isNote(tab)) continue;
+      const newPath = byOld.get(tab.relativePath);
+      if (newPath && newPath !== tab.relativePath) {
+        tab.relativePath = newPath;
+        tab.fileName = newPath.split('/').pop() ?? '';
+        touched = true;
+      }
+    }
+    if (touched) schedulePersistTabs();
+  }
+
+  /**
+   * Reload a tab's content from disk. Caller is responsible for deciding
+   * whether to call this when the tab is dirty (usually after a conflict
+   * prompt). Does nothing if no tab is open at that path.
+   */
+  async function reloadTabFromDisk(relativePath: string): Promise<void> {
+    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    if (!tab) return;
+    try {
+      const text = await api.notebase.readFile(relativePath);
+      tab.content = text;
+      tab.savedContent = text;
+    } catch {
+      // File may have been deleted between the rewrite notification and now.
+    }
+  }
+
   function setContent(text: string) {
     const tab = activeNoteTab();
     if (tab) {
@@ -351,6 +396,9 @@ export function getEditorStore() {
     openFile,
     openSource,
     save,
+    isPathDirty,
+    applyRenameTransitions,
+    reloadTabFromDisk,
     setContent,
     flushAutoSave,
     set onAutoSaved(cb: (() => void) | null) { onAutoSaved = cb; },

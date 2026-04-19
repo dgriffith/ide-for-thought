@@ -19,6 +19,8 @@ export interface NotebaseApi {
   onFileChanged(cb: (path: string) => void): void;
   onFileCreated(cb: (path: string) => void): void;
   onFileDeleted(cb: (path: string) => void): void;
+  onRenamed(cb: (transitions: Array<{ old: string; new: string }>) => void): void;
+  onRewritten(cb: (paths: string[]) => void): void;
 }
 
 export interface LinksApi {

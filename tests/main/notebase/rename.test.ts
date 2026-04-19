@@ -37,7 +37,7 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     await indexNote('notes/foo.md', '# Foo');
     await indexNote('notes/overview.md', '# Overview\n\nSee [[notes/foo]].');
 
-    const { rewrittenPaths } = await renameWithLinkRewrites(
+    const { rewrittenPaths, transitions } = await renameWithLinkRewrites(
       root, 'notes/foo.md', 'archive/foo.md',
     );
 
@@ -45,6 +45,24 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     expect(fs.existsSync(path.join(root, 'archive/foo.md'))).toBe(true);
     expect(readNote(root, 'notes/overview.md')).toContain('[[archive/foo]]');
     expect(rewrittenPaths).toEqual(['notes/overview.md']);
+    expect(transitions).toEqual([{ old: 'notes/foo.md', new: 'archive/foo.md' }]);
+  });
+
+  it('emits one transition per indexable file when a folder is renamed', async () => {
+    writeNote(root, 'notes/a.md', '# A');
+    writeNote(root, 'notes/b.md', '# B');
+    writeNote(root, 'other/overview.md', 'See [[notes/a]].');
+    await indexNote('notes/a.md', '# A');
+    await indexNote('notes/b.md', '# B');
+    await indexNote('other/overview.md', 'See [[notes/a]].');
+
+    const { transitions } = await renameWithLinkRewrites(root, 'notes', 'archive');
+
+    const pairs = transitions.map((t) => [t.old, t.new].join(' -> ')).sort();
+    expect(pairs).toEqual([
+      'notes/a.md -> archive/a.md',
+      'notes/b.md -> archive/b.md',
+    ]);
   });
 
   it('preserves type prefix, display, and anchor on rewrite', async () => {
