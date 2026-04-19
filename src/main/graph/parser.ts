@@ -1,8 +1,14 @@
 import YAML from 'yaml';
+import { splitAnchor } from '../../shared/slug';
 
 export interface ParsedLink {
+  /** Bare target path/id with any `#anchor` stripped. */
   target: string;
-  type: string;       // link type name (e.g. 'supports', 'references')
+  /** Raw anchor text (no leading `#`), or undefined if the link had no anchor. Block-id anchors keep their `^` prefix. */
+  anchor?: string;
+  /** Link type name (e.g. 'supports', 'references'). */
+  type: string;
+  /** Display text after `|`, if any. */
   displayText?: string;
 }
 
@@ -104,13 +110,17 @@ function extractLinks(content: string): ParsedLink[] {
 
     // Split rest on | for display text
     const pipeIdx = rest.indexOf('|');
-    const target = (pipeIdx >= 0 ? rest.slice(0, pipeIdx) : rest).trim();
+    const targetWithAnchor = (pipeIdx >= 0 ? rest.slice(0, pipeIdx) : rest).trim();
     const displayText = pipeIdx >= 0 ? rest.slice(pipeIdx + 1).trim() : undefined;
 
-    const key = `${type}::${target}`;
+    // Strip optional #anchor (heading) or #^block-id suffix from the target.
+    const { path, anchor } = splitAnchor(targetWithAnchor);
+    const target = path;
+
+    const key = `${type}::${target}::${anchor ?? ''}`;
     if (!seen.has(key)) {
       seen.add(key);
-      links.push({ target, type, displayText });
+      links.push({ target, type, displayText, ...(anchor !== null ? { anchor } : {}) });
     }
   }
 

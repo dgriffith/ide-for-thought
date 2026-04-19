@@ -142,6 +142,43 @@ describe('link extraction', () => {
     const result = parseMarkdown('No links here');
     expect(result.links).toEqual([]);
   });
+
+  it('splits off a heading anchor', () => {
+    const result = parseMarkdown('See [[notes/foo#components]].');
+    expect(result.links[0]).toEqual({
+      target: 'notes/foo',
+      type: 'references',
+      displayText: undefined,
+      anchor: 'components',
+    });
+  });
+
+  it('splits off a block-id anchor preserving the ^ prefix', () => {
+    const result = parseMarkdown('See [[notes/foo#^p4]].');
+    expect(result.links[0]).toEqual({
+      target: 'notes/foo',
+      type: 'references',
+      displayText: undefined,
+      anchor: '^p4',
+    });
+  });
+
+  it('handles typed-link + anchor + display together', () => {
+    const result = parseMarkdown('[[supports::notes/foo#c|see here]]');
+    expect(result.links[0]).toEqual({
+      target: 'notes/foo',
+      type: 'supports',
+      displayText: 'see here',
+      anchor: 'c',
+    });
+  });
+
+  it('treats same-target different-anchor as distinct links', () => {
+    const result = parseMarkdown('[[notes/foo#a]] and [[notes/foo#b]]');
+    expect(result.links).toHaveLength(2);
+    expect(result.links[0].anchor).toBe('a');
+    expect(result.links[1].anchor).toBe('b');
+  });
 });
 
 // ── Frontmatter extraction ──────────────────────────────────────────────────

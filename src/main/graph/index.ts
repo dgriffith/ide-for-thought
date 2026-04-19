@@ -7,6 +7,7 @@ import os from 'node:os';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
+import { slugify } from '../../shared/slug';
 import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
@@ -155,10 +156,22 @@ function linkPredicate(lt: LinkType) {
   return lt.predicateNamespace === 'thought' ? THOUGHT(lt.predicate) : MINERVA(lt.predicate);
 }
 
-function resolveLinkTarget(lt: LinkType, target: string) {
+function resolveLinkTarget(lt: LinkType, target: string, anchor?: string) {
   if (lt.targetKind === 'source') return sourceUri(target);
   if (lt.targetKind === 'excerpt') return excerptUri(target);
-  return noteUri(target.endsWith('.md') ? target : `${target}.md`);
+  const base = noteUri(target.endsWith('.md') ? target : `${target}.md`);
+  // Anchors append as an IRI fragment: headings become `#slug`, block-ids
+  // stay as `#^raw-id` (we don't slugify the `^` prefix or its payload so
+  // ids survive edits on the referenced block).
+  if (!anchor) return base;
+  const frag = anchor.startsWith('^') ? anchor : slugify(anchor);
+  return $rdf.sym(`${base.value}#${frag}`);
+}
+
+/** Strip an IRI fragment (`#…`) if present — use to find the note subject a link points at. */
+function stripFragment(uri: string): string {
+  const idx = uri.indexOf('#');
+  return idx < 0 ? uri : uri.slice(0, idx);
 }
 
 function existsPredicateFor(lt: LinkType) {
@@ -413,7 +426,7 @@ export async function indexNote(relativePath: string, content: string): Promise<
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(linkType, link.target);
+    const targetNode = resolveLinkTarget(linkType, link.target, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 
@@ -587,7 +600,7 @@ function indexSourceBody(
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(linkType, link.target);
+    const targetNode = resolveLinkTarget(linkType, link.target, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 }
@@ -919,10 +932,17 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
     const stmts = store.statementsMatching(subject, linkPredicate(lt), undefined);
     for (const st of stmts) {
       const targetNode = st.object as $rdf.NamedNode;
-      const pathStmts = store.statementsMatching(targetNode, MINERVA('relativePath'), undefined);
-      const titleStmts = store.statementsMatching(targetNode, DC('title'), undefined);
+      // Note-typed link targets may carry a `#anchor` fragment. Look up the
+      // bare note's metadata, not the fragmented URI. Default (undefined)
+      // targetKind counts as 'note'.
+      const isNoteTarget = !lt.targetKind || lt.targetKind === 'note';
+      const bareNode = isNoteTarget && targetNode.value.includes('#')
+        ? $rdf.sym(stripFragment(targetNode.value))
+        : targetNode;
+      const pathStmts = store.statementsMatching(bareNode, MINERVA('relativePath'), undefined);
+      const titleStmts = store.statementsMatching(bareNode, DC('title'), undefined);
       const existsPredicate = existsPredicateFor(lt);
-      const typeStmts = store.statementsMatching(targetNode, existsPredicate, undefined);
+      const typeStmts = store.statementsMatching(bareNode, existsPredicate, undefined);
       const isExternalTarget = lt.targetKind === 'source' || lt.targetKind === 'excerpt';
 
       results.push({
@@ -949,12 +969,15 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
  */
 export function findNotesLinkingTo(targetRelativePath: string): string[] {
   if (!store) return [];
-  const target = noteUri(targetRelativePath);
+  const targetBase = noteUri(targetRelativePath).value;
   const seen = new Set<string>();
   for (const lt of LINK_TYPES) {
     if (lt.targetKind && lt.targetKind !== 'note') continue;
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), target);
+    // Match both `<noteUri>` and `<noteUri>#<anchor>` targets.
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
     for (const st of stmts) {
+      const objValue = st.object.value;
+      if (objValue !== targetBase && !objValue.startsWith(`${targetBase}#`)) continue;
       const sourceNode = st.subject;
       const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
       const sourcePath = pathStmts[0]?.object.value;
@@ -967,12 +990,15 @@ export function findNotesLinkingTo(targetRelativePath: string): string[] {
 export function backlinks(relativePath: string): Backlink[] {
   if (!store) return [];
 
-  const target = noteUri(relativePath);
+  const targetBase = noteUri(relativePath).value;
   const results: Backlink[] = [];
 
   for (const lt of LINK_TYPES) {
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), target);
+    if (lt.targetKind && lt.targetKind !== 'note') continue;
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
     for (const st of stmts) {
+      const objValue = st.object.value;
+      if (objValue !== targetBase && !objValue.startsWith(`${targetBase}#`)) continue;
       const sourceNode = st.subject;
       const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
       const titleStmts = store.statementsMatching(sourceNode, DC('title'), undefined);
