@@ -193,18 +193,29 @@ export function linkDecorations(opts: LinkOptions) {
     {
       decorations: v => v.decorations,
       eventHandlers: {
-        // Intercept mousedown so CodeMirror doesn't move the caret into the
-        // link on plain-click. Holding ⌘/Ctrl lets the caret land normally.
-        mousedown(event: MouseEvent) {
+        // Plain click: prevent caret from landing inside the link (we'll
+        //   treat it as a single-unit navigation in the click handler).
+        // ⌘/Ctrl-click: place a single caret at the click position so the
+        //   user can edit the link text. Without intercepting, CM6's default
+        //   would ADD a cursor (multi-cursor feature), leaving a phantom
+        //   caret at the prior selection that echoes every keystroke.
+        mousedown(event: MouseEvent, view: EditorView) {
           if (event.button !== 0) return false;
-          if (hasModifier(event)) return false;
           const el = linkElFromEvent(event);
           if (!el) return false;
+          if (hasModifier(event)) {
+            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+            if (pos !== null) {
+              view.dispatch({ selection: { anchor: pos } });
+            }
+          }
           event.preventDefault();
           return true;
         },
         click(event: MouseEvent) {
           if (event.button !== 0) return false;
+          // ⌘/Ctrl-click is the edit gesture; caret was placed in mousedown,
+          // and the click handler must not also open the link.
           if (hasModifier(event)) return false;
           const el = linkElFromEvent(event);
           if (!el) return false;
