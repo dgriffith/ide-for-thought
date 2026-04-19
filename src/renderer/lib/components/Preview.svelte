@@ -18,10 +18,25 @@
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
 
-  // Cite-label cache: sourceId → resolved label text (survives re-renders)
-  const citeLabelCache = new Map<string, string>();
-  // Quote-label cache: excerptId → resolved label text (survives re-renders)
-  const quoteLabelCache = new Map<string, string>();
+  // Cite/quote metadata caches: id → resolved bundle (survives re-renders)
+  interface CiteMeta {
+    title?: string;
+    creators: string[];
+    year?: string;
+    doi?: string;
+    uri?: string;
+  }
+  interface QuoteMeta {
+    citedText?: string;
+    sourceTitle?: string;
+    sourceCreator?: string;
+    sourceYear?: string;
+    page?: string;
+    pageRange?: string;
+    locationText?: string;
+  }
+  const citeMetaCache = new Map<string, CiteMeta>();
+  const quoteMetaCache = new Map<string, QuoteMeta>();
 
   const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -214,81 +229,137 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   async function resolveCiteLabel(el: HTMLElement) {
     const sourceId = el.dataset.sourceId;
     if (!sourceId) return;
-    // Don't overwrite user-supplied [[cite::id|display]] text.
-    if (el.dataset.displayOverride === '1') return;
 
     const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
     if (!displayEl) return;
 
-    const cached = citeLabelCache.get(sourceId);
-    if (cached) { displayEl.textContent = cached; return; }
+    const cached = citeMetaCache.get(sourceId);
+    if (cached) {
+      applyCiteMeta(el, displayEl, sourceId, cached);
+      return;
+    }
 
     try {
       const idEsc = sourceId.replace(/"/g, '\\"');
-      const sparql = `SELECT ?title ?creator ?issued WHERE {
-        ?src minerva:sourceId "${idEsc}" .
-        OPTIONAL { ?src dc:title ?title }
-        OPTIONAL { ?src dc:creator ?creator }
-        OPTIONAL { ?src dc:issued ?issued }
-      } LIMIT 1`;
+      const sparql = `PREFIX bibo: <http://purl.org/ontology/bibo/>
+        SELECT ?title ?creator ?issued ?doi ?uri WHERE {
+          ?src minerva:sourceId "${idEsc}" .
+          OPTIONAL { ?src dc:title ?title }
+          OPTIONAL { ?src dc:creator ?creator }
+          OPTIONAL { ?src dc:issued ?issued }
+          OPTIONAL { ?src bibo:doi ?doi }
+          OPTIONAL { ?src bibo:uri ?uri }
+        }`;
       const response = await api.graph.query(QUERY_PREFIXES + sparql);
-      const row = response.results[0] as Record<string, string> | undefined;
-      const label = formatCiteLabel(sourceId, row);
-      citeLabelCache.set(sourceId, label);
-      displayEl.textContent = label;
+      const meta = collapseCiteRows(response.results as Array<Record<string, string>>);
+      citeMetaCache.set(sourceId, meta);
+      applyCiteMeta(el, displayEl, sourceId, meta);
     } catch {
       // Fall back to the source-id already rendered.
     }
   }
 
-  function formatCiteLabel(sourceId: string, row: Record<string, string> | undefined): string {
-    if (!row) return sourceId;
-    const title = row.title;
-    const creator = row.creator;
-    const year = row.issued ? row.issued.slice(0, 4) : '';
-    const byline = creator && year ? `${creator} (${year})` : creator || (year ? `(${year})` : '');
+  function collapseCiteRows(rows: Array<Record<string, string>>): CiteMeta {
+    const meta: CiteMeta = { creators: [] };
+    const creatorSet = new Set<string>();
+    for (const row of rows) {
+      if (row.title && !meta.title) meta.title = row.title;
+      if (row.creator && !creatorSet.has(row.creator)) {
+        creatorSet.add(row.creator);
+        meta.creators.push(row.creator);
+      }
+      if (row.issued && !meta.year) meta.year = row.issued.slice(0, 4);
+      if (row.doi && !meta.doi) meta.doi = row.doi;
+      if (row.uri && !meta.uri) meta.uri = row.uri;
+    }
+    return meta;
+  }
+
+  function applyCiteMeta(el: HTMLElement, displayEl: HTMLSpanElement, sourceId: string, meta: CiteMeta) {
+    el.dataset.tooltipKind = 'cite';
+    el.dataset.tooltipPayload = JSON.stringify(meta);
+    if (el.dataset.displayOverride !== '1') {
+      displayEl.textContent = formatCiteLabel(sourceId, meta);
+    }
+  }
+
+  function formatCiteLabel(sourceId: string, meta: CiteMeta): string {
+    const title = meta.title;
+    const byline = formatByline(meta.creators, meta.year);
     if (title && byline) return `${title} — ${byline}`;
     if (title) return title;
     if (byline) return byline;
     return sourceId;
   }
 
+  function formatByline(creators: string[], year?: string): string {
+    const who = creators.length === 0 ? ''
+      : creators.length === 1 ? creators[0]
+      : creators.length === 2 ? `${creators[0]} and ${creators[1]}`
+      : `${creators[0]} et al.`;
+    if (who && year) return `${who} (${year})`;
+    if (who) return who;
+    if (year) return `(${year})`;
+    return '';
+  }
+
   async function resolveQuoteLabel(el: HTMLElement) {
     const excerptId = el.dataset.excerptId;
     if (!excerptId) return;
-    if (el.dataset.displayOverride === '1') return;
 
     const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
     if (!displayEl) return;
 
-    const cached = quoteLabelCache.get(excerptId);
-    if (cached) { displayEl.textContent = cached; return; }
+    const cached = quoteMetaCache.get(excerptId);
+    if (cached) {
+      applyQuoteMeta(el, displayEl, excerptId, cached);
+      return;
+    }
 
     try {
       const idEsc = excerptId.replace(/"/g, '\\"');
-      const sparql = `SELECT ?citedText ?sourceTitle ?sourceCreator WHERE {
+      const sparql = `SELECT ?citedText ?sourceTitle ?sourceCreator ?sourceIssued ?page ?pageRange ?locationText WHERE {
         ?ex minerva:excerptId "${idEsc}" .
         OPTIONAL { ?ex thought:citedText ?citedText }
+        OPTIONAL { ?ex thought:page ?page }
+        OPTIONAL { ?ex thought:pageRange ?pageRange }
+        OPTIONAL { ?ex thought:locationText ?locationText }
         OPTIONAL {
           ?ex thought:fromSource ?src .
           OPTIONAL { ?src dc:title ?sourceTitle }
           OPTIONAL { ?src dc:creator ?sourceCreator }
+          OPTIONAL { ?src dc:issued ?sourceIssued }
         }
       } LIMIT 1`;
       const response = await api.graph.query(QUERY_PREFIXES + sparql);
       const row = response.results[0] as Record<string, string> | undefined;
-      const label = formatQuoteLabel(excerptId, row);
-      quoteLabelCache.set(excerptId, label);
-      displayEl.textContent = label;
+      const meta: QuoteMeta = row ? {
+        citedText: row.citedText,
+        sourceTitle: row.sourceTitle,
+        sourceCreator: row.sourceCreator,
+        sourceYear: row.sourceIssued?.slice(0, 4),
+        page: row.page,
+        pageRange: row.pageRange,
+        locationText: row.locationText,
+      } : {};
+      quoteMetaCache.set(excerptId, meta);
+      applyQuoteMeta(el, displayEl, excerptId, meta);
     } catch {
       // Fall back to the excerpt-id already rendered.
     }
   }
 
-  function formatQuoteLabel(excerptId: string, row: Record<string, string> | undefined): string {
-    if (!row) return excerptId;
-    const quoted = row.citedText;
-    const src = row.sourceTitle || row.sourceCreator;
+  function applyQuoteMeta(el: HTMLElement, displayEl: HTMLSpanElement, excerptId: string, meta: QuoteMeta) {
+    el.dataset.tooltipKind = 'quote';
+    el.dataset.tooltipPayload = JSON.stringify(meta);
+    if (el.dataset.displayOverride !== '1') {
+      displayEl.textContent = formatQuoteLabel(excerptId, meta);
+    }
+  }
+
+  function formatQuoteLabel(excerptId: string, meta: QuoteMeta): string {
+    const quoted = meta.citedText;
+    const src = meta.sourceTitle || meta.sourceCreator;
     const snippet = quoted ? truncate(quoted, 80) : '';
     if (snippet && src) return `“${snippet}” — ${src}`;
     if (snippet) return `“${snippet}”`;
@@ -469,11 +540,101 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       if (tag && onTagSelect) onTagSelect(tag);
     }
   }
+
+  let tooltipVisible = $state(false);
+  let tooltipHtml = $state('');
+  let tooltipStyle = $state('');
+
+  function handleMouseOver(e: MouseEvent) {
+    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('.cite-link, .quote-link');
+    if (!el) return;
+    const kind = el.dataset.tooltipKind;
+    const payload = el.dataset.tooltipPayload;
+    if (!kind || !payload) return;
+    try {
+      const meta = JSON.parse(payload);
+      tooltipHtml = kind === 'cite' ? buildCiteTooltip(meta) : buildQuoteTooltip(meta);
+    } catch { return; }
+    tooltipVisible = true;
+    positionTooltip(el);
+  }
+
+  function handleMouseOut(e: MouseEvent) {
+    const leaving = (e.target as HTMLElement | null)?.closest<HTMLElement>('.cite-link, .quote-link');
+    if (!leaving) return;
+    // relatedTarget can be null when cursor leaves the window — dismiss anyway
+    const to = e.relatedTarget as Node | null;
+    if (to && leaving.contains(to)) return;
+    tooltipVisible = false;
+  }
+
+  function positionTooltip(anchor: HTMLElement) {
+    if (!previewEl) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const containerRect = previewEl.getBoundingClientRect();
+    // Position relative to the preview container so scrolling the preview
+    // body moves the tooltip with it.
+    const top = anchorRect.bottom - containerRect.top + previewEl.scrollTop + 6;
+    const left = Math.max(8, anchorRect.left - containerRect.left);
+    const maxLeft = containerRect.width - 360 - 8;
+    tooltipStyle = `top:${top}px;left:${Math.min(left, Math.max(8, maxLeft))}px`;
+  }
+
+  function buildCiteTooltip(meta: CiteMeta): string {
+    const parts: string[] = [];
+    if (meta.title) parts.push(`<div class="tt-title">${escapeHtml(meta.title)}</div>`);
+    const byline = formatFullByline(meta.creators, meta.year);
+    if (byline) parts.push(`<div class="tt-byline">${escapeHtml(byline)}</div>`);
+    if (meta.doi) parts.push(`<div class="tt-meta">DOI: ${escapeHtml(meta.doi)}</div>`);
+    else if (meta.uri) parts.push(`<div class="tt-meta">${escapeHtml(meta.uri)}</div>`);
+    return parts.join('') || `<div class="tt-meta">No metadata available</div>`;
+  }
+
+  function buildQuoteTooltip(meta: QuoteMeta): string {
+    const parts: string[] = [];
+    if (meta.citedText) {
+      parts.push(`<div class="tt-quote">“${escapeHtml(meta.citedText)}”</div>`);
+    }
+    const src = meta.sourceTitle;
+    const creator = meta.sourceCreator;
+    const year = meta.sourceYear;
+    const byline = [src, creator && year ? `${creator} (${year})` : creator || (year ? `(${year})` : '')]
+      .filter(Boolean).join(' — ');
+    if (byline) parts.push(`<div class="tt-byline">— ${escapeHtml(byline)}</div>`);
+    const loc = meta.pageRange ? `pp. ${meta.pageRange}`
+      : meta.page ? `p. ${meta.page}`
+      : meta.locationText ? meta.locationText
+      : '';
+    if (loc) parts.push(`<div class="tt-meta">${escapeHtml(loc)}</div>`);
+    return parts.join('') || `<div class="tt-meta">No excerpt metadata available</div>`;
+  }
+
+  function formatFullByline(creators: string[], year?: string): string {
+    const who = creators.length === 0 ? ''
+      : creators.length <= 3 ? creators.join(', ')
+      : `${creators.slice(0, 3).join(', ')}, …`;
+    if (who && year) return `${who} · ${year}`;
+    return who || (year ?? '');
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="preview" bind:this={previewEl} onclick={handleClick}>
+<div
+  class="preview"
+  bind:this={previewEl}
+  onclick={handleClick}
+  onmouseover={handleMouseOver}
+  onmouseout={handleMouseOut}
+>
   {@html rendered}
+  <div
+    class="cite-tooltip"
+    class:visible={tooltipVisible}
+    style={tooltipStyle}
+    aria-hidden="true"
+  >
+    {@html tooltipHtml}
+  </div>
 </div>
 
 <style>
@@ -486,6 +647,55 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     color: var(--text);
     max-width: 800px;
     font-family: var(--content-font-family, inherit);
+    position: relative;
+  }
+
+  .cite-tooltip {
+    position: absolute;
+    z-index: 10;
+    max-width: 360px;
+    min-width: 180px;
+    padding: 10px 12px;
+    background: var(--bg-titlebar, var(--bg-button));
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    font-size: 13px;
+    line-height: 1.45;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.08s ease-out;
+  }
+
+  .cite-tooltip.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .cite-tooltip :global(.tt-title) {
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .cite-tooltip :global(.tt-byline) {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .cite-tooltip :global(.tt-meta) {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .cite-tooltip :global(.tt-quote) {
+    font-style: italic;
+    color: var(--text);
+    white-space: pre-wrap;
+    margin-bottom: 6px;
   }
 
   .preview :global(h1) {
