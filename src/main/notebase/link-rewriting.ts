@@ -80,3 +80,30 @@ export function rewriteWikiLinks(content: string, rewrites: Map<string, string>)
     return reassembleWikiLink(parsed, finalTarget);
   });
 }
+
+/**
+ * Rewrite the anchor portion of every wiki-link whose target path matches
+ * `targetPath` (normalized) AND whose anchor equals `oldAnchor`. Preserves
+ * the target path (including `.md` extension shape), the type prefix, and
+ * the display text. Used when a heading in `targetPath` is renamed.
+ */
+export function rewriteAnchorInLinks(
+  content: string,
+  targetPath: string,
+  oldAnchor: string,
+  newAnchor: string,
+): string {
+  const normalizedTarget = normalizePath(targetPath);
+  return content.replace(WIKI_LINK_RE, (match, inner) => {
+    const parsed = parseWikiInner(inner);
+    if (parsed.type === 'cite' || parsed.type === 'quote') return match;
+    if (normalizePath(parsed.target) !== normalizedTarget) return match;
+    // Compare without the leading `#` so callers can pass slugs directly.
+    const currentAnchor = parsed.anchor?.startsWith('#') ? parsed.anchor.slice(1) : parsed.anchor;
+    if (currentAnchor !== oldAnchor) return match;
+    // Reassemble with the new anchor.
+    const newAnchorText = newAnchor ? `#${newAnchor}` : '';
+    const rewritten: typeof parsed = { ...parsed, anchor: newAnchorText || null };
+    return reassembleWikiLink(rewritten, parsed.target);
+  });
+}

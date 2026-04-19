@@ -4,6 +4,7 @@ import path from 'node:path';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { renameWithLinkRewrites } from './notebase/rename';
+import { renameAnchor } from './notebase/rename-anchor';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
 import * as search from './search/index';
@@ -185,10 +186,18 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, content);
-    await graph.indexNote(relativePath, content);
+    const { headingRenameCandidate } = await graph.indexNote(relativePath, content);
     await graph.persistGraph();
     search.indexNote(relativePath, content);
     await search.persist();
+    // If a heading edit looks like a rename with affected incoming links,
+    // offer to rewrite them. The renderer pops the confirmation; approval
+    // routes back through NOTEBASE_RENAME_ANCHOR.
+    if (headingRenameCandidate) {
+      for (const targetWin of windowsForProject(rootPath)) {
+        targetWin.webContents.send(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, headingRenameCandidate);
+      }
+    }
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
@@ -249,6 +258,32 @@ export function registerIpcHandlers(): void {
 
     await persistIndexes();
   });
+
+  ipcMain.handle(
+    Channels.NOTEBASE_RENAME_ANCHOR,
+    async (e, targetRelativePath: string, oldSlug: string, newSlug: string) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+
+      const { rewrittenPaths } = await renameAnchor(rootPath, targetRelativePath, oldSlug, newSlug, {
+        markPathHandled,
+        reindexHook: (relPath, content) => {
+          if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+        },
+      });
+
+      // Same tab-refresh pipeline as #145 — open editors for rewritten notes
+      // refresh in place so the next auto-save doesn't undo the anchor rewrite.
+      if (rewrittenPaths.length > 0) {
+        for (const targetWin of windowsForProject(rootPath)) {
+          targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
+        }
+      }
+
+      await persistIndexes();
+      return { rewrittenPaths };
+    },
+  );
 
   ipcMain.handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
     const rootPath = rootPathFromEvent(e);

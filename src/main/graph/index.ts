@@ -300,6 +300,56 @@ function injectPrefixes(turtle: string, noteIri: string): string {
   return lines.join('\n') + turtle;
 }
 
+// ── Heading snapshots ──────────────────────────────────────────────────────
+// Per-note record of which headings are currently in a note, keyed by slug.
+// Used by indexNote to spot the case where a single heading was renamed so
+// we can offer to rewrite `[[note#oldSlug]]` links across the thoughtbase.
+// Cleared on initGraph so a reindex from empty doesn't surface phantom
+// renames for every note.
+
+interface HeadingSnapshot {
+  slug: string;
+  text: string;
+  level: number;
+}
+
+const headingsPerNote = new Map<string, HeadingSnapshot[]>();
+
+/** ATX-style headings only (`# …` — `###### …`). Setext headings are ignored in v1. */
+const HEADING_LINE_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
+
+function extractHeadingsFromContent(content: string): HeadingSnapshot[] {
+  const out: HeadingSnapshot[] = [];
+  const seenSlugs = new Set<string>();
+  let inFence = false;
+  for (const line of content.split('\n')) {
+    if (/^```/.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
+    const m = line.match(HEADING_LINE_RE);
+    if (!m) continue;
+    const text = m[2].trim();
+    const slug = slugify(text);
+    if (!slug || seenSlugs.has(slug)) continue;
+    seenSlugs.add(slug);
+    out.push({ slug, text, level: m[1].length });
+  }
+  return out;
+}
+
+export interface HeadingRenameCandidate {
+  relativePath: string;
+  oldSlug: string;
+  oldText: string;
+  newSlug: string;
+  newText: string;
+  incomingLinkCount: number;
+}
+
+/** Return headings present in the last indexNote call for `relativePath`, or []. */
+export function headingsFor(relativePath: string): HeadingSnapshot[] {
+  return headingsPerNote.get(relativePath) ?? [];
+}
+
 // ── Ontology bootstrap ──────────────────────────────────────────────────────
 
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
@@ -336,6 +386,7 @@ function addOntologyToStore(): void {
 export async function initGraph(rootPath: string): Promise<void> {
   store = $rdf.graph();
   currentRootPath = rootPath;
+  headingsPerNote.clear();
 
   const metaDir = path.join(rootPath, '.minerva');
   await fs.mkdir(metaDir, { recursive: true });
@@ -363,8 +414,11 @@ export async function initGraph(rootPath: string): Promise<void> {
 
 // ── Indexing ────────────────────────────────────────────────────────────────
 
-export async function indexNote(relativePath: string, content: string): Promise<void> {
-  if (!store) return;
+export async function indexNote(
+  relativePath: string,
+  content: string,
+): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
+  if (!store) return {};
 
   const subject = noteUri(relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
@@ -376,8 +430,18 @@ export async function indexNote(relativePath: string, content: string): Promise<
 
   if (relativePath.endsWith('.ttl')) {
     indexTurtleFile(relativePath, content, subject, graph);
-    return;
+    return {};
   }
+
+  // Diff headings against the previous snapshot BEFORE overwriting it so we
+  // can offer to rewrite `[[note#oldSlug]]` links when a single heading
+  // gets renamed. Initial index (no prior snapshot) never flags a rename.
+  const prevHeadings = headingsPerNote.get(relativePath);
+  const newHeadings = extractHeadingsFromContent(content);
+  const headingRenameCandidate = prevHeadings
+    ? detectHeadingRename(relativePath, prevHeadings, newHeadings)
+    : undefined;
+  headingsPerNote.set(relativePath, newHeadings);
 
   // Type
   store.add(subject, RDF('type'), MINERVA('Note'), graph);
@@ -455,6 +519,59 @@ export async function indexNote(relativePath: string, content: string): Promise<
   for (let ti = 0; ti < parsed.tables.length; ti++) {
     indexTable(parsed.tables[ti], ti, subject, graph);
   }
+
+  return headingRenameCandidate ? { headingRenameCandidate } : {};
+}
+
+/**
+ * Offer a rewrite suggestion only for the unambiguous case where exactly
+ * one heading slug disappeared AND exactly one appeared AND there are
+ * incoming anchored links to the old slug. Anything else (multiple
+ * removals, pure deletion, additions without removals) → no prompt.
+ */
+function detectHeadingRename(
+  relativePath: string,
+  prev: HeadingSnapshot[],
+  next: HeadingSnapshot[],
+): HeadingRenameCandidate | undefined {
+  const nextSlugs = new Set(next.map((h) => h.slug));
+  const prevSlugs = new Set(prev.map((h) => h.slug));
+  const removed = prev.filter((h) => !nextSlugs.has(h.slug));
+  const added = next.filter((h) => !prevSlugs.has(h.slug));
+  if (removed.length !== 1 || added.length !== 1) return undefined;
+
+  const old = removed[0];
+  const fresh = added[0];
+  const incoming = findNotesLinkingToAnchor(relativePath, old.slug).length;
+  if (incoming === 0) return undefined;
+
+  return {
+    relativePath,
+    oldSlug: old.slug,
+    oldText: old.text,
+    newSlug: fresh.slug,
+    newText: fresh.text,
+    incomingLinkCount: incoming,
+  };
+}
+
+/** Like findNotesLinkingTo, but scoped to links whose anchor is exactly `slug`. */
+export function findNotesLinkingToAnchor(targetRelativePath: string, slug: string): string[] {
+  if (!store) return [];
+  const exactTarget = `${noteUri(targetRelativePath).value}#${slug}`;
+  const seen = new Set<string>();
+  for (const lt of LINK_TYPES) {
+    if (lt.targetKind && lt.targetKind !== 'note') continue;
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
+    for (const st of stmts) {
+      if (st.object.value !== exactTarget) continue;
+      const sourceNode = st.subject;
+      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+      const sourcePath = pathStmts[0]?.object.value;
+      if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
+    }
+  }
+  return [...seen];
 }
 
 function indexTable(

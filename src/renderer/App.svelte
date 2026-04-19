@@ -563,6 +563,16 @@
       }
     });
 
+    api.notebase.onHeadingRenameSuggested(async (candidate) => {
+      const n = candidate.incomingLinkCount;
+      const msg =
+        `The heading "${candidate.oldText}" in ${candidate.relativePath} looks like it was renamed ` +
+        `to "${candidate.newText}". Update ${n} incoming link${n === 1 ? '' : 's'}?`;
+      const ok = await showConfirm(msg, 'heading-rename-suggestion', 'Update links');
+      if (!ok) return;
+      await api.notebase.renameAnchor(candidate.relativePath, candidate.oldSlug, candidate.newSlug);
+    });
+
     // Tools for Thought — stream listener (once)
     api.tools.onStream((chunk) => {
       toolPanel.appendChunk(chunk);
