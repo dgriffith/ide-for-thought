@@ -10,6 +10,8 @@
   import { getThemeMode, setThemeMode, type ThemeMode } from '../theme';
   import { api } from '../ipc/client';
   import type { LLMSettings, WebSettings } from '../../../shared/tools/types';
+  import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
+  import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -19,13 +21,30 @@
 
   let { onApplyEditor, onThemeChanged, onClose }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'web' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'web' | 'ai';
   const TABS: { id: TabId; label: string }[] = [
     { id: 'editor', label: 'Editor' },
     { id: 'appearance', label: 'Appearance' },
+    { id: 'behaviors', label: 'Behaviors' },
     { id: 'web', label: 'Web' },
     { id: 'ai', label: 'AI' },
   ];
+
+  const confirmSuppression = getConfirmSuppressionStore();
+  // Derived view: every registered confirm, paired with its current suppressed flag.
+  // Binds to the store's $state so toggling re-enables updates the row live.
+  let confirmRows = $derived(
+    CONFIRM_REGISTRY.map((entry) => ({
+      entry,
+      suppressed: confirmSuppression.suppressed.has(entry.key),
+    }))
+  );
+  // Surface any unknown keys that got into localStorage from older builds so
+  // users can still re-enable them — without pretending they belong here.
+  let orphanSuppressedKeys = $derived(
+    [...confirmSuppression.suppressed].filter((k) => !confirmRegistryEntry(k))
+  );
+  let suppressedCount = $derived(confirmRows.filter((r) => r.suppressed).length);
   let activeTab = $state<TabId>('editor');
 
   // Editor settings
@@ -219,6 +238,55 @@
             </select>
             <p class="hint">
               Applies to the markdown editor and preview. App chrome always uses the system font.
+            </p>
+          </div>
+
+        {:else if activeTab === 'behaviors'}
+          <div class="field">
+            <label>Don't-ask-again confirmations</label>
+            <p class="hint">
+              Dialogs you've muted via "Don't ask again." Re-enable a row to see its
+              prompt next time the action occurs.
+            </p>
+          </div>
+          <ul class="confirm-rows">
+            {#each confirmRows as row}
+              <li class="confirm-row" class:muted={!row.suppressed}>
+                <div class="confirm-text">
+                  <div class="confirm-title">{row.entry.title}</div>
+                  <div class="confirm-desc">{row.entry.description}</div>
+                </div>
+                {#if row.suppressed}
+                  <button
+                    class="btn small"
+                    onclick={() => confirmSuppression.unsuppress(row.entry.key)}
+                  >Re-enable</button>
+                {:else}
+                  <span class="confirm-status">Active</span>
+                {/if}
+              </li>
+            {/each}
+            {#each orphanSuppressedKeys as key}
+              <li class="confirm-row">
+                <div class="confirm-text">
+                  <div class="confirm-title">Unknown confirmation</div>
+                  <div class="confirm-desc mono">{key}</div>
+                </div>
+                <button
+                  class="btn small"
+                  onclick={() => confirmSuppression.unsuppress(key)}
+                >Re-enable</button>
+              </li>
+            {/each}
+          </ul>
+          <div class="field">
+            <button
+              class="btn secondary"
+              disabled={suppressedCount === 0 && orphanSuppressedKeys.length === 0}
+              onclick={() => confirmSuppression.clearAll()}
+            >Show all confirmations again</button>
+            <p class="hint">
+              Clears every muted dialog at once.
             </p>
           </div>
 
@@ -489,6 +557,71 @@
     padding: 0 4px;
     font-size: 10px;
     font-family: ui-monospace, monospace;
+  }
+
+  .confirm-rows {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .confirm-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+  }
+
+  .confirm-row.muted {
+    background: transparent;
+    opacity: 0.7;
+  }
+
+  .confirm-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .confirm-title {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .confirm-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+
+  .confirm-desc.mono {
+    font-family: ui-monospace, monospace;
+  }
+
+  .confirm-status {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    align-self: center;
+  }
+
+  .btn.small {
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .api-key-status {

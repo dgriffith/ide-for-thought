@@ -27,6 +27,8 @@
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationStore } from './lib/stores/conversation.svelte';
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
+  import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
+  import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -59,9 +61,7 @@
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
-  const suppressedConfirms = new Set<string>(
-    JSON.parse(localStorage.getItem('suppressedConfirms') ?? '[]')
-  );
+  const confirmSuppression = getConfirmSuppressionStore();
 
   function showPrompt(message: string): Promise<string | null> {
     return new Promise((resolve) => {
@@ -70,7 +70,7 @@
   }
 
   function showConfirm(message: string, key: string, confirmLabel = 'OK'): Promise<boolean> {
-    if (suppressedConfirms.has(key)) return Promise.resolve(true);
+    if (confirmSuppression.isSuppressed(key)) return Promise.resolve(true);
     return new Promise((resolve) => {
       confirmDialog = { message, confirmLabel, key, resolve };
     });
@@ -88,8 +88,7 @@
 
   function handleConfirmOk(dontAskAgain: boolean) {
     if (dontAskAgain && confirmDialog) {
-      suppressedConfirms.add(confirmDialog.key);
-      localStorage.setItem('suppressedConfirms', JSON.stringify([...suppressedConfirms]));
+      confirmSuppression.suppress(confirmDialog.key);
     }
     confirmDialog?.resolve(true);
     confirmDialog = null;
@@ -239,7 +238,7 @@
     if (!notebase.meta) return;
     const label = isDirectory ? 'folder' : 'note';
     const name = relativePath.split('/').pop();
-    const confirmed = await showConfirm(`Delete ${label} "${name}"?`, 'confirm-delete', 'Delete');
+    const confirmed = await showConfirm(`Delete ${label} "${name}"?`, CONFIRM_KEYS.delete, 'Delete');
     if (!confirmed) return;
     if (isDirectory) {
       await api.notebase.deleteFolder(relativePath);
@@ -568,7 +567,7 @@
         if (editor.isPathDirty(p)) {
           const keepDisk = await showConfirm(
             `"${p}" was updated on disk by a link rewrite. Discard your unsaved edits and load the new version?`,
-            'confirm-rewrite-conflict',
+            CONFIRM_KEYS.rewriteConflict,
             'Load disk',
           );
           if (!keepDisk) continue;
@@ -582,7 +581,7 @@
       const msg =
         `The heading "${candidate.oldText}" in ${candidate.relativePath} looks like it was renamed ` +
         `to "${candidate.newText}". Update ${n} incoming link${n === 1 ? '' : 's'}?`;
-      const ok = await showConfirm(msg, 'heading-rename-suggestion', 'Update links');
+      const ok = await showConfirm(msg, CONFIRM_KEYS.headingRenameSuggestion, 'Update links');
       if (!ok) return;
       await api.notebase.renameAnchor(candidate.relativePath, candidate.oldSlug, candidate.newSlug);
     });
