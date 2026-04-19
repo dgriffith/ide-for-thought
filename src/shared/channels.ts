@@ -34,6 +34,8 @@ export const Channels = {
 
   // Graph
   GRAPH_QUERY: 'graph:query',
+  GRAPH_SOURCE_DETAIL: 'graph:sourceDetail',
+  GRAPH_EXCERPT_SOURCE: 'graph:excerptSource',
 
   // Tags
   TAGS_LIST: 'tags:list',

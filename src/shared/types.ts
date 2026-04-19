@@ -66,11 +66,52 @@ export interface SavedQueryTab {
   query: string;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab;
+export interface SavedSourceTab {
+  type: 'source';
+  sourceId: string;
+  highlightExcerptId?: string;
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab;
 
 export interface TabSession {
   activeIndex: number;
   tabs: SavedTab[];
+}
+
+// ── Source detail ─────────────────────────────────────────────────────────
+
+export interface SourceMetadata {
+  sourceId: string;
+  subtype: string | null;
+  title: string | null;
+  creators: string[];
+  year: string | null;
+  publisher: string | null;
+  doi: string | null;
+  uri: string | null;
+  abstract: string | null;
+}
+
+export interface SourceExcerpt {
+  excerptId: string;
+  citedText: string | null;
+  page: string | null;
+  pageRange: string | null;
+  locationText: string | null;
+}
+
+export interface SourceBacklink {
+  relativePath: string;
+  title: string;
+  kind: 'cite' | 'quote';
+  viaExcerptId?: string;
+}
+
+export interface SourceDetail {
+  metadata: SourceMetadata;
+  excerpts: SourceExcerpt[];
+  backlinks: SourceBacklink[];
 }
 
 // ── Bookmarks ────────────────────────────────────────────────────────────

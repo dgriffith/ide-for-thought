@@ -1,0 +1,339 @@
+<script lang="ts">
+  import { api } from '../ipc/client';
+  import type { SourceDetail, SourceExcerpt, SourceBacklink } from '../../../shared/types';
+
+  interface Props {
+    sourceId: string;
+    highlightExcerptId?: string;
+    onNavigate: (target: string) => void;
+  }
+
+  let { sourceId, highlightExcerptId, onNavigate }: Props = $props();
+
+  let detail = $state<SourceDetail | null>(null);
+  let loading = $state(true);
+  let loadedId = $state<string | null>(null);
+
+  async function load(id: string) {
+    loading = true;
+    loadedId = id;
+    try {
+      detail = await api.graph.sourceDetail(id);
+    } finally {
+      loading = false;
+    }
+  }
+
+  $effect(() => {
+    if (sourceId !== loadedId) {
+      load(sourceId);
+    }
+  });
+
+  // After render, if a specific excerpt was highlighted, scroll it into view.
+  $effect(() => {
+    if (!detail || !highlightExcerptId) return;
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-excerpt-anchor="${CSS.escape(highlightExcerptId!)}"]`);
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  });
+
+  function formatByline(creators: string[], year: string | null): string {
+    const who = creators.length === 0 ? ''
+      : creators.length === 1 ? creators[0]
+      : creators.length === 2 ? `${creators[0]} and ${creators[1]}`
+      : `${creators[0]} et al.`;
+    if (who && year) return `${who} (${year})`;
+    return who || (year ?? '');
+  }
+
+  function openExternal(url: string) {
+    api.shell.openExternal(url);
+  }
+
+  function excerptLocation(e: SourceExcerpt): string {
+    if (e.pageRange) return `pp. ${e.pageRange}`;
+    if (e.page) return `p. ${e.page}`;
+    if (e.locationText) return e.locationText;
+    return '';
+  }
+
+  function backlinkLabel(b: SourceBacklink): string {
+    return b.kind === 'cite' ? 'cites' : 'quotes';
+  }
+</script>
+
+<div class="source-detail">
+  {#if loading}
+    <p class="muted">Loading…</p>
+  {:else if !detail}
+    <div class="missing">
+      <h1>Source not found</h1>
+      <p class="muted">
+        No source with id <code>{sourceId}</code> is in the graph. Make sure
+        <code>.minerva/sources/{sourceId}/meta.ttl</code> exists and the graph has been rebuilt.
+      </p>
+    </div>
+  {:else}
+    <header>
+      <div class="subtype">{detail.metadata.subtype ?? 'Source'}</div>
+      <h1>{detail.metadata.title ?? sourceId}</h1>
+      {#if detail.metadata.creators.length || detail.metadata.year}
+        <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
+      {/if}
+    </header>
+
+    <section class="metadata">
+      {#if detail.metadata.publisher}
+        <div class="kv"><span class="k">Publisher</span><span class="v">{detail.metadata.publisher}</span></div>
+      {/if}
+      {#if detail.metadata.doi}
+        <div class="kv">
+          <span class="k">DOI</span>
+          <span class="v">
+            <a class="external" href={`https://doi.org/${detail.metadata.doi}`} onclick={(e) => { e.preventDefault(); openExternal(`https://doi.org/${detail.metadata.doi}`); }}>{detail.metadata.doi}</a>
+          </span>
+        </div>
+      {/if}
+      {#if detail.metadata.uri}
+        <div class="kv">
+          <span class="k">URL</span>
+          <span class="v">
+            <a class="external" href={detail.metadata.uri} onclick={(e) => { e.preventDefault(); openExternal(detail.metadata.uri!); }}>{detail.metadata.uri}</a>
+          </span>
+        </div>
+      {/if}
+      <div class="kv"><span class="k">Source id</span><span class="v mono">{detail.metadata.sourceId}</span></div>
+    </section>
+
+    {#if detail.metadata.abstract}
+      <section class="abstract">
+        <h2>Abstract</h2>
+        <p>{detail.metadata.abstract}</p>
+      </section>
+    {/if}
+
+    <section>
+      <h2>Excerpts ({detail.excerpts.length})</h2>
+      {#if detail.excerpts.length === 0}
+        <p class="muted">No excerpts linked to this source yet.</p>
+      {:else}
+        <ul class="excerpt-list">
+          {#each detail.excerpts as excerpt}
+            <li
+              data-excerpt-anchor={excerpt.excerptId}
+              class:highlighted={excerpt.excerptId === highlightExcerptId}
+            >
+              {#if excerpt.citedText}
+                <blockquote>{excerpt.citedText}</blockquote>
+              {:else}
+                <p class="muted">No cited text</p>
+              {/if}
+              <div class="excerpt-meta">
+                <span class="mono">{excerpt.excerptId}</span>
+                {#if excerptLocation(excerpt)}
+                  <span class="sep">·</span>
+                  <span>{excerptLocation(excerpt)}</span>
+                {/if}
+              </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section>
+      <h2>Referenced from ({detail.backlinks.length})</h2>
+      {#if detail.backlinks.length === 0}
+        <p class="muted">No notes reference this source.</p>
+      {:else}
+        <ul class="backlink-list">
+          {#each detail.backlinks as b}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <li onclick={() => onNavigate(b.relativePath)}>
+              <span class="backlink-title">{b.title}</span>
+              <span class="backlink-meta">
+                <span class="backlink-kind">{backlinkLabel(b)}</span>
+                {#if b.viaExcerptId}
+                  <span class="sep">·</span>
+                  <span class="mono">{b.viaExcerptId}</span>
+                {/if}
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+  {/if}
+</div>
+
+<style>
+  .source-detail {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 48px;
+    max-width: 820px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  header {
+    margin-bottom: 20px;
+  }
+
+  .subtype {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: var(--bg-button);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin: 24px 0 12px;
+  }
+
+  .byline {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  section {
+    margin-bottom: 12px;
+  }
+
+  .metadata {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 6px 16px;
+  }
+
+  .kv { display: contents; }
+  .k {
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .v {
+    font-size: 14px;
+    word-break: break-word;
+  }
+  .mono {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+  }
+
+  .external {
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .external:hover { text-decoration: underline; }
+
+  .abstract p {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .muted {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .excerpt-list, .backlink-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .excerpt-list li {
+    border-left: 3px solid var(--border);
+    padding: 8px 12px;
+    margin: 0 0 12px;
+    transition: border-color 0.15s;
+  }
+  .excerpt-list li.highlighted {
+    border-left-color: var(--accent);
+    background: var(--bg-button);
+  }
+
+  .excerpt-list blockquote {
+    margin: 0 0 6px;
+    font-style: italic;
+    color: var(--text);
+  }
+
+  .excerpt-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sep { opacity: 0.5; }
+
+  .backlink-list li {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .backlink-list li:hover { background: var(--bg-button); }
+  .backlink-list li:last-child { border-bottom: none; }
+
+  .backlink-title {
+    color: var(--accent);
+  }
+
+  .backlink-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .backlink-kind {
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+  }
+
+  code {
+    background: var(--bg-button);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+  }
+
+  .missing h1 {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+</style>

@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
@@ -48,6 +48,8 @@ export interface GraphApi {
   inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
   runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
   export(): Promise<void>;
+  sourceDetail(sourceId: string): Promise<SourceDetail | null>;
+  excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;
 }
 
 export interface TagsApi {
