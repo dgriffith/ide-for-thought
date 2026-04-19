@@ -207,6 +207,57 @@ function wikiLinkTarget(relativePath: string): string {
 }
 
 /**
+ * Produce the source-side link-back given the settings precedence:
+ * explicit linkTemplate > transcludeByDefault > plain `[[…]]`.
+ * The rendered template is used as-is; plain and transclude forms
+ * generate the link from the new note's path.
+ */
+export function renderLinkBack(
+  newNotePath: string,
+  settings: RefactorSettings,
+  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date },
+): string {
+  const target = wikiLinkTarget(newNotePath);
+  if (settings.linkTemplate) {
+    return renderTemplate(settings.linkTemplate, {
+      title: ctx.sourceTitle,
+      new_note_title: ctx.newNoteTitle,
+      source: ctx.sourceRelativePath,
+      now: ctx.now,
+    });
+  }
+  return settings.transcludeByDefault ? `![[${target}]]` : `[[${target}]]`;
+}
+
+/**
+ * Produce the extracted note's body. If `refactoredNoteTemplate` is
+ * empty (default), returns `rawBody` with normalization already applied.
+ * Otherwise renders the template with {{new_note_content}} bound to the
+ * raw body — lets users wrap it in a callout, prepend metadata, etc.
+ */
+export function renderExtractedBody(
+  rawBody: string,
+  settings: RefactorSettings,
+  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date },
+): string {
+  if (!settings.refactoredNoteTemplate) return rawBody;
+  return renderTemplate(settings.refactoredNoteTemplate, {
+    title: ctx.sourceTitle,
+    new_note_title: ctx.newNoteTitle,
+    new_note_content: rawBody,
+    source: ctx.sourceRelativePath,
+    now: ctx.now,
+  });
+}
+
+/** Source note's title for template contexts — the H1 or the filename stem. */
+function sourceTitleFor(relativePath: string, content: string): string {
+  const match = content.match(/^#\s+(.+)$/m);
+  if (match) return match[1].trim();
+  return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
+}
+
+/**
  * Plan an extract-selection operation. Returns the new note's full text and
  * the rewritten source text; the caller writes both and navigates.
  */
@@ -216,17 +267,25 @@ export function planExtract(opts: PlanExtractOptions): ExtractPlan {
   const now = opts.now;
 
   const selected = sourceContent.slice(selection.from, selection.to);
-  const body = normalizeHeadingLevels(selected.replace(/^\s+|\s+$/g, ''), settings) + '\n';
+  const rawBody = normalizeHeadingLevels(selected.replace(/^\s+|\s+$/g, ''), settings);
 
   const dir = resolveDestinationFolder(sourceRelativePath, settings, now);
   const prefix = renderFilenamePrefix(sourceRelativePath, settings, now);
   const stem = `${prefix}${sanitizeFilename(title) || `note-${Date.now()}`}`;
   const newNotePath = dir ? `${dir}/${stem}.md` : `${stem}.md`;
 
-  const frontmatter = buildFrontmatter(title, sourceRelativePath, today);
-  const newNoteContent = frontmatter + body;
+  const templateCtx = {
+    sourceRelativePath,
+    sourceTitle: sourceTitleFor(sourceRelativePath, sourceContent),
+    newNoteTitle: title,
+    now,
+  };
 
-  const linkBack = `[[${wikiLinkTarget(newNotePath)}]]`;
+  const frontmatter = buildFrontmatter(title, sourceRelativePath, today);
+  const wrappedBody = renderExtractedBody(rawBody, settings, templateCtx);
+  const newNoteContent = frontmatter + wrappedBody + (wrappedBody.endsWith('\n') ? '' : '\n');
+
+  const linkBack = renderLinkBack(newNotePath, settings, templateCtx);
   const updatedSourceContent =
     sourceContent.slice(0, selection.from) +
     linkBack +
@@ -259,15 +318,23 @@ export function planSplitHere(opts: PlanSplitHereOptions): ExtractPlan {
   })();
 
   const tailRaw = sourceContent.slice(lineStart).replace(/^\s+/, '');
-  const tail = normalizeHeadingLevels(tailRaw, settings);
+  const rawBody = normalizeHeadingLevels(tailRaw, settings);
   const dir = resolveDestinationFolder(sourceRelativePath, settings, now);
   const prefix = renderFilenamePrefix(sourceRelativePath, settings, now);
   const stem = `${prefix}${sanitizeFilename(title) || `note-${Date.now()}`}`;
   const newNotePath = dir ? `${dir}/${stem}.md` : `${stem}.md`;
 
-  const newNoteContent = buildFrontmatter(title, sourceRelativePath, today) + tail + (tail.endsWith('\n') ? '' : '\n');
+  const templateCtx = {
+    sourceRelativePath,
+    sourceTitle: sourceTitleFor(sourceRelativePath, sourceContent),
+    newNoteTitle: title,
+    now,
+  };
 
-  const linkBack = `[[${wikiLinkTarget(newNotePath)}]]`;
+  const wrappedBody = renderExtractedBody(rawBody, settings, templateCtx);
+  const newNoteContent = buildFrontmatter(title, sourceRelativePath, today) + wrappedBody + (wrappedBody.endsWith('\n') ? '' : '\n');
+
+  const linkBack = renderLinkBack(newNotePath, settings, templateCtx);
   // Keep one trailing newline before the link, none after.
   const head = sourceContent.slice(0, lineStart).replace(/\s*$/, '');
   const updatedSourceContent = head + (head ? '\n\n' : '') + linkBack + '\n';
