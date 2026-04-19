@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('api', {
     },
     renameAnchor: (targetRelativePath: string, oldSlug: string, newSlug: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
+    renameSource: (oldId: string, newId: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_SOURCE, oldId, newId),
+    renameExcerpt: (oldId: string, newId: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_EXCERPT, oldId, newId),
   },
   links: {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),
