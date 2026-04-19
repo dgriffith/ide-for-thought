@@ -1,3 +1,5 @@
+import YAML from 'yaml';
+
 export interface ParsedLink {
   target: string;
   type: string;       // link type name (e.g. 'supports', 'references')
@@ -9,11 +11,15 @@ export interface ParsedTable {
   rows: string[][];
 }
 
+/** A frontmatter value after YAML parsing — preserves type info the indexer needs. */
+export type FrontmatterScalar = string | number | boolean | Date | null;
+export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[];
+
 export interface ParsedNote {
   title: string | null;
   tags: string[];
   links: ParsedLink[];
-  frontmatter: Record<string, string>;
+  frontmatter: Record<string, FrontmatterValue>;
   turtleBlocks: string[];
   tables: ParsedTable[];
 }
@@ -56,7 +62,8 @@ function extractTurtleBlocks(content: string): string[] {
 function extractTitle(content: string): string | null {
   // Try frontmatter title first
   const fm = extractFrontmatter(content);
-  if (fm.title) return fm.title;
+  const fmTitle = fm.title;
+  if (typeof fmTitle === 'string' && fmTitle.trim()) return fmTitle.trim();
 
   // Fall back to first H1
   const match = content.match(HEADING_RE);
@@ -110,22 +117,44 @@ function extractLinks(content: string): ParsedLink[] {
   return links;
 }
 
-function extractFrontmatter(content: string): Record<string, string> {
+function extractFrontmatter(content: string): Record<string, FrontmatterValue> {
   const match = content.match(FRONTMATTER_RE);
   if (!match) return {};
 
-  const result: Record<string, string> = {};
-  for (const line of match[1].split('\n')) {
-    const colonIdx = line.indexOf(':');
-    if (colonIdx > 0) {
-      const key = line.slice(0, colonIdx).trim();
-      const value = line.slice(colonIdx + 1).trim().replace(/^["']|["']$/g, '');
-      if (key && value) {
-        result[key] = value;
-      }
+  let raw: unknown;
+  try {
+    raw = YAML.parse(match[1]);
+  } catch {
+    return {};
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+  const result: Record<string, FrontmatterValue> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    const sanitized = sanitizeFrontmatterValue(value);
+    if (sanitized !== undefined && key.trim()) {
+      result[key.trim()] = sanitized;
     }
   }
   return result;
+}
+
+function sanitizeFrontmatterValue(value: unknown): FrontmatterValue | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    const items: FrontmatterValue[] = [];
+    for (const item of value) {
+      const s = sanitizeFrontmatterValue(item);
+      if (s !== undefined && s !== null) items.push(s);
+    }
+    return items;
+  }
+  // Drop nested objects — they'd require predicate decisions we don't have.
+  return undefined;
 }
 
 function extractTables(content: string): ParsedTable[] {

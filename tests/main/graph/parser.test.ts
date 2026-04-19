@@ -162,6 +162,40 @@ describe('frontmatter extraction', () => {
     const result = parseMarkdown('No frontmatter here');
     expect(result.frontmatter).toEqual({});
   });
+
+  it('parses inline YAML lists', () => {
+    const result = parseMarkdown('---\ntags: [foo, bar, baz]\n---');
+    expect(result.frontmatter.tags).toEqual(['foo', 'bar', 'baz']);
+  });
+
+  it('parses block-style YAML lists', () => {
+    const result = parseMarkdown('---\ntags:\n  - foo\n  - bar\n---');
+    expect(result.frontmatter.tags).toEqual(['foo', 'bar']);
+  });
+
+  it('preserves typed scalars (numbers, booleans)', () => {
+    const result = parseMarkdown('---\npages: 42\ndraft: true\nratio: 3.14\n---');
+    expect(result.frontmatter.pages).toBe(42);
+    expect(result.frontmatter.draft).toBe(true);
+    expect(result.frontmatter.ratio).toBe(3.14);
+  });
+
+  it('keeps ISO dates as strings at parse time (indexer coerces to xsd:date)', () => {
+    // yaml v2 follows YAML 1.2, which doesn't auto-parse timestamps; the
+    // indexer recognizes the ISO shape and emits an xsd:date literal.
+    const result = parseMarkdown('---\ncreated: 2024-01-15\n---');
+    expect(result.frontmatter.created).toBe('2024-01-15');
+  });
+
+  it('survives malformed YAML gracefully (returns empty)', () => {
+    const result = parseMarkdown('---\nkey: [unclosed\n---');
+    expect(result.frontmatter).toEqual({});
+  });
+
+  it('drops nested objects (no sensible predicate mapping)', () => {
+    const result = parseMarkdown('---\nauthor:\n  name: Ada\n  orcid: 0000\n---');
+    expect(result.frontmatter.author).toBeUndefined();
+  });
 });
 
 // ── Fixture integration tests ───────────────────────────────────────────────

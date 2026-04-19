@@ -4,8 +4,9 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { parseMarkdown, type ParsedTable } from './parser';
+import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
+import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
@@ -51,6 +52,8 @@ const DC      = $rdf.Namespace('http://purl.org/dc/terms/');
 const RDF     = $rdf.Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#');
 const XSD     = $rdf.Namespace('http://www.w3.org/2001/XMLSchema#');
 const CSVW    = $rdf.Namespace('http://www.w3.org/ns/csvw#');
+const BIBO    = $rdf.Namespace('http://purl.org/ontology/bibo/');
+const SCHEMA  = $rdf.Namespace('http://schema.org/');
 
 let baseUri = '';      // e.g. https://project.minerva.dev/dave/my-notes/
 let store: $rdf.IndexedFormula | null = null;
@@ -162,6 +165,81 @@ function existsPredicateFor(lt: LinkType) {
   if (lt.targetKind === 'source') return MINERVA('sourceId');
   if (lt.targetKind === 'excerpt') return MINERVA('excerptId');
   return MINERVA('relativePath');
+}
+
+// ── Frontmatter helpers ─────────────────────────────────────────────────────
+
+/** Flatten a frontmatter value to a list of strings — for multi-valued string keys like tags. */
+function flattenFrontmatterStrings(value: FrontmatterValue): string[] {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) return value.flatMap(flattenFrontmatterStrings);
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (value instanceof Date) return [value.toISOString()];
+  return [];
+}
+
+type FrontmatterScalarNonNull = Exclude<FrontmatterValue, null | FrontmatterValue[]>;
+
+/** Flatten nested arrays, dropping nulls. Scalars pass through in typed form. */
+function flattenFrontmatterScalars(value: FrontmatterValue): FrontmatterScalarNonNull[] {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) return value.flatMap(flattenFrontmatterScalars);
+  return [value];
+}
+
+function resolveFrontmatterPredicate(key: string) {
+  const mapped: FrontmatterPredicate | null = mapFrontmatterKey(key);
+  if (!mapped) return MINERVA(`meta-${key}`);
+  switch (mapped.ns) {
+    case 'dc': return DC(mapped.local);
+    case 'bibo': return BIBO(mapped.local);
+    case 'schema': return SCHEMA(mapped.local);
+    case 'thought': return THOUGHT(mapped.local);
+  }
+}
+
+/** Match [[target]] or [[target|display]] (no typed-link prefix — values are bare refs). */
+const FRONTMATTER_WIKILINK_RE = /^\[\[([^\[\]\n|]+)(?:\|[^\]]+)?\]\]$/;
+
+/**
+ * Turn a typed frontmatter scalar into an rdflib term.
+ * - `"[[notes/foo]]"` → note URI (so backlinks work)
+ * - `42`              → xsd:integer literal
+ * - `3.14`            → xsd:decimal literal
+ * - `true`/`false`    → xsd:boolean literal
+ * - `Date`            → xsd:dateTime literal
+ * - `"2024-01-15"`    → xsd:date literal (ISO-date shape)
+ * - other string      → plain string literal
+ */
+function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | FrontmatterValue[]>, projectBaseUri: string) {
+  if (value instanceof Date) {
+    return $rdf.lit(value.toISOString(), undefined, XSD('dateTime'));
+  }
+  if (typeof value === 'boolean') {
+    return $rdf.lit(String(value), undefined, XSD('boolean'));
+  }
+  if (typeof value === 'number') {
+    const datatype = Number.isInteger(value) ? 'integer' : 'decimal';
+    return $rdf.lit(String(value), undefined, XSD(datatype));
+  }
+  // Strings: try wiki-link first, then date shapes, then plain.
+  const wiki = value.match(FRONTMATTER_WIKILINK_RE);
+  if (wiki && projectBaseUri) {
+    const target = wiki[1].trim();
+    const noteRel = target.endsWith('.md') ? target : `${target}.md`;
+    return $rdf.sym(uriHelpers.noteUri(projectBaseUri, noteRel));
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return $rdf.lit(value, undefined, XSD('date'));
+  }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return $rdf.lit(value, undefined, XSD('dateTime'));
+  }
+  if (/^\d{4}$/.test(value)) {
+    return $rdf.lit(value, undefined, XSD('gYear'));
+  }
+  return $rdf.lit(value);
 }
 
 function projectUri(): $rdf.NamedNode {
@@ -315,8 +393,17 @@ export async function indexNote(relativePath: string, content: string): Promise<
   // Project membership
   store.add(projectUri(), MINERVA('containsNote'), subject, graph);
 
-  // Tags — modeled as resources
-  for (const tag of parsed.tags) {
+  // Tags — modeled as resources. Body tags (#foo) are already in parsed.tags;
+  // add frontmatter `tags: [foo, bar]` on top (they're not added to parsed.tags
+  // so a tag that only appears in frontmatter still gets indexed here).
+  const bodyTags = new Set(parsed.tags);
+  const fmTagValue = parsed.frontmatter.tags;
+  if (fmTagValue !== undefined) {
+    for (const t of flattenFrontmatterStrings(fmTagValue)) {
+      if (t) bodyTags.add(t);
+    }
+  }
+  for (const tag of bodyTags) {
     const tagNode = tagUri(tag);
     ensureTag(tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
@@ -330,15 +417,14 @@ export async function indexNote(relativePath: string, content: string): Promise<
     store.add(subject, predicate, targetNode, graph);
   }
 
-  // Frontmatter as dc: or minerva: properties
+  // Frontmatter → triples. `title` (already used as the note title) and
+  // `tags` (handled above) are skipped here so they don't double-emit.
   for (const [key, value] of Object.entries(parsed.frontmatter)) {
-    if (key === 'title') continue;
-    if (key === 'description') {
-      store.add(subject, DC('description'), $rdf.lit(value), graph);
-    } else if (key === 'created') {
-      store.add(subject, DC('created'), dateLit(value), graph);
-    } else {
-      store.add(subject, MINERVA(`meta-${key}`), $rdf.lit(value), graph);
+    if (key === 'title' || key === 'tags') continue;
+    const predicate = resolveFrontmatterPredicate(key);
+    for (const v of flattenFrontmatterScalars(value)) {
+      const term = frontmatterValueToTerm(v, baseUri);
+      if (term) store.add(subject, predicate, term, graph);
     }
   }
 
@@ -825,8 +911,6 @@ export function backlinks(relativePath: string): Backlink[] {
 // ── Source detail queries ───────────────────────────────────────────────────
 
 import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink } from '../../shared/types';
-
-const BIBO = $rdf.Namespace('http://purl.org/ontology/bibo/');
 
 export function getSourceDetail(sourceId: string): SourceDetail | null {
   if (!store) return null;
