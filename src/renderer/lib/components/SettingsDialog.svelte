@@ -332,7 +332,7 @@
                 type="text"
                 value={refactor.destinationTemplate}
                 oninput={(e) => patchRefactor({ destinationTemplate: (e.currentTarget as HTMLInputElement).value })}
-                placeholder="e.g. notes/{{date:YYYY}}/{{date:MM}}"
+                placeholder={'e.g. notes/{{date:YYYY}}/{{date:MM}}'}
               />
               <p class="hint">
                 Tokens: <code>{'{{date:YYYY}}'}</code>, <code>{'{{date:MM}}'}</code>,
@@ -348,7 +348,7 @@
               type="text"
               value={refactor.filenamePrefix}
               oninput={(e) => patchRefactor({ filenamePrefix: (e.currentTarget as HTMLInputElement).value })}
-              placeholder="e.g. {{date:YYYYMMDDHHmm}}-"
+              placeholder={'e.g. {{date:YYYYMMDDHHmm}}-'}
             />
             <p class="hint">
               Prepended to every refactored note's filename. Supports the same tokens.
