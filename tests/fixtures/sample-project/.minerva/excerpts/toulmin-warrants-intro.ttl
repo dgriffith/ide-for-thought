@@ -1,0 +1,5 @@
+this: a thought:Excerpt ;
+    thought:fromSource sources:toulmin-1958 ;
+    thought:citedText "Data such as D entitle one to draw conclusions, or make claims such as C, only if one can appeal in their support to some general rule or warrant." ;
+    thought:pageRange "97-98" ;
+    thought:locationText "Chapter III, introducing warrants" .

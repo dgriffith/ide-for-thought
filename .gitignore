@@ -7,3 +7,14 @@ coverage/
 .idea/
 *.log
 .DS_Store
+
+# Demo source/excerpt fixtures in the sample thoughtbase.
+# Everything else under sample-project/.minerva/ (bookmarks.json, tabs.json,
+# graph.ttl, conversations/, …) is still ignored — only the hand-authored
+# TTL fixtures that demonstrate [[cite::…]] / [[quote::…]] are tracked.
+!tests/fixtures/sample-project/.minerva/
+tests/fixtures/sample-project/.minerva/*
+!tests/fixtures/sample-project/.minerva/sources/
+!tests/fixtures/sample-project/.minerva/sources/**
+!tests/fixtures/sample-project/.minerva/excerpts/
+!tests/fixtures/sample-project/.minerva/excerpts/**

@@ -1,0 +1,11 @@
+this: a thought:Article ;
+    dc:title "No Silver Bullet — Essence and Accident in Software Engineering" ;
+    dc:creator "Frederick P. Brooks, Jr." ;
+    dc:issued "1987-04"^^xsd:gYearMonth ;
+    dc:publisher "IEEE" ;
+    bibo:doi "10.1109/MC.1987.1663532" ;
+    bibo:uri <https://doi.org/10.1109/MC.1987.1663532> ;
+    bibo:volume "20" ;
+    bibo:issue "4" ;
+    bibo:pages "10-19" ;
+    dc:abstract "Brooks's essay distinguishing essential complexity (inherent to the problem) from accidental complexity (arising from implementation), arguing that no single development advance will yield an order-of-magnitude productivity gain." .

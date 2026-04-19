@@ -1,0 +1,8 @@
+this: a thought:Book ;
+    dc:title "The Uses of Argument" ;
+    dc:creator "Stephen E. Toulmin" ;
+    dc:issued "1958"^^xsd:gYear ;
+    dc:publisher "Cambridge University Press" ;
+    bibo:isbn "9780521534833" ;
+    bibo:numPages 262 ;
+    dc:abstract "Toulmin's analysis of everyday argumentation, introducing the claim / grounds / warrant / backing / qualifier / rebuttal schema that Minerva's thought ontology extends." .

@@ -1,0 +1,5 @@
+this: a thought:Excerpt ;
+    thought:fromSource sources:brooks-1986 ;
+    thought:citedText "The essence of a software entity is a construct of interlocking concepts: data sets, relationships among data items, algorithms, and invocations of functions. This essence is abstract in that such a conceptual construct is the same under many different representations. It is nonetheless highly precise and richly detailed." ;
+    thought:page 11 ;
+    thought:locationText "Section: The Essential Difficulties" .
