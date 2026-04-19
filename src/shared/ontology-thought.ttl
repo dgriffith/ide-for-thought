@@ -6,6 +6,8 @@
 @prefix minerva: <https://minerva.dev/ontology#> .
 @prefix thought: <https://minerva.dev/ontology/thought#> .
 @prefix prov:    <http://www.w3.org/ns/prov#> .
+@prefix bibo:    <http://purl.org/ontology/bibo/> .
+@prefix schema:  <http://schema.org/> .
 
 # ── Ontology ────────────────────────────────────────────────────────────────
 
@@ -141,7 +143,143 @@ thought:Implication a owl:Class ;
 thought:Source a owl:Class ;
     rdfs:subClassOf thought:Component ;
     rdfs:label "Source" ;
-    rdfs:comment "A cited or referenced external authority or text." .
+    rdfs:comment "A cited or referenced external authority or text. Abstract — instances typically use one of the subtypes (thought:WebPage, thought:Article, thought:Book, thought:Preprint, thought:Report, thought:PDFSource)." .
+
+# ── Source Subtypes ───────────────────────────────────────────────────────
+# Axis: what kind of work is this? Orthogonal to file format, except for
+# thought:PDFSource which is the catch-all for PDFs that don't fit elsewhere.
+
+thought:WebPage a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Web Page" ;
+    rdfs:comment "A URL-addressable web resource — article, blog post, documentation page, etc." .
+
+thought:Article a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Article" ;
+    rdfs:comment "A scholarly or journalistic article published in a journal, magazine, or periodical. Usually has a DOI and an inContainer relationship." .
+
+thought:Book a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Book" ;
+    rdfs:comment "A book — scholarly monograph, textbook, or trade publication. Usually has an ISBN." .
+
+thought:Preprint a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Preprint" ;
+    rdfs:comment "A scholarly work that has not (yet) undergone peer review, typically hosted on arXiv, bioRxiv, SSRN, or similar." .
+
+thought:Report a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Report" ;
+    rdfs:comment "A technical report, white paper, or institutional publication — often a government, NGO, or corporate document." .
+
+thought:PDFSource a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "PDF Source" ;
+    rdfs:comment "Catch-all for a source distributed as a PDF that does not fit another subtype. Most scholarly PDFs should be classified as thought:Article / thought:Preprint / thought:Book instead; this class exists for the long tail." .
+
+# ── Source Metadata ───────────────────────────────────────────────────────
+# Predicates expected on Source instances. We reuse standard vocabularies
+# (Dublin Core Terms, BIBO, schema.org/ScholarlyArticle) directly rather
+# than minting our own IRIs, with rdfs:label / rdfs:comment annotations
+# here to make the schema self-documenting via describe_graph_schema.
+
+dc:title a owl:DatatypeProperty ;
+    rdfs:label "title" ;
+    rdfs:comment "The source's title." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+dc:creator a owl:DatatypeProperty ;
+    rdfs:label "creator (author)" ;
+    rdfs:comment "Author(s) of the source. Use one triple per author; order is not preserved by the graph, so for ordered authorship use a list with an auxiliary node when needed." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+dc:issued a owl:DatatypeProperty ;
+    rdfs:label "issued (publication date)" ;
+    rdfs:comment "When the source was published. Use xsd:date for a full date or xsd:gYear for year-only." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:date .
+
+dc:publisher a owl:DatatypeProperty ;
+    rdfs:label "publisher" ;
+    rdfs:comment "Publishing entity — journal, press, organization, or platform." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+dc:language a owl:DatatypeProperty ;
+    rdfs:label "language" ;
+    rdfs:comment "BCP-47 language tag of the source's primary language (e.g. 'en', 'fr-CA')." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+dc:abstract a owl:DatatypeProperty ;
+    rdfs:label "abstract" ;
+    rdfs:comment "Short summary of the source, typically 1–2 paragraphs." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+bibo:doi a owl:DatatypeProperty ;
+    rdfs:label "DOI" ;
+    rdfs:comment "Digital Object Identifier. Stored as the bare identifier (no 'doi:' prefix, no URL)." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+bibo:isbn a owl:DatatypeProperty ;
+    rdfs:label "ISBN" ;
+    rdfs:comment "International Standard Book Number (ISBN-10 or ISBN-13), digits only, no hyphens." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+bibo:uri a owl:DatatypeProperty ;
+    rdfs:label "canonical URI" ;
+    rdfs:comment "Canonical URL where the source can be accessed — publisher landing page, DOI-resolved URL, or arXiv abstract page." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:anyURI .
+
+bibo:numPages a owl:DatatypeProperty ;
+    rdfs:label "page count" ;
+    rdfs:comment "Total number of pages in the source. Use bibo:pages for a page range within a container." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:integer .
+
+bibo:pages a owl:DatatypeProperty ;
+    rdfs:label "page range" ;
+    rdfs:comment "Page range within a container (e.g. '245-267'). Used for articles and book chapters." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+bibo:volume a owl:DatatypeProperty ;
+    rdfs:label "volume" ;
+    rdfs:comment "Volume number within a serial publication." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+bibo:issue a owl:DatatypeProperty ;
+    rdfs:label "issue" ;
+    rdfs:comment "Issue number within a volume." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
+schema:inContainer a owl:ObjectProperty ;
+    rdfs:label "in container" ;
+    rdfs:comment "The larger work that contains this source — a journal for an article, a book for a chapter, a conference for a paper. Range is another Source (typically a Book, a Journal, or a generic Source)." ;
+    rdfs:domain thought:Source ;
+    rdfs:range thought:Source .
+
+thought:accessedAt a owl:DatatypeProperty ;
+    rdfs:label "accessed at" ;
+    rdfs:comment "Timestamp when the source was retrieved, important for volatile web resources." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:dateTime .
+
+thought:archivedAt a owl:DatatypeProperty ;
+    rdfs:label "archived at" ;
+    rdfs:comment "Thoughtbase-relative path to the local archival copy of the source (PDF, HTML snapshot, extracted markdown)." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
 
 thought:Finding a owl:Class ;
     rdfs:subClassOf thought:Component ;
