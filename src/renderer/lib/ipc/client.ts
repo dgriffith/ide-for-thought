@@ -159,6 +159,11 @@ export interface MenuApi {
   onCloseProject(cb: () => void): void;
   onClearRecent(cb: () => void): void;
   onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): void;
+  onRefactorRename(cb: () => void): void;
+  onRefactorMove(cb: () => void): void;
+  onRefactorExtract(cb: () => void): void;
+  onRefactorSplitHere(cb: () => void): void;
+  onRefactorSplitByHeading(cb: () => void): void;
 }
 
 export interface IdeApi {

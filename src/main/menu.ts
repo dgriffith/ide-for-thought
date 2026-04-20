@@ -311,6 +311,19 @@ export function rebuildMenu(): void {
       ],
     },
 
+    // Refactor — single surface for every refactor-style command (issue #172).
+    {
+      label: 'Refactor',
+      submenu: [
+        { label: 'Rename\u2026', click: () => send(Channels.MENU_REFACTOR_RENAME) },
+        { label: 'Move\u2026', click: () => send(Channels.MENU_REFACTOR_MOVE) },
+        { type: 'separator' },
+        { label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) },
+        { label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) },
+        { label: 'Split by Heading\u2026', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) },
+      ],
+    },
+
     // Tools for Thought — dynamic menus from tool registry
     ...CATEGORIES
       .filter(cat => getToolsByCategory(cat.id).length > 0)

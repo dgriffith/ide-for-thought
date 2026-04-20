@@ -239,6 +239,21 @@ contextBridge.exposeInMainWorld('api', {
     onOpenInTerminal: (cb: () => void) => {
       ipcRenderer.on('menu:openInTerminal', () => cb());
     },
+    onRefactorRename: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_RENAME, () => cb());
+    },
+    onRefactorMove: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_MOVE, () => cb());
+    },
+    onRefactorExtract: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_EXTRACT, () => cb());
+    },
+    onRefactorSplitHere: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_SPLIT_HERE, () => cb());
+    },
+    onRefactorSplitByHeading: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_SPLIT_BY_HEADING, () => cb());
+    },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));
     },

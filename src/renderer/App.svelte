@@ -428,6 +428,33 @@
     await notebase.refresh();
   }
 
+  async function handleMoveWithPrompt(relativePath: string) {
+    if (!notebase.meta) return;
+    const fileName = relativePath.split('/').pop()!;
+    const currentDir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
+    const raw = await showPrompt(`Move "${fileName}" to folder (leave empty for root):`);
+    if (raw === null) return;
+    const destDir = raw.trim().replace(/^\/+|\/+$/g, '');
+    if (destDir === currentDir) return;
+    const newPath = destDir ? `${destDir}/${fileName}` : fileName;
+
+    let collision = false;
+    try {
+      await api.notebase.readFile(newPath);
+      collision = true;
+    } catch { /* expected: dest doesn't exist */ }
+    if (collision) {
+      await showConfirm(
+        `A file already exists at "${newPath}". Move cancelled.`,
+        CONFIRM_KEYS.moveCollision,
+        'OK',
+      );
+      return;
+    }
+
+    await handleMove(relativePath, destDir);
+  }
+
   function recordCurrentPosition() {
     const activeTab = editor.activeTab;
     if (!activeTab) return;
@@ -698,6 +725,13 @@
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
     api.menu.onOpenSettings(() => { showSettings = true; });
 
+    // Refactor menu (issue #172)
+    api.menu.onRefactorRename(() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); });
+    api.menu.onRefactorMove(() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); });
+    api.menu.onRefactorExtract(() => handleExtractSelection());
+    api.menu.onRefactorSplitHere(() => handleSplitHere());
+    api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
+
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
     // link rewrite silently.
@@ -854,6 +888,8 @@
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}
+                    onRename={() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); }}
+                    onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
