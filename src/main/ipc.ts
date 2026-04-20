@@ -13,7 +13,7 @@ import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
-import { executeTool } from './tools/executor';
+import { executeTool, prepareConversationTool } from './tools/executor';
 import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -546,6 +546,9 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(Channels.TOOL_PREPARE_CONVERSATION, (_e, request: ToolExecutionRequest) =>
+    prepareConversationTool(request));
+
   // Proposals
   ipcMain.handle(Channels.PROPOSAL_LIST, (_e, status?: string) => approval.listProposals(status));
   ipcMain.handle(Channels.PROPOSAL_DETAIL, (_e, uri: string) => approval.getProposal(uri));
@@ -554,8 +557,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.PROPOSAL_EXPIRE, () => approval.expireProposals());
 
   // Conversations
-  ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, systemMessage?: string) =>
-    conversation.create(contextBundle, triggerNodeUri, systemMessage));
+  ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
+    conversation.create(contextBundle, triggerNodeUri, options));
   ipcMain.handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
     conversation.appendMessage(id, role, content));
   ipcMain.handle(Channels.CONVERSATION_RESOLVE, (_e, id: string) => conversation.resolve(id));
@@ -581,7 +584,10 @@ export function registerIpcHandlers(): void {
         .filter(m => m.role !== 'system')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      const effectiveSystem = buildConversationSystemPrompt(systemPrompt, conv.contextBundle);
+      const effectiveSystem = buildConversationSystemPrompt(
+        systemPrompt ?? conv.systemPrompt,
+        conv.contextBundle,
+      );
 
       if (!rootPath) {
         throw new Error('No thoughtbase is open — cannot send conversation message.');

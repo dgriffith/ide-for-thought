@@ -1,7 +1,7 @@
 import { getTool } from '../../shared/tools/registry';
 import { complete } from '../llm/index';
 import { getSettings } from '../llm/settings';
-import type { ToolExecutionRequest, ToolExecutionResult, ThinkingToolDef, LLMSettings } from '../../shared/tools/types';
+import type { ToolExecutionRequest, ToolExecutionResult, ThinkingToolDef, LLMSettings, ConversationToolPayload } from '../../shared/tools/types';
 
 // Ensure all tool definitions are registered
 import '../../shared/tools/definitions/index';
@@ -33,6 +33,9 @@ export async function executeTool(
 ): Promise<ToolExecutionResult> {
   const tool = getTool(request.toolId);
   if (!tool) throw new Error(`Unknown tool: ${request.toolId}`);
+  if (tool.outputMode === 'openConversation') {
+    throw new Error(`Tool ${request.toolId} is conversational — use prepareConversationTool instead of executeTool.`);
+  }
 
   const prompt = tool.buildPrompt(request.context);
   const settings = await getSettings();
@@ -50,4 +53,47 @@ export async function executeTool(
     suggestedTitle: `${tool.name}: ${noteTitle}`,
     suggestedFilename: `${tool.outputNotePrefix ?? tool.id.replace('.', '-')}-${noteTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}.md`,
   };
+}
+
+/**
+ * Pure payload builder. Extracted so tests don't need to mock `getSettings()`.
+ * `prepareConversationTool` is the real entry point that looks up the tool
+ * and threads settings in.
+ */
+export function buildConversationPayload(
+  tool: ThinkingToolDef,
+  settings: Pick<LLMSettings, 'toolModelOverrides'>,
+  request: Pick<ToolExecutionRequest, 'context'> & { modelOverride?: string },
+): ConversationToolPayload {
+  if (tool.outputMode !== 'openConversation') {
+    throw new Error(`Tool ${tool.id} is not conversational (outputMode=${tool.outputMode}).`);
+  }
+  if (!tool.buildSystemPrompt) {
+    throw new Error(`Conversational tool ${tool.id} must define buildSystemPrompt.`);
+  }
+
+  const model = resolveToolModel(tool, settings, request.modelOverride);
+
+  return {
+    toolId: tool.id,
+    systemPrompt: tool.buildSystemPrompt(request.context),
+    firstMessage: tool.buildFirstMessage ? tool.buildFirstMessage(request.context) : '',
+    ...(model ? { model } : {}),
+    webEnabled: tool.web?.defaultEnabled ?? false,
+  };
+}
+
+/**
+ * Resolves everything needed to launch a conversation for a tool with
+ * `outputMode: 'openConversation'`: the pinned system prompt, the optional
+ * auto-first-message, the effective model, and the web hint. Does not open
+ * the conversation itself — that's the renderer's job (create, pin, show).
+ */
+export async function prepareConversationTool(
+  request: ToolExecutionRequest & { modelOverride?: string },
+): Promise<ConversationToolPayload> {
+  const tool = getTool(request.toolId);
+  if (!tool) throw new Error(`Unknown tool: ${request.toolId}`);
+  const settings = await getSettings();
+  return buildConversationPayload(tool, settings, request);
 }

@@ -184,4 +184,11 @@ export interface Conversation {
    * default if the user changes it later. Once set explicitly, it sticks.
    */
   model?: string;
+  /**
+   * Tool-specific system prompt pinned on the conversation. When set, every
+   * `send` uses this as the tool/user-supplied system (on top of the
+   * default tool-using system prompt built on the main side). Set when the
+   * conversation was launched from a `outputMode: 'openConversation'` tool.
+   */
+  systemPrompt?: string;
 }

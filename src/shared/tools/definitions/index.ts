@@ -5,3 +5,6 @@ import './analysis/excavate';
 import './planning/steelman';
 import './planning/taboo';
 import './planning/murphyjitsu';
+
+// Learning tools
+import './learning/summarize';

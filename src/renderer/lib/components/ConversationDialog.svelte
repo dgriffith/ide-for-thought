@@ -9,9 +9,11 @@
   interface Props {
     onClose: () => void;
     onNavigate?: (target: string) => void;
+    /** Auto-fired user message when the dialog mounts. Used by conversational tools. Consumed once. */
+    initialAutoMessage?: string;
   }
 
-  let { onClose, onNavigate }: Props = $props();
+  let { onClose, onNavigate, initialAutoMessage }: Props = $props();
 
   const conv = getConversationStore();
   let input = $state('');
@@ -121,6 +123,10 @@
       streamedChunks += chunk;
       scrollToBottom();
     });
+    if (initialAutoMessage && initialAutoMessage.trim()) {
+      input = initialAutoMessage;
+      requestAnimationFrame(() => { handleSend(); });
+    }
   });
 
   // Run grounding checks on claim annotations after messages render
@@ -170,7 +176,14 @@
 
     try {
       const ctx = conv.active.contextBundle;
-      let system = 'You are a thoughtful epistemic partner helping the user analyze and develop ideas in their knowledge base. When you make a substantive claim, assertion, or finding, wrap it in [[claim: your claim here]] notation so it can be checked against the knowledge base.';
+      let system: string;
+      if (conv.active.systemPrompt) {
+        // Tool-spawned conversation — use the pinned tool prompt and skip the
+        // default [[claim:]] epistemic-partner framing (the tool is in charge).
+        system = conv.active.systemPrompt;
+      } else {
+        system = 'You are a thoughtful epistemic partner helping the user analyze and develop ideas in their knowledge base. When you make a substantive claim, assertion, or finding, wrap it in [[claim: your claim here]] notation so it can be checked against the knowledge base.';
+      }
       if (ctx.noteContent) {
         system += `\n\nCurrent note content:\n${ctx.noteContent}`;
       }

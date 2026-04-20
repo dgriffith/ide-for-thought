@@ -40,6 +40,7 @@
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
+  import type { ToolContext } from '../shared/tools/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
@@ -50,6 +51,8 @@
   const convStore = getConversationStore();
   const bookmarkStore = getBookmarksStore();
   let showConversation = $state(false);
+  /** When set, the next ConversationDialog mount auto-fires this message. Cleared after each open. */
+  let pendingAutoMessage = $state<string | undefined>(undefined);
   let showSettings = $state(false);
   let inspectionCount = $state(0);
 
@@ -511,7 +514,41 @@
         label: editor.activeFileName || editor.activeFilePath,
       } : undefined,
     };
-    await convStore.start(bundle, undefined, undefined);
+    pendingAutoMessage = undefined;
+    await convStore.start(bundle);
+    showConversation = true;
+  }
+
+  async function handleOpenConversationFromTool(invocation: { toolId: string; context: ToolContext }) {
+    let prep;
+    try {
+      prep = await api.tools.prepareConversation({
+        toolId: invocation.toolId,
+        context: invocation.context,
+      });
+    } catch (err) {
+      console.error('[tool] prepareConversation failed:', err);
+      return;
+    }
+
+    const ctx = invocation.context;
+    const notePath = ctx.fullNotePath ?? editor.activeFilePath ?? undefined;
+    const bundle: ContextBundle = {
+      notePath,
+      noteContent: ctx.fullNoteContent ?? (editor.content || undefined),
+      triggerNode: notePath ? {
+        uri: notePath,
+        type: 'minerva:Note',
+        label: ctx.fullNoteTitle ?? editor.activeFileName ?? notePath,
+      } : undefined,
+    };
+
+    await convStore.start(bundle, undefined, {
+      systemPrompt: prep.systemPrompt,
+      ...(prep.model ? { model: prep.model } : {}),
+    });
+
+    pendingAutoMessage = prep.firstMessage || undefined;
     showConversation = true;
   }
 
@@ -853,11 +890,13 @@
           <ToolPanel
             bind:this={toolPanelComponent}
             onNoteCreated={() => { notebase.refresh(); sidebar?.refreshTags(); }}
+            onOpenConversation={handleOpenConversationFromTool}
           />
           {#if showConversation}
             <ConversationDialog
               onClose={() => { showConversation = false; }}
               onNavigate={handleNavigate}
+              initialAutoMessage={pendingAutoMessage}
             />
           {/if}
         {:else if editor.activeTab?.type === 'query'}
@@ -871,6 +910,7 @@
             <ConversationDialog
               onClose={() => { showConversation = false; }}
               onNavigate={handleNavigate}
+              initialAutoMessage={pendingAutoMessage}
             />
           {/if}
         {:else if editor.activeTab?.type === 'source'}
