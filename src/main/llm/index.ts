@@ -22,6 +22,8 @@ export interface CompleteOptions {
   system?: string;
   messages?: ChatMessage[];
   callbacks?: StreamCallbacks;
+  /** Override the global default model for this call only. */
+  model?: string;
 }
 
 export interface CompleteWithToolsOptions {
@@ -31,6 +33,8 @@ export interface CompleteWithToolsOptions {
   callbacks?: StreamCallbacks;
   /** Hard cap on tool-use iterations. Defaults to 10. */
   maxIterations?: number;
+  /** Override the global default model for this call only. */
+  model?: string;
 }
 
 export interface CompleteWithToolsResult {
@@ -65,11 +69,10 @@ export async function complete(
   prompt: string,
   callbacksOrOptions?: StreamCallbacks | CompleteOptions,
 ): Promise<string> {
-  const { client, model } = await getClient();
-
   let system: string | undefined;
   let messages: Anthropic.MessageParam[];
   let callbacks: StreamCallbacks | undefined;
+  let modelOverride: string | undefined;
 
   if (callbacksOrOptions && 'onChunk' in callbacksOrOptions) {
     callbacks = callbacksOrOptions;
@@ -78,10 +81,14 @@ export async function complete(
     const opts = callbacksOrOptions as CompleteOptions;
     system = opts.system;
     callbacks = opts.callbacks;
+    modelOverride = opts.model;
     messages = (opts.messages ?? [{ role: 'user', content: prompt }]) as Anthropic.MessageParam[];
   } else {
     messages = [{ role: 'user', content: prompt }];
   }
+
+  const { client, model: defaultModel } = await getClient();
+  const model = modelOverride ?? defaultModel;
 
   if (!callbacks) {
     const response = await client.messages.create({
@@ -117,7 +124,8 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { client, model, web } = await getClient();
+  const { client, model: defaultModel, web } = await getClient();
+  const model = options.model ?? defaultModel;
   const { toolContext, callbacks, maxIterations = 10 } = options;
   const messages: Anthropic.MessageParam[] = [...options.messages];
 

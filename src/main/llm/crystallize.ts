@@ -41,6 +41,7 @@ export async function crystallize(
   text: string,
   conversationUri: string,
   proposedBy: string = 'llm:crystallization',
+  model?: string,
 ): Promise<CrystallizationResult> {
   const prompt = `${CRYSTALLIZATION_PROMPT}
 
@@ -48,7 +49,7 @@ export async function crystallize(
 
 ${text}`;
 
-  const turtle = await complete(prompt);
+  const turtle = await complete(prompt, model ? { model } : undefined);
   const trimmed = turtle.trim();
 
   if (!trimmed) {

@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { getSlashCommands } from '../tools/tool-registry';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
+  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
 
   interface Props {
     onClose: () => void;
@@ -20,6 +21,19 @@
   let crystallizing = $state(false);
   let crystallizeResult = $state<{ componentCount: number } | null>(null);
   let groundingCache = new Map<string, { grounded: boolean; label?: string; type?: string }>();
+  let defaultModel = $state<string | null>(null);
+
+  onMount(async () => {
+    try {
+      const s = await api.tools.getSettings();
+      defaultModel = s.model ?? null;
+    } catch { /* settings unavailable — picker still works, "Default" just won't show a name */ }
+  });
+
+  async function handleModelChange(e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    await conv.setModel(value || undefined);
+  }
 
   // Parse [[claim: ...]] annotations in assistant output
   function renderAnnotatedContent(text: string): string {
@@ -253,6 +267,17 @@
         <span class="conv-status">{conv.active.status}</span>
       </div>
       <div class="conv-actions">
+        <select
+          class="conv-model"
+          value={conv.active.model ?? ''}
+          onchange={handleModelChange}
+          title="Model used for this conversation"
+        >
+          <option value="">{defaultModel ? `Default (${modelLabel(defaultModel)})` : 'Default'}</option>
+          {#each MODEL_OPTIONS as m}
+            <option value={m.value}>{m.label}</option>
+          {/each}
+        </select>
         <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="File selected text as thought components">File Selection</button>
         <button class="conv-btn" onclick={handleResolve} title="Resolve — file results to graph">Resolve</button>
         <button class="conv-btn" onclick={handleAbandon} title="Abandon — close without filing">Abandon</button>
@@ -391,6 +416,18 @@
   .conv-actions {
     display: flex;
     gap: 4px;
+    align-items: center;
+  }
+
+  .conv-model {
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+    max-width: 180px;
   }
 
   .conv-btn {

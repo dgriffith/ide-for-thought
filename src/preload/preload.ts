@@ -121,6 +121,8 @@ contextBridge.exposeInMainWorld('api', {
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
     crystallize: (text: string, conversationId: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_CRYSTALLIZE, text, conversationId),
+    setModel: (conversationId: string, model: string | undefined) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
     slashCommand: (convId: string, slashCmd: string, argText: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SLASH_COMMAND, convId, slashCmd, argText),
   },

@@ -55,6 +55,12 @@ export function getConversationStore() {
     activeConversation = null;
   }
 
+  async function setModel(model: string | undefined): Promise<Conversation | null> {
+    if (!activeConversation) return null;
+    activeConversation = await api.conversations.setModel(activeConversation.id, model);
+    return activeConversation;
+  }
+
   return {
     get active() { return activeConversation; },
     get messages() { return activeConversation?.messages ?? []; },
@@ -68,5 +74,6 @@ export function getConversationStore() {
     resumeConversation,
     refreshList,
     close,
+    setModel,
   };
 }

@@ -18,6 +18,7 @@
     type DestinationMode,
     type RefactorSettings,
   } from '../refactor/settings';
+  import { MODEL_OPTIONS } from '../../../shared/tools/models';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -93,13 +94,6 @@
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
   let clearApiKey = $state(false);
-
-  const MODEL_OPTIONS = [
-    { value: 'claude-opus-4-7', label: 'Claude Opus 4.7' },
-    { value: 'claude-opus-4-6', label: 'Claude Opus 4.6' },
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-  ];
 
   // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
   let loadedLlm: LLMSettings | null = null;

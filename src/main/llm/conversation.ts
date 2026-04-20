@@ -83,6 +83,19 @@ export async function abandon(id: string): Promise<Conversation> {
   return setStatus(id, 'abandoned');
 }
 
+/**
+ * Pin a specific model to this conversation. Pass `undefined` to clear the
+ * override so the conversation again tracks the global default.
+ */
+export async function setModel(id: string, model: string | undefined): Promise<Conversation> {
+  const conv = await load(id);
+  if (!conv) throw new Error(`Conversation not found: ${id}`);
+  if (model) conv.model = model;
+  else delete conv.model;
+  await persist(conv);
+  return conv;
+}
+
 export async function load(id: string): Promise<Conversation | null> {
   try {
     const data = await fs.readFile(convPath(id), 'utf-8');
