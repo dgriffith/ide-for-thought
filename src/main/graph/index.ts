@@ -8,6 +8,7 @@ import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { slugify } from '../../shared/slug';
+import { parseCsv } from '../../shared/csv-parse';
 import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
@@ -433,6 +434,11 @@ export async function indexNote(
     return {};
   }
 
+  if (relativePath.endsWith('.csv')) {
+    indexCsvFile(relativePath, content, subject, graph);
+    return {};
+  }
+
   // Diff headings against the previous snapshot BEFORE overwriting it so we
   // can offer to rewrite `[[note#oldSlug]]` links when a single heading
   // gets renamed. Initial index (no prior snapshot) never flags a rename.
@@ -680,6 +686,73 @@ function indexTurtleFile(
   }
 }
 
+/**
+ * Index a standalone `.csv` file (#199). Mirrors indexTurtleFile\u2019s
+ * note-metadata setup, then parses the file as CSV and emits CSVW
+ * triples. The file\u2019s subject IS the Table (`rdf:type csvw:Table`),
+ * with `csvw:inFile <relativePath>` for symmetry with the markdown-
+ * table indexer\u2019s `csvw:inNote`.
+ */
+function indexCsvFile(
+  relativePath: string,
+  content: string,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+): void {
+  if (!store) return;
+
+  // Note-style metadata so the file shows up in listings / tag queries / etc.
+  store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  const title = path.basename(relativePath, '.csv');
+  store.add(subject, DC('title'), $rdf.lit(title), graph);
+  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+
+  const dir = path.dirname(relativePath);
+  if (dir && dir !== '.') {
+    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
+    ensureFolder(dir);
+  }
+  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
+
+  // CSVW: the file IS the Table. One file \u2192 one table.
+  store.add(subject, RDF('type'), CSVW('Table'), graph);
+  store.add(subject, CSVW('inFile'), $rdf.lit(relativePath), graph);
+
+  const parsed = parseCsv(content);
+  if (parsed.headers.length === 0) return;
+
+  // Columns
+  const colNodes: $rdf.NamedNode[] = [];
+  for (let ci = 0; ci < parsed.headers.length; ci++) {
+    const colName = parsed.headers[ci];
+    const colUri = $rdf.sym(`${subject.value}/column/${encodeURIComponent(colName)}`);
+    colNodes.push(colUri);
+    store.add(colUri, RDF('type'), CSVW('Column'), graph);
+    store.add(colUri, CSVW('name'), $rdf.lit(colName), graph);
+    store.add(colUri, CSVW('columnIndex'), $rdf.lit(String(ci), undefined, XSD('integer')), graph);
+    store.add(subject, CSVW('column'), colUri, graph);
+  }
+
+  // Rows + cells
+  for (let ri = 0; ri < parsed.rows.length; ri++) {
+    const rowUri = $rdf.sym(`${subject.value}/row/${ri}`);
+    store.add(rowUri, RDF('type'), CSVW('Row'), graph);
+    store.add(rowUri, CSVW('rowIndex'), $rdf.lit(String(ri), undefined, XSD('integer')), graph);
+    store.add(subject, CSVW('row'), rowUri, graph);
+
+    for (let ci = 0; ci < parsed.headers.length; ci++) {
+      const value = parsed.rows[ri][ci] ?? '';
+      const cellUri = $rdf.sym(`${rowUri.value}/cell/${encodeURIComponent(parsed.headers[ci])}`);
+      store.add(cellUri, RDF('type'), CSVW('Cell'), graph);
+      store.add(cellUri, CSVW('column'), colNodes[ci], graph);
+      store.add(cellUri, RDF('value'), $rdf.lit(value), graph);
+      store.add(rowUri, CSVW('cell'), cellUri, graph);
+    }
+  }
+}
+
 export function removeNote(relativePath: string): void {
   if (!store) return;
   const subject = noteUri(relativePath);
@@ -884,7 +957,11 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
         const rel = path.relative(root, fullPath);
         ensureFolder(rel);
         await walkAndIndex(fullPath, root);
-      } else if (entry.name.endsWith('.md') || entry.name.endsWith('.ttl')) {
+      } else if (
+        entry.name.endsWith('.md')
+        || entry.name.endsWith('.ttl')
+        || entry.name.endsWith('.csv')
+      ) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         await indexNote(relativePath, content);

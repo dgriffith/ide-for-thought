@@ -114,7 +114,7 @@
           ondragstart={(e) => handleDragStart(e, file.relativePath)}
         >
           <span class="icon">📄</span>
-          {file.name.replace(/\.(md|ttl)$/, '')}
+          {file.name.replace(/\.(md|ttl|csv)$/, '')}
         </button>
       {/if}
     </li>

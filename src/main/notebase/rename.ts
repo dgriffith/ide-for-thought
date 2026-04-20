@@ -4,7 +4,7 @@ import * as notebaseFs from './fs';
 import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
 import * as graph from '../graph/index';
 
-const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
+const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
 
 function isIndexable(relativePath: string): boolean {
   return INDEXABLE_EXTS.has(path.extname(relativePath));
