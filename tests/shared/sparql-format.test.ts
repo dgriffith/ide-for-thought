@@ -15,11 +15,12 @@ SELECT ?x WHERE {
 `));
   });
 
-  it('puts each PREFIX declaration on its own line', () => {
+  it('puts each PREFIX declaration on its own line with a blank line before SELECT', () => {
     const input = 'PREFIX a: <urn:a> PREFIX b: <urn:b> SELECT ?x WHERE { ?x a:p ?y . }';
     expect(formatSparql(input)).toBe(q(`
 PREFIX a: <urn:a>
 PREFIX b: <urn:b>
+
 SELECT ?x WHERE {
   ?x a:p ?y .
 }
@@ -142,6 +143,7 @@ SELECT ?x WHERE {
 PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
 SELECT ?title ?tag WHERE {
   ?note rdf:type minerva:Note .
   ?note dc:title ?title .

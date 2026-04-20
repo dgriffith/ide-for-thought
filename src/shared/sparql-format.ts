@@ -223,9 +223,13 @@ function emit(tokens: Token[]): string {
   let depth = 0;
   /** Set when we\u2019ve emitted the continuation punct (`;` / `,`) and the next token should sit on a fresh indented line. */
   let pendingContinuation = false;
+  /** Tracks what the last non-empty flushed line was, so we can separate the PREFIX block from the query form with a blank line. */
+  let lastFlushedKind: 'prefix' | 'other' | null = null;
 
   function flush() {
     if (line.trim() === '') { line = ''; return; }
+    const firstWord = line.trimStart().split(/\s+/, 1)[0]?.toUpperCase() ?? '';
+    lastFlushedKind = firstWord === 'PREFIX' || firstWord === 'BASE' ? 'prefix' : 'other';
     out += line.trimEnd() + '\n';
     line = '';
   }
@@ -272,6 +276,17 @@ function emit(tokens: Token[]): string {
     if (tok.type === 'word' && TOP_LEVEL_KW.has(upper) && line.trim() !== '') {
       flush();
       line = '  '.repeat(depth);
+    }
+
+    // Blank line between the PREFIX block and the query form.
+    if (
+      tok.type === 'word'
+      && (upper === 'SELECT' || upper === 'CONSTRUCT' || upper === 'ASK' || upper === 'DESCRIBE')
+      && lastFlushedKind === 'prefix'
+      && line.trim() === ''
+    ) {
+      out += '\n';
+      lastFlushedKind = 'other';
     }
 
     // Block keywords inside a WHERE body begin a new indented line.
