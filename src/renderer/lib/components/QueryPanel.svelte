@@ -17,7 +17,7 @@
   import type { QueryTab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
-  import { autocompletion, acceptCompletion, selectedCompletion } from '@codemirror/autocomplete';
+  import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
   import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
@@ -143,14 +143,11 @@
           },
           '.cm-scroller': { overflow: 'auto' },
         }),
-        // Prec.highest so our Enter override beats autocompletion's
-        // built-in Enter-accepts binding.
         Prec.highest(keymap.of([
           { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
           { key: 'Mod-s', run: () => { onSave(); return true; } },
           { key: 'Shift-Alt-f', run: reformat },
           { key: 'Tab', run: acceptCompletion },
-          { key: 'Enter', run: acceptAndEatRestOfWord },
         ])),
         keymap.of([
           indentWithTab,
@@ -214,32 +211,6 @@
     return true;
   }
 
-  /**
-   * Enter accepts the active completion, then eats any non-whitespace
-   * characters that follow the cursor \u2014 useful when the cursor is
-   * mid-word and you want the whole half-typed token replaced. Tab
-   * still accepts in place (no eating), so you can pick between the two.
-   */
-  function acceptAndEatRestOfWord(v: EditorView): boolean {
-    if (!selectedCompletion(v.state)) return false; // let Enter fall through to newline
-    const accepted = acceptCompletion(v);
-    if (!accepted) return false;
-    // Post-accept: cursor sits immediately after the inserted label. Eat
-    // any non-whitespace chars that remain on the line \u2014 that's the tail
-    // of whatever the user had half-typed.
-    const head = v.state.selection.main.head;
-    const doc = v.state.doc;
-    let end = head;
-    while (end < doc.length) {
-      const ch = doc.sliceString(end, end + 1);
-      if (/\s/.test(ch)) break;
-      end++;
-    }
-    if (end > head) {
-      v.dispatch({ changes: { from: head, to: end, insert: '' } });
-    }
-    return true;
-  }
 
   function startDrag(e: MouseEvent) {
     e.preventDefault();
