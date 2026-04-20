@@ -21,7 +21,7 @@ export interface Range {
 
 /**
  * Read-only snapshot of the structural regions the formatter should treat
- * as "don\u2019t touch unless a rule explicitly targets this kind of block."
+ * as "don’t touch unless a rule explicitly targets this kind of block."
  * Rules consult `isProtected(offset)` before rewriting at a given position.
  */
 export interface ParseCache {
@@ -31,7 +31,7 @@ export interface ParseCache {
   codeFenceRanges: Range[];
   /** Inline backticked spans — a single rule like "escape YAML special chars" still needs to skip these. */
   inlineCodeRanges: Range[];
-  /** `$$\u2026$$` math blocks and `$\u2026$` inline math. */
+  /** `$$…$$` math blocks and `$…$` inline math. */
   mathRanges: Range[];
   /** Blockquote regions (contiguous lines starting with `>` after optional indent). */
   blockquoteRanges: Range[];

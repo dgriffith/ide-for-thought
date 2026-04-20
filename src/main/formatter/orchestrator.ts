@@ -61,7 +61,7 @@ async function runBatch(
     try {
       const result = await formatFile(rootPath, rel, settings);
       if (result.changed) changedPaths.push(rel);
-    } catch { /* unreadable note \u2014 skip */ }
+    } catch { /* unreadable note — skip */ }
   }
   return { changedPaths, totalScanned: paths.length };
 }
@@ -93,6 +93,6 @@ async function writeThrough(
   await graph.indexNote(relativePath, content);
   search.indexNote(relativePath, content);
   // Caller is responsible for the batched persist + NOTEBASE_REWRITTEN
-  // broadcast \u2014 doing it per-file in a folder run would thrash the
+  // broadcast — doing it per-file in a folder run would thrash the
   // editor's open-tab refresh path.
 }

@@ -1,5 +1,5 @@
 /**
- * Renderer-side access to the formatter\u2019s per-rule enable + config map (#154).
+ * Renderer-side access to the formatter’s per-rule enable + config map (#154).
  * Persisted project-scoped in `.minerva/formatter.json` via main-side IPC.
  * The renderer keeps a synchronous snapshot in memory so the engine-facing
  * code (and the active-note format handler) can pull settings without an
@@ -47,7 +47,7 @@ export function setFormatSettings(patch: Partial<FormatSettings>): FormatSetting
     enabled: { ...settings.enabled, ...(patch.enabled ?? {}) },
     configs: { ...settings.configs, ...(patch.configs ?? {}) },
   };
-  api.formatter.saveSettings(settings).catch(() => { /* swallow \u2014 user will hit it again on next change */ });
+  api.formatter.saveSettings(settings).catch(() => { /* swallow — user will hit it again on next change */ });
   return settings;
 }
 

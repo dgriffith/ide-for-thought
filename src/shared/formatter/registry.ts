@@ -1,9 +1,9 @@
 /**
- * Rule registry (#153). Category tickets (#155\u2013#161) register their rules
+ * Rule registry (#153). Category tickets (#155–#161) register their rules
  * at import time; the engine consults the registry to find + sort rules
  * for an invocation.
  *
- * Registration order within a category is the apply order \u2014 a rule that
+ * Registration order within a category is the apply order — a rule that
  * depends on another running first just registers later in its module.
  * Categories themselves apply in a fixed order (see CATEGORY_ORDER)
  * chosen so structural passes run before cosmetic ones.
@@ -47,7 +47,7 @@ export const CATEGORY_ORDER: FormatterCategory[] = [
   'content',
   'footnote',
   'spacing',
-  // Minerva-specific rules last \u2014 they need to inspect link shapes that
+  // Minerva-specific rules last — they need to inspect link shapes that
   // earlier passes may have normalised.
   'minerva',
 ];
