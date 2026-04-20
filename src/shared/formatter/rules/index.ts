@@ -11,6 +11,9 @@
 import './spacing/line-break-at-document-end';
 import './spacing/trailing-spaces';
 import './spacing/space-after-list-marker';
+import './spacing/empty-line-around-code-fences';
+import './spacing/empty-line-around-blockquotes';
+import './spacing/empty-line-around-math-blocks';
 import './spacing/consecutive-blank-lines';
 
 export {};
