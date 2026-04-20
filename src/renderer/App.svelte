@@ -1218,6 +1218,7 @@
                     onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); }}
+                    onFormatCurrentNote={() => handleFormatCurrentNote()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;

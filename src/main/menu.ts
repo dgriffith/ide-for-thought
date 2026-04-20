@@ -326,13 +326,9 @@ export function rebuildMenu(): void {
         { label: 'Auto-link outbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) },
         { label: 'Auto-link inbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) },
         { label: 'Decompose Note\u2026', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) },
-      ],
-    },
-
-    // Format — deterministic markdown normalizations (issue #152 epic).
-    {
-      label: 'Format',
-      submenu: [
+        { type: 'separator' },
+        // Deterministic markdown normalisation (issue #152 epic). Nested
+        // under Refactor so the title bar stays lean.
         { label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) },
         { label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) },
         { label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) },
