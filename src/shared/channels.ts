@@ -79,6 +79,13 @@ export const Channels = {
   MENU_SORT_LINES: 'menu:sortLines',
   MENU_OPEN_SETTINGS: 'menu:openSettings',
 
+  // Refactor menu (issue #172) — title-bar menu commands dispatched to the renderer.
+  MENU_REFACTOR_RENAME: 'menu:refactor:rename',
+  MENU_REFACTOR_MOVE: 'menu:refactor:move',
+  MENU_REFACTOR_EXTRACT: 'menu:refactor:extract',
+  MENU_REFACTOR_SPLIT_HERE: 'menu:refactor:splitHere',
+  MENU_REFACTOR_SPLIT_BY_HEADING: 'menu:refactor:splitByHeading',
+
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
   MENU_SAVE_QUERY: 'menu:saveQuery',

@@ -12,6 +12,7 @@ export const CONFIRM_KEYS = {
   delete: 'confirm-delete',
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
+  moveCollision: 'move-collision',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -40,6 +41,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Update links after heading rename',
     description:
       'Offer to rewrite incoming [[note#heading]] links when a heading edit looks like a rename.',
+  },
+  {
+    key: CONFIRM_KEYS.moveCollision,
+    title: 'Move cancelled (destination exists)',
+    description:
+      'Shown when Move would overwrite an existing file at the chosen destination.',
   },
 ];
 

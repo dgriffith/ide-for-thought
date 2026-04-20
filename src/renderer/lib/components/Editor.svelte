@@ -50,6 +50,8 @@
     onExtractSelection?: () => void;
     onSplitHere?: () => void;
     onSplitByHeading?: () => void;
+    onRename?: () => void;
+    onMove?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -71,6 +73,8 @@
     onExtractSelection,
     onSplitHere,
     onSplitByHeading,
+    onRename,
+    onMove,
     getNotePaths,
   }: Props = $props();
 
@@ -680,10 +684,19 @@
       {/if}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
+          {#if onRename}
+            <button onclick={() => handleMenuAction(() => onRename?.())}>Rename&hellip;</button>
+          {/if}
+          {#if onMove}
+            <button onclick={() => handleMenuAction(() => onMove?.())}>Move&hellip;</button>
+          {/if}
+          {#if onRename || onMove}
+            <div class="separator"></div>
+          {/if}
           {#if onExtractSelection}
             <button
               onclick={() => handleMenuAction(() => onExtractSelection?.())}
@@ -694,7 +707,7 @@
             <button onclick={() => handleMenuAction(() => onSplitHere?.())}>Split Note Here</button>
           {/if}
           {#if onSplitByHeading}
-            <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading…</button>
+            <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
           {/if}
         </div>
       </div>
