@@ -162,6 +162,9 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FILE, relativePath, settings),
     formatFolder: (relDir: string, settings: unknown) =>
       ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FOLDER, relDir, settings),
+    loadSettings: () => ipcRenderer.invoke(Channels.FORMATTER_LOAD_SETTINGS),
+    saveSettings: (settings: unknown) =>
+      ipcRenderer.invoke(Channels.FORMATTER_SAVE_SETTINGS, settings),
   },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),

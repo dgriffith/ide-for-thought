@@ -46,7 +46,7 @@
   } from './lib/refactor/extract';
   import { planSplitByHeading } from './lib/refactor/split-by-heading';
   import { getRefactorSettings } from './lib/refactor/settings';
-  import { getFormatSettings } from './lib/formatter/settings';
+  import { getFormatSettings, loadFormatSettings } from './lib/formatter/settings';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -1093,6 +1093,7 @@
       await notebase.openPath(meta.rootPath);
       await editor.restoreTabs();
       await bookmarkStore.load();
+      await loadFormatSettings();
       sidebar?.refreshTags();
       // Load inspection count after a brief delay to let health checks finish
       setTimeout(refreshInspectionCount, 3000);

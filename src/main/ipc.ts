@@ -631,6 +631,30 @@ export function registerIpcHandlers(): void {
     (_e, content: string, settings: FormatSettings) => formatNoteContent(content, settings),
   );
 
+  // Project-scoped formatter settings (#154). Stored in .minerva/formatter.json
+  // so rule choices travel with the thoughtbase in git.
+  ipcMain.handle(Channels.FORMATTER_LOAD_SETTINGS, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { enabled: {}, configs: {} };
+    try {
+      const p = path.join(rootPath, '.minerva', 'formatter.json');
+      const data = await fs.readFile(p, 'utf-8');
+      const parsed = JSON.parse(data);
+      return {
+        enabled: (parsed?.enabled && typeof parsed.enabled === 'object') ? parsed.enabled : {},
+        configs: (parsed?.configs && typeof parsed.configs === 'object') ? parsed.configs : {},
+      };
+    } catch { return { enabled: {}, configs: {} }; }
+  });
+
+  ipcMain.handle(Channels.FORMATTER_SAVE_SETTINGS, async (e, settings: FormatSettings) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return;
+    const p = path.join(rootPath, '.minerva', 'formatter.json');
+    await fs.mkdir(path.dirname(p), { recursive: true });
+    await fs.writeFile(p, JSON.stringify(settings, null, 2), 'utf-8');
+  });
+
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_FILE,
     async (e, relativePath: string, settings: FormatSettings) => {

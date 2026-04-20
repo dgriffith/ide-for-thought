@@ -18,6 +18,17 @@
     type DestinationMode,
     type RefactorSettings,
   } from '../refactor/settings';
+  import {
+    getFormatSettings,
+    setFormatSettings,
+  } from '../formatter/settings';
+  import {
+    listRulesByCategory,
+    CATEGORY_ORDER,
+  } from '../../../shared/formatter/registry';
+  import '../../../shared/formatter/rules/index';
+  import type { FormatterRule } from '../../../shared/formatter/types';
+  import type { FormatSettings } from '../../../shared/formatter/engine';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
   import { getAllToolInfos } from '../tools/tool-registry';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
@@ -30,12 +41,13 @@
 
   let { onApplyEditor, onThemeChanged, onClose }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'web' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ai';
   const TABS: { id: TabId; label: string }[] = [
     { id: 'editor', label: 'Editor' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'behaviors', label: 'Behaviors' },
     { id: 'refactoring', label: 'Refactoring' },
+    { id: 'formatter', label: 'Formatter' },
     { id: 'web', label: 'Web' },
     { id: 'ai', label: 'AI' },
   ];
@@ -45,6 +57,34 @@
     refactor = { ...refactor, ...patch };
     setRefactorSettings(patch);
   }
+
+  // Formatter settings (#154). Mirror the persisted map into local state so
+  // the Done-close reset path can rehydrate without an IPC round-trip.
+  let formatter = $state<FormatSettings>({
+    enabled: { ...getFormatSettings().enabled },
+    configs: { ...getFormatSettings().configs },
+  });
+  function toggleFormatterRule(id: string, on: boolean): void {
+    formatter = {
+      enabled: { ...formatter.enabled, [id]: on },
+      configs: formatter.configs,
+    };
+    setFormatSettings({ enabled: { [id]: on } });
+  }
+  const FORMATTER_CATEGORY_LABELS: Record<string, string> = {
+    yaml: 'YAML frontmatter',
+    heading: 'Headings',
+    content: 'Content',
+    footnote: 'Footnotes',
+    spacing: 'Spacing',
+    minerva: 'Minerva-specific',
+  };
+  const formatterSections = CATEGORY_ORDER.map((cat) => ({
+    category: cat,
+    label: FORMATTER_CATEGORY_LABELS[cat] ?? cat,
+    rules: listRulesByCategory(cat) as FormatterRule<unknown>[],
+  }));
+  const hasAnyFormatterRules = formatterSections.some((s) => s.rules.length > 0);
   const DESTINATION_OPTIONS: { value: DestinationMode; label: string }[] = [
     { value: 'same-folder', label: 'Same folder as source note' },
     { value: 'root', label: 'Thoughtbase root' },
@@ -425,6 +465,43 @@
               somewhere or the body will be dropped.
             </p>
           </div>
+
+        {:else if activeTab === 'formatter'}
+          <p class="section-intro">
+            Deterministic normalizations applied by the <strong>Refactor \u25B8 Format</strong> commands.
+            Rules are off by default \u2014 turn on the ones whose aesthetics you want
+            enforced. Choices are stored in
+            <code>.minerva/formatter.json</code> so they travel with the thoughtbase.
+          </p>
+
+          {#if !hasAnyFormatterRules}
+            <div class="empty-state">
+              No formatter rules are registered yet. Rule sets land per category
+              in follow-up tickets (#155\u2013#161); once any of those merge, rules
+              appear here as rows you can enable.
+            </div>
+          {/if}
+
+          {#each formatterSections as section}
+            {#if section.rules.length > 0}
+              <h3 class="fm-category">{section.label}</h3>
+              <div class="fm-rules">
+                {#each section.rules as rule (rule.id)}
+                  <div class="field checkbox">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!formatter.enabled[rule.id]}
+                        onchange={(e) => toggleFormatterRule(rule.id, (e.currentTarget as HTMLInputElement).checked)}
+                      />
+                      {rule.title}
+                    </label>
+                    <p class="hint">{rule.description}</p>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {/each}
 
         {:else if activeTab === 'web'}
           <div class="field checkbox">
@@ -857,6 +934,42 @@
 
   .link-btn:hover {
     color: var(--text);
+  }
+
+  .section-intro {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+  }
+
+  .section-intro code {
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .empty-state {
+    padding: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .fm-category {
+    margin: 18px 0 8px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .fm-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   footer {

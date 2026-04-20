@@ -1,52 +1,57 @@
 /**
- * Renderer-side access to the formatter's per-rule enable + config map (#153).
- * Stored in localStorage, read synchronously before each format run.
- * The settings UI (#154) will write through the same module.
+ * Renderer-side access to the formatter\u2019s per-rule enable + config map (#154).
+ * Persisted project-scoped in `.minerva/formatter.json` via main-side IPC.
+ * The renderer keeps a synchronous snapshot in memory so the engine-facing
+ * code (and the active-note format handler) can pull settings without an
+ * async round-trip on every invocation.
  *
- * No rules are registered yet \u2014 the default settings intentionally leave
- * everything disabled so "Format" is a no-op until the user opts into
- * specific rules as they land.
+ * Flow:
+ *   1. App.svelte calls `loadFormatSettings()` once the project opens.
+ *   2. Synchronous consumers read via `getFormatSettings()`.
+ *   3. The Formatter settings tab writes via `setFormatSettings(patch)`,
+ *      which updates the cache and fires an IPC save (fire-and-forget).
  */
 
+import { api } from '../ipc/client';
 import type { FormatSettings } from '../../../shared/formatter/engine';
 import { DEFAULT_FORMAT_SETTINGS } from '../../../shared/formatter/engine';
 
-const STORAGE_KEY = 'formatSettings';
+let settings: FormatSettings = { ...DEFAULT_FORMAT_SETTINGS };
 
-function readFromStorage(): FormatSettings {
+/** Pull the persisted settings from the main process. Call on project open. */
+export async function loadFormatSettings(): Promise<FormatSettings> {
   try {
-    if (typeof localStorage === 'undefined') return { ...DEFAULT_FORMAT_SETTINGS };
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_FORMAT_SETTINGS };
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_FORMAT_SETTINGS };
-    return {
-      enabled: (parsed.enabled && typeof parsed.enabled === 'object') ? parsed.enabled : {},
-      configs: (parsed.configs && typeof parsed.configs === 'object') ? parsed.configs : {},
+    const loaded = await api.formatter.loadSettings();
+    settings = {
+      enabled: loaded.enabled ?? {},
+      configs: loaded.configs ?? {},
     };
   } catch {
-    return { ...DEFAULT_FORMAT_SETTINGS };
+    settings = { ...DEFAULT_FORMAT_SETTINGS };
   }
+  return settings;
 }
 
-let settings: FormatSettings = readFromStorage();
-
+/** Synchronous snapshot. Always returns the latest cached values. */
 export function getFormatSettings(): FormatSettings {
   return settings;
 }
 
+/**
+ * Merge `patch` into the cached settings and fire a main-side save. The
+ * save is intentionally not awaited — the UI stays responsive and a
+ * missed write on app-quit is low-stakes (nothing unrecoverable).
+ */
 export function setFormatSettings(patch: Partial<FormatSettings>): FormatSettings {
   settings = {
     enabled: { ...settings.enabled, ...(patch.enabled ?? {}) },
     configs: { ...settings.configs, ...(patch.configs ?? {}) },
   };
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }
+  api.formatter.saveSettings(settings).catch(() => { /* swallow \u2014 user will hit it again on next change */ });
   return settings;
 }
 
-/** Test-only: re-read from storage / reset to defaults. */
+/** Test-only: reset the in-memory cache to defaults. */
 export function __resetFormatSettingsForTests(): void {
-  settings = readFromStorage();
+  settings = { ...DEFAULT_FORMAT_SETTINGS };
 }
