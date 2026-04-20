@@ -59,10 +59,16 @@ export async function executeTool(
  * Pure payload builder. Extracted so tests don't need to mock `getSettings()`.
  * `prepareConversationTool` is the real entry point that looks up the tool
  * and threads settings in.
+ *
+ * If the resolved model equals the global default, the payload omits `model`
+ * entirely — the conversation tracks the default instead of pinning a
+ * redundant value. Without this, the ConversationDialog model picker
+ * renders blank (its filter already drops the default option to avoid a
+ * duplicate, so the pinned-but-same-as-default value matches no option).
  */
 export function buildConversationPayload(
   tool: ThinkingToolDef,
-  settings: Pick<LLMSettings, 'toolModelOverrides'>,
+  settings: Pick<LLMSettings, 'toolModelOverrides' | 'model'>,
   request: Pick<ToolExecutionRequest, 'context'> & { modelOverride?: string },
 ): ConversationToolPayload {
   if (tool.outputMode !== 'openConversation') {
@@ -72,7 +78,8 @@ export function buildConversationPayload(
     throw new Error(`Conversational tool ${tool.id} must define buildSystemPrompt.`);
   }
 
-  const model = resolveToolModel(tool, settings, request.modelOverride);
+  const resolved = resolveToolModel(tool, settings, request.modelOverride);
+  const model = resolved && resolved !== settings.model ? resolved : undefined;
 
   return {
     toolId: tool.id,

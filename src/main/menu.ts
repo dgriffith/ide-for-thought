@@ -311,6 +311,18 @@ export function rebuildMenu(): void {
       ],
     },
 
+    // Tools for Thought — dynamic menus from tool registry
+    ...CATEGORIES
+      .filter(cat => getToolsByCategory(cat.id).length > 0)
+      .map(cat => ({
+        label: cat.label,
+        submenu: getToolsByCategory(cat.id).map(tool => ({
+          label: tool.name,
+          sublabel: tool.description,
+          click: () => send(Channels.TOOL_INVOKE, tool.id),
+        })),
+      } as Electron.MenuItemConstructorOptions)),
+
     // Git
     {
       label: 'Git',
@@ -426,18 +438,6 @@ export function rebuildMenu(): void {
         },
       ],
     },
-
-    // Tools for Thought — dynamic menus from tool registry
-    ...CATEGORIES
-      .filter(cat => getToolsByCategory(cat.id).length > 0)
-      .map(cat => ({
-        label: cat.label,
-        submenu: getToolsByCategory(cat.id).map(tool => ({
-          label: tool.name,
-          sublabel: tool.description,
-          click: () => send(Channels.TOOL_INVOKE, tool.id),
-        })),
-      } as Electron.MenuItemConstructorOptions)),
 
     // Window (macOS)
     ...(isMac

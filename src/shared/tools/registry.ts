@@ -43,8 +43,8 @@ function toInfo(tool: ThinkingToolDef): ThinkingToolInfo {
 }
 
 export const CATEGORIES: { id: ToolCategory; label: string }[] = [
+  { id: 'learning', label: 'Learning' },
   { id: 'analysis', label: 'Analysis' },
   { id: 'planning', label: 'Planning' },
-  { id: 'learning', label: 'Learning' },
   { id: 'research', label: 'Research' },
 ];
