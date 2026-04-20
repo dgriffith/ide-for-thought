@@ -98,6 +98,7 @@
   let rightSidebar = $state<RightSidebar>();
   let rightSidebarVisible = $state(false);
   let editorComponent = $state<Editor>();
+  let queryPanelComponent = $state<QueryPanel>();
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
@@ -745,6 +746,7 @@
   function handleCycleTheme() {
     themeLabel = cycleTheme();
     editorComponent?.updateTheme();
+    queryPanelComponent?.updateTheme();
   }
 
   async function handleSwitchTab(index: number) {
@@ -1194,6 +1196,7 @@
           {/if}
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
+            bind:this={queryPanelComponent}
             tab={editor.activeQueryTab!}
             onQueryChange={editor.setQueryText}
             onExecute={editor.executeQuery}
@@ -1313,6 +1316,7 @@
       onThemeChanged={() => {
         themeLabel = getThemeMode();
         editorComponent?.updateTheme();
+        queryPanelComponent?.updateTheme();
       }}
       onClose={() => { showSettings = false; }}
     />
