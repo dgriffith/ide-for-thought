@@ -141,6 +141,9 @@ contextBridge.exposeInMainWorld('api', {
     save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
     load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
   },
+  refactor: {
+    autoTag: (relativePath: string) => ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG, relativePath),
+  },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
     prepareConversation: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
@@ -253,6 +256,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onRefactorSplitByHeading: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_SPLIT_BY_HEADING, () => cb());
+    },
+    onRefactorAutoTag: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_AUTOTAG, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

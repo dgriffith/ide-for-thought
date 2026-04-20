@@ -85,6 +85,10 @@ export const Channels = {
   MENU_REFACTOR_EXTRACT: 'menu:refactor:extract',
   MENU_REFACTOR_SPLIT_HERE: 'menu:refactor:splitHere',
   MENU_REFACTOR_SPLIT_BY_HEADING: 'menu:refactor:splitByHeading',
+  MENU_REFACTOR_AUTOTAG: 'menu:refactor:autotag',
+
+  /** Renderer-initiated LLM Auto-tag of a note (#174). */
+  REFACTOR_AUTO_TAG: 'refactor:autoTag',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',

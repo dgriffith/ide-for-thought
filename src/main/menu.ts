@@ -321,6 +321,8 @@ export function rebuildMenu(): void {
         { label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) },
         { label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) },
         { label: 'Split by Heading\u2026', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) },
+        { type: 'separator' },
+        { label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) },
       ],
     },
 
