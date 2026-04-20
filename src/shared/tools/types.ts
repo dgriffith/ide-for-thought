@@ -45,6 +45,12 @@ export interface ThinkingToolDef {
   outputNotePrefix?: string;
   slashCommand?: string;
   buildPrompt: (ctx: ToolContext) => string;
+  /**
+   * Tool author's hint at the model that suits this tool best. User-level
+   * overrides (LLMSettings.toolModelOverrides) win over this; the global
+   * default takes over when both are absent.
+   */
+  preferredModel?: string;
 }
 
 /** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
@@ -59,6 +65,7 @@ export interface ThinkingToolInfo {
   outputMode: OutputMode;
   outputNotePrefix?: string;
   slashCommand?: string;
+  preferredModel?: string;
 }
 
 export interface ToolExecutionRequest {
@@ -84,6 +91,12 @@ export interface LLMSettings {
   apiKey: string;
   model: string;
   web?: WebSettings;
+  /**
+   * User-level overrides of each tool's preferred model. Keyed by tool id.
+   * Resolution order for a tool invocation:
+   *   request.modelOverride ?? toolModelOverrides[id] ?? tool.preferredModel ?? model
+   */
+  toolModelOverrides?: Record<string, string>;
 }
 
 export const DEFAULT_WEB_SETTINGS: WebSettings = {

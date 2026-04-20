@@ -18,7 +18,9 @@
     type DestinationMode,
     type RefactorSettings,
   } from '../refactor/settings';
-  import { MODEL_OPTIONS } from '../../../shared/tools/models';
+  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+  import { getAllToolInfos } from '../tools/tool-registry';
+  import type { ThinkingToolInfo } from '../../../shared/tools/types';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -97,6 +99,8 @@
 
   // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
   let loadedLlm: LLMSettings | null = null;
+  let toolModelOverrides = $state<Record<string, string>>({});
+  const allTools: ThinkingToolInfo[] = getAllToolInfos();
 
   onMount(async () => {
     try {
@@ -108,10 +112,18 @@
       webEnabled = web.enabled;
       allowedDomainsText = web.allowedDomains.join('\n');
       blockedDomainsText = web.blockedDomains.join('\n');
+      toolModelOverrides = { ...(s.toolModelOverrides ?? {}) };
     } catch (e) {
       console.error('[settings] failed to load LLM settings:', e);
     }
   });
+
+  function setToolOverride(toolId: string, value: string) {
+    const next = { ...toolModelOverrides };
+    if (value) next[toolId] = value;
+    else delete next[toolId];
+    toolModelOverrides = next;
+  }
 
   function parseDomains(text: string): string[] {
     return text
@@ -147,6 +159,7 @@
         allowedDomains: parseDomains(allowedDomainsText),
         blockedDomains: parseDomains(blockedDomainsText),
       },
+      ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
     };
     try {
       await api.tools.setSettings(next);
@@ -502,6 +515,46 @@
               </button>
             {/if}
           </div>
+          <div class="field">
+            <label>Tool model overrides</label>
+            <p class="hint">
+              Each tool's author may suggest a preferred model. You can override that
+              per tool. Empty override → use the tool's preference; no preference →
+              fall back to the default model above.
+            </p>
+            {#if allTools.length === 0}
+              <p class="hint">No tools registered.</p>
+            {:else}
+              <table class="tool-models">
+                <thead>
+                  <tr>
+                    <th>Tool</th>
+                    <th>Tool preference</th>
+                    <th>Your override</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each allTools as t}
+                    <tr>
+                      <td>{t.name}</td>
+                      <td class="muted">{t.preferredModel ? modelLabel(t.preferredModel) : '—'}</td>
+                      <td>
+                        <select
+                          value={toolModelOverrides[t.id] ?? ''}
+                          onchange={(e) => setToolOverride(t.id, (e.currentTarget as HTMLSelectElement).value)}
+                        >
+                          <option value="">Use tool preference</option>
+                          {#each MODEL_OPTIONS as m}
+                            <option value={m.value}>{m.label}</option>
+                          {/each}
+                        </select>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          </div>
         {/if}
       </section>
     </div>
@@ -745,6 +798,39 @@
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .tool-models {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .tool-models th,
+  .tool-models td {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tool-models th {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .tool-models td.muted {
+    color: var(--text-muted);
+  }
+
+  .tool-models select {
+    padding: 3px 6px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    max-width: 170px;
   }
 
   .api-key-status {
