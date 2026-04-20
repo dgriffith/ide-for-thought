@@ -8,8 +8,9 @@
     indentUnit,
     StreamLanguage,
     syntaxHighlighting,
-    defaultHighlightStyle,
+    HighlightStyle,
   } from '@codemirror/language';
+  import { tags as t } from '@lezer/highlight';
   import { sparql } from '@codemirror/legacy-modes/mode/sparql';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
@@ -50,6 +51,37 @@
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
   }
 
+  // Custom SPARQL palette — Catppuccin Mocha-inspired, with deliberately wide
+  // hue distance so the four things you scan for in a query (keywords, variables,
+  // IRIs/prefixed names, string literals) land on four different points of the
+  // color wheel: purple, yellow, sky, green. Overrides both defaultHighlightStyle
+  // and oneDark's SPARQL-relevant tag bindings.
+  const sparqlHighlight = HighlightStyle.define([
+    // Clause keywords (SELECT, WHERE, PREFIX, FILTER, ORDER BY, …): purple.
+    { tag: t.keyword, color: '#cba6f7', fontWeight: '600' },
+    // Variables (?x, $y): yellow.
+    { tag: [t.variableName, t.labelName], color: '#f9e2af' },
+    // IRIs + prefixed names (<http://…>, minerva:Note) surface as `atom` in
+    // the legacy SPARQL parser; map them to sky blue.
+    { tag: t.atom, color: '#89dceb' },
+    // Built-in functions (str, lang, count, regex, …): a lighter blue to
+    // separate them from the sky-blue IRIs.
+    { tag: [t.standard(t.variableName), t.function(t.variableName)], color: '#89b4fa' },
+    // Quoted literals: green.
+    { tag: t.string, color: '#a6e3a1' },
+    // Numbers: peach (SPARQL mode rarely emits these but included for
+    // completeness in case a number literal shows up).
+    { tag: t.number, color: '#fab387' },
+    // Language tags / directives (@en, @base): teal.
+    { tag: t.meta, color: '#94e2d5' },
+    // Operators (*, +, <, =, !): default text.
+    { tag: t.operator, color: 'inherit' },
+    // Brackets + punctuation: slightly muted so structure recedes.
+    { tag: [t.bracket, t.punctuation], color: '#9399b2' },
+    // Comments: italic grey.
+    { tag: t.comment, color: '#6c7086', fontStyle: 'italic' },
+  ]);
+
   /** Replace the editor contents with `text` without triggering the onQueryChange callback. */
   function setDoc(text: string): void {
     if (!view) return;
@@ -68,10 +100,9 @@
         bracketMatching(),
         indentUnit.of('  '),
         StreamLanguage.define(sparql),
-        // Fallback highlighter for light themes; oneDark brings its own in
-        // dark mode. Without this, the SPARQL parser tokenizes but nothing
-        // paints the tokens.
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        // Custom non-fallback highlighter so keywords / variables / IRIs /
+        // strings each get a distinct color regardless of theme.
+        syntaxHighlighting(sparqlHighlight),
         placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
         themeCompartment.of(cmTheme()),
         EditorView.theme({
