@@ -3,12 +3,7 @@ import path from 'node:path';
 import * as notebaseFs from './fs';
 import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
 import * as graph from '../graph/index';
-
-const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
-
-function isIndexable(relativePath: string): boolean {
-  return INDEXABLE_EXTS.has(path.extname(relativePath));
-}
+import { isIndexable } from './indexable-files';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
@@ -20,7 +15,7 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         results.push(...await listIndexableFiles(rootPath, rel));
-      } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
+      } else if (isIndexable(entry.name)) {
         results.push(rel);
       }
     }

@@ -9,6 +9,7 @@ import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { slugify } from '../../shared/slug';
 import { parseCsv } from '../../shared/csv-parse';
+import { isIndexable } from '../notebase/indexable-files';
 import * as uriHelpers from './uri-helpers';
 
 import * as N3 from 'n3';
@@ -957,11 +958,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
         const rel = path.relative(root, fullPath);
         ensureFolder(rel);
         await walkAndIndex(fullPath, root);
-      } else if (
-        entry.name.endsWith('.md')
-        || entry.name.endsWith('.ttl')
-        || entry.name.endsWith('.csv')
-      ) {
+      } else if (isIndexable(entry.name)) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         await indexNote(relativePath, content);

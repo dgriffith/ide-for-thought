@@ -2,9 +2,9 @@ import { dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
+import { INDEXABLE_EXTS } from './indexable-files';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
-const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({
