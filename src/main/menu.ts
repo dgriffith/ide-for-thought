@@ -325,6 +325,7 @@ export function rebuildMenu(): void {
         { label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) },
         { label: 'Auto-link outbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) },
         { label: 'Auto-link inbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) },
+        { label: 'Decompose Note\u2026', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) },
       ],
     },
 

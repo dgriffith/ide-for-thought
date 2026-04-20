@@ -17,6 +17,8 @@ export const CONFIRM_KEYS = {
   autoTagFailed: 'auto-tag-failed',
   autoLinkNoSuggestions: 'auto-link-no-suggestions',
   autoLinkFailed: 'auto-link-failed',
+  decomposeFailed: 'decompose-failed',
+  decomposeBadProposal: 'decompose-bad-proposal',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -75,6 +77,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Auto-link failed',
     description:
       'Shown when Auto-link errors out or can\u2019t apply any accepted suggestions.',
+  },
+  {
+    key: CONFIRM_KEYS.decomposeFailed,
+    title: 'Decompose Note failed',
+    description:
+      'Shown when Decompose Note errors out (network failure, missing API key, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.decomposeBadProposal,
+    title: 'Decompose Note returned an unusable proposal',
+    description:
+      'Shown when the LLM\u2019s response can\u2019t be parsed into a valid parent + children structure.',
   },
 ];
 

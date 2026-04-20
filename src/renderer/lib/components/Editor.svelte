@@ -55,6 +55,7 @@
     onAutoTag?: () => void;
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
+    onDecompose?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -81,6 +82,7 @@
     onAutoTag,
     onAutoLink,
     onAutoLinkInbound,
+    onDecompose,
     getNotePaths,
   }: Props = $props();
 
@@ -690,7 +692,7 @@
       {/if}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onAutoTag || onAutoLink || onAutoLinkInbound}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
@@ -715,7 +717,7 @@
           {#if onSplitByHeading}
             <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
           {/if}
-          {#if onAutoTag || onAutoLink || onAutoLinkInbound}
+          {#if onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
             {#if onExtractSelection || onSplitHere || onSplitByHeading}
               <div class="separator"></div>
             {/if}
@@ -727,6 +729,9 @@
             {/if}
             {#if onAutoLinkInbound}
               <button onclick={() => handleMenuAction(() => onAutoLinkInbound?.())}>Auto-link inbound&hellip;</button>
+            {/if}
+            {#if onDecompose}
+              <button onclick={() => handleMenuAction(() => onDecompose?.())}>Decompose Note&hellip;</button>
             {/if}
           {/if}
         </div>
