@@ -469,7 +469,10 @@
     if (!review) return;
     autoLinkReview = null;
     try {
-      const { applied, skipped } = await api.refactor.autoLinkApply(review.relativePath, accepted);
+      // Snapshot the suggestions before IPC — they came out of $state, which
+      // wraps them in Svelte 5 proxies that structured-clone can't serialize.
+      const plain = $state.snapshot(accepted) as AutoLinkSuggestion[];
+      const { applied, skipped } = await api.refactor.autoLinkApply(review.relativePath, plain);
       if (applied.length === 0 && skipped.length > 0) {
         await showConfirm(
           `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in the note. Try again.`,
