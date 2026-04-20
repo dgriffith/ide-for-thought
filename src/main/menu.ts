@@ -323,6 +323,7 @@ export function rebuildMenu(): void {
         { label: 'Split by Heading\u2026', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) },
         { type: 'separator' },
         { label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) },
+        { label: 'Auto-link\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) },
       ],
     },
 

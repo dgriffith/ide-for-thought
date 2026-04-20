@@ -53,6 +53,7 @@
     onRename?: () => void;
     onMove?: () => void;
     onAutoTag?: () => void;
+    onAutoLink?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -77,6 +78,7 @@
     onRename,
     onMove,
     onAutoTag,
+    onAutoLink,
     getNotePaths,
   }: Props = $props();
 
@@ -686,7 +688,7 @@
       {/if}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onAutoTag}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onAutoTag || onAutoLink}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
@@ -711,11 +713,16 @@
           {#if onSplitByHeading}
             <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
           {/if}
-          {#if onAutoTag}
+          {#if onAutoTag || onAutoLink}
             {#if onExtractSelection || onSplitHere || onSplitByHeading}
               <div class="separator"></div>
             {/if}
-            <button onclick={() => handleMenuAction(() => onAutoTag?.())}>Auto-tag</button>
+            {#if onAutoTag}
+              <button onclick={() => handleMenuAction(() => onAutoTag?.())}>Auto-tag</button>
+            {/if}
+            {#if onAutoLink}
+              <button onclick={() => handleMenuAction(() => onAutoLink?.())}>Auto-link&hellip;</button>
+            {/if}
           {/if}
         </div>
       </div>

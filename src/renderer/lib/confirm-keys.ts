@@ -15,6 +15,8 @@ export const CONFIRM_KEYS = {
   moveCollision: 'move-collision',
   autoTagNoSuggestions: 'auto-tag-no-suggestions',
   autoTagFailed: 'auto-tag-failed',
+  autoLinkNoSuggestions: 'auto-link-no-suggestions',
+  autoLinkFailed: 'auto-link-failed',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -61,6 +63,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Auto-tag failed',
     description:
       'Shown when Auto-tag errors out (network failure, missing API key, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.autoLinkNoSuggestions,
+    title: 'Auto-link returned no suggestions',
+    description:
+      'Shown when the LLM produced no link candidates for the note.',
+  },
+  {
+    key: CONFIRM_KEYS.autoLinkFailed,
+    title: 'Auto-link failed',
+    description:
+      'Shown when Auto-link errors out or can\u2019t apply any accepted suggestions.',
   },
 ];
 

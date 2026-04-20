@@ -15,6 +15,8 @@ import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool, prepareConversationTool } from './tools/executor';
 import { runAutoTag } from './llm/auto-tag';
+import { suggestLinksTo, applyAutoLinkToSuggestions } from './llm/auto-link';
+import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -568,6 +570,35 @@ export function registerIpcHandlers(): void {
     broadcastRewritten(rootPath, [relativePath]);
     return { added: plan.added };
   });
+
+  ipcMain.handle(Channels.REFACTOR_AUTO_LINK_SUGGEST, async (e, activeRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return suggestLinksTo(rootPath, activeRelPath);
+  });
+
+  ipcMain.handle(
+    Channels.REFACTOR_AUTO_LINK_APPLY,
+    async (e, activeRelPath: string, accepted: AutoLinkSuggestion[]) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+
+      const { content, applied, skipped } = await applyAutoLinkToSuggestions(
+        rootPath,
+        activeRelPath,
+        accepted,
+      );
+      if (applied.length === 0) return { applied, skipped };
+
+      markPathHandled(activeRelPath);
+      await notebaseFs.writeFile(rootPath, activeRelPath, content);
+      await graph.indexNote(activeRelPath, content);
+      search.indexNote(activeRelPath, content);
+      await persistIndexes();
+      broadcastRewritten(rootPath, [activeRelPath]);
+      return { applied, skipped };
+    },
+  );
 
   // Proposals
   ipcMain.handle(Channels.PROPOSAL_LIST, (_e, status?: string) => approval.listProposals(status));

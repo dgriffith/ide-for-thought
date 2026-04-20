@@ -18,6 +18,8 @@
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
+  import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
+  import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
@@ -54,6 +56,15 @@
   /** When set, the next ConversationDialog mount auto-fires this message. Cleared after each open. */
   let pendingAutoMessage = $state<string | undefined>(undefined);
   let showSettings = $state(false);
+
+  /** Pending Auto-link suggestions to review. Non-null means the AutoLinkDialog is shown. */
+  let autoLinkReview = $state<{
+    relativePath: string;
+    suggestions: AutoLinkSuggestion[];
+    activeBody: string;
+  } | null>(null);
+  /** Whether the Auto-link suggest request is currently in flight. Keeps the menu from re-triggering. */
+  let autoLinkBusy = $state(false);
   let inspectionCount = $state(0);
 
   async function refreshInspectionCount() {
@@ -428,6 +439,50 @@
     await notebase.refresh();
   }
 
+  async function handleAutoLink(relativePath: string) {
+    if (!notebase.meta || autoLinkBusy) return;
+    autoLinkBusy = true;
+    try {
+      const { suggestions } = await api.refactor.autoLinkSuggest(relativePath);
+      if (suggestions.length === 0) {
+        await showConfirm(
+          'Auto-link found no link candidates in this note.',
+          CONFIRM_KEYS.autoLinkNoSuggestions,
+          'OK',
+        );
+        return;
+      }
+      // Snapshot the current body (sans frontmatter) for context snippets in the dialog.
+      const raw = await api.notebase.readFile(relativePath);
+      const activeBody = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
+      autoLinkReview = { relativePath, suggestions, activeBody };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
+    } finally {
+      autoLinkBusy = false;
+    }
+  }
+
+  async function handleAutoLinkApply(accepted: AutoLinkSuggestion[]) {
+    const review = autoLinkReview;
+    if (!review) return;
+    autoLinkReview = null;
+    try {
+      const { applied, skipped } = await api.refactor.autoLinkApply(review.relativePath, accepted);
+      if (applied.length === 0 && skipped.length > 0) {
+        await showConfirm(
+          `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in the note. Try again.`,
+          CONFIRM_KEYS.autoLinkFailed,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
+    }
+  }
+
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -751,6 +806,7 @@
     api.menu.onRefactorSplitHere(() => handleSplitHere());
     api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
     api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); });
+    api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); });
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
@@ -911,6 +967,7 @@
                     onRename={() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); }}
                     onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
                     onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
+                    onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
@@ -1042,6 +1099,14 @@
       confirmLabel={confirmDialog.confirmLabel}
       onConfirm={handleConfirmOk}
       onCancel={handleConfirmCancel}
+    />
+  {/if}
+  {#if autoLinkReview}
+    <AutoLinkDialog
+      suggestions={autoLinkReview.suggestions}
+      activeNoteBody={autoLinkReview.activeBody}
+      onApply={handleAutoLinkApply}
+      onCancel={() => { autoLinkReview = null; }}
     />
   {/if}
   {#if showSettings}

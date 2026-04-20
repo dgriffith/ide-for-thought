@@ -121,6 +121,17 @@ export interface TabsApi {
 
 export interface RefactorApi {
   autoTag(relativePath: string): Promise<{ added: string[] }>;
+  autoLinkSuggest(relativePath: string): Promise<{
+    suggestions: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
+    candidateCount: number;
+  }>;
+  autoLinkApply(
+    relativePath: string,
+    accepted: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[],
+  ): Promise<{
+    applied: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
+    skipped: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
+  }>;
 }
 
 export interface ToolsApi {
@@ -169,6 +180,7 @@ export interface MenuApi {
   onRefactorSplitHere(cb: () => void): void;
   onRefactorSplitByHeading(cb: () => void): void;
   onRefactorAutoTag(cb: () => void): void;
+  onRefactorAutoLink(cb: () => void): void;
 }
 
 export interface IdeApi {
