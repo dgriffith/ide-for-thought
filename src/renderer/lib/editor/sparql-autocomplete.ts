@@ -51,8 +51,8 @@ export function createSparqlCompletionSource(
       } as Completion));
       return {
         from: phase.from,
-        options: vars,
-        validFor: /^\w*$/,
+        options: prefixMatchSort(vars, phase.prefix),
+        filter: false,
       };
     }
 
@@ -73,8 +73,8 @@ export function createSparqlCompletionSource(
       for (const c of schema.classes) pushLocal(c, 'class');
       return {
         from: phase.localFrom,
-        options,
-        validFor: /^[\w-]*$/,
+        options: prefixMatchSort(options, phase.local),
+        filter: false,
       };
     }
 
@@ -120,8 +120,34 @@ export function createSparqlCompletionSource(
 
     return {
       from: phase.from,
-      options,
-      validFor: /^[\w:-]*$/,
+      options: prefixMatchSort(options, phase.prefix),
+      filter: false,
     };
   };
+}
+
+/**
+ * Keep only options whose label starts with `input` (case-insensitive),
+ * then sort by label length + explicit boost. Returning these with
+ * `filter: false` on the CompletionResult bypasses CodeMirror\u2019s built-in
+ * fuzzy subsequence matcher \u2014 without this, typing "SEL" surfaces
+ * anything containing s/e/l in order (`csvw:cell`, \u2026), which reads as
+ * spam for a strict-prefix feel.
+ */
+function prefixMatchSort(options: Completion[], input: string): Completion[] {
+  if (input === '') {
+    return [...options].sort((a, b) => (b.boost ?? 0) - (a.boost ?? 0) || a.label.localeCompare(b.label));
+  }
+  const needle = input.toLowerCase();
+  return options
+    .filter((o) => o.label.toLowerCase().startsWith(needle))
+    .sort((a, b) => {
+      // Prefer boosted entries (keywords, prefix aliases) at equal label
+      // length so `SELECT` beats a random predicate starting with `sel…`.
+      const boostDiff = (b.boost ?? 0) - (a.boost ?? 0);
+      if (boostDiff !== 0) return boostDiff;
+      const lenDiff = a.label.length - b.label.length;
+      if (lenDiff !== 0) return lenDiff;
+      return a.label.localeCompare(b.label);
+    });
 }
