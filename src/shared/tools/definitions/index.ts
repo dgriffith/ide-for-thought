@@ -8,3 +8,9 @@ import './planning/murphyjitsu';
 
 // Learning tools
 import './learning/summarize';
+import './learning/explain-like-im';
+import './learning/give-examples';
+import './learning/define-terms';
+import './learning/find-prerequisites';
+import './learning/quiz-me';
+import './learning/find-counterexamples';
