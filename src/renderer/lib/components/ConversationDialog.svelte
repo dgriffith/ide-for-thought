@@ -274,7 +274,7 @@
           title="Model used for this conversation"
         >
           <option value="">{defaultModel ? `Default (${modelLabel(defaultModel)})` : 'Default'}</option>
-          {#each MODEL_OPTIONS as m}
+          {#each MODEL_OPTIONS.filter((m) => m.value !== defaultModel) as m}
             <option value={m.value}>{m.label}</option>
           {/each}
         </select>
