@@ -19,6 +19,9 @@ export const CONFIRM_KEYS = {
   autoLinkFailed: 'auto-link-failed',
   decomposeFailed: 'decompose-failed',
   decomposeBadProposal: 'decompose-bad-proposal',
+  formatFailed: 'format-failed',
+  formatComplete: 'format-complete',
+  formatAllConfirm: 'format-all-confirm',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -89,6 +92,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Decompose Note returned an unusable proposal',
     description:
       'Shown when the LLM\u2019s response can\u2019t be parsed into a valid parent + children structure.',
+  },
+  {
+    key: CONFIRM_KEYS.formatFailed,
+    title: 'Format failed',
+    description:
+      'Shown when the formatter errors out during a Format command.',
+  },
+  {
+    key: CONFIRM_KEYS.formatComplete,
+    title: 'Format batch complete',
+    description:
+      'Summary dialog after Format Folder / Format All Notes finishes (counts changed + scanned files).',
+  },
+  {
+    key: CONFIRM_KEYS.formatAllConfirm,
+    title: 'Confirm Format All Notes',
+    description:
+      'Prompt before running the formatter across the whole thoughtbase.',
   },
 ];
 

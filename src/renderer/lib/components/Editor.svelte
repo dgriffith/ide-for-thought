@@ -56,6 +56,7 @@
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
     onDecompose?: () => void;
+    onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
   }
@@ -83,6 +84,7 @@
     onAutoLink,
     onAutoLinkInbound,
     onDecompose,
+    onFormatCurrentNote,
     getNotePaths,
   }: Props = $props();
 
@@ -733,6 +735,10 @@
             {#if onDecompose}
               <button onclick={() => handleMenuAction(() => onDecompose?.())}>Decompose Note&hellip;</button>
             {/if}
+          {/if}
+          {#if onFormatCurrentNote}
+            <div class="separator"></div>
+            <button onclick={() => handleMenuAction(() => onFormatCurrentNote?.())}>Format Note</button>
           {/if}
         </div>
       </div>

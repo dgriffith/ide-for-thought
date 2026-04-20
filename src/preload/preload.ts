@@ -155,6 +155,14 @@ contextBridge.exposeInMainWorld('api', {
     decomposeSuggest: (relativePath: string, hints?: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
+  formatter: {
+    formatContent: (content: string, settings: unknown) =>
+      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings),
+    formatFile: (relativePath: string, settings: unknown) =>
+      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FILE, relativePath, settings),
+    formatFolder: (relDir: string, settings: unknown) =>
+      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FOLDER, relDir, settings),
+  },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
     prepareConversation: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
@@ -279,6 +287,15 @@ contextBridge.exposeInMainWorld('api', {
     },
     onRefactorDecompose: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_DECOMPOSE, () => cb());
+    },
+    onFormatCurrentNote: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FORMAT_CURRENT_NOTE, () => cb());
+    },
+    onFormatFolder: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FORMAT_FOLDER, () => cb());
+    },
+    onFormatAll: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FORMAT_ALL, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));
