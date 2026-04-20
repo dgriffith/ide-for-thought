@@ -19,6 +19,7 @@
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
   import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
+  import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
@@ -65,6 +66,8 @@
   } | null>(null);
   /** Whether the Auto-link suggest request is currently in flight. Keeps the menu from re-triggering. */
   let autoLinkBusy = $state(false);
+  /** When set, renders a modal spinner overlay with this label. */
+  let busyLabel = $state<string | null>(null);
   let inspectionCount = $state(0);
 
   async function refreshInspectionCount() {
@@ -442,6 +445,7 @@
   async function handleAutoLink(relativePath: string) {
     if (!notebase.meta || autoLinkBusy) return;
     autoLinkBusy = true;
+    busyLabel = 'Auto-linking\u2026';
     try {
       const { suggestions } = await api.refactor.autoLinkSuggest(relativePath);
       if (suggestions.length === 0) {
@@ -460,6 +464,7 @@
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
     } finally {
+      busyLabel = null;
       autoLinkBusy = false;
     }
   }
@@ -468,6 +473,7 @@
     const review = autoLinkReview;
     if (!review) return;
     autoLinkReview = null;
+    busyLabel = 'Applying links\u2026';
     try {
       // Snapshot the suggestions before IPC — they came out of $state, which
       // wraps them in Svelte 5 proxies that structured-clone can't serialize.
@@ -483,11 +489,14 @@
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
+    } finally {
+      busyLabel = null;
     }
   }
 
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
+    busyLabel = 'Auto-tagging\u2026';
     try {
       const result = await api.refactor.autoTag(relativePath);
       if (result.added.length === 0) {
@@ -502,6 +511,8 @@
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
+    } finally {
+      busyLabel = null;
     }
   }
 
@@ -1111,6 +1122,9 @@
       onApply={handleAutoLinkApply}
       onCancel={() => { autoLinkReview = null; }}
     />
+  {/if}
+  {#if busyLabel}
+    <BusyOverlay label={busyLabel} />
   {/if}
   {#if showSettings}
     <SettingsDialog
