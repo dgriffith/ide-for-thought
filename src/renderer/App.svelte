@@ -20,9 +20,12 @@
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
   import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
   import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
+  import DecomposeDialog from './lib/components/DecomposeDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
+  import type { DecomposeProposal } from '../shared/refactor/decompose';
+  import { planDecompose } from './lib/refactor/decompose-plan';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
@@ -75,6 +78,12 @@
   let autoLinkInboundReview = $state<{
     relativePath: string;
     suggestions: AutoLinkInboundSuggestion[];
+  } | null>(null);
+
+  /** Active Decompose Note preview. Non-null = dialog is shown. */
+  let decomposeReview = $state<{
+    relativePath: string;
+    proposal: DecomposeProposal;
   } | null>(null);
   let inspectionCount = $state(0);
 
@@ -561,6 +570,86 @@
     }
   }
 
+  async function handleDecompose(relativePath: string) {
+    if (!notebase.meta) return;
+    try {
+      const { proposal, error } = await withBusy('Proposing a decomposition\u2026', () =>
+        api.refactor.decomposeSuggest(relativePath),
+      );
+      if (!proposal) {
+        await showConfirm(
+          `The LLM returned an unusable decomposition${error ? ` (${error})` : ''}. Try again, or shorten the note first.`,
+          CONFIRM_KEYS.decomposeBadProposal,
+          'OK',
+        );
+        return;
+      }
+      decomposeReview = { relativePath, proposal };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Decompose failed: ${msg}`, CONFIRM_KEYS.decomposeFailed, 'OK');
+    }
+  }
+
+  async function handleDecomposeRegenerate() {
+    const review = decomposeReview;
+    if (!review) return;
+    try {
+      const { proposal, error } = await withBusy('Regenerating decomposition\u2026', () =>
+        api.refactor.decomposeSuggest(review.relativePath),
+      );
+      if (!proposal) {
+        await showConfirm(
+          `The LLM returned an unusable decomposition${error ? ` (${error})` : ''}. Keeping the previous proposal.`,
+          CONFIRM_KEYS.decomposeBadProposal,
+          'OK',
+        );
+        return;
+      }
+      decomposeReview = { relativePath: review.relativePath, proposal };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Decompose failed: ${msg}`, CONFIRM_KEYS.decomposeFailed, 'OK');
+    }
+  }
+
+  async function handleDecomposeApply(edited: DecomposeProposal, include: boolean[]) {
+    const review = decomposeReview;
+    if (!review) return;
+    const tab = editor.activeNoteTab;
+    if (!tab || tab.relativePath !== review.relativePath) {
+      decomposeReview = null;
+      return;
+    }
+
+    decomposeReview = null;
+    editor.flushAutoSave();
+
+    // Snapshot across the Svelte 5 reactive boundary before use — the edited
+    // proposal / include array came out of $state inside the dialog.
+    const plainProposal = $state.snapshot(edited) as DecomposeProposal;
+    const plainInclude = $state.snapshot(include) as boolean[];
+
+    const plan = planDecompose({
+      sourceRelativePath: tab.relativePath,
+      sourceContent: tab.content,
+      proposal: plainProposal,
+      include: plainInclude,
+      today: todayDateString(),
+      settings: getRefactorSettings(),
+    });
+
+    if (plan.newNotes.length === 0) return;
+
+    for (const note of plan.newNotes) {
+      await api.notebase.writeFile(note.relativePath, note.content);
+    }
+    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
+    await editor.reloadTabFromDisk(tab.relativePath);
+    await notebase.refresh();
+    sidebar?.refreshTags();
+  }
+
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -888,6 +977,7 @@
     api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); });
     api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); });
     api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); });
+    api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); });
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
@@ -1050,6 +1140,7 @@
                     onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
                     onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); }}
+                    onDecompose={() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
@@ -1197,6 +1288,14 @@
       activeStem={autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
       onApply={handleAutoLinkInboundApply}
       onCancel={() => { autoLinkInboundReview = null; }}
+    />
+  {/if}
+  {#if decomposeReview}
+    <DecomposeDialog
+      proposal={decomposeReview.proposal}
+      onApply={handleDecomposeApply}
+      onRegenerate={handleDecomposeRegenerate}
+      onCancel={() => { decomposeReview = null; }}
     />
   {/if}
   {#if busyLabel}

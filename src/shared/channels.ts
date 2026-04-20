@@ -88,6 +88,7 @@ export const Channels = {
   MENU_REFACTOR_AUTOTAG: 'menu:refactor:autotag',
   MENU_REFACTOR_AUTOLINK: 'menu:refactor:autolink',
   MENU_REFACTOR_AUTOLINK_INBOUND: 'menu:refactor:autolinkInbound',
+  MENU_REFACTOR_DECOMPOSE: 'menu:refactor:decompose',
 
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
@@ -99,6 +100,8 @@ export const Channels = {
   REFACTOR_AUTO_LINK_INBOUND_SUGGEST: 'refactor:autoLinkInboundSuggest',
   /** Apply accepted inbound Auto-link suggestions (writes to multiple source notes). */
   REFACTOR_AUTO_LINK_INBOUND_APPLY: 'refactor:autoLinkInboundApply',
+  /** LLM-driven decomposition of a note into a parent index + children (#178). */
+  REFACTOR_DECOMPOSE_SUGGEST: 'refactor:decomposeSuggest',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',

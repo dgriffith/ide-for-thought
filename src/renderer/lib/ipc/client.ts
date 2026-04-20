@@ -144,6 +144,13 @@ export interface RefactorApi {
     skipped: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
     touchedPaths: string[];
   }>;
+  decomposeSuggest(
+    relativePath: string,
+    hints?: { normalizeHeadings?: boolean; transcludeByDefault?: boolean },
+  ): Promise<{
+    proposal: import('../../../shared/refactor/decompose').DecomposeProposal | null;
+    error?: string;
+  }>;
 }
 
 export interface ToolsApi {
@@ -194,6 +201,7 @@ export interface MenuApi {
   onRefactorAutoTag(cb: () => void): void;
   onRefactorAutoLink(cb: () => void): void;
   onRefactorAutoLinkInbound(cb: () => void): void;
+  onRefactorDecompose(cb: () => void): void;
 }
 
 export interface IdeApi {

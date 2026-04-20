@@ -21,6 +21,7 @@ import {
   suggestLinksInbound,
   applyInboundSuggestions,
 } from './llm/auto-link';
+import { suggestDecomposition, type DecomposeHints } from './llm/decompose';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
 import * as healthChecks from './graph/health-checks';
@@ -611,6 +612,15 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     return suggestLinksInbound(rootPath, activeRelPath);
   });
+
+  ipcMain.handle(
+    Channels.REFACTOR_DECOMPOSE_SUGGEST,
+    async (e, activeRelPath: string, hints?: DecomposeHints) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      return suggestDecomposition(rootPath, activeRelPath, hints ?? {});
+    },
+  );
 
   ipcMain.handle(
     Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY,
