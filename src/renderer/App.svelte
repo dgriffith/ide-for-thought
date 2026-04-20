@@ -46,6 +46,7 @@
   } from './lib/refactor/extract';
   import { planSplitByHeading } from './lib/refactor/split-by-heading';
   import { getRefactorSettings } from './lib/refactor/settings';
+  import { getFormatSettings } from './lib/formatter/settings';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -572,6 +573,69 @@
     }
   }
 
+  async function handleFormatCurrentNote() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) return;
+    const settings = getFormatSettings();
+    try {
+      const result = await withBusy('Formatting\u2026', () =>
+        api.formatter.formatContent(tab.content, settings),
+      );
+      if (result !== tab.content) {
+        editor.setContent(result);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
+    }
+  }
+
+  async function handleFormatFolder() {
+    if (!notebase.meta) return;
+    const raw = await showPrompt('Format every .md under folder (leave empty for root):');
+    if (raw === null) return;
+    const relDir = raw.trim().replace(/^\/+|\/+$/g, '');
+    const settings = getFormatSettings();
+    try {
+      const summary = await withBusy('Formatting folder\u2026', () =>
+        api.formatter.formatFolder(relDir, settings),
+      );
+      await showConfirm(
+        `Formatting complete. Changed ${summary.changedPaths.length} of ${summary.totalScanned} file${summary.totalScanned === 1 ? '' : 's'}.`,
+        CONFIRM_KEYS.formatComplete,
+        'OK',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
+    }
+  }
+
+  async function handleFormatAll() {
+    if (!notebase.meta) return;
+    const ok = await showConfirm(
+      'Format every note in the thoughtbase? Rewrites are applied in-place through the standard write pipeline.',
+      CONFIRM_KEYS.formatAllConfirm,
+      'Format all',
+    );
+    if (!ok) return;
+    const settings = getFormatSettings();
+    try {
+      const summary = await withBusy('Formatting all notes\u2026', () =>
+        api.formatter.formatFolder('', settings),
+      );
+      await showConfirm(
+        `Formatting complete. Changed ${summary.changedPaths.length} of ${summary.totalScanned} file${summary.totalScanned === 1 ? '' : 's'}.`,
+        CONFIRM_KEYS.formatComplete,
+        'OK',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
+    }
+  }
+
   async function handleDecompose(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -981,6 +1045,11 @@
     api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); });
     api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); });
     api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); });
+
+    // Format menu (issue #153)
+    api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());
+    api.menu.onFormatFolder(() => handleFormatFolder());
+    api.menu.onFormatAll(() => handleFormatAll());
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a

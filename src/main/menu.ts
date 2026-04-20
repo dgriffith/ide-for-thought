@@ -329,6 +329,16 @@ export function rebuildMenu(): void {
       ],
     },
 
+    // Format — deterministic markdown normalizations (issue #152 epic).
+    {
+      label: 'Format',
+      submenu: [
+        { label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) },
+        { label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) },
+        { label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) },
+      ],
+    },
+
     // Tools for Thought — dynamic menus from tool registry
     ...CATEGORIES
       .filter(cat => getToolsByCategory(cat.id).length > 0)

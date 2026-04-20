@@ -23,6 +23,12 @@ import {
   applyInboundSuggestions,
 } from './llm/auto-link';
 import { suggestDecomposition, type DecomposeHints } from './llm/decompose';
+import {
+  formatNoteContent,
+  formatFile as formatFileOnDisk,
+  formatFolder as formatFolderOnDisk,
+} from './formatter/orchestrator';
+import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
 import * as healthChecks from './graph/health-checks';
@@ -616,6 +622,42 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
       return suggestDecomposition(rootPath, activeRelPath, hints ?? {});
+    },
+  );
+
+  // Formatter (issue #153)
+  ipcMain.handle(
+    Channels.FORMATTER_FORMAT_CONTENT,
+    (_e, content: string, settings: FormatSettings) => formatNoteContent(content, settings),
+  );
+
+  ipcMain.handle(
+    Channels.FORMATTER_FORMAT_FILE,
+    async (e, relativePath: string, settings: FormatSettings) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const result = await formatFileOnDisk(rootPath, relativePath, settings);
+      if (result.changed) {
+        markPathHandled(relativePath);
+        await persistIndexes();
+        broadcastRewritten(rootPath, [relativePath]);
+      }
+      return result;
+    },
+  );
+
+  ipcMain.handle(
+    Channels.FORMATTER_FORMAT_FOLDER,
+    async (e, relDir: string, settings: FormatSettings) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const summary = await formatFolderOnDisk(rootPath, relDir ?? '', settings);
+      if (summary.changedPaths.length > 0) {
+        for (const p of summary.changedPaths) markPathHandled(p);
+        await persistIndexes();
+        broadcastRewritten(rootPath, summary.changedPaths);
+      }
+      return summary;
     },
   );
 

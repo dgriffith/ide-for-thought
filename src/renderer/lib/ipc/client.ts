@@ -158,6 +158,21 @@ export interface RefactorApi {
   }>;
 }
 
+export interface FormatterApi {
+  formatContent(
+    content: string,
+    settings: import('../../../shared/formatter/engine').FormatSettings,
+  ): Promise<string>;
+  formatFile(
+    relativePath: string,
+    settings: import('../../../shared/formatter/engine').FormatSettings,
+  ): Promise<import('../../../shared/formatter/types').FormatFileResult>;
+  formatFolder(
+    relDir: string,
+    settings: import('../../../shared/formatter/engine').FormatSettings,
+  ): Promise<{ changedPaths: string[]; totalScanned: number }>;
+}
+
 export interface ToolsApi {
   execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
   prepareConversation(request: ToolExecutionRequest): Promise<ConversationToolPayload>;
@@ -207,6 +222,9 @@ export interface MenuApi {
   onRefactorAutoLink(cb: () => void): void;
   onRefactorAutoLinkInbound(cb: () => void): void;
   onRefactorDecompose(cb: () => void): void;
+  onFormatCurrentNote(cb: () => void): void;
+  onFormatFolder(cb: () => void): void;
+  onFormatAll(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -225,6 +243,7 @@ export interface IdeApi {
   tabs: TabsApi;
   tools: ToolsApi;
   refactor: RefactorApi;
+  formatter: FormatterApi;
   menu: MenuApi;
 }
 

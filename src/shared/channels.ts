@@ -92,6 +92,11 @@ export const Channels = {
   MENU_REFACTOR_AUTOLINK_INBOUND: 'menu:refactor:autolinkInbound',
   MENU_REFACTOR_DECOMPOSE: 'menu:refactor:decompose',
 
+  // Formatter menu (issue #153)
+  MENU_FORMAT_CURRENT_NOTE: 'menu:format:currentNote',
+  MENU_FORMAT_FOLDER: 'menu:format:folder',
+  MENU_FORMAT_ALL: 'menu:format:all',
+
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
   /** LLM-suggested outbound wiki-links for a note (#175). */
@@ -104,6 +109,13 @@ export const Channels = {
   REFACTOR_AUTO_LINK_INBOUND_APPLY: 'refactor:autoLinkInboundApply',
   /** LLM-driven decomposition of a note into a parent index + children (#178). */
   REFACTOR_DECOMPOSE_SUGGEST: 'refactor:decomposeSuggest',
+
+  /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
+  FORMATTER_FORMAT_FILE: 'formatter:formatFile',
+  /** Format every .md under a relative folder (empty string = whole thoughtbase). */
+  FORMATTER_FORMAT_FOLDER: 'formatter:formatFolder',
+  /** Pure: format a content string and return the result (used for the active note's editor buffer). */
+  FORMATTER_FORMAT_CONTENT: 'formatter:formatContent',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
