@@ -67,6 +67,26 @@ describe('buildConversationPayload (issue #179)', () => {
     expect(payload.model).toBeUndefined();
   });
 
+  it('omits model when the resolved pin equals the global default (avoids duplicate picker option)', () => {
+    const tool = makeTool({ preferredModel: 'claude-sonnet-4-6' });
+    const payload = buildConversationPayload(
+      tool,
+      { model: 'claude-sonnet-4-6' },
+      { context: {} },
+    );
+    expect(payload.model).toBeUndefined();
+  });
+
+  it('keeps the pin when the resolved model differs from the global default', () => {
+    const tool = makeTool({ preferredModel: 'claude-opus-4-7' });
+    const payload = buildConversationPayload(
+      tool,
+      { model: 'claude-sonnet-4-6' },
+      { context: {} },
+    );
+    expect(payload.model).toBe('claude-opus-4-7');
+  });
+
   it('surfaces the tool author web hint (defaults to false)', () => {
     expect(buildConversationPayload(makeTool(), {}, { context: {} }).webEnabled).toBe(false);
     expect(
