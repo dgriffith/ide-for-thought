@@ -46,41 +46,53 @@
 
   // Compartments for reconfigurable extensions.
   const themeCompartment = new Compartment();
+  const highlightCompartment = new Compartment();
 
-  function cmTheme(): any {
-    return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
+  function isDark(): boolean {
+    return getEffectiveTheme(getThemeMode()) === 'dark';
   }
 
-  // Custom SPARQL palette — Catppuccin Mocha-inspired, with deliberately wide
-  // hue distance so the four things you scan for in a query (keywords, variables,
-  // IRIs/prefixed names, string literals) land on four different points of the
-  // color wheel: purple, yellow, sky, green. Overrides both defaultHighlightStyle
-  // and oneDark's SPARQL-relevant tag bindings.
-  const sparqlHighlight = HighlightStyle.define([
-    // Clause keywords (SELECT, WHERE, PREFIX, FILTER, ORDER BY, …): purple.
-    { tag: t.keyword, color: '#cba6f7', fontWeight: '600' },
-    // Variables (?x, $y): yellow.
-    { tag: [t.variableName, t.labelName], color: '#f9e2af' },
-    // IRIs + prefixed names (<http://…>, minerva:Note) surface as `atom` in
-    // the legacy SPARQL parser; map them to sky blue.
-    { tag: t.atom, color: '#89dceb' },
-    // Built-in functions (str, lang, count, regex, …): a lighter blue to
-    // separate them from the sky-blue IRIs.
-    { tag: [t.standard(t.variableName), t.function(t.variableName)], color: '#89b4fa' },
-    // Quoted literals: green.
-    { tag: t.string, color: '#a6e3a1' },
-    // Numbers: peach (SPARQL mode rarely emits these but included for
-    // completeness in case a number literal shows up).
-    { tag: t.number, color: '#fab387' },
-    // Language tags / directives (@en, @base): teal.
-    { tag: t.meta, color: '#94e2d5' },
-    // Operators (*, +, <, =, !): default text.
+  function cmTheme(): any {
+    return isDark() ? oneDark : [];
+  }
+
+  // Custom SPARQL palette — Catppuccin-inspired, with deliberately wide hue
+  // distance so the four things you scan for in a query (keywords, variables,
+  // IRIs/prefixed names, string literals) land on four different points of
+  // the color wheel. Two variants so contrast holds on both backgrounds.
+
+  // Mocha (dark): saturated pastels that read on a dark editor.
+  const sparqlHighlightDark = HighlightStyle.define([
+    { tag: t.keyword, color: '#cba6f7', fontWeight: '600' },                                  // purple
+    { tag: [t.variableName, t.labelName], color: '#f9e2af' },                                 // yellow
+    { tag: t.atom, color: '#89dceb' },                                                        // sky
+    { tag: [t.standard(t.variableName), t.function(t.variableName)], color: '#89b4fa' },     // blue
+    { tag: t.string, color: '#a6e3a1' },                                                      // green
+    { tag: t.number, color: '#fab387' },                                                      // peach
+    { tag: t.meta, color: '#94e2d5' },                                                        // teal
     { tag: t.operator, color: 'inherit' },
-    // Brackets + punctuation: slightly muted so structure recedes.
     { tag: [t.bracket, t.punctuation], color: '#9399b2' },
-    // Comments: italic grey.
     { tag: t.comment, color: '#6c7086', fontStyle: 'italic' },
   ]);
+
+  // Latte (light): darker, more saturated hues so they read on white. Yellow
+  // is replaced with maroon/red for variables — yellow-on-white is unreadable.
+  const sparqlHighlightLight = HighlightStyle.define([
+    { tag: t.keyword, color: '#8839ef', fontWeight: '600' },                                  // mauve
+    { tag: [t.variableName, t.labelName], color: '#c92f5a' },                                 // deep rose
+    { tag: t.atom, color: '#0370a1' },                                                        // deep sky
+    { tag: [t.standard(t.variableName), t.function(t.variableName)], color: '#1e66f5' },     // blue
+    { tag: t.string, color: '#2d7d1f' },                                                      // deep green
+    { tag: t.number, color: '#d13f00' },                                                      // burnt orange
+    { tag: t.meta, color: '#117276' },                                                        // deep teal
+    { tag: t.operator, color: 'inherit' },
+    { tag: [t.bracket, t.punctuation], color: '#7a7f91' },
+    { tag: t.comment, color: '#6c6f85', fontStyle: 'italic' },
+  ]);
+
+  function cmHighlight(): any {
+    return syntaxHighlighting(isDark() ? sparqlHighlightDark : sparqlHighlightLight);
+  }
 
   /** Replace the editor contents with `text` without triggering the onQueryChange callback. */
   function setDoc(text: string): void {
@@ -100,9 +112,10 @@
         bracketMatching(),
         indentUnit.of('  '),
         StreamLanguage.define(sparql),
-        // Custom non-fallback highlighter so keywords / variables / IRIs /
-        // strings each get a distinct color regardless of theme.
-        syntaxHighlighting(sparqlHighlight),
+        // Custom highlighter \u2014 dark vs light palette swapped via compartment
+        // whenever the theme changes. Non-fallback so it overrides oneDark's
+        // own mappings in dark mode.
+        highlightCompartment.of(cmHighlight()),
         placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
         themeCompartment.of(cmTheme()),
         EditorView.theme({
@@ -155,7 +168,12 @@
   });
 
   export function updateTheme(): void {
-    view?.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
+    view?.dispatch({
+      effects: [
+        themeCompartment.reconfigure(cmTheme()),
+        highlightCompartment.reconfigure(cmHighlight()),
+      ],
+    });
   }
 
   function startDrag(e: MouseEvent) {
