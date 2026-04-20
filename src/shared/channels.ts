@@ -112,6 +112,7 @@ export const Channels = {
   CONVERSATION_CANCEL: 'conversation:cancel',
   CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
   CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
+  CONVERSATION_SET_MODEL: 'conversation:setModel',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
   INSPECTIONS_LIST: 'inspections:list',
   INSPECTIONS_RUN: 'inspections:run',

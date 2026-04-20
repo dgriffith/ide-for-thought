@@ -178,4 +178,10 @@ export interface Conversation {
   status: ConversationStatus;
   startedAt: string;
   resolvedAt?: string;
+  /**
+   * Model used for LLM calls in this conversation. `undefined` means the
+   * global default from LLMSettings — the conversation then tracks the
+   * default if the user changes it later. Once set explicitly, it sticks.
+   */
+  model?: string;
 }

@@ -103,6 +103,7 @@ export interface ConversationsApi {
   cancel(): Promise<void>;
   crystallize(text: string, conversationId: string): Promise<{ turtle: string; componentCount: number }>;
   slashCommand(convId: string, slashCmd: string, argText: string): Promise<Conversation>;
+  setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
 }
 
 export interface ProposalsApi {

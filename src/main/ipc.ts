@@ -591,6 +591,7 @@ export function registerIpcHandlers(): void {
         system: effectiveSystem,
         messages,
         toolContext: { rootPath },
+        model: conv.model,
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
@@ -624,7 +625,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (_e, text: string, conversationId: string) => {
     const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
-    return crystallize(text, convUri);
+    const conv = await conversation.load(conversationId);
+    return crystallize(text, convUri, 'llm:crystallization', conv?.model);
+  });
+
+  ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
+    return conversation.setModel(convId, model);
   });
 
   // Slash commands in conversations
@@ -652,6 +658,7 @@ export function registerIpcHandlers(): void {
     try {
       const { complete: llmComplete } = await import('./llm/index');
       const output = await llmComplete(prompt, {
+        model: conv.model,
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
