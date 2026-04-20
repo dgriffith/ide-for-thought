@@ -20,10 +20,6 @@
     selected = suggestions.map(() => value);
   }
 
-  function toggle(i: number) {
-    selected[i] = !selected[i];
-  }
-
   function apply() {
     const accepted = suggestions.filter((_, i) => selected[i]);
     onApply(accepted);
@@ -80,7 +76,7 @@
       <div class="list">
         {#each suggestions as s, i (i)}
           <label class="row">
-            <input type="checkbox" bind:checked={selected[i]} onchange={() => toggle(i)} />
+            <input type="checkbox" bind:checked={selected[i]} />
             <div class="details">
               <div class="headline">
                 <span class="anchor">{s.anchorText}</span>
