@@ -442,12 +442,27 @@
     await notebase.refresh();
   }
 
+  /**
+   * Runs `fn` with the spinner overlay shown under `label`. Always clears
+   * the overlay before returning — even on error — so that subsequent UI
+   * (e.g. an error dialog) isn't trapped behind it.
+   */
+  async function withBusy<T>(label: string, fn: () => Promise<T>): Promise<T> {
+    busyLabel = label;
+    try {
+      return await fn();
+    } finally {
+      busyLabel = null;
+    }
+  }
+
   async function handleAutoLink(relativePath: string) {
     if (!notebase.meta || autoLinkBusy) return;
     autoLinkBusy = true;
-    busyLabel = 'Auto-linking\u2026';
     try {
-      const { suggestions } = await api.refactor.autoLinkSuggest(relativePath);
+      const { suggestions } = await withBusy('Auto-linking\u2026', () =>
+        api.refactor.autoLinkSuggest(relativePath),
+      );
       if (suggestions.length === 0) {
         await showConfirm(
           'Auto-link found no link candidates in this note.',
@@ -464,7 +479,6 @@
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
     } finally {
-      busyLabel = null;
       autoLinkBusy = false;
     }
   }
@@ -473,12 +487,13 @@
     const review = autoLinkReview;
     if (!review) return;
     autoLinkReview = null;
-    busyLabel = 'Applying links\u2026';
     try {
       // Snapshot the suggestions before IPC — they came out of $state, which
       // wraps them in Svelte 5 proxies that structured-clone can't serialize.
       const plain = $state.snapshot(accepted) as AutoLinkSuggestion[];
-      const { applied, skipped } = await api.refactor.autoLinkApply(review.relativePath, plain);
+      const { applied, skipped } = await withBusy('Applying links\u2026', () =>
+        api.refactor.autoLinkApply(review.relativePath, plain),
+      );
       if (applied.length === 0 && skipped.length > 0) {
         await showConfirm(
           `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in the note. Try again.`,
@@ -489,16 +504,15 @@
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
-    } finally {
-      busyLabel = null;
     }
   }
 
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
-    busyLabel = 'Auto-tagging\u2026';
     try {
-      const result = await api.refactor.autoTag(relativePath);
+      const result = await withBusy('Auto-tagging\u2026', () =>
+        api.refactor.autoTag(relativePath),
+      );
       if (result.added.length === 0) {
         await showConfirm(
           'No new tags suggested. The note may be too short, too generic, or already well tagged.',
@@ -511,8 +525,6 @@
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
-    } finally {
-      busyLabel = null;
     }
   }
 
