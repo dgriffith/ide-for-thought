@@ -17,7 +17,7 @@
   import type { QueryTab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
-  import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
+  import { autocompletion, acceptCompletion, selectedCompletion } from '@codemirror/autocomplete';
   import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
@@ -148,6 +148,7 @@
           { key: 'Mod-s', run: () => { onSave(); return true; } },
           { key: 'Shift-Alt-f', run: reformat },
           { key: 'Tab', run: acceptCompletion },
+          { key: 'Enter', run: acceptAndEatRestOfWord },
           indentWithTab,
           ...defaultKeymap,
           ...historyKeymap,
@@ -207,6 +208,30 @@
       changes: { from: 0, to: view.state.doc.length, insert: formatted },
     });
     return true;
+  }
+
+  /**
+   * Enter accepts the active completion and swallows any identifier
+   * characters that follow the cursor up to the next whitespace \u2014 useful
+   * when the cursor is mid-word and you want the whole half-typed token
+   * replaced. Tab still accepts without eating, so you can pick between
+   * the two behaviors.
+   */
+  function acceptAndEatRestOfWord(v: EditorView): boolean {
+    const active = selectedCompletion(v.state);
+    if (!active) return false; // let Enter fall through to newline
+    const head = v.state.selection.main.head;
+    const doc = v.state.doc;
+    let end = head;
+    while (end < doc.length) {
+      const ch = doc.sliceString(end, end + 1);
+      if (/\s/.test(ch)) break;
+      end++;
+    }
+    if (end > head) {
+      v.dispatch({ selection: { anchor: end } });
+    }
+    return acceptCompletion(v);
   }
 
   function startDrag(e: MouseEvent) {
