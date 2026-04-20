@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
+import { isIndexable } from './notebase/indexable-files';
 import { renameWithLinkRewrites } from './notebase/rename';
 import { renameAnchor } from './notebase/rename-anchor';
 import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
@@ -85,12 +86,6 @@ function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   return getRootPath(win.id);
 }
 
-const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
-
-function isIndexable(relativePath: string): boolean {
-  return INDEXABLE_EXTS.has(path.extname(relativePath));
-}
-
 async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
@@ -116,7 +111,7 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
       const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
       if (entry.isDirectory()) {
         results.push(...await listIndexableFiles(rootPath, rel));
-      } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
+      } else if (isIndexable(entry.name)) {
         results.push(rel);
       }
     }
