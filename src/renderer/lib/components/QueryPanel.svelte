@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
-  import { EditorState, Compartment } from '@codemirror/state';
+  import { EditorState, Compartment, Prec } from '@codemirror/state';
   import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
   import {
     bracketMatching,
@@ -143,12 +143,16 @@
           },
           '.cm-scroller': { overflow: 'auto' },
         }),
-        keymap.of([
+        // Prec.highest so our Enter override beats autocompletion's
+        // built-in Enter-accepts binding.
+        Prec.highest(keymap.of([
           { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
           { key: 'Mod-s', run: () => { onSave(); return true; } },
           { key: 'Shift-Alt-f', run: reformat },
           { key: 'Tab', run: acceptCompletion },
           { key: 'Enter', run: acceptAndEatRestOfWord },
+        ])),
+        keymap.of([
           indentWithTab,
           ...defaultKeymap,
           ...historyKeymap,
