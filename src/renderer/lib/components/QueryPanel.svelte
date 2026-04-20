@@ -16,6 +16,7 @@
   import { getEffectiveTheme, getThemeMode } from '../theme';
   import type { QueryTab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
+  import { formatSparql } from '../../../shared/sparql-format';
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
     const escape = (s: string) => {
@@ -130,6 +131,7 @@
         keymap.of([
           { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
           { key: 'Mod-s', run: () => { onSave(); return true; } },
+          { key: 'Shift-Alt-f', run: reformat },
           indentWithTab,
           ...defaultKeymap,
           ...historyKeymap,
@@ -174,6 +176,17 @@
         highlightCompartment.reconfigure(cmHighlight()),
       ],
     });
+  }
+
+  function reformat(): boolean {
+    if (!view) return false;
+    const current = view.state.doc.toString();
+    const formatted = formatSparql(current);
+    if (formatted === current) return true;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: formatted },
+    });
+    return true;
   }
 
   function startDrag(e: MouseEvent) {
@@ -236,6 +249,11 @@
         onclick={onSave}
         title="Save query"
       >Save</button>
+      <button
+        class="save-query-btn"
+        onclick={reformat}
+        title="Reformat (Shift+Alt+F)"
+      >Format</button>
       {#if tab.executionTime != null}
         <span class="status-text">
           {tab.results ? `${tab.results.length} result${tab.results.length !== 1 ? 's' : ''}` : 'Error'}
