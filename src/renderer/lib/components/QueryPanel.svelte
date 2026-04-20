@@ -3,7 +3,13 @@
   import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
   import { EditorState, Compartment } from '@codemirror/state';
   import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
-  import { bracketMatching, indentUnit, StreamLanguage } from '@codemirror/language';
+  import {
+    bracketMatching,
+    indentUnit,
+    StreamLanguage,
+    syntaxHighlighting,
+    defaultHighlightStyle,
+  } from '@codemirror/language';
   import { sparql } from '@codemirror/legacy-modes/mode/sparql';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
@@ -62,6 +68,10 @@
         bracketMatching(),
         indentUnit.of('  '),
         StreamLanguage.define(sparql),
+        // Fallback highlighter for light themes; oneDark brings its own in
+        // dark mode. Without this, the SPARQL parser tokenizes but nothing
+        // paints the tokens.
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
         themeCompartment.of(cmTheme()),
         EditorView.theme({
