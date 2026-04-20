@@ -14,6 +14,9 @@ import './spacing/space-after-list-marker';
 import './spacing/empty-line-around-code-fences';
 import './spacing/empty-line-around-blockquotes';
 import './spacing/empty-line-around-math-blocks';
+import './spacing/empty-line-around-horizontal-rules';
+import './spacing/empty-line-around-tables';
+import './spacing/heading-blank-lines';
 import './spacing/consecutive-blank-lines';
 
 export {};
