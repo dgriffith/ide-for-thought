@@ -468,8 +468,8 @@
 
         {:else if activeTab === 'formatter'}
           <p class="section-intro">
-            Deterministic normalizations applied by the <strong>Refactor \u25B8 Format</strong> commands.
-            Rules are off by default \u2014 turn on the ones whose aesthetics you want
+            Deterministic normalizations applied by the <strong>Refactor ▸ Format</strong> commands.
+            Rules are off by default — turn on the ones whose aesthetics you want
             enforced. Choices are stored in
             <code>.minerva/formatter.json</code> so they travel with the thoughtbase.
           </p>
@@ -477,7 +477,7 @@
           {#if !hasAnyFormatterRules}
             <div class="empty-state">
               No formatter rules are registered yet. Rule sets land per category
-              in follow-up tickets (#155\u2013#161); once any of those merge, rules
+              in follow-up tickets (#155–#161); once any of those merge, rules
               appear here as rows you can enable.
             </div>
           {/if}
