@@ -46,6 +46,8 @@ export const Channels = {
 
   // Graph
   GRAPH_QUERY: 'graph:query',
+  /** Snapshot of the live graph's predicates + classes for SPARQL autocomplete (#198). */
+  GRAPH_SCHEMA_FOR_COMPLETION: 'graph:schemaForCompletion',
   GRAPH_SOURCE_DETAIL: 'graph:sourceDetail',
   GRAPH_EXCERPT_SOURCE: 'graph:excerptSource',
 

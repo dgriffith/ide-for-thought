@@ -388,6 +388,8 @@ export function registerIpcHandlers(): void {
     return graph.queryGraph(sparql);
   });
 
+  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, () => graph.schemaForCompletion());
+
   ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (_e, sourceId: string) => {
     return graph.getSourceDetail(sourceId);
   });
