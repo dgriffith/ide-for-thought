@@ -14,6 +14,7 @@ import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool, prepareConversationTool } from './tools/executor';
+import { runAutoTag } from './llm/auto-tag';
 import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -548,6 +549,25 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.TOOL_PREPARE_CONVERSATION, (_e, request: ToolExecutionRequest) =>
     prepareConversationTool(request));
+
+  ipcMain.handle(Channels.REFACTOR_AUTO_TAG, async (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+
+    const plan = await runAutoTag(rootPath, relativePath);
+    if (!plan.content) return { added: [] };
+
+    // Route the write through the standard index + search + broadcast path,
+    // so open tabs of the tagged note refresh via NOTEBASE_REWRITTEN (same
+    // conflict handling as a link rewrite).
+    markPathHandled(relativePath);
+    await notebaseFs.writeFile(rootPath, relativePath, plan.content);
+    await graph.indexNote(relativePath, plan.content);
+    search.indexNote(relativePath, plan.content);
+    await persistIndexes();
+    broadcastRewritten(rootPath, [relativePath]);
+    return { added: plan.added };
+  });
 
   // Proposals
   ipcMain.handle(Channels.PROPOSAL_LIST, (_e, status?: string) => approval.listProposals(status));

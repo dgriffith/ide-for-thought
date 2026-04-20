@@ -428,6 +428,25 @@
     await notebase.refresh();
   }
 
+  async function handleAutoTag(relativePath: string) {
+    if (!notebase.meta) return;
+    try {
+      const result = await api.refactor.autoTag(relativePath);
+      if (result.added.length === 0) {
+        await showConfirm(
+          'No new tags suggested. The note may be too short, too generic, or already well tagged.',
+          CONFIRM_KEYS.autoTagNoSuggestions,
+          'OK',
+        );
+      }
+      // On success, the NOTEBASE_REWRITTEN listener reloads the note so the
+      // user sees the new frontmatter tags appear in the editor.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
+    }
+  }
+
   async function handleMoveWithPrompt(relativePath: string) {
     if (!notebase.meta) return;
     const fileName = relativePath.split('/').pop()!;
@@ -731,6 +750,7 @@
     api.menu.onRefactorExtract(() => handleExtractSelection());
     api.menu.onRefactorSplitHere(() => handleSplitHere());
     api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
+    api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); });
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
@@ -890,6 +910,7 @@
                     onSplitByHeading={handleSplitByHeading}
                     onRename={() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); }}
                     onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
+                    onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;

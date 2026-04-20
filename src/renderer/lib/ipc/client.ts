@@ -119,6 +119,10 @@ export interface TabsApi {
   load(): Promise<TabSession | null>;
 }
 
+export interface RefactorApi {
+  autoTag(relativePath: string): Promise<{ added: string[] }>;
+}
+
 export interface ToolsApi {
   execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
   prepareConversation(request: ToolExecutionRequest): Promise<ConversationToolPayload>;
@@ -164,6 +168,7 @@ export interface MenuApi {
   onRefactorExtract(cb: () => void): void;
   onRefactorSplitHere(cb: () => void): void;
   onRefactorSplitByHeading(cb: () => void): void;
+  onRefactorAutoTag(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -181,6 +186,7 @@ export interface IdeApi {
   proposals: ProposalsApi;
   tabs: TabsApi;
   tools: ToolsApi;
+  refactor: RefactorApi;
   menu: MenuApi;
 }
 

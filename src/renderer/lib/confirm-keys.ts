@@ -13,6 +13,8 @@ export const CONFIRM_KEYS = {
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
   moveCollision: 'move-collision',
+  autoTagNoSuggestions: 'auto-tag-no-suggestions',
+  autoTagFailed: 'auto-tag-failed',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -47,6 +49,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Move cancelled (destination exists)',
     description:
       'Shown when Move would overwrite an existing file at the chosen destination.',
+  },
+  {
+    key: CONFIRM_KEYS.autoTagNoSuggestions,
+    title: 'Auto-tag returned no new tags',
+    description:
+      'Shown when the LLM produced no tag suggestions for the note (usually because it is too short or already well-tagged).',
+  },
+  {
+    key: CONFIRM_KEYS.autoTagFailed,
+    title: 'Auto-tag failed',
+    description:
+      'Shown when Auto-tag errors out (network failure, missing API key, etc).',
   },
 ];
 
