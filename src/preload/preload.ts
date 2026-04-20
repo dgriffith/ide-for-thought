@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('api', {
     export: () => ipcRenderer.invoke(Channels.GRAPH_EXPORT),
     sourceDetail: (sourceId: string) => ipcRenderer.invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
     excerptSource: (excerptId: string) => ipcRenderer.invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
+    schemaForCompletion: () => ipcRenderer.invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
   },
   tags: {
     list: () => ipcRenderer.invoke(Channels.TAGS_LIST),

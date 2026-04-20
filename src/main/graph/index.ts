@@ -1038,6 +1038,60 @@ function injectSparqlPrefixes(sparql: string): string {
   return lines.length > 0 ? lines.join('\n') + '\n' + sparql : sparql;
 }
 
+export interface SchemaEntry {
+  iri: string;
+  /** Prefixed form when a known prefix covers the IRI (e.g. "minerva:hasTag"). */
+  prefixed?: string;
+}
+
+export interface GraphSchema {
+  /** Standard prefixes the query path auto-injects. */
+  prefixes: Array<{ prefix: string; iri: string }>;
+  /** Distinct predicate IRIs in the live graph. */
+  predicates: SchemaEntry[];
+  /** Distinct class IRIs (objects of `rdf:type`) in the live graph. */
+  classes: SchemaEntry[];
+}
+
+/**
+ * Snapshot of the live graph\u2019s predicates + classes for autocomplete (#198).
+ * Sorted alphabetically by prefixed form when available, otherwise by full
+ * IRI. Safe to call often \u2014 cheap walk over the store.
+ */
+export function schemaForCompletion(): GraphSchema {
+  const prefixes = STANDARD_PREFIXES.map(([prefix, iri]) => ({ prefix, iri }));
+
+  if (!store) return { prefixes, predicates: [], classes: [] };
+
+  const rdfTypeIri = RDF('type').value;
+  const predicateIris = new Set<string>();
+  const classIris = new Set<string>();
+
+  for (const st of store.statements) {
+    predicateIris.add(st.predicate.value);
+    if (st.predicate.value === rdfTypeIri && st.object.termType === 'NamedNode') {
+      classIris.add(st.object.value);
+    }
+  }
+
+  function toEntry(iri: string): SchemaEntry {
+    for (const { prefix, iri: base } of prefixes) {
+      if (iri.startsWith(base)) {
+        return { iri, prefixed: `${prefix}:${iri.slice(base.length)}` };
+      }
+    }
+    return { iri };
+  }
+
+  const sortKey = (e: SchemaEntry) => (e.prefixed ?? e.iri).toLowerCase();
+
+  return {
+    prefixes,
+    predicates: [...predicateIris].map(toEntry).sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+    classes: [...classIris].map(toEntry).sort((a, b) => sortKey(a).localeCompare(sortKey(b))),
+  };
+}
+
 export async function queryGraph(sparql: string): Promise<{ results: unknown[] }> {
   if (!store || !engine) return { results: [] };
 

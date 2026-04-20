@@ -17,6 +17,8 @@
   import type { QueryTab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
+  import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
+  import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
     const escape = (s: string) => {
@@ -44,6 +46,18 @@
   let splitRatio = $state(0.4); // 40% editor, 60% results
   let dragging = $state(false);
   let containerEl = $state<HTMLDivElement>();
+
+  // Lazy-fetched predicates / classes from the live graph for autocomplete.
+  // Null until the first fetch resolves; the completion source treats that
+  // as "standard prefixes only, no schema" so the panel stays usable during
+  // the initial load.
+  let schema: SparqlSchema | null = null;
+
+  async function refreshSchema(): Promise<void> {
+    try {
+      schema = (await api.graph.schemaForCompletion()) as SparqlSchema;
+    } catch { /* graph not ready \u2014 keep schema null, completion falls back */ }
+  }
 
   // Compartments for reconfigurable extensions.
   const themeCompartment = new Compartment();
@@ -118,6 +132,7 @@
         // own mappings in dark mode.
         highlightCompartment.of(cmHighlight()),
         placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
+        autocompletion({ override: [createSparqlCompletionSource(() => schema)] }),
         themeCompartment.of(cmTheme()),
         EditorView.theme({
           '&': { height: '100%' },
@@ -132,6 +147,7 @@
           { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
           { key: 'Mod-s', run: () => { onSave(); return true; } },
           { key: 'Shift-Alt-f', run: reformat },
+          { key: 'Tab', run: acceptCompletion },
           indentWithTab,
           ...defaultKeymap,
           ...historyKeymap,
@@ -152,6 +168,10 @@
       parent: editorContainer,
     });
     view.focus();
+    // Kick off an initial schema fetch in the background. If it takes a
+    // while (big graph), completion still works with standard prefixes +
+    // keywords while it\u2019s pending.
+    void refreshSchema();
   });
 
   onDestroy(() => {

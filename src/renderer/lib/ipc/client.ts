@@ -65,6 +65,11 @@ export interface GraphApi {
   export(): Promise<void>;
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;
+  schemaForCompletion(): Promise<{
+    prefixes: Array<{ prefix: string; iri: string }>;
+    predicates: Array<{ iri: string; prefixed?: string }>;
+    classes: Array<{ iri: string; prefixed?: string }>;
+  }>;
 }
 
 export interface TagsApi {
