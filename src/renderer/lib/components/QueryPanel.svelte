@@ -1,4 +1,12 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
+  import { EditorState, Compartment } from '@codemirror/state';
+  import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
+  import { bracketMatching, indentUnit, StreamLanguage } from '@codemirror/language';
+  import { sparql } from '@codemirror/legacy-modes/mode/sparql';
+  import { oneDark } from '@codemirror/theme-one-dark';
+  import { getEffectiveTheme, getThemeMode } from '../theme';
   import type { QueryTab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
 
@@ -23,29 +31,90 @@
 
   let { tab, onQueryChange, onExecute, onSave }: Props = $props();
 
-  let textareaEl = $state<HTMLTextAreaElement>();
+  let editorContainer = $state<HTMLDivElement>();
+  let view: EditorView | null = null;
   let splitRatio = $state(0.4); // 40% editor, 60% results
   let dragging = $state(false);
   let containerEl = $state<HTMLDivElement>();
 
-  function handleKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      onExecute();
+  // Compartments for reconfigurable extensions.
+  const themeCompartment = new Compartment();
+
+  function cmTheme(): any {
+    return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
+  }
+
+  /** Replace the editor contents with `text` without triggering the onQueryChange callback. */
+  function setDoc(text: string): void {
+    if (!view) return;
+    if (view.state.doc.toString() === text) return;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+    });
+  }
+
+  function buildState(initial: string): EditorState {
+    return EditorState.create({
+      doc: initial,
+      extensions: [
+        lineNumbers(),
+        history(),
+        bracketMatching(),
+        indentUnit.of('  '),
+        StreamLanguage.define(sparql),
+        placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
+        themeCompartment.of(cmTheme()),
+        EditorView.theme({
+          '&': { height: '100%' },
+          '.cm-content': {
+            fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+            fontSize: '13px',
+            lineHeight: '1.5',
+          },
+          '.cm-scroller': { overflow: 'auto' },
+        }),
+        keymap.of([
+          { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
+          { key: 'Mod-s', run: () => { onSave(); return true; } },
+          indentWithTab,
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
+        EditorView.updateListener.of((u) => {
+          if (u.docChanged) {
+            onQueryChange(u.state.doc.toString());
+          }
+        }),
+      ],
+    });
+  }
+
+  onMount(() => {
+    if (!editorContainer) return;
+    view = new EditorView({
+      state: buildState(tab.query),
+      parent: editorContainer,
+    });
+    view.focus();
+  });
+
+  onDestroy(() => {
+    view?.destroy();
+    view = null;
+  });
+
+  // Keep the editor in sync when the active tab changes (tab switch, stock
+  // query load, programmatic reset). Skips the round-trip when the user
+  // just typed the change themselves.
+  $effect(() => {
+    const next = tab.query;
+    if (view && view.state.doc.toString() !== next) {
+      setDoc(next);
     }
-    // Tab inserts two spaces in the query editor
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const ta = textareaEl;
-      if (ta) {
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const value = ta.value;
-        ta.value = value.substring(0, start) + '  ' + value.substring(end);
-        ta.selectionStart = ta.selectionEnd = start + 2;
-        onQueryChange(ta.value);
-      }
-    }
+  });
+
+  export function updateTheme(): void {
+    view?.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
   }
 
   function startDrag(e: MouseEvent) {
@@ -90,9 +159,6 @@
     });
   });
 
-  $effect(() => {
-    if (textareaEl) textareaEl.focus();
-  });
 </script>
 
 <div class="query-panel" bind:this={containerEl}>
@@ -118,16 +184,7 @@
         </span>
       {/if}
     </div>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <textarea
-      bind:this={textareaEl}
-      class="query-input"
-      value={tab.query}
-      oninput={(e) => onQueryChange((e.target as HTMLTextAreaElement).value)}
-      onkeydown={handleKeydown}
-      placeholder="SELECT ?note ?title WHERE &#123;&#10;  ?note a <https://minerva.dev/ontology#Note> .&#10;  ?note <http://purl.org/dc/terms/title> ?title .&#10;&#125;"
-      spellcheck={false}
-    ></textarea>
+    <div bind:this={editorContainer} class="query-input"></div>
   </div>
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -266,21 +323,24 @@
   .query-input {
     flex: 1;
     width: 100%;
-    padding: 8px 12px;
-    border: none;
+    min-height: 0;
+    overflow: hidden;
     background: var(--bg);
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    font-size: 13px;
-    line-height: 1.5;
-    resize: none;
-    outline: none;
-    tab-size: 2;
   }
 
-  .query-input::placeholder {
+  .query-input :global(.cm-editor) {
+    height: 100%;
+    outline: none;
+  }
+
+  .query-input :global(.cm-editor.cm-focused) {
+    outline: none;
+  }
+
+  .query-input :global(.cm-gutters) {
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
     color: var(--text-muted);
-    opacity: 0.6;
   }
 
   .split-handle {
