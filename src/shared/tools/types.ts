@@ -64,6 +64,8 @@ export interface ThinkingToolDef {
   preferredModel?: string;
   /** Web-access hint for conversational tools. Global `LLMSettings.web.enabled` still gates. */
   web?: ToolWebHint;
+  /** When true, the tool refuses to run without a non-empty `ctx.selectedText`. The editor right-click hides it, the menu-bar entry fails fast with a clear error. */
+  requiresSelection?: boolean;
 }
 
 /** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
@@ -80,6 +82,7 @@ export interface ThinkingToolInfo {
   slashCommand?: string;
   preferredModel?: string;
   web?: ToolWebHint;
+  requiresSelection?: boolean;
 }
 
 export interface ToolExecutionRequest {

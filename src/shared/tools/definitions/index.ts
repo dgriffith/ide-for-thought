@@ -14,3 +14,5 @@ import './learning/define-terms';
 import './learning/find-prerequisites';
 import './learning/quiz-me';
 import './learning/find-counterexamples';
+import './learning/create-learning-journey';
+import './learning/deep-dive';

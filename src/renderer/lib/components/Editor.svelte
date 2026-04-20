@@ -652,7 +652,7 @@
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Learning &#x25B8;</span>
           <div class="submenu">
-            {#each learningTools as tool}
+            {#each learningTools.filter((t) => contextMenu!.hasSelection || !t.requiresSelection) as tool}
               <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
             {/each}
           </div>
