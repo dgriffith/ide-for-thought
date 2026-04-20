@@ -11,6 +11,8 @@ const BATCH = [
   'learning.find-prerequisites',
   'learning.quiz-me',
   'learning.find-counterexamples',
+  'learning.create-learning-journey',
+  'learning.deep-dive',
 ];
 
 describe('Learning tools batch (issues #180, #181, #183, #184, #185, #186)', () => {
@@ -21,13 +23,46 @@ describe('Learning tools batch (issues #180, #181, #183, #184, #185, #186)', () 
     }
   });
 
-  it.each(BATCH)('%s is conversational, web-on, Sonnet-preferred', (id) => {
+  it.each(BATCH)('%s is conversational + web-on', (id) => {
     const tool = getTool(id)!;
     expect(tool.outputMode).toBe('openConversation');
     expect(tool.web?.defaultEnabled).toBe(true);
-    expect(tool.preferredModel).toBe('claude-sonnet-4-6');
+    expect(tool.preferredModel).toMatch(/^claude-(sonnet|opus|haiku)-/);
     expect(tool.buildSystemPrompt).toBeDefined();
     expect(tool.buildFirstMessage).toBeDefined();
+  });
+
+  it('create-learning-journey is Opus-preferred (richer planning)', () => {
+    expect(getTool('learning.create-learning-journey')!.preferredModel).toBe('claude-opus-4-7');
+  });
+
+  it('deep-dive is marked requiresSelection', () => {
+    expect(getTool('learning.deep-dive')!.requiresSelection).toBe(true);
+  });
+
+  it('deep-dive threads selected text + depth into system prompt and first message', () => {
+    const tool = getTool('learning.deep-dive')!;
+    const payload = buildConversationPayload(
+      tool,
+      {},
+      {
+        context: {
+          selectedText: 'entropy',
+          fullNoteContent: 'Thermodynamics notes.',
+          parameterValues: { depth: 'exhaustive' },
+        },
+      },
+    );
+    expect(payload.systemPrompt).toContain('entropy');
+    expect(payload.systemPrompt.toLowerCase()).toContain('multi-section');
+    expect(payload.firstMessage).toBe('Explain "entropy" in depth.');
+  });
+
+  it('deep-dive throws without a selection (matches requiresSelection contract)', () => {
+    const tool = getTool('learning.deep-dive')!;
+    expect(() =>
+      buildConversationPayload(tool, {}, { context: { fullNoteContent: 'body' } }),
+    ).toThrow(/requires a text selection/);
   });
 
   it.each(BATCH)('%s has a slash command', (id) => {

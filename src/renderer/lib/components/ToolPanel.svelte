@@ -62,6 +62,10 @@
         ...$state.snapshot(panel.context),
         ...(snappedParams ? { parameterValues: snappedParams } : {}),
       };
+      if (tool.requiresSelection && !ctx.selectedText?.trim()) {
+        panel.fail(`${tool.name} needs a text selection. Highlight some text in the editor and try again.`);
+        return;
+      }
       panel.close();
       onOpenConversation?.({ toolId: tool.id, context: ctx });
       return;
@@ -106,6 +110,10 @@
 
     if (tool.outputMode === 'openConversation') {
       const ctx: ToolContext = $state.snapshot(panel.context);
+      if (tool.requiresSelection && !ctx.selectedText?.trim()) {
+        panel.fail(`${tool.name} needs a text selection. Highlight some text in the editor and try again.`);
+        return;
+      }
       panel.close();
       onOpenConversation?.({ toolId: tool.id, context: ctx });
       return;
