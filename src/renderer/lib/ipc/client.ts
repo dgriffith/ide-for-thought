@@ -1,5 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
-import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings } from '../../../shared/tools/types';
+import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -91,7 +91,7 @@ export interface BookmarksApi {
 }
 
 export interface ConversationsApi {
-  create(contextBundle: ContextBundle, triggerNodeUri?: string, systemMessage?: string): Promise<Conversation>;
+  create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
   resolve(id: string): Promise<Conversation>;
   abandon(id: string): Promise<Conversation>;
@@ -121,6 +121,7 @@ export interface TabsApi {
 
 export interface ToolsApi {
   execute(request: ToolExecutionRequest): Promise<ToolExecutionResult>;
+  prepareConversation(request: ToolExecutionRequest): Promise<ConversationToolPayload>;
   cancel(): Promise<void>;
   onStream(cb: (chunk: string) => void): void;
   getSettings(): Promise<LLMSettings>;

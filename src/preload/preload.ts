@@ -104,8 +104,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SHELL_OPEN_EXTERNAL, url),
   },
   conversations: {
-    create: (contextBundle: unknown, triggerNodeUri?: string, systemMessage?: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, systemMessage),
+    create: (contextBundle: unknown, triggerNodeUri?: string, options?: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, options),
     append: (id: string, role: string, content: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_APPEND, id, role, content),
     resolve: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_RESOLVE, id),
@@ -143,6 +143,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
+    prepareConversation: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
     cancel: () => ipcRenderer.invoke(Channels.TOOL_CANCEL),
     onStream: (cb: (chunk: string) => void) => {
       ipcRenderer.on(Channels.TOOL_STREAM, (_e, chunk) => cb(chunk));

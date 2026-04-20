@@ -91,6 +91,8 @@ export const Channels = {
   TOOL_CANCEL: 'tool:cancel',
   TOOL_GET_SETTINGS: 'tool:getSettings',
   TOOL_SET_SETTINGS: 'tool:setSettings',
+  /** Prepare the system prompt + first message + model for a conversational tool. */
+  TOOL_PREPARE_CONVERSATION: 'tool:prepareConversation',
 
   // Proposals
   PROPOSAL_LIST: 'proposal:list',

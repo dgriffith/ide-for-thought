@@ -11,7 +11,8 @@ export type OutputMode =
   | 'appendToNote'
   | 'replaceSelection'
   | 'insertAtCursor'
-  | 'multipleNotes';
+  | 'multipleNotes'
+  | 'openConversation';
 
 export interface ToolParameter {
   id: string;
@@ -33,6 +34,11 @@ export interface ToolContext {
   parameterValues?: Record<string, string>;
 }
 
+export interface ToolWebHint {
+  /** Whether the tool expects web access on by default when invoked. */
+  defaultEnabled: boolean;
+}
+
 export interface ThinkingToolDef {
   id: string;
   name: string;
@@ -44,13 +50,20 @@ export interface ThinkingToolDef {
   outputMode: OutputMode;
   outputNotePrefix?: string;
   slashCommand?: string;
+  /** Used for one-shot tools. Conversational tools use buildSystemPrompt + buildFirstMessage. */
   buildPrompt: (ctx: ToolContext) => string;
+  /** Tool-specific system prompt for `outputMode: 'openConversation'`. Stays active across all sends in the conversation. */
+  buildSystemPrompt?: (ctx: ToolContext) => string;
+  /** User message auto-fired when the conversation opens. Optional — omit to let the user type the first thing. */
+  buildFirstMessage?: (ctx: ToolContext) => string;
   /**
    * Tool author's hint at the model that suits this tool best. User-level
    * overrides (LLMSettings.toolModelOverrides) win over this; the global
    * default takes over when both are absent.
    */
   preferredModel?: string;
+  /** Web-access hint for conversational tools. Global `LLMSettings.web.enabled` still gates. */
+  web?: ToolWebHint;
 }
 
 /** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
@@ -66,6 +79,7 @@ export interface ThinkingToolInfo {
   outputNotePrefix?: string;
   slashCommand?: string;
   preferredModel?: string;
+  web?: ToolWebHint;
 }
 
 export interface ToolExecutionRequest {
@@ -79,6 +93,17 @@ export interface ToolExecutionResult {
   suggestedTitle?: string;
   suggestedFilename?: string;
   sections?: { title: string; content: string }[];
+}
+
+/** Payload returned by the `prepareConversationTool` path for `outputMode: 'openConversation'`. */
+export interface ConversationToolPayload {
+  toolId: string;
+  systemPrompt: string;
+  firstMessage: string;
+  /** Model to pin on the created conversation. Undefined means track the global default. */
+  model?: string;
+  /** Whether the tool wants web access on. Actual effect also depends on global `LLMSettings.web.enabled`. */
+  webEnabled: boolean;
 }
 
 export interface WebSettings {

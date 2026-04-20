@@ -5,8 +5,12 @@ let activeConversation = $state<Conversation | null>(null);
 let allConversations = $state<Conversation[]>([]);
 
 export function getConversationStore() {
-  async function start(contextBundle: ContextBundle, triggerNodeUri?: string, systemMessage?: string): Promise<Conversation> {
-    const conv = await api.conversations.create(contextBundle, triggerNodeUri, systemMessage);
+  async function start(
+    contextBundle: ContextBundle,
+    triggerNodeUri?: string,
+    options?: { systemPrompt?: string; model?: string },
+  ): Promise<Conversation> {
+    const conv = await api.conversations.create(contextBundle, triggerNodeUri, options);
     activeConversation = conv;
     return conv;
   }

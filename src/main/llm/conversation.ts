@@ -28,7 +28,7 @@ function generateId(): string {
 export async function create(
   contextBundle: ContextBundle,
   triggerNodeUri?: string,
-  initialSystemMessage?: string,
+  options?: { systemPrompt?: string; model?: string },
 ): Promise<Conversation> {
   const dir = ensureDir();
   await fs.mkdir(dir, { recursive: true });
@@ -42,10 +42,8 @@ export async function create(
     status: 'active',
     startedAt: now,
   };
-
-  if (initialSystemMessage) {
-    conv.messages.push({ role: 'system', content: initialSystemMessage, timestamp: now });
-  }
+  if (options?.systemPrompt) conv.systemPrompt = options.systemPrompt;
+  if (options?.model) conv.model = options.model;
 
   await persist(conv);
   await writeConversationToGraph(conv);

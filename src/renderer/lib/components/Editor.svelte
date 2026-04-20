@@ -76,6 +76,7 @@
 
   const analysisTools = getToolInfosByCategory('analysis');
   const planningTools = getToolInfosByCategory('planning');
+  const learningTools = getToolInfosByCategory('learning');
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
@@ -645,8 +646,18 @@
         <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>
     </div>
-    {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0)}
+    {#if onToolInvoke && (analysisTools.length > 0 || planningTools.length > 0 || learningTools.length > 0)}
       <div class="separator"></div>
+      {#if learningTools.length > 0}
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
+          <span class="submenu-trigger">Learning &#x25B8;</span>
+          <div class="submenu">
+            {#each learningTools as tool}
+              <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
       {#if analysisTools.length > 0}
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Analysis &#x25B8;</span>

@@ -2,12 +2,15 @@
   import { getToolPanelStore } from '../stores/tool-panel.svelte';
   import { handleToolOutput } from '../tools/output';
   import { api } from '../ipc/client';
+  import type { ToolContext } from '../../../shared/tools/types';
 
   interface Props {
     onNoteCreated?: () => void;
+    /** Called when the user invokes a tool whose outputMode is `openConversation`. */
+    onOpenConversation?: (invocation: { toolId: string; context: ToolContext }) => void;
   }
 
-  let { onNoteCreated }: Props = $props();
+  let { onNoteCreated, onOpenConversation }: Props = $props();
 
   const panel = getToolPanelStore();
   let paramValues = $state<Record<string, string>>({});
@@ -45,8 +48,27 @@
   }
 
   function handleRunWithParams() {
-    if (Object.keys(paramValues).length > 0) {
-      panel.startRunning($state.snapshot(paramValues));
+    const tool = panel.activeTool;
+    if (!tool) return;
+
+    const snappedParams = Object.keys(paramValues).length > 0
+      ? $state.snapshot(paramValues)
+      : undefined;
+
+    if (tool.outputMode === 'openConversation') {
+      // Fold parameter values into the context and hand off to the
+      // conversation launcher. No in-panel execution or review.
+      const ctx: ToolContext = {
+        ...$state.snapshot(panel.context),
+        ...(snappedParams ? { parameterValues: snappedParams } : {}),
+      };
+      panel.close();
+      onOpenConversation?.({ toolId: tool.id, context: ctx });
+      return;
+    }
+
+    if (snappedParams) {
+      panel.startRunning(snappedParams);
     } else {
       panel.startRunning();
     }
@@ -79,6 +101,16 @@
 
   // Called externally when panel opens in 'running' state (no params)
   export function startExecution() {
+    const tool = panel.activeTool;
+    if (!tool) return;
+
+    if (tool.outputMode === 'openConversation') {
+      const ctx: ToolContext = $state.snapshot(panel.context);
+      panel.close();
+      onOpenConversation?.({ toolId: tool.id, context: ctx });
+      return;
+    }
+
     panel.startRunning();
     executeToolRun();
   }
