@@ -215,15 +215,18 @@
   }
 
   /**
-   * Enter accepts the active completion and swallows any identifier
-   * characters that follow the cursor up to the next whitespace \u2014 useful
-   * when the cursor is mid-word and you want the whole half-typed token
-   * replaced. Tab still accepts without eating, so you can pick between
-   * the two behaviors.
+   * Enter accepts the active completion, then eats any non-whitespace
+   * characters that follow the cursor \u2014 useful when the cursor is
+   * mid-word and you want the whole half-typed token replaced. Tab
+   * still accepts in place (no eating), so you can pick between the two.
    */
   function acceptAndEatRestOfWord(v: EditorView): boolean {
-    const active = selectedCompletion(v.state);
-    if (!active) return false; // let Enter fall through to newline
+    if (!selectedCompletion(v.state)) return false; // let Enter fall through to newline
+    const accepted = acceptCompletion(v);
+    if (!accepted) return false;
+    // Post-accept: cursor sits immediately after the inserted label. Eat
+    // any non-whitespace chars that remain on the line \u2014 that's the tail
+    // of whatever the user had half-typed.
     const head = v.state.selection.main.head;
     const doc = v.state.doc;
     let end = head;
@@ -233,9 +236,9 @@
       end++;
     }
     if (end > head) {
-      v.dispatch({ selection: { anchor: end } });
+      v.dispatch({ changes: { from: head, to: end, insert: '' } });
     }
-    return acceptCompletion(v);
+    return true;
   }
 
   function startDrag(e: MouseEvent) {
