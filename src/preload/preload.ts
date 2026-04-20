@@ -147,6 +147,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_SUGGEST, relativePath),
     autoLinkApply: (relativePath: string, accepted: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_APPLY, relativePath, accepted),
+    autoLinkInboundSuggest: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, relativePath),
+    autoLinkInboundApply: (relativePath: string, accepted: unknown) =>
+      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY, relativePath, accepted),
   },
   tools: {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
@@ -266,6 +270,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onRefactorAutoLink: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_AUTOLINK, () => cb());
+    },
+    onRefactorAutoLinkInbound: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_AUTOLINK_INBOUND, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

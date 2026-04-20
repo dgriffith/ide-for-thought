@@ -19,8 +19,10 @@
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
   import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
+  import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
+  import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
@@ -68,6 +70,12 @@
   let autoLinkBusy = $state(false);
   /** When set, renders a modal spinner overlay with this label. */
   let busyLabel = $state<string | null>(null);
+
+  /** Pending Auto-link inbound suggestions to review. Non-null = dialog is shown. */
+  let autoLinkInboundReview = $state<{
+    relativePath: string;
+    suggestions: AutoLinkInboundSuggestion[];
+  } | null>(null);
   let inspectionCount = $state(0);
 
   async function refreshInspectionCount() {
@@ -483,6 +491,52 @@
     }
   }
 
+  async function handleAutoLinkInbound(relativePath: string) {
+    if (!notebase.meta || autoLinkBusy) return;
+    autoLinkBusy = true;
+    try {
+      const { suggestions } = await withBusy('Scanning other notes\u2026', () =>
+        api.refactor.autoLinkInboundSuggest(relativePath),
+      );
+      if (suggestions.length === 0) {
+        await showConfirm(
+          'Auto-link inbound found no places in other notes where a link here would fit.',
+          CONFIRM_KEYS.autoLinkNoSuggestions,
+          'OK',
+        );
+        return;
+      }
+      autoLinkInboundReview = { relativePath, suggestions };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
+    } finally {
+      autoLinkBusy = false;
+    }
+  }
+
+  async function handleAutoLinkInboundApply(accepted: AutoLinkInboundSuggestion[]) {
+    const review = autoLinkInboundReview;
+    if (!review) return;
+    autoLinkInboundReview = null;
+    try {
+      const plain = $state.snapshot(accepted) as AutoLinkInboundSuggestion[];
+      const { applied, skipped } = await withBusy('Applying inbound links\u2026', () =>
+        api.refactor.autoLinkInboundApply(review.relativePath, plain),
+      );
+      if (applied.length === 0 && skipped.length > 0) {
+        await showConfirm(
+          `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in one or more source notes. Try again.`,
+          CONFIRM_KEYS.autoLinkFailed,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
+    }
+  }
+
   async function handleAutoLinkApply(accepted: AutoLinkSuggestion[]) {
     const review = autoLinkReview;
     if (!review) return;
@@ -833,6 +887,7 @@
     api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
     api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); });
     api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); });
+    api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); });
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
@@ -994,6 +1049,7 @@
                     onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
                     onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
                     onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
+                    onAutoLinkInbound={() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
@@ -1133,6 +1189,14 @@
       activeNoteBody={autoLinkReview.activeBody}
       onApply={handleAutoLinkApply}
       onCancel={() => { autoLinkReview = null; }}
+    />
+  {/if}
+  {#if autoLinkInboundReview}
+    <AutoLinkInboundDialog
+      suggestions={autoLinkInboundReview.suggestions}
+      activeStem={autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
+      onApply={handleAutoLinkInboundApply}
+      onCancel={() => { autoLinkInboundReview = null; }}
     />
   {/if}
   {#if busyLabel}

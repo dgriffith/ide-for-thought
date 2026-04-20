@@ -87,6 +87,7 @@ export const Channels = {
   MENU_REFACTOR_SPLIT_BY_HEADING: 'menu:refactor:splitByHeading',
   MENU_REFACTOR_AUTOTAG: 'menu:refactor:autotag',
   MENU_REFACTOR_AUTOLINK: 'menu:refactor:autolink',
+  MENU_REFACTOR_AUTOLINK_INBOUND: 'menu:refactor:autolinkInbound',
 
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
@@ -94,6 +95,10 @@ export const Channels = {
   REFACTOR_AUTO_LINK_SUGGEST: 'refactor:autoLinkSuggest',
   /** Apply accepted Auto-link suggestions to the active note. */
   REFACTOR_AUTO_LINK_APPLY: 'refactor:autoLinkApply',
+  /** LLM-suggested inbound wiki-links from other notes to the active note. */
+  REFACTOR_AUTO_LINK_INBOUND_SUGGEST: 'refactor:autoLinkInboundSuggest',
+  /** Apply accepted inbound Auto-link suggestions (writes to multiple source notes). */
+  REFACTOR_AUTO_LINK_INBOUND_APPLY: 'refactor:autoLinkInboundApply',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',

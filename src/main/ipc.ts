@@ -15,8 +15,14 @@ import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool, prepareConversationTool } from './tools/executor';
 import { runAutoTag } from './llm/auto-tag';
-import { suggestLinksTo, applyAutoLinkToSuggestions } from './llm/auto-link';
+import {
+  suggestLinksTo,
+  applyAutoLinkToSuggestions,
+  suggestLinksInbound,
+  applyInboundSuggestions,
+} from './llm/auto-link';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
+import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
 import * as healthChecks from './graph/health-checks';
 import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -597,6 +603,40 @@ export function registerIpcHandlers(): void {
       await persistIndexes();
       broadcastRewritten(rootPath, [activeRelPath]);
       return { applied, skipped };
+    },
+  );
+
+  ipcMain.handle(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, async (e, activeRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return suggestLinksInbound(rootPath, activeRelPath);
+  });
+
+  ipcMain.handle(
+    Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY,
+    async (e, activeRelPath: string, accepted: AutoLinkInboundSuggestion[]) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+
+      const { applied, skipped, touchedPaths, updatedContents } = await applyInboundSuggestions(
+        rootPath,
+        activeRelPath,
+        accepted,
+      );
+
+      // Write each touched source note through the standard index/search/broadcast pipeline.
+      for (const [source, content] of updatedContents) {
+        markPathHandled(source);
+        await notebaseFs.writeFile(rootPath, source, content);
+        await graph.indexNote(source, content);
+        search.indexNote(source, content);
+      }
+      if (touchedPaths.length > 0) {
+        await persistIndexes();
+        broadcastRewritten(rootPath, touchedPaths);
+      }
+
+      return { applied, skipped, touchedPaths };
     },
   );
 

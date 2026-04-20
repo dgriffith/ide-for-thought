@@ -132,6 +132,18 @@ export interface RefactorApi {
     applied: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
     skipped: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
   }>;
+  autoLinkInboundSuggest(relativePath: string): Promise<{
+    suggestions: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
+    candidateCount: number;
+  }>;
+  autoLinkInboundApply(
+    relativePath: string,
+    accepted: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[],
+  ): Promise<{
+    applied: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
+    skipped: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
+    touchedPaths: string[];
+  }>;
 }
 
 export interface ToolsApi {
@@ -181,6 +193,7 @@ export interface MenuApi {
   onRefactorSplitByHeading(cb: () => void): void;
   onRefactorAutoTag(cb: () => void): void;
   onRefactorAutoLink(cb: () => void): void;
+  onRefactorAutoLinkInbound(cb: () => void): void;
 }
 
 export interface IdeApi {
