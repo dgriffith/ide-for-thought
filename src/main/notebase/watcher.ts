@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 
-const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
+const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
 
 export interface WatcherCallbacks {
   onFileChanged: (relativePath: string) => void;

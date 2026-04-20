@@ -22,6 +22,7 @@
   import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
   import DecomposeDialog from './lib/components/DecomposeDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
+  import CsvTable from './lib/components/CsvTable.svelte';
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
   import type { DecomposeProposal } from '../shared/refactor/decompose';
@@ -224,7 +225,7 @@
     const walk = (xs: import('../shared/types').NoteFile[]) => {
       for (const f of xs) {
         if (f.isDirectory) walk(f.children ?? []);
-        else if (/\.(md|ttl)$/.test(f.relativePath)) out.push(f.relativePath);
+        else if (/\.(md|ttl|csv)$/.test(f.relativePath)) out.push(f.relativePath);
       }
     };
     walk(files);
@@ -1068,7 +1069,7 @@
           onCopy={handleCopy}
           onPaste={handlePaste}
           onMove={handleMove}
-          onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl)$/, '') ?? path, path)}
+          onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
           onSourceSelect={(id) => handleOpenSource(id)}
           canPaste={clipboardItem !== null}
         />
@@ -1084,10 +1085,15 @@
             onCloseAll={editor.closeAll}
             onReveal={handleRevealInSidebar}
             onOpenConversation={openConversation}
-            onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl)$/, '') ?? path, path)}
+            onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
           />
         {/if}
-        {#if editor.activeTab?.type === 'note'}
+        {#if editor.activeTab?.type === 'note' && editor.activeTab.relativePath.endsWith('.csv')}
+          <CsvTable
+            relativePath={editor.activeTab.relativePath}
+            content={editor.activeTab.content}
+          />
+        {:else if editor.activeTab?.type === 'note'}
           <div class="toolbar">
             <div class="view-toggle">
               <button
@@ -1131,7 +1137,7 @@
                     onOpenConversation={openConversation}
                     onNavigate={handleNavigate}
                     getNotePaths={() => flattenNotePaths(notebase.files)}
-                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
+                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}

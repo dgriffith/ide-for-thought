@@ -85,7 +85,7 @@ function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   return getRootPath(win.id);
 }
 
-const INDEXABLE_EXTS = new Set(['.md', '.ttl']);
+const INDEXABLE_EXTS = new Set(['.md', '.ttl', '.csv']);
 
 function isIndexable(relativePath: string): boolean {
   return INDEXABLE_EXTS.has(path.extname(relativePath));
