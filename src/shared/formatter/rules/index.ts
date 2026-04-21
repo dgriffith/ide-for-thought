@@ -13,8 +13,7 @@ import './spacing/trailing-spaces';
 import './spacing/space-after-list-marker';
 import './spacing/remove-link-spacing';
 import './spacing/remove-empty-lines-between-list-items';
-import './spacing/convert-tabs-to-spaces';
-import './spacing/convert-spaces-to-tabs';
+import './spacing/consistent-indentation';
 // Move math indicators BEFORE the blank-line-around-math rule so the
 // latter sees already-split $$…$$ blocks.
 import './spacing/move-math-block-indicators';
