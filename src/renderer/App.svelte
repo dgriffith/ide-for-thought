@@ -643,6 +643,31 @@
     }
   }
 
+  async function handleIngestUrl() {
+    if (!notebase.meta) return;
+    const raw = await showPrompt('URL to ingest:');
+    if (!raw) return;
+    const url = raw.trim();
+    if (!url) return;
+    try {
+      const result = await withBusy('Fetching…', () => api.sources.ingestUrl(url));
+      // Wait a beat so the file watcher's indexSource pass finishes before
+      // we try to open the source tab — otherwise the detail panel's graph
+      // query returns empty and the tab renders as "unknown source."
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
+      if (result.duplicate) {
+        await showConfirm(
+          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
+          CONFIRM_KEYS.ingestDuplicate,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleDecompose(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -1057,6 +1082,9 @@
     api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());
     api.menu.onFormatFolder(() => handleFormatFolder());
     api.menu.onFormatAll(() => handleFormatAll());
+
+    // Ingest URL (#93)
+    api.menu.onIngestUrl(() => handleIngestUrl());
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
