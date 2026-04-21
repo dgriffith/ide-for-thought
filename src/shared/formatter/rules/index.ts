@@ -23,6 +23,7 @@ import './content/remove-empty-list-markers';
 import './content/remove-consecutive-list-markers';
 import './content/unordered-list-marker-style';
 import './content/ordered-list-style';
+import './content/auto-correct-common-misspellings';
 
 // Spacing (#158) — blank-line discipline and inline whitespace normalisation.
 import './spacing/line-break-at-document-end';
