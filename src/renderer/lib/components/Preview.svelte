@@ -18,9 +18,11 @@
     pendingAnchor?: string | null;
     /** Called when the effect successfully scrolls, so the caller can clear its pending state. */
     onAnchorResolved?: () => void;
+    /** Fired when a rendered task-list checkbox is toggled. Line is 0-indexed. */
+    onTaskToggle?: (lineIndex: number) => void;
   }
 
-  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved }: Props = $props();
+  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved, onTaskToggle }: Props = $props();
 
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
@@ -107,6 +109,49 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }
     return defaultParagraphOpen
       ? defaultParagraphOpen(tokens, idx, options, env, self)
+      : self.renderToken(tokens, idx, options);
+  };
+
+  // Task-list items: when a list item starts with `[ ]` or `[x]`, render a
+  // live <input type="checkbox"> and stamp `data-task-line` with the source
+  // line (from the list_item_open token's `map`) so the click handler on
+  // the preview root knows which line to flip in the editor store (#127).
+  const TASK_ITEM_RE = /^\[([ xX])\]\s/;
+  const defaultListItemOpen = md.renderer.rules.list_item_open;
+  md.renderer.rules.list_item_open = (tokens, idx, options, env, self) => {
+    // Scan forward to the first inline token inside this list item (typical
+    // structure: list_item_open → paragraph_open → inline). Stop if we hit
+    // the matching close without finding one.
+    let k = idx + 1;
+    while (k < tokens.length && tokens[k].type !== 'inline' && tokens[k].type !== 'list_item_close') k++;
+    const inlineTok = k < tokens.length && tokens[k].type === 'inline' ? tokens[k] : null;
+    if (inlineTok) {
+      const m = inlineTok.content.match(TASK_ITEM_RE);
+      if (m) {
+        const checked = m[1] === 'x' || m[1] === 'X';
+        const line = tokens[idx].map?.[0] ?? -1;
+        tokens[idx].attrSet('data-task-line', String(line));
+        tokens[idx].attrJoin('class', 'task-list-item');
+        // Strip the `[ ]` prefix from the inline's aggregate content and
+        // from its first text child so the rendered output doesn't repeat it.
+        inlineTok.content = inlineTok.content.replace(TASK_ITEM_RE, '');
+        if (inlineTok.children) {
+          for (let i = 0; i < inlineTok.children.length; i++) {
+            if (inlineTok.children[i].type === 'text') {
+              inlineTok.children[i].content = inlineTok.children[i].content.replace(TASK_ITEM_RE, '');
+              break;
+            }
+          }
+          // Inject the checkbox as an html_inline prefix on the inline tree.
+          const checkboxHtml = `<input type="checkbox" data-task-line="${line}"${checked ? ' checked' : ''}> `;
+          const cb = new (md as any).Token('html_inline', '', 0);
+          cb.content = checkboxHtml;
+          inlineTok.children.unshift(cb);
+        }
+      }
+    }
+    return defaultListItemOpen
+      ? defaultListItemOpen(tokens, idx, options, env, self)
       : self.renderToken(tokens, idx, options);
   };
 
@@ -588,6 +633,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   function handleClick(e: MouseEvent) {
     const el = e.target as HTMLElement;
 
+    if (
+      el instanceof HTMLInputElement &&
+      el.type === 'checkbox' &&
+      el.dataset.taskLine !== undefined
+    ) {
+      const line = parseInt(el.dataset.taskLine, 10);
+      if (!Number.isNaN(line)) onTaskToggle?.(line);
+      // Don't preventDefault — the native toggle gives an instant flicker-free
+      // response. The content re-render will land the DOM in the same state.
+      return;
+    }
+
     const citeLink = el.closest<HTMLElement>('.cite-link');
     if (citeLink) {
       e.preventDefault();
@@ -799,6 +856,17 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
   .preview :global(p) {
     margin: 0 0 12px;
+  }
+
+  .preview :global(li.task-list-item) {
+    list-style: none;
+    margin-left: -1.2em;
+  }
+
+  .preview :global(li.task-list-item > input[type="checkbox"][data-task-line]) {
+    margin-right: 6px;
+    cursor: pointer;
+    vertical-align: -1px;
   }
 
   .preview :global(a) {

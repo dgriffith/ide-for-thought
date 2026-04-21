@@ -47,6 +47,7 @@
   import { planSplitByHeading } from './lib/refactor/split-by-heading';
   import { getRefactorSettings } from './lib/refactor/settings';
   import { getFormatSettings, loadFormatSettings } from './lib/formatter/settings';
+  import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
   import type { ContextBundle } from '../shared/types';
@@ -237,6 +238,12 @@
   function handleTagSelect(tag: string) {
     sidebar?.refreshTags();
     setTimeout(() => sidebar?.selectTag(tag), 50);
+  }
+
+  function handleTaskToggle(lineIndex: number) {
+    const current = editor.content;
+    const next = toggleTaskOnLine(current, lineIndex);
+    if (next !== current) editor.setContent(next);
   }
 
   async function handleSave() {
@@ -1240,6 +1247,7 @@
                   onOpenExcerpt={handleOpenExcerpt}
                   pendingAnchor={pendingPreviewAnchor}
                   onAnchorResolved={() => { pendingPreviewAnchor = null; }}
+                  onTaskToggle={handleTaskToggle}
                 />
               </div>
             {/if}
