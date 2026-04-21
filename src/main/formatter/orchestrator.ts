@@ -5,6 +5,9 @@ import * as graph from '../graph/index';
 import * as search from '../search/index';
 import { formatContent, type FormatSettings } from '../../shared/formatter/engine';
 import type { FormatFileResult } from '../../shared/formatter/types';
+// Side-effect import: populates the rule registry on the main-process side.
+// The renderer has its own import in SettingsDialog for the UI listing.
+import '../../shared/formatter/rules/index';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
