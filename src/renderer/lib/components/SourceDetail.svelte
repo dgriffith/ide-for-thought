@@ -90,6 +90,59 @@
     }
   }
 
+  // ── Highlight → Excerpt (#224) ──────────────────────────────────────────
+
+  // Right-click inside the rendered body with text selected → show a small
+  // menu with "Save as excerpt". Click invokes the main-process create, then
+  // the file-watcher broadcast refreshes the Excerpts list below.
+  let excerptMenu = $state<{ x: number; y: number; text: string } | null>(null);
+  let excerptError = $state<string | null>(null);
+  let creatingExcerpt = $state(false);
+  let recentExcerpt = $state<{ id: string; duplicate: boolean } | null>(null);
+
+  function handleBodyContextMenu(e: MouseEvent): void {
+    if (editMode) return;
+    const sel = window.getSelection();
+    const text = sel ? sel.toString().trim() : '';
+    if (!text) return; // no selection — let the native context menu show
+    e.preventDefault();
+    excerptMenu = { x: e.clientX, y: e.clientY, text };
+    excerptError = null;
+    const close = () => {
+      excerptMenu = null;
+      window.removeEventListener('click', close);
+    };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  async function saveExcerpt(): Promise<void> {
+    if (!excerptMenu) return;
+    const citedText = excerptMenu.text;
+    creatingExcerpt = true;
+    excerptError = null;
+    try {
+      const result = await api.sources.createExcerpt({ sourceId, citedText });
+      recentExcerpt = { id: result.excerptId, duplicate: result.duplicate };
+      excerptMenu = null;
+      // Reload the source detail so the new excerpt shows up in the list
+      // even before the file-watcher's broadcast arrives.
+      await load(sourceId);
+      // Clear the "just-saved" banner after a moment.
+      setTimeout(() => { recentExcerpt = null; }, 4000);
+    } catch (err) {
+      excerptError = err instanceof Error ? err.message : String(err);
+    } finally {
+      creatingExcerpt = false;
+    }
+  }
+
+  // Reload the source detail when the main process tells us an excerpt
+  // was added/updated/removed (covers cross-window sync and any direct
+  // filesystem edits the user made to excerpt ttls).
+  api.sources.onExcerptsChanged(() => {
+    if (loadedId === sourceId) load(sourceId);
+  });
+
   // After render, if a specific excerpt was highlighted, scroll it into view.
   $effect(() => {
     if (!detail || !highlightExcerptId) return;
@@ -199,11 +252,37 @@
             <button class="btn secondary" disabled={saving} onclick={cancelEdit}>Cancel</button>
           </div>
         {:else if bodyContent !== null}
-          <div class="body-view">
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="body-view" oncontextmenu={handleBodyContextMenu}>
             <Preview content={bodyContent} onNavigate={onNavigate} />
           </div>
+          {#if recentExcerpt}
+            <div class="excerpt-banner" class:duplicate={recentExcerpt.duplicate}>
+              {recentExcerpt.duplicate
+                ? 'That passage was already saved as an excerpt.'
+                : 'Saved as excerpt'}
+              <code>{recentExcerpt.id}</code>
+            </div>
+          {/if}
+          {#if excerptError}
+            <div class="save-error">Couldn't save excerpt: {excerptError}</div>
+          {/if}
         {/if}
       </section>
+    {/if}
+
+    {#if excerptMenu}
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <div
+        class="excerpt-menu"
+        style:left="{excerptMenu.x}px"
+        style:top="{excerptMenu.y}px"
+        onmousedown={(e) => e.preventDefault()}
+      >
+        <button disabled={creatingExcerpt} onclick={saveExcerpt}>
+          {creatingExcerpt ? 'Saving…' : 'Save as excerpt'}
+        </button>
+      </div>
     {/if}
 
     <section>
@@ -435,6 +514,55 @@
     padding: 8px 12px;
     margin-top: 8px;
     font-size: 12px;
+  }
+
+  .excerpt-menu {
+    position: fixed;
+    z-index: 100;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    min-width: 160px;
+  }
+  .excerpt-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 12px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .excerpt-menu button:hover:not(:disabled) {
+    background: var(--bg-button);
+  }
+  .excerpt-menu button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  .excerpt-banner {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-left: 3px solid var(--accent);
+    background: var(--bg-button);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .excerpt-banner.duplicate {
+    border-left-color: var(--text-muted);
+  }
+  .excerpt-banner code {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: ui-monospace, monospace;
   }
 
   .muted {

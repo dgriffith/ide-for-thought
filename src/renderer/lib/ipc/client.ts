@@ -275,6 +275,16 @@ export interface SourcesApi {
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
+  /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */
+  createExcerpt(params: {
+    sourceId: string;
+    citedText: string;
+    page?: number | null;
+    pageRange?: string | null;
+    locationText?: string | null;
+  }): Promise<{ excerptId: string; relativePath: string; duplicate: boolean }>;
+  /** Fires when an excerpt is added, updated, or removed. */
+  onExcerptsChanged(cb: () => void): void;
 }
 
 declare global {

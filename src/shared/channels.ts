@@ -114,6 +114,10 @@ export const Channels = {
   SOURCES_INGEST_URL: 'sources:ingestUrl',
   /** Ingest a DOI / arXiv id / PubMed id (#96). Hits CrossRef / arXiv / PubMed. */
   SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
+  /** Create an Excerpt (#224) from a highlighted passage in a source body. */
+  SOURCES_CREATE_EXCERPT: 'sources:createExcerpt',
+  /** Broadcast from main when an excerpt is added/updated/removed so source tabs refresh. */
+  EXCERPTS_CHANGED: 'excerpts:changed',
   /** Menu → "Ingest URL…" — prompts the renderer for a URL and calls SOURCES_INGEST_URL. */
   MENU_INGEST_URL: 'menu:ingestUrl',
   /** Menu → "Ingest identifier…" — prompts the renderer for a DOI/arXiv/PMID. */
