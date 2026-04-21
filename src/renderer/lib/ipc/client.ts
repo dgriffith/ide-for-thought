@@ -260,6 +260,10 @@ export interface SourcesApi {
     duplicate: boolean;
     title: string;
   }>;
+  /** All indexed sources, sorted by title. */
+  listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
+  /** Fires when a source is added, updated, or removed. */
+  onChanged(cb: () => void): void;
 }
 
 declare global {

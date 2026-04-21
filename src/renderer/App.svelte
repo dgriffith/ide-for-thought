@@ -940,8 +940,18 @@
   const originalOpen = notebase.open;
   notebase.open = async () => {
     await originalOpen();
-    setTimeout(() => sidebar?.refreshTags(), 100);
+    setTimeout(() => {
+      sidebar?.refreshTags();
+      sidebar?.refreshSources();
+    }, 100);
   };
+
+  // Main broadcasts when the sources watcher reindexes or removes a source.
+  // Refresh the sidebar Sources panel so newly-ingested sources appear
+  // without a manual reload.
+  api.sources.onChanged(() => {
+    sidebar?.refreshSources();
+  });
 
   function cycleViewMode() {
     if (viewMode === 'source') viewMode = 'preview';
@@ -1130,6 +1140,7 @@
       await bookmarkStore.load();
       await loadFormatSettings();
       sidebar?.refreshTags();
+      sidebar?.refreshSources();
       // Load inspection count after a brief delay to let health checks finish
       setTimeout(refreshInspectionCount, 3000);
       // Refresh periodically

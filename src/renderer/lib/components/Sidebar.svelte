@@ -3,6 +3,7 @@
   import FileTree from './FileTree.svelte';
   import SearchPanel from './SearchPanel.svelte';
   import TagPanel from './TagPanel.svelte';
+  import SourcesPanel from './SourcesPanel.svelte';
 
   interface Props {
     files: NoteFile[];
@@ -26,6 +27,7 @@
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
+  let sourcesPanel = $state<SourcesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
 
   function handleContextMenu(e: MouseEvent) {
@@ -43,6 +45,10 @@
 
   export function refreshTags() {
     tagPanel?.refresh();
+  }
+
+  export function refreshSources() {
+    sourcesPanel?.refresh();
   }
 
   export function focusSearch() {
@@ -76,6 +82,9 @@
       <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
+    {#if onSourceSelect}
+      <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} />
+    {/if}
   {:else}
     <div class="empty" oncontextmenu={handleContextMenu}>
       <p>No notes yet</p>

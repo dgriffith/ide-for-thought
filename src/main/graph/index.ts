@@ -1178,6 +1178,29 @@ export function sourcesByTag(tag: string): TaggedSource[] {
   });
 }
 
+/**
+ * List every indexed source with its display metadata, sorted by title.
+ * Used by the sidebar's Sources panel for navigation.
+ */
+export function listAllSources(): SourceMetadata[] {
+  if (!store) return [];
+  const entries: SourceMetadata[] = [];
+  const seen = new Set<string>();
+  const idStmts = store.statementsMatching(undefined, MINERVA('sourceId'), undefined);
+  for (const st of idStmts) {
+    const sourceId = st.object.value;
+    if (seen.has(sourceId)) continue;
+    seen.add(sourceId);
+    entries.push(collectSourceMetadata(sourceId, st.subject as $rdf.NamedNode));
+  }
+  entries.sort((a, b) => {
+    const ta = (a.title ?? a.sourceId).toLowerCase();
+    const tb = (b.title ?? b.sourceId).toLowerCase();
+    return ta.localeCompare(tb);
+  });
+  return entries;
+}
+
 export function allTags(): string[] {
   if (!store) return [];
   const tags = new Set<string>();
