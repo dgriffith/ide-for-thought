@@ -11,6 +11,7 @@
 import './heading/header-increment';
 import './heading/remove-trailing-punctuation';
 import './heading/capitalize-headings';
+import './heading/file-name-heading';
 
 // Content (#157) — in-line text normalisations.
 import './content/proper-ellipsis';
