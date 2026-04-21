@@ -11,6 +11,14 @@ export interface NoteTab {
   savedContent: string;
   cursorOffset?: number;
   scrollTop?: number;
+  /**
+   * Serialised CodeMirror `EditorState` (doc + selection + history
+   * stacks) captured on Editor unmount. Used to restore undo/redo across
+   * tab switches — without this, switching tabs and back would give you
+   * a fresh editor with empty history (#167). Memory-only; not persisted
+   * to disk since session-restore is a separate concern.
+   */
+  historyJson?: unknown;
 }
 
 export interface QueryTab {
@@ -193,11 +201,19 @@ export function getEditorStore() {
     }
   }
 
-  function saveEditorState(relativePath: string, cursorOffset: number, scrollTop: number) {
+  function saveEditorState(
+    relativePath: string,
+    cursorOffset: number,
+    scrollTop: number,
+    historyJson?: unknown,
+  ) {
     const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
     if (tab) {
       tab.cursorOffset = cursorOffset;
       tab.scrollTop = scrollTop;
+      // Only record history when the caller provided it — absent arg means
+      // "just updating cursor/scroll" (e.g. position-save on scroll).
+      if (historyJson !== undefined) tab.historyJson = historyJson;
       schedulePersistTabs();
     }
   }
