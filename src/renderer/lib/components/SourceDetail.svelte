@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from '../ipc/client';
+  import Preview from './Preview.svelte';
   import type { SourceDetail, SourceExcerpt, SourceBacklink } from '../../../shared/types';
 
   interface Props {
@@ -14,6 +15,18 @@
   let loading = $state(true);
   let loadedId = $state<string | null>(null);
 
+  // body.md is the extracted content from ingest (or hand-authored for
+  // manually-placed sources). Null means the file doesn't exist for this
+  // source — older sources without bodies stay tidy with no "Content" header.
+  let bodyContent = $state<string | null>(null);
+  let bodyLoaded = $state(false);
+  let bodyLoadedFor = $state<string | null>(null);
+  let editMode = $state(false);
+  let draftBody = $state('');
+  let saving = $state(false);
+  let saveError = $state<string | null>(null);
+  const bodyRelativePath = $derived(`.minerva/sources/${sourceId}/body.md`);
+
   async function load(id: string) {
     loading = true;
     loadedId = id;
@@ -24,11 +37,58 @@
     }
   }
 
+  async function loadBody(id: string) {
+    bodyLoaded = false;
+    bodyLoadedFor = id;
+    editMode = false;
+    saveError = null;
+    try {
+      bodyContent = await api.notebase.readFile(`.minerva/sources/${id}/body.md`);
+    } catch {
+      // body.md is optional; sources can ship meta-only.
+      bodyContent = null;
+    } finally {
+      bodyLoaded = true;
+    }
+  }
+
   $effect(() => {
     if (sourceId !== loadedId) {
       load(sourceId);
     }
   });
+
+  $effect(() => {
+    if (sourceId !== bodyLoadedFor) {
+      loadBody(sourceId);
+    }
+  });
+
+  function enterEditMode() {
+    draftBody = bodyContent ?? '';
+    saveError = null;
+    editMode = true;
+  }
+
+  function cancelEdit() {
+    editMode = false;
+    draftBody = '';
+    saveError = null;
+  }
+
+  async function saveBody() {
+    saving = true;
+    saveError = null;
+    try {
+      await api.notebase.writeFile(bodyRelativePath, draftBody);
+      bodyContent = draftBody;
+      editMode = false;
+    } catch (err) {
+      saveError = err instanceof Error ? err.message : String(err);
+    } finally {
+      saving = false;
+    }
+  }
 
   // After render, if a specific excerpt was highlighted, scroll it into view.
   $effect(() => {
@@ -111,6 +171,38 @@
       <section class="abstract">
         <h2>Abstract</h2>
         <p>{detail.metadata.abstract}</p>
+      </section>
+    {/if}
+
+    {#if bodyLoaded && (bodyContent !== null || editMode)}
+      <section class="body">
+        <div class="body-header">
+          <h2>Content</h2>
+          {#if !editMode}
+            <button class="body-edit" onclick={enterEditMode}>Edit body</button>
+          {/if}
+        </div>
+        {#if editMode}
+          <textarea
+            class="body-editor"
+            bind:value={draftBody}
+            spellcheck="false"
+            autocomplete="off"
+          ></textarea>
+          {#if saveError}
+            <div class="save-error">{saveError}</div>
+          {/if}
+          <div class="body-actions">
+            <button class="btn primary" disabled={saving} onclick={saveBody}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button class="btn secondary" disabled={saving} onclick={cancelEdit}>Cancel</button>
+          </div>
+        {:else if bodyContent !== null}
+          <div class="body-view">
+            <Preview content={bodyContent} onNavigate={onNavigate} />
+          </div>
+        {/if}
       </section>
     {/if}
 
@@ -253,6 +345,96 @@
     font-size: 14px;
     color: var(--text-muted);
     margin: 0;
+  }
+
+  .body-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .body-edit {
+    border: 1px solid var(--border);
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .body-edit:hover {
+    background: var(--bg-button-hover);
+  }
+
+  .body-view {
+    /* Preview has its own padding; reset it so the body sits flush within
+     * the source panel's existing padding. */
+    margin-left: -48px;
+    margin-right: -48px;
+  }
+  .body-view :global(.preview) {
+    padding: 0 48px;
+    overflow-y: visible;
+  }
+
+  .body-editor {
+    width: 100%;
+    min-height: 300px;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  .body-editor:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .body-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .btn.primary:hover:not(:disabled) { opacity: 0.9; }
+  .btn.secondary {
+    background: var(--bg-button);
+    color: var(--text);
+  }
+  .btn.secondary:hover:not(:disabled) {
+    background: var(--bg-button-hover);
+  }
+
+  .save-error {
+    color: var(--text);
+    background: var(--bg-button);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    font-size: 12px;
   }
 
   .muted {
