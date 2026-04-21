@@ -580,7 +580,7 @@
     const settings = getFormatSettings();
     try {
       const result = await withBusy('Formatting\u2026', () =>
-        api.formatter.formatContent(tab.content, settings),
+        api.formatter.formatContent(tab.content, settings, tab.relativePath),
       );
       if (result !== tab.content) {
         editor.setContent(result);

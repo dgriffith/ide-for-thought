@@ -628,7 +628,8 @@ export function registerIpcHandlers(): void {
   // Formatter (issue #153)
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_CONTENT,
-    (_e, content: string, settings: FormatSettings) => formatNoteContent(content, settings),
+    (_e, content: string, settings: FormatSettings, relativePath?: string) =>
+      formatNoteContent(content, settings, relativePath),
   );
 
   // Project-scoped formatter settings (#154). Stored in .minerva/formatter.json
@@ -661,10 +662,13 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
       const result = await formatFileOnDisk(rootPath, relativePath, settings);
-      if (result.changed) {
-        markPathHandled(relativePath);
+      const touched = result.changed
+        ? [relativePath, ...result.cascadedPaths]
+        : result.cascadedPaths;
+      if (touched.length > 0) {
+        for (const p of touched) markPathHandled(p);
         await persistIndexes();
-        broadcastRewritten(rootPath, [relativePath]);
+        broadcastRewritten(rootPath, touched);
       }
       return result;
     },
@@ -676,10 +680,11 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
       const summary = await formatFolderOnDisk(rootPath, relDir ?? '', settings);
-      if (summary.changedPaths.length > 0) {
-        for (const p of summary.changedPaths) markPathHandled(p);
+      const touched = [...summary.changedPaths, ...summary.cascadedPaths];
+      if (touched.length > 0) {
+        for (const p of touched) markPathHandled(p);
         await persistIndexes();
-        broadcastRewritten(rootPath, summary.changedPaths);
+        broadcastRewritten(rootPath, touched);
       }
       return summary;
     },

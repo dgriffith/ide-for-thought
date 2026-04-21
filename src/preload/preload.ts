@@ -156,8 +156,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
   formatter: {
-    formatContent: (content: string, settings: unknown) =>
-      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings),
+    formatContent: (content: string, settings: unknown, relativePath?: string) =>
+      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings, relativePath),
     formatFile: (relativePath: string, settings: unknown) =>
       ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FILE, relativePath, settings),
     formatFolder: (relDir: string, settings: unknown) =>

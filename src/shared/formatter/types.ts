@@ -64,4 +64,6 @@ export interface FormatFileResult {
   before: string;
   /** Rewritten content. Equals `before` when no rule matched. */
   after: string;
+  /** Other notes whose incoming `[[file#slug]]` links were rewritten when a heading slug changed. */
+  cascadedPaths: string[];
 }
