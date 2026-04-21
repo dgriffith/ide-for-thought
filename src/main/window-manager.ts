@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { Channels } from '../shared/channels';
 import { startWatching, stopWatching } from './notebase/watcher';
 import * as graph from './graph/index';
 import * as search from './search/index';
@@ -183,11 +184,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         } catch { /* body optional */ }
         graph.indexSource(sourceId, metaContent, bodyContent);
         debouncedPersist();
+        if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
       } catch { /* meta.ttl may have been deleted between events */ }
     },
     onSourceMetaDeleted: (sourceId) => {
       graph.removeSource(sourceId);
       debouncedPersist();
+      if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     },
     onExcerptChanged: async (excerptId) => {
       try {

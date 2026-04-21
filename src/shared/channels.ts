@@ -114,6 +114,10 @@ export const Channels = {
   SOURCES_INGEST_URL: 'sources:ingestUrl',
   /** Menu → "Ingest URL…" — prompts the renderer for a URL and calls SOURCES_INGEST_URL. */
   MENU_INGEST_URL: 'menu:ingestUrl',
+  /** List every indexed source, for the sidebar Sources panel. */
+  SOURCES_LIST_ALL: 'sources:listAll',
+  /** Broadcast from main when a source is added/updated/removed so panels refresh. */
+  SOURCES_CHANGED: 'sources:changed',
 
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',

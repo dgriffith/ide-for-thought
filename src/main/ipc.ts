@@ -663,6 +663,8 @@ export function registerIpcHandlers(): void {
     return await ingestUrl(rootPath, url);
   });
 
+  ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
+
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_FILE,
     async (e, relativePath: string, settings: FormatSettings) => {

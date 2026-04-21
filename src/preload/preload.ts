@@ -157,6 +157,10 @@ contextBridge.exposeInMainWorld('api', {
   },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
+    listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
+    onChanged: (cb: () => void) => {
+      ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
+    },
   },
   formatter: {
     formatContent: (content: string, settings: unknown, relativePath?: string) =>
