@@ -110,6 +110,11 @@ export const Channels = {
   /** LLM-driven decomposition of a note into a parent index + children (#178). */
   REFACTOR_DECOMPOSE_SUGGEST: 'refactor:decomposeSuggest',
 
+  /** Ingest a URL (#93). Fetches, runs Readability, persists under .minerva/sources/<id>/. */
+  SOURCES_INGEST_URL: 'sources:ingestUrl',
+  /** Menu → "Ingest URL…" — prompts the renderer for a URL and calls SOURCES_INGEST_URL. */
+  MENU_INGEST_URL: 'menu:ingestUrl',
+
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',
   /** Format every .md under a relative folder (empty string = whole thoughtbase). */

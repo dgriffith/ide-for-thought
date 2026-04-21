@@ -28,6 +28,7 @@ import {
   formatFile as formatFileOnDisk,
   formatFolder as formatFolderOnDisk,
 } from './formatter/orchestrator';
+import { ingestUrl } from './sources/ingest';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
@@ -654,6 +655,12 @@ export function registerIpcHandlers(): void {
     const p = path.join(rootPath, '.minerva', 'formatter.json');
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, JSON.stringify(settings, null, 2), 'utf-8');
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_URL, async (e, url: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await ingestUrl(rootPath, url);
   });
 
   ipcMain.handle(

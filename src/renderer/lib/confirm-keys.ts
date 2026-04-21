@@ -22,6 +22,8 @@ export const CONFIRM_KEYS = {
   formatFailed: 'format-failed',
   formatComplete: 'format-complete',
   formatAllConfirm: 'format-all-confirm',
+  ingestDuplicate: 'ingest-duplicate',
+  ingestFailed: 'ingest-failed',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -110,6 +112,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Confirm Format All Notes',
     description:
       'Prompt before running the formatter across the whole thoughtbase.',
+  },
+  {
+    key: CONFIRM_KEYS.ingestDuplicate,
+    title: 'Ingest URL: already ingested',
+    description:
+      'Shown when the URL you tried to ingest matches an existing source — the source is opened instead of creating a duplicate.',
+  },
+  {
+    key: CONFIRM_KEYS.ingestFailed,
+    title: 'Ingest URL failed',
+    description:
+      'Shown when Ingest URL errors out (network failure, unsupported content type, Readability extraction failed, etc).',
   },
 ];
 

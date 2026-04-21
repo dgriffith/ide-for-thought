@@ -155,6 +155,9 @@ contextBridge.exposeInMainWorld('api', {
     decomposeSuggest: (relativePath: string, hints?: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
+  sources: {
+    ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
+  },
   formatter: {
     formatContent: (content: string, settings: unknown, relativePath?: string) =>
       ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings, relativePath),
@@ -299,6 +302,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onFormatAll: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FORMAT_ALL, () => cb());
+    },
+    onIngestUrl: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

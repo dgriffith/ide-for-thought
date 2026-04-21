@@ -228,6 +228,7 @@ export interface MenuApi {
   onFormatCurrentNote(cb: () => void): void;
   onFormatFolder(cb: () => void): void;
   onFormatAll(cb: () => void): void;
+  onIngestUrl(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -247,7 +248,18 @@ export interface IdeApi {
   tools: ToolsApi;
   refactor: RefactorApi;
   formatter: FormatterApi;
+  sources: SourcesApi;
   menu: MenuApi;
+}
+
+export interface SourcesApi {
+  /** Ingest a URL: fetches, runs Readability, persists under .minerva/sources/<id>/. */
+  ingestUrl(url: string): Promise<{
+    sourceId: string;
+    relativePath: string;
+    duplicate: boolean;
+    title: string;
+  }>;
 }
 
 declare global {

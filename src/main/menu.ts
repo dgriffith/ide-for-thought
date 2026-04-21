@@ -86,6 +86,11 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+N',
           click: () => send(Channels.MENU_NEW_NOTE),
         },
+        {
+          label: 'Ingest URL…',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          click: () => send(Channels.MENU_INGEST_URL),
+        },
         { type: 'separator' },
         {
           label: 'New Window',
