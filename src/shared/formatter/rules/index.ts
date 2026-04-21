@@ -7,6 +7,23 @@
  * application order itself is fixed by CATEGORY_ORDER in registry.ts.
  */
 
+// YAML (#155) — frontmatter normalisation. `compact-yaml` first so later
+// rules work against a tidy block; `add-blank-line-after-yaml` last so it
+// sees the final shape. Timestamp / title rules run mid-category because
+// they mutate values, not structure.
+import './yaml/compact-yaml';
+import './yaml/remove-yaml-keys';
+import './yaml/dedupe-yaml-array-values';
+import './yaml/sort-yaml-array-values';
+import './yaml/format-tags-in-yaml';
+import './yaml/insert-yaml-attributes';
+import './yaml/yaml-timestamp';
+import './yaml/yaml-title';
+import './yaml/yaml-title-alias';
+import './yaml/yaml-key-sort';
+import './yaml/format-yaml-array';
+import './yaml/add-blank-line-after-yaml';
+
 // Heading (#156) — ATX heading structure and text.
 import './heading/header-increment';
 import './heading/remove-trailing-punctuation';
