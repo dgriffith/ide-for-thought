@@ -1,5 +1,6 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { LINK_TYPES } from '../../../shared/link-types';
+import type { SourceMetadata } from '../../../shared/types';
 import { extractAnchors } from './note-anchors';
 
 // ── Phase detection (pure) ─────────────────────────────────────────────────
@@ -107,6 +108,28 @@ function notePathOptions(paths: string[]): Completion[] {
   });
 }
 
+export function sourceOptions(sources: readonly SourceMetadata[]): Completion[] {
+  return sources.map((s) => {
+    const title = s.title ?? s.sourceId;
+    const creators = s.creators.length > 0
+      ? (s.creators.length === 1 ? s.creators[0]
+        : s.creators.length === 2 ? `${s.creators[0]} and ${s.creators[1]}`
+        : `${s.creators[0]} et al.`)
+      : '';
+    const byline = creators && s.year ? `${creators} · ${s.year}`
+      : creators || s.year || '';
+    // Put the source id into the label string (tail) so fuzzy-matching picks
+    // up both title searches ("toulmin", "uses of argument") and direct id
+    // searches ("toulmin-1958"). `apply` inserts only the id.
+    return {
+      label: `${title} — ${s.sourceId}`,
+      apply: s.sourceId,
+      detail: byline || undefined,
+      type: 'class',
+    };
+  });
+}
+
 function headingOptions(anchors: { slug: string; text: string; level: number }[]): Completion[] {
   return anchors.map((a) => ({
     label: a.slug,
@@ -124,6 +147,8 @@ function blockIdOptions(ids: string[]): Completion[] {
 export interface LinkAutocompleteOptions {
   /** Returns the current list of note-file relativePaths in the thoughtbase. */
   getNotePaths: () => string[];
+  /** Returns the current list of indexed Sources (for `[[cite::…]]`). */
+  getSources: () => readonly SourceMetadata[];
   /** Fetch raw markdown for a note so we can scan its headings + block-ids. */
   readNote: (relativePath: string) => Promise<string>;
 }
@@ -173,6 +198,19 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
     }
 
     if (phase.kind === 'path') {
+      // Typed-link paths pick from a different universe depending on the
+      // prefix: `[[cite::…]]` completes against Sources (title / creator /
+      // source id all searchable), everything else stays on notes.
+      if (phase.typePrefix === 'cite') {
+        return {
+          from: phase.innerStart,
+          options: sourceOptions(opts.getSources()),
+          // Source ids are lowercase alphanumerics + `.`, `_`, `-`; titles
+          // additionally carry spaces and punctuation which the default
+          // matcher can chew on.
+          validFor: /^[a-z0-9_\-\. ]*$/i,
+        };
+      }
       return {
         from: phase.innerStart,
         options: notePathOptions(paths),
