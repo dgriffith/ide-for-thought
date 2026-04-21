@@ -48,6 +48,10 @@
     onBookmark?: () => void;
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
+    /** Click on a `[[cite::source-id]]` in the editor → open the source tab. */
+    onOpenSource?: (sourceId: string) => void;
+    /** Click on a `[[quote::excerpt-id]]` in the editor → open the source tab with excerpt highlighted. */
+    onOpenExcerpt?: (excerptId: string) => void;
     onExtractSelection?: () => void;
     onSplitHere?: () => void;
     onSplitByHeading?: () => void;
@@ -78,6 +82,8 @@
     onBookmark,
     onInsertQueryList,
     onNavigate,
+    onOpenSource,
+    onOpenExcerpt,
     onExtractSelection,
     onSplitHere,
     onSplitByHeading,
@@ -256,7 +262,13 @@
 
   function openLink(link: LinkRange) {
     if (link.kind === 'wiki') {
-      onNavigate?.(link.href);
+      if (link.linkType === 'cite') {
+        onOpenSource?.(link.href);
+      } else if (link.linkType === 'quote') {
+        onOpenExcerpt?.(link.href);
+      } else {
+        onNavigate?.(link.href);
+      }
     } else {
       api.shell.openExternal(link.href);
     }
@@ -367,6 +379,12 @@
     linkDecorations({
       onOpenNote: (target: string) => {
         if (onNavigate) onNavigate(target);
+      },
+      onOpenSource: (sourceId: string) => {
+        if (onOpenSource) onOpenSource(sourceId);
+      },
+      onOpenExcerpt: (excerptId: string) => {
+        if (onOpenExcerpt) onOpenExcerpt(excerptId);
       },
       onOpenExternal: (url: string) => {
         api.shell.openExternal(url);

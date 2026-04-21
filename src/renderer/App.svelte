@@ -1293,6 +1293,8 @@
                     onToolInvoke={handleToolInvoke}
                     onOpenConversation={openConversation}
                     onNavigate={handleNavigate}
+                    onOpenSource={handleOpenSource}
+                    onOpenExcerpt={handleOpenExcerpt}
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     getSources={() => sourcesCache}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
