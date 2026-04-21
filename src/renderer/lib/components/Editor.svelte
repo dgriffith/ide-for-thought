@@ -12,6 +12,7 @@
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+  import { historyField } from '@codemirror/commands';
   import { api } from '../ipc/client';
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
@@ -41,7 +42,19 @@
     onContentChange: (text: string) => void;
     onSave: () => void;
     onSearchQueryConsumed?: () => void;
-    onEditorStateSave?: (filePath: string, cursorOffset: number, scrollTop: number) => void;
+    onEditorStateSave?: (
+      filePath: string,
+      cursorOffset: number,
+      scrollTop: number,
+      historyJson: unknown,
+    ) => void;
+    /**
+     * Snapshot from a prior lifecycle (tab-switch unmount) to restore the
+     * undo/redo stacks into the fresh EditorView. Ignored when the doc
+     * inside the snapshot doesn't match the current `content` — stale
+     * history would let the user undo to a state the file no longer shows.
+     */
+    initialHistory?: unknown;
     onCursorChange?: (info: CursorInfo) => void;
     onToolInvoke?: (toolId: string) => void;
     onOpenConversation?: () => void;
@@ -96,6 +109,7 @@
     onFormatCurrentNote,
     getNotePaths,
     getSources,
+    initialHistory,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -118,6 +132,19 @@
   const wrapCompartment = new Compartment();
   const lineNumbersCompartment = new Compartment();
   const whitespaceCompartment = new Compartment();
+
+  /**
+   * Sanity-check a stored history snapshot before handing it to
+   * `EditorState.fromJSON`. CM's JSON is an opaque blob to us; we just
+   * need `doc` (string) for the drift check. Anything that doesn't match
+   * that minimum shape is treated as "no snapshot, start fresh."
+   */
+  function toHistorySnapshot(raw: unknown): { doc: string } & Record<string, unknown> | null {
+    if (!raw || typeof raw !== 'object') return null;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.doc !== 'string') return null;
+    return obj as { doc: string } & Record<string, unknown>;
+  }
 
   function cmTheme(): any {
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
@@ -565,7 +592,21 @@
 
     const allExtensions = [...extensions, appKeymap, updateListener, completion];
 
-    const state = EditorState.create({ doc: content, extensions: allExtensions });
+    // When the caller passes a history snapshot AND its serialised doc
+    // still matches the current content, restore the undo/redo stacks
+    // into the fresh view. If the content has drifted (file reloaded from
+    // disk, programmatic rewrite, etc.) we fall back to a clean state —
+    // undoing to a document that no longer matches reality is worse than
+    // losing history.
+    const snapshot = toHistorySnapshot(initialHistory);
+    const canRestore = snapshot !== null && snapshot.doc === content;
+    const state = canRestore
+      ? EditorState.fromJSON(
+          snapshot,
+          { extensions: allExtensions },
+          { history: historyField },
+        )
+      : EditorState.create({ doc: content, extensions: allExtensions });
     view = new EditorView({ state, parent: editorContainer });
 
     if (initSettings.alwaysCollapseFrontmatter) {
@@ -581,7 +622,13 @@
     const mountedFilePath = filePath;
     return () => {
       view.scrollDOM.removeEventListener('scroll', onScroll);
-      onEditorStateSave?.(mountedFilePath, view.state.selection.main.head, lastScrollTop);
+      const historySnapshot = view.state.toJSON({ history: historyField });
+      onEditorStateSave?.(
+        mountedFilePath,
+        view.state.selection.main.head,
+        lastScrollTop,
+        historySnapshot,
+      );
       view.destroy();
     };
   });

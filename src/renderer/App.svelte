@@ -1284,6 +1284,7 @@
                     bind:this={editorComponent}
                     filePath={editor.activeFilePath!}
                     content={editor.content}
+                    initialHistory={editor.activeNoteTab?.historyJson}
                     searchQuery={pendingSearchQuery}
                     onContentChange={editor.setContent}
                     onSave={handleSave}
