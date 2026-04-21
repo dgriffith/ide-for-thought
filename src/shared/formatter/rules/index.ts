@@ -7,6 +7,24 @@
  * application order itself is fixed by CATEGORY_ORDER in registry.ts.
  */
 
+// Content (#157) — in-line text normalisations.
+import './content/proper-ellipsis';
+import './content/remove-multiple-spaces';
+import './content/remove-hyphenated-line-breaks';
+import './content/no-bare-urls';
+import './content/default-language-for-code-fences';
+import './content/quote-style';
+import './content/emphasis-style';
+import './content/strong-style';
+import './content/blockquote-style';
+// List normalisation — empty/consecutive cleanups run before the style rules
+// so renumbering sees a tidy list.
+import './content/remove-empty-list-markers';
+import './content/remove-consecutive-list-markers';
+import './content/unordered-list-marker-style';
+import './content/ordered-list-style';
+import './content/auto-correct-common-misspellings';
+
 // Spacing (#158) — blank-line discipline and inline whitespace normalisation.
 import './spacing/line-break-at-document-end';
 import './spacing/trailing-spaces';
