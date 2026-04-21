@@ -17,7 +17,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { JSDOM } from 'jsdom';
+import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import { canonicalSourceId, normalizeUrl } from './source-id';
@@ -106,8 +106,15 @@ export interface ExtractedArticle {
 }
 
 export function extractReadable(html: string, url: string): ExtractedArticle {
-  const dom = new JSDOM(html, { url });
-  const reader = new Readability(dom.window.document);
+  // linkedom gives us a standards-ish Document backed by a fast tree —
+  // enough for Readability's needs without dragging undici/jsdom into
+  // the main-process bundle. We have to patch `documentURI` because
+  // linkedom leaves it blank, and Readability uses it to resolve
+  // relative URLs in the extracted content.
+  const { document } = parseHTML(html);
+  Object.defineProperty(document, 'documentURI', { value: url, configurable: true });
+  Object.defineProperty(document, 'baseURI', { value: url, configurable: true });
+  const reader = new Readability(document as unknown as Document);
   const article = reader.parse();
   if (!article) throw new Error('Readability could not extract content from this page');
 
