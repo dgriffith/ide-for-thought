@@ -112,8 +112,12 @@ export const Channels = {
 
   /** Ingest a URL (#93). Fetches, runs Readability, persists under .minerva/sources/<id>/. */
   SOURCES_INGEST_URL: 'sources:ingestUrl',
+  /** Ingest a DOI / arXiv id / PubMed id (#96). Hits CrossRef / arXiv / PubMed. */
+  SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
   /** Menu → "Ingest URL…" — prompts the renderer for a URL and calls SOURCES_INGEST_URL. */
   MENU_INGEST_URL: 'menu:ingestUrl',
+  /** Menu → "Ingest identifier…" — prompts the renderer for a DOI/arXiv/PMID. */
+  MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */

@@ -91,6 +91,11 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+Shift+I',
           click: () => send(Channels.MENU_INGEST_URL),
         },
+        {
+          label: 'Ingest Identifier…',
+          accelerator: 'CmdOrCtrl+Shift+D',
+          click: () => send(Channels.MENU_INGEST_IDENTIFIER),
+        },
         { type: 'separator' },
         {
           label: 'New Window',

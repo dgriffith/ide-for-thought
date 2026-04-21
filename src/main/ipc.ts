@@ -29,6 +29,7 @@ import {
   formatFolder as formatFolderOnDisk,
 } from './formatter/orchestrator';
 import { ingestUrl } from './sources/ingest';
+import { ingestIdentifier } from './sources/ingest-identifier';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
@@ -661,6 +662,12 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return await ingestUrl(rootPath, url);
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await ingestIdentifier(rootPath, identifier);
   });
 
   ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
