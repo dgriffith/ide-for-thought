@@ -14,6 +14,9 @@ import './content/remove-hyphenated-line-breaks';
 import './content/no-bare-urls';
 import './content/default-language-for-code-fences';
 import './content/quote-style';
+import './content/emphasis-style';
+import './content/strong-style';
+import './content/blockquote-style';
 
 // Spacing (#158) — blank-line discipline and inline whitespace normalisation.
 import './spacing/line-break-at-document-end';
