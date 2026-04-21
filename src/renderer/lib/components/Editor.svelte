@@ -23,6 +23,7 @@
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
+  import { planBlockLink } from '../editor/block-link';
 
   export interface CursorInfo {
     line: number;
@@ -95,7 +96,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
   // Snapshot of the selection taken when the context menu opens, so
   // commands from the menu can run against what the user had selected
@@ -218,13 +219,15 @@
     e.preventDefault();
     let link: LinkRange | null = null;
     let hasSelection = false;
+    let docPos: number | null = null;
     if (view) {
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+      docPos = pos ?? null;
       if (pos != null) link = findLinkAt(view.state, pos);
       const sel = view.state.selection.main;
       hasSelection = sel.from !== sel.to;
     }
-    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection };
+    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos };
     const close = () => {
       closeMenu();
       window.removeEventListener('click', close);
@@ -283,6 +286,27 @@
   function runCmd(cmd: (v: EditorView) => boolean) {
     restoreSelection();
     if (view) cmd(view);
+    closeMenu();
+  }
+
+  /**
+   * Right-click action: anchor the paragraph under the cursor with a
+   * `^block-id` marker (reusing any existing one) and copy the canonical
+   * `[[note#^block-id]]` link to the clipboard. Blank lines and notes
+   * with no path yet (unsaved buffers) are silently skipped.
+   */
+  async function copyBlockLink(): Promise<void> {
+    if (!view || !contextMenu || contextMenu.docPos == null || !filePath) {
+      closeMenu();
+      return;
+    }
+    const plan = planBlockLink(view.state.doc.toString(), contextMenu.docPos);
+    if (!plan) { closeMenu(); return; }
+    if (plan.edit) {
+      view.dispatch({ changes: { from: plan.edit.at, insert: plan.edit.text } });
+    }
+    const relPath = filePath.replace(/\.md$/, '');
+    await navigator.clipboard.writeText(`[[${relPath}#^${plan.blockId}]]`);
     closeMenu();
   }
 
@@ -618,6 +642,9 @@
     <button onclick={() => execCommand('cut')}>Cut</button>
     <button onclick={() => execCommand('copy')}>Copy</button>
     <button onclick={() => execCommand('paste')}>Paste</button>
+    {#if filePath}
+      <button onclick={() => copyBlockLink()}>Copy Block Link</button>
+    {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Format &#x25B8;</span>
