@@ -15,44 +15,7 @@
  * like wiki-links at all are left untouched.
  */
 
-const WIKI_LINK_RE = /\[\[([^\]\n]+?)\]\]/g;
-
-interface ParsedWikiLink {
-  /** Type prefix like `supports` or `cite`, or null if untyped. */
-  type: string | null;
-  /** Bare path/id portion (no anchor, no display, no type prefix). */
-  target: string;
-  /** Original anchor including the `#` prefix, or null if absent. */
-  anchor: string | null;
-  /** Display text after `|`, or null if absent. */
-  display: string | null;
-}
-
-function parseWikiInner(inner: string): ParsedWikiLink {
-  // Split off display (|)
-  const pipeIdx = inner.indexOf('|');
-  const head = pipeIdx >= 0 ? inner.slice(0, pipeIdx) : inner;
-  const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : null;
-
-  // Split off type::
-  const typeMatch = head.match(/^([a-z][\w-]*)::(.*)$/);
-  const type = typeMatch ? typeMatch[1] : null;
-  const rest = typeMatch ? typeMatch[2] : head;
-
-  // Split off #anchor (everything from # onward, preserving block-id `^`)
-  const hashIdx = rest.indexOf('#');
-  const target = hashIdx >= 0 ? rest.slice(0, hashIdx) : rest;
-  const anchor = hashIdx >= 0 ? rest.slice(hashIdx) : null;
-
-  return { type, target: target.trim(), anchor, display };
-}
-
-function reassembleWikiLink(parsed: ParsedWikiLink, newTarget: string): string {
-  const typeText = parsed.type ? `${parsed.type}::` : '';
-  const anchorText = parsed.anchor ?? '';
-  const displayText = parsed.display !== null ? `|${parsed.display}` : '';
-  return `[[${typeText}${newTarget}${anchorText}${displayText}]]`;
-}
+import { WIKI_LINK_RE, parseWikiInner, reassembleWikiLink } from '../../shared/wiki-link';
 
 /** Strip a trailing `.md` extension so rewrite keys match the indexer's convention. */
 export function normalizePath(p: string): string {

@@ -48,6 +48,14 @@ import './content/unordered-list-marker-style';
 import './content/ordered-list-style';
 import './content/auto-correct-common-misspellings';
 
+// Minerva-specific (#161) — rules that know about wiki-links, block-ids,
+// anchor slugs, and frontmatter-predicate aliases.
+import './minerva/canonical-wiki-link-extension';
+import './minerva/remove-redundant-wiki-link-display';
+import './minerva/canonicalize-frontmatter-keys';
+import './minerva/unique-block-ids-per-note';
+import './minerva/unique-heading-slugs';
+
 // Footnote (#159) — reference placement, definition ordering, renumbering.
 // `move-footnotes-to-the-bottom` runs before `re-index-footnotes` so the
 // latter sees definitions in their final order.
