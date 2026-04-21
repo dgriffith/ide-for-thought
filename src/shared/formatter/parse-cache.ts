@@ -5,7 +5,7 @@
  *   - top-of-file YAML frontmatter
  *   - fenced code blocks (``` and ~~~ with matching length)
  *   - inline backticked spans
- *   - math blocks (`$$\u2026$$`) and inline math (`$\u2026$`)
+ *   - math blocks (`$$…$$`) and inline math (`$…$`)
  *   - blockquote regions
  *
  * The resulting cache exposes an `isProtected(offset)` helper so rules can

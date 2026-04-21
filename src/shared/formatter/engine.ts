@@ -4,7 +4,7 @@
  * deterministic order: category order first (see `CATEGORY_ORDER`), then
  * registration order within each category.
  *
- * The engine does not know about IO \u2014 callers read + write files and wire
+ * The engine does not know about IO — callers read + write files and wire
  * palette commands on top. Pure in / pure out.
  */
 
@@ -15,7 +15,7 @@ import type { EnabledRule, FormatterRule } from './types';
 export interface FormatSettings {
   /** Per-rule enable map. Unlisted rules default to disabled. */
   enabled: Record<string, boolean>;
-  /** Per-rule config override. Unlisted rules use the rule\u2019s defaultConfig. */
+  /** Per-rule config override. Unlisted rules use the rule’s defaultConfig. */
   configs: Record<string, unknown>;
 }
 
@@ -82,7 +82,7 @@ export function formatContentToFixedPoint(
   return current;
 }
 
-/** Alias used by the orchestrator so callers don\u2019t depend on the registry directly. */
+/** Alias used by the orchestrator so callers don’t depend on the registry directly. */
 export function ruleExists(id: string): boolean {
   return getRule(id) !== undefined;
 }

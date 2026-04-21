@@ -116,6 +116,10 @@ export const Channels = {
   FORMATTER_FORMAT_FOLDER: 'formatter:formatFolder',
   /** Pure: format a content string and return the result (used for the active note's editor buffer). */
   FORMATTER_FORMAT_CONTENT: 'formatter:formatContent',
+  /** Load per-rule enable + config map from .minerva/formatter.json. */
+  FORMATTER_LOAD_SETTINGS: 'formatter:loadSettings',
+  /** Write per-rule enable + config map to .minerva/formatter.json. */
+  FORMATTER_SAVE_SETTINGS: 'formatter:saveSettings',
 
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',

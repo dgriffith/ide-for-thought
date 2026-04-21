@@ -171,6 +171,8 @@ export interface FormatterApi {
     relDir: string,
     settings: import('../../../shared/formatter/engine').FormatSettings,
   ): Promise<{ changedPaths: string[]; totalScanned: number }>;
+  loadSettings(): Promise<import('../../../shared/formatter/engine').FormatSettings>;
+  saveSettings(settings: import('../../../shared/formatter/engine').FormatSettings): Promise<void>;
 }
 
 export interface ToolsApi {
