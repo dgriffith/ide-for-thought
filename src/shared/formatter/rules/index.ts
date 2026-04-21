@@ -17,6 +17,12 @@ import './content/quote-style';
 import './content/emphasis-style';
 import './content/strong-style';
 import './content/blockquote-style';
+// List normalisation — empty/consecutive cleanups run before the style rules
+// so renumbering sees a tidy list.
+import './content/remove-empty-list-markers';
+import './content/remove-consecutive-list-markers';
+import './content/unordered-list-marker-style';
+import './content/ordered-list-style';
 
 // Spacing (#158) — blank-line discipline and inline whitespace normalisation.
 import './spacing/line-break-at-document-end';
