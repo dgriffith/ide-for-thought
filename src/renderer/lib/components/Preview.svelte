@@ -1,5 +1,6 @@
 <script lang="ts">
   import MarkdownIt from 'markdown-it';
+  import Token from 'markdown-it/lib/token.mjs';
   import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
@@ -143,9 +144,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             }
           }
           // Inject the checkbox as an html_inline prefix on the inline tree.
-          const checkboxHtml = `<input type="checkbox" data-task-line="${line}"${checked ? ' checked' : ''}> `;
-          const cb = new (md as any).Token('html_inline', '', 0);
-          cb.content = checkboxHtml;
+          const cb = new Token('html_inline', '', 0);
+          cb.content = `<input type="checkbox" data-task-line="${line}"${checked ? ' checked' : ''}> `;
           inlineTok.children.unshift(cb);
         }
       }
