@@ -130,7 +130,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       const m = inlineTok.content.match(TASK_ITEM_RE);
       if (m) {
         const checked = m[1] === 'x' || m[1] === 'X';
-        const line = tokens[idx].map?.[0] ?? -1;
+        // `map[0]` is 0-indexed within whatever source was passed to
+        // `md.render` — which is the frontmatter-stripped content below.
+        // Add the env-carried offset so the checkbox's data-task-line
+        // points at the line index in the original note.
+        const rawLine = tokens[idx].map?.[0] ?? -1;
+        const line = rawLine >= 0 ? rawLine + ((env as { lineOffset?: number })?.lineOffset ?? 0) : -1;
         tokens[idx].attrSet('data-task-line', String(line));
         tokens[idx].attrJoin('class', 'task-list-item');
         // Strip the `[ ]` prefix from the inline's aggregate content and
@@ -297,7 +302,17 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return text.replace(/^---\n[\s\S]*?\n---\n?/, '');
   }
 
-  let rendered = $derived(md.render(stripFrontmatter(content)));
+  function countFrontmatterLines(text: string): number {
+    const m = text.match(/^---\n[\s\S]*?\n---\n?/);
+    if (!m) return 0;
+    return (m[0].match(/\n/g) ?? []).length;
+  }
+
+  let rendered = $derived.by(() => {
+    const stripped = stripFrontmatter(content);
+    const lineOffset = countFrontmatterLines(content);
+    return md.render(stripped, { lineOffset });
+  });
   let previewEl = $state<HTMLDivElement>();
   let activeCharts: ChartHandle[] = [];
 
