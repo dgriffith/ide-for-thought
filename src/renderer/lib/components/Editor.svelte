@@ -60,6 +60,8 @@
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
+    /** Live list of Sources for `[[cite::…]]` autocomplete. */
+    getSources?: () => readonly import('../../../shared/types').SourceMetadata[];
   }
 
   let {
@@ -87,6 +89,7 @@
     onDecompose,
     onFormatCurrentNote,
     getNotePaths,
+    getSources,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -532,6 +535,7 @@
 
     const linkCompletion = linkCompletionSource({
       getNotePaths: () => getNotePaths?.() ?? [],
+      getSources: () => getSources?.() ?? [],
       readNote: (p) => api.notebase.readFile(p),
     });
 

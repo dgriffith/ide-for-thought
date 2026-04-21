@@ -103,6 +103,13 @@
   let queryPanelComponent = $state<QueryPanel>();
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
+  // Cache of every indexed source, refreshed on `sources:changed` and on
+  // project open. Feeds the Editor's `[[cite::…]]` autocomplete so typing
+  // in the editor doesn't have to await an IPC round-trip per keystroke.
+  let sourcesCache = $state<import('../shared/types').SourceMetadata[]>([]);
+  async function refreshSourcesCache(): Promise<void> {
+    try { sourcesCache = await api.sources.listAll(); } catch { /* ignore */ }
+  }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
@@ -943,14 +950,16 @@
     setTimeout(() => {
       sidebar?.refreshTags();
       sidebar?.refreshSources();
+      refreshSourcesCache();
     }, 100);
   };
 
   // Main broadcasts when the sources watcher reindexes or removes a source.
-  // Refresh the sidebar Sources panel so newly-ingested sources appear
-  // without a manual reload.
+  // Refresh the sidebar Sources panel AND the editor autocomplete cache so
+  // newly-ingested sources become reachable without a manual reload.
   api.sources.onChanged(() => {
     sidebar?.refreshSources();
+    refreshSourcesCache();
   });
 
   function cycleViewMode() {
@@ -1141,6 +1150,7 @@
       await loadFormatSettings();
       sidebar?.refreshTags();
       sidebar?.refreshSources();
+      await refreshSourcesCache();
       // Load inspection count after a brief delay to let health checks finish
       setTimeout(refreshInspectionCount, 3000);
       // Refresh periodically
@@ -1255,6 +1265,7 @@
                     onOpenConversation={openConversation}
                     onNavigate={handleNavigate}
                     getNotePaths={() => flattenNotePaths(notebase.files)}
+                    getSources={() => sourcesCache}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
