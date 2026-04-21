@@ -157,6 +157,8 @@ contextBridge.exposeInMainWorld('api', {
   },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
+    ingestIdentifier: (identifier: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
@@ -309,6 +311,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onIngestUrl: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());
+    },
+    onIngestIdentifier: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INGEST_IDENTIFIER, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

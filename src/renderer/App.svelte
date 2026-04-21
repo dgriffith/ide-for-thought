@@ -668,6 +668,34 @@
     }
   }
 
+  async function handleIngestIdentifier() {
+    if (!notebase.meta) return;
+    const raw = await showPrompt('DOI, arXiv id, or PubMed id:');
+    if (!raw) return;
+    const identifier = raw.trim();
+    if (!identifier) return;
+    try {
+      const result = await withBusy('Looking up…', () => api.sources.ingestIdentifier(identifier));
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
+      if (result.duplicate) {
+        await showConfirm(
+          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
+          CONFIRM_KEYS.ingestDuplicate,
+          'OK',
+        );
+      } else if (result.pdfError) {
+        await showConfirm(
+          `Ingested "${result.title}", but the open-access PDF fetch failed: ${result.pdfError}. The source's bibo:uri points at the canonical record so you can still grab it by hand.`,
+          CONFIRM_KEYS.ingestPdfFailed,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleDecompose(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -1095,6 +1123,7 @@
 
     // Ingest URL (#93)
     api.menu.onIngestUrl(() => handleIngestUrl());
+    api.menu.onIngestIdentifier(() => handleIngestIdentifier());
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a

@@ -229,6 +229,7 @@ export interface MenuApi {
   onFormatFolder(cb: () => void): void;
   onFormatAll(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
+  onIngestIdentifier(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -259,6 +260,16 @@ export interface SourcesApi {
     relativePath: string;
     duplicate: boolean;
     title: string;
+  }>;
+  /** Ingest a DOI / arXiv id / PubMed id via the matching bibliographic API. */
+  ingestIdentifier(identifier: string): Promise<{
+    sourceId: string;
+    relativePath: string;
+    duplicate: boolean;
+    title: string;
+    kind: 'doi' | 'arxiv' | 'pubmed';
+    pdfSaved: boolean;
+    pdfError: string | null;
   }>;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
