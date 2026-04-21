@@ -162,6 +162,7 @@ export interface FormatterApi {
   formatContent(
     content: string,
     settings: import('../../../shared/formatter/engine').FormatSettings,
+    relativePath?: string,
   ): Promise<string>;
   formatFile(
     relativePath: string,
@@ -170,7 +171,7 @@ export interface FormatterApi {
   formatFolder(
     relDir: string,
     settings: import('../../../shared/formatter/engine').FormatSettings,
-  ): Promise<{ changedPaths: string[]; totalScanned: number }>;
+  ): Promise<{ changedPaths: string[]; cascadedPaths: string[]; totalScanned: number }>;
   loadSettings(): Promise<import('../../../shared/formatter/engine').FormatSettings>;
   saveSettings(settings: import('../../../shared/formatter/engine').FormatSettings): Promise<void>;
 }
