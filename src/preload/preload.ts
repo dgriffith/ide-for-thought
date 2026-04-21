@@ -163,6 +163,16 @@ contextBridge.exposeInMainWorld('api', {
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },
+    createExcerpt: (params: {
+      sourceId: string;
+      citedText: string;
+      page?: number | null;
+      pageRange?: string | null;
+      locationText?: string | null;
+    }) => ipcRenderer.invoke(Channels.SOURCES_CREATE_EXCERPT, params),
+    onExcerptsChanged: (cb: () => void) => {
+      ipcRenderer.on(Channels.EXCERPTS_CHANGED, () => cb());
+    },
   },
   formatter: {
     formatContent: (content: string, settings: unknown, relativePath?: string) =>

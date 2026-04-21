@@ -30,6 +30,7 @@ import {
 } from './formatter/orchestrator';
 import { ingestUrl } from './sources/ingest';
 import { ingestIdentifier } from './sources/ingest-identifier';
+import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
@@ -671,6 +672,18 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
+
+  ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {
+    sourceId: string;
+    citedText: string;
+    page?: number | null;
+    pageRange?: string | null;
+    locationText?: string | null;
+  }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await createExcerpt(rootPath, params);
+  });
 
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_FILE,

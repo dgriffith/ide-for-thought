@@ -198,11 +198,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const content = await notebaseFs.readFile(rootPath, relPath);
         graph.indexExcerpt(excerptId, content);
         debouncedPersist();
+        if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
       } catch { /* file may have been deleted between events */ }
     },
     onExcerptDeleted: (excerptId) => {
       graph.removeExcerpt(excerptId);
       debouncedPersist();
+      if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
     },
   });
   watchers.set(win.id, rootPath);
