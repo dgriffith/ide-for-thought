@@ -31,6 +31,13 @@ import './content/unordered-list-marker-style';
 import './content/ordered-list-style';
 import './content/auto-correct-common-misspellings';
 
+// Footnote (#159) — reference placement, definition ordering, renumbering.
+// `move-footnotes-to-the-bottom` runs before `re-index-footnotes` so the
+// latter sees definitions in their final order.
+import './footnote/footnote-after-punctuation';
+import './footnote/move-footnotes-to-the-bottom';
+import './footnote/re-index-footnotes';
+
 // Spacing (#158) — blank-line discipline and inline whitespace normalisation.
 import './spacing/line-break-at-document-end';
 import './spacing/trailing-spaces';
