@@ -7,6 +7,11 @@
  * application order itself is fixed by CATEGORY_ORDER in registry.ts.
  */
 
+// Heading (#156) — ATX heading structure and text.
+import './heading/header-increment';
+import './heading/remove-trailing-punctuation';
+import './heading/capitalize-headings';
+
 // Content (#157) — in-line text normalisations.
 import './content/proper-ellipsis';
 import './content/remove-multiple-spaces';
