@@ -18,6 +18,7 @@
   import type { QueryTab, QueryLanguage } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
+  import { formatSql } from '../../../shared/sql-format';
   import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
   import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
 
@@ -271,10 +272,8 @@
 
   function reformat(): boolean {
     if (!view) return false;
-    // SQL formatting is a separate rabbit hole; SPARQL-only for now.
-    if (tab.language !== 'sparql') return true;
     const current = view.state.doc.toString();
-    const formatted = formatSparql(current);
+    const formatted = tab.language === 'sql' ? formatSql(current) : formatSparql(current);
     if (formatted === current) return true;
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: formatted },
@@ -355,8 +354,7 @@
       <button
         class="save-query-btn"
         onclick={reformat}
-        disabled={tab.language !== 'sparql'}
-        title={tab.language === 'sparql' ? 'Reformat (Shift+Alt+F)' : 'Format is SPARQL-only'}
+        title="Reformat (Shift+Alt+F)"
       >Format</button>
       {#if tab.executionTime != null}
         <span class="status-text">
