@@ -82,11 +82,42 @@ export function rebuildMenu(): void {
     {
       label: 'File',
       submenu: [
+        // Thoughtbase lifecycle first — the user's mental model is
+        // "open my thoughtbase" before "do anything in it".
+        {
+          label: 'New Thoughtbase…',
+          click: () => send('menu:newProject'),
+        },
+        {
+          label: 'Open Thoughtbase…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => send('menu:openProject'),
+        },
+        {
+          label: 'Recent Thoughtbases',
+          submenu: recentSubmenu,
+        },
+        {
+          label: 'Close Thoughtbase',
+          accelerator: 'CmdOrCtrl+Shift+W',
+          click: () => send('menu:closeProject'),
+        },
+        { type: 'separator' },
+
+        // Everyday note actions.
         {
           label: 'New Note',
           accelerator: 'CmdOrCtrl+N',
           click: () => send(Channels.MENU_NEW_NOTE),
         },
+        {
+          label: 'Save',
+          accelerator: 'CmdOrCtrl+S',
+          click: () => send(Channels.MENU_SAVE),
+        },
+        { type: 'separator' },
+
+        // Ingest / Import — bringing external things in.
         {
           label: 'Ingest URL…',
           accelerator: 'CmdOrCtrl+Shift+I',
@@ -110,42 +141,23 @@ export function rebuildMenu(): void {
           click: () => send(Channels.MENU_IMPORT_ZOTERO_RDF),
         },
         { type: 'separator' },
+
+        // Windowing primitive — explicit blank new window, less common.
         {
           label: 'New Window',
           accelerator: 'CmdOrCtrl+Shift+N',
           click: () => createWindow(),
         },
-        {
-          label: 'New Thoughtbase',
-          click: () => send('menu:newProject'),
-        },
-        {
-          label: 'Open Thoughtbase',
-          accelerator: 'CmdOrCtrl+O',
-          click: () => send('menu:openProject'),
-        },
-        {
-          label: 'Recent Thoughtbases',
-          submenu: recentSubmenu,
-        },
         { type: 'separator' },
+
+        // Print / export single-note PDF (the Export menu is the canonical
+        // path; these remain for "just print what's on screen" flows).
         {
-          label: 'Close Thoughtbase',
-          accelerator: 'CmdOrCtrl+Shift+W',
-          click: () => send('menu:closeProject'),
-        },
-        { type: 'separator' },
-        {
-          label: 'Save',
-          accelerator: 'CmdOrCtrl+S',
-          click: () => send(Channels.MENU_SAVE),
-        },
-        {
-          label: 'Print...',
+          label: 'Print…',
           click: () => send('menu:print'),
         },
         {
-          label: 'Export as PDF...',
+          label: 'Export as PDF…',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
             if (!win) return;

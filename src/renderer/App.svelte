@@ -1658,6 +1658,14 @@
       onCancel={handleConfirmCancel}
     />
   {/if}
+  {#if openTargetDialog}
+    <OpenTargetDialog
+      message={openTargetDialog.message}
+      onThisWindow={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('this'); }}
+      onNewWindow={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('new'); }}
+      onCancel={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('cancel'); }}
+    />
+  {/if}
   {#if exportDialogFor}
     <ExportDialog
       exporterId={exportDialogFor}
