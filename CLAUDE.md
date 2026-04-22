@@ -61,7 +61,7 @@ To add a new main-process operation:
 ### Knowledge Graph
 - Stored in `.minerva/graph.ttl` (Turtle format)
 - Auto-indexed on file write
-- Manual rebuild via Graph menu
+- Manual rebuild via Query menu
 - Extracts: titles, tags, wiki-links, frontmatter metadata, embedded Turtle blocks, markdown tables (CSVW)
 - Queryable via SPARQL through `api.graph.query()`
 - Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected into all queries

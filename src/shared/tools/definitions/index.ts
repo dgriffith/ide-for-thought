@@ -1,10 +1,8 @@
 // Analysis tools
 import './analysis/excavate';
-
-// Planning tools
-import './planning/steelman';
-import './planning/taboo';
-import './planning/murphyjitsu';
+import './analysis/steelman';
+import './analysis/taboo';
+import './analysis/murphyjitsu';
 
 // Learning tools
 import './learning/summarize';

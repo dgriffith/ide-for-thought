@@ -4,7 +4,7 @@ import type { ToolContext } from '../../types';
 registerTool({
   id: 'planning.taboo',
   name: 'Taboo',
-  category: 'planning',
+  category: 'analysis',
   description: 'Semantic decomposition by banning a contested term',
   longDescription:
     'Forces clarity by banning a word and requiring restatement without it. ' +

@@ -1,4 +1,4 @@
-export type ToolCategory = 'learning' | 'research' | 'analysis' | 'planning';
+export type ToolCategory = 'learning' | 'research' | 'analysis';
 
 export type ContextRequirement =
   | 'selectedText'

@@ -383,32 +383,9 @@ export function rebuildMenu(): void {
         })),
       } as Electron.MenuItemConstructorOptions)),
 
-    // Git
+    // Query
     {
-      label: 'Git',
-      submenu: [
-        {
-          label: 'Commit All...',
-          accelerator: 'CmdOrCtrl+Shift+C',
-          click: () => send('git:commitPrompt'),
-        },
-        { type: 'separator' },
-        {
-          label: 'Push',
-          enabled: false,
-          click: () => {},
-        },
-        {
-          label: 'Pull',
-          enabled: false,
-          click: () => {},
-        },
-      ],
-    },
-
-    // Graph
-    {
-      label: 'Graph',
+      label: 'Query',
       submenu: [
         {
           label: 'New Query',
