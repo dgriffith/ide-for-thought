@@ -10,6 +10,19 @@
 import { renderNoteBody, inlineImages } from './render';
 import { wrapHtml } from './shell';
 import type { Exporter, ExportOutput } from '../../types';
+import type { CitationRenderer } from '../../csl';
+
+/**
+ * Append the rendered bibliography for everything cited in this note.
+ * Emits nothing when no citations fired — skips the empty-references
+ * divot in the exported HTML.
+ */
+function appendReferences(body: string, renderer: CitationRenderer): string {
+  const bib = renderer.renderBibliography();
+  if (bib.entries.length === 0) return body;
+  const entries = bib.entries.map((e) => `<li>${e}</li>`).join('\n');
+  return `${body}\n<section class="references">\n<h2>References</h2>\n<ol>\n${entries}\n</ol>\n</section>`;
+}
 
 export const noteHtmlExporter: Exporter = {
   id: 'note-html',
@@ -30,8 +43,13 @@ export const noteHtmlExporter: Exporter = {
     const flatten = notes.length === 1;
     const files: ExportOutput['files'] = [];
     for (const f of notes) {
-      const rawBody = renderNoteBody(f, plan);
-      const body = await inlineImages(rawBody, f, rootPath, plan.assetPolicy);
+      // One renderer per note so each page gets its own References
+      // section listing only what it cited. Tree-level consolidation
+      // is a follow-up; this is the simple, correct v1.
+      const renderer = plan.citations?.createRenderer();
+      const rawBody = renderNoteBody(f, plan, renderer);
+      const withReferences = renderer ? appendReferences(rawBody, renderer) : rawBody;
+      const body = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);
       const html = wrapHtml({ title: f.title, body });
       files.push({
         path: flatten ? basenameHtml(f.relativePath) : f.relativePath.replace(/\.md$/i, '.html'),

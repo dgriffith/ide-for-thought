@@ -1,0 +1,91 @@
+/**
+ * Citation engine entry point (#247). `buildCitationRenderer` is the
+ * one function the pipeline calls — loads every source / excerpt meta
+ * under the project, builds a CSL item map, and returns a ready-to-use
+ * renderer keyed to the plan's style / locale.
+ */
+
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { CitationRenderer } from './renderer';
+import { sourceTtlToCsl, excerptTtlToInfo, type CslItem } from './source-to-csl';
+import { BUNDLED_STYLES, BUNDLED_LOCALES, DEFAULT_STYLE, DEFAULT_LOCALE } from './assets';
+
+export { CitationRenderer } from './renderer';
+export type { CslItem, ExcerptInfo } from './source-to-csl';
+
+export interface BuildRendererOptions {
+  styleId?: string;
+  localeId?: string;
+}
+
+/**
+ * Plan-level citation assets, loaded once by `resolvePlan` and shared
+ * across every exporter call. The renderer itself is stateful and
+ * per-session (bibliography ordering tracks citedIds) — exporters that
+ * want a fresh session call `assets.createRenderer()` per note.
+ */
+export interface CitationAssets {
+  style: string;
+  locale: string;
+  items: Map<string, CslItem>;
+  excerpts: Map<string, { sourceId: string; locator?: string }>;
+  knownSourceIds: string[];
+  /** Factory for a fresh renderer — one per note for per-note bibliographies. */
+  createRenderer(): CitationRenderer;
+}
+
+/**
+ * Walk `.minerva/sources/*\/meta.ttl` + `.minerva/excerpts/*.ttl`,
+ * parse each into CSL-JSON, and return a bundle of assets + factory
+ * the exporters use. Unknown styles fall back to APA; unknown locales
+ * fall back to en-US.
+ */
+export async function loadCitationAssets(
+  rootPath: string,
+  opts: BuildRendererOptions = {},
+): Promise<CitationAssets> {
+  const styleId = opts.styleId && BUNDLED_STYLES[opts.styleId] ? opts.styleId : DEFAULT_STYLE;
+  const localeId = opts.localeId && BUNDLED_LOCALES[opts.localeId] ? opts.localeId : DEFAULT_LOCALE;
+  const style = BUNDLED_STYLES[styleId];
+  const locale = BUNDLED_LOCALES[localeId];
+
+  const items = new Map<string, CslItem>();
+  const excerpts = new Map<string, { sourceId: string; locator?: string }>();
+
+  const sourcesDir = path.join(rootPath, '.minerva', 'sources');
+  const excerptsDir = path.join(rootPath, '.minerva', 'excerpts');
+
+  // Sources: each id directory contains meta.ttl.
+  try {
+    const entries = await fs.readdir(sourcesDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const metaPath = path.join(sourcesDir, entry.name, 'meta.ttl');
+      let ttl: string;
+      try { ttl = await fs.readFile(metaPath, 'utf-8'); } catch { continue; }
+      items.set(entry.name, sourceTtlToCsl(ttl, entry.name));
+    }
+  } catch { /* no .minerva/sources — fine, just no citations */ }
+
+  // Excerpts: one .ttl per excerpt id.
+  try {
+    const entries = await fs.readdir(excerptsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.ttl')) continue;
+      const excerptId = entry.name.replace(/\.ttl$/, '');
+      const ttl = await fs.readFile(path.join(excerptsDir, entry.name), 'utf-8');
+      const info = excerptTtlToInfo(ttl, excerptId);
+      if (info) excerpts.set(excerptId, { sourceId: info.sourceId, locator: info.locator });
+    }
+  } catch { /* no .minerva/excerpts */ }
+
+  return {
+    style,
+    locale,
+    items,
+    excerpts,
+    knownSourceIds: [...items.keys()],
+    createRenderer: () => new CitationRenderer(style, locale, items),
+  };
+}
