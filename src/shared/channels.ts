@@ -129,6 +129,8 @@ export const Channels = {
 
   /** Run a SQL query against the project's DuckDB (#232). */
   TABLES_QUERY: 'tables:query',
+  /** List every registered CSV table with its columns + row count (#234, for autocomplete). */
+  TABLES_LIST: 'tables:list',
 
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',

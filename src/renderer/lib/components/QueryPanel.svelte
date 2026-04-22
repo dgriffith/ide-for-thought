@@ -12,9 +12,10 @@
   } from '@codemirror/language';
   import { tags as t } from '@lezer/highlight';
   import { sparql } from '@codemirror/legacy-modes/mode/sparql';
+  import { sql, PostgreSQL } from '@codemirror/lang-sql';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
-  import type { QueryTab } from '../stores/editor.svelte';
+  import type { QueryTab, QueryLanguage } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
   import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
@@ -35,11 +36,12 @@
   interface Props {
     tab: QueryTab;
     onQueryChange: (text: string) => void;
+    onLanguageChange: (language: QueryLanguage) => void;
     onExecute: () => void;
     onSave: () => void;
   }
 
-  let { tab, onQueryChange, onExecute, onSave }: Props = $props();
+  let { tab, onQueryChange, onLanguageChange, onExecute, onSave }: Props = $props();
 
   let editorContainer = $state<HTMLDivElement>();
   let view: EditorView | null = null;
@@ -62,6 +64,50 @@
   // Compartments for reconfigurable extensions.
   const themeCompartment = new Compartment();
   const highlightCompartment = new Compartment();
+  const languageCompartment = new Compartment();
+  const placeholderCompartment = new Compartment();
+  const completionCompartment = new Compartment();
+
+  // SQL autocomplete schema — flat {tableName: [columnName…]} map,
+  // refreshed when the language switches to SQL or a CSV lands/leaves.
+  let sqlSchema = $state<Record<string, string[]>>({});
+
+  async function refreshSqlSchema(): Promise<void> {
+    try {
+      const tables = await api.tables.list();
+      const next: Record<string, string[]> = {};
+      for (const t of tables) next[t.name] = t.columns;
+      sqlSchema = next;
+      // Re-seat the SQL language extension so lang-sql picks up new schema.
+      if (view && tab.language === 'sql') {
+        view.dispatch({ effects: languageCompartment.reconfigure(languageExt('sql')) });
+      }
+    } catch { /* tables DB not ready — autocomplete just falls back to keywords */ }
+  }
+
+  function languageExt(lang: QueryLanguage): any {
+    if (lang === 'sql') {
+      return sql({
+        dialect: PostgreSQL,
+        upperCaseKeywords: true,
+        schema: sqlSchema,
+      });
+    }
+    return StreamLanguage.define(sparql);
+  }
+
+  function placeholderFor(lang: QueryLanguage): string {
+    return lang === 'sql'
+      ? 'SELECT *\nFROM my_table\nLIMIT 10'
+      : 'SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}';
+  }
+
+  function completionFor(lang: QueryLanguage): any {
+    // lang-sql bundles its own completion source via the `schema` option;
+    // we only need to override for SPARQL.
+    if (lang === 'sql') return autocompletion();
+    return autocompletion({ override: [createSparqlCompletionSource(() => schema)] });
+  }
 
   function isDark(): boolean {
     return getEffectiveTheme(getThemeMode()) === 'dark';
@@ -126,13 +172,13 @@
         history(),
         bracketMatching(),
         indentUnit.of('  '),
-        StreamLanguage.define(sparql),
+        languageCompartment.of(languageExt(tab.language)),
         // Custom highlighter \u2014 dark vs light palette swapped via compartment
         // whenever the theme changes. Non-fallback so it overrides oneDark's
         // own mappings in dark mode.
         highlightCompartment.of(cmHighlight()),
-        placeholder('SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}'),
-        autocompletion({ override: [createSparqlCompletionSource(() => schema)] }),
+        placeholderCompartment.of(placeholder(placeholderFor(tab.language))),
+        completionCompartment.of(completionFor(tab.language)),
         themeCompartment.of(cmTheme()),
         EditorView.theme({
           '&': { height: '100%' },
@@ -174,6 +220,7 @@
     // while (big graph), completion still works with standard prefixes +
     // keywords while it\u2019s pending.
     void refreshSchema();
+    void refreshSqlSchema();
   });
 
   onDestroy(() => {
@@ -191,6 +238,28 @@
     }
   });
 
+  // React to language changes (from the dropdown here, or a programmatic
+  // switch elsewhere). Swaps the parser, placeholder, and completion source.
+  let lastLanguage: QueryLanguage | null = null;
+  $effect(() => {
+    const nextLang = tab.language;
+    if (!view || nextLang === lastLanguage) return;
+    lastLanguage = nextLang;
+    view.dispatch({
+      effects: [
+        languageCompartment.reconfigure(languageExt(nextLang)),
+        placeholderCompartment.reconfigure(placeholder(placeholderFor(nextLang))),
+        completionCompartment.reconfigure(completionFor(nextLang)),
+      ],
+    });
+    if (nextLang === 'sql') void refreshSqlSchema();
+  });
+
+  function handleLanguageSelect(e: Event) {
+    const next = (e.currentTarget as HTMLSelectElement).value as QueryLanguage;
+    onLanguageChange(next);
+  }
+
   export function updateTheme(): void {
     view?.dispatch({
       effects: [
@@ -202,6 +271,8 @@
 
   function reformat(): boolean {
     if (!view) return false;
+    // SQL formatting is a separate rabbit hole; SPARQL-only for now.
+    if (tab.language !== 'sparql') return true;
     const current = view.state.doc.toString();
     const formatted = formatSparql(current);
     if (formatted === current) return true;
@@ -267,6 +338,15 @@
       >
         {tab.executing ? 'Running...' : 'Run'}
       </button>
+      <select
+        class="language-select"
+        value={tab.language}
+        onchange={handleLanguageSelect}
+        title="Query language"
+      >
+        <option value="sparql">SPARQL</option>
+        <option value="sql">SQL</option>
+      </select>
       <button
         class="save-query-btn"
         onclick={onSave}
@@ -275,7 +355,8 @@
       <button
         class="save-query-btn"
         onclick={reformat}
-        title="Reformat (Shift+Alt+F)"
+        disabled={tab.language !== 'sparql'}
+        title={tab.language === 'sparql' ? 'Reformat (Shift+Alt+F)' : 'Format is SPARQL-only'}
       >Format</button>
       {#if tab.executionTime != null}
         <span class="status-text">
@@ -411,7 +492,26 @@
     cursor: pointer;
   }
 
-  .save-query-btn:hover {
+  .save-query-btn:hover:not(:disabled) {
+    background: var(--bg-button-hover);
+  }
+
+  .save-query-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .language-select {
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .language-select:hover {
     background: var(--bg-button-hover);
   }
 

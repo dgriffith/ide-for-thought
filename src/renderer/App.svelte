@@ -1134,6 +1134,22 @@
     api.menu.onIngestUrl(() => handleIngestUrl());
     api.menu.onIngestIdentifier(() => handleIngestIdentifier());
 
+    // External file changes (watcher-driven) — refresh the sidebar so files
+    // added / deleted in Finder show up without a restart. Debounced because
+    // the watcher also fires for internal ops that already called refresh(),
+    // and a burst of watcher events (e.g. ingesting a source tree) shouldn't
+    // produce a burst of listFiles round-trips.
+    let treeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleTreeRefresh = () => {
+      if (treeRefreshTimer) clearTimeout(treeRefreshTimer);
+      treeRefreshTimer = setTimeout(() => {
+        treeRefreshTimer = null;
+        void notebase.refresh();
+      }, 200);
+    };
+    api.notebase.onFileCreated(scheduleTreeRefresh);
+    api.notebase.onFileDeleted(scheduleTreeRefresh);
+
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a
     // link rewrite silently.
@@ -1360,6 +1376,7 @@
             bind:this={queryPanelComponent}
             tab={editor.activeQueryTab!}
             onQueryChange={editor.setQueryText}
+            onLanguageChange={editor.setQueryLanguage}
             onExecute={editor.executeQuery}
             onSave={handleSaveQuery}
           />

@@ -154,34 +154,51 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   startWatching(rootPath, win, win.id, {
     onFileChanged: async (relativePath) => {
       if (wasHandled(relativePath)) return;
+      // CSVs route to DuckDB first in an independent try. registerCsv doesn't
+      // read the file content into memory (DuckDB reads lazily on query), so
+      // it's cheap and hard to fail — keeping it outside the graph+search
+      // pipeline means a graph indexing hiccup can't skip table registration.
+      if (relativePath.toLowerCase().endsWith('.csv')) {
+        try { await tables.registerCsv(rootPath, relativePath); }
+        catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+      }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(relativePath, content);
         search.indexNote(relativePath, content);
-        if (relativePath.toLowerCase().endsWith('.csv')) {
-          await tables.registerCsv(rootPath, relativePath);
-        }
         debouncedPersist();
-      } catch { /* file may have been deleted between events */ }
+      } catch (err) {
+        // Usually a race (file deleted between events), but log so real bugs
+        // don't hide in silence.
+        console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
+      }
     },
     onFileCreated: async (relativePath) => {
       if (wasHandled(relativePath)) return;
+      if (relativePath.toLowerCase().endsWith('.csv')) {
+        try { await tables.registerCsv(rootPath, relativePath); }
+        catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+      }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(relativePath, content);
         search.indexNote(relativePath, content);
-        if (relativePath.toLowerCase().endsWith('.csv')) {
-          await tables.registerCsv(rootPath, relativePath);
-        }
         debouncedPersist();
-      } catch { /* race condition */ }
+      } catch (err) {
+        console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
+      }
     },
     onFileDeleted: async (relativePath) => {
       if (wasHandled(relativePath)) return;
-      search.removeNote(relativePath);
-      graph.removeNote(relativePath);
       if (relativePath.toLowerCase().endsWith('.csv')) {
-        await tables.unregisterCsv(relativePath);
+        try { await tables.unregisterCsv(relativePath); }
+        catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
+      }
+      try {
+        search.removeNote(relativePath);
+        graph.removeNote(relativePath);
+      } catch (err) {
+        console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
       }
       debouncedPersist();
     },

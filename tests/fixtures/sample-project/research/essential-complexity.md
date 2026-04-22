@@ -20,7 +20,6 @@ productivity jump.
 Brooks frames this with a now-famous distinction:
 
 > [[quote::brooks-essential-accidental]]
-
 See [[cite::brooks-1986]] for the full argument.
 
 ## Warrant
@@ -28,7 +27,7 @@ See [[cite::brooks-1986]] for the full argument.
 Toulmin's framework is useful for articulating *why* the grounds above support
 the claim: we need an explicit warrant connecting "essence dominates accident"
 to "no single tooling improvement buys an order of magnitude."
-
+      
 > [[quote::toulmin-warrants-intro]]
 
 The warrant here is something like: *productivity-gain advances that attack

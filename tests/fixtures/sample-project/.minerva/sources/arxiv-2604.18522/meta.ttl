@@ -1,0 +1,21 @@
+this: a thought:Preprint ;
+    dc:title "A Census of Na D-traced neutral ISM and outflows at $0.6<z<4$" ;
+    dc:creator "Yang Sun" ;
+    dc:creator "Zhiyuan Ji" ;
+    dc:creator "Francesco D'Eugenio" ;
+    dc:creator "Yongda Zhu" ;
+    dc:creator "George H. Rieke" ;
+    dc:creator "William M. Baker" ;
+    dc:creator "Andrew J. Bunker" ;
+    dc:creator "Stefano Carniani" ;
+    dc:creator "Jakob M. Helton" ;
+    dc:creator "Michele Perna" ;
+    dc:creator "Pablo G. Pérez-González" ;
+    dc:creator "Pierluigi Rinaldi" ;
+    dc:creator "Hannah Übler" ;
+    dc:creator "Christopher N. A. Willmer" ;
+    dc:issued "2026-04-20"^^xsd:date ;
+    dc:publisher "arXiv" ;
+    bibo:uri "https://arxiv.org/abs/2604.18522v1" ;
+    dc:abstract "We present a statistical census of the Na D-traced neutral interstellar medium (ISM) and outflows in 309 galaxies at $0.6<z<4$ using JWST/NIRSpec medium-resolution grating spectroscopy from the SMILES, JADES, Blue Jay, and Aurora surveys. After subtracting the stellar continuum, we model the Na D $λλ5890, 5896$ Åand detect neutral ISM absorption in 76 galaxies. Of the Na D-traced ISM detections, 85\\% are found in massive galaxies ($\\log(M_*/M_\\odot)>10$), and only 15\\% in lower-mass systems. In the massive regime, ISM absorption is seen in both star-forming and quiescent galaxies, whereas in lower-mass systems it is observed only in star-forming galaxies. In massive quiescent galaxies, Na D detectability appears linked to star formation history: it is preferentially detected in older systems with larger 4000 Åbreaks, as well as younger, rapidly quenching galaxies with strong Balmer absorption H$δ_A$. We identify Na D outflows in 26 galaxies, revealing a possible dichotomy in their driving mechanisms between star-forming and quiescent galaxies. In star-forming galaxies, outflow properties correlate with star-formation properties, consistent with a star-formation-driven origin. In quiescent galaxies, however, outflows are not associated with residual star formation and often require more energy than such star formation can provide. Together with the high AGN fraction among outflow-detected quiescent galaxies, this suggests that AGN dominate Na D-traced neutral outflows in cosmic noon quiescent systems. We further identify five quiescent galaxies with possible AGN fossil outflows, suggesting that AGN-driven outflows can persist beyond the active accretion phase and may help maintain quiescence." ;
+    thought:accessedAt "2026-04-21T17:54:28.911Z"^^xsd:dateTime .

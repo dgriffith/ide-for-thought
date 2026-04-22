@@ -403,6 +403,10 @@ export function registerIpcHandlers(): void {
     return tables.runQuery(sql);
   });
 
+  ipcMain.handle(Channels.TABLES_LIST, async () => {
+    return tables.listTables();
+  });
+
   ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, () => graph.schemaForCompletion());
 
   ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (_e, sourceId: string) => {
