@@ -6,12 +6,14 @@ import { buildMenu } from './menu';
 import { createWindow, openProjectInWindow } from './window-manager';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
+import { registerBuiltinExporters } from './publish';
 
 app.setName('Minerva');
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
   registerBuiltinExecutors();
+  registerBuiltinExporters();
 
   const session = loadSession().filter((s) => {
     try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
