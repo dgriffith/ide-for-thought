@@ -1,0 +1,4 @@
+this: a thought:Excerpt ;
+    thought:fromSource sources:url-1e5b3a5ab1bc ;
+    thought:citedText "I find I have opinions about decisions at every level of the project. High-level goals guide and constrain, but do not fully specify subgoals, decisions and commitments at lower levels. The specification isn’t complete, and the goal isn’t fully defined, until the project itself is done. There is missing intentionality information that must enter the execution at all levels, throughout the development timeline, right to the last minute." ;
+    prov:generatedAtTime "2026-04-21T18:14:02.627Z"^^xsd:dateTime .

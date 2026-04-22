@@ -1,0 +1,9 @@
+this: a thought:WebPage ;
+    dc:title "What Physical ‘Life Force’ Turns Biology’s Wheels? | Quanta Magazine" ;
+    bibo:uri "https://quantamagazine.org/what-physical-life-force-turns-biologys-wheels-20260420" ;
+    dc:creator "By \n        \n            Natalie Wolchover\n        \n            \nApril 20, 2026" ;
+    dc:publisher "Quanta Magazine" ;
+    dc:abstract "The bacterial flagellar motor is finally understood after 50 years. In its workings, columnist Natalie Wolchover finds the essence of life." ;
+    dc:issued "2026-04-20T15:00:16+00:00" ;
+    dc:language "en" ;
+    thought:accessedAt "2026-04-21T16:22:35.971Z"^^xsd:dateTime .

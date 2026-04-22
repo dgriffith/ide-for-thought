@@ -14,6 +14,7 @@ It also [[references::research/papers/lambda-calculus|Lambda Calculus paper]].
 
 ## Components
 
+[[cite::arxiv-2604.18522]]
 The core #component layer handles data flow.
 
 ```turtle

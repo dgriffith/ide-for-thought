@@ -1,0 +1,9 @@
+this: a thought:WebPage ;
+    dc:title "Intentions have a surprising amount of detail" ;
+    bibo:uri "https://contraptions.venkateshrao.com/p/intentions-have-a-surprising-amount" ;
+    dc:creator "Venkatesh Rao" ;
+    dc:publisher "Contraptions" ;
+    dc:abstract "Auteur managerialism, the myth of one-shotting, and the chindogufication of engineering" ;
+    dc:issued "2026-04-10T22:11:42+00:00" ;
+    dc:language "en" ;
+    thought:accessedAt "2026-04-21T16:23:57.375Z"^^xsd:dateTime .
