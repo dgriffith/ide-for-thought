@@ -8,9 +8,11 @@
 
 import { registerExporter } from './registry';
 import { markdownExporter } from './exporters/markdown';
+import { noteHtmlExporter } from './exporters/note-html';
 
 export function registerBuiltinExporters(): void {
   registerExporter(markdownExporter);
+  registerExporter(noteHtmlExporter);
 }
 
 export * from './types';

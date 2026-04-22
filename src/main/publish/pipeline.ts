@@ -80,6 +80,7 @@ export async function resolvePlan(
     assetPolicy: opts.assetPolicy ?? 'keep-relative',
     citationStyle: opts.citationStyle,
     outputDir: opts.outputDir,
+    rootPath,
   };
 }
 
