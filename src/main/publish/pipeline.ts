@@ -18,6 +18,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
 import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
+import { loadCitationAssets } from './csl';
 import type {
   ExportInput,
   ExportPlan,
@@ -45,6 +46,10 @@ export async function resolvePlan(
     ? await collectTreeEntries(rootPath, input)
     : await collectFilesystemEntries(rootPath, input);
 
+  const citations = await loadCitationAssets(rootPath, {
+    styleId: opts.citationStyle,
+  });
+
   return {
     inputs,
     excluded,
@@ -53,6 +58,7 @@ export async function resolvePlan(
     citationStyle: opts.citationStyle,
     outputDir: opts.outputDir,
     rootPath,
+    citations,
   };
 }
 

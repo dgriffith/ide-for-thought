@@ -78,7 +78,7 @@ export interface ExportPlan {
   excluded: ExportPlanExclusion[];
   linkPolicy: LinkPolicy;
   assetPolicy: AssetPolicy;
-  /** CSL style id; exporters ignore when not set. Populated by a later citations ticket. */
+  /** CSL style id; exporters ignore when not set. */
   citationStyle?: string;
   /** Absolute destination directory for exporters that write multiple files. */
   outputDir?: string;
@@ -89,6 +89,14 @@ export interface ExportPlan {
    * by hand readable.
    */
   rootPath?: string;
+  /**
+   * Citation assets loaded once by `resolvePlan` from the project's
+   * sources + excerpts (#247). Exporters call `citations.createRenderer()`
+   * to get a per-note stateful renderer — citeproc-js tracks
+   * bibliography ordering + first-reference mechanics on the engine
+   * itself, so a per-note reset is cheaper than trying to reuse.
+   */
+  citations?: import('./csl').CitationAssets;
 }
 
 /**

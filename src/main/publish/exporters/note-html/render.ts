@@ -16,18 +16,26 @@ import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
 import { buildLinkResolverContext } from '../../link-resolver';
 import type { ExportPlanFile, ExportPlan } from '../../types';
+import type { CitationRenderer } from '../../csl';
 
-/** Returns the rendered body HTML — just the article content, no `<html>` shell. */
+/**
+ * Returns the rendered body HTML — just the article content, no `<html>`
+ * shell. The optional `renderer` overrides the one the cite rule would
+ * otherwise pull off `plan.citations`; pass it when the caller wants
+ * to collect cited ids across multiple `renderNoteBody` invocations
+ * (e.g. a bundle renderer aggregating a single References section).
+ */
 export function renderNoteBody(
   file: ExportPlanFile,
   plan: ExportPlan,
+  renderer?: CitationRenderer,
 ): string {
-  const md = buildMd(plan);
+  const md = buildMd(plan, renderer);
   const bodyMarkdown = stripFrontmatter(file.content);
   return md.render(bodyMarkdown);
 }
 
-function buildMd(plan: ExportPlan): MarkdownIt {
+function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
   const md = new MarkdownIt({
     html: false,        // drop raw HTML in notes — export is for trust-limited readers
     linkify: true,
@@ -46,7 +54,7 @@ function buildMd(plan: ExportPlan): MarkdownIt {
   md.use(footnote);
   installWikiLinkRule(md, plan);
   installTagRule(md);
-  installCiteStubRule(md);
+  installCiteStubRule(md, plan, renderer);
   return md;
 }
 
@@ -124,11 +132,21 @@ function installTagRule(_md: MarkdownIt): void {
 }
 
 /**
- * Cite / quote stub — renders `[[cite::id]]` as a placeholder link
- * until the CSL engine (#247) lands. Just enough to avoid leaking the
- * raw `[[cite::…]]` syntax into the exported output.
+ * Cite / quote rule — resolves `[[cite::id]]` and `[[quote::id]]`
+ * through a CSL renderer (#247). Precedence: explicit `renderer` arg
+ * (when the caller owns the session for bibliography aggregation),
+ * then `plan.citations.createRenderer()` at rule-install time. Without
+ * either, falls back to a visible stub so nothing leaks raw wiki-link
+ * syntax into the exported output.
  */
-function installCiteStubRule(md: MarkdownIt): void {
+function installCiteStubRule(
+  md: MarkdownIt,
+  plan: ExportPlan,
+  explicitRenderer?: CitationRenderer,
+): void {
+  const citations = plan.citations;
+  const activeRenderer = explicitRenderer
+    ?? (citations ? citations.createRenderer() : null);
   md.inline.ruler.after('wiki_link', 'cite_stub', (state, silent) => {
     const src = state.src;
     const pos = state.pos;
@@ -142,9 +160,21 @@ function installCiteStubRule(md: MarkdownIt): void {
     const kind = m[1].toLowerCase();
     const id = m[2].trim();
     const token = state.push('html_inline', '', 0);
-    // Short placeholder — a superscript reference mark plus the source id,
-    // visibly tagged so it's clear this isn't a fully-rendered citation.
-    token.content = `<sup class="cite-stub" title="${escapeAttr(kind + ': ' + id)}">[${escapeHtml(id)}]</sup>`;
+
+    if (activeRenderer && citations) {
+      if (kind === 'quote') {
+        const ex = citations.excerpts.get(id);
+        if (ex) {
+          token.content = activeRenderer.renderCitation(ex.sourceId, ex.locator);
+        } else {
+          token.content = `<span class="csl-missing">[missing excerpt: ${escapeHtml(id)}]</span>`;
+        }
+      } else {
+        token.content = activeRenderer.renderCitation(id);
+      }
+    } else {
+      token.content = `<sup class="cite-stub" title="${escapeAttr(kind + ': ' + id)}">[${escapeHtml(id)}]</sup>`;
+    }
     state.pos = close + 2;
     return true;
   });
