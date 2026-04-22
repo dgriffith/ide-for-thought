@@ -202,18 +202,20 @@
         <div class="kv"><span class="k">Publisher</span><span class="v">{detail.metadata.publisher}</span></div>
       {/if}
       {#if detail.metadata.doi}
+        {@const doiHref = `https://doi.org/${detail.metadata.doi}`}
         <div class="kv">
           <span class="k">DOI</span>
           <span class="v">
-            <a class="external" href={`https://doi.org/${detail.metadata.doi}`} onclick={(e) => { e.preventDefault(); openExternal(`https://doi.org/${detail.metadata.doi}`); }}>{detail.metadata.doi}</a>
+            <a class="external" href={doiHref} onclick={(e) => { e.preventDefault(); openExternal(doiHref); }}>{detail.metadata.doi}</a>
           </span>
         </div>
       {/if}
       {#if detail.metadata.uri}
+        {@const uriHref = detail.metadata.uri}
         <div class="kv">
           <span class="k">URL</span>
           <span class="v">
-            <a class="external" href={detail.metadata.uri} onclick={(e) => { e.preventDefault(); openExternal(detail.metadata.uri!); }}>{detail.metadata.uri}</a>
+            <a class="external" href={uriHref} onclick={(e) => { e.preventDefault(); openExternal(uriHref); }}>{uriHref}</a>
           </span>
         </div>
       {/if}

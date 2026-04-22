@@ -412,7 +412,7 @@
       await api.notebase.deleteFolder(relativePath);
     } else {
       await api.notebase.deleteFile(relativePath);
-      const tabIdx = editor.tabs.findIndex((t) => t.relativePath === relativePath);
+      const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === relativePath);
       if (tabIdx !== -1) editor.closeTab(tabIdx);
     }
     await notebase.refresh();
