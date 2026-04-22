@@ -712,6 +712,36 @@
     }
   }
 
+  async function handleImportBibtex() {
+    if (!notebase.meta) return;
+    try {
+      const result = await withBusy('Importing BibTeX…', () => api.sources.importBibtex());
+      if (!result) return; // user cancelled the picker
+      // Refresh the Sources panel so the new entries are immediately visible.
+      sidebar?.refreshSources();
+      await refreshSourcesCache();
+      const parts: string[] = [
+        `Imported: ${result.imported.length}`,
+        `Duplicate (skipped): ${result.duplicate.length}`,
+      ];
+      if (result.failed.length > 0) parts.push(`Failed: ${result.failed.length}`);
+      if (result.parseErrors > 0) parts.push(`Parse errors: ${result.parseErrors}`);
+      let message = `BibTeX import complete.\n\n${parts.join('\n')}`;
+      if (result.failed.length > 0) {
+        const preview = result.failed
+          .slice(0, 5)
+          .map((f) => `  • ${f.key}: ${f.reason}`)
+          .join('\n');
+        const more = result.failed.length > 5 ? `\n  …and ${result.failed.length - 5} more` : '';
+        message += `\n\nFirst failures:\n${preview}${more}`;
+      }
+      await showConfirm(message, CONFIRM_KEYS.bibtexImportComplete, 'OK');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`BibTeX import failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestPdf() {
     if (!notebase.meta) return;
     try {
@@ -1197,6 +1227,16 @@
     api.menu.onIngestUrl(() => handleIngestUrl());
     api.menu.onIngestIdentifier(() => handleIngestIdentifier());
     api.menu.onIngestPdf(() => handleIngestPdf());
+    api.menu.onImportBibtex(() => handleImportBibtex());
+
+    // Progress updates during a BibTeX import — rewrites the busy-overlay
+    // label in place so the user sees running counts on large imports.
+    api.sources.onImportBibtexProgress(({ done, total, currentTitle }) => {
+      if (busyLabel) {
+        const short = currentTitle.length > 60 ? currentTitle.slice(0, 57) + '…' : currentTitle;
+        busyLabel = `Importing ${done}/${total}: ${short}`;
+      }
+    });
 
     // External file changes (watcher-driven) — refresh the sidebar so files
     // added / deleted in Finder show up without a restart. Debounced because

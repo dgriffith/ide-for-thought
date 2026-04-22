@@ -100,6 +100,10 @@ export function rebuildMenu(): void {
           label: 'Ingest PDF…',
           click: () => send(Channels.MENU_INGEST_PDF),
         },
+        {
+          label: 'Import BibTeX…',
+          click: () => send(Channels.MENU_IMPORT_BIBTEX),
+        },
         { type: 'separator' },
         {
           label: 'New Window',

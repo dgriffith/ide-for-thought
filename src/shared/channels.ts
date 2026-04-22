@@ -116,6 +116,10 @@ export const Channels = {
   SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
   /** Ingest a local PDF (#94). Main opens a file picker and extracts text via unpdf. */
   SOURCES_INGEST_PDF: 'sources:ingestPdf',
+  /** Bulk import from a .bib file (#98). Main opens a picker and parses via @retorquere/bibtex-parser. */
+  SOURCES_IMPORT_BIBTEX: 'sources:importBibtex',
+  /** Progress events during a BibTeX import — { done, total, currentTitle }. */
+  SOURCES_IMPORT_BIBTEX_PROGRESS: 'sources:importBibtexProgress',
   /** Create an Excerpt (#224) from a highlighted passage in a source body. */
   SOURCES_CREATE_EXCERPT: 'sources:createExcerpt',
   /** Broadcast from main when an excerpt is added/updated/removed so source tabs refresh. */
@@ -126,6 +130,8 @@ export const Channels = {
   MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
   /** Menu → "Ingest PDF…" — opens a file picker in main and extracts the text layer. */
   MENU_INGEST_PDF: 'menu:ingestPdf',
+  /** Menu → "Import BibTeX…" — opens a .bib picker and imports each entry as a Source. */
+  MENU_IMPORT_BIBTEX: 'menu:importBibtex',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
