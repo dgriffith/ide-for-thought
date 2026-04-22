@@ -23,7 +23,7 @@ export type QueryResult =
 export interface TableInfo {
   name: string;
   relativePath: string;
-  columnCount: number;
+  columns: string[];
   rowCount: number;
 }
 
@@ -207,7 +207,7 @@ export async function registerAllCsvs(rootPath: string): Promise<number> {
   return count;
 }
 
-/** Every registered CSV's table name, relative path, and row/column counts. */
+/** Every registered CSV's table name, relative path, column names, and row count. */
 export async function listTables(): Promise<TableInfo[]> {
   if (!connection) return [];
   const out: TableInfo[] = [];
@@ -216,11 +216,12 @@ export async function listTables(): Promise<TableInfo[]> {
     const countR = await runQuery(`SELECT COUNT(*) AS n FROM ${quoted}`);
     const colsR = await runQuery(
       `SELECT column_name FROM information_schema.columns ` +
-      `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main'`,
+      `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main' ` +
+      `ORDER BY ordinal_position`,
     );
     const rowCount = countR.ok ? Number(countR.rows[0]?.n ?? 0) : 0;
-    const columnCount = colsR.ok ? colsR.rows.length : 0;
-    out.push({ name, relativePath, columnCount, rowCount });
+    const columns = colsR.ok ? colsR.rows.map((r) => String(r.column_name)) : [];
+    out.push({ name, relativePath, columns, rowCount });
   }
   out.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   return out;

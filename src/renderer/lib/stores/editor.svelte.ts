@@ -1,5 +1,6 @@
 import { api } from '../ipc/client';
 import type { TabSession, SavedTab } from '../../../shared/types';
+import { normalizeSqlRows } from '../editor/sql-result';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 
@@ -21,11 +22,14 @@ export interface NoteTab {
   historyJson?: unknown;
 }
 
+export type QueryLanguage = 'sparql' | 'sql';
+
 export interface QueryTab {
   type: 'query';
   id: string;
   title: string;
   query: string;
+  language: QueryLanguage;
   results: Record<string, string>[] | null;
   columns: string[];
   error: string | null;
@@ -233,7 +237,7 @@ export function getEditorStore() {
       if (isNote(t)) {
         return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
       } else if (isQuery(t)) {
-        return { type: 'query', title: t.title, query: t.query };
+        return { type: 'query', title: t.title, query: t.query, language: t.language };
       } else {
         return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
       }
@@ -271,6 +275,7 @@ export function getEditorStore() {
           id: `query-${queryCounter}-${Date.now()}`,
           title: saved.title,
           query: saved.query,
+          language: saved.language ?? 'sparql',
           results: null,
           columns: [],
           error: null,
@@ -297,13 +302,14 @@ export function getEditorStore() {
 
   // ── Query operations ────────────────────────────────────────────────────
 
-  function openQuery(initialQuery = '') {
+  function openQuery(initialQuery = '', language: QueryLanguage = 'sparql') {
     queryCounter++;
     const tab: QueryTab = {
       type: 'query',
       id: `query-${queryCounter}-${Date.now()}`,
-      title: `Query ${queryCounter}`,
+      title: language === 'sql' ? `SQL Query ${queryCounter}` : `Query ${queryCounter}`,
       query: initialQuery,
+      language,
       results: null,
       columns: [],
       error: null,
@@ -312,6 +318,25 @@ export function getEditorStore() {
     };
     tabs.push(tab);
     activeIndex = tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  function setQueryLanguage(language: QueryLanguage) {
+    const tab = activeQueryTab();
+    if (!tab || tab.language === language) return;
+    tab.language = language;
+    // Auto-rename only when the title hasn't been customized — the default
+    // "Query N" / "SQL Query N" keeps the language visible in the tab strip.
+    if (/^(SQL )?Query \d+$/.test(tab.title)) {
+      const n = tab.title.match(/\d+/)?.[0] ?? String(queryCounter);
+      tab.title = language === 'sql' ? `SQL Query ${n}` : `Query ${n}`;
+    }
+    // Clear stale results from the prior language so the user doesn't read
+    // SPARQL rows while looking at a SQL query (or vice versa).
+    tab.results = null;
+    tab.columns = [];
+    tab.error = null;
+    tab.executionTime = null;
     schedulePersistTabs();
   }
 
@@ -332,16 +357,27 @@ export function getEditorStore() {
 
     const start = performance.now();
     try {
-      const response = await api.graph.query(tab.query);
-      tab.executionTime = Math.round(performance.now() - start);
-      if ((response as any).error) {
-        tab.error = (response as any).error;
-      } else if (response.results.length > 0) {
-        tab.columns = Object.keys(response.results[0] as Record<string, string>);
-        tab.results = response.results as Record<string, string>[];
+      if (tab.language === 'sql') {
+        const response = await api.tables.query(tab.query);
+        tab.executionTime = Math.round(performance.now() - start);
+        if (!response.ok) {
+          tab.error = response.error;
+        } else {
+          tab.columns = response.columns;
+          tab.results = normalizeSqlRows(response.columns, response.rows);
+        }
       } else {
-        tab.columns = [];
-        tab.results = [];
+        const response = await api.graph.query(tab.query);
+        tab.executionTime = Math.round(performance.now() - start);
+        if ((response as any).error) {
+          tab.error = (response as any).error;
+        } else if (response.results.length > 0) {
+          tab.columns = Object.keys(response.results[0] as Record<string, string>);
+          tab.results = response.results as Record<string, string>[];
+        } else {
+          tab.columns = [];
+          tab.results = [];
+        }
       }
     } catch (e) {
       tab.executionTime = Math.round(performance.now() - start);
@@ -426,6 +462,7 @@ export function getEditorStore() {
     saveEditorState,
     openQuery,
     setQueryText,
+    setQueryLanguage,
     executeQuery,
     restoreTabs,
     persistTabs,

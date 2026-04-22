@@ -1360,6 +1360,7 @@
             bind:this={queryPanelComponent}
             tab={editor.activeQueryTab!}
             onQueryChange={editor.setQueryText}
+            onLanguageChange={editor.setQueryLanguage}
             onExecute={editor.executeQuery}
             onSave={handleSaveQuery}
           />

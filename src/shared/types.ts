@@ -69,6 +69,8 @@ export interface SavedQueryTab {
   type: 'query';
   title: string;
   query: string;
+  /** Omitted for tabs persisted before the SQL toggle landed — load path defaults to 'sparql'. */
+  language?: 'sparql' | 'sql';
 }
 
 export interface SavedSourceTab {

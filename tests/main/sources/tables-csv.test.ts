@@ -142,8 +142,8 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
 
     const a = tables.find((t) => t.name === 'a');
     const b = tables.find((t) => t.name === 'nested_b');
-    expect(a).toEqual({ name: 'a', relativePath: 'a.csv', columnCount: 2, rowCount: 2 });
-    expect(b).toEqual({ name: 'nested_b', relativePath: 'nested/b.csv', columnCount: 3, rowCount: 1 });
+    expect(a).toEqual({ name: 'a', relativePath: 'a.csv', columns: ['x', 'y'], rowCount: 2 });
+    expect(b).toEqual({ name: 'nested_b', relativePath: 'nested/b.csv', columns: ['p', 'q', 'r'], rowCount: 1 });
   });
 
   it('registerAllCsvs picks up existing CSVs on project open', async () => {

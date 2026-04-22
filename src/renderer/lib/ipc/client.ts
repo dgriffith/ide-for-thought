@@ -76,8 +76,16 @@ export type TablesQueryResult =
   | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
   | { ok: false; error: string };
 
+export interface TableInfo {
+  name: string;
+  relativePath: string;
+  columns: string[];
+  rowCount: number;
+}
+
 export interface TablesApi {
   query(sql: string): Promise<TablesQueryResult>;
+  list(): Promise<TableInfo[]>;
 }
 
 export interface TagsApi {

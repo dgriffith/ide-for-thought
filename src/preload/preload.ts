@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
+    list: () => ipcRenderer.invoke(Channels.TABLES_LIST),
   },
   tags: {
     list: () => ipcRenderer.invoke(Channels.TAGS_LIST),
