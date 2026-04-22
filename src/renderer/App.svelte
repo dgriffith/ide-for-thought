@@ -978,6 +978,7 @@
     setTimeout(() => {
       sidebar?.refreshTags();
       sidebar?.refreshSources();
+      sidebar?.refreshTables();
       refreshSourcesCache();
     }, 100);
   };
@@ -988,6 +989,12 @@
   api.sources.onChanged(() => {
     sidebar?.refreshSources();
     refreshSourcesCache();
+  });
+
+  // Main broadcasts after the initial CSV scan and on every register/unregister
+  // from the watcher — keeps the sidebar Tables panel in lockstep.
+  api.tables.onChanged(() => {
+    sidebar?.refreshTables();
   });
 
   function cycleViewMode() {
@@ -1195,6 +1202,7 @@
       await loadFormatSettings();
       sidebar?.refreshTags();
       sidebar?.refreshSources();
+      sidebar?.refreshTables();
       await refreshSourcesCache();
       // Load inspection count after a brief delay to let health checks finish
       setTimeout(refreshInspectionCount, 3000);
@@ -1244,6 +1252,8 @@
           onMove={handleMove}
           onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
           onSourceSelect={(id) => handleOpenSource(id)}
+          onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
+          onOpenCsv={(rel) => handleFileSelect(rel)}
           canPaste={clipboardItem !== null}
         />
       {/if}

@@ -159,8 +159,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       // it's cheap and hard to fail — keeping it outside the graph+search
       // pipeline means a graph indexing hiccup can't skip table registration.
       if (relativePath.toLowerCase().endsWith('.csv')) {
-        try { await tables.registerCsv(rootPath, relativePath); }
-        catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+        try {
+          await tables.registerCsv(rootPath, relativePath);
+          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
@@ -176,8 +178,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     onFileCreated: async (relativePath) => {
       if (wasHandled(relativePath)) return;
       if (relativePath.toLowerCase().endsWith('.csv')) {
-        try { await tables.registerCsv(rootPath, relativePath); }
-        catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+        try {
+          await tables.registerCsv(rootPath, relativePath);
+          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
@@ -191,8 +195,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     onFileDeleted: async (relativePath) => {
       if (wasHandled(relativePath)) return;
       if (relativePath.toLowerCase().endsWith('.csv')) {
-        try { await tables.unregisterCsv(relativePath); }
-        catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
+        try {
+          await tables.unregisterCsv(relativePath);
+          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
       }
       try {
         search.removeNote(relativePath);
@@ -244,6 +250,9 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     search.indexAllNotes(rootPath),
     tables.registerAllCsvs(rootPath),
   ]);
+  // Tables panel subscribes to this; fires once after the initial scan so the
+  // sidebar populates without the renderer having to poll.
+  if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
   // Run health checks after initial indexing, then periodically
   healthChecks.runAllChecks();
   healthChecks.startPeriodicChecks();

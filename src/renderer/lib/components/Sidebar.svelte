@@ -4,6 +4,7 @@
   import SearchPanel from './SearchPanel.svelte';
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
+  import TablesPanel from './TablesPanel.svelte';
 
   interface Props {
     files: NoteFile[];
@@ -20,14 +21,17 @@
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
     onSourceSelect?: (sourceId: string) => void;
+    onTableClick?: (tableName: string) => void;
+    onOpenCsv?: (relativePath: string) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
   let sourcesPanel = $state<SourcesPanel>();
+  let tablesPanel = $state<TablesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
 
   function handleContextMenu(e: MouseEvent) {
@@ -49,6 +53,10 @@
 
   export function refreshSources() {
     sourcesPanel?.refresh();
+  }
+
+  export function refreshTables() {
+    tablesPanel?.refresh();
   }
 
   export function focusSearch() {
@@ -84,6 +92,9 @@
     <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
     {#if onSourceSelect}
       <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} />
+    {/if}
+    {#if onTableClick && onOpenCsv}
+      <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
     {/if}
   {:else}
     <div class="empty" oncontextmenu={handleContextMenu}>
