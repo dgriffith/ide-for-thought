@@ -235,6 +235,5 @@ export const Channels = {
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
   SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
-  GRAPH_REBUILD: 'graph:rebuild',
   GRAPH_EXPORT: 'graph:export',
 } as const;

@@ -79,7 +79,6 @@ contextBridge.exposeInMainWorld('api', {
   },
   graph: {
     query: (sparql: string) => ipcRenderer.invoke(Channels.GRAPH_QUERY, sparql),
-    rebuild: () => ipcRenderer.invoke(Channels.GRAPH_REBUILD),
     groundCheck: (claimText: string) => ipcRenderer.invoke(Channels.GRAPH_GROUND_CHECK, claimText),
     inspections: () => ipcRenderer.invoke(Channels.INSPECTIONS_LIST),
     runInspections: () => ipcRenderer.invoke(Channels.INSPECTIONS_RUN),

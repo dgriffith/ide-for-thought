@@ -4,12 +4,13 @@ import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
 import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
 import * as graph from './graph/index';
+import * as search from './search/index';
+import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries, deleteQuery } from './saved-queries';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
-import * as healthChecks from './graph/health-checks';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -194,6 +195,22 @@ export function rebuildMenu(): void {
               click: () => send('menu:openInTerminal'),
             },
           ],
+        },
+        { type: 'separator' },
+        {
+          label: 'Rebuild All Indexes',
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            await Promise.all([
+              graph.indexAllNotes(rootPath),
+              search.indexAllNotes(rootPath),
+              tables.registerAllCsvs(rootPath),
+            ]);
+            if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          },
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
@@ -453,22 +470,6 @@ export function rebuildMenu(): void {
           })(),
         },
         { type: 'separator' },
-        {
-          label: 'Run Health Checks',
-          click: async () => {
-            await healthChecks.runAllChecks();
-          },
-        },
-        {
-          label: 'Rebuild Index',
-          click: async () => {
-            const win = BrowserWindow.getFocusedWindow();
-            if (!win) return;
-            const rootPath = getRootPath(win.id);
-            if (!rootPath) return;
-            await graph.indexAllNotes(rootPath);
-          },
-        },
         {
           label: 'Export as Turtle',
           click: async () => {
