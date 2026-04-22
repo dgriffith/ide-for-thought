@@ -104,6 +104,10 @@ export function rebuildMenu(): void {
           label: 'Import BibTeX…',
           click: () => send(Channels.MENU_IMPORT_BIBTEX),
         },
+        {
+          label: 'Import Zotero RDF…',
+          click: () => send(Channels.MENU_IMPORT_ZOTERO_RDF),
+        },
         { type: 'separator' },
         {
           label: 'New Window',

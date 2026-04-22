@@ -27,6 +27,7 @@ export const CONFIRM_KEYS = {
   ingestPdfFailed: 'ingest-pdf-failed',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
+  zoteroRdfImportComplete: 'zotero-rdf-import-complete',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -145,6 +146,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'BibTeX import complete',
     description:
       'Summary dialog after Import BibTeX finishes (counts of imported / duplicate / failed entries).',
+  },
+  {
+    key: CONFIRM_KEYS.zoteroRdfImportComplete,
+    title: 'Zotero RDF import complete',
+    description:
+      'Summary dialog after Import Zotero RDF finishes (counts of imported / duplicate / failed items, and how many PDFs were lifted).',
   },
 ];
 

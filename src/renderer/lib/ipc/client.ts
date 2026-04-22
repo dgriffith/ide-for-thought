@@ -263,6 +263,7 @@ export interface MenuApi {
   onIngestIdentifier(cb: () => void): void;
   onIngestPdf(cb: () => void): void;
   onImportBibtex(cb: () => void): void;
+  onImportZoteroRdf(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -324,6 +325,15 @@ export interface SourcesApi {
   } | null>;
   /** Stream progress while a BibTeX import runs. */
   onImportBibtexProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
+  /** Open a .rdf picker and import a Zotero RDF export (#270). Returns null if cancelled. */
+  importZoteroRdf(): Promise<{
+    imported: Array<{ sourceId: string; title: string; pdfAttached: boolean }>;
+    duplicate: Array<{ sourceId: string; title: string }>;
+    failed: Array<{ subject: string; reason: string }>;
+    totalItems: number;
+  } | null>;
+  /** Stream progress while a Zotero RDF import runs. */
+  onImportZoteroRdfProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Fires when a source is added, updated, or removed. */
