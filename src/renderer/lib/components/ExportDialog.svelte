@@ -14,7 +14,7 @@
      * and passes the result up so the caller can show a toast / open
      * the output dir. `null` when the user cancelled the directory picker.
      */
-    onExported: (result: { filesWritten: number; summary: string; outputDir: string }) => void;
+    onExported: (result: { filesWritten: number; summary: string; outputDir: string; writtenPaths: string[] }) => void;
   }
 
   let { exporterId, activeFilePath, onCancel, onExported }: Props = $props();

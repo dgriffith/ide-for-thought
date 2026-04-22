@@ -30,6 +30,12 @@ export interface RunExportResult {
   summary: string;
   /** Absolute path to the directory we wrote into. */
   outputDir: string;
+  /**
+   * Absolute paths of the files the exporter wrote. Surfaced in the
+   * success dialog so a user who exported to their home dir isn't
+   * left wondering which nested folder the file landed in.
+   */
+  writtenPaths: string[];
 }
 
 export async function runExport(
@@ -49,7 +55,7 @@ export async function runExport(
   const absOutputDir = path.resolve(args.outputDir);
   await fs.mkdir(absOutputDir, { recursive: true });
 
-  let filesWritten = 0;
+  const writtenPaths: string[] = [];
   for (const f of output.files) {
     const destAbs = path.resolve(absOutputDir, f.path);
     // Guard against path traversal: every written file must sit under the
@@ -64,10 +70,15 @@ export async function runExport(
     } else {
       await fs.writeFile(destAbs, f.contents);
     }
-    filesWritten++;
+    writtenPaths.push(destAbs);
   }
 
-  return { filesWritten, summary: output.summary, outputDir: absOutputDir };
+  return {
+    filesWritten: writtenPaths.length,
+    summary: output.summary,
+    outputDir: absOutputDir,
+    writtenPaths,
+  };
 }
 
 function isUnder(candidate: string, parent: string): boolean {

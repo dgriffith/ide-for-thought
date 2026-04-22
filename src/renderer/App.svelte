@@ -1665,8 +1665,12 @@
       onCancel={() => { exportDialogFor = null; }}
       onExported={async (result) => {
         exportDialogFor = null;
+        const pathPreview = result.writtenPaths.slice(0, 5).map((p) => `  • ${p}`).join('\n');
+        const more = result.writtenPaths.length > 5
+          ? `\n  …and ${result.writtenPaths.length - 5} more`
+          : '';
         await showConfirm(
-          `${result.summary}\n\nWrote ${result.filesWritten} file${result.filesWritten === 1 ? '' : 's'} to:\n${result.outputDir}`,
+          `${result.summary}\n\nFiles written:\n${pathPreview}${more}`,
           CONFIRM_KEYS.exportComplete,
           'OK',
         );
