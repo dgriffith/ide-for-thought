@@ -15,6 +15,7 @@
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import ExportDialog from './lib/components/ExportDialog.svelte';
+  import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
@@ -116,6 +117,14 @@
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
+  /**
+   * Three-way prompt for opening / creating a thoughtbase when the
+   * current window already holds one. `null` means no dialog open.
+   */
+  let openTargetDialog = $state<{
+    message: string;
+    resolve: (choice: 'this' | 'new' | 'cancel') => void;
+  } | null>(null);
   const confirmSuppression = getConfirmSuppressionStore();
 
   function showPrompt(message: string): Promise<string | null> {
@@ -773,6 +782,54 @@
     }
   }
 
+  /**
+   * Three-way prompt ("This Window" / "New Window" / "Cancel") wrapped
+   * in a promise. Returns 'this' without prompting when no thoughtbase
+   * is currently open — same-window is the obviously-right choice for
+   * a blank entry screen.
+   */
+  function askOpenTarget(message: string): Promise<'this' | 'new' | 'cancel'> {
+    if (!notebase.meta) return Promise.resolve('this');
+    return new Promise((resolve) => {
+      openTargetDialog = { message, resolve };
+    });
+  }
+
+  async function handleOpenThoughtbase(): Promise<void> {
+    const choice = await askOpenTarget('A thoughtbase is already open in this window. Open the next one in:');
+    if (choice === 'cancel') return;
+    if (choice === 'new') {
+      await api.notebase.openInNewWindow();
+      return;
+    }
+    // "This Window" — clear the editor so stale tabs from the previous
+    // thoughtbase don't survive into the new one.
+    editor.clear();
+    await notebase.open();
+  }
+
+  async function handleNewThoughtbase(): Promise<void> {
+    const choice = await askOpenTarget('A thoughtbase is already open in this window. Create the new one in:');
+    if (choice === 'cancel') return;
+    if (choice === 'new') {
+      await api.notebase.newProjectInNewWindow();
+      return;
+    }
+    editor.clear();
+    await notebase.newProject();
+  }
+
+  async function handleOpenRecentThoughtbase(rootPath: string): Promise<void> {
+    const choice = await askOpenTarget('A thoughtbase is already open in this window. Open the recent one in:');
+    if (choice === 'cancel') return;
+    if (choice === 'new') {
+      await api.notebase.openPathInNewWindow(rootPath);
+      return;
+    }
+    editor.clear();
+    await notebase.openPath(rootPath);
+  }
+
   async function handleSaveCellOutput(payload: {
     cellLanguage: string;
     cellCode: string;
@@ -1247,9 +1304,9 @@
     api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
     api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
     api.menu.onTogglePreview(() => cycleViewMode());
-    api.menu.onOpenProject(() => notebase.open());
-    api.menu.onNewProject(() => notebase.newProject());
-    api.menu.onOpenRecentProject((p) => notebase.openPath(p));
+    api.menu.onOpenProject(() => handleOpenThoughtbase());
+    api.menu.onNewProject(() => handleNewThoughtbase());
+    api.menu.onOpenRecentProject((p) => handleOpenRecentThoughtbase(p));
     api.menu.onCloseProject(() => {
       notebase.close();
       editor.clear();
