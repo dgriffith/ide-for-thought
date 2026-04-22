@@ -23,6 +23,7 @@
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
+  import { computeCellsExtension, computeCellsStyles } from '../editor/compute-cells';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
 
@@ -416,6 +417,9 @@
       onOpenExternal: (url: string) => {
         api.shell.openExternal(url);
       },
+    }),
+    computeCellsExtension({
+      runCell: (language, code) => api.compute.runCell(language, code, filePath),
     }),
     EditorView.domEventHandlers({
       // Snapshot the selection at the very start of a right-click, before
@@ -869,6 +873,28 @@
   .editor-wrapper :global(.cm-scroller) {
     overflow: auto;
   }
+
+  /* Compute-cells run-icon gutter (#238). Styles kept in sync with
+     `computeCellsStyles` in src/renderer/lib/editor/compute-cells.ts —
+     inlined here because Svelte's scoped-CSS model requires :global()
+     wrappers at the component level. */
+  .editor-wrapper :global(.cm-compute-gutter) { min-width: 16px; }
+  .editor-wrapper :global(.cm-compute-run) {
+    display: inline-block;
+    width: 14px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+    line-height: 1;
+  }
+  .editor-wrapper :global(.cm-compute-run:hover) { color: var(--accent); }
+  .editor-wrapper :global(.cm-compute-running) {
+    color: var(--accent);
+    animation: cm-compute-pulse 1s infinite;
+  }
+  @keyframes cm-compute-pulse { 50% { opacity: 0.4; } }
 
   .context-menu {
     position: fixed;

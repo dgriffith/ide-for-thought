@@ -109,6 +109,11 @@ contextBridge.exposeInMainWorld('api', {
     dropImport: (targetFolder: string, localPaths: string[]) =>
       ipcRenderer.invoke(Channels.FILES_DROP_IMPORT, targetFolder, localPaths),
   },
+  compute: {
+    runCell: (language: string, code: string, notePath?: string) =>
+      ipcRenderer.invoke(Channels.COMPUTE_RUN_CELL, language, code, notePath),
+    languages: () => ipcRenderer.invoke(Channels.COMPUTE_LANGUAGES),
+  },
   shell: {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),

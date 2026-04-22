@@ -224,6 +224,58 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
   };
 
+  // Compute-cell output blocks (#238). A ```output fence below an executable
+  // fence carries the JSON payload the executor produced; render it as a
+  // shape-specific artifact (table / error / text / pretty JSON) rather
+  // than as a generic highlighted code block. Users editing the note in
+  // source view still see the raw JSON and can delete the block to re-run.
+  const defaultFence = md.renderer.rules.fence;
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const tok = tokens[idx];
+    if (tok.info.trim() === 'output') {
+      return renderComputeOutput(tok.content);
+    }
+    return defaultFence
+      ? defaultFence(tokens, idx, options, env, self)
+      : self.renderToken(tokens, idx, options);
+  };
+
+  function renderComputeOutput(content: string): string {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(content.trim());
+    } catch {
+      return `<pre class="compute-output compute-output-raw">${escapeHtml(content)}</pre>`;
+    }
+    const p = payload as { type?: string } & Record<string, unknown>;
+    if (!p || typeof p !== 'object' || typeof p.type !== 'string') {
+      return `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
+    }
+    if (p.type === 'error') {
+      const message = typeof p.message === 'string' ? p.message : JSON.stringify(p.message);
+      return `<div class="compute-output compute-output-error">${escapeHtml(message)}</div>`;
+    }
+    if (p.type === 'text') {
+      const value = typeof p.value === 'string' ? p.value : JSON.stringify(p.value);
+      return `<pre class="compute-output compute-output-text">${escapeHtml(value)}</pre>`;
+    }
+    if (p.type === 'table' && Array.isArray(p.columns) && Array.isArray(p.rows)) {
+      const columns = p.columns as string[];
+      const rows = p.rows as Array<Array<string | number | boolean | null>>;
+      const headers = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
+      const body = rows.map((r) => {
+        const cells = r.map((v) => `<td>${escapeHtml(v == null ? '' : String(v))}</td>`).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+      return `<table class="compute-output compute-output-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+    if (p.type === 'json') {
+      return `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(p.value, null, 2))}</pre>`;
+    }
+    // Unknown type — show the raw JSON so the user can tell what came back.
+    return `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
+  }
+
   // Query directive plugin: :::query-list ... :::
   md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
     const startPos = state.bMarks[startLine] + state.tShift[startLine];
@@ -1089,5 +1141,47 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .preview :global(.query-chart-wrapper) {
     position: relative;
     margin: 0 0 16px;
+  }
+
+  /* Compute-cell output block styles (#238). Visually mirror the
+     query-directive outputs above so a SPARQL query-panel result and a
+     SPARQL notebook-cell result look the same. */
+  .preview :global(.compute-output) {
+    margin: 0 0 12px;
+    font-size: 13px;
+  }
+  .preview :global(.compute-output-table) {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .preview :global(.compute-output-table th) {
+    background: var(--bg-button);
+    font-weight: 600;
+    text-align: left;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+  }
+  .preview :global(.compute-output-table td) {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+  }
+  .preview :global(.compute-output-text),
+  .preview :global(.compute-output-json),
+  .preview :global(.compute-output-raw) {
+    background: var(--bg-button);
+    padding: 8px 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  .preview :global(.compute-output-error) {
+    color: var(--text);
+    background: var(--bg-button);
+    border-left: 3px solid var(--accent);
+    padding: 8px 12px;
+    border-radius: 0 4px 4px 0;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    white-space: pre-wrap;
   }
 </style>
