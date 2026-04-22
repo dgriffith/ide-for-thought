@@ -175,6 +175,10 @@ contextBridge.exposeInMainWorld('api', {
     ingestIdentifier: (identifier: string) =>
       ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
     ingestPdf: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_PDF),
+    importBibtex: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_BIBTEX),
+    onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
+      ipcRenderer.on(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, (_e, progress) => cb(progress));
+    },
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
@@ -343,6 +347,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onIngestPdf: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_PDF, () => cb());
+    },
+    onImportBibtex: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

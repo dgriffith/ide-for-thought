@@ -262,6 +262,7 @@ export interface MenuApi {
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
   onIngestPdf(cb: () => void): void;
+  onImportBibtex(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -313,6 +314,16 @@ export interface SourcesApi {
     title: string;
     pageCount: number;
   } | null>;
+  /** Open a .bib picker and bulk-import every entry (#98). Returns null if cancelled. */
+  importBibtex(): Promise<{
+    imported: Array<{ sourceId: string; title: string }>;
+    duplicate: Array<{ sourceId: string; title: string }>;
+    failed: Array<{ key: string; reason: string }>;
+    parseErrors: number;
+    totalEntries: number;
+  } | null>;
+  /** Stream progress while a BibTeX import runs. */
+  onImportBibtexProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Fires when a source is added, updated, or removed. */

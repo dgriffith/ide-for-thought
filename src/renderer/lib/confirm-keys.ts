@@ -26,6 +26,7 @@ export const CONFIRM_KEYS = {
   ingestFailed: 'ingest-failed',
   ingestPdfFailed: 'ingest-pdf-failed',
   dropImportRejected: 'drop-import-rejected',
+  bibtexImportComplete: 'bibtex-import-complete',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -138,6 +139,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Drag-drop ingestion: some files skipped',
     description:
       'Shown after a multi-file drag-drop when one or more files were rejected (unsupported extension, read error, etc). Supported files still land.',
+  },
+  {
+    key: CONFIRM_KEYS.bibtexImportComplete,
+    title: 'BibTeX import complete',
+    description:
+      'Summary dialog after Import BibTeX finishes (counts of imported / duplicate / failed entries).',
   },
 ];
 

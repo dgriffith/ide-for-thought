@@ -32,6 +32,7 @@ import { ingestUrl } from './sources/ingest';
 import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
 import { ingestPdf } from './sources/ingest-pdf';
+import { importBibtex } from './sources/import-bibtex';
 import { dropImport } from './notebase/drop-import';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
@@ -687,6 +688,26 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return await dropImport(rootPath, targetFolder ?? '', localPaths ?? []);
+  });
+
+  ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'BibTeX', extensions: ['bib', 'bibtex'] }],
+      title: 'Import BibTeX',
+      buttonLabel: 'Import',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return await importBibtex(rootPath, result.filePaths[0], {
+      onProgress: (progress) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
+        }
+      },
+    });
   });
 
   ipcMain.handle(Channels.SOURCES_INGEST_PDF, async (e) => {
