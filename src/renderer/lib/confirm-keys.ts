@@ -13,6 +13,7 @@ export const CONFIRM_KEYS = {
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
   moveCollision: 'move-collision',
+  copyCollision: 'copy-collision',
   autoTagNoSuggestions: 'auto-tag-no-suggestions',
   autoTagFailed: 'auto-tag-failed',
   autoLinkNoSuggestions: 'auto-link-no-suggestions',
@@ -64,6 +65,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Move cancelled (destination exists)',
     description:
       'Shown when Move would overwrite an existing file at the chosen destination.',
+  },
+  {
+    key: CONFIRM_KEYS.copyCollision,
+    title: 'Copy cancelled (destination exists)',
+    description:
+      'Shown when Copy would overwrite an existing file at the chosen destination.',
   },
   {
     key: CONFIRM_KEYS.autoTagNoSuggestions,

@@ -352,6 +352,7 @@ export function rebuildMenu(): void {
       submenu: [
         { label: 'Rename\u2026', click: () => send(Channels.MENU_REFACTOR_RENAME) },
         { label: 'Move\u2026', click: () => send(Channels.MENU_REFACTOR_MOVE) },
+        { label: 'Copy\u2026', click: () => send(Channels.MENU_REFACTOR_COPY) },
         { type: 'separator' },
         { label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) },
         { label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) },

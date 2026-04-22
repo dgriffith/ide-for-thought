@@ -329,6 +329,9 @@ contextBridge.exposeInMainWorld('api', {
     onRefactorMove: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_MOVE, () => cb());
     },
+    onRefactorCopy: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REFACTOR_COPY, () => cb());
+    },
     onRefactorExtract: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_EXTRACT, () => cb());
     },
