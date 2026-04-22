@@ -320,6 +320,7 @@ export interface MenuApi {
   onProjectOpened(cb: (meta: { rootPath: string; name: string }) => void): void;
   onRefactorRename(cb: () => void): void;
   onRefactorMove(cb: () => void): void;
+  onRefactorCopy(cb: () => void): void;
   onRefactorExtract(cb: () => void): void;
   onRefactorSplitHere(cb: () => void): void;
   onRefactorSplitByHeading(cb: () => void): void;

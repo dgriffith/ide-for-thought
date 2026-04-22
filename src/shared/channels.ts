@@ -84,6 +84,7 @@ export const Channels = {
   // Refactor menu (issue #172) — title-bar menu commands dispatched to the renderer.
   MENU_REFACTOR_RENAME: 'menu:refactor:rename',
   MENU_REFACTOR_MOVE: 'menu:refactor:move',
+  MENU_REFACTOR_COPY: 'menu:refactor:copy',
   MENU_REFACTOR_EXTRACT: 'menu:refactor:extract',
   MENU_REFACTOR_SPLIT_HERE: 'menu:refactor:splitHere',
   MENU_REFACTOR_SPLIT_BY_HEADING: 'menu:refactor:splitByHeading',

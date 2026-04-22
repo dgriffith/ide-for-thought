@@ -71,6 +71,7 @@
     onSplitByHeading?: () => void;
     onRename?: () => void;
     onMove?: () => void;
+    onCopyFile?: () => void;
     onAutoTag?: () => void;
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
@@ -103,6 +104,7 @@
     onSplitByHeading,
     onRename,
     onMove,
+    onCopyFile,
     onAutoTag,
     onAutoLink,
     onAutoLinkInbound,
@@ -811,7 +813,7 @@
       {/if}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
@@ -821,7 +823,10 @@
           {#if onMove}
             <button onclick={() => handleMenuAction(() => onMove?.())}>Move&hellip;</button>
           {/if}
-          {#if onRename || onMove}
+          {#if onCopyFile}
+            <button onclick={() => handleMenuAction(() => onCopyFile?.())}>Copy&hellip;</button>
+          {/if}
+          {#if onRename || onMove || onCopyFile}
             <div class="separator"></div>
           {/if}
           {#if onExtractSelection}

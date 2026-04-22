@@ -1008,6 +1008,46 @@
     }
   }
 
+  async function handleCopyWithPrompt(relativePath: string) {
+    if (!notebase.meta) return;
+    const oldName = relativePath.split('/').pop()!;
+    const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
+    const rawNewName = await showPrompt('Copy to (new name, or dir/name):');
+    if (!rawNewName) return;
+    const oldDotIdx = oldName.lastIndexOf('.');
+    const oldExt = oldDotIdx > 0 ? oldName.slice(oldDotIdx) : '';
+    // Preserve extension when the user didn't type one — mirror handleRename
+    // so a copy doesn't silently fall out of the indexed set.
+    const trimmed = rawNewName.trim().replace(/^\/+/, '');
+    const lastSeg = trimmed.split('/').pop()!;
+    const needsExt = !lastSeg.includes('.') && oldExt;
+    const finalLast = needsExt ? `${lastSeg}${oldExt}` : lastSeg;
+    const segs = trimmed.split('/');
+    segs[segs.length - 1] = finalLast;
+    const userPath = segs.join('/');
+    // If the user typed a path-like value (contains `/`), treat it as
+    // project-root relative; otherwise keep it in the source directory.
+    const destPath = trimmed.includes('/') ? userPath : (dir ? `${dir}/${userPath}` : userPath);
+    if (destPath === relativePath) return;
+
+    let collision = false;
+    try {
+      await api.notebase.readFile(destPath);
+      collision = true;
+    } catch { /* expected: dest doesn't exist */ }
+    if (collision) {
+      await showConfirm(
+        `A file already exists at "${destPath}". Copy cancelled.`,
+        CONFIRM_KEYS.copyCollision,
+        'OK',
+      );
+      return;
+    }
+
+    await api.notebase.copy(relativePath, destPath);
+    await notebase.refresh();
+  }
+
   async function handleMoveWithPrompt(relativePath: string) {
     if (!notebase.meta) return;
     const fileName = relativePath.split('/').pop()!;
@@ -1330,6 +1370,7 @@
     // Refactor menu (issue #172)
     api.menu.onRefactorRename(() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); });
     api.menu.onRefactorMove(() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); });
+    api.menu.onRefactorCopy(() => { if (editor.activeFilePath) handleCopyWithPrompt(editor.activeFilePath); });
     api.menu.onRefactorExtract(() => handleExtractSelection());
     api.menu.onRefactorSplitHere(() => handleSplitHere());
     api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
@@ -1575,6 +1616,7 @@
                     onSplitByHeading={handleSplitByHeading}
                     onRename={() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); }}
                     onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
+                    onCopyFile={() => { if (editor.activeFilePath) handleCopyWithPrompt(editor.activeFilePath); }}
                     onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
                     onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); }}
