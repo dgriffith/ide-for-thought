@@ -7,6 +7,7 @@
   import { getLinkType } from '../../../shared/link-types';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
+  import { normalizeSqlRows } from '../editor/sql-result';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
 
   interface Props {
@@ -503,8 +504,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     let config: Record<string, string> = {};
     try { config = JSON.parse(el.dataset.config ?? '{}'); } catch { /* ignore */ }
 
-    // Check cache first
-    const cached = queryCache.get(query);
+    const language = config.language === 'sql' ? 'sql' : 'sparql';
+    // Cache key pairs (language, query) so a SQL query and a SPARQL query that
+    // happen to share the same string don't collide.
+    const cacheKey = `${language}::${query}`;
+
+    const cached = queryCache.get(cacheKey);
     if (cached) {
       renderQueryResults(el, type ?? 'list', config, cached.results, cached.error);
       return;
@@ -513,14 +518,24 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     el.innerHTML = '<span class="query-loading">Loading...</span>';
 
     try {
-      const prefixed = QUERY_PREFIXES + query;
-      const response = await api.graph.query(prefixed);
-      const results = response.results;
-      queryCache.set(query, { results });
+      let results: Record<string, string>[];
+      if (language === 'sql') {
+        const response = await api.tables.query(query);
+        if (!response.ok) {
+          queryCache.set(cacheKey, { results: [], error: response.error });
+          renderQueryResults(el, type ?? 'list', config, [], response.error);
+          return;
+        }
+        results = normalizeSqlRows(response.columns, response.rows);
+      } else {
+        const response = await api.graph.query(QUERY_PREFIXES + query);
+        results = response.results as Record<string, string>[];
+      }
+      queryCache.set(cacheKey, { results });
       renderQueryResults(el, type ?? 'list', config, results);
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      queryCache.set(query, { results: [], error });
+      queryCache.set(cacheKey, { results: [], error });
       renderQueryResults(el, type ?? 'list', config, [], error);
     }
   }
