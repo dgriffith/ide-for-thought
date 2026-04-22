@@ -32,6 +32,9 @@ importers:
       '@retorquere/bibtex-parser':
         specifier: ^9.0.29
         version: 9.0.29
+      '@types/markdown-it-footnote':
+        specifier: ^3.0.4
+        version: 3.0.4
       chart.js:
         specifier: ^4.5.1
         version: 4.5.1
@@ -50,6 +53,9 @@ importers:
       linkedom:
         specifier: ^0.18.12
         version: 0.18.12
+      markdown-it-footnote:
+        specifier: ^4.0.0
+        version: 4.0.0
       minisearch:
         specifier: ^7.2.0
         version: 7.2.0
@@ -2112,6 +2118,9 @@ packages:
   '@types/linkify-it@5.0.0':
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
 
+  '@types/markdown-it-footnote@3.0.4':
+    resolution: {integrity: sha512-XJ6n+v+2u+2gmYLSHcxyoNT/YrgrKvHuDJQlykFjuxCQCr86P2/fx1V6/0lcKxv5cSIlCaJ6sUcNS3zDI7I+LA==}
+
   '@types/markdown-it@14.1.2':
     resolution: {integrity: sha512-promo4eFwuiW+TfGxhi+0x3czqTYJkG8qB17ZUJiVF10Xm7NLVRSLUsfRTU/6h1e24VvRnXCx+hG7li58lkzog==}
 
@@ -3601,6 +3610,9 @@ packages:
   map-age-cleaner@0.1.3:
     resolution: {integrity: sha512-bJzx6nMoP6PDLPBFmg7+xRKeFZvFboMrGlxmNj9ClvX53KrmvM5bXFXEWjbz4cz1AFn+jWJ9z/DJSz7hrs0w3w==}
     engines: {node: '>=6'}
+
+  markdown-it-footnote@4.0.0:
+    resolution: {integrity: sha512-WYJ7urf+khJYl3DqofQpYfEYkZKbmXmwxQV8c8mO/hGIhgZ1wOe7R4HLFNwqx7TjILbnC98fuyeSsin19JdFcQ==}
 
   markdown-it@14.1.1:
     resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
@@ -9094,6 +9106,10 @@ snapshots:
 
   '@types/linkify-it@5.0.0': {}
 
+  '@types/markdown-it-footnote@3.0.4':
+    dependencies:
+      '@types/markdown-it': 14.1.2
+
   '@types/markdown-it@14.1.2':
     dependencies:
       '@types/linkify-it': 5.0.0
@@ -10843,6 +10859,8 @@ snapshots:
   map-age-cleaner@0.1.3:
     dependencies:
       p-defer: 1.0.0
+
+  markdown-it-footnote@4.0.0: {}
 
   markdown-it@14.1.1:
     dependencies:

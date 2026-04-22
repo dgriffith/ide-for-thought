@@ -75,6 +75,13 @@ export interface ExportPlan {
   citationStyle?: string;
   /** Absolute destination directory for exporters that write multiple files. */
   outputDir?: string;
+  /**
+   * Absolute path to the thoughtbase root. Exporters that inline assets
+   * (images, attachments) resolve relative paths against this. Always
+   * populated by `resolvePlan` — the `?` keeps tests that build plans
+   * by hand readable.
+   */
+  rootPath?: string;
 }
 
 /**
