@@ -4,7 +4,7 @@ import type { ToolContext } from '../../types';
 registerTool({
   id: 'planning.murphyjitsu',
   name: 'Murphyjitsu',
-  category: 'planning',
+  category: 'analysis',
   description: 'Pre-mortem failure analysis for plans and decisions',
   longDescription:
     'Treats failure as historical fact and works backward to generate concrete failure narratives. ' +

@@ -4,7 +4,7 @@ import type { ToolContext } from '../../types';
 registerTool({
   id: 'planning.steelman',
   name: 'Steelman',
-  category: 'planning',
+  category: 'analysis',
   description: 'Construct the strongest version of an opposing argument',
   longDescription:
     'Builds the strongest possible version of a position by assuming intelligent proponents, ' +
