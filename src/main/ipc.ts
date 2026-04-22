@@ -36,6 +36,7 @@ import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
+import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
@@ -699,6 +700,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
+
+  ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, async (e, input: SaveCellOutputInput) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await saveCellOutput(rootPath, input);
+  });
 
   ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, async (e) => {
     const rootPath = rootPathFromEvent(e);

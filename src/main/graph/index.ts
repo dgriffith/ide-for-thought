@@ -57,6 +57,7 @@ const XSD     = $rdf.Namespace('http://www.w3.org/2001/XMLSchema#');
 const CSVW    = $rdf.Namespace('http://www.w3.org/ns/csvw#');
 const BIBO    = $rdf.Namespace('http://purl.org/ontology/bibo/');
 const SCHEMA  = $rdf.Namespace('http://schema.org/');
+const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
 
 let baseUri = '';      // e.g. https://project.minerva.dev/dave/my-notes/
 let store: $rdf.IndexedFormula | null = null;
@@ -211,6 +212,7 @@ function resolveFrontmatterPredicate(key: string) {
     case 'bibo': return BIBO(mapped.local);
     case 'schema': return SCHEMA(mapped.local);
     case 'thought': return THOUGHT(mapped.local);
+    case 'prov': return PROV(mapped.local);
   }
 }
 

@@ -771,6 +771,36 @@
     }
   }
 
+  async function handleSaveCellOutput(payload: {
+    cellLanguage: string;
+    cellCode: string;
+    output: import('../shared/compute/types').CellOutput;
+  }): Promise<void> {
+    if (!notebase.meta) return;
+    const sourcePath = editor.activeFilePath;
+    if (!sourcePath) return;
+    const dest = await showPrompt(
+      `Save cell output as note. Path (default: notes/derived/):`,
+    );
+    if (dest === null) return; // user cancelled
+    const trimmed = dest.trim();
+    try {
+      const result = await api.compute.saveCellOutput({
+        sourcePath,
+        cellLanguage: payload.cellLanguage,
+        cellCode: payload.cellCode,
+        output: payload.output,
+        destPath: trimmed.length > 0 ? trimmed : undefined,
+      });
+      // Refresh the file tree so the new note is selectable, then open it.
+      await notebase.refresh();
+      setTimeout(() => handleFileSelect(result.derivedPath), 100);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Save cell output failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestPdf() {
     if (!notebase.meta) return;
     try {
@@ -1509,6 +1539,7 @@
                   pendingAnchor={pendingPreviewAnchor}
                   onAnchorResolved={() => { pendingPreviewAnchor = null; }}
                   onTaskToggle={handleTaskToggle}
+                  onSaveCellOutput={handleSaveCellOutput}
                 />
               </div>
             {/if}

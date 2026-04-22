@@ -154,7 +154,10 @@ export function findRunnableFences(
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const open = line.match(/^```(\w+)\s*$/);
+    // Accept optional post-language info (e.g. `sparql {id=abc}`), but
+    // require *some* language tag — an unlabeled ``` is a plain code
+    // block the compute shell leaves alone.
+    const open = line.match(/^```(\w+)(\s.*)?$/);
     if (!open) { i++; continue; }
     const language = open[1];
     // Find the closing fence.

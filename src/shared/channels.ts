@@ -216,6 +216,8 @@ export const Channels = {
   COMPUTE_RUN_CELL: 'compute:runCell',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
+  /** Save a cell's output as a first-class note with provenance (#244). */
+  COMPUTE_SAVE_CELL_OUTPUT: 'compute:saveCellOutput',
 
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',

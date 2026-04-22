@@ -11,19 +11,8 @@
  * result the shell surfaces as an error output block.
  */
 
-export type CellResult =
-  | { ok: true; output: CellOutput }
-  | { ok: false; error: string };
-
-/**
- * Executor output. A discriminated union keyed on `type` so the preview
- * renderer can decide how to draw each shape without guessing. New shapes
- * (image, chart, html) extend this union when their executors land.
- */
-export type CellOutput =
-  | { type: 'table'; columns: string[]; rows: Array<Array<string | number | boolean | null>> }
-  | { type: 'text'; value: string }
-  | { type: 'json'; value: unknown };
+export type { CellOutput, CellResult } from '../../shared/compute/types';
+import type { CellResult } from '../../shared/compute/types';
 
 export interface ExecutorContext {
   /** Absolute path to the project root, so executors can read/write files. */
