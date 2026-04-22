@@ -37,6 +37,7 @@ import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
 import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
+import * as publish from './publish';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
@@ -705,6 +706,55 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return await saveCellOutput(rootPath, input);
+  });
+
+  // ── Publication (#282) ─────────────────────────────────────────────────────
+
+  ipcMain.handle(Channels.PUBLISH_LIST_EXPORTERS, () =>
+    publish.listExporters().map((e) => ({ id: e.id, label: e.label })),
+  );
+
+  ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, async (e, input: publish.ExportInput, opts?: {
+    exporterId?: string;
+    linkPolicy?: publish.LinkPolicy;
+  }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const plan = await publish.resolvePlan(rootPath, input, { linkPolicy: opts?.linkPolicy });
+    // Strip `content` + `frontmatter` from the wire payload — the preview
+    // only needs to audit paths, kinds, and exclusion reasons; loading
+    // every file's text over IPC is wasteful.
+    const exporter = opts?.exporterId ? publish.getExporter(opts.exporterId) : null;
+    return {
+      exporterId: exporter?.id ?? '',
+      exporterLabel: exporter?.label ?? '',
+      inputs: plan.inputs.map((f) => ({
+        relativePath: f.relativePath,
+        kind: f.kind,
+        title: f.title,
+      })),
+      excluded: plan.excluded,
+    };
+  });
+
+  ipcMain.handle(Channels.PUBLISH_RUN_EXPORT, async (e, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    let outputDir = args.outputDir;
+    // When the renderer doesn't pass an outputDir, open a directory
+    // picker here. Parents the dialog to the invoking window so it
+    // behaves as a modal rather than a floating sheet.
+    if (!outputDir) {
+      const win = winFromEvent(e);
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Choose export destination',
+        buttonLabel: 'Export here',
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      outputDir = result.filePaths[0];
+    }
+    return await publish.runExport(rootPath, { ...args, outputDir });
   });
 
   ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, async (e) => {

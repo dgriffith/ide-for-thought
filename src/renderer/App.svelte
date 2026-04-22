@@ -14,6 +14,7 @@
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
+  import ExportDialog from './lib/components/ExportDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
@@ -114,6 +115,7 @@
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
+  let exportDialogFor = $state<string | null>(null);
   const confirmSuppression = getConfirmSuppressionStore();
 
   function showPrompt(message: string): Promise<string | null> {
@@ -1288,6 +1290,7 @@
     api.menu.onIngestPdf(() => handleIngestPdf());
     api.menu.onImportBibtex(() => handleImportBibtex());
     api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
+    api.menu.onExport((id) => { exportDialogFor = id; });
 
     // Progress updates during a bulk import — rewrites the busy-overlay
     // label in place so the user sees running counts on large imports.
@@ -1653,6 +1656,21 @@
       confirmLabel={confirmDialog.confirmLabel}
       onConfirm={handleConfirmOk}
       onCancel={handleConfirmCancel}
+    />
+  {/if}
+  {#if exportDialogFor}
+    <ExportDialog
+      exporterId={exportDialogFor}
+      activeFilePath={editor.activeFilePath}
+      onCancel={() => { exportDialogFor = null; }}
+      onExported={async (result) => {
+        exportDialogFor = null;
+        await showConfirm(
+          `${result.summary}\n\nWrote ${result.filesWritten} file${result.filesWritten === 1 ? '' : 's'} to:\n${result.outputDir}`,
+          CONFIRM_KEYS.exportComplete,
+          'OK',
+        );
+      }}
     />
   {/if}
   {#if autoLinkReview}

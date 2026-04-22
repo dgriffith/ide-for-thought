@@ -6,6 +6,7 @@ import { createWindow, openProjectInWindow, getRootPath } from './window-manager
 import * as graph from './graph/index';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries, deleteQuery } from './saved-queries';
+import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
 import * as healthChecks from './graph/health-checks';
@@ -496,6 +497,24 @@ export function rebuildMenu(): void {
           },
         },
       ],
+    },
+
+    // Export (#282) — dynamically populated from the publish registry.
+    // Empty submenu is a placeholder that surfaces a disabled item when
+    // no exporter is registered; in practice #246's markdown passthrough
+    // always registers at app-ready.
+    {
+      label: 'Export',
+      submenu: (() => {
+        const exporters = publish.listExporters();
+        if (exporters.length === 0) {
+          return [{ label: 'No exporters registered', enabled: false }];
+        }
+        return exporters.map((e) => ({
+          label: `Export as ${e.label}…`,
+          click: () => send(Channels.MENU_EXPORT, e.id),
+        }));
+      })(),
     },
 
     // Window (macOS)

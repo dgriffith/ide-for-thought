@@ -116,6 +116,12 @@ contextBridge.exposeInMainWorld('api', {
     saveCellOutput: (input: unknown) =>
       ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
   },
+  publish: {
+    listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),
+    resolvePlan: (input: unknown, opts: unknown) =>
+      ipcRenderer.invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
+    runExport: (args: unknown) => ipcRenderer.invoke(Channels.PUBLISH_RUN_EXPORT, args),
+  },
   shell: {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
@@ -358,6 +364,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onIngestPdf: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_PDF, () => cb());
+    },
+    onExport: (cb: (exporterId: string) => void) => {
+      ipcRenderer.on(Channels.MENU_EXPORT, (_e, id) => cb(id));
     },
     onImportBibtex: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
