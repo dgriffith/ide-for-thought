@@ -21,6 +21,8 @@ import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import { canonicalSourceId, normalizeUrl } from './source-id';
+import { extractStructured, structuredToArticleMetadata } from './site-handlers';
+import { buildMetaTtl as buildArticleMetaTtl } from './ingest-identifier';
 
 export interface IngestResult {
   sourceId: string;
@@ -44,7 +46,26 @@ export async function ingestUrl(
   const normalized = normalizeUrl(rawUrl);
   if (!normalized) throw new Error(`Not a valid URL: ${rawUrl}`);
 
-  const { id: sourceId } = canonicalSourceId({ url: normalized });
+  // Structured-metadata extraction (#221) needs the DOM, so we have to
+  // fetch before we can decide on a canonical id. That means dedupe has
+  // to happen after fetch, not before — an extra network round-trip in
+  // the duplicate case, but scholarly sites dedupe straight to their
+  // identifier-based folder (arxiv-<id>, doi-<id>) which is what we want.
+  const html = await fetchHtml(normalized, opts.fetchImpl ?? globalThis.fetch);
+  const { document } = parseHTML(html);
+  Object.defineProperty(document, 'documentURI', { value: normalized, configurable: true });
+  Object.defineProperty(document, 'baseURI', { value: normalized, configurable: true });
+
+  const urlObj = new URL(normalized);
+  const structured = extractStructured(document as unknown as Parameters<typeof extractStructured>[0], urlObj);
+
+  const { id: sourceId } = canonicalSourceId({
+    doi: structured?.doi ?? undefined,
+    arxiv: structured?.arxiv ?? undefined,
+    pubmed: structured?.pubmed ?? undefined,
+    isbn: structured?.isbn ?? undefined,
+    url: normalized,
+  });
   const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
   const relativePath = `.minerva/sources/${sourceId}/meta.ttl`;
 
@@ -59,15 +80,36 @@ export async function ingestUrl(
     // Not found — proceed.
   }
 
-  const html = await fetchHtml(normalized, opts.fetchImpl ?? globalThis.fetch);
-  const extracted = extractReadable(html, normalized);
+  const extracted = extractReadableFromDoc(document as unknown as Document, normalized);
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'original.html'), html, 'utf-8');
   await fs.writeFile(path.join(sourceDir, 'body.md'), buildBodyMarkdown(extracted), 'utf-8');
-  await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildMetaTtl(extracted, normalized), 'utf-8');
 
-  return { sourceId, relativePath, duplicate: false, title: extracted.title };
+  let title: string;
+  if (structured) {
+    // Handler-enriched path: emit the richer thought:Article / thought:Preprint
+    // / thought:Book meta.ttl, with one dc:creator per author and bibo:doi /
+    // arXiv-id / PubMed-id when present. Readability fills in whatever the
+    // handler left null.
+    const metadata = structuredToArticleMetadata(structured, {
+      title: extracted.title,
+      byline: extracted.byline,
+      abstract: extracted.excerpt,
+      issued: extracted.publishedTime,
+      publisher: extracted.siteName,
+      uri: normalized,
+    });
+    await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildArticleMetaTtl(metadata), 'utf-8');
+    title = metadata.title;
+  } else {
+    // No site handler matched — Readability-only fallback writes a
+    // thought:WebPage meta.ttl with a single byline.
+    await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildMetaTtl(extracted, normalized), 'utf-8');
+    title = extracted.title;
+  }
+
+  return { sourceId, relativePath, duplicate: false, title };
 }
 
 // ── HTML fetch ──────────────────────────────────────────────────────────
@@ -114,11 +156,20 @@ export function extractReadable(html: string, url: string): ExtractedArticle {
   const { document } = parseHTML(html);
   Object.defineProperty(document, 'documentURI', { value: url, configurable: true });
   Object.defineProperty(document, 'baseURI', { value: url, configurable: true });
-  const reader = new Readability(document as unknown as Document);
+  return extractReadableFromDoc(document as unknown as Document, url);
+}
+
+/**
+ * Same contract as `extractReadable` but takes an already-parsed linkedom
+ * document so `ingestUrl` can run site handlers on the DOM without
+ * parsing the HTML twice. The `documentURI` / `baseURI` setup is the
+ * caller's responsibility.
+ */
+export function extractReadableFromDoc(document: Document, _url: string): ExtractedArticle {
+  const reader = new Readability(document);
   const article = reader.parse();
   if (!article) throw new Error('Readability could not extract content from this page');
 
-  // Readability's result types are loose; normalise missing bits to nulls.
   const byline = article.byline?.trim() || null;
   const siteName = article.siteName?.trim() || null;
   const excerpt = article.excerpt?.trim() || null;
