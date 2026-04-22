@@ -166,6 +166,7 @@ contextBridge.exposeInMainWorld('api', {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
     ingestIdentifier: (identifier: string) =>
       ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
+    ingestPdf: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_PDF),
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
@@ -331,6 +332,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onIngestIdentifier: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_IDENTIFIER, () => cb());
+    },
+    onIngestPdf: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INGEST_PDF, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

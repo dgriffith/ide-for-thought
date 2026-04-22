@@ -96,6 +96,10 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+Shift+D',
           click: () => send(Channels.MENU_INGEST_IDENTIFIER),
         },
+        {
+          label: 'Ingest PDF…',
+          click: () => send(Channels.MENU_INGEST_PDF),
+        },
         { type: 'separator' },
         {
           label: 'New Window',

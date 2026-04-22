@@ -31,6 +31,7 @@ import {
 import { ingestUrl } from './sources/ingest';
 import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
+import { ingestPdf } from './sources/ingest-pdf';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
@@ -679,6 +680,20 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return await ingestIdentifier(rootPath, identifier);
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_PDF, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      title: 'Ingest PDF',
+      buttonLabel: 'Ingest',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return await ingestPdf(rootPath, result.filePaths[0]);
   });
 
   ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
