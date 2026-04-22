@@ -253,4 +253,69 @@ describe('ingestUrl (#93)', () => {
       }),
     ).rejects.toThrow(/unsupported content-type/i);
   });
+
+  it('uses the arXiv URL pattern to upgrade the canonical id past url-<hash> (#221)', async () => {
+    const arxivHtml = samplePageHtml({
+      title: 'On the Growth Rate of Trees',
+      body: '<p>We prove a bound on tree growth rates. This paragraph is long enough for Readability to latch onto it as the article body, which needs a bit of prose to clear the heuristic bar.</p><p>A second paragraph keeps the word count comfortable.</p><p>And a third for safety.</p>',
+    });
+    const result = await ingestUrl(root, 'https://arxiv.org/abs/2604.18561', {
+      fetchImpl: mockFetch(arxivHtml),
+    });
+    // The site handler picked up the arXiv id from the URL and routed the
+    // source through the arxiv-<id> folder instead of url-<hash>.
+    expect(result.sourceId).toBe('arxiv-2604.18561');
+    const meta = await fsp.readFile(
+      path.join(root, '.minerva/sources/arxiv-2604.18561/meta.ttl'),
+      'utf-8',
+    );
+    expect(meta).toContain('thought:Preprint');
+  });
+
+  it('reads citation_* meta tags into multi-author meta.ttl (#221)', async () => {
+    const html = `<!doctype html><html><head>
+      <title>Publisher-generated page title</title>
+      <meta name="citation_title" content="A Census of Na D-traced Neutral ISM">
+      <meta name="citation_author" content="Sun, Yang">
+      <meta name="citation_author" content="Ji, Zhiyuan">
+      <meta name="citation_doi" content="10.1234/foo.bar">
+      <meta name="citation_journal_title" content="Astrophysical Journal">
+      <meta name="citation_publication_date" content="2024-10-15">
+    </head><body>
+      <article><h1>A Census of Na D-traced Neutral ISM</h1>
+      <p>We present a large-scale survey of neutral interstellar medium (ISM) properties across galaxies at intermediate redshift. The dataset spans hundreds of targets observed with modern integral-field spectrographs, and the analysis recovers outflow velocities for a substantial fraction of the sample.</p>
+      <p>This provides the first statistical census of ISM-traced outflows in this redshift range, with implications for feedback modelling in galaxy-formation simulations.</p>
+      <p>We release the reduced data and a public catalogue of line measurements.</p>
+      </article>
+    </body></html>`;
+    const result = await ingestUrl(root, 'https://example-journal.org/articles/foo', {
+      fetchImpl: mockFetch(html),
+    });
+    // Upgraded to a DOI-based canonical id, with an Article-typed meta.ttl
+    // carrying one dc:creator per author rather than a byline guess.
+    expect(result.sourceId).toBe('doi-10.1234_foo.bar');
+    const meta = await fsp.readFile(
+      path.join(root, '.minerva/sources/doi-10.1234_foo.bar/meta.ttl'),
+      'utf-8',
+    );
+    expect(meta).toContain('thought:Article');
+    expect(meta).toContain('dc:title "A Census of Na D-traced Neutral ISM"');
+    expect(meta).toContain('dc:creator "Sun, Yang"');
+    expect(meta).toContain('dc:creator "Ji, Zhiyuan"');
+    expect(meta).toContain('bibo:doi "10.1234/foo.bar"');
+    expect(meta).toContain('schema:inContainer "Astrophysical Journal"');
+    expect(meta).toContain('dc:issued "2024-10-15"^^xsd:date');
+  });
+
+  it('falls back to the Readability + WebPage flow when no site handler matches', async () => {
+    const result = await ingestUrl(root, 'https://random-blog.example/post', {
+      fetchImpl: mockFetch(samplePageHtml()),
+    });
+    expect(result.sourceId).toMatch(/^url-[a-f0-9]{12}$/);
+    const meta = await fsp.readFile(
+      path.join(root, '.minerva/sources', result.sourceId, 'meta.ttl'),
+      'utf-8',
+    );
+    expect(meta).toContain('thought:WebPage');
+  });
 });
