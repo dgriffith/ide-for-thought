@@ -49,6 +49,56 @@
   let splitRatio = $state(0.4); // 40% editor, 60% results
   let dragging = $state(false);
   let containerEl = $state<HTMLDivElement>();
+  let copyMenuOpen = $state(false);
+
+  // ── Copy-as helpers ───────────────────────────────────────────────────────
+  // Each builder returns a string ready to paste into a note. SPARQL tabs
+  // omit `language:` (it's the directive default); SQL tabs include it so
+  // Preview.svelte's query-block executor routes them through DuckDB.
+
+  function copyAsList(): void {
+    const header = tab.language === 'sql' ? 'language: sql\n---\n' : '';
+    const block = `:::query-list\n${header}${tab.query.trim()}\n:::`;
+    navigator.clipboard.writeText(block);
+    copyMenuOpen = false;
+  }
+
+  function copyAsTable(): void {
+    const cols = tab.columns.join(', ');
+    // link: is a SPARQL convention (column named 'path' becomes a wiki-link);
+    // skip the auto-detect on SQL results to avoid wrapping arbitrary string
+    // columns that happen to be named 'path'.
+    const linkCol = tab.language === 'sparql' && tab.columns.includes('path') ? 'path' : '';
+    const langLine = tab.language === 'sql' ? 'language: sql\n' : '';
+    const linkLine = linkCol ? `link: ${linkCol}\n` : '';
+    const config = `${langLine}columns: ${cols}\n${linkLine}---\n`;
+    const block = `:::query-table\n${config}${tab.query.trim()}\n:::`;
+    navigator.clipboard.writeText(block);
+    copyMenuOpen = false;
+  }
+
+  /** Paste-into-note as an executable fence (#238 shell picks it up). */
+  function copyAsExecutableBlock(): void {
+    const block = `\`\`\`${tab.language}\n${tab.query.trim()}\n\`\`\``;
+    navigator.clipboard.writeText(block);
+    copyMenuOpen = false;
+  }
+
+  function toggleCopyMenu(): void {
+    copyMenuOpen = !copyMenuOpen;
+    if (copyMenuOpen) {
+      // Close on the next outside click. setTimeout so the current click
+      // that opened the menu doesn't immediately re-close it.
+      const close = (e: MouseEvent) => {
+        const target = e.target as HTMLElement | null;
+        if (!target?.closest('.copy-as-wrap')) {
+          copyMenuOpen = false;
+          window.removeEventListener('click', close);
+        }
+      };
+      setTimeout(() => window.addEventListener('click', close), 0);
+    }
+  }
 
   // Lazy-fetched predicates / classes from the live graph for autocomplete.
   // Null until the first fetch resolves; the completion source treats that
@@ -374,31 +424,29 @@
       <div class="results-toolbar">
         <span class="results-count">{tab.results.length} row{tab.results.length !== 1 ? 's' : ''}</span>
         <div class="toolbar-actions">
-          <button
-            class="export-btn"
-            onclick={() => {
-              const header = tab.language === 'sql' ? 'language: sql\n---\n' : '';
-              const block = `:::query-list\n${header}${tab.query.trim()}\n:::`;
-              navigator.clipboard.writeText(block);
-            }}
-            title="Copy a :::query-list directive to paste into a note"
-          >Copy as List</button>
-          <button
-            class="export-btn"
-            onclick={() => {
-              const cols = tab.columns.join(', ');
-              // link: is a SPARQL convention (column named 'path' becomes a wiki-link);
-              // skip the auto-detect on SQL results to avoid wrapping arbitrary string
-              // columns that happen to be named 'path'.
-              const linkCol = tab.language === 'sparql' && tab.columns.includes('path') ? 'path' : '';
-              const langLine = tab.language === 'sql' ? 'language: sql\n' : '';
-              const linkLine = linkCol ? `link: ${linkCol}\n` : '';
-              const config = `${langLine}columns: ${cols}\n${linkLine}---\n`;
-              const block = `:::query-table\n${config}${tab.query.trim()}\n:::`;
-              navigator.clipboard.writeText(block);
-            }}
-            title="Copy a :::query-table directive to paste into a note"
-          >Copy as Table</button>
+          <div class="copy-as-wrap">
+            <button
+              class="export-btn copy-as-btn"
+              onclick={toggleCopyMenu}
+              title="Copy these results (or the query) for pasting into a note"
+            >Copy as… ▾</button>
+            {#if copyMenuOpen}
+              <div class="copy-as-menu" role="menu">
+                <button role="menuitem" onclick={copyAsList} title="Copy a :::query-list directive to paste into a note">
+                  <span class="menu-label">List</span>
+                  <span class="menu-hint">:::query-list</span>
+                </button>
+                <button role="menuitem" onclick={copyAsTable} title="Copy a :::query-table directive to paste into a note">
+                  <span class="menu-label">Table</span>
+                  <span class="menu-hint">:::query-table</span>
+                </button>
+                <button role="menuitem" onclick={copyAsExecutableBlock} title="Copy a runnable {tab.language} fence (▶ gutter icon + Cmd+Shift+Enter)">
+                  <span class="menu-label">Executable block</span>
+                  <span class="menu-hint">```{tab.language}</span>
+                </button>
+              </div>
+            {/if}
+          </div>
           <button
             class="export-btn"
             onclick={() => api.export.csv(toCsv(tab.columns, tab.results!))}
@@ -597,6 +645,55 @@
 
   .export-btn:hover {
     background: var(--bg-button-hover);
+  }
+
+  /* Copy-as… dropdown (#238 follow-up). */
+  .copy-as-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .copy-as-menu {
+    position: absolute;
+    top: calc(100% + 2px);
+    right: 0;
+    z-index: 20;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .copy-as-menu button {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .copy-as-menu button:hover {
+    background: var(--bg-button);
+  }
+
+  .copy-as-menu .menu-label {
+    font-weight: 500;
+  }
+
+  .copy-as-menu .menu-hint {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 10px;
+    color: var(--text-muted);
   }
 
   .table-wrap {
