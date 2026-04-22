@@ -202,7 +202,7 @@
         ]),
         wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
         lineNumbersCompartment.reconfigure(settings.lineNumbers ? [] : EditorView.theme({
-          '.cm-gutters': { display: 'none' },
+          '.cm-gutter.cm-lineNumbers': { display: 'none' },
         })),
         whitespaceCompartment.reconfigure(settings.showWhitespace ? highlightWhitespace() : []),
       ],
@@ -401,7 +401,7 @@
     ]),
     wrapCompartment.of(initSettings.wordWrap ? EditorView.lineWrapping : []),
     lineNumbersCompartment.of(initSettings.lineNumbers ? [] : EditorView.theme({
-      '.cm-gutters': { display: 'none' },
+      '.cm-gutter.cm-lineNumbers': { display: 'none' },
     })),
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
     linkDecorations({
