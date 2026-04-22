@@ -5,7 +5,9 @@
 
 import { registerExecutor } from '../registry';
 import { executeSparql } from './sparql';
+import { executeSql } from './sql';
 
 export function registerBuiltinExecutors(): void {
   registerExecutor('sparql', executeSparql);
+  registerExecutor('sql', executeSql);
 }
