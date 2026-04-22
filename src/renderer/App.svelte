@@ -1320,6 +1320,8 @@
     api.menu.onSaveQuery(() => handleSaveQuery());
     api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
+    api.menu.onFind(() => editorComponent?.openFind());
+    api.menu.onFindReplace(() => editorComponent?.openFindReplace());
     api.menu.onPrint(() => window.print());
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });

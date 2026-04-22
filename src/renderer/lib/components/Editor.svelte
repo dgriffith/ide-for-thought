@@ -476,6 +476,23 @@
     if (view) sortLines(view);
   }
 
+  export function openFind() {
+    if (!view) return;
+    openSearchPanel(view);
+  }
+
+  export function openFindReplace() {
+    if (!view) return;
+    openSearchPanel(view);
+    // The panel renders synchronously but focus lands on the search input —
+    // hop to the replace field so Cmd+H lands where the user expects.
+    requestAnimationFrame(() => {
+      const replaceInput = view?.dom.querySelector<HTMLInputElement>('.cm-search input[name="replace"]');
+      replaceInput?.focus();
+      replaceInput?.select();
+    });
+  }
+
   export function gotoLineColumn(line: number, col: number) {
     if (!view) return;
     const maxLine = view.state.doc.lines;
