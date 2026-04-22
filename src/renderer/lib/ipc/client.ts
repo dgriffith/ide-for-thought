@@ -248,6 +248,7 @@ export interface MenuApi {
   onFormatAll(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
+  onIngestPdf(cb: () => void): void;
 }
 
 export interface IdeApi {
@@ -290,6 +291,14 @@ export interface SourcesApi {
     pdfSaved: boolean;
     pdfError: string | null;
   }>;
+  /** Open an OS file picker and ingest the selected PDF (#94). Returns null if cancelled. */
+  ingestPdf(): Promise<{
+    sourceId: string;
+    relativePath: string;
+    duplicate: boolean;
+    title: string;
+    pageCount: number;
+  } | null>;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Fires when a source is added, updated, or removed. */

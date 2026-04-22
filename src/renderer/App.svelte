@@ -675,6 +675,25 @@
     }
   }
 
+  async function handleIngestPdf() {
+    if (!notebase.meta) return;
+    try {
+      const result = await withBusy('Extracting PDF…', () => api.sources.ingestPdf());
+      if (!result) return; // user cancelled the picker
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
+      if (result.duplicate) {
+        await showConfirm(
+          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
+          CONFIRM_KEYS.ingestDuplicate,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestIdentifier() {
     if (!notebase.meta) return;
     const raw = await showPrompt('DOI, arXiv id, or PubMed id:');
@@ -1140,6 +1159,7 @@
     // Ingest URL (#93)
     api.menu.onIngestUrl(() => handleIngestUrl());
     api.menu.onIngestIdentifier(() => handleIngestIdentifier());
+    api.menu.onIngestPdf(() => handleIngestPdf());
 
     // External file changes (watcher-driven) — refresh the sidebar so files
     // added / deleted in Finder show up without a restart. Debounced because

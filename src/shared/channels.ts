@@ -114,6 +114,8 @@ export const Channels = {
   SOURCES_INGEST_URL: 'sources:ingestUrl',
   /** Ingest a DOI / arXiv id / PubMed id (#96). Hits CrossRef / arXiv / PubMed. */
   SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
+  /** Ingest a local PDF (#94). Main opens a file picker and extracts text via unpdf. */
+  SOURCES_INGEST_PDF: 'sources:ingestPdf',
   /** Create an Excerpt (#224) from a highlighted passage in a source body. */
   SOURCES_CREATE_EXCERPT: 'sources:createExcerpt',
   /** Broadcast from main when an excerpt is added/updated/removed so source tabs refresh. */
@@ -122,6 +124,8 @@ export const Channels = {
   MENU_INGEST_URL: 'menu:ingestUrl',
   /** Menu → "Ingest identifier…" — prompts the renderer for a DOI/arXiv/PMID. */
   MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
+  /** Menu → "Ingest PDF…" — opens a file picker in main and extracts the text layer. */
+  MENU_INGEST_PDF: 'menu:ingestPdf',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
