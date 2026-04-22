@@ -138,6 +138,7 @@ export interface RunExportResult {
   filesWritten: number;
   summary: string;
   outputDir: string;
+  writtenPaths: string[];
 }
 
 export interface PublishApi {

@@ -53,10 +53,25 @@ describe('noteHtmlExporter (#248)', () => {
     expect(html).not.toMatch(/<script/);
   });
 
-  it('renames output path to .html', async () => {
+  it('single-note scope flattens output to <basename>.html so export-to-home-dir doesn\'t bury the file', async () => {
     const plan = planWithNote({ relativePath: 'notes/nested/thing.md' });
     const output = await noteHtmlExporter.run(plan);
-    expect(output.files[0].path).toBe('notes/nested/thing.html');
+    expect(output.files[0].path).toBe('thing.html');
+  });
+
+  it('multi-note scope preserves the source tree so follow-to-file links resolve', async () => {
+    const plan: ExportPlan = {
+      inputs: [
+        { relativePath: 'notes/a.md', kind: 'note', content: '# A\n', frontmatter: {}, title: 'A' },
+        { relativePath: 'notes/sub/b.md', kind: 'note', content: '# B\n', frontmatter: {}, title: 'B' },
+      ],
+      excluded: [],
+      linkPolicy: 'follow-to-file',
+      assetPolicy: 'keep-relative',
+    };
+    const output = await noteHtmlExporter.run(plan);
+    const paths = output.files.map((f) => f.path).sort();
+    expect(paths).toEqual(['notes/a.html', 'notes/sub/b.html']);
   });
 
   it('strips frontmatter from the rendered body', async () => {

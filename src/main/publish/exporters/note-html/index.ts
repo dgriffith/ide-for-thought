@@ -19,14 +19,20 @@ export const noteHtmlExporter: Exporter = {
   accepts: () => true,
   async run(plan) {
     const rootPath = plan.rootPath ?? '';
+    const notes = plan.inputs.filter((f) => f.kind === 'note');
+    // Single-note scope: drop the source note's directory structure so
+    // `notes/analysis/foo.md` exported to `~/Desktop` lands as
+    // `~/Desktop/foo.html`, not `~/Desktop/notes/analysis/foo.html`.
+    // Multi-note scope preserves the tree so `follow-to-file` rewrites
+    // keep working as relative links.
+    const flatten = notes.length === 1;
     const files: ExportOutput['files'] = [];
-    for (const f of plan.inputs) {
-      if (f.kind !== 'note') continue;
+    for (const f of notes) {
       const rawBody = renderNoteBody(f, plan);
       const body = await inlineImages(rawBody, f, rootPath, plan.assetPolicy);
       const html = wrapHtml({ title: f.title, body });
       files.push({
-        path: f.relativePath.replace(/\.md$/i, '.html'),
+        path: flatten ? basenameHtml(f.relativePath) : f.relativePath.replace(/\.md$/i, '.html'),
         contents: html,
       });
     }
@@ -36,3 +42,8 @@ export const noteHtmlExporter: Exporter = {
     return { files, summary };
   },
 };
+
+function basenameHtml(relativePath: string): string {
+  const base = relativePath.split('/').pop() ?? relativePath;
+  return base.replace(/\.md$/i, '.html');
+}
