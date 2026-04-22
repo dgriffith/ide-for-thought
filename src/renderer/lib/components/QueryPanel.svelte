@@ -379,7 +379,8 @@
           <button
             class="export-btn"
             onclick={() => {
-              const block = `:::query-list\n${tab.query.trim()}\n:::`;
+              const header = tab.language === 'sql' ? 'language: sql\n---\n' : '';
+              const block = `:::query-list\n${header}${tab.query.trim()}\n:::`;
               navigator.clipboard.writeText(block);
             }}
             title="Copy a :::query-list directive to paste into a note"
@@ -388,8 +389,13 @@
             class="export-btn"
             onclick={() => {
               const cols = tab.columns.join(', ');
-              const linkCol = tab.columns.includes('path') ? 'path' : '';
-              const config = linkCol ? `columns: ${cols}\nlink: ${linkCol}\n---\n` : `columns: ${cols}\n---\n`;
+              // link: is a SPARQL convention (column named 'path' becomes a wiki-link);
+              // skip the auto-detect on SQL results to avoid wrapping arbitrary string
+              // columns that happen to be named 'path'.
+              const linkCol = tab.language === 'sparql' && tab.columns.includes('path') ? 'path' : '';
+              const langLine = tab.language === 'sql' ? 'language: sql\n' : '';
+              const linkLine = linkCol ? `link: ${linkCol}\n` : '';
+              const config = `${langLine}columns: ${cols}\n${linkLine}---\n`;
               const block = `:::query-table\n${config}${tab.query.trim()}\n:::`;
               navigator.clipboard.writeText(block);
             }}
