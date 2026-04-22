@@ -10,7 +10,7 @@
  * minor spelling differences.
  */
 
-export type FrontmatterNamespace = 'dc' | 'bibo' | 'schema' | 'thought';
+export type FrontmatterNamespace = 'dc' | 'bibo' | 'schema' | 'thought' | 'prov';
 
 export interface FrontmatterPredicate {
   ns: FrontmatterNamespace;
@@ -21,6 +21,7 @@ const DC = (local: string): FrontmatterPredicate => ({ ns: 'dc', local });
 const BIBO = (local: string): FrontmatterPredicate => ({ ns: 'bibo', local });
 const SCHEMA = (local: string): FrontmatterPredicate => ({ ns: 'schema', local });
 const THOUGHT = (local: string): FrontmatterPredicate => ({ ns: 'thought', local });
+const PROV = (local: string): FrontmatterPredicate => ({ ns: 'prov', local });
 
 const MAP: Record<string, FrontmatterPredicate> = {
   // Dublin Core
@@ -57,6 +58,11 @@ const MAP: Record<string, FrontmatterPredicate> = {
   // thought:* (source-specific bits we define)
   accessedAt: THOUGHT('accessedAt'),
   archivedAt: THOUGHT('archivedAt'),
+
+  // prov:* (provenance — #244 derived notes)
+  derived_from: PROV('wasDerivedFrom'),
+  derived_at: PROV('generatedAtTime'),
+  derived_from_cell: THOUGHT('derivedFromCell'),
 };
 
 export function mapFrontmatterKey(key: string): FrontmatterPredicate | null {

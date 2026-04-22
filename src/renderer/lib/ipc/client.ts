@@ -114,20 +114,27 @@ export interface FilesApi {
   dropImport(targetFolder: string, localPaths: string[]): Promise<DropImportResult>;
 }
 
-export type CellOutput =
-  | { type: 'table'; columns: string[]; rows: Array<Array<string | number | boolean | null>> }
-  | { type: 'text'; value: string }
-  | { type: 'json'; value: unknown };
-
-export type CellResult =
-  | { ok: true; output: CellOutput }
-  | { ok: false; error: string };
+export type { CellOutput, CellResult } from '../../../shared/compute/types';
+import type { CellResult } from '../../../shared/compute/types';
 
 export interface ComputeApi {
   /** Dispatch a cell to its language's executor (#238). */
   runCell(language: string, code: string, notePath?: string): Promise<CellResult>;
   /** Every fence language that currently has a registered executor. */
   languages(): Promise<string[]>;
+  /**
+   * Save a cell's output as a first-class note with provenance frontmatter.
+   * Injects a stable `{id=…}` into the source fence when the cell doesn't
+   * already have one, so re-saves land on the same backlink anchor.
+   */
+  saveCellOutput(input: {
+    sourcePath: string;
+    cellLanguage: string;
+    cellCode: string;
+    output: import('../../../shared/compute/types').CellOutput;
+    destPath?: string;
+    title?: string;
+  }): Promise<{ derivedPath: string; cellId: string; injectedId: boolean }>;
 }
 
 export interface ShellApi {

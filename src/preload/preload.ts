@@ -113,6 +113,8 @@ contextBridge.exposeInMainWorld('api', {
     runCell: (language: string, code: string, notePath?: string) =>
       ipcRenderer.invoke(Channels.COMPUTE_RUN_CELL, language, code, notePath),
     languages: () => ipcRenderer.invoke(Channels.COMPUTE_LANGUAGES),
+    saveCellOutput: (input: unknown) =>
+      ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
   },
   shell: {
     revealFile: (relativePath?: string) =>
