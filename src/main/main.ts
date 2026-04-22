@@ -5,11 +5,13 @@ import { registerIpcHandlers } from './ipc';
 import { buildMenu } from './menu';
 import { createWindow, openProjectInWindow } from './window-manager';
 import { loadSession } from './session';
+import { registerBuiltinExecutors } from './compute/executors';
 
 app.setName('Minerva');
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  registerBuiltinExecutors();
 
   const session = loadSession().filter((s) => {
     try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
