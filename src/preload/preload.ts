@@ -257,8 +257,8 @@ contextBridge.exposeInMainWorld('api', {
     onSaveQuery: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE_QUERY, () => cb());
     },
-    onOpenStockQuery: (cb: (query: string) => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, q) => cb(q));
+    onOpenStockQuery: (cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void) => {
+      ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, payload) => cb(payload));
     },
     onSortLines: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());

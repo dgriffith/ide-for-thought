@@ -396,11 +396,24 @@ export function rebuildMenu(): void {
         { type: 'separator' },
         {
           label: 'Stock Queries',
-          submenu: STOCK_QUERIES.map((sq) => ({
-            label: sq.name,
-            sublabel: sq.description,
-            click: () => send(Channels.MENU_OPEN_STOCK_QUERY, sq.query),
-          })),
+          submenu: [
+            {
+              label: 'SPARQL',
+              submenu: STOCK_QUERIES.filter((sq) => sq.language === 'sparql').map((sq) => ({
+                label: sq.name,
+                sublabel: sq.description,
+                click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: sq.query, language: sq.language }),
+              })),
+            },
+            {
+              label: 'SQL',
+              submenu: STOCK_QUERIES.filter((sq) => sq.language === 'sql').map((sq) => ({
+                label: sq.name,
+                sublabel: sq.description,
+                click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: sq.query, language: sq.language }),
+              })),
+            },
+          ],
         },
         {
           label: 'Saved Queries',
@@ -419,7 +432,7 @@ export function rebuildMenu(): void {
               for (const q of project) {
                 items.push({
                   label: q.name,
-                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, q.query),
+                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
                 });
               }
             }
@@ -429,7 +442,7 @@ export function rebuildMenu(): void {
               for (const q of global) {
                 items.push({
                   label: q.name,
-                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, q.query),
+                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
                 });
               }
             }
