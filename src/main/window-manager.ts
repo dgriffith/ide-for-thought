@@ -8,6 +8,7 @@ import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
 import * as conversation from './llm/conversation';
 import * as healthChecks from './graph/health-checks';
+import * as tables from './sources/tables';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
@@ -210,6 +211,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   watchers.set(win.id, rootPath);
 
   await graph.initGraph(rootPath);
+  await tables.initTablesDb(rootPath);
   conversation.initConversations(rootPath);
   await Promise.all([
     graph.indexAllNotes(rootPath),

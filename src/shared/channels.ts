@@ -127,6 +127,9 @@ export const Channels = {
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
   SOURCES_CHANGED: 'sources:changed',
 
+  /** Run a SQL query against the project's DuckDB (#232). */
+  TABLES_QUERY: 'tables:query',
+
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',
   /** Format every .md under a relative folder (empty string = whole thoughtbase). */

@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('api', {
     excerptSource: (excerptId: string) => ipcRenderer.invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
     schemaForCompletion: () => ipcRenderer.invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
   },
+  tables: {
+    query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
+  },
   tags: {
     list: () => ipcRenderer.invoke(Channels.TAGS_LIST),
     notesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_NOTES_BY_TAG, tag),
