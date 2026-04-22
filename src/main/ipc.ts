@@ -711,7 +711,14 @@ export function registerIpcHandlers(): void {
   // ── Publication (#282) ─────────────────────────────────────────────────────
 
   ipcMain.handle(Channels.PUBLISH_LIST_EXPORTERS, () =>
-    publish.listExporters().map((e) => ({ id: e.id, label: e.label })),
+    publish.listExporters().map((e) => ({
+      id: e.id,
+      label: e.label,
+      // Default to the non-tree kinds when the exporter didn't declare —
+      // tree is opt-in (only exporters that know how to walk wiki-link
+      // closures should expose it as a scope in the dialog).
+      acceptedKinds: e.acceptedKinds ?? ['single-note', 'folder', 'project'],
+    })),
   );
 
   ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, async (e, input: publish.ExportInput, opts?: {

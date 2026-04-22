@@ -13,13 +13,20 @@
 
 /** What the caller asked to export. The pipeline resolves this into a plan. */
 export interface ExportInput {
-  kind: 'single-note' | 'folder' | 'project';
+  kind: 'single-note' | 'folder' | 'project' | 'tree';
   /**
    * For `single-note`: the note's relative path.
    * For `folder`: the folder's relative path (empty = project root).
    * For `project`: ignored; always the whole project.
+   * For `tree`: the root note whose reachable wiki-link closure we bundle.
    */
   relativePath?: string;
+  /**
+   * Only meaningful for `kind === 'tree'`. Max BFS depth from the root.
+   * `0` = just the root. Unbounded trees are expensive — the default of
+   * 3 balances "include everything plausible" against runaway bundles.
+   */
+  maxDepth?: number;
 }
 
 /**
@@ -106,6 +113,13 @@ export interface Exporter {
   label: string;
   /** Whether the exporter can handle this input kind. Falsy = hidden in the menu. */
   accepts(input: ExportInput): boolean;
+  /**
+   * Optional hint for the preview dialog — which input kinds to offer
+   * as scope options. When omitted the dialog offers every kind except
+   * `tree` (which requires explicit opt-in since not every exporter
+   * knows how to walk wiki-link closures).
+   */
+  acceptedKinds?: ExportInput['kind'][];
   /** Transform plan → output. Exporters never write files directly; that's the pipeline's job. */
   run(plan: ExportPlan): Promise<ExportOutput>;
 }

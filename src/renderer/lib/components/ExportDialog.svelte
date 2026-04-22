@@ -19,7 +19,7 @@
 
   let { exporterId, activeFilePath, onCancel, onExported }: Props = $props();
 
-  type Scope = 'project' | 'folder' | 'single-note';
+  type Scope = 'project' | 'folder' | 'single-note' | 'tree';
   type LinkPolicy = 'drop' | 'inline-title' | 'follow-to-file';
 
   let scope = $state<Scope>('project');
@@ -28,6 +28,8 @@
   let loading = $state(false);
   let exporting = $state(false);
   let error = $state<string | null>(null);
+  let acceptedKinds = $state<readonly Scope[]>(['single-note', 'folder', 'project']);
+  let acceptedLoaded = $state(false);
 
   const activeFolder = $derived.by(() => {
     if (!activeFilePath) return '';
@@ -39,10 +41,15 @@
   // when no file is open) get disabled rather than hidden — keeps the
   // radio layout stable.
   const canScopeNote = $derived(activeFilePath != null);
+  const canScopeTree = $derived(activeFilePath != null && acceptedKinds.includes('tree'));
+  const canScopeProject = $derived(acceptedKinds.includes('project'));
+  const canScopeFolder = $derived(acceptedKinds.includes('folder'));
+  const canScopeSingleNote = $derived(acceptedKinds.includes('single-note'));
 
-  function scopeInput(): { kind: Scope; relativePath?: string } {
+  function scopeInput(): { kind: Scope; relativePath?: string; maxDepth?: number } {
     if (scope === 'single-note') return { kind: 'single-note', relativePath: activeFilePath ?? '' };
     if (scope === 'folder') return { kind: 'folder', relativePath: activeFolder };
+    if (scope === 'tree') return { kind: 'tree', relativePath: activeFilePath ?? '', maxDepth: 3 };
     return { kind: 'project' };
   }
 
@@ -59,6 +66,28 @@
     }
   }
 
+  // On mount, fetch acceptedKinds so the scope radios can disable
+  // kinds the exporter doesn't support, and pick a sensible initial
+  // scope (tree when only tree is accepted; else project).
+  $effect(() => {
+    void (async () => {
+      const list = await api.publish.listExporters();
+      const entry = list.find((e) => e.id === exporterId);
+      if (entry) {
+        acceptedKinds = entry.acceptedKinds as Scope[];
+        // Pick the best default scope given what the exporter accepts
+        // AND what the context supports.
+        if (!acceptedKinds.includes(scope)) {
+          if (acceptedKinds.includes('tree') && activeFilePath) scope = 'tree';
+          else if (acceptedKinds.includes('project')) scope = 'project';
+          else if (acceptedKinds.includes('single-note') && activeFilePath) scope = 'single-note';
+          else scope = acceptedKinds[0] ?? 'project';
+        }
+      }
+      acceptedLoaded = true;
+    })();
+  });
+
   // Re-resolve whenever the scope or link policy changes. `$effect`
   // re-runs on any tracked read, so wrapping refreshPlan() in here
   // subscribes to scope, linkPolicy, activeFilePath, and activeFolder.
@@ -66,6 +95,7 @@
     void scope;
     void linkPolicy;
     void activeFilePath;
+    if (!acceptedLoaded) return;
     void refreshPlan();
   });
 
@@ -105,18 +135,30 @@
     <div class="option-row">
       <label>Scope</label>
       <div class="radio-group">
-        <label>
-          <input type="radio" name="scope" value="project" bind:group={scope} />
-          Entire project
-        </label>
-        <label>
-          <input type="radio" name="scope" value="folder" bind:group={scope} disabled={!activeFilePath} />
-          Current folder{activeFolder ? ` (${activeFolder || 'root'})` : ''}
-        </label>
-        <label>
-          <input type="radio" name="scope" value="single-note" bind:group={scope} disabled={!canScopeNote} />
-          Current note{activeFilePath ? ` (${activeFilePath})` : ''}
-        </label>
+        {#if canScopeProject}
+          <label>
+            <input type="radio" name="scope" value="project" bind:group={scope} />
+            Entire project
+          </label>
+        {/if}
+        {#if canScopeFolder}
+          <label>
+            <input type="radio" name="scope" value="folder" bind:group={scope} disabled={!activeFilePath} />
+            Current folder{activeFolder ? ` (${activeFolder || 'root'})` : ''}
+          </label>
+        {/if}
+        {#if canScopeSingleNote}
+          <label>
+            <input type="radio" name="scope" value="single-note" bind:group={scope} disabled={!canScopeNote} />
+            Current note{activeFilePath ? ` (${activeFilePath})` : ''}
+          </label>
+        {/if}
+        {#if acceptedKinds.includes('tree')}
+          <label>
+            <input type="radio" name="scope" value="tree" bind:group={scope} disabled={!canScopeTree} />
+            Note tree from current note (depth 3)
+          </label>
+        {/if}
       </div>
     </div>
 

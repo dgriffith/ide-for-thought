@@ -17,6 +17,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { checkExclusion } from './exclusion';
+import { resolveTree, extractWikiLinkTargets } from './tree-resolver';
 import type {
   ExportInput,
   ExportPlan,
@@ -40,6 +41,67 @@ export async function resolvePlan(
   input: ExportInput,
   opts: ResolvePlanOptions = {},
 ): Promise<ExportPlan> {
+  const { inputs, excluded } = input.kind === 'tree'
+    ? await collectTreeEntries(rootPath, input)
+    : await collectFilesystemEntries(rootPath, input);
+
+  return {
+    inputs,
+    excluded,
+    linkPolicy: opts.linkPolicy ?? 'inline-title',
+    assetPolicy: opts.assetPolicy ?? 'keep-relative',
+    citationStyle: opts.citationStyle,
+    outputDir: opts.outputDir,
+    rootPath,
+  };
+}
+
+// ── Tree-mode resolution ────────────────────────────────────────────────────
+
+async function collectTreeEntries(
+  rootPath: string,
+  input: ExportInput,
+): Promise<{ inputs: ExportPlanFile[]; excluded: ExportPlanExclusion[] }> {
+  if (!input.relativePath) {
+    throw new Error('Tree export requires a root note (input.relativePath).');
+  }
+  const tree = await resolveTree({
+    rootNote: input.relativePath,
+    maxDepth: input.maxDepth ?? 3,
+    extractLinks: extractWikiLinkTargets,
+    async readFile(rel: string) {
+      try {
+        return await fs.readFile(path.join(rootPath, rel), 'utf-8');
+      } catch {
+        return null;
+      }
+    },
+    isExcluded: (rel: string, content: string) => checkExclusion(rel, content),
+  });
+
+  const inputs: ExportPlanFile[] = tree.included.map((entry) => {
+    const { frontmatter, title } = parseHeader(entry.relativePath, entry.content);
+    return {
+      relativePath: entry.relativePath,
+      kind: 'note',
+      content: entry.content,
+      frontmatter,
+      title,
+    };
+  });
+  const excluded: ExportPlanExclusion[] = tree.excluded.map((e) => ({
+    relativePath: e.relativePath,
+    reason: e.reason,
+  }));
+  return { inputs, excluded };
+}
+
+// ── Filesystem-walk resolution (single-note / folder / project) ─────────────
+
+async function collectFilesystemEntries(
+  rootPath: string,
+  input: ExportInput,
+): Promise<{ inputs: ExportPlanFile[]; excluded: ExportPlanExclusion[] }> {
   const candidatePaths = await collectCandidatePaths(rootPath, input);
 
   const inputs: ExportPlanFile[] = [];
@@ -72,16 +134,7 @@ export async function resolvePlan(
   // Sort for deterministic ordering across exporter runs.
   inputs.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   excluded.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-
-  return {
-    inputs,
-    excluded,
-    linkPolicy: opts.linkPolicy ?? 'inline-title',
-    assetPolicy: opts.assetPolicy ?? 'keep-relative',
-    citationStyle: opts.citationStyle,
-    outputDir: opts.outputDir,
-    rootPath,
-  };
+  return { inputs, excluded };
 }
 
 export async function runExporter(

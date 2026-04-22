@@ -124,11 +124,14 @@ export interface ExportPreviewPlan {
   excluded: Array<{ relativePath: string; reason: string }>;
 }
 
+export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree';
+
 export interface RunExportInput {
   exporterId: string;
   input: {
-    kind: 'single-note' | 'folder' | 'project';
+    kind: ExportInputKind;
     relativePath?: string;
+    maxDepth?: number;
   };
   outputDir: string;
   linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
@@ -143,7 +146,7 @@ export interface RunExportResult {
 
 export interface PublishApi {
   /** Every registered exporter, for menu + dialog population. */
-  listExporters(): Promise<Array<{ id: string; label: string }>>;
+  listExporters(): Promise<Array<{ id: string; label: string; acceptedKinds: ExportInputKind[] }>>;
   /** Resolve an ExportPlan without running it — for the preview dialog. */
   resolvePlan(
     input: RunExportInput['input'],
