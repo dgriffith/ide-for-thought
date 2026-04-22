@@ -14,9 +14,11 @@ import type { Exporter, ExportOutput } from '../../types';
 export const noteHtmlExporter: Exporter = {
   id: 'note-html',
   label: 'Note as HTML',
-  // Accepts every scope; the per-note rendering is identical, and
-  // `follow-to-file` works best when there's more than one note.
-  accepts: () => true,
+  // Single-note HTML is the canonical use; folder / project scopes also
+  // work (emits one file per note) but the tree scope belongs to the
+  // dedicated tree-html exporter which handles the bundle shape.
+  accepts: (input) => input.kind !== 'tree',
+  acceptedKinds: ['single-note', 'folder', 'project'],
   async run(plan) {
     const rootPath = plan.rootPath ?? '';
     const notes = plan.inputs.filter((f) => f.kind === 'note');

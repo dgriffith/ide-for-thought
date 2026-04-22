@@ -21,7 +21,8 @@ import type { Exporter } from '../types';
 export const markdownExporter: Exporter = {
   id: 'markdown',
   label: 'Markdown (passthrough)',
-  accepts: () => true,
+  accepts: (input) => input.kind !== 'tree',
+  acceptedKinds: ['single-note', 'folder', 'project'],
   async run(plan) {
     const ctx = buildLinkResolverContext(plan);
     const files = plan.inputs

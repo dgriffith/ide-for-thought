@@ -20,6 +20,7 @@ export const notePdfExporter: Exporter = {
   id: 'note-pdf',
   label: 'Note as PDF',
   accepts: (input) => input.kind === 'single-note',
+  acceptedKinds: ['single-note'],
   async run(plan) {
     const notes = plan.inputs.filter((f) => f.kind === 'note');
     if (notes.length === 0) {
