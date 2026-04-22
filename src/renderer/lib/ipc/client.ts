@@ -86,6 +86,8 @@ export interface TableInfo {
 export interface TablesApi {
   query(sql: string): Promise<TablesQueryResult>;
   list(): Promise<TableInfo[]>;
+  /** Fires when a CSV is registered/unregistered or the initial scan completes. */
+  onChanged(cb: () => void): void;
 }
 
 export interface TagsApi {

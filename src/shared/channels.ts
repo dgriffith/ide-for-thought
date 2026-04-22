@@ -131,6 +131,8 @@ export const Channels = {
   TABLES_QUERY: 'tables:query',
   /** List every registered CSV table with its columns + row count (#234, for autocomplete). */
   TABLES_LIST: 'tables:list',
+  /** Broadcast from main when the set of registered DuckDB tables changes (#235). */
+  TABLES_CHANGED: 'tables:changed',
 
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',
