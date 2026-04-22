@@ -29,6 +29,7 @@ import {
   formatFolder as formatFolderOnDisk,
 } from './formatter/orchestrator';
 import { ingestUrl } from './sources/ingest';
+import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
@@ -395,6 +396,11 @@ export function registerIpcHandlers(): void {
   // Graph
   ipcMain.handle(Channels.GRAPH_QUERY, async (_e, sparql: string) => {
     return graph.queryGraph(sparql);
+  });
+
+  // Tables (DuckDB)
+  ipcMain.handle(Channels.TABLES_QUERY, async (_e, sql: string) => {
+    return tables.runQuery(sql);
   });
 
   ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, () => graph.schemaForCompletion());

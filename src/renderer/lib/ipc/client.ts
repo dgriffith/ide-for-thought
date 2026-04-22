@@ -72,6 +72,14 @@ export interface GraphApi {
   }>;
 }
 
+export type TablesQueryResult =
+  | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
+  | { ok: false; error: string };
+
+export interface TablesApi {
+  query(sql: string): Promise<TablesQueryResult>;
+}
+
 export interface TagsApi {
   list(): Promise<TagInfo[]>;
   notesByTag(tag: string): Promise<TaggedNote[]>;
@@ -239,6 +247,7 @@ export interface IdeApi {
   search: SearchApi;
   git: GitApi;
   graph: GraphApi;
+  tables: TablesApi;
   tags: TagsApi;
   export: ExportApi;
   shell: ShellApi;

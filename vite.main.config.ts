@@ -15,7 +15,15 @@ export default defineConfig({
       // the unresolvable `canvas` and the app crashes at load. Mark
       // `canvas` external so the `require` stays runtime and the
       // fallback branch actually runs.
-      external: ['canvas'],
+      //
+      // DuckDB ships a platform-specific `.node` binary per arch via
+      // `require('@duckdb/node-bindings-<platform>-<arch>/duckdb.node')`.
+      // Rollup can't resolve `.node` files — keep the whole bindings
+      // family external so the require stays runtime.
+      external: [
+        'canvas',
+        /^@duckdb\/node-bindings/,
+      ],
     },
   },
 });
