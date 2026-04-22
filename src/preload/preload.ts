@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Channels } from '../shared/channels';
 
 contextBridge.exposeInMainWorld('api', {
@@ -100,6 +100,14 @@ contextBridge.exposeInMainWorld('api', {
   },
   export: {
     csv: (csv: string) => ipcRenderer.invoke(Channels.EXPORT_CSV, csv),
+  },
+  files: {
+    // Resolve a DataTransfer File to its absolute disk path. Electron ≥ 32:
+    // `File.path` was deprecated and removed in 34; webUtils is the forward-
+    // compatible accessor and works in preload where `electron` is in scope.
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
+    dropImport: (targetFolder: string, localPaths: string[]) =>
+      ipcRenderer.invoke(Channels.FILES_DROP_IMPORT, targetFolder, localPaths),
   },
   shell: {
     revealFile: (relativePath?: string) =>

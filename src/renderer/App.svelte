@@ -675,6 +675,43 @@
     }
   }
 
+  async function handleExternalDrop(destFolder: string, files: FileList) {
+    if (!notebase.meta) return;
+    const localPaths: string[] = [];
+    for (const f of files) {
+      // Electron 32+: `webUtils.getPathForFile` is the supported accessor;
+      // `File.path` was deprecated and is removed in Electron 34.
+      const p = api.files.getPathForFile(f);
+      if (p) localPaths.push(p);
+    }
+    if (localPaths.length === 0) return;
+    try {
+      const result = await withBusy('Importing…', () =>
+        api.files.dropImport(destFolder, localPaths),
+      );
+      // Open the first newly-ingested PDF source tab, matching the menu-
+      // triggered Ingest PDF flow. setTimeout waits for the watcher to
+      // finish reindexing the source so the detail panel has data.
+      const openablePdf = result.ingestedPdfs.find((p) => !p.duplicate) ?? result.ingestedPdfs[0];
+      if (openablePdf) {
+        setTimeout(() => handleOpenSource(openablePdf.sourceId), 150);
+      }
+      if (result.rejected.length > 0) {
+        const lines = result.rejected
+          .map((r) => `• ${r.localPath.split('/').pop()} — ${r.reason}`)
+          .join('\n');
+        await showConfirm(
+          `Some files were skipped:\n${lines}`,
+          CONFIRM_KEYS.dropImportRejected,
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Import failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestPdf() {
     if (!notebase.meta) return;
     try {
@@ -1274,10 +1311,32 @@
           onSourceSelect={(id) => handleOpenSource(id)}
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
+          onExternalDrop={handleExternalDrop}
           canPaste={clipboardItem !== null}
         />
       {/if}
-      <div class="editor-pane">
+      <div
+        class="editor-pane"
+        ondragover={(e) => {
+          // Only react when the drag carries real files (Finder, Explorer, etc),
+          // not when the user is dragging within Minerva (e.g. a FileTree row).
+          if (e.dataTransfer?.types?.includes('Files')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        ondrop={(e) => {
+          const files = e.dataTransfer?.files;
+          if (!files || files.length === 0) return;
+          e.preventDefault();
+          // Land the drop in the folder of the active note; fall back to
+          // project root when no note is open (or the note is at root).
+          const activePath = editor.activeFilePath ?? '';
+          const slash = activePath.lastIndexOf('/');
+          const destDir = slash >= 0 ? activePath.slice(0, slash) : '';
+          handleExternalDrop(destDir, files);
+        }}
+      >
         {#if editor.tabs.length > 0}
           <TabBar
             tabs={editor.tabs}

@@ -101,6 +101,19 @@ export interface ExportApi {
   csv(csv: string): Promise<void>;
 }
 
+export interface DropImportResult {
+  copied: Array<{ localPath: string; relativePath: string }>;
+  ingestedPdfs: Array<{ localPath: string; sourceId: string; duplicate: boolean; title: string }>;
+  rejected: Array<{ localPath: string; reason: string }>;
+}
+
+export interface FilesApi {
+  /** Get the absolute OS path for a `File` object from a drag-drop `DataTransfer`. */
+  getPathForFile(file: File): string;
+  /** Import a batch of external files into the thoughtbase (#259). */
+  dropImport(targetFolder: string, localPaths: string[]): Promise<DropImportResult>;
+}
+
 export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
   openInDefault(relativePath: string): Promise<void>;
@@ -261,6 +274,7 @@ export interface IdeApi {
   tables: TablesApi;
   tags: TagsApi;
   export: ExportApi;
+  files: FilesApi;
   shell: ShellApi;
   bookmarks: BookmarksApi;
   conversations: ConversationsApi;

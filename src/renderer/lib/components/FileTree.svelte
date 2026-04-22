@@ -18,9 +18,10 @@
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
+    onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
   let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
@@ -44,6 +45,15 @@
   function handleDrop(e: DragEvent, destDir: string) {
     e.preventDefault();
     dropTarget = null;
+    // External file drops (from Finder, Explorer, another app) arrive with a
+    // populated `files` list; the internal-move drag sets `text/plain`
+    // instead. Check files first so an OS drop never falls through to the
+    // internal-move path.
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      onExternalDrop?.(destDir, files);
+      return;
+    }
     const srcPath = e.dataTransfer!.getData('text/plain');
     if (srcPath && srcPath !== destDir) {
       onMove(srcPath, destDir);
@@ -101,6 +111,8 @@
             {onCopy}
             {onPaste}
             {onMove}
+            {onBookmark}
+            {onExternalDrop}
           />
         {/if}
       {:else}
