@@ -571,13 +571,6 @@ export function registerIpcHandlers(): void {
   });
 
   // Graph management
-  ipcMain.handle(Channels.GRAPH_REBUILD, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { count: 0 };
-    const count = await graph.indexAllNotes(rootPath);
-    return { count };
-  });
-
   ipcMain.handle(Channels.GRAPH_EXPORT, async (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return;
