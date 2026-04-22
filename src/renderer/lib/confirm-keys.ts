@@ -25,6 +25,7 @@ export const CONFIRM_KEYS = {
   ingestDuplicate: 'ingest-duplicate',
   ingestFailed: 'ingest-failed',
   ingestPdfFailed: 'ingest-pdf-failed',
+  dropImportRejected: 'drop-import-rejected',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -131,6 +132,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Ingest identifier: PDF fetch failed',
     description:
       'Shown when identifier ingest succeeds on metadata but the advertised open-access PDF cannot be fetched (paywall, 403, network error). The source lands without the PDF.',
+  },
+  {
+    key: CONFIRM_KEYS.dropImportRejected,
+    title: 'Drag-drop ingestion: some files skipped',
+    description:
+      'Shown after a multi-file drag-drop when one or more files were rejected (unsupported extension, read error, etc). Supported files still land.',
   },
 ];
 

@@ -23,10 +23,11 @@
     onSourceSelect?: (sourceId: string) => void;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;
+    onExternalDrop?: (destDirectory: string, files: FileList) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let searchPanel = $state<SearchPanel>();
@@ -85,9 +86,19 @@
       oncontextmenu={handleContextMenu}
       ondragover={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = 'move'; rootDropHover = true; }}
       ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
-      ondrop={(e) => { e.preventDefault(); rootDropHover = false; const src = e.dataTransfer!.getData('text/plain'); if (src) onMove(src, ''); }}
+      ondrop={(e) => {
+        e.preventDefault();
+        rootDropHover = false;
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          onExternalDrop?.('', files);
+          return;
+        }
+        const src = e.dataTransfer!.getData('text/plain');
+        if (src) onMove(src, '');
+      }}
     >
-      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} />
+      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} {onExternalDrop} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
     {#if onSourceSelect}

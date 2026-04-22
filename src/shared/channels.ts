@@ -197,6 +197,9 @@ export const Channels = {
   TABS_SAVE: 'tabs:save',
   TABS_LOAD: 'tabs:load',
 
+  /** External file drag-drop ingestion (#259). Renderer hands over OS file paths. */
+  FILES_DROP_IMPORT: 'files:dropImport',
+
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
