@@ -1114,7 +1114,7 @@
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onNewQuery(() => editor.openQuery());
     api.menu.onSaveQuery(() => handleSaveQuery());
-    api.menu.onOpenStockQuery((q) => editor.openQuery(q));
+    api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onPrint(() => window.print());
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
