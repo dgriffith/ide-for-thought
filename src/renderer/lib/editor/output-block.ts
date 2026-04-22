@@ -165,9 +165,17 @@ export function findRunnableFences(
     if (close < 0) break; // unclosed fence; stop scanning
     if (allowed.has(language.toLowerCase())) {
       const startOffset = lineOffsets[i];
-      // endOffset: position just after the closing ```'s newline.
-      const endOffset = lineOffsets[close] + lines[close].length
-        + (close + 1 < lineOffsets.length ? 1 : 0); // +1 for the newline if present
+      // endOffset: position just after the closing ```. When the closing
+      // line is followed by more content (`close < lines.length - 1`),
+      // a `\n` sits between the closing ``` and the next line, so we
+      // skip past it. When the fence is the last thing in the doc —
+      // no trailing newline — endOffset stops at doc.length. Without
+      // this the offset ran one past the end, which made subsequent
+      // `view.dispatch({ changes: { from: endOffset } })` calls silently
+      // no-op in CodeMirror, breaking output-block writes for any note
+      // that ended with an executable fence.
+      const hasTrailingNewline = close < lines.length - 1;
+      const endOffset = lineOffsets[close] + lines[close].length + (hasTrailingNewline ? 1 : 0);
       out.push({
         startOffset,
         endOffset,

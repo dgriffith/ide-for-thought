@@ -51,6 +51,21 @@ describe('findRunnableFences (#238)', () => {
     expect(fences).toHaveLength(1);
     expect(fences[0].language).toBe('SPARQL');
   });
+
+  it('endOffset stops at doc.length when the fence is the last line (no trailing newline)', () => {
+    // Regression: running a fence that ended with no trailing \n set
+    // endOffset past the doc end, and view.dispatch silently no-op'd.
+    const doc = '# Title\n\n```sparql\nSELECT 1\n```';
+    const [fence] = findRunnableFences(doc, ALLOWED);
+    expect(fence.endOffset).toBe(doc.length);
+  });
+
+  it('endOffset includes the trailing newline when one is present', () => {
+    const doc = '```sparql\nSELECT 1\n```\n';
+    const [fence] = findRunnableFences(doc, ALLOWED);
+    expect(fence.endOffset).toBe(doc.length);
+    expect(doc[fence.endOffset - 1]).toBe('\n');
+  });
 });
 
 describe('findAdjacentOutputBlock', () => {
