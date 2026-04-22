@@ -797,7 +797,7 @@
       setTimeout(() => handleFileSelect(result.derivedPath), 100);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Save cell output failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+      await showConfirm(`Save cell output failed: ${msg}`, CONFIRM_KEYS.saveCellOutputFailed, 'OK');
     }
   }
 
