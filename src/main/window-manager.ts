@@ -158,6 +158,9 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(relativePath, content);
         search.indexNote(relativePath, content);
+        if (relativePath.toLowerCase().endsWith('.csv')) {
+          await tables.registerCsv(rootPath, relativePath);
+        }
         debouncedPersist();
       } catch { /* file may have been deleted between events */ }
     },
@@ -167,13 +170,19 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(relativePath, content);
         search.indexNote(relativePath, content);
+        if (relativePath.toLowerCase().endsWith('.csv')) {
+          await tables.registerCsv(rootPath, relativePath);
+        }
         debouncedPersist();
       } catch { /* race condition */ }
     },
-    onFileDeleted: (relativePath) => {
+    onFileDeleted: async (relativePath) => {
       if (wasHandled(relativePath)) return;
       search.removeNote(relativePath);
       graph.removeNote(relativePath);
+      if (relativePath.toLowerCase().endsWith('.csv')) {
+        await tables.unregisterCsv(relativePath);
+      }
       debouncedPersist();
     },
     onSourceMetaChanged: async (sourceId) => {
@@ -216,6 +225,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   await Promise.all([
     graph.indexAllNotes(rootPath),
     search.indexAllNotes(rootPath),
+    tables.registerAllCsvs(rootPath),
   ]);
   // Run health checks after initial indexing, then periodically
   healthChecks.runAllChecks();
