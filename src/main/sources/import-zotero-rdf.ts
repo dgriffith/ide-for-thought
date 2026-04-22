@@ -21,7 +21,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import $rdf from 'rdflib';
+import * as $rdf from 'rdflib';
 import type { IndexedFormula, NamedNode, Node } from 'rdflib';
 import { canonicalSourceId } from './source-id';
 import { buildMetaTtl } from './ingest-identifier';
