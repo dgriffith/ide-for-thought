@@ -9,10 +9,12 @@
 import { registerExporter } from './registry';
 import { markdownExporter } from './exporters/markdown';
 import { noteHtmlExporter } from './exporters/note-html';
+import { notePdfExporter } from './exporters/note-pdf';
 
 export function registerBuiltinExporters(): void {
   registerExporter(markdownExporter);
   registerExporter(noteHtmlExporter);
+  registerExporter(notePdfExporter);
 }
 
 export * from './types';
