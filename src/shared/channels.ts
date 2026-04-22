@@ -212,6 +212,11 @@ export const Channels = {
   /** External file drag-drop ingestion (#259). Renderer hands over OS file paths. */
   FILES_DROP_IMPORT: 'files:dropImport',
 
+  /** Notebook compute: dispatch a cell to its language's executor (#238). */
+  COMPUTE_RUN_CELL: 'compute:runCell',
+  /** List every fence language that has a registered executor. Drives the editor's gutter. */
+  COMPUTE_LANGUAGES: 'compute:languages',
+
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',

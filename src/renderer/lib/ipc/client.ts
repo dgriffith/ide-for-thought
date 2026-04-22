@@ -114,6 +114,22 @@ export interface FilesApi {
   dropImport(targetFolder: string, localPaths: string[]): Promise<DropImportResult>;
 }
 
+export type CellOutput =
+  | { type: 'table'; columns: string[]; rows: Array<Array<string | number | boolean | null>> }
+  | { type: 'text'; value: string }
+  | { type: 'json'; value: unknown };
+
+export type CellResult =
+  | { ok: true; output: CellOutput }
+  | { ok: false; error: string };
+
+export interface ComputeApi {
+  /** Dispatch a cell to its language's executor (#238). */
+  runCell(language: string, code: string, notePath?: string): Promise<CellResult>;
+  /** Every fence language that currently has a registered executor. */
+  languages(): Promise<string[]>;
+}
+
 export interface ShellApi {
   revealFile(relativePath?: string): Promise<void>;
   openInDefault(relativePath: string): Promise<void>;
@@ -277,6 +293,7 @@ export interface IdeApi {
   tags: TagsApi;
   export: ExportApi;
   files: FilesApi;
+  compute: ComputeApi;
   shell: ShellApi;
   bookmarks: BookmarksApi;
   conversations: ConversationsApi;

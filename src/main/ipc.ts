@@ -35,6 +35,7 @@ import { ingestPdf } from './sources/ingest-pdf';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
+import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
@@ -690,6 +691,14 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     return await dropImport(rootPath, targetFolder ?? '', localPaths ?? []);
   });
+
+  ipcMain.handle(Channels.COMPUTE_RUN_CELL, async (e, language: string, code: string, notePath?: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await runComputeCell(language, code, { rootPath, notePath });
+  });
+
+  ipcMain.handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
 
   ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, async (e) => {
     const rootPath = rootPathFromEvent(e);
