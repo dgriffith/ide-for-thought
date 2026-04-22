@@ -1357,7 +1357,6 @@
     api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onNewQuery(() => editor.openQuery());
-    api.menu.onSaveQuery(() => handleSaveQuery());
     api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onFind(() => editorComponent?.openFind());

@@ -304,7 +304,6 @@ export interface MenuApi {
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
   onNewQuery(cb: () => void): void;
-  onSaveQuery(cb: () => void): void;
   onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): void;
   onSortLines(cb: () => void): void;
   onOpenSettings(cb: () => void): void;

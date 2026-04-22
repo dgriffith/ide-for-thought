@@ -409,10 +409,6 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+Shift+Q',
           click: () => send(Channels.MENU_NEW_QUERY),
         },
-        {
-          label: 'Save Current Query',
-          click: () => send(Channels.MENU_SAVE_QUERY),
-        },
         { type: 'separator' },
         {
           label: 'Stock Queries',
@@ -469,16 +465,35 @@ export function rebuildMenu(): void {
             return items;
           })(),
         },
-        { type: 'separator' },
-        {
-          label: 'Export as Turtle',
+      ],
+    },
+
+    // Export (#282) — dynamically populated from the publish registry.
+    // Empty submenu is a placeholder that surfaces a disabled item when
+    // no exporter is registered; in practice #246's markdown passthrough
+    // always registers at app-ready. The knowledge-graph dump is a
+    // separate hard-coded entry — the note-export pipeline's ExportPlan
+    // shape doesn't fit an RDF dump, so it stays outside the registry.
+    {
+      label: 'Export',
+      submenu: (() => {
+        const exporters = publish.listExporters();
+        const items: Electron.MenuItemConstructorOptions[] = exporters.length === 0
+          ? [{ label: 'No exporters registered', enabled: false }]
+          : exporters.map((e) => ({
+              label: `Export as ${e.label}…`,
+              click: () => send(Channels.MENU_EXPORT, e.id),
+            }));
+        items.push({ type: 'separator' });
+        items.push({
+          label: 'Export Knowledge Graph…',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
             if (!win) return;
             const rootPath = getRootPath(win.id);
             if (!rootPath) return;
             const result = await dialog.showSaveDialog(win, {
-              title: 'Export Graph',
+              title: 'Export Knowledge Graph',
               defaultPath: `${path.basename(rootPath)}.ttl`,
               filters: [{ name: 'Turtle', extensions: ['ttl'] }],
             });
@@ -486,25 +501,8 @@ export function rebuildMenu(): void {
               await graph.exportGraph(result.filePath);
             }
           },
-        },
-      ],
-    },
-
-    // Export (#282) — dynamically populated from the publish registry.
-    // Empty submenu is a placeholder that surfaces a disabled item when
-    // no exporter is registered; in practice #246's markdown passthrough
-    // always registers at app-ready.
-    {
-      label: 'Export',
-      submenu: (() => {
-        const exporters = publish.listExporters();
-        if (exporters.length === 0) {
-          return [{ label: 'No exporters registered', enabled: false }];
-        }
-        return exporters.map((e) => ({
-          label: `Export as ${e.label}…`,
-          click: () => send(Channels.MENU_EXPORT, e.id),
-        }));
+        });
+        return items;
       })(),
     },
 
