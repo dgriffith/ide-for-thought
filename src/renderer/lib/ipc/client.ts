@@ -5,6 +5,12 @@ export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
   openPath(rootPath: string): Promise<NotebaseMeta>;
   newProject(): Promise<NotebaseMeta | null>;
+  /** Pick a dir, create a fresh window, open the project there. Returns the picked meta or null. */
+  openInNewWindow(): Promise<NotebaseMeta | null>;
+  /** Pick a dir for a new project, create a fresh window, initialise there. */
+  newProjectInNewWindow(): Promise<NotebaseMeta | null>;
+  /** Open a known path in a fresh window (used by Recent Thoughtbases → new window). */
+  openPathInNewWindow(rootPath: string): Promise<NotebaseMeta>;
   close(): Promise<null>;
   clearRecent(): Promise<void>;
   listFiles(): Promise<NoteFile[]>;

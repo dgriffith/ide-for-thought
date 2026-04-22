@@ -187,6 +187,54 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // ── "…in new window" variants ─────────────────────────────────────────────
+  // Renderer decides whether the user picked "this window" (existing IPCs) or
+  // "new window" (these). The picker runs in main so we can parent it to the
+  // invoking window for focus; the fresh window is created once the user
+  // commits to a path.
+
+  ipcMain.handle('notebase:openInNewWindow', async (e) => {
+    const parentWin = winFromEvent(e);
+    const result = await dialog.showOpenDialog(parentWin, {
+      properties: ['openDirectory'],
+      title: 'Open thoughtbase',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const rootPath = result.filePaths[0];
+    const freshWin = createWindow();
+    freshWin.webContents.once('did-finish-load', async () => {
+      await openProjectInWindow(freshWin, rootPath);
+      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+    });
+    return { rootPath, name: path.basename(rootPath) };
+  });
+
+  ipcMain.handle('notebase:newProjectInNewWindow', async (e) => {
+    const parentWin = winFromEvent(e);
+    const result = await dialog.showOpenDialog(parentWin, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Choose location for new thoughtbase',
+      buttonLabel: 'Create Thoughtbase',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const rootPath = result.filePaths[0];
+    const freshWin = createWindow();
+    freshWin.webContents.once('did-finish-load', async () => {
+      await openProjectInWindow(freshWin, rootPath);
+      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+    });
+    return { rootPath, name: path.basename(rootPath) };
+  });
+
+  ipcMain.handle('notebase:openPathInNewWindow', async (_e, rootPath: string) => {
+    const freshWin = createWindow();
+    freshWin.webContents.once('did-finish-load', async () => {
+      await openProjectInWindow(freshWin, rootPath);
+      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+    });
+    return { rootPath, name: path.basename(rootPath) };
+  });
+
   ipcMain.handle('recent:clear', () => {
     clearRecentProjects();
     rebuildMenu();
