@@ -865,10 +865,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
   function handleSaveAsNote(): void {
     if (!outputMenu || !onSaveCellOutput) return;
+    // $state wraps the parsed output in a reactive proxy; Electron's
+    // structured-clone bridge rejects proxies with "An object could not
+    // be cloned", so unwrap before handing it over.
     onSaveCellOutput({
       cellLanguage: outputMenu.source.language,
       cellCode: outputMenu.source.code,
-      output: outputMenu.output,
+      output: $state.snapshot(outputMenu.output),
     });
     outputMenu = null;
   }
