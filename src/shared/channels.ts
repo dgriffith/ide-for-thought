@@ -120,6 +120,10 @@ export const Channels = {
   SOURCES_IMPORT_BIBTEX: 'sources:importBibtex',
   /** Progress events during a BibTeX import — { done, total, currentTitle }. */
   SOURCES_IMPORT_BIBTEX_PROGRESS: 'sources:importBibtexProgress',
+  /** Bulk import from a Zotero RDF export (#270). Main picks the .rdf and lifts attached PDFs. */
+  SOURCES_IMPORT_ZOTERO_RDF: 'sources:importZoteroRdf',
+  /** Progress events during a Zotero RDF import. */
+  SOURCES_IMPORT_ZOTERO_RDF_PROGRESS: 'sources:importZoteroRdfProgress',
   /** Create an Excerpt (#224) from a highlighted passage in a source body. */
   SOURCES_CREATE_EXCERPT: 'sources:createExcerpt',
   /** Broadcast from main when an excerpt is added/updated/removed so source tabs refresh. */
@@ -132,6 +136,8 @@ export const Channels = {
   MENU_INGEST_PDF: 'menu:ingestPdf',
   /** Menu → "Import BibTeX…" — opens a .bib picker and imports each entry as a Source. */
   MENU_IMPORT_BIBTEX: 'menu:importBibtex',
+  /** Menu → "Import Zotero RDF…" — opens a .rdf picker; lifts attached PDFs when present. */
+  MENU_IMPORT_ZOTERO_RDF: 'menu:importZoteroRdf',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */

@@ -179,6 +179,10 @@ contextBridge.exposeInMainWorld('api', {
     onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
       ipcRenderer.on(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, (_e, progress) => cb(progress));
     },
+    importZoteroRdf: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_ZOTERO_RDF),
+    onImportZoteroRdfProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
+      ipcRenderer.on(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, (_e, progress) => cb(progress));
+    },
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
@@ -350,6 +354,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onImportBibtex: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
+    },
+    onImportZoteroRdf: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_IMPORT_ZOTERO_RDF, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
       ipcRenderer.on('project:opened', (_e, meta) => cb(meta));

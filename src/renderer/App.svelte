@@ -742,6 +742,35 @@
     }
   }
 
+  async function handleImportZoteroRdf() {
+    if (!notebase.meta) return;
+    try {
+      const result = await withBusy('Importing Zotero RDF…', () => api.sources.importZoteroRdf());
+      if (!result) return;
+      sidebar?.refreshSources();
+      await refreshSourcesCache();
+      const pdfsLifted = result.imported.filter((i) => i.pdfAttached).length;
+      const parts: string[] = [
+        `Imported: ${result.imported.length}` + (pdfsLifted > 0 ? ` (${pdfsLifted} with PDF)` : ''),
+        `Duplicate (skipped): ${result.duplicate.length}`,
+      ];
+      if (result.failed.length > 0) parts.push(`Failed: ${result.failed.length}`);
+      let message = `Zotero RDF import complete.\n\n${parts.join('\n')}`;
+      if (result.failed.length > 0) {
+        const preview = result.failed
+          .slice(0, 5)
+          .map((f) => `  • ${f.subject}: ${f.reason}`)
+          .join('\n');
+        const more = result.failed.length > 5 ? `\n  …and ${result.failed.length - 5} more` : '';
+        message += `\n\nFirst failures:\n${preview}${more}`;
+      }
+      await showConfirm(message, CONFIRM_KEYS.zoteroRdfImportComplete, 'OK');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Zotero RDF import failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestPdf() {
     if (!notebase.meta) return;
     try {
@@ -1228,15 +1257,20 @@
     api.menu.onIngestIdentifier(() => handleIngestIdentifier());
     api.menu.onIngestPdf(() => handleIngestPdf());
     api.menu.onImportBibtex(() => handleImportBibtex());
+    api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
 
-    // Progress updates during a BibTeX import — rewrites the busy-overlay
+    // Progress updates during a bulk import — rewrites the busy-overlay
     // label in place so the user sees running counts on large imports.
-    api.sources.onImportBibtexProgress(({ done, total, currentTitle }) => {
+    // One handler per stream; both funnel into the same busyLabel so the
+    // user doesn't care which import is running.
+    const progressToBusyLabel = ({ done, total, currentTitle }: { done: number; total: number; currentTitle: string }) => {
       if (busyLabel) {
         const short = currentTitle.length > 60 ? currentTitle.slice(0, 57) + '…' : currentTitle;
         busyLabel = `Importing ${done}/${total}: ${short}`;
       }
-    });
+    };
+    api.sources.onImportBibtexProgress(progressToBusyLabel);
+    api.sources.onImportZoteroRdfProgress(progressToBusyLabel);
 
     // External file changes (watcher-driven) — refresh the sidebar so files
     // added / deleted in Finder show up without a restart. Debounced because

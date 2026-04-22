@@ -33,6 +33,7 @@ import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
 import { ingestPdf } from './sources/ingest-pdf';
 import { importBibtex } from './sources/import-bibtex';
+import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
 import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
@@ -705,6 +706,26 @@ export function registerIpcHandlers(): void {
       onProgress: (progress) => {
         if (!win.isDestroyed()) {
           win.webContents.send(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
+        }
+      },
+    });
+  });
+
+  ipcMain.handle(Channels.SOURCES_IMPORT_ZOTERO_RDF, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'Zotero RDF', extensions: ['rdf', 'xml'] }],
+      title: 'Import Zotero RDF',
+      buttonLabel: 'Import',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return await importZoteroRdf(rootPath, result.filePaths[0], {
+      onProgress: (progress) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, progress);
         }
       },
     });
