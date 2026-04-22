@@ -29,6 +29,7 @@ export const CONFIRM_KEYS = {
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
   saveCellOutputFailed: 'save-cell-output-failed',
+  exportComplete: 'export-complete',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -159,6 +160,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Save cell output failed',
     description:
       'Shown when "Save as note" on a compute-cell output errors out (path collision, write error, etc). Kept separate from ingest-failed so suppressing one doesn\'t mute the other.',
+  },
+  {
+    key: CONFIRM_KEYS.exportComplete,
+    title: 'Export complete',
+    description:
+      'Summary dialog after an export finishes (how many files were written and to which directory).',
   },
 ];
 

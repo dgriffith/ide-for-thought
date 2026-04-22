@@ -117,6 +117,44 @@ export interface FilesApi {
 export type { CellOutput, CellResult } from '../../../shared/compute/types';
 import type { CellResult } from '../../../shared/compute/types';
 
+export interface ExportPreviewPlan {
+  exporterId: string;
+  exporterLabel: string;
+  inputs: Array<{ relativePath: string; kind: 'note' | 'source' | 'excerpt'; title: string }>;
+  excluded: Array<{ relativePath: string; reason: string }>;
+}
+
+export interface RunExportInput {
+  exporterId: string;
+  input: {
+    kind: 'single-note' | 'folder' | 'project';
+    relativePath?: string;
+  };
+  outputDir: string;
+  linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
+}
+
+export interface RunExportResult {
+  filesWritten: number;
+  summary: string;
+  outputDir: string;
+}
+
+export interface PublishApi {
+  /** Every registered exporter, for menu + dialog population. */
+  listExporters(): Promise<Array<{ id: string; label: string }>>;
+  /** Resolve an ExportPlan without running it — for the preview dialog. */
+  resolvePlan(
+    input: RunExportInput['input'],
+    opts?: { exporterId?: string; linkPolicy?: RunExportInput['linkPolicy'] },
+  ): Promise<ExportPreviewPlan>;
+  /**
+   * Run the exporter. When `outputDir` is omitted, main opens a directory
+   * picker modally and the call resolves to `null` if the user cancels.
+   */
+  runExport(args: Omit<RunExportInput, 'outputDir'> & { outputDir?: string }): Promise<RunExportResult | null>;
+}
+
 export interface ComputeApi {
   /** Dispatch a cell to its language's executor (#238). */
   runCell(language: string, code: string, notePath?: string): Promise<CellResult>;
@@ -285,6 +323,7 @@ export interface MenuApi {
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
   onIngestPdf(cb: () => void): void;
+  onExport(cb: (exporterId: string) => void): void;
   onImportBibtex(cb: () => void): void;
   onImportZoteroRdf(cb: () => void): void;
 }
@@ -301,6 +340,7 @@ export interface IdeApi {
   export: ExportApi;
   files: FilesApi;
   compute: ComputeApi;
+  publish: PublishApi;
   shell: ShellApi;
   bookmarks: BookmarksApi;
   conversations: ConversationsApi;

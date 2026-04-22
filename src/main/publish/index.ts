@@ -16,3 +16,4 @@ export function registerBuiltinExporters(): void {
 export * from './types';
 export { resolvePlan, runExporter } from './pipeline';
 export { listExporters, exportersFor, getExporter } from './registry';
+export { runExport, type RunExportInput, type RunExportResult } from './run-export';

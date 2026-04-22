@@ -219,6 +219,15 @@ export const Channels = {
   /** Save a cell's output as a first-class note with provenance (#244). */
   COMPUTE_SAVE_CELL_OUTPUT: 'compute:saveCellOutput',
 
+  /** Publication: list every registered exporter for the menu + preview dialog (#282). */
+  PUBLISH_LIST_EXPORTERS: 'publish:listExporters',
+  /** Publication: resolve an ExportPlan so the preview can show includes / excludes. */
+  PUBLISH_RESOLVE_PLAN: 'publish:resolvePlan',
+  /** Publication: run an exporter end-to-end, writing files under the chosen output dir. */
+  PUBLISH_RUN_EXPORT: 'publish:runExport',
+  /** Menu → "Export…" — opens the preview dialog for a specific exporter id (payload). */
+  MENU_EXPORT: 'menu:export',
+
   // Renderer → main (for menu-triggered main-process actions)
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
