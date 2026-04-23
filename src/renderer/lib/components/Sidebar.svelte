@@ -35,6 +35,39 @@
   let tablesPanel = $state<TablesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
 
+  // Width is user-draggable, persisted to localStorage — matches the
+  // right-sidebar pattern. Per-machine UI state, not worth IPC plumbing.
+  const WIDTH_KEY = 'minerva.leftSidebarWidth';
+  const MIN_WIDTH = 180;
+  const MAX_WIDTH = 600;
+  const initialWidth = (() => {
+    const v = parseInt(localStorage.getItem(WIDTH_KEY) ?? '', 10);
+    if (Number.isFinite(v) && v >= MIN_WIDTH && v <= MAX_WIDTH) return v;
+    return 250;
+  })();
+  let width = $state(initialWidth);
+  let dragging = $state(false);
+
+  function startResize(e: MouseEvent) {
+    e.preventDefault();
+    dragging = true;
+    const startX = e.clientX;
+    const startWidth = width;
+    const onMove = (me: MouseEvent) => {
+      // Drag handle is on the right edge; moving right grows, left shrinks.
+      const next = startWidth + (me.clientX - startX);
+      width = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, next));
+    };
+    const onUp = () => {
+      dragging = false;
+      localStorage.setItem(WIDTH_KEY, String(width));
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
   function handleContextMenu(e: MouseEvent) {
     // Let FileTree's own context menu handle clicks on tree items
     const target = e.target as HTMLElement;
@@ -70,7 +103,9 @@
   }
 </script>
 
-<aside class="sidebar">
+<aside class="sidebar" style:width="{width}px">
+  <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
+  <div class="resize-handle" class:dragging onmousedown={startResize}></div>
   <div class="sidebar-header">
     <button class="sidebar-btn" onclick={onOpenFolder} title="Open thoughtbase">
       Open Thoughtbase
@@ -130,13 +165,29 @@
 
 <style>
   .sidebar {
-    width: 250px;
+    position: relative;
     min-width: 180px;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+  }
+  .resize-handle:hover,
+  .resize-handle.dragging {
+    background: var(--accent);
+    opacity: 0.3;
   }
 
   .sidebar-header {
