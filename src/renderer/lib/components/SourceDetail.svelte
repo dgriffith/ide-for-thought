@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../ipc/client';
   import Preview from './Preview.svelte';
+  import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink } from '../../../shared/types';
 
   interface Props {
@@ -191,7 +192,7 @@
   {:else}
     <header>
       <div class="subtype">{detail.metadata.subtype ?? 'Source'}</div>
-      <h1>{detail.metadata.title ?? sourceId}</h1>
+      <h1>{@html renderInlineWithMath(detail.metadata.title ?? sourceId)}</h1>
       {#if detail.metadata.creators.length || detail.metadata.year}
         <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
       {/if}
@@ -225,7 +226,7 @@
     {#if detail.metadata.abstract}
       <section class="abstract">
         <h2>Abstract</h2>
-        <p>{detail.metadata.abstract}</p>
+        <p>{@html renderInlineWithMath(detail.metadata.abstract)}</p>
       </section>
     {/if}
 

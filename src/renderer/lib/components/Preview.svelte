@@ -4,6 +4,8 @@
   import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
+  import 'katex/dist/katex.min.css';
+  import { installMath } from '../markdown/math-plugin';
   import { getLinkType } from '../../../shared/link-types';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
@@ -82,6 +84,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       return '';
     },
   });
+  installMath(md);
 
   // Give every heading an id derived from its text so [[note#heading]] anchor
   // navigation can target it. Slugs must match the indexer's convention.
