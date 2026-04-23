@@ -1,6 +1,6 @@
 # Minerva
 
-An IDE for AI-assisted human thought.
+An integrated knowledge management environment.
 
 Minerva is a desktop application for managing markdown-based knowledge bases. It combines a markdown editor with semantic graph indexing, git integration, and tag-based navigation — designed to be a professional tool that stays out of your way.
 

@@ -1716,7 +1716,7 @@
     {:else}
       <div class="welcome">
         <h1>Minerva</h1>
-        <p>An experimental IDE for AI-assisted human thought.</p>
+        <p>An integrated knowledge management environment</p>
         <button onclick={notebase.open}>Open Thoughtbase</button>
       </div>
     {/if}
