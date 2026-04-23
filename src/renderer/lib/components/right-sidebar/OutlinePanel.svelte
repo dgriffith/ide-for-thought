@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Ribbon from './Ribbon.svelte';
+
   interface Props {
     content: string;
     onScrollToLine: (line: number) => void;
@@ -13,6 +15,7 @@
   }
 
   let collapsed = $state<Record<number, boolean>>({});
+  let search = $state('');
 
   let headings = $derived(extractHeadings(content));
 
@@ -34,12 +37,16 @@
   }
 
   function isVisible(index: number): boolean {
-    // Check if any ancestor heading is collapsed
+    // Hide under a collapsed ancestor.
     for (let i = index - 1; i >= 0; i--) {
       if (headings[i].level < headings[index].level) {
         if (collapsed[i]) return false;
-        // Check this ancestor's ancestors too
       }
+    }
+    // Search filter: match against heading text. When searching we bypass
+    // the collapsed-ancestor rule above by still requiring text match.
+    if (search.trim()) {
+      return headings[index].text.toLowerCase().includes(search.toLowerCase());
     }
     return true;
   }
@@ -47,42 +54,70 @@
   function toggleCollapse(index: number) {
     collapsed[index] = !collapsed[index];
   }
+
+  function collapseAll() {
+    const next: Record<number, boolean> = {};
+    for (let i = 0; i < headings.length; i++) {
+      if (hasChildren(i)) next[i] = true;
+    }
+    collapsed = next;
+  }
+
+  function expandAll() {
+    collapsed = {};
+  }
 </script>
 
 <div class="outline-panel">
-  {#if headings.length === 0}
-    <div class="empty">No headings</div>
-  {:else}
-    <ul class="outline-list">
-      {#each headings as heading, i}
-        {#if isVisible(i)}
-          <li>
-            <button
-              class="outline-item"
-              style:padding-left="{(heading.level - 1) * 14 + 8}px"
-              onclick={() => onScrollToLine(heading.line)}
-            >
-              {#if hasChildren(i)}
-                <span
-                  class="collapse-toggle"
-                  onclick={(e) => { e.stopPropagation(); toggleCollapse(i); }}
-                  role="button"
-                  tabindex="-1"
-                >{collapsed[i] ? '▸' : '▾'}</span>
-              {:else}
-                <span class="collapse-spacer"></span>
-              {/if}
-              <span class="heading-text">{heading.text}</span>
-            </button>
-          </li>
-        {/if}
-      {/each}
-    </ul>
-  {/if}
+  <Ribbon
+    {search}
+    onSearch={(q) => { search = q; }}
+    searchPlaceholder="Find heading…"
+    onExpandAll={expandAll}
+    onCollapseAll={collapseAll}
+  />
+  <div class="outline-scroll">
+    {#if headings.length === 0}
+      <div class="empty">No headings</div>
+    {:else}
+      <ul class="outline-list">
+        {#each headings as heading, i}
+          {#if isVisible(i)}
+            <li>
+              <button
+                class="outline-item"
+                style:padding-left="{(heading.level - 1) * 14 + 8}px"
+                onclick={() => onScrollToLine(heading.line)}
+              >
+                {#if hasChildren(i) && !search.trim()}
+                  <span
+                    class="collapse-toggle"
+                    onclick={(e) => { e.stopPropagation(); toggleCollapse(i); }}
+                    role="button"
+                    tabindex="-1"
+                  >{collapsed[i] ? '▸' : '▾'}</span>
+                {:else}
+                  <span class="collapse-spacer"></span>
+                {/if}
+                <span class="heading-text">{heading.text}</span>
+              </button>
+            </li>
+          {/if}
+        {/each}
+      </ul>
+    {/if}
+  </div>
 </div>
 
 <style>
   .outline-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .outline-scroll {
     flex: 1;
     overflow-y: auto;
   }

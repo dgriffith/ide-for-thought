@@ -1710,6 +1710,9 @@
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
           onShowPrompt={showPrompt}
           onOpenConversation={(msg) => { openConversationWithMessage(msg); }}
+          onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
+          onOpenSource={handleOpenSource}
+          onOpenExcerpt={handleOpenExcerpt}
         />
       {/if}
     {:else}
