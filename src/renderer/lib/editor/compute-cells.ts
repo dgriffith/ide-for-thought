@@ -138,7 +138,9 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
       }
       return null;
     },
-    initialSpacer: () => new RunMarker(false),
+    // No initialSpacer — we want the column to collapse to zero width
+    // when the note has no runnable fences. Minor reflow when the first
+    // fence is added beats a permanent dead strip on every note.
     domEventHandlers: {
       click: (view, line) => {
         const doc = view.state.doc.toString();
@@ -169,7 +171,9 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
 // Small CSS block exposed so the host editor can include it alongside its
 // own `.cm-*` styles. Kept here to co-locate with the gutter markers.
 export const computeCellsStyles = `
-  .cm-compute-gutter { min-width: 16px; }
+  /* min-width 0 lets the column collapse entirely when the note has
+     no runnable fences (paired with no initialSpacer on the gutter). */
+  .cm-compute-gutter { min-width: 0; }
   .cm-compute-run {
     display: inline-block;
     width: 14px;
