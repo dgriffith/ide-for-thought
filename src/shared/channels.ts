@@ -122,6 +122,10 @@ export const Channels = {
   SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
   /** Ingest a local PDF (#94). Main opens a file picker and extracts text via unpdf. */
   SOURCES_INGEST_PDF: 'sources:ingestPdf',
+  /** Read raw PDF bytes of a persisted source, used by the OCR worker (#95). */
+  SOURCES_READ_PDF: 'sources:readPdf',
+  /** Renderer returns OCR'd per-page text; main writes body.md + stamps meta.ttl (#95). */
+  SOURCES_FINISH_PDF_OCR: 'sources:finishPdfOcr',
   /** Bulk import from a .bib file (#98). Main opens a picker and parses via @retorquere/bibtex-parser. */
   SOURCES_IMPORT_BIBTEX: 'sources:importBibtex',
   /** Progress events during a BibTeX import — { done, total, currentTitle }. */

@@ -31,7 +31,7 @@ import {
 import { ingestUrl } from './sources/ingest';
 import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
-import { ingestPdf } from './sources/ingest-pdf';
+import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
@@ -893,7 +893,32 @@ export function registerIpcHandlers(): void {
       buttonLabel: 'Ingest',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return await ingestPdf(rootPath, result.filePaths[0]);
+    const ingested = await ingestPdf(rootPath, result.filePaths[0]);
+    // Re-index the new source so it shows up in the sidebar + graph.
+    await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
+    await persistIndexes();
+    return ingested;
+  });
+
+  // Read the raw PDF bytes of a previously-persisted source, for the
+  // renderer-side OCR worker (#95).
+  ipcMain.handle(Channels.SOURCES_READ_PDF, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await readOriginalPdf(rootPath, sourceId);
+  });
+
+  // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
+  // back the per-page text. We rewrite body.md + stamp meta.ttl with
+  // extractionMethod "ocr" (#95).
+  ipcMain.handle(Channels.SOURCES_FINISH_PDF_OCR, async (e, sourceId: string, pages: string[]) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await finishPdfOcrIngest(rootPath, sourceId, pages);
+    await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
+    await persistIndexes();
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   });
 
   ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());

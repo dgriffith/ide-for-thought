@@ -19,6 +19,7 @@
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
+  import OcrProgressDialog from './lib/components/OcrProgressDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
@@ -170,6 +171,8 @@
   let showGotoNote = $state(false);
   let showEditSavedQueries = $state(false);
   let findInNotesMode = $state<'find' | 'replace' | null>(null);
+  let ocrSession = $state<{ sourceId: string; title: string; pageCount: number } | null>(null);
+  let ocrPdfBytes = $state<Uint8Array | null>(null);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
     recordCurrentPosition();
@@ -869,18 +872,59 @@
     try {
       const result = await withBusy('Extracting PDF…', () => api.sources.ingestPdf());
       if (!result) return; // user cancelled the picker
-      setTimeout(() => handleOpenSource(result.sourceId), 150);
       if (result.duplicate) {
+        setTimeout(() => handleOpenSource(result.sourceId), 150);
         await showConfirm(
           `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
           CONFIRM_KEYS.ingestDuplicate,
           'OK',
         );
+        return;
       }
+      if (result.needsOcr) {
+        // Scanned PDF — meta.ttl + original.pdf are persisted but
+        // body.md is empty until the renderer OCRs (#95). Hold off on
+        // opening the source tab until OCR finishes / is skipped, so
+        // the user isn't staring at a blank body.
+        ocrSession = {
+          sourceId: result.sourceId,
+          title: result.title,
+          pageCount: result.pageCount,
+        };
+        const bytes = await api.sources.readPdf(result.sourceId);
+        ocrPdfBytes = bytes;
+        return;
+      }
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
     }
+  }
+
+  async function handleOcrDone(pages: string[]) {
+    if (!ocrSession) return;
+    const { sourceId } = ocrSession;
+    ocrSession = null;
+    ocrPdfBytes = null;
+    try {
+      await api.sources.finishPdfOcr(sourceId, pages);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`OCR save failed: ${msg}`, CONFIRM_KEYS.ingestPdfFailed, 'OK');
+      return;
+    }
+    setTimeout(() => handleOpenSource(sourceId), 150);
+  }
+
+  function handleOcrCancel() {
+    // Source + original.pdf stay on disk; body.md is the "OCR pending"
+    // placeholder. User can delete the source if they want it gone.
+    if (!ocrSession) return;
+    const { sourceId } = ocrSession;
+    ocrSession = null;
+    ocrPdfBytes = null;
+    setTimeout(() => handleOpenSource(sourceId), 150);
   }
 
   async function handleIngestIdentifier() {
@@ -1749,6 +1793,15 @@
   {/if}
   {#if showEditSavedQueries}
     <EditSavedQueriesDialog onClose={() => { showEditSavedQueries = false; }} />
+  {/if}
+  {#if ocrSession && ocrPdfBytes}
+    <OcrProgressDialog
+      pdfBytes={ocrPdfBytes}
+      pageCount={ocrSession.pageCount}
+      title={ocrSession.title}
+      onDone={handleOcrDone}
+      onCancel={handleOcrCancel}
+    />
   {/if}
   {#if findInNotesMode}
     <FindInNotesDialog

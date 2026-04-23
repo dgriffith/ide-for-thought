@@ -30,6 +30,13 @@ export interface PdfIngestResult {
   duplicate: boolean;
   title: string;
   pageCount: number;
+  /**
+   * True when the PDF had no text layer. original.pdf + meta.ttl are
+   * persisted; body.md is empty. The renderer is expected to confirm
+   * with the user, run OCR on the pages, and call finishPdfOcrIngest
+   * (#95) to fill in body.md + stamp thought:extractionMethod "ocr".
+   */
+  needsOcr: boolean;
 }
 
 export async function ingestPdf(
@@ -56,16 +63,21 @@ export async function ingestPdf(
       duplicate: true,
       title: meta.title ?? path.basename(pdfAbsolutePath),
       pageCount: 0,
+      needsOcr: false,
     };
   } catch { /* not found — proceed */ }
 
   const { pages, totalPages } = await extractTextOrFail(freshCopy(buf));
+  const needsOcr = pages.every((p) => p.trim().length === 0) && totalPages > 0;
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'original.pdf'), buf);
+  const title = meta.title ?? path.basename(pdfAbsolutePath);
   await fs.writeFile(
     path.join(sourceDir, 'body.md'),
-    buildBodyMarkdown(meta.title ?? path.basename(pdfAbsolutePath), pages),
+    needsOcr
+      ? `# ${title}\n\n<!-- OCR pending: this PDF has no text layer. -->\n`
+      : buildBodyMarkdown(title, pages),
     'utf-8',
   );
   await fs.writeFile(
@@ -73,6 +85,7 @@ export async function ingestPdf(
     buildMetaTtl(meta, {
       originalFilename: path.basename(pdfAbsolutePath),
       pageCount: totalPages,
+      extractionMethod: needsOcr ? null : 'text-layer',
     }),
     'utf-8',
   );
@@ -81,9 +94,50 @@ export async function ingestPdf(
     sourceId,
     relativePath,
     duplicate: false,
-    title: meta.title ?? path.basename(pdfAbsolutePath),
+    title,
     pageCount: totalPages,
+    needsOcr,
   };
+}
+
+/**
+ * Final step of the OCR ingest flow (#95). The renderer has run
+ * Tesseract.js on the pre-persisted original.pdf and hands us back one
+ * string per page. We rewrite body.md with the real text and rewrite
+ * meta.ttl to stamp the source with \`thought:extractionMethod "ocr"\`
+ * for provenance.
+ */
+export async function finishPdfOcrIngest(
+  rootPath: string,
+  sourceId: string,
+  pages: string[],
+): Promise<void> {
+  const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
+  const originalPdf = path.join(sourceDir, 'original.pdf');
+  const buf = await fs.readFile(originalPdf);
+  const meta = await readPdfMeta(freshCopy(buf));
+  const title = meta.title ?? sourceId;
+  await fs.writeFile(
+    path.join(sourceDir, 'body.md'),
+    buildBodyMarkdown(title, pages),
+    'utf-8',
+  );
+  await fs.writeFile(
+    path.join(sourceDir, 'meta.ttl'),
+    buildMetaTtl(meta, {
+      originalFilename: sourceId,
+      pageCount: pages.length,
+      extractionMethod: 'ocr',
+    }),
+    'utf-8',
+  );
+}
+
+/** Read bytes of a previously-persisted original.pdf — used by the OCR flow (#95). */
+export async function readOriginalPdf(rootPath: string, sourceId: string): Promise<Uint8Array> {
+  const p = path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf');
+  const buf = await fs.readFile(p);
+  return new Uint8Array(buf);
 }
 
 /**
@@ -222,7 +276,16 @@ export function buildBodyMarkdown(title: string, pages: string[]): string {
 
 export function buildMetaTtl(
   meta: PdfMeta,
-  extras: { originalFilename: string; pageCount: number },
+  extras: {
+    originalFilename: string;
+    pageCount: number;
+    /**
+     * "text-layer" when pdfjs pulled real text, "ocr" when the renderer
+     * Tesseract'd the pages. Null when ingest isn't yet complete (a
+     * scanned PDF waiting for the user's OCR confirmation).
+     */
+    extractionMethod: 'text-layer' | 'ocr' | null;
+  },
 ): string {
   const lines: string[] = [
     'this: a thought:PDFSource ;',
@@ -240,6 +303,9 @@ export function buildMetaTtl(
   if (meta.doi) lines.push(`    bibo:doi ${ttlString(meta.doi)} ;`);
   lines.push(`    minerva:originalFilename ${ttlString(extras.originalFilename)} ;`);
   lines.push(`    dc:extent ${ttlString(`${extras.pageCount} pages`)} ;`);
+  if (extras.extractionMethod) {
+    lines.push(`    thought:extractionMethod ${ttlString(extras.extractionMethod)} ;`);
+  }
   lines.push(`    thought:accessedAt ${ttlString(new Date().toISOString())}^^xsd:dateTime .`);
   return lines.join('\n') + '\n';
 }

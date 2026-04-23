@@ -5,6 +5,8 @@ import path from 'node:path';
 import os from 'node:os';
 import {
   ingestPdf,
+  finishPdfOcrIngest,
+  readOriginalPdf,
   readPdfMeta,
   buildBodyMarkdown,
   buildMetaTtl,
@@ -73,6 +75,16 @@ describe('ingestPdf (#94)', () => {
     expect(second.duplicate).toBe(true);
   });
 
+  it('stamps thought:extractionMethod "text-layer" on a successful text ingest', async () => {
+    const result = await ingestPdf(root, FIXTURE_PDF);
+    const meta = await fsp.readFile(
+      path.join(root, '.minerva', 'sources', result.sourceId, 'meta.ttl'),
+      'utf-8',
+    );
+    expect(meta).toContain('thought:extractionMethod "text-layer"');
+    expect(result.needsOcr).toBe(false);
+  });
+
   it('surfaces arXiv Custom.DOI as bibo:doi when present', async () => {
     const result = await ingestPdf(root, FIXTURE_PDF);
     const meta = await fsp.readFile(
@@ -99,6 +111,38 @@ describe('ingestPdf (#94)', () => {
       // stray semicolons from a failed split.
       expect(line).not.toContain(';');
     }
+  });
+});
+
+describe('finishPdfOcrIngest (#95)', () => {
+  let root: string;
+  beforeEach(async () => { root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-pdf-ocr-')); });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  it('rewrites body.md with OCR pages and stamps extractionMethod "ocr"', async () => {
+    // Use the real fixture to stage a source on disk (original.pdf etc.),
+    // then simulate "the renderer just finished OCR and is handing back text."
+    const { sourceId } = await ingestPdf(root, FIXTURE_PDF);
+    const pages = ['ocr page one\nmore ocr text', 'ocr page two'];
+    await finishPdfOcrIngest(root, sourceId, pages);
+
+    const body = await fsp.readFile(path.join(root, '.minerva', 'sources', sourceId, 'body.md'), 'utf-8');
+    expect(body).toContain('<!-- page 1 -->');
+    expect(body).toContain('ocr page one');
+    expect(body).toContain('<!-- page 2 -->');
+    expect(body).toContain('ocr page two');
+
+    const meta = await fsp.readFile(path.join(root, '.minerva', 'sources', sourceId, 'meta.ttl'), 'utf-8');
+    expect(meta).toContain('thought:extractionMethod "ocr"');
+    // Old text-layer marker is replaced, not duplicated.
+    expect(meta.match(/thought:extractionMethod/g)).toHaveLength(1);
+  });
+
+  it('readOriginalPdf returns the persisted bytes', async () => {
+    const { sourceId } = await ingestPdf(root, FIXTURE_PDF);
+    const bytes = await readOriginalPdf(root, sourceId);
+    // PDF spec: bytes start with %PDF-
+    expect(bytes.slice(0, 5)).toEqual(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]));
   });
 });
 
@@ -159,7 +203,7 @@ describe('buildMetaTtl', () => {
         creationDate: '2024-10-15',
         doi: '10.1234/foo',
       },
-      { originalFilename: 'thing.pdf', pageCount: 5 },
+      { originalFilename: 'thing.pdf', pageCount: 5, extractionMethod: 'text-layer' },
     );
     expect(ttl).toContain('this: a thought:PDFSource');
     expect(ttl).toContain('dc:title "Thing"');
@@ -167,6 +211,7 @@ describe('buildMetaTtl', () => {
     expect(ttl).toContain('dc:creator "B. Author"');
     expect(ttl).toContain('dc:issued "2024-10-15"^^xsd:date');
     expect(ttl).toContain('bibo:doi "10.1234/foo"');
+    expect(ttl).toContain('thought:extractionMethod "text-layer"');
     expect(ttl).toContain('minerva:originalFilename "thing.pdf"');
     expect(ttl).toContain('dc:extent "5 pages"');
   });
@@ -181,12 +226,21 @@ describe('buildMetaTtl', () => {
         creationDate: null,
         doi: null,
       },
-      { originalFilename: 'bare.pdf', pageCount: 1 },
+      { originalFilename: 'bare.pdf', pageCount: 1, extractionMethod: null },
     );
     expect(ttl).not.toContain('dc:title');
     expect(ttl).not.toContain('dc:creator');
     expect(ttl).not.toContain('dc:issued');
     expect(ttl).not.toContain('bibo:doi');
     expect(ttl).toContain('minerva:originalFilename "bare.pdf"');
+    expect(ttl).not.toContain('thought:extractionMethod');
+  });
+
+  it('stamps thought:extractionMethod "ocr" when OCR was used', () => {
+    const ttl = buildMetaTtl(
+      { title: null, creators: [], subject: null, keywords: null, creationDate: null, doi: null },
+      { originalFilename: 'scan.pdf', pageCount: 3, extractionMethod: 'ocr' },
+    );
+    expect(ttl).toContain('thought:extractionMethod "ocr"');
   });
 });
