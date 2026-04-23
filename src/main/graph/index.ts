@@ -1163,11 +1163,16 @@ const SPARQL_PREFIXES = STANDARD_PREFIXES
   .map(([prefix, iri]) => `PREFIX ${prefix}: <${iri}>`)
   .join('\n') + '\n';
 
-function injectSparqlPrefixes(sparql: string): string {
-  // Only inject prefixes that aren't already declared in the query
+export function injectSparqlPrefixes(sparql: string): string {
+  // Only inject prefixes the user hasn't already declared. SPARQL's
+  // PREFIX keyword is case-insensitive and allows varied whitespace,
+  // so a naive includes("PREFIX x:") test misses `Prefix x:` and
+  // `PREFIX  x :` — both legal, both would produce duplicate-decl
+  // errors from the evaluator if we blindly injected on top.
   const lines: string[] = [];
   for (const [prefix, iri] of STANDARD_PREFIXES) {
-    if (!sparql.includes(`PREFIX ${prefix}:`) && !sparql.includes(`prefix ${prefix}:`)) {
+    const re = new RegExp(`\\bprefix\\s+${prefix}\\s*:`, 'i');
+    if (!re.test(sparql)) {
       lines.push(`PREFIX ${prefix}: <${iri}>`);
     }
   }
