@@ -26,6 +26,7 @@
   import { computeCellsExtension, computeCellsStyles } from '../editor/compute-cells';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   export interface CursorInfo {
     line: number;
@@ -128,6 +129,7 @@
   // content-area menu from growing a gutter-only option that'd only
   // make sense in some click locations.
   let gutterMenu = $state<{ x: number; y: number; lineNumbers: boolean } | null>(null);
+  let gutterMenuEl = $state<HTMLDivElement | undefined>();
   // Snapshot of the selection taken when the context menu opens, so
   // commands from the menu can run against what the user had selected
   // regardless of what the right-click and menu focus do in between.
@@ -700,23 +702,17 @@
   // would otherwise extend past the bottom or right edge.
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
-    const rect = contextMenuEl.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const MARGIN = 8;
-
-    let nextX = contextMenu.x;
-    let nextY = contextMenu.y;
-
-    if (rect.bottom > vh - MARGIN) {
-      nextY = Math.max(MARGIN, vh - rect.height - MARGIN);
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
     }
-    if (rect.right > vw - MARGIN) {
-      nextX = Math.max(MARGIN, vw - rect.width - MARGIN);
-    }
+  });
 
-    if (nextX !== contextMenu.x || nextY !== contextMenu.y) {
-      contextMenu = { ...contextMenu, x: nextX, y: nextY };
+  $effect(() => {
+    if (!gutterMenu || !gutterMenuEl) return;
+    const next = clampMenuToViewport(gutterMenu.x, gutterMenu.y, gutterMenuEl);
+    if (next.x !== gutterMenu.x || next.y !== gutterMenu.y) {
+      gutterMenu = { ...gutterMenu, ...next };
     }
   });
 
@@ -752,6 +748,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="context-menu gutter-menu"
+    bind:this={gutterMenuEl}
     style:left="{gutterMenu.x}px"
     style:top="{gutterMenu.y}px"
     onmousedown={(e) => e.preventDefault()}

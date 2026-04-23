@@ -5,6 +5,7 @@
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   interface Props {
     files: NoteFile[];
@@ -34,6 +35,15 @@
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
 
   // Width is user-draggable, persisted to localStorage — matches the
   // right-sidebar pattern. Per-machine UI state, not worth IPC plumbing.
@@ -150,6 +160,7 @@
 {#if contextMenu}
     <div
       class="context-menu"
+      bind:this={contextMenuEl}
       style:left="{contextMenu.x}px"
       style:top="{contextMenu.y}px"
     >

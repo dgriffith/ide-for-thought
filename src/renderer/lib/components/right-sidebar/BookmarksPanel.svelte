@@ -2,6 +2,7 @@
   import { getBookmarksStore } from '../../stores/bookmarks.svelte';
   import type { BookmarkNode } from '../../../../shared/types';
   import Ribbon from './Ribbon.svelte';
+  import { clampMenuToViewport } from '../../utils/menuClamp';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
@@ -14,6 +15,15 @@
   let expanded = $state<Record<string, boolean>>({});
   let search = $state('');
   let contextMenu = $state<{ x: number; y: number; nodeId: string; nodeType: 'bookmark' | 'folder' } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
 
   function collectFolderIds(nodes: BookmarkNode[], out: string[] = []): string[] {
     for (const n of nodes) {
@@ -127,7 +137,7 @@
   {/if}
 
   {#if contextMenu}
-    <div class="context-menu" style:left="{contextMenu.x}px" style:top="{contextMenu.y}px">
+    <div class="context-menu" bind:this={contextMenuEl} style:left="{contextMenu.x}px" style:top="{contextMenu.y}px">
       <button onclick={() => handleRename(contextMenu!.nodeId)}>Rename</button>
       <button onclick={() => { bookmarks.remove(contextMenu!.nodeId); contextMenu = null; }}>Delete</button>
     </div>
