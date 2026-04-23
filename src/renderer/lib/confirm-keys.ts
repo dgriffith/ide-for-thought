@@ -10,6 +10,7 @@
 
 export const CONFIRM_KEYS = {
   delete: 'confirm-delete',
+  deleteSource: 'delete-source',
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
   moveCollision: 'move-collision',
@@ -47,6 +48,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Delete file or folder',
     description:
       'Prompt before removing a note, folder, or source from the thoughtbase.',
+  },
+  {
+    key: CONFIRM_KEYS.deleteSource,
+    title: 'Delete source',
+    description:
+      'Prompt before removing a Source (and its excerpts) from the thoughtbase.',
   },
   {
     key: CONFIRM_KEYS.rewriteConflict,

@@ -150,6 +150,8 @@ export const Channels = {
   MENU_IMPORT_ZOTERO_RDF: 'menu:importZoteroRdf',
   /** List every indexed source, for the sidebar Sources panel. */
   SOURCES_LIST_ALL: 'sources:listAll',
+  /** Delete a source + cascade-delete its excerpts. */
+  SOURCES_DELETE: 'sources:delete',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
   SOURCES_CHANGED: 'sources:changed',
 

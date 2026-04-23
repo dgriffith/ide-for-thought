@@ -456,6 +456,8 @@ export interface SourcesApi {
   onImportZoteroRdfProgress(cb: (progress: { done: number; total: number; currentTitle: string }) => void): void;
   /** All indexed sources, sorted by title. */
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
+  /** Delete a source + cascade-delete its excerpts. */
+  delete(sourceId: string): Promise<{ sourceId: string; excerptsRemoved: number }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */

@@ -32,6 +32,7 @@ import { ingestUrl } from './sources/ingest';
 import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
+import { deleteSource } from './sources/delete-source';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
@@ -922,6 +923,19 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
+
+  ipcMain.handle(Channels.SOURCES_DELETE, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await deleteSource(rootPath, sourceId);
+    await persistIndexes();
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) {
+      win.webContents.send(Channels.SOURCES_CHANGED);
+      win.webContents.send(Channels.EXCERPTS_CHANGED);
+    }
+    return result;
+  });
 
   ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {
     sourceId: string;

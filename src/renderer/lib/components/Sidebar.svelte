@@ -20,13 +20,15 @@
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
     onSourceSelect?: (sourceId: string) => void;
+    onSourceDeleted?: (sourceId: string) => void;
+    onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
@@ -132,8 +134,8 @@
       <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} {onExternalDrop} />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
-    {#if onSourceSelect}
-      <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} />
+    {#if onSourceSelect && onShowConfirm}
+      <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} />
     {/if}
     {#if onTableClick && onOpenCsv}
       <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
