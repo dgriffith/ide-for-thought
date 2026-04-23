@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
-  import SearchPanel from './SearchPanel.svelte';
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
@@ -11,7 +10,6 @@
     files: NoteFile[];
     activeFilePath: string | null;
     onFileSelect: (relativePath: string, searchQuery?: string) => void;
-    onOpenFolder: () => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
@@ -28,10 +26,9 @@
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onOpenFolder, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
-  let searchPanel = $state<SearchPanel>();
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
@@ -103,10 +100,6 @@
     tablesPanel?.refresh();
   }
 
-  export function focusSearch() {
-    searchPanel?.focus();
-  }
-
   export function selectTag(tag: string) {
     tagPanel?.refresh();
     setTimeout(() => tagPanel?.selectTag(tag), 50);
@@ -116,13 +109,6 @@
 <aside class="sidebar" style:width="{width}px">
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
-  <div class="sidebar-header">
-    <button class="sidebar-btn" onclick={onOpenFolder} title="Open thoughtbase">
-      Open Thoughtbase
-    </button>
-  </div>
-
-  <SearchPanel bind:this={searchPanel} {onFileSelect} />
 
   {#if files.length > 0}
     <div
@@ -199,27 +185,6 @@
   .resize-handle.dragging {
     background: var(--accent);
     opacity: 0.3;
-  }
-
-  .sidebar-header {
-    padding: 8px;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-
-  .sidebar-btn {
-    width: 100%;
-    padding: 6px 12px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 12px;
-    cursor: pointer;
-  }
-
-  .sidebar-btn:hover {
-    background: var(--bg-button-hover);
   }
 
   .file-list {

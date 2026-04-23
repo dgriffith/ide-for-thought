@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME, oldRelPath, newRelPath),
     copy: (srcRelPath: string, destRelPath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
+    searchInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),
+    replaceInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_REPLACE_IN_NOTES, opts),
     onFileChanged: (cb: (path: string) => void) => {
       ipcRenderer.on(Channels.NOTEBASE_FILE_CHANGED, (_e, p) => cb(p));
     },
@@ -283,6 +285,12 @@ contextBridge.exposeInMainWorld('api', {
     },
     onFindReplace: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FIND_REPLACE, () => cb());
+    },
+    onFindInNotes: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FIND_IN_NOTES, () => cb());
+    },
+    onReplaceInNotes: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_REPLACE_IN_NOTES, () => cb());
     },
     onNewQuery: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());

@@ -35,6 +35,7 @@ import { ingestPdf } from './sources/ingest-pdf';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
+import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from './notebase/search-in-notes';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
 import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
 import * as publish from './publish';
@@ -403,6 +404,26 @@ export function registerIpcHandlers(): void {
       await reindexFile(rootPath, destRelPath);
     }
     await persistIndexes();
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return searchInNotes(rootPath, opts);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_REPLACE_IN_NOTES, async (e, opts: SearchOptions & { replacement: string; selections: ReplaceSelection[] }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { changedPaths: [], replacedCount: 0 };
+    const result = await replaceInNotes(rootPath, opts);
+    if (result.changedPaths.length > 0) {
+      // Re-index each rewritten file so the graph + search index stay in
+      // sync, then tell open editor tabs to reload from disk.
+      for (const rel of result.changedPaths) await reindexFile(rootPath, rel);
+      await persistIndexes();
+      broadcastRewritten(rootPath, result.changedPaths);
+    }
+    return result;
   });
 
   // Links
