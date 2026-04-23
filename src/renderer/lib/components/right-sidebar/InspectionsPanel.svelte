@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../../ipc/client';
   import { onMount } from 'svelte';
+  import Ribbon from './Ribbon.svelte';
 
   interface Inspection {
     id: string;
@@ -21,6 +22,8 @@
 
   let inspections = $state<Inspection[]>([]);
   let loading = $state(false);
+  let search = $state('');
+  let sortId = $state<'severity' | 'type'>('severity');
 
   async function refresh() {
     loading = true;
@@ -38,9 +41,29 @@
 
   $effect(() => { revision; refresh(); });
 
-  const concerns = $derived(inspections.filter(i => i.severity === 'concern'));
-  const warnings = $derived(inspections.filter(i => i.severity === 'warning'));
-  const infos = $derived(inspections.filter(i => i.severity === 'info'));
+  const filtered = $derived(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return inspections;
+    return inspections.filter(i =>
+      i.nodeLabel.toLowerCase().includes(q) ||
+      i.message.toLowerCase().includes(q) ||
+      i.type.toLowerCase().includes(q)
+    );
+  });
+  const concerns = $derived(filtered().filter(i => i.severity === 'concern'));
+  const warnings = $derived(filtered().filter(i => i.severity === 'warning'));
+  const infos = $derived(filtered().filter(i => i.severity === 'info'));
+  // In "by type" mode we show one group per distinct check type. Keeps
+  // the severity icon per row so the triage signal isn't lost.
+  const byType = $derived(() => {
+    const map = new Map<string, Inspection[]>();
+    for (const i of filtered()) {
+      const list = map.get(i.type) ?? [];
+      list.push(i);
+      map.set(i.type, list);
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  });
 
   function severityIcon(severity: string): string {
     if (severity === 'concern') return '\u25C9'; // ◉
@@ -56,17 +79,45 @@
 </script>
 
 <div class="inspections-panel">
+  <Ribbon
+    {search}
+    onSearch={(q) => { search = q; }}
+    searchPlaceholder="Find inspection…"
+    sortOptions={[
+      { id: 'severity', label: 'By severity' },
+      { id: 'type', label: 'By type' },
+    ]}
+    {sortId}
+    onSort={(id) => { sortId = id as 'severity' | 'type'; }}
+  />
   <div class="panel-header">
     <span class="count">
-      {inspections.length} inspection{inspections.length !== 1 ? 's' : ''}
+      {filtered().length} inspection{filtered().length !== 1 ? 's' : ''}
     </span>
     <button class="refresh-btn" onclick={runNow} disabled={loading} title="Re-run health checks">
       {loading ? '...' : 'Run'}
     </button>
   </div>
 
-  {#if inspections.length === 0}
-    <p class="empty">{loading ? 'Checking...' : 'No inspections'}</p>
+  {#if filtered().length === 0}
+    <p class="empty">{loading ? 'Checking...' : (inspections.length === 0 ? 'No inspections' : 'No matches')}</p>
+  {:else if sortId === 'type'}
+    <div class="inspection-list">
+      {#each byType() as [typeName, items]}
+        <div class="severity-group">
+          <span class="group-label">{typeName.replace(/_/g, ' ')} ({items.length})</span>
+          {#each items as insp}
+            <button class="inspection-item {insp.severity}" onclick={() => handleClick(insp)} title={insp.suggestedAction ?? ''}>
+              <span class="insp-icon">{severityIcon(insp.severity)}</span>
+              <div class="insp-body">
+                <span class="insp-label">{insp.nodeLabel}</span>
+                <span class="insp-message">{insp.message}</span>
+              </div>
+            </button>
+          {/each}
+        </div>
+      {/each}
+    </div>
   {:else}
     <div class="inspection-list">
       {#if concerns.length > 0}

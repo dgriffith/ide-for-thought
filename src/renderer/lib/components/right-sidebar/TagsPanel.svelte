@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TaggedNote } from '../../../../shared/types';
   import { api } from '../../ipc/client';
+  import Ribbon from './Ribbon.svelte';
 
   interface Props {
     content: string;
@@ -11,6 +12,7 @@
 
   let expandedTag = $state<string | null>(null);
   let taggedNotes = $state<TaggedNote[]>([]);
+  let search = $state('');
 
   // Extract tags from current note content (client-side)
   const TAG_RE = /(?:^|\s)#([a-zA-Z][\w-/]*)/g;
@@ -24,7 +26,9 @@
     while ((match = TAG_RE.exec(stripped)) !== null) {
       found.add(match[1]);
     }
-    return [...found].sort();
+    const q = search.trim().toLowerCase();
+    const all = [...found].sort();
+    return q ? all.filter((t) => t.toLowerCase().includes(q)) : all;
   });
 
   async function toggleTag(tag: string) {
@@ -39,6 +43,11 @@
 </script>
 
 <div class="tags-panel">
+  <Ribbon
+    {search}
+    onSearch={(q) => { search = q; }}
+    searchPlaceholder="Find tag…"
+  />
   {#if tags().length === 0}
     <div class="empty">No tags in this note</div>
   {:else}
@@ -70,12 +79,15 @@
 <style>
   .tags-panel {
     flex: 1;
-    overflow-y: auto;
-    padding: 4px 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .tag-list {
-    padding: 0 4px;
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 4px;
   }
 
   .tag-item {

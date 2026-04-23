@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getBookmarksStore } from '../../stores/bookmarks.svelte';
   import type { BookmarkNode } from '../../../../shared/types';
+  import Ribbon from './Ribbon.svelte';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
@@ -11,7 +12,41 @@
 
   const bookmarks = getBookmarksStore();
   let expanded = $state<Record<string, boolean>>({});
+  let search = $state('');
   let contextMenu = $state<{ x: number; y: number; nodeId: string; nodeType: 'bookmark' | 'folder' } | null>(null);
+
+  function collectFolderIds(nodes: BookmarkNode[], out: string[] = []): string[] {
+    for (const n of nodes) {
+      if (n.type === 'folder') {
+        out.push(n.id);
+        collectFolderIds(n.children, out);
+      }
+    }
+    return out;
+  }
+
+  function expandAll() {
+    const next: Record<string, boolean> = {};
+    for (const id of collectFolderIds(bookmarks.tree)) next[id] = true;
+    expanded = next;
+  }
+
+  function collapseAll() {
+    expanded = {};
+  }
+
+  // When a search is active, hide branches whose entire subtree has no
+  // matching bookmark. Folders whose name matches also stay visible even
+  // if their children don't — lets the user find folders by name.
+  function matchesSearch(node: BookmarkNode): boolean {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    if (node.name.toLowerCase().includes(q)) return true;
+    if (node.type === 'folder') {
+      return node.children.some(matchesSearch);
+    }
+    return false;
+  }
 
   function toggleFolder(id: string) {
     expanded[id] = !expanded[id];
@@ -63,6 +98,13 @@
 </script>
 
 <div class="bookmarks-panel">
+  <Ribbon
+    {search}
+    onSearch={(q) => { search = q; }}
+    searchPlaceholder="Find bookmark…"
+    onExpandAll={expandAll}
+    onCollapseAll={collapseAll}
+  />
   <div class="panel-header">
     <button class="new-folder-btn" onclick={handleNewFolder} title="New Folder">+ Folder</button>
   </div>
@@ -77,7 +119,9 @@
       ondrop={(e) => handleDrop(e, null)}
     >
       {#each bookmarks.tree as node}
-        {@render bookmarkNode(node, 0)}
+        {#if matchesSearch(node)}
+          {@render bookmarkNode(node, 0)}
+        {/if}
       {/each}
     </div>
   {/if}
@@ -104,9 +148,11 @@
       <span class="bm-icon">{expanded[node.id] ? '&#x25BE;' : '&#x25B8;'}</span>
       <span class="bm-name">{node.name}</span>
     </div>
-    {#if expanded[node.id]}
+    {#if expanded[node.id] || search.trim()}
       {#each node.children as child}
-        {@render bookmarkNode(child, depth + 1)}
+        {#if matchesSearch(child)}
+          {@render bookmarkNode(child, depth + 1)}
+        {/if}
       {/each}
     {/if}
   {:else}

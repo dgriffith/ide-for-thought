@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../../ipc/client';
   import { onMount } from 'svelte';
+  import Ribbon from './Ribbon.svelte';
 
   interface Proposal {
     uri: string;
@@ -21,6 +22,25 @@
   let proposals = $state<Proposal[]>([]);
   let selectedUri = $state<string | null>(null);
   let processing = $state(false);
+  let search = $state('');
+  let sortId = $state<'time' | 'type'>('time');
+
+  const shown = $derived(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q
+      ? proposals.filter((p) =>
+          p.note.toLowerCase().includes(q) ||
+          p.operationType.toLowerCase().includes(q) ||
+          p.proposedBy.toLowerCase().includes(q)
+        )
+      : proposals;
+    if (sortId === 'type') {
+      return [...filtered].sort((a, b) => a.operationType.localeCompare(b.operationType));
+    }
+    // Newest first — matches what a reviewer reaches for when new
+    // proposals land while older ones sit waiting.
+    return [...filtered].sort((a, b) => b.proposedAt.localeCompare(a.proposedAt));
+  });
 
   async function refresh() {
     const result = await api.proposals.list('pending');
@@ -60,11 +80,22 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="proposals-panel" onkeydown={handleKeydown} tabindex="-1">
-  {#if proposals.length === 0}
-    <p class="empty">No pending proposals</p>
+  <Ribbon
+    {search}
+    onSearch={(q) => { search = q; }}
+    searchPlaceholder="Find proposal…"
+    sortOptions={[
+      { id: 'time', label: 'Newest first' },
+      { id: 'type', label: 'By type' },
+    ]}
+    {sortId}
+    onSort={(id) => { sortId = id as 'time' | 'type'; }}
+  />
+  {#if shown().length === 0}
+    <p class="empty">{proposals.length === 0 ? 'No pending proposals' : 'No matches'}</p>
   {:else}
     <div class="proposal-list">
-      {#each proposals as p}
+      {#each shown() as p}
         <button
           class="proposal-item"
           class:selected={selectedUri === p.uri}
