@@ -428,7 +428,13 @@ export interface SourcesApi {
     duplicate: boolean;
     title: string;
     pageCount: number;
+    /** True if the PDF has no text layer; caller should run OCR via readPdf + finishPdfOcr. */
+    needsOcr: boolean;
   } | null>;
+  /** Read raw bytes of a persisted source's original.pdf (#95). */
+  readPdf(sourceId: string): Promise<Uint8Array>;
+  /** Hand per-page OCR'd text back to main; it writes body.md + stamps meta.ttl (#95). */
+  finishPdfOcr(sourceId: string, pages: string[]): Promise<void>;
   /** Open a .bib picker and bulk-import every entry (#98). Returns null if cancelled. */
   importBibtex(): Promise<{
     imported: Array<{ sourceId: string; title: string }>;

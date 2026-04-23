@@ -193,6 +193,9 @@ contextBridge.exposeInMainWorld('api', {
     ingestIdentifier: (identifier: string) =>
       ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
     ingestPdf: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_PDF),
+    readPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_READ_PDF, sourceId),
+    finishPdfOcr: (sourceId: string, pages: string[]) =>
+      ipcRenderer.invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
     importBibtex: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_BIBTEX),
     onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
       ipcRenderer.on(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, (_e, progress) => cb(progress));
