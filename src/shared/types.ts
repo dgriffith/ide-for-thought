@@ -30,6 +30,7 @@ export interface SavedQuery {
   name: string;
   description: string;
   query: string;
+  language: 'sparql' | 'sql';
   scope: 'project' | 'global';
   filePath: string;
 }
