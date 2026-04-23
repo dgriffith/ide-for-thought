@@ -53,6 +53,9 @@ importers:
       isomorphic-git:
         specifier: ^1.27.1
         version: 1.37.4
+      katex:
+        specifier: ^0.16.45
+        version: 0.16.45
       linkedom:
         specifier: ^0.18.12
         version: 0.18.12
@@ -108,6 +111,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.0.3
         version: 5.1.1(svelte@5.55.0)(vite@6.4.1(@types/node@25.5.0)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))
+      '@types/katex':
+        specifier: ^0.16.8
+        version: 0.16.8
       '@types/markdown-it':
         specifier: ^14.1.2
         version: 14.1.2
@@ -2118,6 +2124,9 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
+  '@types/katex@0.16.8':
+    resolution: {integrity: sha512-trgaNyfU+Xh2Tc+ABIb44a5AYUpicB3uwirOioeOkNPPbmgRNtcWyDeeFRzjPZENO9Vq8gvVqfhaaXWLlevVwg==}
+
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
 
@@ -2683,6 +2692,10 @@ packages:
   commander@5.1.0:
     resolution: {integrity: sha512-P0CysNDQ7rtVw4QIQtm+MRxV66vKFSvlsQvGYXZWR3qFU0jlMKHZZZgw8e+8DSah4UDKMqnknRDQz+xuQXQ/Zg==}
     engines: {node: '>= 6'}
+
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
 
   commander@9.5.0:
     resolution: {integrity: sha512-KRs7WVDKg86PWiuAqhDrAQnTXZKraVcCc6vFdL14qrZ/DcWwuRo7VoiYXalXO7S5GKpqYiVEwCbgFDfxNHKJBQ==}
@@ -3501,6 +3514,10 @@ packages:
 
   just-permutations@2.2.1:
     resolution: {integrity: sha512-J2W9djsAsl346A9H41H/S8VXfnPjxZSFfBbAsZRbtFUQTpfmGBGJLWNeZgoDtzBw+ZaN7WF/DOsAJ+V/e6P5cQ==}
+
+  katex@0.16.45:
+    resolution: {integrity: sha512-pQpZbdBu7wCTmQUh7ufPmLr0pFoObnGUoL/yhtwJDgmmQpbkg/0HSVti25Fu4rmd1oCR6NGWe9vqTWuWv3GcNA==}
+    hasBin: true
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -9125,6 +9142,8 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
+  '@types/katex@0.16.8': {}
+
   '@types/keyv@3.1.4':
     dependencies:
       '@types/node': 25.5.0
@@ -9768,6 +9787,8 @@ snapshots:
   commander@2.20.3: {}
 
   commander@5.1.0: {}
+
+  commander@8.3.0: {}
 
   commander@9.5.0: {}
 
@@ -10746,6 +10767,10 @@ snapshots:
   junk@3.1.0: {}
 
   just-permutations@2.2.1: {}
+
+  katex@0.16.45:
+    dependencies:
+      commander: 8.3.0
 
   keyv@4.5.4:
     dependencies:
