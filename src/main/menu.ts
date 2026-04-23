@@ -7,7 +7,7 @@ import * as graph from './graph/index';
 import * as search from './search/index';
 import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
-import { listSavedQueries, deleteQuery } from './saved-queries';
+import { listSavedQueries } from './saved-queries';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -440,28 +440,28 @@ export function rebuildMenu(): void {
             if (saved.length === 0) {
               return [{ label: 'No Saved Queries', enabled: false }];
             }
-            const items: Electron.MenuItemConstructorOptions[] = [];
             const project = saved.filter((q) => q.scope === 'project');
             const global = saved.filter((q) => q.scope === 'global');
-            if (project.length > 0) {
-              items.push({ label: 'Thoughtbase', enabled: false });
-              for (const q of project) {
-                items.push({
-                  label: q.name,
-                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
-                });
-              }
+            const mkEntry = (q: typeof saved[number]) => ({
+              label: q.name,
+              click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
+            });
+            const items: Electron.MenuItemConstructorOptions[] = [];
+            // When both scopes are populated, nest under Thoughtbase ▸ /
+            // Global ▸ submenus (mirrors the Stock Queries pattern).
+            // When only one scope has entries, list flat — a one-branch
+            // tree is noise.
+            if (project.length > 0 && global.length > 0) {
+              items.push({ label: 'Thoughtbase', submenu: project.map(mkEntry) });
+              items.push({ label: 'Global', submenu: global.map(mkEntry) });
+            } else {
+              items.push(...(project.length > 0 ? project : global).map(mkEntry));
             }
-            if (global.length > 0) {
-              if (items.length > 0) items.push({ type: 'separator' });
-              items.push({ label: 'Global', enabled: false });
-              for (const q of global) {
-                items.push({
-                  label: q.name,
-                  click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
-                });
-              }
-            }
+            items.push({ type: 'separator' });
+            items.push({
+              label: 'Edit Saved Queries…',
+              click: () => send(Channels.MENU_EDIT_SAVED_QUERIES),
+            });
             return items;
           })(),
         },

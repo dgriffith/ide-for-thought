@@ -102,3 +102,23 @@ export function deleteQuery(filePath: string): void {
     fs.unlinkSync(filePath);
   } catch { /* already gone */ }
 }
+
+export function renameQuery(filePath: string, newName: string): string {
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const id = path.basename(filePath, '.rq');
+  // We need the description + query body but a fresh name — reuse the parser
+  // rather than hand-rolling header edits that miss edge cases like a missing
+  // description line.
+  const scope: 'project' | 'global' = filePath.includes(`${path.sep}.minerva${path.sep}queries${path.sep}`)
+    ? 'project'
+    : 'global';
+  const parsed = parseQueryContent(content, id, scope);
+  const newFilename = sanitizeFilename(newName) + '.rq';
+  const newPath = path.join(path.dirname(filePath), newFilename);
+  const rewritten = serializeQuery(newName, parsed.description, parsed.query);
+  fs.writeFileSync(newPath, rewritten, 'utf-8');
+  if (newPath !== filePath) {
+    try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+  }
+  return newPath;
+}

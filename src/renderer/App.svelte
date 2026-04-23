@@ -17,6 +17,7 @@
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
+  import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
@@ -166,6 +167,7 @@
   let pendingSearchQuery = $state<string | null>(null);
   let showGotoLine = $state(false);
   let showGotoNote = $state(false);
+  let showEditSavedQueries = $state(false);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
     recordCurrentPosition();
@@ -1358,6 +1360,7 @@
     api.menu.onQuickOpen(() => { showGotoNote = true; });
     api.menu.onNewQuery(() => editor.openQuery());
     api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
+    api.menu.onEditSavedQueries(() => { showEditSavedQueries = true; });
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onFind(() => editorComponent?.openFind());
     api.menu.onFindReplace(() => editorComponent?.openFindReplace());
@@ -1742,6 +1745,9 @@
       }}
       onCancel={() => { showGotoLine = false; }}
     />
+  {/if}
+  {#if showEditSavedQueries}
+    <EditSavedQueriesDialog onClose={() => { showEditSavedQueries = false; }} />
   {/if}
   {#if promptDialog}
     <PromptDialog

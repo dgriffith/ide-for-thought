@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('api', {
     save: (scope: string, name: string, description: string, query: string) =>
       ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query),
     delete: (filePath: string) => ipcRenderer.invoke(Channels.QUERIES_DELETE, filePath),
+    rename: (filePath: string, newName: string) => ipcRenderer.invoke(Channels.QUERIES_RENAME, filePath, newName),
   },
   search: {
     query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),
@@ -288,6 +289,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onOpenStockQuery: (cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void) => {
       ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, payload) => cb(payload));
+    },
+    onEditSavedQueries: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_EDIT_SAVED_QUERIES, () => cb());
     },
     onSortLines: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());

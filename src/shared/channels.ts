@@ -36,6 +36,7 @@ export const Channels = {
   QUERIES_LIST: 'queries:list',
   QUERIES_SAVE: 'queries:save',
   QUERIES_DELETE: 'queries:delete',
+  QUERIES_RENAME: 'queries:rename',
 
   // Search
   SEARCH_QUERY: 'search:query',
@@ -165,6 +166,7 @@ export const Channels = {
   // Graph
   MENU_NEW_QUERY: 'menu:newQuery',
   MENU_OPEN_STOCK_QUERY: 'menu:openStockQuery',
+  MENU_EDIT_SAVED_QUERIES: 'menu:editSavedQueries',
 
   // Tools for Thought
   TOOL_INVOKE: 'tool:invoke',
