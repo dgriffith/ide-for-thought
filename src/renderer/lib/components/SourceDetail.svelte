@@ -8,9 +8,24 @@
     sourceId: string;
     highlightExcerptId?: string;
     onNavigate: (target: string) => void;
+    onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
+    onDeleted?: (sourceId: string) => void;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate }: Props = $props();
+  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted }: Props = $props();
+
+  async function handleDelete() {
+    if (!detail) return;
+    const label = detail.metadata.title ?? sourceId;
+    const confirmed = await onShowConfirm(
+      `Delete source "${label}"? Any excerpts from this source will also be removed.`,
+      'delete-source',
+      'Delete',
+    );
+    if (!confirmed) return;
+    await api.sources.delete(sourceId);
+    onDeleted?.(sourceId);
+  }
 
   let detail = $state<SourceDetail | null>(null);
   let loading = $state(true);
@@ -221,6 +236,9 @@
         </div>
       {/if}
       <div class="kv"><span class="k">Source id</span><span class="v mono">{detail.metadata.sourceId}</span></div>
+      <div class="actions">
+        <button class="action-btn" onclick={handleDelete}>Delete source</button>
+      </div>
     </section>
 
     {#if detail.metadata.abstract}
@@ -404,6 +422,22 @@
   }
 
   .kv { display: contents; }
+  .actions {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .action-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .action-btn:hover { background: var(--bg-button-hover); }
   .k {
     color: var(--text-muted);
     font-size: 13px;

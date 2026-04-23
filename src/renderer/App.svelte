@@ -235,6 +235,13 @@
     return null;
   }
 
+  function handleSourceDeleted(sourceId: string) {
+    // Close any open tab for this source so the user isn't staring at
+    // a ghost viewer after delete.
+    const idx = editor.tabs.findIndex((t) => t.type === 'source' && t.sourceId === sourceId);
+    if (idx !== -1) editor.closeTab(idx);
+  }
+
   function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
     recordCurrentPosition();
     editor.openSource(sourceId, { highlightExcerptId });
@@ -1560,6 +1567,8 @@
           onMove={handleMove}
           onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
           onSourceSelect={(id) => handleOpenSource(id)}
+          onSourceDeleted={handleSourceDeleted}
+          onShowConfirm={showConfirm}
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
@@ -1735,6 +1744,8 @@
               sourceId={editor.activeTab.sourceId}
               highlightExcerptId={editor.activeTab.highlightExcerptId}
               onNavigate={handleNavigate}
+              onShowConfirm={showConfirm}
+              onDeleted={handleSourceDeleted}
             />
           {/key}
         {:else}

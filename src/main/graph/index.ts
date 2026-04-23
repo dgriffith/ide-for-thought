@@ -1019,6 +1019,24 @@ export function removeExcerpt(excerptId: string): void {
   store.removeMatches(subject, undefined, undefined);
 }
 
+/**
+ * Every excerpt-id with thought:fromSource pointing at the given source.
+ * Used by the source-delete path to cascade-remove orphaned excerpts.
+ */
+export function excerptIdsForSource(sourceId: string): string[] {
+  if (!store) return [];
+  const subject = sourceUri(sourceId);
+  const stmts = store.statementsMatching(undefined, THOUGHT('fromSource'), subject);
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const st of stmts) {
+    const idStmts = store.statementsMatching(st.subject, MINERVA('excerptId'), undefined);
+    const id = idStmts[0]?.object.value;
+    if (id && !seen.has(id)) { seen.add(id); ids.push(id); }
+  }
+  return ids;
+}
+
 /** Parse `<id>` out of `.minerva/excerpts/<id>.ttl`. Returns null for other paths. */
 export function parseExcerptIdFromPath(relativePath: string): string | null {
   const normalized = relativePath.replace(/\\/g, '/');

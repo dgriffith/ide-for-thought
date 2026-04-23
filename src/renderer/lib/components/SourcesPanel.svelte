@@ -1,16 +1,51 @@
 <script lang="ts">
   import { api } from '../ipc/client';
   import type { SourceMetadata } from '../../../shared/types';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   interface Props {
     onSourceSelect: (sourceId: string) => void;
+    onSourceDeleted?: (sourceId: string) => void;
+    onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
   }
 
-  let { onSourceSelect }: Props = $props();
+  let { onSourceSelect, onSourceDeleted, onShowConfirm }: Props = $props();
 
   let sources = $state<SourceMetadata[]>([]);
   let filter = $state('');
   let collapsed = $state(false);
+  let contextMenu = $state<{ x: number; y: number; source: SourceMetadata } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
+
+  function handleContextMenu(e: MouseEvent, source: SourceMetadata) {
+    e.preventDefault();
+    e.stopPropagation();
+    contextMenu = { x: e.clientX, y: e.clientY, source };
+    const close = () => { contextMenu = null; window.removeEventListener('click', close); };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  async function handleDelete(source: SourceMetadata) {
+    contextMenu = null;
+    const label = source.title ?? source.sourceId;
+    const confirmed = await onShowConfirm(
+      `Delete source "${label}"? Any excerpts from this source will also be removed.`,
+      'delete-source',
+      'Delete',
+    );
+    if (!confirmed) return;
+    await api.sources.delete(source.sourceId);
+    onSourceDeleted?.(source.sourceId);
+    await refresh();
+  }
 
   export async function refresh(): Promise<void> {
     sources = await api.sources.listAll();
@@ -62,6 +97,7 @@
           <button
             class="source-item"
             onclick={() => onSourceSelect(s.sourceId)}
+            oncontextmenu={(e) => handleContextMenu(e, s)}
             title={s.sourceId}
           >
             <div class="source-title">{s.title ?? s.sourceId}</div>
@@ -76,9 +112,42 @@
       </div>
     {/if}
   {/if}
+
+  {#if contextMenu}
+    <div
+      class="context-menu"
+      bind:this={contextMenuEl}
+      style:left="{contextMenu.x}px"
+      style:top="{contextMenu.y}px"
+    >
+      <button onclick={() => handleDelete(contextMenu!.source)}>Delete Source</button>
+    </div>
+  {/if}
 </div>
 
 <style>
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+  }
+  .context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .context-menu button:hover { background: var(--bg-button); }
   .sources-panel {
     border-top: 1px solid var(--border);
     flex-shrink: 0;
