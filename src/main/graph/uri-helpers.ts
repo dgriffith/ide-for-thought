@@ -29,6 +29,10 @@ export function excerptUri(baseUri: string, excerptId: string): string {
   return `${baseUri}excerpt/${encodeURIComponent(excerptId)}`;
 }
 
+export function tableUri(baseUri: string, tableName: string): string {
+  return `${baseUri}table/${encodeURIComponent(tableName)}`;
+}
+
 export const SOURCES_DIR = '.minerva/sources';
 export const EXCERPTS_DIR = '.minerva/excerpts';
 
