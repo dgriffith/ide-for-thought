@@ -444,7 +444,7 @@ export function rebuildMenu(): void {
             const global = saved.filter((q) => q.scope === 'global');
             const mkEntry = (q: typeof saved[number]) => ({
               label: q.name,
-              click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: 'sparql' }),
+              click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: q.language }),
             });
             const items: Electron.MenuItemConstructorOptions[] = [];
             // When both scopes are populated, nest under Thoughtbase ▸ /

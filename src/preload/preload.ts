@@ -66,8 +66,8 @@ contextBridge.exposeInMainWorld('api', {
   },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
-    save: (scope: string, name: string, description: string, query: string) =>
-      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query),
+    save: (scope: string, name: string, description: string, query: string, language: string) =>
+      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query, language),
     delete: (filePath: string) => ipcRenderer.invoke(Channels.QUERIES_DELETE, filePath),
     rename: (filePath: string, newName: string) => ipcRenderer.invoke(Channels.QUERIES_RENAME, filePath, newName),
   },

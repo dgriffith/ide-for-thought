@@ -23,32 +23,37 @@ describe('sanitizeFilename', () => {
 describe('parseQueryContent', () => {
   it('extracts @name from comment header', () => {
     const content = '# @name My Query\nSELECT * WHERE {}';
-    const result = parseQueryContent(content, 'fallback-id', 'project');
+    const result = parseQueryContent(content, 'fallback-id', 'project', 'sparql');
     expect(result.name).toBe('My Query');
   });
 
   it('extracts @description', () => {
     const content = '# @name Test\n# @description A test query\nSELECT ?x WHERE {}';
-    const result = parseQueryContent(content, 'id', 'project');
+    const result = parseQueryContent(content, 'id', 'project', 'sparql');
     expect(result.description).toBe('A test query');
   });
 
   it('uses id as name when @name is missing', () => {
     const content = 'SELECT * WHERE {}';
-    const result = parseQueryContent(content, 'my-fallback', 'global');
+    const result = parseQueryContent(content, 'my-fallback', 'global', 'sparql');
     expect(result.name).toBe('my-fallback');
   });
 
   it('strips metadata comments from query body', () => {
     const content = '# @name Test\n# @description Desc\nSELECT ?x WHERE {}';
-    const result = parseQueryContent(content, 'id', 'project');
+    const result = parseQueryContent(content, 'id', 'project', 'sparql');
     expect(result.query).toBe('SELECT ?x WHERE {}');
     expect(result.query).not.toContain('@name');
   });
 
   it('preserves scope', () => {
-    const result = parseQueryContent('query', 'id', 'global');
+    const result = parseQueryContent('query', 'id', 'global', 'sparql');
     expect(result.scope).toBe('global');
+  });
+
+  it('captures language passed in by caller (derived from extension)', () => {
+    const result = parseQueryContent('SELECT 1', 'id', 'project', 'sql');
+    expect(result.language).toBe('sql');
   });
 });
 
@@ -70,9 +75,10 @@ describe('serializeQuery', () => {
 
   it('round-trips with parseQueryContent', () => {
     const serialized = serializeQuery('My Query', 'Desc', 'SELECT ?x WHERE { ?x a ?y }');
-    const parsed = parseQueryContent(serialized, 'id', 'project');
+    const parsed = parseQueryContent(serialized, 'id', 'project', 'sparql');
     expect(parsed.name).toBe('My Query');
     expect(parsed.description).toBe('Desc');
     expect(parsed.query).toBe('SELECT ?x WHERE { ?x a ?y }');
+    expect(parsed.language).toBe('sparql');
   });
 });

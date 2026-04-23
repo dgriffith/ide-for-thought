@@ -281,7 +281,7 @@
     if (!tab) return;
     const name = await showPrompt('Query name:');
     if (!name) return;
-    await api.queries.save('project', name, '', tab.query);
+    await api.queries.save('project', name, '', tab.query, tab.language);
     tab.title = name;
   }
 

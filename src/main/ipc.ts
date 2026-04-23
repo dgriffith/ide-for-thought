@@ -420,9 +420,16 @@ export function registerIpcHandlers(): void {
     return savedQueries.listSavedQueries(rootPath);
   });
 
-  ipcMain.handle(Channels.QUERIES_SAVE, (e, scope: string, name: string, description: string, query: string) => {
+  ipcMain.handle(Channels.QUERIES_SAVE, (e, scope: string, name: string, description: string, query: string, language: string) => {
     const rootPath = rootPathFromEvent(e);
-    const result = savedQueries.saveQuery(rootPath, scope as 'project' | 'global', name, description, query);
+    const result = savedQueries.saveQuery(
+      rootPath,
+      scope as 'project' | 'global',
+      name,
+      description,
+      query,
+      language === 'sql' ? 'sql' : 'sparql',
+    );
     rebuildMenu();
     return result;
   });

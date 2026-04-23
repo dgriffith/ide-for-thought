@@ -49,7 +49,7 @@ export interface LinksApi {
 
 export interface QueriesApi {
   list(): Promise<SavedQuery[]>;
-  save(scope: string, name: string, description: string, query: string): Promise<SavedQuery>;
+  save(scope: string, name: string, description: string, query: string, language: 'sparql' | 'sql'): Promise<SavedQuery>;
   delete(filePath: string): Promise<void>;
   rename(filePath: string, newName: string): Promise<string>;
 }
