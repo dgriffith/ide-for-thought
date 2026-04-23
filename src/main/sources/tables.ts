@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
+import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
 
 // ── Module state ────────────────────────────────────────────────────────────
 // Matches the `graph` module: single live project at a time. If Minerva ever
@@ -147,6 +148,7 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
       await connection.run(`DROP VIEW IF EXISTS "${previousName}"`);
     } catch { /* tolerate the rare rename race */ }
     tableToPath.delete(previousName);
+    unindexCsvTable(previousName);
   }
 
   const absPath = path.join(rootPath, relativePath);
@@ -157,9 +159,45 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
     );
     pathToTable.set(relativePath, tableName);
     tableToPath.set(tableName, relativePath);
+    // Reflect the shape into the knowledge graph (CSVW + OWL). This
+    // lets SPARQL consumers ask "what tables do I have?", "what columns
+    // does X expose?", and reason about column datatypes.
+    await indexCsvTableShape(relativePath, tableName);
   } catch (err) {
     console.warn(
       `[tables] Failed to register '${relativePath}' as '${tableName}': ` +
+      (err instanceof Error ? err.message : String(err)),
+    );
+  }
+}
+
+/**
+ * Fetch column names + DuckDB types from information_schema and write
+ * the corresponding CSVW/OWL triples to the graph. Failures here log but
+ * don't throw — the CSV is still queryable via SQL even if the graph
+ * entry didn't land.
+ */
+async function indexCsvTableShape(relativePath: string, tableName: string): Promise<void> {
+  if (!connection) return;
+  const safeName = tableName.replace(/'/g, "''");
+  try {
+    const reader = await connection.runAndReadAll(
+      `SELECT column_name, data_type, ordinal_position ` +
+      `FROM information_schema.columns ` +
+      `WHERE table_name = '${safeName}' AND table_schema = 'main' ` +
+      `ORDER BY ordinal_position`,
+    );
+    const rows = reader.getRowObjectsJS() as Record<string, unknown>[];
+    const columns: CsvTableColumn[] = rows.map((r) => ({
+      name: String(r.column_name),
+      duckdbType: String(r.data_type),
+      // ordinal_position is 1-based in DuckDB; we publish 0-based.
+      index: Number(r.ordinal_position) - 1,
+    }));
+    indexCsvTable({ tableName, relativePath, columns });
+  } catch (err) {
+    console.warn(
+      `[tables] Failed to index '${tableName}' into graph: ` +
       (err instanceof Error ? err.message : String(err)),
     );
   }
@@ -175,6 +213,7 @@ export async function unregisterCsv(relativePath: string): Promise<void> {
   } catch { /* view may already be gone */ }
   pathToTable.delete(relativePath);
   tableToPath.delete(tableName);
+  unindexCsvTable(tableName);
 }
 
 /**
@@ -183,6 +222,10 @@ export async function unregisterCsv(relativePath: string): Promise<void> {
  */
 export async function registerAllCsvs(rootPath: string): Promise<number> {
   if (!connection) return 0;
+  // Wipe stale CSV-table triples up front so CSVs deleted while the app
+  // was closed don't linger in the graph after a full rescan. Each
+  // registered CSV writes its own triples as it goes.
+  unindexAllCsvTables();
   let count = 0;
   async function walk(dirPath: string) {
     let entries: import('node:fs').Dirent[];

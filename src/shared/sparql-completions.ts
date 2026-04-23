@@ -52,6 +52,7 @@ export const STANDARD_PREFIXES: ReadonlyArray<{ prefix: string; iri: string }> =
   { prefix: 'rdfs', iri: 'http://www.w3.org/2000/01/rdf-schema#' },
   { prefix: 'xsd', iri: 'http://www.w3.org/2001/XMLSchema#' },
   { prefix: 'csvw', iri: 'http://www.w3.org/ns/csvw#' },
+  { prefix: 'owl', iri: 'http://www.w3.org/2002/07/owl#' },
   { prefix: 'prov', iri: 'http://www.w3.org/ns/prov#' },
   { prefix: 'bibo', iri: 'http://purl.org/ontology/bibo/' },
   { prefix: 'schema', iri: 'http://schema.org/' },

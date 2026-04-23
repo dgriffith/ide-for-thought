@@ -53,8 +53,10 @@ function convertTerm(term: any, df: typeof N3.DataFactory): N3.Term | null {
 const MINERVA = $rdf.Namespace('https://minerva.dev/ontology#');
 const DC      = $rdf.Namespace('http://purl.org/dc/terms/');
 const RDF     = $rdf.Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#');
+const RDFS    = $rdf.Namespace('http://www.w3.org/2000/01/rdf-schema#');
 const XSD     = $rdf.Namespace('http://www.w3.org/2001/XMLSchema#');
 const CSVW    = $rdf.Namespace('http://www.w3.org/ns/csvw#');
+const OWL     = $rdf.Namespace('http://www.w3.org/2002/07/owl#');
 const BIBO    = $rdf.Namespace('http://purl.org/ontology/bibo/');
 const SCHEMA  = $rdf.Namespace('http://schema.org/');
 const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
@@ -153,6 +155,10 @@ function sourceUri(sourceId: string): $rdf.NamedNode {
 
 function excerptUri(excerptId: string): $rdf.NamedNode {
   return $rdf.sym(uriHelpers.excerptUri(baseUri, excerptId));
+}
+
+function tableUri(tableName: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.tableUri(baseUri, tableName));
 }
 
 function linkPredicate(lt: LinkType) {
@@ -275,6 +281,7 @@ const STANDARD_PREFIXES: [string, string][] = [
   ['rdfs', 'http://www.w3.org/2000/01/rdf-schema#'],
   ['xsd', 'http://www.w3.org/2001/XMLSchema#'],
   ['csvw', 'http://www.w3.org/ns/csvw#'],
+  ['owl', 'http://www.w3.org/2002/07/owl#'],
   ['prov', 'http://www.w3.org/ns/prov#'],
   ['bibo', 'http://purl.org/ontology/bibo/'],
   ['schema', 'http://schema.org/'],
@@ -651,6 +658,133 @@ function indexTable(
       store.add(cellUri, RDF('value'), $rdf.lit(value), graph);
       store.add(rowUri, CSVW('cell'), cellUri, graph);
     }
+  }
+}
+
+// ── CSV-as-DuckDB table indexing ────────────────────────────────────────────
+
+/**
+ * Shape of a registered CSV table column, passed in from the DuckDB side.
+ * `duckdbType` comes from `information_schema.columns` (VARCHAR, INTEGER,
+ * DOUBLE, TIMESTAMP, …). We map it to an xsd datatype so SPARQL consumers
+ * can reason about ranges.
+ */
+export interface CsvTableColumn {
+  name: string;
+  duckdbType: string;
+  index: number;
+}
+
+export interface CsvTableShape {
+  tableName: string;
+  relativePath: string;
+  columns: CsvTableColumn[];
+}
+
+/**
+ * Crude DuckDB type → XSD datatype mapping. DuckDB's type vocabulary is
+ * richer than xsd's — e.g. HUGEINT, UUID, INTERVAL — so we keep the map
+ * conservative and fall back to xsd:string when nothing else fits. The
+ * goal is "a SPARQL consumer can filter by range", not "round-trip every
+ * DuckDB value losslessly".
+ */
+function xsdForDuckDbType(duckdbType: string) {
+  const t = duckdbType.toUpperCase();
+  if (t === 'BOOLEAN') return XSD('boolean');
+  if (t === 'DATE') return XSD('date');
+  if (t === 'TIME') return XSD('time');
+  if (t.startsWith('TIMESTAMP')) return XSD('dateTime');
+  if (t === 'FLOAT' || t === 'REAL') return XSD('float');
+  if (t === 'DOUBLE') return XSD('double');
+  if (t.startsWith('DECIMAL') || t === 'NUMERIC') return XSD('decimal');
+  if (t === 'TINYINT' || t === 'SMALLINT' || t === 'INTEGER' || t === 'BIGINT' || t === 'HUGEINT') {
+    return XSD('integer');
+  }
+  if (t === 'UTINYINT' || t === 'USMALLINT' || t === 'UINTEGER' || t === 'UBIGINT') {
+    return XSD('nonNegativeInteger');
+  }
+  // VARCHAR / TEXT / BLOB / UUID / INTERVAL / LIST / STRUCT / … all fall
+  // through to string. Users who need finer typing can refine via a
+  // companion note's frontmatter in a later pass.
+  return XSD('string');
+}
+
+/**
+ * Write CSVW + OWL triples describing a registered CSV table. The named
+ * graph equals the table URI so re-indexing is a clean wipe-and-replace,
+ * same pattern as notes.
+ *
+ * - `csvw:Table` + `owl:Class` on the table (rows are its instances).
+ * - `csvw:Schema` with ordered `csvw:column` references.
+ * - Each column is both a `csvw:Column` (index, name, datatype) and an
+ *   `owl:DatatypeProperty` (rdfs:domain = table, rdfs:range = xsd type)
+ *   so SPARQL queries can reason about columns-as-predicates.
+ */
+export function indexCsvTable(shape: CsvTableShape): void {
+  if (!store) return;
+  const table = tableUri(shape.tableName);
+  const graph = table;
+  const schema = $rdf.sym(`${table.value}/schema`);
+
+  // Clean slate for this table's triples.
+  store.removeMatches(undefined, undefined, undefined, graph);
+
+  store.add(table, RDF('type'), CSVW('Table'), graph);
+  store.add(table, RDF('type'), OWL('Class'), graph);
+  store.add(table, RDFS('label'), $rdf.lit(shape.tableName), graph);
+  store.add(table, CSVW('url'), $rdf.lit(shape.relativePath), graph);
+  store.add(table, CSVW('tableSchema'), schema, graph);
+  store.add(table, MINERVA('tableName'), $rdf.lit(shape.tableName), graph);
+  store.add(table, MINERVA('relativePath'), $rdf.lit(shape.relativePath), graph);
+  // Join-back link to the CSV file's own note-URI, so SPARQL can pivot
+  // between the file-level view (row data, written by indexCsvFile)
+  // and this SQL-centric view (named table, typed columns, OWL class).
+  store.add(table, MINERVA('fromFile'), noteUri(shape.relativePath), graph);
+
+  store.add(schema, RDF('type'), CSVW('Schema'), graph);
+
+  for (const col of shape.columns) {
+    const colUri = $rdf.sym(`${table.value}/column/${encodeURIComponent(col.name)}`);
+    const xsdType = xsdForDuckDbType(col.duckdbType);
+    store.add(schema, CSVW('column'), colUri, graph);
+    store.add(colUri, RDF('type'), CSVW('Column'), graph);
+    store.add(colUri, RDF('type'), OWL('DatatypeProperty'), graph);
+    store.add(colUri, CSVW('name'), $rdf.lit(col.name), graph);
+    store.add(colUri, CSVW('columnIndex'), $rdf.lit(String(col.index), undefined, XSD('integer')), graph);
+    store.add(colUri, CSVW('datatype'), xsdType, graph);
+    store.add(colUri, RDFS('label'), $rdf.lit(col.name), graph);
+    store.add(colUri, RDFS('domain'), table, graph);
+    store.add(colUri, RDFS('range'), xsdType, graph);
+  }
+}
+
+/** Remove all triples for a CSV table (entire named graph). */
+export function unindexCsvTable(tableName: string): void {
+  if (!store) return;
+  const graph = tableUri(tableName);
+  store.removeMatches(undefined, undefined, undefined, graph);
+}
+
+/**
+ * Drop every CSV-registered table's triples. Used at the start of a
+ * full rescan so triples for CSVs deleted while the app was closed
+ * don't persist. Identifies them via `minerva:tableName`, which
+ * markdown-embedded csvw:Table nodes don't carry — those stay.
+ */
+export function unindexAllCsvTables(): void {
+  if (!store) return;
+  // Snapshot subjects before removing — rdflib's statementsMatching
+  // returns a live reference into the store, so removing triples while
+  // iterating drops subsequent matches.
+  const subjects: $rdf.NamedNode[] = [];
+  const seen = new Set<string>();
+  for (const st of store.statementsMatching(undefined, MINERVA('tableName'), undefined)) {
+    if (seen.has(st.subject.value)) continue;
+    seen.add(st.subject.value);
+    subjects.push(st.subject as $rdf.NamedNode);
+  }
+  for (const s of subjects) {
+    store.removeMatches(undefined, undefined, undefined, s);
   }
 }
 
