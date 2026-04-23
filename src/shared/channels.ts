@@ -10,6 +10,8 @@ export const Channels = {
   NOTEBASE_DELETE_FOLDER: 'notebase:deleteFolder',
   NOTEBASE_RENAME: 'notebase:rename',
   NOTEBASE_COPY: 'notebase:copy',
+  NOTEBASE_SEARCH_IN_NOTES: 'notebase:searchInNotes',
+  NOTEBASE_REPLACE_IN_NOTES: 'notebase:replaceInNotes',
 
   // File watcher events (main → renderer)
   NOTEBASE_FILE_CHANGED: 'notebase:fileChanged',
@@ -74,6 +76,8 @@ export const Channels = {
   MENU_GOTO_LINE: 'menu:gotoLine',
   MENU_FIND: 'menu:find',
   MENU_FIND_REPLACE: 'menu:findReplace',
+  MENU_FIND_IN_NOTES: 'menu:findInNotes',
+  MENU_REPLACE_IN_NOTES: 'menu:replaceInNotes',
   MENU_TOGGLE_CASE: 'menu:toggleCase',
   MENU_EXTEND_SELECTION: 'menu:extendSelection',
   MENU_SHRINK_SELECTION: 'menu:shrinkSelection',

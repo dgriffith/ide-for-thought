@@ -18,6 +18,7 @@
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
+  import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationDialog from './lib/components/ConversationDialog.svelte';
@@ -168,6 +169,7 @@
   let showGotoLine = $state(false);
   let showGotoNote = $state(false);
   let showEditSavedQueries = $state(false);
+  let findInNotesMode = $state<'find' | 'replace' | null>(null);
 
   async function handleFileSelect(relativePath: string, searchQuery?: string) {
     recordCurrentPosition();
@@ -1306,11 +1308,6 @@
         openConversation();
       }
     }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'f') {
-      e.preventDefault();
-      if (!sidebarVisible) sidebarVisible = true;
-      sidebar?.focusSearch();
-    }
   }
 
   onMount(() => {
@@ -1364,6 +1361,8 @@
     api.menu.onSortLines(() => editorComponent?.runSortLines());
     api.menu.onFind(() => editorComponent?.openFind());
     api.menu.onFindReplace(() => editorComponent?.openFindReplace());
+    api.menu.onFindInNotes(() => { findInNotesMode = 'find'; });
+    api.menu.onReplaceInNotes(() => { findInNotesMode = 'replace'; });
     api.menu.onPrint(() => window.print());
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
     api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
@@ -1507,7 +1506,6 @@
           files={notebase.files}
           activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
-          onOpenFolder={notebase.open}
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
           onDelete={handleDelete}
@@ -1751,6 +1749,16 @@
   {/if}
   {#if showEditSavedQueries}
     <EditSavedQueriesDialog onClose={() => { showEditSavedQueries = false; }} />
+  {/if}
+  {#if findInNotesMode}
+    <FindInNotesDialog
+      initialMode={findInNotesMode}
+      onJumpTo={async (rel, line, col) => {
+        await editor.openFile(rel);
+        requestAnimationFrame(() => editorComponent?.gotoLineColumn(line, col + 1));
+      }}
+      onClose={() => { findInNotesMode = null; }}
+    />
   {/if}
   {#if promptDialog}
     <PromptDialog

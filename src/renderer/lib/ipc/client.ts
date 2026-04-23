@@ -22,6 +22,8 @@ export interface NotebaseApi {
   deleteFolder(relativePath: string): Promise<void>;
   rename(oldRelPath: string, newRelPath: string): Promise<void>;
   copy(srcRelPath: string, destRelPath: string): Promise<void>;
+  searchInNotes(opts: SearchInNotesOptions): Promise<SearchInNotesFileResult[]>;
+  replaceInNotes(opts: ReplaceInNotesOptions): Promise<ReplaceInNotesResult>;
   onFileChanged(cb: (path: string) => void): void;
   onFileCreated(cb: (path: string) => void): void;
   onFileDeleted(cb: (path: string) => void): void;
@@ -31,6 +33,41 @@ export interface NotebaseApi {
   renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
   renameSource(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
   renameExcerpt(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
+}
+
+export interface SearchInNotesOptions {
+  pattern: string;
+  caseSensitive: boolean;
+  regex: boolean;
+}
+
+export interface SearchInNotesMatch {
+  line: number;
+  startCol: number;
+  endCol: number;
+  lineText: string;
+}
+
+export interface SearchInNotesFileResult {
+  relativePath: string;
+  matches: SearchInNotesMatch[];
+}
+
+export interface ReplaceInNotesSelection {
+  relativePath: string;
+  line: number;
+  startCol: number;
+  endCol: number;
+}
+
+export interface ReplaceInNotesOptions extends SearchInNotesOptions {
+  replacement: string;
+  selections: ReplaceInNotesSelection[];
+}
+
+export interface ReplaceInNotesResult {
+  changedPaths: string[];
+  replacedCount: number;
 }
 
 export interface HeadingRenameCandidate {
@@ -304,6 +341,8 @@ export interface MenuApi {
   onGotoLine(cb: () => void): void;
   onFind(cb: () => void): void;
   onFindReplace(cb: () => void): void;
+  onFindInNotes(cb: () => void): void;
+  onReplaceInNotes(cb: () => void): void;
   onNewQuery(cb: () => void): void;
   onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): void;
   onEditSavedQueries(cb: () => void): void;

@@ -249,6 +249,16 @@ export function rebuildMenu(): void {
           accelerator: 'CmdOrCtrl+H',
           click: () => send(Channels.MENU_FIND_REPLACE),
         }),
+        gate({
+          label: 'Find in Notes…',
+          accelerator: 'CmdOrCtrl+Shift+F',
+          click: () => send(Channels.MENU_FIND_IN_NOTES),
+        }),
+        gate({
+          label: 'Replace in Notes…',
+          accelerator: 'CmdOrCtrl+Shift+H',
+          click: () => send(Channels.MENU_REPLACE_IN_NOTES),
+        }),
         { type: 'separator' },
         gate({
           label: 'Toggle Case',
