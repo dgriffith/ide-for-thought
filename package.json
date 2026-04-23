@@ -2,7 +2,7 @@
   "name": "minerva",
   "version": "0.1.0",
   "private": true,
-  "description": "Minerva — an IDE for AI-assisted human thought",
+  "description": "Minerva — an integrated knowledge management environment",
   "main": ".vite/build/main.js",
   "scripts": {
     "dev": "electron-forge start",
