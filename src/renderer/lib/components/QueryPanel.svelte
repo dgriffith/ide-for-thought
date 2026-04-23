@@ -44,6 +44,8 @@
 
   let { tab, onQueryChange, onLanguageChange, onExecute, onSave }: Props = $props();
 
+  const isEmpty = $derived(tab.query.trim().length === 0);
+
   let editorContainer = $state<HTMLDivElement>();
   let view: EditorView | null = null;
   let splitRatio = $state(0.4); // 40% editor, 60% results
@@ -241,9 +243,9 @@
           '.cm-scroller': { overflow: 'auto' },
         }),
         Prec.highest(keymap.of([
-          { key: 'Mod-Enter', run: () => { onExecute(); return true; } },
-          { key: 'Mod-s', run: () => { onSave(); return true; } },
-          { key: 'Shift-Alt-f', run: reformat },
+          { key: 'Mod-Enter', run: () => { if (!isEmpty) onExecute(); return true; } },
+          { key: 'Mod-s', run: () => { if (!isEmpty) onSave(); return true; } },
+          { key: 'Shift-Alt-f', run: () => { if (isEmpty) return true; return reformat(); } },
           { key: 'Tab', run: acceptCompletion },
         ])),
         keymap.of([
@@ -382,7 +384,7 @@
       <button
         class="run-btn"
         onclick={onExecute}
-        disabled={tab.executing}
+        disabled={tab.executing || isEmpty}
         title="Run query (Cmd+Enter)"
       >
         {tab.executing ? 'Running...' : 'Run'}
@@ -399,11 +401,13 @@
       <button
         class="save-query-btn"
         onclick={onSave}
+        disabled={isEmpty}
         title="Save query"
       >Save</button>
       <button
         class="save-query-btn"
         onclick={reformat}
+        disabled={isEmpty}
         title="Reformat (Shift+Alt+F)"
       >Format</button>
       {#if tab.executionTime != null}

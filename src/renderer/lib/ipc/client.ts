@@ -51,6 +51,7 @@ export interface QueriesApi {
   list(): Promise<SavedQuery[]>;
   save(scope: string, name: string, description: string, query: string): Promise<SavedQuery>;
   delete(filePath: string): Promise<void>;
+  rename(filePath: string, newName: string): Promise<string>;
 }
 
 export interface SearchApi {
@@ -305,6 +306,7 @@ export interface MenuApi {
   onFindReplace(cb: () => void): void;
   onNewQuery(cb: () => void): void;
   onOpenStockQuery(cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void): void;
+  onEditSavedQueries(cb: () => void): void;
   onSortLines(cb: () => void): void;
   onOpenSettings(cb: () => void): void;
   onPrint(cb: () => void): void;

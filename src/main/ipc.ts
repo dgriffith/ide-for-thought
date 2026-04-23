@@ -422,11 +422,20 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.QUERIES_SAVE, (e, scope: string, name: string, description: string, query: string) => {
     const rootPath = rootPathFromEvent(e);
-    return savedQueries.saveQuery(rootPath, scope as 'project' | 'global', name, description, query);
+    const result = savedQueries.saveQuery(rootPath, scope as 'project' | 'global', name, description, query);
+    rebuildMenu();
+    return result;
   });
 
   ipcMain.handle(Channels.QUERIES_DELETE, (_e, filePath: string) => {
     savedQueries.deleteQuery(filePath);
+    rebuildMenu();
+  });
+
+  ipcMain.handle(Channels.QUERIES_RENAME, (_e, filePath: string, newName: string) => {
+    const newPath = savedQueries.renameQuery(filePath, newName);
+    rebuildMenu();
+    return newPath;
   });
 
   // Search
