@@ -24,6 +24,16 @@ export function buildMenu(_win?: BrowserWindow): void {
 export function rebuildMenu(): void {
   const isMac = process.platform === 'darwin';
   const recentProjects = getRecentProjects();
+  // Enablement gate: most editor / ingest / graph operations require an
+  // open thoughtbase. Without one, clicking would either silently no-op
+  // or error; greying the items out signals intent. We rebuild the menu
+  // on every window focus change and on open/close, so `hasProject`
+  // tracks the focused window's state.
+  const focusedWin = BrowserWindow.getFocusedWindow();
+  const hasProject = focusedWin ? getRootPath(focusedWin.id) !== null : false;
+  const gate = <T extends Electron.MenuItemConstructorOptions>(item: T): T => (
+    { ...item, enabled: hasProject && (item.enabled ?? true) }
+  );
 
   const recentSubmenu: Electron.MenuItemConstructorOptions[] = recentProjects.length > 0
     ? [
@@ -98,49 +108,49 @@ export function rebuildMenu(): void {
           label: 'Recent Thoughtbases',
           submenu: recentSubmenu,
         },
-        {
+        gate({
           label: 'Close Thoughtbase',
           accelerator: 'CmdOrCtrl+Shift+W',
           click: () => send('menu:closeProject'),
-        },
+        }),
         { type: 'separator' },
 
         // Everyday note actions.
-        {
+        gate({
           label: 'New Note',
           accelerator: 'CmdOrCtrl+N',
           click: () => send(Channels.MENU_NEW_NOTE),
-        },
-        {
+        }),
+        gate({
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
           click: () => send(Channels.MENU_SAVE),
-        },
+        }),
         { type: 'separator' },
 
         // Ingest / Import — bringing external things in.
-        {
+        gate({
           label: 'Ingest URL…',
           accelerator: 'CmdOrCtrl+Shift+I',
           click: () => send(Channels.MENU_INGEST_URL),
-        },
-        {
+        }),
+        gate({
           label: 'Ingest Identifier…',
           accelerator: 'CmdOrCtrl+Shift+D',
           click: () => send(Channels.MENU_INGEST_IDENTIFIER),
-        },
-        {
+        }),
+        gate({
           label: 'Ingest PDF…',
           click: () => send(Channels.MENU_INGEST_PDF),
-        },
-        {
+        }),
+        gate({
           label: 'Import BibTeX…',
           click: () => send(Channels.MENU_IMPORT_BIBTEX),
-        },
-        {
+        }),
+        gate({
           label: 'Import Zotero RDF…',
           click: () => send(Channels.MENU_IMPORT_ZOTERO_RDF),
-        },
+        }),
         { type: 'separator' },
 
         // Windowing primitive — explicit blank new window, less common.
@@ -153,11 +163,11 @@ export function rebuildMenu(): void {
 
         // Print / export single-note PDF (the Export menu is the canonical
         // path; these remain for "just print what's on screen" flows).
-        {
+        gate({
           label: 'Print…',
           click: () => send('menu:print'),
-        },
-        {
+        }),
+        gate({
           label: 'Export as PDF…',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
@@ -176,28 +186,28 @@ export function rebuildMenu(): void {
               await fs.writeFile(result.filePath, data);
             }
           },
-        },
+        }),
         { type: 'separator' },
         {
           label: 'Open In',
           submenu: [
-            {
+            gate({
               label: 'Reveal in Finder',
               accelerator: 'CmdOrCtrl+Shift+R',
               click: () => send(Channels.SHELL_REVEAL_FILE),
-            },
-            {
+            }),
+            gate({
               label: 'Open in Default App',
               click: () => send('menu:openInDefault'),
-            },
-            {
+            }),
+            gate({
               label: 'Open in Terminal',
               click: () => send('menu:openInTerminal'),
-            },
+            }),
           ],
         },
         { type: 'separator' },
-        {
+        gate({
           label: 'Rebuild All Indexes',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
@@ -211,7 +221,7 @@ export function rebuildMenu(): void {
             ]);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
           },
-        },
+        }),
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' },
       ],
@@ -229,48 +239,48 @@ export function rebuildMenu(): void {
         { role: 'paste' },
         { role: 'selectAll' },
         { type: 'separator' },
-        {
+        gate({
           label: 'Find',
           accelerator: 'CmdOrCtrl+F',
           click: () => send(Channels.MENU_FIND),
-        },
-        {
+        }),
+        gate({
           label: 'Find and Replace',
           accelerator: 'CmdOrCtrl+H',
           click: () => send(Channels.MENU_FIND_REPLACE),
-        },
+        }),
         { type: 'separator' },
-        {
+        gate({
           label: 'Toggle Case',
           accelerator: 'CmdOrCtrl+Shift+U',
           click: () => send(Channels.MENU_TOGGLE_CASE),
-        },
+        }),
         { type: 'separator' },
-        {
+        gate({
           label: 'Extend Selection',
           accelerator: 'Alt+Up',
           click: () => send(Channels.MENU_EXTEND_SELECTION),
-        },
-        {
+        }),
+        gate({
           label: 'Shrink Selection',
           accelerator: 'Alt+Down',
           click: () => send(Channels.MENU_SHRINK_SELECTION),
-        },
+        }),
         { type: 'separator' },
-        {
+        gate({
           label: 'Join Lines',
           accelerator: 'Ctrl+Shift+J',
           click: () => send(Channels.MENU_JOIN_LINES),
-        },
-        {
+        }),
+        gate({
           label: 'Duplicate Line',
           accelerator: 'CmdOrCtrl+D',
           click: () => send(Channels.MENU_DUPLICATE_LINE),
-        },
-        {
+        }),
+        gate({
           label: 'Sort Lines',
           click: () => send(Channels.MENU_SORT_LINES),
-        },
+        }),
         ...(!isMac
           ? [
               { type: 'separator' as const },
@@ -288,21 +298,21 @@ export function rebuildMenu(): void {
     {
       label: 'View',
       submenu: [
-        {
+        gate({
           label: 'Toggle Left Sidebar',
           accelerator: 'CmdOrCtrl+B',
           click: () => send(Channels.MENU_TOGGLE_SIDEBAR),
-        },
-        {
+        }),
+        gate({
           label: 'Toggle Right Sidebar',
           accelerator: 'CmdOrCtrl+Shift+B',
           click: () => send(Channels.MENU_TOGGLE_RIGHT_SIDEBAR),
-        },
-        {
+        }),
+        gate({
           label: 'Cycle Preview Mode',
           accelerator: 'CmdOrCtrl+Shift+P',
           click: () => send(Channels.MENU_TOGGLE_PREVIEW),
-        },
+        }),
         { type: 'separator' },
         {
           label: 'Cycle Theme (Dark/Light/Contrast/System)',
@@ -314,20 +324,20 @@ export function rebuildMenu(): void {
         { role: 'zoomIn' },
         { role: 'zoomOut' },
         { type: 'separator' },
-        {
+        gate({
           label: 'Increase Editor Font Size',
           accelerator: 'CmdOrCtrl+Shift+=',
           click: () => send(Channels.MENU_FONT_INCREASE),
-        },
-        {
+        }),
+        gate({
           label: 'Decrease Editor Font Size',
           accelerator: 'CmdOrCtrl+Shift+-',
           click: () => send(Channels.MENU_FONT_DECREASE),
-        },
-        {
+        }),
+        gate({
           label: 'Reset Editor Font Size',
           click: () => send(Channels.MENU_FONT_RESET),
-        },
+        }),
         { type: 'separator' },
         { role: 'togglefullscreen' },
         { type: 'separator' },
@@ -339,27 +349,27 @@ export function rebuildMenu(): void {
     {
       label: 'Navigate',
       submenu: [
-        {
+        gate({
           label: 'Back',
           accelerator: 'CmdOrCtrl+[',
           click: () => send(Channels.MENU_NAV_BACK),
-        },
-        {
+        }),
+        gate({
           label: 'Forward',
           accelerator: 'CmdOrCtrl+]',
           click: () => send(Channels.MENU_NAV_FORWARD),
-        },
+        }),
         { type: 'separator' },
-        {
+        gate({
           label: 'Quick Open',
           accelerator: 'CmdOrCtrl+P',
           click: () => send(Channels.MENU_QUICK_OPEN),
-        },
-        {
+        }),
+        gate({
           label: 'Go to Line',
           accelerator: 'CmdOrCtrl+G',
           click: () => send(Channels.MENU_GOTO_LINE),
-        },
+        }),
       ],
     },
 
@@ -367,24 +377,24 @@ export function rebuildMenu(): void {
     {
       label: 'Refactor',
       submenu: [
-        { label: 'Rename\u2026', click: () => send(Channels.MENU_REFACTOR_RENAME) },
-        { label: 'Move\u2026', click: () => send(Channels.MENU_REFACTOR_MOVE) },
-        { label: 'Copy\u2026', click: () => send(Channels.MENU_REFACTOR_COPY) },
+        gate({ label: 'Rename\u2026', click: () => send(Channels.MENU_REFACTOR_RENAME) }),
+        gate({ label: 'Move\u2026', click: () => send(Channels.MENU_REFACTOR_MOVE) }),
+        gate({ label: 'Copy\u2026', click: () => send(Channels.MENU_REFACTOR_COPY) }),
         { type: 'separator' },
-        { label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) },
-        { label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) },
-        { label: 'Split by Heading\u2026', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) },
+        gate({ label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) }),
+        gate({ label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) }),
+        gate({ label: 'Split by Heading\u2026', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) }),
         { type: 'separator' },
-        { label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) },
-        { label: 'Auto-link outbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) },
-        { label: 'Auto-link inbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) },
-        { label: 'Decompose Note\u2026', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) },
+        gate({ label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) }),
+        gate({ label: 'Auto-link outbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) }),
+        gate({ label: 'Auto-link inbound\u2026', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) }),
+        gate({ label: 'Decompose Note\u2026', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) }),
         { type: 'separator' },
         // Deterministic markdown normalisation (issue #152 epic). Nested
         // under Refactor so the title bar stays lean.
-        { label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) },
-        { label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) },
-        { label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) },
+        gate({ label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) }),
+        gate({ label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) }),
+        gate({ label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) }),
       ],
     },
 
@@ -393,7 +403,7 @@ export function rebuildMenu(): void {
       .filter(cat => getToolsByCategory(cat.id).length > 0)
       .map(cat => ({
         label: cat.label,
-        submenu: getToolsByCategory(cat.id).map(tool => ({
+        submenu: getToolsByCategory(cat.id).map(tool => gate({
           label: tool.name,
           sublabel: tool.description,
           click: () => send(Channels.TOOL_INVOKE, tool.id),
@@ -404,13 +414,13 @@ export function rebuildMenu(): void {
     {
       label: 'Query',
       submenu: [
-        {
+        gate({
           label: 'New Query',
           accelerator: 'CmdOrCtrl+Shift+Q',
           click: () => send(Channels.MENU_NEW_QUERY),
-        },
+        }),
         { type: 'separator' },
-        {
+        gate({
           label: 'Stock Queries',
           submenu: [
             {
@@ -430,8 +440,8 @@ export function rebuildMenu(): void {
               })),
             },
           ],
-        },
-        {
+        }),
+        gate({
           label: 'Saved Queries',
           submenu: (() => {
             const win = BrowserWindow.getFocusedWindow();
@@ -464,7 +474,7 @@ export function rebuildMenu(): void {
             });
             return items;
           })(),
-        },
+        }),
       ],
     },
 
@@ -480,12 +490,12 @@ export function rebuildMenu(): void {
         const exporters = publish.listExporters();
         const items: Electron.MenuItemConstructorOptions[] = exporters.length === 0
           ? [{ label: 'No exporters registered', enabled: false }]
-          : exporters.map((e) => ({
+          : exporters.map((e) => gate({
               label: `Export as ${e.label}…`,
               click: () => send(Channels.MENU_EXPORT, e.id),
             }));
         items.push({ type: 'separator' });
-        items.push({
+        items.push(gate({
           label: 'Export Knowledge Graph…',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
@@ -501,7 +511,7 @@ export function rebuildMenu(): void {
               await graph.exportGraph(result.filePath);
             }
           },
-        });
+        }));
         return items;
       })(),
     },

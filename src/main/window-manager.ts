@@ -268,6 +268,7 @@ export function closeProjectInWindow(winId: number): void {
     }
     ctx.rootPath = null;
   }
+  rebuildMenu();
   persistSession();
 }
 
