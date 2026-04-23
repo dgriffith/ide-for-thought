@@ -2,6 +2,7 @@
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
   import { api } from '../ipc/client';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   interface Props {
     files: NoteFile[];
@@ -25,6 +26,15 @@
 
   let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
   let dropTarget = $state<string | null>(null);
 
   function handleDragStart(e: DragEvent, relativePath: string) {
@@ -136,6 +146,7 @@
 {#if contextMenu}
   <div
     class="context-menu"
+    bind:this={contextMenuEl}
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >

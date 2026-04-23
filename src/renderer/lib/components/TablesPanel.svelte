@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../ipc/client';
   import type { TableInfo } from '../ipc/client';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   interface Props {
     onTableClick: (tableName: string) => void;
@@ -13,6 +14,15 @@
   let filter = $state('');
   let collapsed = $state(false);
   let contextMenu = $state<{ x: number; y: number; table: TableInfo } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
 
   export async function refresh(): Promise<void> {
     tables = await api.tables.list();
@@ -81,6 +91,7 @@
 {#if contextMenu}
   <div
     class="context-menu"
+    bind:this={contextMenuEl}
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >

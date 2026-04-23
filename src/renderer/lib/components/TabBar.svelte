@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Tab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
+  import { clampMenuToViewport } from '../utils/menuClamp';
 
   interface Props {
     tabs: Tab[];
@@ -17,6 +18,15 @@
   let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; index: number } | null>(null);
+  let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  $effect(() => {
+    if (!contextMenu || !contextMenuEl) return;
+    const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
+    if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
+      contextMenu = { ...contextMenu, ...next };
+    }
+  });
 
   function handleContextMenu(e: MouseEvent, index: number) {
     e.preventDefault();
@@ -72,6 +82,7 @@
 {#if contextMenu}
   <div
     class="context-menu"
+    bind:this={contextMenuEl}
     style:left="{contextMenu.x}px"
     style:top="{contextMenu.y}px"
   >
