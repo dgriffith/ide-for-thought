@@ -123,6 +123,11 @@
   let ignoreNextUpdate = false;
   let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+  // Separate from the main context menu: right-click anywhere in the
+  // gutter opens a tiny toggle for line-number visibility. Keeps the
+  // content-area menu from growing a gutter-only option that'd only
+  // make sense in some click locations.
+  let gutterMenu = $state<{ x: number; y: number; lineNumbers: boolean } | null>(null);
   // Snapshot of the selection taken when the context menu opens, so
   // commands from the menu can run against what the user had selected
   // regardless of what the right-click and menu focus do in between.
@@ -203,7 +208,9 @@
         ]),
         wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
         lineNumbersCompartment.reconfigure(settings.lineNumbers ? [] : EditorView.theme({
-          '.cm-gutter.cm-lineNumbers': { display: 'none' },
+          // Must win against @codemirror/view's built-in theme which
+          // declares `.cm-gutter { display: flex !important }`.
+          '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
         })),
         whitespaceCompartment.reconfigure(settings.showWhitespace ? highlightWhitespace() : []),
       ],
@@ -276,6 +283,28 @@
   function closeMenu() {
     contextMenu = null;
     savedSelection = null;
+  }
+
+  function handleWrapperContextMenu(e: MouseEvent) {
+    // Intercept only gutter right-clicks; the content area routes
+    // through CM's domEventHandlers.contextmenu to showContextMenu().
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest('.cm-gutters')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const current = getEditorSettings();
+    gutterMenu = { x: e.clientX, y: e.clientY, lineNumbers: current.lineNumbers };
+    const close = () => {
+      gutterMenu = null;
+      window.removeEventListener('click', close);
+    };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function toggleLineNumbers() {
+    const current = getEditorSettings();
+    applySettings({ ...current, lineNumbers: !current.lineNumbers });
+    gutterMenu = null;
   }
 
   /** Restore the selection we snapshotted on right-click and refocus the
@@ -402,7 +431,9 @@
     ]),
     wrapCompartment.of(initSettings.wordWrap ? EditorView.lineWrapping : []),
     lineNumbersCompartment.of(initSettings.lineNumbers ? [] : EditorView.theme({
-      '.cm-gutter.cm-lineNumbers': { display: 'none' },
+      // See applySettings — overriding the default theme's !important
+      // flex rule needs our own !important.
+      '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
     })),
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
     linkDecorations({
@@ -714,7 +745,23 @@
   });
 </script>
 
-<div class="editor-wrapper" bind:this={editorContainer}></div>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="editor-wrapper" bind:this={editorContainer} oncontextmenu={handleWrapperContextMenu}></div>
+
+{#if gutterMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="context-menu gutter-menu"
+    style:left="{gutterMenu.x}px"
+    style:top="{gutterMenu.y}px"
+    onmousedown={(e) => e.preventDefault()}
+  >
+    <button onclick={toggleLineNumbers}>
+      <span class="check">{gutterMenu.lineNumbers ? '✓' : ''}</span>
+      Show Line Numbers
+    </button>
+  </div>
+{/if}
 
 {#if contextMenu}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -885,11 +932,32 @@
     overflow: auto;
   }
 
+  /* Center the fold-gutter arrows (▸ / ▾) in their column. CM's fold
+     column shrink-wraps to the glyph width (~14px), so we widen the
+     column first, then make the inner span fill it and center its text.
+     text-align on the .cm-gutterElement alone doesn't work because the
+     arrow is wrapped in an inline-block span that shrinks to glyph width. */
+  .editor-wrapper :global(.cm-foldGutter) {
+    min-width: 20px;
+    padding: 0;
+  }
+  .editor-wrapper :global(.cm-foldGutter .cm-gutterElement) {
+    padding: 0;
+    width: 100%;
+  }
+  .editor-wrapper :global(.cm-foldGutter span) {
+    display: block;
+    padding: 0;
+    text-align: center;
+  }
+
   /* Compute-cells run-icon gutter (#238). Styles kept in sync with
      `computeCellsStyles` in src/renderer/lib/editor/compute-cells.ts —
      inlined here because Svelte's scoped-CSS model requires :global()
      wrappers at the component level. */
-  .editor-wrapper :global(.cm-compute-gutter) { min-width: 16px; }
+  /* min-width 0: column collapses to zero when the note has no
+     runnable fences. See the matching comment in compute-cells.ts. */
+  .editor-wrapper :global(.cm-compute-gutter) { min-width: 0; }
   .editor-wrapper :global(.cm-compute-run) {
     display: inline-block;
     width: 14px;
@@ -933,6 +1001,10 @@
   .context-menu button:hover {
     background: var(--bg-button);
   }
+
+  .gutter-menu { min-width: 180px; }
+  .gutter-menu button { display: flex; align-items: center; gap: 8px; }
+  .gutter-menu .check { width: 12px; text-align: center; color: var(--accent); }
 
   .submenu-item {
     position: relative;
