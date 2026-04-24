@@ -16,6 +16,22 @@ import * as N3 from 'n3';
 
 let engine: QueryEngine | null = null;
 
+/**
+ * Cached N3 mirror of the rdflib store, keyed implicitly by store identity
+ * + cumulative mutations. Cleared by `invalidateN3Cache()` at every public
+ * mutator boundary; rebuilt on demand by `queryGraph`.
+ *
+ * Why this exists: every SPARQL query used to walk every rdflib statement
+ * and copy it into a fresh N3.Store before handing to Comunica. On medium
+ * graphs (10k+ triples) that O(N) copy dominated panel-refresh latency in
+ * the renderer.
+ */
+let n3StoreCache: N3.Store | null = null;
+
+function invalidateN3Cache(): void {
+  n3StoreCache = null;
+}
+
 /** Build an N3.Store from rdflib's IndexedFormula for Comunica to query */
 function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
   const n3Store = new N3.Store();
@@ -396,6 +412,7 @@ function addOntologyToStore(): void {
 
 export async function initGraph(rootPath: string): Promise<void> {
   store = $rdf.graph();
+  invalidateN3Cache();
   currentRootPath = rootPath;
   headingsPerNote.clear();
 
@@ -430,6 +447,10 @@ export async function indexNote(
   content: string,
 ): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
   if (!store) return {};
+  // Any successful exit through this function has mutated the rdflib
+  // store; flag the N3 mirror as stale once, at the boundary, instead
+  // of after every internal store.add.
+  invalidateN3Cache();
 
   const subject = noteUri(relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
@@ -722,6 +743,7 @@ function xsdForDuckDbType(duckdbType: string) {
  */
 export function indexCsvTable(shape: CsvTableShape): void {
   if (!store) return;
+  invalidateN3Cache();
   const table = tableUri(shape.tableName);
   const graph = table;
   const schema = $rdf.sym(`${table.value}/schema`);
@@ -761,6 +783,7 @@ export function indexCsvTable(shape: CsvTableShape): void {
 /** Remove all triples for a CSV table (entire named graph). */
 export function unindexCsvTable(tableName: string): void {
   if (!store) return;
+  invalidateN3Cache();
   const graph = tableUri(tableName);
   store.removeMatches(undefined, undefined, undefined, graph);
 }
@@ -773,6 +796,7 @@ export function unindexCsvTable(tableName: string): void {
  */
 export function unindexAllCsvTables(): void {
   if (!store) return;
+  invalidateN3Cache();
   // Snapshot subjects before removing — rdflib's statementsMatching
   // returns a live reference into the store, so removing triples while
   // iterating drops subsequent matches.
@@ -892,6 +916,7 @@ function indexCsvFile(
 
 export function removeNote(relativePath: string): void {
   if (!store) return;
+  invalidateN3Cache();
   const subject = noteUri(relativePath);
   // Remove all triples in this note's named graph
   store.removeMatches(undefined, undefined, undefined, subject);
@@ -907,6 +932,7 @@ export function removeNote(relativePath: string): void {
 
 export function indexSource(sourceId: string, metaTtl: string, bodyMd?: string): void {
   if (!store) return;
+  invalidateN3Cache();
 
   const subject = sourceUri(sourceId);
   const graph = subject;
@@ -963,6 +989,7 @@ function indexSourceBody(
 
 export function removeSource(sourceId: string): void {
   if (!store) return;
+  invalidateN3Cache();
   const subject = sourceUri(sourceId);
   store.removeMatches(undefined, undefined, undefined, subject);
   store.removeMatches(subject, undefined, undefined);
@@ -991,6 +1018,7 @@ export function parseSourceIdFromPath(relativePath: string): string | null {
 
 export function indexExcerpt(excerptId: string, metaTtl: string): void {
   if (!store) return;
+  invalidateN3Cache();
 
   const subject = excerptUri(excerptId);
   const graph = subject;
@@ -1014,6 +1042,7 @@ export function indexExcerpt(excerptId: string, metaTtl: string): void {
 
 export function removeExcerpt(excerptId: string): void {
   if (!store) return;
+  invalidateN3Cache();
   const subject = excerptUri(excerptId);
   store.removeMatches(undefined, undefined, undefined, subject);
   store.removeMatches(subject, undefined, undefined);
@@ -1093,6 +1122,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
 
   // Reset and rebuild from scratch with ontology
   store = $rdf.graph();
+  invalidateN3Cache();
   addOntologyToStore();
 
   ensureProject();
@@ -1255,7 +1285,8 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
   if (!store || !engine) return { results: [] };
 
   try {
-    const n3Store = buildN3Store(store);
+    if (!n3StoreCache) n3StoreCache = buildN3Store(store);
+    const n3Store = n3StoreCache;
     const prefixed = injectSparqlPrefixes(sparql);
     const bindingsStream = await engine.queryBindings(prefixed, {
       sources: [n3Store],
@@ -1645,6 +1676,7 @@ export async function persistGraph(): Promise<void> {
 /** Parse a Turtle string and add its triples to the store. Used by the approval engine. */
 export function parseIntoStore(turtle: string): void {
   if (!store) return;
+  invalidateN3Cache();
   try {
     $rdf.parse(turtle, store, 'urn:x-minerva:void', 'text/turtle');
   } catch (e) {
