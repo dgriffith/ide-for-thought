@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
 import { formatContent, type FormatSettings } from '../../shared/formatter/engine';
 import type { FormatFileResult } from '../../shared/formatter/types';
@@ -114,7 +115,7 @@ async function writeThrough(
   content: string,
 ): Promise<void> {
   await notebaseFs.writeFile(rootPath, relativePath, content);
-  await graph.indexNote(relativePath, content);
+  await graph.indexNote(projectContext(rootPath), relativePath, content);
   search.indexNote(relativePath, content);
   // Caller is responsible for the batched persist + NOTEBASE_REWRITTEN
   // broadcast — doing it per-file in a folder run would thrash the

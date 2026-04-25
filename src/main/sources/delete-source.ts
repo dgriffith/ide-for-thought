@@ -14,6 +14,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 
 export interface DeleteSourceResult {
   sourceId: string;
@@ -26,18 +27,19 @@ export async function deleteSource(
   sourceId: string,
 ): Promise<DeleteSourceResult> {
   const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
+  const ctx = projectContext(rootPath);
 
   // Snapshot excerpt ids before we wipe the graph — once the graph
   // entries are gone, we can't list them anymore.
-  const excerptIds = graph.excerptIdsForSource(sourceId);
+  const excerptIds = graph.excerptIdsForSource(ctx, sourceId);
 
   for (const id of excerptIds) {
-    graph.removeExcerpt(id);
+    graph.removeExcerpt(ctx, id);
     const excerptFile = path.join(rootPath, '.minerva', 'excerpts', `${id}.ttl`);
     try { await fs.unlink(excerptFile); } catch { /* already gone */ }
   }
 
-  graph.removeSource(sourceId);
+  graph.removeSource(ctx, sourceId);
   try {
     await fs.rm(sourceDir, { recursive: true, force: true });
   } catch { /* already gone */ }

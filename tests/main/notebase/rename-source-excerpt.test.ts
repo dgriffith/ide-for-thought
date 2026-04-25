@@ -9,6 +9,7 @@ import {
   findNotesCitingSource,
   findNotesQuotingExcerpt,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { renameSource, renameExcerpt } from '../../../src/main/notebase/rename-source-excerpt';
 import { rewriteTypedIdLinks } from '../../../src/main/notebase/link-rewriting';
 
@@ -53,10 +54,12 @@ this: a thought:Excerpt ;
 
 describe('renameSource (issue #141)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -67,7 +70,7 @@ describe('renameSource (issue #141)', () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeNote(root, 'a.md', 'As [[cite::smith-2023]] argues...');
     writeNote(root, 'b.md', '[[cite::smith-2023|see the paper]] and [[cite::other-2020]]');
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     const { rewrittenPaths } = await renameSource(root, 'smith-2023', 'lovelace-2023');
 
@@ -83,17 +86,17 @@ describe('renameSource (issue #141)', () => {
   it('shifts the graph so new id is citable and old id isn\'t', async () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeNote(root, 'a.md', 'As [[cite::smith-2023]] argues...');
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     await renameSource(root, 'smith-2023', 'lovelace-2023');
 
-    expect(findNotesCitingSource('smith-2023')).toEqual([]);
-    expect(findNotesCitingSource('lovelace-2023')).toEqual(['a.md']);
+    expect(findNotesCitingSource(ctx, 'smith-2023')).toEqual([]);
+    expect(findNotesCitingSource(ctx, 'lovelace-2023')).toEqual(['a.md']);
   });
 
   it('no-ops when oldId equals newId', async () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
     const { rewrittenPaths } = await renameSource(root, 'smith-2023', 'smith-2023');
     expect(rewrittenPaths).toEqual([]);
   });
@@ -101,10 +104,12 @@ describe('renameSource (issue #141)', () => {
 
 describe('renameExcerpt (issue #141)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -116,7 +121,7 @@ describe('renameExcerpt (issue #141)', () => {
     writeExcerpt(root, 'p42', EXCERPT_TTL);
     writeNote(root, 'a.md', '[[quote::p42]]');
     writeNote(root, 'b.md', '[[quote::p42|on page 42]] and [[quote::other]]');
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     const { rewrittenPaths } = await renameExcerpt(root, 'p42', 'graphs-relational');
 
@@ -133,12 +138,12 @@ describe('renameExcerpt (issue #141)', () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeExcerpt(root, 'p42', EXCERPT_TTL);
     writeNote(root, 'a.md', '[[quote::p42]]');
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     await renameExcerpt(root, 'p42', 'graphs-relational');
 
-    expect(findNotesQuotingExcerpt('p42')).toEqual([]);
-    expect(findNotesQuotingExcerpt('graphs-relational')).toEqual(['a.md']);
+    expect(findNotesQuotingExcerpt(ctx, 'p42')).toEqual([]);
+    expect(findNotesQuotingExcerpt(ctx, 'graphs-relational')).toEqual(['a.md']);
   });
 });
 

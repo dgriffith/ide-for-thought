@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { saveCellOutput } from '../../../src/main/compute/save-cell-output';
 import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-save-cell-output-test-'));
@@ -23,10 +24,12 @@ Trailing prose.
 
 describe('saveCellOutput (#244)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(async () => {
@@ -104,10 +107,10 @@ describe('saveCellOutput (#244)', () => {
     // Re-index source + derived notes so their frontmatter + links are in the graph.
     const sourceContent = await fsp.readFile(path.join(root, 'analysis.md'), 'utf-8');
     const derivedContent = await fsp.readFile(path.join(root, derivedPath), 'utf-8');
-    await indexNote('analysis.md', sourceContent);
-    await indexNote(derivedPath, derivedContent);
+    await indexNote(ctx, 'analysis.md', sourceContent);
+    await indexNote(ctx, derivedPath, derivedContent);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?source WHERE {
         ?derived prov:wasDerivedFrom ?source .
       }

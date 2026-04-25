@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote, findNotesLinkingTo } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { renameWithLinkRewrites } from '../../../src/main/notebase/rename';
 
 function mkTempProject(): string {
@@ -21,10 +22,12 @@ function readNote(root: string, relPath: string): string {
 
 describe('renameWithLinkRewrites — file rename (issue #136)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -34,8 +37,8 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
   it('renames the file and rewrites a simple incoming link', async () => {
     writeNote(root, 'notes/foo.md', '# Foo');
     writeNote(root, 'notes/overview.md', '# Overview\n\nSee [[notes/foo]].');
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('notes/overview.md', '# Overview\n\nSee [[notes/foo]].');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/overview.md', '# Overview\n\nSee [[notes/foo]].');
 
     const { rewrittenPaths, transitions } = await renameWithLinkRewrites(
       root, 'notes/foo.md', 'archive/foo.md',
@@ -52,9 +55,9 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     writeNote(root, 'notes/a.md', '# A');
     writeNote(root, 'notes/b.md', '# B');
     writeNote(root, 'other/overview.md', 'See [[notes/a]].');
-    await indexNote('notes/a.md', '# A');
-    await indexNote('notes/b.md', '# B');
-    await indexNote('other/overview.md', 'See [[notes/a]].');
+    await indexNote(ctx, 'notes/a.md', '# A');
+    await indexNote(ctx, 'notes/b.md', '# B');
+    await indexNote(ctx, 'other/overview.md', 'See [[notes/a]].');
 
     const { transitions } = await renameWithLinkRewrites(root, 'notes', 'archive');
 
@@ -77,8 +80,8 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
       'All    [[rebuts::notes/foo#section|see this]].',
     ].join('\n');
     writeNote(root, 'notes/overview.md', body);
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('notes/overview.md', body);
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/overview.md', body);
 
     await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md');
 
@@ -94,20 +97,20 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
   it('updates the graph so findNotesLinkingTo now reports the NEW path', async () => {
     writeNote(root, 'notes/foo.md', '# Foo');
     writeNote(root, 'notes/overview.md', 'See [[notes/foo]].');
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('notes/overview.md', 'See [[notes/foo]].');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/overview.md', 'See [[notes/foo]].');
 
     await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md');
 
-    expect(findNotesLinkingTo('notes/foo.md')).toEqual([]);
-    expect(findNotesLinkingTo('archive/foo.md')).toEqual(['notes/overview.md']);
+    expect(findNotesLinkingTo(ctx, 'notes/foo.md')).toEqual([]);
+    expect(findNotesLinkingTo(ctx, 'archive/foo.md')).toEqual(['notes/overview.md']);
   });
 
   it('leaves unrelated notes untouched', async () => {
     writeNote(root, 'notes/foo.md', '# Foo');
     writeNote(root, 'notes/bar.md', '# Bar\n\nNothing to do with foo.');
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('notes/bar.md', '# Bar\n\nNothing to do with foo.');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/bar.md', '# Bar\n\nNothing to do with foo.');
 
     const before = readNote(root, 'notes/bar.md');
     await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md');
@@ -117,8 +120,8 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
   it('invokes reindexHook for the rewritten referrer so downstream indexes stay consistent', async () => {
     writeNote(root, 'notes/foo.md', '# Foo');
     writeNote(root, 'notes/overview.md', 'See [[notes/foo]].');
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('notes/overview.md', 'See [[notes/foo]].');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/overview.md', 'See [[notes/foo]].');
 
     const reindexed: string[] = [];
     await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md', {
@@ -132,10 +135,12 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
 
 describe('renameWithLinkRewrites — folder rename (issue #136)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -146,9 +151,9 @@ describe('renameWithLinkRewrites — folder rename (issue #136)', () => {
     writeNote(root, 'notes/a.md', '# A');
     writeNote(root, 'notes/b.md', '# B');
     writeNote(root, 'other/overview.md', 'Links: [[notes/a]] and [[notes/b]].');
-    await indexNote('notes/a.md', '# A');
-    await indexNote('notes/b.md', '# B');
-    await indexNote('other/overview.md', 'Links: [[notes/a]] and [[notes/b]].');
+    await indexNote(ctx, 'notes/a.md', '# A');
+    await indexNote(ctx, 'notes/b.md', '# B');
+    await indexNote(ctx, 'other/overview.md', 'Links: [[notes/a]] and [[notes/b]].');
 
     await renameWithLinkRewrites(root, 'notes', 'archive');
 
@@ -162,8 +167,8 @@ describe('renameWithLinkRewrites — folder rename (issue #136)', () => {
   it('rewrites links inside the renamed folder too (same-folder self-reference)', async () => {
     writeNote(root, 'notes/a.md', '# A');
     writeNote(root, 'notes/overview.md', 'See [[notes/a]].');
-    await indexNote('notes/a.md', '# A');
-    await indexNote('notes/overview.md', 'See [[notes/a]].');
+    await indexNote(ctx, 'notes/a.md', '# A');
+    await indexNote(ctx, 'notes/overview.md', 'See [[notes/a]].');
 
     await renameWithLinkRewrites(root, 'notes', 'archive');
 

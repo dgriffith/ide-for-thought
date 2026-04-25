@@ -13,26 +13,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 describe.skip('N3 cache benchmark', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeAll(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-n3bench-'));
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
     // Plant 500 synthetic notes — roughly the inflection point where
     // the un-cached cost becomes user-visible in panel refreshes.
     for (let i = 0; i < 500; i++) {
       const body = `# Note ${i}\n\n${'lorem ipsum '.repeat(50)}\n\n#tag-${i % 10}\n`;
-      await indexNote(`note-${i}.md`, body);
+      await indexNote(ctx, `note-${i}.md`, body);
     }
   });
 
   bench('queryGraph: simple SELECT (cache hit after first call)', async () => {
-    await queryGraph('SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
+    await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
   });
 
   bench('queryGraph: tag filter (cache hit after first call)', async () => {
-    await queryGraph(`SELECT ?n WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName "tag-3" }`);
+    await queryGraph(ctx, `SELECT ?n WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName "tag-3" }`);
   });
 });

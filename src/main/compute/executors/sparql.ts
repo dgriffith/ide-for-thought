@@ -6,6 +6,7 @@
  */
 
 import { queryGraph } from '../../graph';
+import { projectContext } from '../../project-context-types';
 import type { ExecutorFn } from '../registry';
 
 /**
@@ -15,8 +16,8 @@ import type { ExecutorFn } from '../registry';
  * objects from the graph layer — we flatten them into row-major order
  * using the first binding's keys as the column list.
  */
-export const executeSparql: ExecutorFn = async (code) => {
-  const response = await queryGraph(code);
+export const executeSparql: ExecutorFn = async (code, ctx) => {
+  const response = await queryGraph(projectContext(ctx.rootPath), code);
   // `queryGraph` returns `{ results: [], error }` on parse / runtime
   // failure — surface that as a cell-level error rather than a thrown
   // exception, so the shell writes a readable output block.

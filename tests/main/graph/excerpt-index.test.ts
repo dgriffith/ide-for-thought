@@ -12,6 +12,7 @@ import {
   outgoingLinks,
   parseExcerptIdFromPath,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-excerpt-test-'));
@@ -47,10 +48,12 @@ this: a thought:Excerpt ;
 
 describe('excerpt indexing (issue #92)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -60,9 +63,9 @@ describe('excerpt indexing (issue #92)', () => {
   it('indexAllNotes picks up hand-placed excerpts under .minerva/excerpts/', async () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?id WHERE { ?ex minerva:excerptId ?id . }
     `);
     const ids = (results as Array<{ id: string }>).map(r => r.id);
@@ -72,9 +75,9 @@ describe('excerpt indexing (issue #92)', () => {
   it('resolves sources: prefix so thought:fromSource points at the Source URI', async () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?title WHERE {
         ?ex minerva:excerptId "smith-2023-p42" ;
             thought:fromSource ?src .
@@ -88,9 +91,9 @@ describe('excerpt indexing (issue #92)', () => {
 
   it('stores structured location predicates on the excerpt', async () => {
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?page ?charStart ?charEnd ?text WHERE {
         ?ex minerva:excerptId "smith-2023-p42" ;
             thought:page ?page ;
@@ -108,23 +111,23 @@ describe('excerpt indexing (issue #92)', () => {
 
   it('removeExcerpt drops the excerpt triples', async () => {
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    removeExcerpt('smith-2023-p42');
-    const { results } = await queryGraph(`SELECT ?id WHERE { ?ex minerva:excerptId ?id . }`);
+    removeExcerpt(ctx, 'smith-2023-p42');
+    const { results } = await queryGraph(ctx, `SELECT ?id WHERE { ?ex minerva:excerptId ?id . }`);
     expect(results).toHaveLength(0);
   });
 
   it('re-indexing an excerpt replaces its triples', async () => {
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    indexExcerpt('smith-2023-p42', `
+    indexExcerpt(ctx, 'smith-2023-p42', `
       this: a thought:Excerpt ;
           thought:citedText "Revised quotation." .
     `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?text WHERE { ?ex minerva:excerptId "smith-2023-p42" ; thought:citedText ?text . }
     `);
     const texts = (results as Array<{ text: string }>).map(r => r.text);
@@ -141,10 +144,12 @@ describe('excerpt indexing (issue #92)', () => {
 
 describe('[[quote::excerpt-id]] link and graph walk', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -153,11 +158,11 @@ describe('[[quote::excerpt-id]] link and graph walk', () => {
 
   it('writes a thought:quotes edge from the note to the excerpt URI', async () => {
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    await indexNote('argument.md', '# Argument\n\nAs [[quote::smith-2023-p42]] shows...');
+    await indexNote(ctx, 'argument.md', '# Argument\n\nAs [[quote::smith-2023-p42]] shows...');
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?ex WHERE {
         ?note minerva:relativePath "argument.md" .
         ?note thought:quotes ?ex .
@@ -170,10 +175,10 @@ describe('[[quote::excerpt-id]] link and graph walk', () => {
   it('walks claim → thought:quotes → excerpt → thought:fromSource → source', async () => {
     writeSourceMeta(root, 'smith-2023', SOURCE_TTL);
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
-    await indexNote('argument.md', '# Argument\n\n[[quote::smith-2023-p42]]');
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'argument.md', '# Argument\n\n[[quote::smith-2023-p42]]');
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?sourceTitle ?citedText WHERE {
         ?note minerva:relativePath "argument.md" .
         ?note thought:quotes ?ex .
@@ -189,10 +194,10 @@ describe('[[quote::excerpt-id]] link and graph walk', () => {
 
   it('outgoingLinks reports the quote edge with linkType "quote"', async () => {
     writeExcerpt(root, 'smith-2023-p42', EXCERPT_TTL);
-    await indexAllNotes(root);
-    await indexNote('argument.md', '[[quote::smith-2023-p42]]');
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'argument.md', '[[quote::smith-2023-p42]]');
 
-    const links = outgoingLinks('argument.md');
+    const links = outgoingLinks(ctx, 'argument.md');
     const quote = links.find(l => l.linkType === 'quote');
     expect(quote).toBeDefined();
     expect(quote!.exists).toBe(true);

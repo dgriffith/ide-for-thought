@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import {
   initConversations,
   create,
@@ -16,10 +17,12 @@ function mkTempProject(): string {
 
 describe('conversation.setModel (issue #168)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
     initConversations(root);
   });
 

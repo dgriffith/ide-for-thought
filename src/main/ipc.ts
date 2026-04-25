@@ -9,6 +9,7 @@ import { renameAnchor } from './notebase/rename-anchor';
 import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
+import { projectContext } from './project-context-types';
 import * as search from './search/index';
 import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
@@ -108,16 +109,16 @@ function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
 async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
-  await graph.indexNote(relativePath, content);
+  await graph.indexNote(projectContext(rootPath), relativePath, content);
   if (relativePath.endsWith('.md')) {
     search.indexNote(relativePath, content);
   }
 }
 
-function removeFromIndexes(relativePath: string): void {
+function removeFromIndexes(rootPath: string, relativePath: string): void {
   if (!isIndexable(relativePath)) return;
   search.removeNote(relativePath);
-  graph.removeNote(relativePath);
+  graph.removeNote(projectContext(rootPath), relativePath);
 }
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
@@ -138,8 +139,8 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
   return results;
 }
 
-async function persistIndexes(): Promise<void> {
-  await Promise.all([search.persist(), graph.persistGraph()]);
+async function persistIndexes(rootPath: string): Promise<void> {
+  await Promise.all([search.persist(), graph.persistGraph(projectContext(rootPath))]);
 }
 
 export function registerIpcHandlers(): void {
@@ -259,8 +260,8 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, content);
-    const { headingRenameCandidate } = await graph.indexNote(relativePath, content);
-    await graph.persistGraph();
+    const { headingRenameCandidate } = await graph.indexNote(projectContext(rootPath), relativePath, content);
+    await graph.persistGraph(projectContext(rootPath));
     search.indexNote(relativePath, content);
     await search.persist();
     // If a heading edit looks like a rename with affected incoming links,
@@ -278,7 +279,7 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.createFile(rootPath, relativePath);
-    await graph.indexNote(relativePath, '');
+    await graph.indexNote(projectContext(rootPath), relativePath, '');
     search.indexNote(relativePath, '');
   });
 
@@ -287,8 +288,8 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.deleteFile(rootPath, relativePath);
-    removeFromIndexes(relativePath);
-    await persistIndexes();
+    removeFromIndexes(rootPath, relativePath);
+    await persistIndexes(rootPath);
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
@@ -302,8 +303,8 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     const files = await listIndexableFiles(rootPath, relativePath);
     await notebaseFs.deleteFolder(rootPath, relativePath);
-    for (const f of files) removeFromIndexes(f);
-    await persistIndexes();
+    for (const f of files) removeFromIndexes(rootPath, f);
+    await persistIndexes(rootPath);
   });
 
   ipcMain.handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
@@ -329,7 +330,7 @@ export function registerIpcHandlers(): void {
       }
     }
 
-    await persistIndexes();
+    await persistIndexes(rootPath);
   });
 
   const broadcastRewritten = (rootPath: string, paths: string[]) => {
@@ -349,7 +350,7 @@ export function registerIpcHandlers(): void {
       },
     });
     broadcastRewritten(rootPath, rewrittenPaths);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     return { rewrittenPaths };
   });
 
@@ -363,7 +364,7 @@ export function registerIpcHandlers(): void {
       },
     });
     broadcastRewritten(rootPath, rewrittenPaths);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     return { rewrittenPaths };
   });
 
@@ -388,7 +389,7 @@ export function registerIpcHandlers(): void {
         }
       }
 
-      await persistIndexes();
+      await persistIndexes(rootPath);
       return { rewrittenPaths };
     },
   );
@@ -404,7 +405,7 @@ export function registerIpcHandlers(): void {
     } else {
       await reindexFile(rootPath, destRelPath);
     }
-    await persistIndexes();
+    await persistIndexes(rootPath);
   });
 
   ipcMain.handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
@@ -421,19 +422,23 @@ export function registerIpcHandlers(): void {
       // Re-index each rewritten file so the graph + search index stay in
       // sync, then tell open editor tabs to reload from disk.
       for (const rel of result.changedPaths) await reindexFile(rootPath, rel);
-      await persistIndexes();
+      await persistIndexes(rootPath);
       broadcastRewritten(rootPath, result.changedPaths);
     }
     return result;
   });
 
   // Links
-  ipcMain.handle(Channels.LINKS_OUTGOING, (_e, relativePath: string) => {
-    return graph.outgoingLinks(relativePath);
+  ipcMain.handle(Channels.LINKS_OUTGOING, (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.outgoingLinks(projectContext(rootPath), relativePath);
   });
 
-  ipcMain.handle(Channels.LINKS_BACKLINKS, (_e, relativePath: string) => {
-    return graph.backlinks(relativePath);
+  ipcMain.handle(Channels.LINKS_BACKLINKS, (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.backlinks(projectContext(rootPath), relativePath);
   });
 
   // Saved queries
@@ -487,8 +492,10 @@ export function registerIpcHandlers(): void {
   });
 
   // Graph
-  ipcMain.handle(Channels.GRAPH_QUERY, async (_e, sparql: string) => {
-    return graph.queryGraph(sparql);
+  ipcMain.handle(Channels.GRAPH_QUERY, async (e, sparql: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return graph.queryGraph(projectContext(rootPath), sparql);
   });
 
   // Tables (DuckDB)
@@ -500,31 +507,47 @@ export function registerIpcHandlers(): void {
     return tables.listTables();
   });
 
-  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, () => graph.schemaForCompletion());
-
-  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (_e, sourceId: string) => {
-    return graph.getSourceDetail(sourceId);
+  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    return graph.schemaForCompletion(projectContext(rootPath));
   });
 
-  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, (_e, excerptId: string) => {
-    return graph.getExcerptSource(excerptId);
+  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    return graph.getSourceDetail(projectContext(rootPath), sourceId);
+  });
+
+  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, (e, excerptId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    return graph.getExcerptSource(projectContext(rootPath), excerptId);
   });
 
   // Tags
-  ipcMain.handle(Channels.TAGS_LIST, () => {
-    return graph.listTags();
+  ipcMain.handle(Channels.TAGS_LIST, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.listTags(projectContext(rootPath));
   });
 
-  ipcMain.handle(Channels.TAGS_NOTES_BY_TAG, (_e, tag: string) => {
-    return graph.notesByTag(tag);
+  ipcMain.handle(Channels.TAGS_NOTES_BY_TAG, (e, tag: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.notesByTag(projectContext(rootPath), tag);
   });
 
-  ipcMain.handle(Channels.TAGS_SOURCES_BY_TAG, (_e, tag: string) => {
-    return graph.sourcesByTag(tag);
+  ipcMain.handle(Channels.TAGS_SOURCES_BY_TAG, (e, tag: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.sourcesByTag(projectContext(rootPath), tag);
   });
 
-  ipcMain.handle(Channels.TAGS_ALL_NAMES, () => {
-    return graph.allTags();
+  ipcMain.handle(Channels.TAGS_ALL_NAMES, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.allTags(projectContext(rootPath));
   });
 
   // Export
@@ -588,13 +611,23 @@ export function registerIpcHandlers(): void {
   });
 
   // Inspections
-  ipcMain.handle(Channels.INSPECTIONS_LIST, () => healthChecks.getInspections());
-  ipcMain.handle(Channels.INSPECTIONS_RUN, () => healthChecks.runAllChecks());
+  ipcMain.handle(Channels.INSPECTIONS_LIST, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return healthChecks.getInspections(projectContext(rootPath));
+  });
+  ipcMain.handle(Channels.INSPECTIONS_RUN, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return healthChecks.runAllChecks(projectContext(rootPath));
+  });
 
   // Grounding check — fuzzy match a claim against graph labels
-  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, async (_e, claimText: string) => {
+  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, async (e, claimText: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
     const escaped = claimText.replace(/"/g, '\\"').replace(/\n/g, ' ');
-    const results = await graph.queryGraph(`
+    const results = await graph.queryGraph(projectContext(rootPath), `
       PREFIX dc: <http://purl.org/dc/terms/>
       PREFIX thought: <https://minerva.dev/ontology/thought#>
       PREFIX minerva: <https://minerva.dev/ontology#>
@@ -618,7 +651,7 @@ export function registerIpcHandlers(): void {
       filters: [{ name: 'Turtle', extensions: ['ttl'] }],
     });
     if (!result.canceled && result.filePath) {
-      await graph.persistGraph();
+      await graph.persistGraph(projectContext(rootPath));
       const fs = await import('node:fs/promises');
       const srcPath = path.join(rootPath, '.minerva', 'graph.ttl');
       await fs.copyFile(srcPath, result.filePath);
@@ -673,9 +706,9 @@ export function registerIpcHandlers(): void {
     // conflict handling as a link rewrite).
     markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, plan.content);
-    await graph.indexNote(relativePath, plan.content);
+    await graph.indexNote(projectContext(rootPath), relativePath, plan.content);
     search.indexNote(relativePath, plan.content);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     broadcastRewritten(rootPath, [relativePath]);
     return { added: plan.added };
   });
@@ -701,9 +734,9 @@ export function registerIpcHandlers(): void {
 
       markPathHandled(activeRelPath);
       await notebaseFs.writeFile(rootPath, activeRelPath, content);
-      await graph.indexNote(activeRelPath, content);
+      await graph.indexNote(projectContext(rootPath), activeRelPath, content);
       search.indexNote(activeRelPath, content);
-      await persistIndexes();
+      await persistIndexes(rootPath);
       broadcastRewritten(rootPath, [activeRelPath]);
       return { applied, skipped };
     },
@@ -897,7 +930,7 @@ export function registerIpcHandlers(): void {
     const ingested = await ingestPdf(rootPath, result.filePaths[0]);
     // Re-index the new source so it shows up in the sidebar + graph.
     await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     return ingested;
   });
 
@@ -917,18 +950,22 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     await finishPdfOcrIngest(rootPath, sourceId, pages);
     await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     const win = winFromEvent(e);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   });
 
-  ipcMain.handle(Channels.SOURCES_LIST_ALL, () => graph.listAllSources());
+  ipcMain.handle(Channels.SOURCES_LIST_ALL, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.listAllSources(projectContext(rootPath));
+  });
 
   ipcMain.handle(Channels.SOURCES_DELETE, async (e, sourceId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const result = await deleteSource(rootPath, sourceId);
-    await persistIndexes();
+    await persistIndexes(rootPath);
     const win = winFromEvent(e);
     if (!win.isDestroyed()) {
       win.webContents.send(Channels.SOURCES_CHANGED);
@@ -960,7 +997,7 @@ export function registerIpcHandlers(): void {
         : result.cascadedPaths;
       if (touched.length > 0) {
         for (const p of touched) markPathHandled(p);
-        await persistIndexes();
+        await persistIndexes(rootPath);
         broadcastRewritten(rootPath, touched);
       }
       return result;
@@ -976,7 +1013,7 @@ export function registerIpcHandlers(): void {
       const touched = [...summary.changedPaths, ...summary.cascadedPaths];
       if (touched.length > 0) {
         for (const p of touched) markPathHandled(p);
-        await persistIndexes();
+        await persistIndexes(rootPath);
         broadcastRewritten(rootPath, touched);
       }
       return summary;
@@ -999,11 +1036,11 @@ export function registerIpcHandlers(): void {
       for (const [source, content] of updatedContents) {
         markPathHandled(source);
         await notebaseFs.writeFile(rootPath, source, content);
-        await graph.indexNote(source, content);
+        await graph.indexNote(projectContext(rootPath), source, content);
         search.indexNote(source, content);
       }
       if (touchedPaths.length > 0) {
-        await persistIndexes();
+        await persistIndexes(rootPath);
         broadcastRewritten(rootPath, touchedPaths);
       }
 
@@ -1012,11 +1049,31 @@ export function registerIpcHandlers(): void {
   );
 
   // Proposals
-  ipcMain.handle(Channels.PROPOSAL_LIST, (_e, status?: string) => approval.listProposals(status));
-  ipcMain.handle(Channels.PROPOSAL_DETAIL, (_e, uri: string) => approval.getProposal(uri));
-  ipcMain.handle(Channels.PROPOSAL_APPROVE, (_e, uri: string) => approval.approveProposal(uri));
-  ipcMain.handle(Channels.PROPOSAL_REJECT, (_e, uri: string) => approval.rejectProposal(uri));
-  ipcMain.handle(Channels.PROPOSAL_EXPIRE, () => approval.expireProposals());
+  ipcMain.handle(Channels.PROPOSAL_LIST, (e, status?: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return approval.listProposals(projectContext(rootPath), status);
+  });
+  ipcMain.handle(Channels.PROPOSAL_DETAIL, (e, uri: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    return approval.getProposal(projectContext(rootPath), uri);
+  });
+  ipcMain.handle(Channels.PROPOSAL_APPROVE, (e, uri: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    return approval.approveProposal(projectContext(rootPath), uri);
+  });
+  ipcMain.handle(Channels.PROPOSAL_REJECT, (e, uri: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    return approval.rejectProposal(projectContext(rootPath), uri);
+  });
+  ipcMain.handle(Channels.PROPOSAL_EXPIRE, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return 0;
+    return approval.expireProposals(projectContext(rootPath));
+  });
 
   // Conversations
   ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
@@ -1091,10 +1148,12 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (_e, text: string, conversationId: string) => {
+  ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (e, text: string, conversationId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
     const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
     const conv = await conversation.load(conversationId);
-    return crystallize(text, convUri, 'llm:crystallization', conv?.model);
+    return crystallize(projectContext(rootPath), text, convUri, 'llm:crystallization', conv?.model);
   });
 
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {

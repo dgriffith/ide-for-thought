@@ -12,6 +12,7 @@ import * as tables from './sources/tables';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
+import { projectContext, type ProjectContext } from './project-context-types';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -133,6 +134,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   }
 
   ctx.rootPath = rootPath;
+  const projectCtx: ProjectContext = projectContext(rootPath);
   addRecentProject(rootPath);
   rebuildMenu();
 
@@ -147,7 +149,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   const debouncedPersist = () => {
     if (indexPersistTimer) clearTimeout(indexPersistTimer);
     indexPersistTimer = setTimeout(async () => {
-      await Promise.all([search.persist(), graph.persistGraph()]);
+      await Promise.all([search.persist(), graph.persistGraph(projectCtx)]);
     }, 1000);
   };
 
@@ -166,7 +168,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
-        await graph.indexNote(relativePath, content);
+        await graph.indexNote(projectCtx, relativePath, content);
         search.indexNote(relativePath, content);
         debouncedPersist();
       } catch (err) {
@@ -185,7 +187,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
-        await graph.indexNote(relativePath, content);
+        await graph.indexNote(projectCtx, relativePath, content);
         search.indexNote(relativePath, content);
         debouncedPersist();
       } catch (err) {
@@ -202,7 +204,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       }
       try {
         search.removeNote(relativePath);
-        graph.removeNote(relativePath);
+        graph.removeNote(projectCtx, relativePath);
       } catch (err) {
         console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
       }
@@ -215,13 +217,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         try {
           bodyContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/body.md`);
         } catch { /* body optional */ }
-        graph.indexSource(sourceId, metaContent, bodyContent);
+        graph.indexSource(projectCtx, sourceId, metaContent, bodyContent);
         debouncedPersist();
         if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
       } catch { /* meta.ttl may have been deleted between events */ }
     },
     onSourceMetaDeleted: (sourceId) => {
-      graph.removeSource(sourceId);
+      graph.removeSource(projectCtx, sourceId);
       debouncedPersist();
       if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     },
@@ -229,24 +231,24 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       try {
         const relPath = `.minerva/excerpts/${excerptId}.ttl`;
         const content = await notebaseFs.readFile(rootPath, relPath);
-        graph.indexExcerpt(excerptId, content);
+        graph.indexExcerpt(projectCtx, excerptId, content);
         debouncedPersist();
         if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
       } catch { /* file may have been deleted between events */ }
     },
     onExcerptDeleted: (excerptId) => {
-      graph.removeExcerpt(excerptId);
+      graph.removeExcerpt(projectCtx, excerptId);
       debouncedPersist();
       if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
     },
   });
   watchers.set(win.id, rootPath);
 
-  await graph.initGraph(rootPath);
+  await graph.initGraph(projectCtx);
   await tables.initTablesDb(rootPath);
   conversation.initConversations(rootPath);
   await Promise.all([
-    graph.indexAllNotes(rootPath),
+    graph.indexAllNotes(projectCtx),
     search.indexAllNotes(rootPath),
     tables.registerAllCsvs(rootPath),
   ]);
@@ -254,8 +256,8 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // sidebar populates without the renderer having to poll.
   if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
   // Run health checks after initial indexing, then periodically
-  healthChecks.runAllChecks();
-  healthChecks.startPeriodicChecks();
+  healthChecks.runAllChecks(projectCtx);
+  healthChecks.startPeriodicChecks(projectCtx);
   persistSession();
 }
 

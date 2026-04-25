@@ -1,6 +1,7 @@
 import * as notebaseFs from './fs';
 import { rewriteAnchorInLinks } from './link-rewriting';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 
 export interface RenameAnchorOptions {
   markPathHandled?: (relativePath: string) => void;
@@ -25,8 +26,9 @@ export async function renameAnchor(
   opts: RenameAnchorOptions = {},
 ): Promise<RenameAnchorResult> {
   const { markPathHandled, reindexHook } = opts;
+  const ctx = projectContext(rootPath);
 
-  const referringNotes = graph.findNotesLinkingToAnchor(targetRelativePath, oldSlug);
+  const referringNotes = graph.findNotesLinkingToAnchor(ctx, targetRelativePath, oldSlug);
   const rewrittenPaths: string[] = [];
 
   for (const notePath of referringNotes) {
@@ -36,7 +38,7 @@ export async function renameAnchor(
       if (rewritten === content) continue;
       markPathHandled?.(notePath);
       await notebaseFs.writeFile(rootPath, notePath, rewritten);
-      await graph.indexNote(notePath, rewritten);
+      await graph.indexNote(ctx, notePath, rewritten);
       reindexHook?.(notePath, rewritten);
       rewrittenPaths.push(notePath);
     } catch (err) {

@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as notebaseFs from './fs';
 import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
@@ -57,6 +58,7 @@ export async function renameWithLinkRewrites(
   opts: RenameWithLinksOptions = {},
 ): Promise<RenameResult> {
   const { markPathHandled, reindexHook, removeHook } = opts;
+  const ctx = projectContext(rootPath);
 
   // Determine whether this is a directory rename BEFORE the fs.rename call
   // so we can enumerate descendants at the old location.
@@ -78,7 +80,7 @@ export async function renameWithLinkRewrites(
   // Compute referring notes BEFORE renaming (querying pre-rename graph state).
   const referringNotes = new Set<string>();
   for (const oldPath of rewrites.keys()) {
-    for (const p of graph.findNotesLinkingTo(`${oldPath}.md`)) {
+    for (const p of graph.findNotesLinkingTo(ctx, `${oldPath}.md`)) {
       referringNotes.add(p);
     }
   }
@@ -94,21 +96,21 @@ export async function renameWithLinkRewrites(
     for (const f of newFiles) {
       const oldEquivalent = oldRelPath + f.slice(newRelPath.length);
       if (isIndexable(oldEquivalent)) {
-        graph.removeNote(oldEquivalent);
+        graph.removeNote(ctx, oldEquivalent);
         removeHook?.(oldEquivalent);
       }
       if (isIndexable(f)) {
         const content = await notebaseFs.readFile(rootPath, f);
-        await graph.indexNote(f, content);
+        await graph.indexNote(ctx, f, content);
         reindexHook?.(f, content);
         transitions.push({ old: oldEquivalent, new: f });
       }
     }
   } else if (isIndexable(oldRelPath)) {
-    graph.removeNote(oldRelPath);
+    graph.removeNote(ctx, oldRelPath);
     removeHook?.(oldRelPath);
     const content = await notebaseFs.readFile(rootPath, newRelPath);
-    await graph.indexNote(newRelPath, content);
+    await graph.indexNote(ctx, newRelPath, content);
     reindexHook?.(newRelPath, content);
     transitions.push({ old: oldRelPath, new: newRelPath });
   }
@@ -126,7 +128,7 @@ export async function renameWithLinkRewrites(
       if (rewritten !== content) {
         markPathHandled?.(actualPath);
         await notebaseFs.writeFile(rootPath, actualPath, rewritten);
-        await graph.indexNote(actualPath, rewritten);
+        await graph.indexNote(ctx, actualPath, rewritten);
         reindexHook?.(actualPath, rewritten);
         rewrittenPaths.push(actualPath);
       }

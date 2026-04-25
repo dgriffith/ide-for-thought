@@ -16,21 +16,8 @@ import * as N3 from 'n3';
 
 let engine: QueryEngine | null = null;
 
-/**
- * Cached N3 mirror of the rdflib store, keyed implicitly by store identity
- * + cumulative mutations. Cleared by `invalidateN3Cache()` at every public
- * mutator boundary; rebuilt on demand by `queryGraph`.
- *
- * Why this exists: every SPARQL query used to walk every rdflib statement
- * and copy it into a fresh N3.Store before handing to Comunica. On medium
- * graphs (10k+ triples) that O(N) copy dominated panel-refresh latency in
- * the renderer.
- */
-let n3StoreCache: N3.Store | null = null;
-
-function invalidateN3Cache(): void {
-  n3StoreCache = null;
-}
+// N3 cache + invalidation now live on GraphState (per-project) — see
+// `state.n3Cache` and the `invalidate(state)` helper above.
 
 /** Build an N3.Store from rdflib's IndexedFormula for Comunica to query */
 function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
@@ -77,9 +64,53 @@ const BIBO    = $rdf.Namespace('http://purl.org/ontology/bibo/');
 const SCHEMA  = $rdf.Namespace('http://schema.org/');
 const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
 
-let baseUri = '';      // e.g. https://project.minerva.dev/dave/my-notes/
-let store: $rdf.IndexedFormula | null = null;
-let currentRootPath: string | null = null;
+// ── Per-project state (#333) ────────────────────────────────────────────────
+//
+// Each open thoughtbase has one GraphState regardless of how many windows
+// show it. Lookup is keyed by ctx.rootPath. Internal helpers take a
+// `state` parameter where they need any of the project-scoped fields;
+// public exports take `ctx: ProjectContext` and resolve state from it.
+
+import type { ProjectContext } from '../project-context-types';
+
+interface HeadingSnapshot {
+  slug: string;
+  text: string;
+  level: number;
+}
+
+interface GraphState {
+  rootPath: string;
+  baseUri: string;
+  store: $rdf.IndexedFormula;
+  /** N3.Store mirror cached for Comunica; rebuilt on demand by queryGraph. */
+  n3Cache: N3.Store | null;
+  /** Cached parsed ontology triples; reloaded fresh on init, stripped before persist. */
+  ontologyStatements: $rdf.Statement[];
+  /** Heading snapshot per note for the rename-detection heuristic. */
+  headingsPerNote: Map<string, HeadingSnapshot[]>;
+}
+
+const states = new Map<string, GraphState>();
+
+function getState(ctx: ProjectContext): GraphState | null {
+  return states.get(ctx.rootPath) ?? null;
+}
+
+function requireState(ctx: ProjectContext): GraphState {
+  const s = states.get(ctx.rootPath);
+  if (!s) throw new Error(`graph: no state for project "${ctx.rootPath}"`);
+  return s;
+}
+
+function invalidate(state: GraphState): void {
+  state.n3Cache = null;
+}
+
+/** Tear down a project's graph state. Called by ProjectContext on last release. */
+export function disposeProject(ctx: ProjectContext): void {
+  states.delete(ctx.rootPath);
+}
 
 // ── LLM Write Guard ───────────────────────────────────────────────────────
 // Tracks whether the current call path originates from an LLM operation.
@@ -107,21 +138,9 @@ export function isInLLMContext(): boolean {
  * Add a triple to the store with write-guard checking.
  * In LLM context, logs a warning unless the write is to a Proposal node.
  */
-function guardedAdd(
-  s: $rdf.NamedNode,
-  p: $rdf.NamedNode,
-  o: $rdf.Node,
-  graph?: $rdf.NamedNode,
-): void {
-  if (!store) return;
-  if (llmContextDepth > 0) {
-    const isProposal = s.value.includes('/proposal/') || o.value?.includes?.('Proposal');
-    if (!isProposal) {
-      console.warn(`[minerva:trust] Direct graph write from LLM context: ${s.value} ${p.value} — should go through approval engine`);
-    }
-  }
-  store.add(s, p, o, graph);
-}
+// `guardedAdd` removed — unused since landing. The trust-principle
+// enforcement work in #331 will reintroduce a similar check at the
+// approval-engine boundary, not as an opt-in store wrapper.
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
 
@@ -153,38 +172,38 @@ function resolveBaseUri(rootPath: string): string {
 
 // ── URI helpers (delegate to uri-helpers module) ────────────────────────────
 
-function noteUri(relativePath: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.noteUri(baseUri, relativePath));
+function noteUri(state: GraphState, relativePath: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.noteUri(state.baseUri, relativePath));
 }
 
-function tagUri(tagName: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.tagUri(baseUri, tagName));
+function tagUri(state: GraphState, tagName: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.tagUri(state.baseUri, tagName));
 }
 
-function folderUri(relativePath: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.folderUri(baseUri, relativePath));
+function folderUri(state: GraphState, relativePath: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.folderUri(state.baseUri, relativePath));
 }
 
-function sourceUri(sourceId: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.sourceUri(baseUri, sourceId));
+function sourceUri(state: GraphState, sourceId: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.sourceUri(state.baseUri, sourceId));
 }
 
-function excerptUri(excerptId: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.excerptUri(baseUri, excerptId));
+function excerptUri(state: GraphState, excerptId: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.excerptUri(state.baseUri, excerptId));
 }
 
-function tableUri(tableName: string): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.tableUri(baseUri, tableName));
+function tableUri(state: GraphState, tableName: string): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.tableUri(state.baseUri, tableName));
 }
 
 function linkPredicate(lt: LinkType) {
   return lt.predicateNamespace === 'thought' ? THOUGHT(lt.predicate) : MINERVA(lt.predicate);
 }
 
-function resolveLinkTarget(lt: LinkType, target: string, anchor?: string) {
-  if (lt.targetKind === 'source') return sourceUri(target);
-  if (lt.targetKind === 'excerpt') return excerptUri(target);
-  const base = noteUri(target.endsWith('.md') ? target : `${target}.md`);
+function resolveLinkTarget(state: GraphState, lt: LinkType, target: string, anchor?: string) {
+  if (lt.targetKind === 'source') return sourceUri(state, target);
+  if (lt.targetKind === 'excerpt') return excerptUri(state, target);
+  const base = noteUri(state, target.endsWith('.md') ? target : `${target}.md`);
   // Anchors append as an IRI fragment: headings become `#slug`, block-ids
   // stay as `#^raw-id` (we don't slugify the `^` prefix or its payload so
   // ids survive edits on the referenced block).
@@ -281,8 +300,8 @@ function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | Frontmat
   return $rdf.lit(value);
 }
 
-function projectUri(): $rdf.NamedNode {
-  return $rdf.sym(uriHelpers.projectUri(baseUri));
+function projectUri(state: GraphState): $rdf.NamedNode {
+  return $rdf.sym(uriHelpers.projectUri(state.baseUri));
 }
 
 function dateLit(iso: string): $rdf.Literal {
@@ -303,7 +322,7 @@ const STANDARD_PREFIXES: [string, string][] = [
   ['schema', 'http://schema.org/'],
 ];
 
-function injectPrefixes(turtle: string, noteIri: string): string {
+function injectPrefixes(state: GraphState, turtle: string, noteIri: string): string {
   const lines: string[] = [];
   for (const [prefix, iri] of STANDARD_PREFIXES) {
     if (!turtle.includes(`@prefix ${prefix}:`)) {
@@ -312,12 +331,12 @@ function injectPrefixes(turtle: string, noteIri: string): string {
   }
   // Project-scoped shortcuts for referring to other sources/excerpts in
   // this thoughtbase by bare id: `sources:smith-2023`, `excerpts:p42`.
-  if (baseUri) {
+  if (state.baseUri) {
     if (!turtle.includes('@prefix sources:')) {
-      lines.push(`@prefix sources: <${baseUri}source/> .`);
+      lines.push(`@prefix sources: <${state.baseUri}source/> .`);
     }
     if (!turtle.includes('@prefix excerpts:')) {
-      lines.push(`@prefix excerpts: <${baseUri}excerpt/> .`);
+      lines.push(`@prefix excerpts: <${state.baseUri}excerpt/> .`);
     }
   }
   if (!turtle.includes('@prefix this:')) {
@@ -328,19 +347,11 @@ function injectPrefixes(turtle: string, noteIri: string): string {
 }
 
 // ── Heading snapshots ──────────────────────────────────────────────────────
-// Per-note record of which headings are currently in a note, keyed by slug.
-// Used by indexNote to spot the case where a single heading was renamed so
-// we can offer to rewrite `[[note#oldSlug]]` links across the thoughtbase.
-// Cleared on initGraph so a reindex from empty doesn't surface phantom
-// renames for every note.
-
-interface HeadingSnapshot {
-  slug: string;
-  text: string;
-  level: number;
-}
-
-const headingsPerNote = new Map<string, HeadingSnapshot[]>();
+// HeadingSnapshot moved up into per-project state (#333). Snapshots live
+// on `state.headingsPerNote` — used by indexNote to spot the case where
+// a single heading was renamed so we can offer to rewrite
+// `[[note#oldSlug]]` links across the thoughtbase. Cleared on initGraph
+// so a reindex from empty doesn't surface phantom renames for every note.
 
 /** ATX-style headings only (`# …` — `###### …`). Setext headings are ignored in v1. */
 const HEADING_LINE_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
@@ -373,8 +384,9 @@ export interface HeadingRenameCandidate {
 }
 
 /** Return headings present in the last indexNote call for `relativePath`, or []. */
-export function headingsFor(relativePath: string): HeadingSnapshot[] {
-  return headingsPerNote.get(relativePath) ?? [];
+export function headingsFor(ctx: ProjectContext, relativePath: string): HeadingSnapshot[] {
+  const state = getState(ctx);
+  return state?.headingsPerNote.get(relativePath) ?? [];
 }
 
 // ── Ontology bootstrap ──────────────────────────────────────────────────────
@@ -388,10 +400,8 @@ const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 // to .minerva/graph.ttl. Holding the parsed statements lets us (1) self-heal
 // old graph.ttl files that included the ontology by removing any matching
 // triples, and (2) strip them before writing on persistGraph().
-let ontologyStatements: $rdf.Statement[] = [];
 
-function addOntologyToStore(): void {
-  if (!store) return;
+function addOntologyToStore(state: GraphState): void {
   const tempStore = $rdf.graph();
   try {
     $rdf.parse(ONTOLOGY_TTL, tempStore, MINERVA('').value, 'text/turtle');
@@ -399,37 +409,39 @@ function addOntologyToStore(): void {
   try {
     $rdf.parse(THOUGHT_ONTOLOGY_TTL, tempStore, THOUGHT('').value, 'text/turtle');
   } catch { /* thought ontology parse failure is non-fatal */ }
-  ontologyStatements = tempStore.statements.slice();
-  for (const st of ontologyStatements) {
-    store.removeMatches(st.subject, st.predicate, st.object);
+  state.ontologyStatements = tempStore.statements.slice();
+  for (const st of state.ontologyStatements) {
+    state.store.removeMatches(st.subject, st.predicate, st.object);
   }
-  for (const st of ontologyStatements) {
-    store.add(st.subject, st.predicate, st.object, st.graph);
+  for (const st of state.ontologyStatements) {
+    state.store.add(st.subject, st.predicate, st.object, st.graph);
   }
 }
 
 // ── Init ────────────────────────────────────────────────────────────────────
 
-export async function initGraph(rootPath: string): Promise<void> {
-  store = $rdf.graph();
-  invalidateN3Cache();
-  currentRootPath = rootPath;
-  headingsPerNote.clear();
-
+export async function initGraph(ctx: ProjectContext): Promise<void> {
+  const { rootPath } = ctx;
   const metaDir = path.join(rootPath, '.minerva');
   await fs.mkdir(metaDir, { recursive: true });
 
-  // Resolve (or coin) the stable base URI for this project
-  baseUri = resolveBaseUri(rootPath);
-
-  // Initialize Comunica engine
+  // Initialize Comunica engine (process-wide; stateless across projects)
   if (!engine) engine = new QueryEngine();
+
+  const state: GraphState = {
+    rootPath,
+    baseUri: resolveBaseUri(rootPath),
+    store: $rdf.graph(),
+    n3Cache: null,
+    ontologyStatements: [],
+    headingsPerNote: new Map(),
+  };
 
   // Load persisted graph if it exists
   const graphPath = path.join(metaDir, 'graph.ttl');
   try {
     const turtle = await fs.readFile(graphPath, 'utf-8');
-    $rdf.parse(turtle, store, 'urn:x-minerva:void', 'text/turtle');
+    $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
   } catch {
     // No persisted graph yet, start fresh
   }
@@ -437,22 +449,27 @@ export async function initGraph(rootPath: string): Promise<void> {
   // Load ontology last: addOntologyToStore() strips any matching triples
   // before re-adding, which self-heals graph.ttl files written by older
   // versions that persisted the ontology alongside the user's data.
-  addOntologyToStore();
+  addOntologyToStore(state);
+
+  states.set(rootPath, state);
 }
 
 // ── Indexing ────────────────────────────────────────────────────────────────
 
 export async function indexNote(
+  ctx: ProjectContext,
   relativePath: string,
   content: string,
 ): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
-  if (!store) return {};
+  const state = getState(ctx);
+  if (!state) return {};
   // Any successful exit through this function has mutated the rdflib
   // store; flag the N3 mirror as stale once, at the boundary, instead
   // of after every internal store.add.
-  invalidateN3Cache();
+  invalidate(state);
+  const { store, baseUri, headingsPerNote } = state;
 
-  const subject = noteUri(relativePath);
+  const subject = noteUri(state, relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
 
   // Remove ALL triples from this note's graph (handles arbitrary turtle subjects)
@@ -461,12 +478,12 @@ export async function indexNote(
   store.removeMatches(subject, undefined, undefined);
 
   if (relativePath.endsWith('.ttl')) {
-    indexTurtleFile(relativePath, content, subject, graph);
+    indexTurtleFile(state, relativePath, content, subject, graph);
     return {};
   }
 
   if (relativePath.endsWith('.csv')) {
-    indexCsvFile(relativePath, content, subject, graph);
+    indexCsvFile(state, relativePath, content, subject, graph);
     return {};
   }
 
@@ -476,7 +493,7 @@ export async function indexNote(
   const prevHeadings = headingsPerNote.get(relativePath);
   const newHeadings = extractHeadingsFromContent(content);
   const headingRenameCandidate = prevHeadings
-    ? detectHeadingRename(relativePath, prevHeadings, newHeadings)
+    ? detectHeadingRename(state, relativePath, prevHeadings, newHeadings)
     : undefined;
   headingsPerNote.set(relativePath, newHeadings);
 
@@ -500,12 +517,12 @@ export async function indexNote(
   // Folder membership
   const dir = path.dirname(relativePath);
   if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
-    ensureFolder(dir);
+    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
+    ensureFolder(state, dir);
   }
 
   // Project membership
-  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
+  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
 
   // Tags — modeled as resources. Body tags (#foo) are already in parsed.tags;
   // add frontmatter `tags: [foo, bar]` on top (they're not added to parsed.tags
@@ -518,8 +535,8 @@ export async function indexNote(
     }
   }
   for (const tag of bodyTags) {
-    const tagNode = tagUri(tag);
-    ensureTag(tagNode, tag);
+    const tagNode = tagUri(state, tag);
+    ensureTag(state, tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
   }
 
@@ -527,7 +544,7 @@ export async function indexNote(
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(linkType, link.target, link.anchor);
+    const targetNode = resolveLinkTarget(state, linkType, link.target, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 
@@ -545,7 +562,7 @@ export async function indexNote(
   // Embedded turtle blocks — parse into the note's named graph
   for (const block of parsed.turtleBlocks) {
     try {
-      const prefixed = injectPrefixes(block, subject.value);
+      const prefixed = injectPrefixes(state, block, subject.value);
       $rdf.parse(prefixed, store, graph.value, 'text/turtle');
     } catch (e) {
       console.error(`[minerva] Failed to parse turtle block in ${relativePath}:`, e instanceof Error ? e.message : e);
@@ -554,7 +571,7 @@ export async function indexNote(
 
   // Markdown tables — CSVW triples
   for (let ti = 0; ti < parsed.tables.length; ti++) {
-    indexTable(parsed.tables[ti], ti, subject, graph);
+    indexTable(state, parsed.tables[ti], ti, subject, graph);
   }
 
   return headingRenameCandidate ? { headingRenameCandidate } : {};
@@ -567,6 +584,7 @@ export async function indexNote(
  * removals, pure deletion, additions without removals) → no prompt.
  */
 function detectHeadingRename(
+  state: GraphState,
   relativePath: string,
   prev: HeadingSnapshot[],
   next: HeadingSnapshot[],
@@ -579,7 +597,7 @@ function detectHeadingRename(
 
   const old = removed[0];
   const fresh = added[0];
-  const incoming = findNotesLinkingToAnchor(relativePath, old.slug).length;
+  const incoming = findNotesLinkingToAnchorImpl(state, relativePath, old.slug).length;
   if (incoming === 0) return undefined;
 
   return {
@@ -593,24 +611,27 @@ function detectHeadingRename(
 }
 
 /** Notes with a `thought:cites` edge to the given source URI. */
-export function findNotesCitingSource(sourceId: string): string[] {
-  if (!store) return [];
-  const target = sourceUri(sourceId);
-  return collectNotePathsWithPredicate(THOUGHT('cites'), target);
+export function findNotesCitingSource(ctx: ProjectContext, sourceId: string): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const target = sourceUri(state, sourceId);
+  return collectNotePathsWithPredicate(state, THOUGHT('cites'), target);
 }
 
 /** Notes with a `thought:quotes` edge to the given excerpt URI. */
-export function findNotesQuotingExcerpt(excerptId: string): string[] {
-  if (!store) return [];
-  const target = excerptUri(excerptId);
-  return collectNotePathsWithPredicate(THOUGHT('quotes'), target);
+export function findNotesQuotingExcerpt(ctx: ProjectContext, excerptId: string): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const target = excerptUri(state, excerptId);
+  return collectNotePathsWithPredicate(state, THOUGHT('quotes'), target);
 }
 
 function collectNotePathsWithPredicate(
+  state: GraphState,
   predicate: ReturnType<typeof MINERVA>,
   target: $rdf.NamedNode,
 ): string[] {
-  if (!store) return [];
+  const { store } = state;
   const stmts = store.statementsMatching(undefined, predicate, target);
   const seen = new Set<string>();
   for (const st of stmts) {
@@ -622,9 +643,23 @@ function collectNotePathsWithPredicate(
 }
 
 /** Like findNotesLinkingTo, but scoped to links whose anchor is exactly `slug`. */
-export function findNotesLinkingToAnchor(targetRelativePath: string, slug: string): string[] {
-  if (!store) return [];
-  const exactTarget = `${noteUri(targetRelativePath).value}#${slug}`;
+export function findNotesLinkingToAnchor(
+  ctx: ProjectContext,
+  targetRelativePath: string,
+  slug: string,
+): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  return findNotesLinkingToAnchorImpl(state, targetRelativePath, slug);
+}
+
+function findNotesLinkingToAnchorImpl(
+  state: GraphState,
+  targetRelativePath: string,
+  slug: string,
+): string[] {
+  const { store } = state;
+  const exactTarget = `${noteUri(state, targetRelativePath).value}#${slug}`;
   const seen = new Set<string>();
   for (const lt of LINK_TYPES) {
     if (lt.targetKind && lt.targetKind !== 'note') continue;
@@ -641,12 +676,13 @@ export function findNotesLinkingToAnchor(targetRelativePath: string, slug: strin
 }
 
 function indexTable(
+  state: GraphState,
   table: ParsedTable,
   tableIndex: number,
   noteNode: $rdf.NamedNode,
   graph: $rdf.NamedNode,
 ): void {
-  if (!store) return;
+  const { store } = state;
 
   const tableUri = $rdf.sym(`${noteNode.value}/table/${tableIndex}`);
   store.add(tableUri, RDF('type'), CSVW('Table'), graph);
@@ -741,10 +777,12 @@ function xsdForDuckDbType(duckdbType: string) {
  *   `owl:DatatypeProperty` (rdfs:domain = table, rdfs:range = xsd type)
  *   so SPARQL queries can reason about columns-as-predicates.
  */
-export function indexCsvTable(shape: CsvTableShape): void {
-  if (!store) return;
-  invalidateN3Cache();
-  const table = tableUri(shape.tableName);
+export function indexCsvTable(ctx: ProjectContext, shape: CsvTableShape): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const { store } = state;
+  const table = tableUri(state, shape.tableName);
   const graph = table;
   const schema = $rdf.sym(`${table.value}/schema`);
 
@@ -761,7 +799,7 @@ export function indexCsvTable(shape: CsvTableShape): void {
   // Join-back link to the CSV file's own note-URI, so SPARQL can pivot
   // between the file-level view (row data, written by indexCsvFile)
   // and this SQL-centric view (named table, typed columns, OWL class).
-  store.add(table, MINERVA('fromFile'), noteUri(shape.relativePath), graph);
+  store.add(table, MINERVA('fromFile'), noteUri(state, shape.relativePath), graph);
 
   store.add(schema, RDF('type'), CSVW('Schema'), graph);
 
@@ -781,11 +819,12 @@ export function indexCsvTable(shape: CsvTableShape): void {
 }
 
 /** Remove all triples for a CSV table (entire named graph). */
-export function unindexCsvTable(tableName: string): void {
-  if (!store) return;
-  invalidateN3Cache();
-  const graph = tableUri(tableName);
-  store.removeMatches(undefined, undefined, undefined, graph);
+export function unindexCsvTable(ctx: ProjectContext, tableName: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const graph = tableUri(state, tableName);
+  state.store.removeMatches(undefined, undefined, undefined, graph);
 }
 
 /**
@@ -794,9 +833,11 @@ export function unindexCsvTable(tableName: string): void {
  * don't persist. Identifies them via `minerva:tableName`, which
  * markdown-embedded csvw:Table nodes don't carry — those stay.
  */
-export function unindexAllCsvTables(): void {
-  if (!store) return;
-  invalidateN3Cache();
+export function unindexAllCsvTables(ctx: ProjectContext): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const { store } = state;
   // Snapshot subjects before removing — rdflib's statementsMatching
   // returns a live reference into the store, so removing triples while
   // iterating drops subsequent matches.
@@ -813,12 +854,13 @@ export function unindexAllCsvTables(): void {
 }
 
 function indexTurtleFile(
+  state: GraphState,
   relativePath: string,
   content: string,
   subject: $rdf.NamedNode,
   graph: $rdf.NamedNode,
 ): void {
-  if (!store) return;
+  const { store } = state;
 
   // Basic file metadata
   store.add(subject, RDF('type'), MINERVA('Note'), graph);
@@ -831,16 +873,16 @@ function indexTurtleFile(
   // Folder membership
   const dir = path.dirname(relativePath);
   if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
-    ensureFolder(dir);
+    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
+    ensureFolder(state, dir);
   }
 
   // Project membership
-  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
+  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
 
   // Parse the entire file as Turtle into the note's named graph
   try {
-    const prefixed = injectPrefixes(content, subject.value);
+    const prefixed = injectPrefixes(state, content, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
     console.error(`[minerva] Failed to parse turtle file ${relativePath}:`, e instanceof Error ? e.message : e);
@@ -855,12 +897,13 @@ function indexTurtleFile(
  * table indexer\u2019s `csvw:inNote`.
  */
 function indexCsvFile(
+  state: GraphState,
   relativePath: string,
   content: string,
   subject: $rdf.NamedNode,
   graph: $rdf.NamedNode,
 ): void {
-  if (!store) return;
+  const { store } = state;
 
   // Note-style metadata so the file shows up in listings / tag queries / etc.
   store.add(subject, RDF('type'), MINERVA('Note'), graph);
@@ -872,10 +915,10 @@ function indexCsvFile(
 
   const dir = path.dirname(relativePath);
   if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(dir), graph);
-    ensureFolder(dir);
+    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
+    ensureFolder(state, dir);
   }
-  store.add(projectUri(), MINERVA('containsNote'), subject, graph);
+  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
 
   // CSVW: the file IS the Table. One file \u2192 one table.
   store.add(subject, RDF('type'), CSVW('Table'), graph);
@@ -914,14 +957,15 @@ function indexCsvFile(
   }
 }
 
-export function removeNote(relativePath: string): void {
-  if (!store) return;
-  invalidateN3Cache();
-  const subject = noteUri(relativePath);
+export function removeNote(ctx: ProjectContext, relativePath: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const subject = noteUri(state, relativePath);
   // Remove all triples in this note's named graph
-  store.removeMatches(undefined, undefined, undefined, subject);
+  state.store.removeMatches(undefined, undefined, undefined, subject);
   // Also remove any legacy triples with no graph
-  store.removeMatches(subject, undefined, undefined);
+  state.store.removeMatches(subject, undefined, undefined);
 }
 
 // ── Source indexing ─────────────────────────────────────────────────────────
@@ -930,11 +974,13 @@ export function removeNote(relativePath: string): void {
 // node's URI is `${baseUri}source/<id>`; inside meta.ttl, `this:` resolves
 // to that URI so users can write `this: a thought:Article ; dc:title ...`.
 
-export function indexSource(sourceId: string, metaTtl: string, bodyMd?: string): void {
-  if (!store) return;
-  invalidateN3Cache();
+export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const { store } = state;
 
-  const subject = sourceUri(sourceId);
+  const subject = sourceUri(state, sourceId);
   const graph = subject;
   const relativePath = `${uriHelpers.SOURCES_DIR}/${sourceId}/meta.ttl`;
 
@@ -944,26 +990,27 @@ export function indexSource(sourceId: string, metaTtl: string, bodyMd?: string):
   store.add(subject, MINERVA('sourceId'), $rdf.lit(sourceId), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
   store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
-  store.add(projectUri(), MINERVA('containsSource'), subject, graph);
+  store.add(projectUri(state), MINERVA('containsSource'), subject, graph);
 
   try {
-    const prefixed = injectPrefixes(metaTtl, subject.value);
+    const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
     console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
   }
 
-  if (bodyMd) indexSourceBody(sourceId, bodyMd, subject, graph);
+  if (bodyMd) indexSourceBody(state, sourceId, bodyMd, subject, graph);
 }
 
 /** Parse body.md for a source — tags and wiki-links attach to the source URI. */
 function indexSourceBody(
+  state: GraphState,
   _sourceId: string,
   bodyMd: string,
   subject: $rdf.NamedNode,
   graph: $rdf.NamedNode,
 ): void {
-  if (!store) return;
+  const { store } = state;
   const parsed = parseMarkdown(bodyMd);
 
   // Body tags → hasTag edges on the source.
@@ -973,8 +1020,8 @@ function indexSourceBody(
     for (const t of flattenFrontmatterStrings(fmTags)) if (t) tags.add(t);
   }
   for (const tag of tags) {
-    const tagNode = tagUri(tag);
-    ensureTag(tagNode, tag);
+    const tagNode = tagUri(state, tag);
+    ensureTag(state, tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
   }
 
@@ -982,17 +1029,18 @@ function indexSourceBody(
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(linkType, link.target, link.anchor);
+    const targetNode = resolveLinkTarget(state, linkType, link.target, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 }
 
-export function removeSource(sourceId: string): void {
-  if (!store) return;
-  invalidateN3Cache();
-  const subject = sourceUri(sourceId);
-  store.removeMatches(undefined, undefined, undefined, subject);
-  store.removeMatches(subject, undefined, undefined);
+export function removeSource(ctx: ProjectContext, sourceId: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const subject = sourceUri(state, sourceId);
+  state.store.removeMatches(undefined, undefined, undefined, subject);
+  state.store.removeMatches(subject, undefined, undefined);
 }
 
 /** Parse `<id>` out of `.minerva/sources/<id>/meta.ttl`. Returns null for other paths. */
@@ -1016,11 +1064,13 @@ export function parseSourceIdFromPath(relativePath: string): string | null {
 //       thought:citedText "..." ;
 //       thought:page 42 .
 
-export function indexExcerpt(excerptId: string, metaTtl: string): void {
-  if (!store) return;
-  invalidateN3Cache();
+export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const { store } = state;
 
-  const subject = excerptUri(excerptId);
+  const subject = excerptUri(state, excerptId);
   const graph = subject;
   const relativePath = `${uriHelpers.EXCERPTS_DIR}/${excerptId}.ttl`;
 
@@ -1030,20 +1080,22 @@ export function indexExcerpt(excerptId: string, metaTtl: string): void {
   store.add(subject, MINERVA('excerptId'), $rdf.lit(excerptId), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
   store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
-  store.add(projectUri(), MINERVA('containsExcerpt'), subject, graph);
+  store.add(projectUri(state), MINERVA('containsExcerpt'), subject, graph);
 
   try {
-    const prefixed = injectPrefixes(metaTtl, subject.value);
+    const prefixed = injectPrefixes(state, metaTtl, subject.value);
     $rdf.parse(prefixed, store, graph.value, 'text/turtle');
   } catch (e) {
     console.error(`[minerva] Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
   }
 }
 
-export function removeExcerpt(excerptId: string): void {
-  if (!store) return;
-  invalidateN3Cache();
-  const subject = excerptUri(excerptId);
+export function removeExcerpt(ctx: ProjectContext, excerptId: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  const { store } = state;
+  const subject = excerptUri(state, excerptId);
   store.removeMatches(undefined, undefined, undefined, subject);
   store.removeMatches(subject, undefined, undefined);
 }
@@ -1052,9 +1104,11 @@ export function removeExcerpt(excerptId: string): void {
  * Every excerpt-id with thought:fromSource pointing at the given source.
  * Used by the source-delete path to cascade-remove orphaned excerpts.
  */
-export function excerptIdsForSource(sourceId: string): string[] {
-  if (!store) return [];
-  const subject = sourceUri(sourceId);
+export function excerptIdsForSource(ctx: ProjectContext, sourceId: string): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+  const subject = sourceUri(state, sourceId);
   const stmts = store.statementsMatching(undefined, THOUGHT('fromSource'), subject);
   const ids: string[] = [];
   const seen = new Set<string>();
@@ -1077,8 +1131,8 @@ export function parseExcerptIdFromPath(relativePath: string): string | null {
   return id;
 }
 
-function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
-  if (!store) return;
+function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: string): void {
+  const { store } = state;
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
   if (existing.length === 0) {
     store.add(tagNode, RDF('type'), MINERVA('Tag'));
@@ -1086,52 +1140,52 @@ function ensureTag(tagNode: $rdf.NamedNode, tagName: string): void {
   }
 }
 
-function ensureFolder(relativePath: string): void {
-  if (!store) return;
-  const folder = folderUri(relativePath);
+function ensureFolder(state: GraphState, relativePath: string): void {
+  const { store } = state;
+  const folder = folderUri(state, relativePath);
   const existing = store.statementsMatching(folder, RDF('type'), MINERVA('Folder'));
   if (existing.length === 0) {
     store.add(folder, RDF('type'), MINERVA('Folder'));
     store.add(folder, MINERVA('relativePath'), $rdf.lit(relativePath));
     store.add(folder, DC('title'), $rdf.lit(path.basename(relativePath)));
-    store.add(projectUri(), MINERVA('containsFolder'), folder);
+    store.add(projectUri(state), MINERVA('containsFolder'), folder);
 
     // Nest under parent folder if applicable
     const parent = path.dirname(relativePath);
     if (parent && parent !== '.') {
-      store.add(folder, MINERVA('inFolder'), folderUri(parent));
-      ensureFolder(parent);
+      store.add(folder, MINERVA('inFolder'), folderUri(state, parent));
+      ensureFolder(state, parent);
     }
   }
 }
 
-function ensureProject(): void {
-  if (!store) return;
-  const proj = projectUri();
+function ensureProject(state: GraphState): void {
+  const { store, rootPath } = state;
+  const proj = projectUri(state);
   const existing = store.statementsMatching(proj, RDF('type'), MINERVA('Project'));
   if (existing.length === 0) {
     store.add(proj, RDF('type'), MINERVA('Project'));
-    if (currentRootPath) {
-      store.add(proj, DC('title'), $rdf.lit(path.basename(currentRootPath)));
-    }
+    store.add(proj, DC('title'), $rdf.lit(path.basename(rootPath)));
   }
 }
 
-export async function indexAllNotes(rootPath: string): Promise<number> {
-  if (!store) return 0;
+export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
+  const state = getState(ctx);
+  if (!state) return 0;
+  const { rootPath } = state;
 
   // Reset and rebuild from scratch with ontology
-  store = $rdf.graph();
-  invalidateN3Cache();
-  addOntologyToStore();
+  state.store = $rdf.graph();
+  invalidate(state);
+  addOntologyToStore(state);
 
-  ensureProject();
+  ensureProject(state);
 
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
-  count += await walkAndIndexSources(rootPath);
-  count += await walkAndIndexExcerpts(rootPath);
-  await persistGraph();
+  count += await walkAndIndexSources(ctx, rootPath);
+  count += await walkAndIndexExcerpts(ctx, rootPath);
+  await persistGraph(ctx);
 
   async function walkAndIndex(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -1140,12 +1194,12 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         const rel = path.relative(root, fullPath);
-        ensureFolder(rel);
+        ensureFolder(state!, rel);
         await walkAndIndex(fullPath, root);
       } else if (isIndexable(entry.name)) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
-        await indexNote(relativePath, content);
+        await indexNote(ctx, relativePath, content);
         count++;
       }
     }
@@ -1154,7 +1208,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
   return count;
 }
 
-async function walkAndIndexSources(rootPath: string): Promise<number> {
+async function walkAndIndexSources(ctx: ProjectContext, rootPath: string): Promise<number> {
   const sourcesRoot = path.join(rootPath, uriHelpers.SOURCES_DIR);
   let count = 0;
   let entries: import('node:fs').Dirent[];
@@ -1172,7 +1226,7 @@ async function walkAndIndexSources(rootPath: string): Promise<number> {
       const metaContent = await fs.readFile(metaPath, 'utf-8');
       let bodyContent: string | undefined;
       try { bodyContent = await fs.readFile(bodyPath, 'utf-8'); } catch { /* body optional */ }
-      indexSource(sourceId, metaContent, bodyContent);
+      indexSource(ctx, sourceId, metaContent, bodyContent);
       count++;
     } catch {
       // No meta.ttl in this directory — skip
@@ -1181,7 +1235,7 @@ async function walkAndIndexSources(rootPath: string): Promise<number> {
   return count;
 }
 
-async function walkAndIndexExcerpts(rootPath: string): Promise<number> {
+async function walkAndIndexExcerpts(ctx: ProjectContext, rootPath: string): Promise<number> {
   const excerptsRoot = path.join(rootPath, uriHelpers.EXCERPTS_DIR);
   let count = 0;
   let entries: import('node:fs').Dirent[];
@@ -1196,7 +1250,7 @@ async function walkAndIndexExcerpts(rootPath: string): Promise<number> {
     const filePath = path.join(excerptsRoot, entry.name);
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      indexExcerpt(excerptId, content);
+      indexExcerpt(ctx, excerptId, content);
       count++;
     } catch {
       // Couldn't read — skip
@@ -1247,10 +1301,11 @@ export interface GraphSchema {
  * Sorted alphabetically by prefixed form when available, otherwise by full
  * IRI. Safe to call often \u2014 cheap walk over the store.
  */
-export function schemaForCompletion(): GraphSchema {
+export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
   const prefixes = STANDARD_PREFIXES.map(([prefix, iri]) => ({ prefix, iri }));
-
-  if (!store) return { prefixes, predicates: [], classes: [] };
+  const state = getState(ctx);
+  if (!state) return { prefixes, predicates: [], classes: [] };
+  const { store } = state;
 
   const rdfTypeIri = RDF('type').value;
   const predicateIris = new Set<string>();
@@ -1281,12 +1336,14 @@ export function schemaForCompletion(): GraphSchema {
   };
 }
 
-export async function queryGraph(sparql: string): Promise<{ results: unknown[] }> {
-  if (!store || !engine) return { results: [] };
+export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{ results: unknown[] }> {
+  const state = getState(ctx);
+  if (!state || !engine) return { results: [] };
+  const { store } = state;
 
   try {
-    if (!n3StoreCache) n3StoreCache = buildN3Store(store);
-    const n3Store = n3StoreCache;
+    if (!state.n3Cache) state.n3Cache = buildN3Store(store);
+    const n3Store = state.n3Cache;
     const prefixed = injectSparqlPrefixes(sparql);
     const bindingsStream = await engine.queryBindings(prefixed, {
       sources: [n3Store],
@@ -1311,8 +1368,10 @@ export async function queryGraph(sparql: string): Promise<{ results: unknown[] }
 
 import type { TagInfo, TaggedNote, TaggedSource } from '../../shared/types';
 
-export function listTags(): TagInfo[] {
-  if (!store) return [];
+export function listTags(ctx: ProjectContext): TagInfo[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
 
   const tagCounts = new Map<string, number>();
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), undefined);
@@ -1328,10 +1387,12 @@ export function listTags(): TagInfo[] {
     .sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
-export function notesByTag(tag: string): TaggedNote[] {
-  if (!store) return [];
+export function notesByTag(ctx: ProjectContext, tag: string): TaggedNote[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
 
-  const tagNode = tagUri(tag);
+  const tagNode = tagUri(state, tag);
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
   return stmts.flatMap((st) => {
     const subject = st.subject;
@@ -1350,10 +1411,12 @@ export function notesByTag(tag: string): TaggedNote[] {
   });
 }
 
-export function sourcesByTag(tag: string): TaggedSource[] {
-  if (!store) return [];
+export function sourcesByTag(ctx: ProjectContext, tag: string): TaggedSource[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
 
-  const tagNode = tagUri(tag);
+  const tagNode = tagUri(state, tag);
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
   return stmts.flatMap((st) => {
     const subject = st.subject;
@@ -1372,8 +1435,10 @@ export function sourcesByTag(tag: string): TaggedSource[] {
  * List every indexed source with its display metadata, sorted by title.
  * Used by the sidebar's Sources panel for navigation.
  */
-export function listAllSources(): SourceMetadata[] {
-  if (!store) return [];
+export function listAllSources(ctx: ProjectContext): SourceMetadata[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
   const entries: SourceMetadata[] = [];
   const seen = new Set<string>();
   const idStmts = store.statementsMatching(undefined, MINERVA('sourceId'), undefined);
@@ -1381,7 +1446,7 @@ export function listAllSources(): SourceMetadata[] {
     const sourceId = st.object.value;
     if (seen.has(sourceId)) continue;
     seen.add(sourceId);
-    entries.push(collectSourceMetadata(sourceId, st.subject as $rdf.NamedNode));
+    entries.push(collectSourceMetadata(state, sourceId, st.subject as $rdf.NamedNode));
   }
   entries.sort((a, b) => {
     const ta = (a.title ?? a.sourceId).toLowerCase();
@@ -1391,8 +1456,10 @@ export function listAllSources(): SourceMetadata[] {
   return entries;
 }
 
-export function allTags(): string[] {
-  if (!store) return [];
+export function allTags(ctx: ProjectContext): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
   const tags = new Set<string>();
   const stmts = store.statementsMatching(undefined, RDF('type'), MINERVA('Tag'));
   for (const st of stmts) {
@@ -1409,10 +1476,12 @@ export function allTags(): string[] {
 import type { OutgoingLink, Backlink } from '../../shared/types';
 import { LINK_TYPES } from '../../shared/link-types';
 
-export function outgoingLinks(relativePath: string): OutgoingLink[] {
-  if (!store) return [];
+export function outgoingLinks(ctx: ProjectContext, relativePath: string): OutgoingLink[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
 
-  const subject = noteUri(relativePath);
+  const subject = noteUri(state, relativePath);
   const results: OutgoingLink[] = [];
 
   for (const lt of LINK_TYPES) {
@@ -1454,9 +1523,11 @@ export function outgoingLinks(relativePath: string): OutgoingLink[] {
  * Only note-targeted link types are considered — cite/quote links point at
  * sources/excerpts and are handled by a separate rename path.
  */
-export function findNotesLinkingTo(targetRelativePath: string): string[] {
-  if (!store) return [];
-  const targetBase = noteUri(targetRelativePath).value;
+export function findNotesLinkingTo(ctx: ProjectContext, targetRelativePath: string): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+  const targetBase = noteUri(state, targetRelativePath).value;
   const seen = new Set<string>();
   for (const lt of LINK_TYPES) {
     if (lt.targetKind && lt.targetKind !== 'note') continue;
@@ -1474,10 +1545,12 @@ export function findNotesLinkingTo(targetRelativePath: string): string[] {
   return [...seen];
 }
 
-export function backlinks(relativePath: string): Backlink[] {
-  if (!store) return [];
+export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
 
-  const targetBase = noteUri(relativePath).value;
+  const targetBase = noteUri(state, relativePath).value;
   const results: Backlink[] = [];
 
   for (const lt of LINK_TYPES) {
@@ -1510,28 +1583,25 @@ export function backlinks(relativePath: string): Backlink[] {
 
 import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink } from '../../shared/types';
 
-export function getSourceDetail(sourceId: string): SourceDetail | null {
-  if (!store) return null;
+export function getSourceDetail(ctx: ProjectContext, sourceId: string): SourceDetail | null {
+  const state = getState(ctx);
+  if (!state) return null;
+  const { store } = state;
 
-  const subject = sourceUri(sourceId);
+  const subject = sourceUri(state, sourceId);
   // Probe for existence via sourceId triple (which indexSource always writes).
   const exists = store.statementsMatching(subject, MINERVA('sourceId'), undefined).length > 0;
   if (!exists) return null;
 
-  const metadata = collectSourceMetadata(sourceId, subject);
-  const excerpts = collectExcerptsForSource(subject);
-  const backlinks = collectSourceBacklinks(subject, excerpts);
+  const metadata = collectSourceMetadata(state, sourceId, subject);
+  const excerpts = collectExcerptsForSource(state, subject);
+  const backlinks = collectSourceBacklinks(state, subject, excerpts);
 
   return { metadata, excerpts, backlinks };
 }
 
-function collectSourceMetadata(sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
-  if (!store) {
-    return {
-      sourceId, subtype: null, title: null, creators: [], year: null,
-      publisher: null, doi: null, uri: null, abstract: null,
-    };
-  }
+function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
+  const { store } = state;
 
   // Pick the most specific thought:* type we recognize (not the generic Source).
   let subtype: string | null = null;
@@ -1570,8 +1640,8 @@ function collectSourceMetadata(sourceId: string, subject: $rdf.NamedNode): Sourc
   };
 }
 
-function collectExcerptsForSource(sourceSubject: $rdf.NamedNode): SourceExcerpt[] {
-  if (!store) return [];
+function collectExcerptsForSource(state: GraphState, sourceSubject: $rdf.NamedNode): SourceExcerpt[] {
+  const { store } = state;
 
   const excerpts: SourceExcerpt[] = [];
   const seen = new Set<string>();
@@ -1601,10 +1671,11 @@ function collectExcerptsForSource(sourceSubject: $rdf.NamedNode): SourceExcerpt[
 }
 
 function collectSourceBacklinks(
+  state: GraphState,
   sourceSubject: $rdf.NamedNode,
   excerpts: SourceExcerpt[],
 ): SourceBacklink[] {
-  if (!store) return [];
+  const { store } = state;
 
   const results: SourceBacklink[] = [];
   const seen = new Set<string>();
@@ -1632,7 +1703,7 @@ function collectSourceBacklinks(
 
   // Quotes of excerpts that belong to this source
   for (const ex of excerpts) {
-    const exNode = excerptUri(ex.excerptId);
+    const exNode = excerptUri(state, ex.excerptId);
     for (const st of store.statementsMatching(undefined, THOUGHT('quotes'), exNode)) {
       pushBacklink(st.subject as $rdf.NamedNode, 'quote', ex.excerptId);
     }
@@ -1643,9 +1714,11 @@ function collectSourceBacklinks(
 }
 
 /** Resolve an excerpt-id to the sourceId of its fromSource, or null if not found. */
-export function getExcerptSource(excerptId: string): { sourceId: string } | null {
-  if (!store) return null;
-  const ex = excerptUri(excerptId);
+export function getExcerptSource(ctx: ProjectContext, excerptId: string): { sourceId: string } | null {
+  const state = getState(ctx);
+  if (!state) return null;
+  const { store } = state;
+  const ex = excerptUri(state, excerptId);
   const stmts = store.statementsMatching(ex, THOUGHT('fromSource'), undefined);
   const sourceNode = stmts[0]?.object as $rdf.NamedNode | undefined;
   if (!sourceNode) return null;
@@ -1656,17 +1729,19 @@ export function getExcerptSource(excerptId: string): { sourceId: string } | null
 
 // ── Persistence & Export ────────────────────────────────────────────────────
 
-export async function persistGraph(): Promise<void> {
-  if (!store || !currentRootPath) return;
+export async function persistGraph(ctx: ProjectContext): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  const { store, rootPath, ontologyStatements } = state;
 
-  const graphPath = path.join(currentRootPath, '.minerva', 'graph.ttl');
+  const graphPath = path.join(rootPath, '.minerva', 'graph.ttl');
   // Strip ontology triples before serializing — they're re-loaded fresh
   // from the embedded resource on startup, so persisting them would
   // cause duplication on the next load.
   for (const st of ontologyStatements) {
     store.removeMatches(st.subject, st.predicate, st.object);
   }
-  const turtle = serializeGraph();
+  const turtle = serializeGraph(ctx);
   for (const st of ontologyStatements) {
     store.add(st.subject, st.predicate, st.object, st.graph);
   }
@@ -1674,11 +1749,12 @@ export async function persistGraph(): Promise<void> {
 }
 
 /** Parse a Turtle string and add its triples to the store. Used by the approval engine. */
-export function parseIntoStore(turtle: string): void {
-  if (!store) return;
-  invalidateN3Cache();
+export function parseIntoStore(ctx: ProjectContext, turtle: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
   try {
-    $rdf.parse(turtle, store, 'urn:x-minerva:void', 'text/turtle');
+    $rdf.parse(turtle, state.store, 'urn:x-minerva:void', 'text/turtle');
   } catch (e) {
     console.error('[minerva] Failed to parse turtle into store:', e instanceof Error ? e.message : e);
   }
@@ -1689,27 +1765,30 @@ export function parseIntoStore(turtle: string): void {
  * approval engine to replace single-cardinality predicates like
  * `thought:proposalStatus` so a status change doesn't leave the prior
  * status hanging on the same proposal (#332).
- *
- * Subject and predicate are passed as IRIs; both are required to keep
- * the surface narrow — wholesale subject wipes go through the more
- * specific `removeNote` / `removeSource` / `removeExcerpt` helpers.
  */
-export function removeMatchingTriples(subjectIri: string, predicateIri: string): void {
-  if (!store) return;
-  invalidateN3Cache();
-  store.removeMatches($rdf.sym(subjectIri), $rdf.sym(predicateIri), undefined);
+export function removeMatchingTriples(
+  ctx: ProjectContext,
+  subjectIri: string,
+  predicateIri: string,
+): void {
+  const state = getState(ctx);
+  if (!state) return;
+  invalidate(state);
+  state.store.removeMatches($rdf.sym(subjectIri), $rdf.sym(predicateIri), undefined);
 }
 
-export function serializeGraph(): string {
-  if (!store) return '';
+export function serializeGraph(ctx: ProjectContext): string {
+  const state = getState(ctx);
+  if (!state) return '';
   // Pass a dummy base that doesn't match any of our URIs,
   // forcing the serializer to emit all IRIs as absolute.
-  return $rdf.serialize(null, store, 'urn:x-minerva:void', 'text/turtle') ?? '';
+  return $rdf.serialize(null, state.store, 'urn:x-minerva:void', 'text/turtle') ?? '';
 }
 
-export async function exportGraph(destPath: string): Promise<void> {
-  if (!store) return;
-  await persistGraph();
-  const turtle = serializeGraph();
+export async function exportGraph(ctx: ProjectContext, destPath: string): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  await persistGraph(ctx);
+  const turtle = serializeGraph(ctx);
   await fs.writeFile(destPath, turtle, 'utf-8');
 }
