@@ -9,6 +9,7 @@ import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
 import { installCsp } from './security';
 import { flushAllProjects } from './project-context';
+import { shutdownAllKernels } from './compute/python-kernel';
 
 app.setName('Minerva');
 
@@ -62,7 +63,10 @@ app.on('before-quit', (event) => {
   if (isFlushingForQuit) return;
   event.preventDefault();
   isFlushingForQuit = true;
-  flushAllProjects()
-    .catch((err) => console.warn('[quit] project flush failed:', err))
+  Promise.allSettled([
+    flushAllProjects(),
+    shutdownAllKernels(),
+  ])
+    .catch((err) => console.warn('[quit] shutdown failed:', err))
     .finally(() => app.quit());
 });

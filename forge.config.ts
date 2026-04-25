@@ -6,6 +6,10 @@ import { MakerDMG } from '@electron-forge/maker-dmg';
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Minerva',
+    // Stage `resources/python/minerva_kernel.py` (and anything else
+    // we drop under `resources/`) next to the main bundle in the
+    // packaged app, so process.resourcesPath finds it (#241).
+    extraResource: ['resources'],
   },
   makers: [
     new MakerZIP({}, ['darwin', 'linux', 'win32']),

@@ -121,6 +121,7 @@ contextBridge.exposeInMainWorld('api', {
     languages: () => ipcRenderer.invoke(Channels.COMPUTE_LANGUAGES),
     saveCellOutput: (input: unknown) =>
       ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
+    restartPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
   },
   publish: {
     listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),

@@ -229,6 +229,9 @@ export const Channels = {
 
   /** Notebook compute: dispatch a cell to its language's executor (#238). */
   COMPUTE_RUN_CELL: 'compute:runCell',
+  /** Wipe and respawn the project's Python kernel. Loses every notebook's
+   *  namespace state — palette command "Compute: Restart Python Kernel". */
+  COMPUTE_RESTART_PYTHON_KERNEL: 'compute:restartPythonKernel',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

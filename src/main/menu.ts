@@ -9,6 +9,7 @@ import * as search from './search/index';
 import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries } from './saved-queries';
+import { restartKernel as restartPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -222,6 +223,16 @@ export function rebuildMenu(): void {
               tables.registerAllCsvs(ctx),
             ]);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          },
+        }),
+        gate({
+          label: 'Restart Python Kernel',
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            await restartPythonKernel(rootPath);
           },
         }),
         { type: 'separator' },
