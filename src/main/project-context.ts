@@ -58,6 +58,11 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
         search.indexAllNotes(ctx),
         tables.registerAllCsvs(ctx),
       ]);
+      // Re-project conversation JSON into the graph after notes are
+      // indexed (so contextNote IRIs resolve against a populated note
+      // namespace). Also self-heals stale relative-path triples from
+      // before #350.
+      await conversation.reindexAllConversations();
       // Health checks run once at open, then a periodic timer takes over.
       healthChecks.runAllChecks(ctx);
       healthChecks.startPeriodicChecks(ctx);
