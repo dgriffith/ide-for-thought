@@ -1,6 +1,14 @@
 <script lang="ts">
   import MarkdownIt from 'markdown-it';
-  import Token from 'markdown-it/lib/token.mjs';
+  // The Token *value* (used below for `new Token(...)` to inject a
+  // task-list checkbox) is now recovered from `inlineTok.constructor`
+  // (#347) so we no longer need a runtime import of
+  // `markdown-it/lib/token.mjs`. The remaining `import type` paths
+  // stay deep — `MarkdownIt.Token` / `MarkdownIt.StateBlock` namespace
+  // lookups don't resolve through `@types/markdown-it`'s `export = X`
+  // shape under isolatedModules — but type-only imports don't ship to
+  // the bundler and only fail loudly at typecheck if the typings move.
+  import type Token from 'markdown-it/lib/token.mjs';
   import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
@@ -163,7 +171,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             }
           }
           // Inject the checkbox as an html_inline prefix on the inline tree.
-          const cb = new Token('html_inline', '', 0);
+          // Recover the Token constructor from the inline token itself so we
+          // don't have to deep-import `markdown-it/lib/token.mjs` (#347).
+          const TokenCtor = inlineTok.constructor as new (
+            type: string, tag: string, nesting: -1 | 0 | 1,
+          ) => Token;
+          const cb = new TokenCtor('html_inline', '', 0);
           cb.content = `<input type="checkbox" data-task-line="${line}"${checked ? ' checked' : ''}> `;
           inlineTok.children.unshift(cb);
         }
