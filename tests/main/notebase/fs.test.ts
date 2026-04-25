@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { assertSafePath, listFiles } from '../../../src/main/notebase/fs';
 
 const FIXTURE_DIR = path.resolve(__dirname, '../../fixtures/sample-project');
@@ -20,6 +23,50 @@ describe('assertSafePath', () => {
 
   it('allows path resolving to root itself', () => {
     expect(() => assertSafePath('/root', '')).not.toThrow();
+  });
+});
+
+describe('assertSafePath: symlinked root (#352)', () => {
+  // On macOS, os.tmpdir() returns /var/folders/... which is a symlink
+  // to /private/var/folders/.... Before the fix, the prefix-startsWith
+  // check could fail (or wrongly succeed) when the caller's rootPath
+  // and the resolved subpath disagreed about which side of the
+  // symlink they sat on. realpath both sides → equivalent regardless
+  // of which form the caller hands us.
+  it('treats both ends of a symlinked root as the same project', async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-fs-symlink-test-'));
+    try {
+      const realRoot = fs.realpathSync(root);
+      // The fix only matters when realpath actually changes the
+      // string. On Linux, tmpdir is usually already canonical; in
+      // that case this assertion is just "both forms equal", which
+      // still has to hold.
+      await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+      await fsp.writeFile(path.join(root, 'notes', 'a.md'), '# a', 'utf-8');
+
+      // Either form of the rootPath should accept the same relative path.
+      expect(() => assertSafePath(root, 'notes/a.md')).not.toThrow();
+      expect(() => assertSafePath(realRoot, 'notes/a.md')).not.toThrow();
+
+      // And both should reject a traversal regardless of root form.
+      expect(() => assertSafePath(root, '../escape.md')).toThrow('Path traversal');
+      expect(() => assertSafePath(realRoot, '../escape.md')).toThrow('Path traversal');
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('allows write-to-create paths whose leaf does not yet exist', async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'minerva-fs-create-test-'));
+    try {
+      // The point of `realPathSafe(parent)` (not realpath of leaf) — a
+      // file we're about to create can't be realpath'd, but its parent
+      // exists. Used in every NOTEBASE_CREATE_FILE / WRITE_FILE call.
+      expect(() => assertSafePath(root, 'fresh.md')).not.toThrow();
+      expect(() => assertSafePath(root, 'subdir/fresh.md')).not.toThrow();
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true });
+    }
   });
 });
 
