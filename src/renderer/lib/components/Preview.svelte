@@ -421,10 +421,42 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return (m[0].match(/\n/g) ?? []).length;
   }
 
-  let rendered = $derived.by(() => {
-    const stripped = stripFrontmatter(content);
-    const lineOffset = countFrontmatterLines(content);
+  // Re-rendering markdown + KaTeX + highlight.js + citeproc on every
+  // keystroke felt as typing lag in split-view once notes pass a few
+  // thousand characters (#335). Debounce: render the first frame
+  // synchronously so there's no FOUC, then coalesce subsequent
+  // changes to one render per ~120ms idle window.
+  function renderContent(c: string): string {
+    const stripped = stripFrontmatter(c);
+    const lineOffset = countFrontmatterLines(c);
     return md.render(stripped, { lineOffset });
+  }
+
+  const RENDER_DEBOUNCE_MS = 120;
+  let rendered = $state(renderContent(content));
+  let lastRendered = content;
+  let renderTimer: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    // Track content reactively; bail if nothing actually changed since
+    // the last render commit (avoids re-running for derived state that
+    // happens to share a frame).
+    const c = content;
+    if (c === lastRendered) return;
+
+    if (renderTimer) clearTimeout(renderTimer);
+    renderTimer = setTimeout(() => {
+      rendered = renderContent(c);
+      lastRendered = c;
+      renderTimer = null;
+    }, RENDER_DEBOUNCE_MS);
+
+    return () => {
+      if (renderTimer) {
+        clearTimeout(renderTimer);
+        renderTimer = null;
+      }
+    };
   });
   let previewEl = $state<HTMLDivElement>();
   let activeCharts: ChartHandle[] = [];
