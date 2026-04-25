@@ -52,6 +52,31 @@ def ctx():
     }
 
 
+def _import_pandas(fn_name):
+    """Lazy pandas import with an actionable error.
+
+    The default `python3` on macOS (Homebrew) is PEP 668-locked, so a
+    naked `pip install pandas` fails. Point users at the venv pattern
+    Minerva supports via $MINERVA_PYTHON.
+    """
+    try:
+        import pandas as pd
+        return pd
+    except ImportError as exc:
+        import sys
+        raise ImportError(
+            f"minerva.{fn_name}() returns a pandas DataFrame, but pandas "
+            f"is not installed in {sys.executable}.\n"
+            "Recommended: create a venv and point Minerva at it.\n"
+            "  python3 -m venv ~/.minerva-venv\n"
+            "  ~/.minerva-venv/bin/pip install pandas\n"
+            "Then relaunch Minerva with:\n"
+            "  MINERVA_PYTHON=~/.minerva-venv/bin/python\n"
+            "(set in your shell or ~/.zshrc before `pnpm dev`; a kernel "
+            "restart alone won't pick up env var changes.)"
+        ) from exc
+
+
 def sparql(query):
     """Run a SPARQL SELECT and return a pandas DataFrame.
 
@@ -60,13 +85,7 @@ def sparql(query):
     the rest of the library remains usable in environments without
     pandas installed.
     """
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        raise ImportError(
-            "minerva.sparql() returns a pandas DataFrame; install pandas "
-            "into the Python environment Minerva spawned: pip install pandas"
-        ) from exc
+    pd = _import_pandas('sparql')
     res = _call('sparql', query=query)
     rows = res.get('rows', [])
     if not rows:
@@ -83,13 +102,7 @@ def sql(query):
 
     Same lazy-pandas dance as `sparql`.
     """
-    try:
-        import pandas as pd
-    except ImportError as exc:
-        raise ImportError(
-            "minerva.sql() returns a pandas DataFrame; install pandas: "
-            "pip install pandas"
-        ) from exc
+    pd = _import_pandas('sql')
     res = _call('sql', query=query)
     columns = res.get('columns', [])
     rows = res.get('rows', [])
