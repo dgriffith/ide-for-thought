@@ -112,6 +112,20 @@ export function disposeProject(ctx: ProjectContext): void {
   states.delete(ctx.rootPath);
 }
 
+/**
+ * The IRI Minerva uses to identify the note at `relativePath` in the
+ * graph for project `ctx`. Exposed so callers outside graph/index.ts
+ * (notably the conversation module, which writes thought:contextNote
+ * triples) can write a real IRI instead of stuffing a relative path
+ * into an angle-bracket slot. Returns null when the project has no
+ * graph state yet — caller should treat that as "no triple to write".
+ */
+export function noteUriFor(ctx: ProjectContext, relativePath: string): string | null {
+  const state = getState(ctx);
+  if (!state) return null;
+  return noteUri(state, relativePath).value;
+}
+
 // ── LLM Write Guard ───────────────────────────────────────────────────────
 // Tracks whether the current call path originates from an LLM operation.
 // Direct graph writes from LLM context that bypass the approval engine

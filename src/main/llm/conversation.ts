@@ -13,6 +13,35 @@ export function initConversations(rootPath: string): void {
   activeRootPath = rootPath;
 }
 
+/**
+ * Re-project every persisted conversation into the graph. Called once
+ * during project init: `writeConversationToGraph` clears prior triples
+ * for the subject before re-adding, so historical bad-shape triples
+ * (the #350 relative-path-as-IRI bug) get scrubbed and replaced with
+ * the corrected IRI form. Cheap: small JSON files, in-memory rdflib.
+ */
+export async function reindexAllConversations(): Promise<void> {
+  if (!conversationsDir) return;
+  let files: string[];
+  try {
+    files = await fs.readdir(conversationsDir);
+  } catch { return; /* no conversations yet */ }
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    try {
+      const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
+      const conv = JSON.parse(data) as Conversation;
+      await writeConversationToGraph(conv);
+      if (conv.status !== 'active') {
+        // Mirror the live status so resolve/abandon don't get dropped on reload.
+        await updateConversationInGraph(conv);
+      }
+    } catch (err) {
+      console.warn(`[conversation] reindex skipped ${file}:`, err);
+    }
+  }
+}
+
 function activeCtx(): ProjectContext {
   if (!activeRootPath) throw new Error('Conversations not initialized — no project open');
   return projectContext(activeRootPath);
@@ -173,8 +202,40 @@ function escapeTurtle(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
+/** Predicates a conversation subject can hold. Listed so we can drop them
+ *  cleanly before re-projecting (so historical bad-shape triples from
+ *  before #350 don't linger as dust alongside the corrected ones). */
+const CONVERSATION_PREDICATES = [
+  'conversationStatus',
+  'startedAt',
+  'resolvedAt',
+  'trigger',
+  'contextNote',
+  'conversationContent',
+];
+
+function clearConversationTriples(uri: string): void {
+  const ctx = activeCtx();
+  graph.removeMatchingTriples(ctx, uri, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type');
+  for (const p of CONVERSATION_PREDICATES) {
+    graph.removeMatchingTriples(ctx, uri, `${THOUGHT}${p}`);
+  }
+  // dc:created lands when a conversation is filed as a source — drop it
+  // for symmetry so re-projection of a resolved conversation produces
+  // exactly one creation timestamp.
+  graph.removeMatchingTriples(ctx, uri, 'http://purl.org/dc/terms/created');
+}
+
 async function writeConversationToGraph(conv: Conversation): Promise<void> {
   const uri = convUri(conv.id);
+  const ctx = activeCtx();
+  // contextNote needs a real IRI, not the raw `notes/foo.md` string —
+  // the prior shape (#350) made downstream joins against
+  // minerva:relativePath silently mismatch.
+  const contextNoteIri = conv.contextBundle.notePath
+    ? graph.noteUriFor(ctx, conv.contextBundle.notePath)
+    : null;
+  clearConversationTriples(uri);
   const turtle = `
     @prefix thought: <${THOUGHT}> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -183,9 +244,9 @@ async function writeConversationToGraph(conv: Conversation): Promise<void> {
       thought:conversationStatus thought:active ;
       thought:startedAt "${conv.startedAt}"^^xsd:dateTime
       ${conv.triggerNodeUri ? `; thought:trigger <${conv.triggerNodeUri}>` : ''}
-      ${conv.contextBundle.notePath ? `; thought:contextNote <${conv.contextBundle.notePath}>` : ''} .
+      ${contextNoteIri ? `; thought:contextNote <${contextNoteIri}>` : ''} .
   `;
-  graph.parseIntoStore(activeCtx(), turtle);
+  graph.parseIntoStore(ctx, turtle);
 }
 
 async function updateConversationInGraph(conv: Conversation): Promise<void> {
