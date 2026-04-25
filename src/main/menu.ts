@@ -417,7 +417,7 @@ export function rebuildMenu(): void {
         label: cat.label,
         submenu: getToolsByCategory(cat.id).map(tool => gate({
           label: tool.name,
-          sublabel: tool.description,
+          toolTip: tool.description,
           click: () => send(Channels.TOOL_INVOKE, tool.id),
         })),
       } as Electron.MenuItemConstructorOptions)),
@@ -439,7 +439,7 @@ export function rebuildMenu(): void {
               label: 'SPARQL',
               submenu: STOCK_QUERIES.filter((sq) => sq.language === 'sparql').map((sq) => ({
                 label: sq.name,
-                sublabel: sq.description,
+                toolTip: sq.description,
                 click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: sq.query, language: sq.language }),
               })),
             },
@@ -447,7 +447,7 @@ export function rebuildMenu(): void {
               label: 'SQL',
               submenu: STOCK_QUERIES.filter((sq) => sq.language === 'sql').map((sq) => ({
                 label: sq.name,
-                sublabel: sq.description,
+                toolTip: sq.description,
                 click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: sq.query, language: sq.language }),
               })),
             },
