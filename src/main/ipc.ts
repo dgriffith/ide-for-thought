@@ -109,16 +109,18 @@ function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
 async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
-  await graph.indexNote(projectContext(rootPath), relativePath, content);
+  const ctx = projectContext(rootPath);
+  await graph.indexNote(ctx, relativePath, content);
   if (relativePath.endsWith('.md')) {
-    search.indexNote(relativePath, content);
+    search.indexNote(ctx, relativePath, content);
   }
 }
 
 function removeFromIndexes(rootPath: string, relativePath: string): void {
   if (!isIndexable(relativePath)) return;
-  search.removeNote(relativePath);
-  graph.removeNote(projectContext(rootPath), relativePath);
+  const ctx = projectContext(rootPath);
+  search.removeNote(ctx, relativePath);
+  graph.removeNote(ctx, relativePath);
 }
 
 async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {
@@ -140,7 +142,8 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
 }
 
 async function persistIndexes(rootPath: string): Promise<void> {
-  await Promise.all([search.persist(), graph.persistGraph(projectContext(rootPath))]);
+  const ctx = projectContext(rootPath);
+  await Promise.all([search.persist(ctx), graph.persistGraph(ctx)]);
 }
 
 export function registerIpcHandlers(): void {
@@ -260,10 +263,11 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, content);
-    const { headingRenameCandidate } = await graph.indexNote(projectContext(rootPath), relativePath, content);
-    await graph.persistGraph(projectContext(rootPath));
-    search.indexNote(relativePath, content);
-    await search.persist();
+    const ctx = projectContext(rootPath);
+    const { headingRenameCandidate } = await graph.indexNote(ctx, relativePath, content);
+    await graph.persistGraph(ctx);
+    search.indexNote(ctx, relativePath, content);
+    await search.persist(ctx);
     // If a heading edit looks like a rename with affected incoming links,
     // offer to rewrite them. The renderer pops the confirmation; approval
     // routes back through NOTEBASE_RENAME_ANCHOR.
@@ -279,8 +283,9 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
     await notebaseFs.createFile(rootPath, relativePath);
-    await graph.indexNote(projectContext(rootPath), relativePath, '');
-    search.indexNote(relativePath, '');
+    const ctx = projectContext(rootPath);
+    await graph.indexNote(ctx, relativePath, '');
+    search.indexNote(ctx, relativePath, '');
   });
 
   ipcMain.handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
@@ -311,12 +316,13 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
 
+    const ctx = projectContext(rootPath);
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
       reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
       },
-      removeHook: (relPath) => search.removeNote(relPath),
+      removeHook: (relPath) => search.removeNote(ctx, relPath),
     });
 
     // Broadcast to every window showing this project so their editor tabs
@@ -343,10 +349,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameSource(rootPath, oldId, newId, {
       markPathHandled,
       reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
       },
     });
     broadcastRewritten(rootPath, rewrittenPaths);
@@ -357,10 +364,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_RENAME_EXCERPT, async (e, oldId: string, newId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameExcerpt(rootPath, oldId, newId, {
       markPathHandled,
       reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
       },
     });
     broadcastRewritten(rootPath, rewrittenPaths);
@@ -374,10 +382,11 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
 
+      const ctx = projectContext(rootPath);
       const { rewrittenPaths } = await renameAnchor(rootPath, targetRelativePath, oldSlug, newSlug, {
         markPathHandled,
         reindexHook: (relPath, content) => {
-          if (relPath.endsWith('.md')) search.indexNote(relPath, content);
+          if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
         },
       });
 
@@ -473,8 +482,10 @@ export function registerIpcHandlers(): void {
   });
 
   // Search
-  ipcMain.handle(Channels.SEARCH_QUERY, (_e, query: string) => {
-    return search.search(query);
+  ipcMain.handle(Channels.SEARCH_QUERY, (e, query: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return search.search(projectContext(rootPath), query);
   });
 
   // Git
@@ -499,12 +510,16 @@ export function registerIpcHandlers(): void {
   });
 
   // Tables (DuckDB)
-  ipcMain.handle(Channels.TABLES_QUERY, async (_e, sql: string) => {
-    return tables.runQuery(sql);
+  ipcMain.handle(Channels.TABLES_QUERY, async (e, sql: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { ok: false, error: 'No project open' };
+    return tables.runQuery(projectContext(rootPath), sql);
   });
 
-  ipcMain.handle(Channels.TABLES_LIST, async () => {
-    return tables.listTables();
+  ipcMain.handle(Channels.TABLES_LIST, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return tables.listTables(projectContext(rootPath));
   });
 
   ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, (e) => {
@@ -706,8 +721,9 @@ export function registerIpcHandlers(): void {
     // conflict handling as a link rewrite).
     markPathHandled(relativePath);
     await notebaseFs.writeFile(rootPath, relativePath, plan.content);
-    await graph.indexNote(projectContext(rootPath), relativePath, plan.content);
-    search.indexNote(relativePath, plan.content);
+    const ctx = projectContext(rootPath);
+    await graph.indexNote(ctx, relativePath, plan.content);
+    search.indexNote(ctx, relativePath, plan.content);
     await persistIndexes(rootPath);
     broadcastRewritten(rootPath, [relativePath]);
     return { added: plan.added };
@@ -734,8 +750,9 @@ export function registerIpcHandlers(): void {
 
       markPathHandled(activeRelPath);
       await notebaseFs.writeFile(rootPath, activeRelPath, content);
-      await graph.indexNote(projectContext(rootPath), activeRelPath, content);
-      search.indexNote(activeRelPath, content);
+      const ctx = projectContext(rootPath);
+      await graph.indexNote(ctx, activeRelPath, content);
+      search.indexNote(ctx, activeRelPath, content);
       await persistIndexes(rootPath);
       broadcastRewritten(rootPath, [activeRelPath]);
       return { applied, skipped };
@@ -1033,11 +1050,12 @@ export function registerIpcHandlers(): void {
       );
 
       // Write each touched source note through the standard index/search/broadcast pipeline.
+      const ctx = projectContext(rootPath);
       for (const [source, content] of updatedContents) {
         markPathHandled(source);
         await notebaseFs.writeFile(rootPath, source, content);
-        await graph.indexNote(projectContext(rootPath), source, content);
-        search.indexNote(source, content);
+        await graph.indexNote(ctx, source, content);
+        search.indexNote(ctx, source, content);
       }
       if (touchedPaths.length > 0) {
         await persistIndexes(rootPath);

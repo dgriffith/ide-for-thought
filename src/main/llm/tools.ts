@@ -158,7 +158,7 @@ export async function executeNotebaseTool(
   try {
     switch (name) {
       case 'search_notes':
-        return { content: await runSearch(input), isError: false };
+        return { content: await runSearch(ctx, input), isError: false };
       case 'read_note':
         return { content: await runRead(ctx, input), isError: false };
       case 'query_graph':
@@ -174,12 +174,12 @@ export async function executeNotebaseTool(
   }
 }
 
-async function runSearch(input: unknown): Promise<string> {
+async function runSearch(ctx: ToolContext, input: unknown): Promise<string> {
   const { query, limit } = input as { query: string; limit?: number };
   if (typeof query !== 'string' || !query.trim()) {
     throw new Error('query is required');
   }
-  const results = search.search(query, { limit: limit ?? 10 });
+  const results = search.search(projectContext(ctx.rootPath), query, { limit: limit ?? 10 });
   if (results.length === 0) {
     return `No results for "${query}".`;
   }

@@ -215,10 +215,11 @@ export function rebuildMenu(): void {
             if (!win) return;
             const rootPath = getRootPath(win.id);
             if (!rootPath) return;
+            const ctx = projectContext(rootPath);
             await Promise.all([
-              graph.indexAllNotes(projectContext(rootPath)),
-              search.indexAllNotes(rootPath),
-              tables.registerAllCsvs(rootPath),
+              graph.indexAllNotes(ctx),
+              search.indexAllNotes(ctx),
+              tables.registerAllCsvs(ctx),
             ]);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
           },

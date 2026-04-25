@@ -7,6 +7,7 @@
  */
 
 import { runQuery } from '../../sources/tables';
+import { projectContext } from '../../project-context-types';
 import type { ExecutorFn } from '../registry';
 
 /**
@@ -17,8 +18,8 @@ import type { ExecutorFn } from '../registry';
  * BigInts stringify (DuckDB returns INTEGER columns as BigInt); Dates
  * become ISO strings; everything else passes through as-is.
  */
-export const executeSql: ExecutorFn = async (code) => {
-  const response = await runQuery(code);
+export const executeSql: ExecutorFn = async (code, ctx) => {
+  const response = await runQuery(projectContext(ctx.rootPath), code);
   if (!response.ok) return { ok: false, error: response.error };
   return {
     ok: true,

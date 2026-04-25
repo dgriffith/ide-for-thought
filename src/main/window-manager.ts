@@ -149,7 +149,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   const debouncedPersist = () => {
     if (indexPersistTimer) clearTimeout(indexPersistTimer);
     indexPersistTimer = setTimeout(async () => {
-      await Promise.all([search.persist(), graph.persistGraph(projectCtx)]);
+      await Promise.all([search.persist(projectCtx), graph.persistGraph(projectCtx)]);
     }, 1000);
   };
 
@@ -162,14 +162,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       // pipeline means a graph indexing hiccup can't skip table registration.
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
-          await tables.registerCsv(rootPath, relativePath);
+          await tables.registerCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
-        search.indexNote(relativePath, content);
+        search.indexNote(projectCtx, relativePath, content);
         debouncedPersist();
       } catch (err) {
         // Usually a race (file deleted between events), but log so real bugs
@@ -181,14 +181,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (wasHandled(relativePath)) return;
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
-          await tables.registerCsv(rootPath, relativePath);
+          await tables.registerCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       }
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
-        search.indexNote(relativePath, content);
+        search.indexNote(projectCtx, relativePath, content);
         debouncedPersist();
       } catch (err) {
         console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
@@ -198,12 +198,12 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (wasHandled(relativePath)) return;
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
-          await tables.unregisterCsv(relativePath);
+          await tables.unregisterCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
       }
       try {
-        search.removeNote(relativePath);
+        search.removeNote(projectCtx, relativePath);
         graph.removeNote(projectCtx, relativePath);
       } catch (err) {
         console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
@@ -245,12 +245,12 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   watchers.set(win.id, rootPath);
 
   await graph.initGraph(projectCtx);
-  await tables.initTablesDb(rootPath);
+  await tables.initTablesDb(projectCtx);
   conversation.initConversations(rootPath);
   await Promise.all([
     graph.indexAllNotes(projectCtx),
-    search.indexAllNotes(rootPath),
-    tables.registerAllCsvs(rootPath),
+    search.indexAllNotes(projectCtx),
+    tables.registerAllCsvs(projectCtx),
   ]);
   // Tables panel subscribes to this; fires once after the initial scan so the
   // sidebar populates without the renderer having to poll.
