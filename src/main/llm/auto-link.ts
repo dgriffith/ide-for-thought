@@ -99,31 +99,36 @@ export async function suggestLinksTo(
   rootPath: string,
   activeRelPath: string,
 ): Promise<AutoLinkSuggestResult> {
-  const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
-  const parsed = parseMarkdown(activeContent);
-  const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
-  const activeTitle = parsed.title || activeRelPath.replace(/\.md$/i, '').split('/').pop() || activeRelPath;
+  graph.enterLLMContext();
+  try {
+    const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
+    const parsed = parseMarkdown(activeContent);
+    const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const activeTitle = parsed.title || activeRelPath.replace(/\.md$/i, '').split('/').pop() || activeRelPath;
 
-  const candidates = await listAutoLinkCandidates(rootPath, activeRelPath);
-  if (candidates.length === 0) {
-    return { suggestions: [], candidateCount: 0 };
+    const candidates = await listAutoLinkCandidates(rootPath, activeRelPath);
+    if (candidates.length === 0) {
+      return { suggestions: [], candidateCount: 0 };
+    }
+
+    const prompt = buildAutoLinkToPrompt({
+      activeTitle,
+      activeBody,
+      candidates,
+    });
+
+    const { model } = await getSettings();
+    const raw = await complete(prompt, { model });
+    const validTargets = new Set(candidates.map((c) => c.relativePath));
+    const suggestions = parseAutoLinkResponse(raw, validTargets);
+
+    // Keep only suggestions whose anchor text actually appears in the active
+    // body — otherwise the apply step would silently drop them anyway.
+    const filtered = suggestions.filter((s) => activeBody.includes(s.anchorText));
+    return { suggestions: filtered, candidateCount: candidates.length };
+  } finally {
+    graph.exitLLMContext();
   }
-
-  const prompt = buildAutoLinkToPrompt({
-    activeTitle,
-    activeBody,
-    candidates,
-  });
-
-  const { model } = await getSettings();
-  const raw = await complete(prompt, { model });
-  const validTargets = new Set(candidates.map((c) => c.relativePath));
-  const suggestions = parseAutoLinkResponse(raw, validTargets);
-
-  // Keep only suggestions whose anchor text actually appears in the active
-  // body — otherwise the apply step would silently drop them anyway.
-  const filtered = suggestions.filter((s) => activeBody.includes(s.anchorText));
-  return { suggestions: filtered, candidateCount: candidates.length };
 }
 
 /** Rewrites the active note with accepted suggestions. Returns the new content + bookkeeping. */
@@ -132,8 +137,13 @@ export async function applyAutoLinkToSuggestions(
   activeRelPath: string,
   accepted: AutoLinkSuggestion[],
 ): Promise<{ content: string; applied: AutoLinkSuggestion[]; skipped: AutoLinkSuggestion[] }> {
-  const current = await notebaseFs.readFile(rootPath, activeRelPath);
-  return applyLinkInsertions(current, accepted);
+  graph.enterLLMContext();
+  try {
+    const current = await notebaseFs.readFile(rootPath, activeRelPath);
+    return applyLinkInsertions(current, accepted);
+  } finally {
+    graph.exitLLMContext();
+  }
 }
 
 // ── Inbound mode (#175 follow-up) ─────────────────────────────────────────
@@ -222,6 +232,18 @@ export async function suggestLinksInbound(
   rootPath: string,
   activeRelPath: string,
 ): Promise<AutoLinkInboundResult> {
+  graph.enterLLMContext();
+  try {
+    return await suggestLinksInboundInner(rootPath, activeRelPath);
+  } finally {
+    graph.exitLLMContext();
+  }
+}
+
+async function suggestLinksInboundInner(
+  rootPath: string,
+  activeRelPath: string,
+): Promise<AutoLinkInboundResult> {
   const activeContent = await notebaseFs.readFile(rootPath, activeRelPath);
   const parsedActive = parseMarkdown(activeContent);
   const activeBody = activeContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
@@ -291,6 +313,19 @@ export interface ApplyInboundResult {
  * to persist. The caller is responsible for the write + reindex + broadcast.
  */
 export async function applyInboundSuggestions(
+  rootPath: string,
+  activeRelPath: string,
+  accepted: AutoLinkInboundSuggestion[],
+): Promise<ApplyInboundResult> {
+  graph.enterLLMContext();
+  try {
+    return await applyInboundSuggestionsInner(rootPath, activeRelPath, accepted);
+  } finally {
+    graph.exitLLMContext();
+  }
+}
+
+async function applyInboundSuggestionsInner(
   rootPath: string,
   activeRelPath: string,
   accepted: AutoLinkInboundSuggestion[],

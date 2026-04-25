@@ -1,5 +1,6 @@
 import * as notebaseFs from '../notebase/fs';
 import { parseMarkdown } from '../graph/parser';
+import * as graph from '../graph/index';
 import { complete } from './index';
 import { getSettings } from './settings';
 import {
@@ -31,20 +32,25 @@ export async function suggestDecomposition(
   activeRelPath: string,
   hints: DecomposeHints = {},
 ): Promise<SuggestDecompositionResult> {
-  const content = await notebaseFs.readFile(rootPath, activeRelPath);
-  const parsed = parseMarkdown(content);
-  const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-  const title = parsed.title
-    || activeRelPath.replace(/\.md$/i, '').split('/').pop()
-    || activeRelPath;
+  graph.enterLLMContext();
+  try {
+    const content = await notebaseFs.readFile(rootPath, activeRelPath);
+    const parsed = parseMarkdown(content);
+    const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const title = parsed.title
+      || activeRelPath.replace(/\.md$/i, '').split('/').pop()
+      || activeRelPath;
 
-  const prompt = buildDecomposePrompt({
-    sourceTitle: title,
-    sourceBody: body,
-    hints,
-  });
+    const prompt = buildDecomposePrompt({
+      sourceTitle: title,
+      sourceBody: body,
+      hints,
+    });
 
-  const { model } = await getSettings();
-  const raw = await complete(prompt, { model });
-  return parseDecomposeResponse(raw);
+    const { model } = await getSettings();
+    const raw = await complete(prompt, { model });
+    return parseDecomposeResponse(raw);
+  } finally {
+    graph.exitLLMContext();
+  }
 }

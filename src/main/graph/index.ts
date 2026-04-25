@@ -115,9 +115,12 @@ export function disposeProject(ctx: ProjectContext): void {
 // ── LLM Write Guard ───────────────────────────────────────────────────────
 // Tracks whether the current call path originates from an LLM operation.
 // Direct graph writes from LLM context that bypass the approval engine
-// are logged as warnings during development.
+// are logged as warnings during development. Approval engine wraps its
+// own writes in the *trusted* counter so its in-LLM-context writes don't
+// trigger the warning.
 
 let llmContextDepth = 0;
+let trustedContextDepth = 0;
 
 /** Mark the start of an LLM-originated operation. Nest-safe. */
 export function enterLLMContext(): void {
@@ -135,12 +138,30 @@ export function isInLLMContext(): boolean {
 }
 
 /**
- * Add a triple to the store with write-guard checking.
- * In LLM context, logs a warning unless the write is to a Proposal node.
+ * Mark the start of a trusted graph mutation — i.e. one going through the
+ * approval engine. Used by approval.ts to wrap its own parseIntoStore /
+ * removeMatchingTriples calls so the write guard doesn't flag them.
  */
-// `guardedAdd` removed — unused since landing. The trust-principle
-// enforcement work in #331 will reintroduce a similar check at the
-// approval-engine boundary, not as an opt-in store wrapper.
+export function enterTrustedContext(): void {
+  trustedContextDepth++;
+}
+
+export function exitTrustedContext(): void {
+  if (trustedContextDepth > 0) trustedContextDepth--;
+}
+
+/** Dev-time guard. Logs once per offending call when an LLM-originated
+ *  call path mutates the graph without going through the approval engine.
+ *  No-op in trusted context (proposeWrite / approveProposal / approval-only
+ *  mutators) and outside LLM context. */
+function checkLLMWriteGuard(operation: string): void {
+  if (!isInLLMContext()) return;
+  if (trustedContextDepth > 0) return;
+  console.warn(
+    `[trust-guard] ${operation} called from LLM context outside the approval engine. ` +
+    `LLM-originated writes must go through proposeWrite()/approveProposal().`,
+  );
+}
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
 
@@ -461,6 +482,7 @@ export async function indexNote(
   relativePath: string,
   content: string,
 ): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
+  checkLLMWriteGuard('indexNote');
   const state = getState(ctx);
   if (!state) return {};
   // Any successful exit through this function has mutated the rdflib
@@ -778,6 +800,7 @@ function xsdForDuckDbType(duckdbType: string) {
  *   so SPARQL queries can reason about columns-as-predicates.
  */
 export function indexCsvTable(ctx: ProjectContext, shape: CsvTableShape): void {
+  checkLLMWriteGuard('indexCsvTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -820,6 +843,7 @@ export function indexCsvTable(ctx: ProjectContext, shape: CsvTableShape): void {
 
 /** Remove all triples for a CSV table (entire named graph). */
 export function unindexCsvTable(ctx: ProjectContext, tableName: string): void {
+  checkLLMWriteGuard('unindexCsvTable');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -834,6 +858,7 @@ export function unindexCsvTable(ctx: ProjectContext, tableName: string): void {
  * markdown-embedded csvw:Table nodes don't carry — those stay.
  */
 export function unindexAllCsvTables(ctx: ProjectContext): void {
+  checkLLMWriteGuard('unindexAllCsvTables');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -958,6 +983,7 @@ function indexCsvFile(
 }
 
 export function removeNote(ctx: ProjectContext, relativePath: string): void {
+  checkLLMWriteGuard('removeNote');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -975,6 +1001,7 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
 // to that URI so users can write `this: a thought:Article ; dc:title ...`.
 
 export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
+  checkLLMWriteGuard('indexSource');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -1035,6 +1062,7 @@ function indexSourceBody(
 }
 
 export function removeSource(ctx: ProjectContext, sourceId: string): void {
+  checkLLMWriteGuard('removeSource');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -1065,6 +1093,7 @@ export function parseSourceIdFromPath(relativePath: string): string | null {
 //       thought:page 42 .
 
 export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
+  checkLLMWriteGuard('indexExcerpt');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -1091,6 +1120,7 @@ export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: st
 }
 
 export function removeExcerpt(ctx: ProjectContext, excerptId: string): void {
+  checkLLMWriteGuard('removeExcerpt');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -1750,6 +1780,7 @@ export async function persistGraph(ctx: ProjectContext): Promise<void> {
 
 /** Parse a Turtle string and add its triples to the store. Used by the approval engine. */
 export function parseIntoStore(ctx: ProjectContext, turtle: string): void {
+  checkLLMWriteGuard('parseIntoStore');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);
@@ -1771,6 +1802,7 @@ export function removeMatchingTriples(
   subjectIri: string,
   predicateIri: string,
 ): void {
+  checkLLMWriteGuard('removeMatchingTriples');
   const state = getState(ctx);
   if (!state) return;
   invalidate(state);

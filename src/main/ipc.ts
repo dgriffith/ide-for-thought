@@ -1113,6 +1113,7 @@ export function registerIpcHandlers(): void {
     const controller = new AbortController();
     convAbortControllers.set(win.id, controller);
 
+    graph.enterLLMContext();
     try {
       const conv = await conversation.appendMessage(convId, 'user', userMessage);
 
@@ -1154,6 +1155,7 @@ export function registerIpcHandlers(): void {
       return updated;
     } finally {
       convAbortControllers.delete(win.id);
+      graph.exitLLMContext();
     }
   });
 
