@@ -105,3 +105,21 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
 export function getProjectContext(rootPath: string): ProjectContext | null {
   return projects.get(rootPath)?.ctx ?? null;
 }
+
+/**
+ * Flush every currently-held project's persistent state to disk —
+ * called from app-quit so the cold-snapshot graph.ttl (#348) gets the
+ * latest before the process exits. Doesn't dispose state; an active
+ * project stays acquired until its last window closes.
+ */
+export async function flushAllProjects(): Promise<void> {
+  await Promise.all(
+    [...projects.values()].map(async (rec) => {
+      try {
+        await Promise.all([search.persist(rec.ctx), graph.persistGraph(rec.ctx)]);
+      } catch (err) {
+        console.warn(`[project-context] flush failed for ${rec.rootPath}:`, err);
+      }
+    }),
+  );
+}

@@ -1245,7 +1245,8 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   await walkAndIndex(rootPath, rootPath);
   count += await walkAndIndexSources(ctx, rootPath);
   count += await walkAndIndexExcerpts(ctx, rootPath);
-  await persistGraph(ctx);
+  // graph.ttl is a cold snapshot now (#348). The release / quit path
+  // writes the snapshot; an in-app rebuild only mutates the live store.
 
   async function walkAndIndex(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });

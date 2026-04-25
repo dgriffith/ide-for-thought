@@ -144,7 +144,10 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
 
 async function persistIndexes(rootPath: string): Promise<void> {
   const ctx = projectContext(rootPath);
-  await Promise.all([search.persist(ctx), graph.persistGraph(ctx)]);
+  // graph.ttl is a cold snapshot (#348). Persist only the search
+  // index here; the graph flushes on project release / app-quit.
+  void ctx;
+  await search.persist(ctx);
 }
 
 export function registerIpcHandlers(): void {
@@ -266,7 +269,7 @@ export function registerIpcHandlers(): void {
     await notebaseFs.writeFile(rootPath, relativePath, content);
     const ctx = projectContext(rootPath);
     const { headingRenameCandidate } = await graph.indexNote(ctx, relativePath, content);
-    await graph.persistGraph(ctx);
+    // graph.ttl is a cold snapshot (#348); flushes on release / quit.
     search.indexNote(ctx, relativePath, content);
     await search.persist(ctx);
     // If a heading edit looks like a rename with affected incoming links,
