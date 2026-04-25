@@ -14,6 +14,12 @@
  */
 
 import type MarkdownIt from 'markdown-it';
+// Type-only deep imports for parser-state classes — `MarkdownIt.StateBlock`
+// namespace lookups don't resolve through `@types/markdown-it`'s
+// `export = X` shape under isolatedModules. Keeping these as
+// `import type` means they don't ship to the bundler; if a future
+// markdown-it version moves the file the failure surfaces as a loud
+// typecheck error rather than a silent runtime miss (#347).
 import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs';
 import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
 import katex from 'katex';
