@@ -33,6 +33,9 @@ export const Channels = {
   // Links
   LINKS_OUTGOING: 'links:outgoing',
   LINKS_BACKLINKS: 'links:backlinks',
+  /** Coalesced fetch for the active-file link panels — one IPC, one
+   *  graph-state round-trip, both directions back together (#351). */
+  LINKS_BUNDLE: 'links:bundle',
 
   // Saved queries
   QUERIES_LIST: 'queries:list',

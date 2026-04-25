@@ -82,6 +82,8 @@ export interface HeadingRenameCandidate {
 export interface LinksApi {
   outgoing(relativePath: string): Promise<OutgoingLink[]>;
   backlinks(relativePath: string): Promise<Backlink[]>;
+  /** Coalesced fetch (#351) — both directions in one IPC. */
+  bundle(relativePath: string): Promise<{ outgoing: OutgoingLink[]; backlinks: Backlink[] }>;
 }
 
 export interface QueriesApi {

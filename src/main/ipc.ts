@@ -458,6 +458,19 @@ export function registerIpcHandlers(): void {
     return graph.backlinks(projectContext(rootPath), relativePath);
   });
 
+  // Coalesced bundle for the right-sidebar link panels (#351). Replaces
+  // the parallel LINKS_OUTGOING + LINKS_BACKLINKS round-trips on every
+  // tab switch — one IPC, one graph-state pass, both directions together.
+  ipcMain.handle(Channels.LINKS_BUNDLE, (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { outgoing: [], backlinks: [] };
+    const ctx = projectContext(rootPath);
+    return {
+      outgoing: graph.outgoingLinks(ctx, relativePath),
+      backlinks: graph.backlinks(ctx, relativePath),
+    };
+  });
+
   // Saved queries
   ipcMain.handle(Channels.QUERIES_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);
