@@ -21,8 +21,13 @@ export interface ProposedWrite {
   turtleDiff: string;
   /** Human-readable description */
   note: string;
-  /** URI of the node being created or modified */
-  affectsNodeUri?: string;
+  /**
+   * URIs of the nodes being created or modified by this proposal. The
+   * "Trust: Unreviewed LLM writes" stock query joins on
+   * `thought:affectsNode`, so every component the proposal mutates must
+   * appear here for the integrity check to find the proposal.
+   */
+  affectsNodeUris?: string[];
   /** URI of the conversation that produced this proposal */
   conversationUri?: string;
   /** Agent identifier */
@@ -37,7 +42,7 @@ export interface Proposal {
   operationType: string;
   turtleDiff: string;
   note: string;
-  affectsNodeUri?: string;
+  affectsNodeUris: string[];
   conversationUri?: string;
   proposedBy: string;
   proposedAt: string;
@@ -102,7 +107,7 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
     operationType: write.operationType,
     turtleDiff: write.turtleDiff,
     note: write.note,
-    affectsNodeUri: write.affectsNodeUri,
+    affectsNodeUris: write.affectsNodeUris ?? [],
     conversationUri: write.conversationUri,
     proposedBy: write.proposedBy,
     proposedAt: now,
@@ -178,7 +183,9 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
 
   const results = await graph.queryGraph(ctx, `
     PREFIX thought: <${THOUGHT}>
-    SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?turtleDiff ?affectsNode ?conversation WHERE {
+    SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?turtleDiff
+           (GROUP_CONCAT(DISTINCT ?affectsNode; separator="\\u001f") AS ?affectsNodes)
+           ?conversation WHERE {
       ?proposal a thought:Proposal .
       ?proposal thought:proposalStatus ?statusNode .
       BIND(REPLACE(STR(?statusNode), "${THOUGHT}", "") AS ?status)
@@ -192,6 +199,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
       OPTIONAL { ?proposal thought:affectsNode ?affectsNode }
       OPTIONAL { ?proposal thought:conversationRef ?conversation }
     }
+    GROUP BY ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?turtleDiff ?conversation
     ORDER BY DESC(?proposedAt)
   `);
 
@@ -201,7 +209,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
     operationType: r.operationType,
     turtleDiff: r.turtleDiff,
     note: r.note,
-    affectsNodeUri: r.affectsNode,
+    affectsNodeUris: splitAffectsNodes(r.affectsNodes),
     conversationUri: r.conversation,
     proposedBy: r.proposedBy,
     proposedAt: r.proposedAt,
@@ -234,13 +242,18 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
   if (rows.length === 0) return null;
 
   const r = rows[0];
+  // Multiple affectsNode rows show up as multiple result rows (one per URI).
+  // Collect them all rather than just the first.
+  const affectsNodeUris = Array.from(
+    new Set(rows.map(row => row.affectsNode).filter((u): u is string => Boolean(u)))
+  );
   return {
     uri,
     status: r.status as Proposal['status'],
     operationType: r.operationType,
     turtleDiff: r.turtleDiff,
     note: r.note,
-    affectsNodeUri: r.affectsNode,
+    affectsNodeUris,
     conversationUri: r.conversation,
     proposedBy: r.proposedBy,
     proposedAt: r.proposedAt,
@@ -248,9 +261,18 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
   };
 }
 
+/** Split the GROUP_CONCAT result for affectsNode URIs back into a list. */
+function splitAffectsNodes(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.split('').filter(Boolean);
+}
+
 // ── Internal Helpers ───────────────────────────────────────────────────────
 
 async function writeProposalToGraph(ctx: ProjectContext, p: Proposal): Promise<void> {
+  const affectsNodeTriples = p.affectsNodeUris
+    .map(u => `; thought:affectsNode <${u}>`)
+    .join('\n      ');
   const turtle = `
     <${p.uri}> a thought:Proposal ;
       thought:proposalStatus thought:${p.status} ;
@@ -260,7 +282,7 @@ async function writeProposalToGraph(ctx: ProjectContext, p: Proposal): Promise<v
       thought:proposedAt "${p.proposedAt}"^^xsd:dateTime ;
       thought:autoExpires "${p.autoExpires}"^^xsd:dateTime ;
       thought:proposalDiff "${escapeTurtle(p.turtleDiff)}"
-      ${p.affectsNodeUri ? `; thought:affectsNode <${p.affectsNodeUri}>` : ''}
+      ${affectsNodeTriples}
       ${p.conversationUri ? `; thought:conversationRef <${p.conversationUri}>` : ''} .
   `;
   await applyTurtle(ctx, turtle);
@@ -271,7 +293,12 @@ async function updateProposalStatus(ctx: ProjectContext, uri: string, newStatus:
   // before adding the new one — otherwise the proposal accumulates
   // {pending, approved, ...} markers and history queries return all
   // historical states (#332).
-  graph.removeMatchingTriples(ctx, uri, `${THOUGHT}proposalStatus`);
+  graph.enterTrustedContext();
+  try {
+    graph.removeMatchingTriples(ctx, uri, `${THOUGHT}proposalStatus`);
+  } finally {
+    graph.exitTrustedContext();
+  }
   await applyTurtle(ctx, `<${uri}> thought:proposalStatus thought:${newStatus} .`);
 }
 
@@ -287,7 +314,15 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
     @prefix prov: <http://www.w3.org/ns/prov#> .
     ${turtle}
   `;
-  graph.parseIntoStore(ctx, prefixed);
+  // Approval engine writes are the *only* in-LLM-context writes that
+  // shouldn't trip the trust guard. Everything else flowing through
+  // parseIntoStore from an LLM call site is a bug we want to know about.
+  graph.enterTrustedContext();
+  try {
+    graph.parseIntoStore(ctx, prefixed);
+  } finally {
+    graph.exitTrustedContext();
+  }
   await graph.persistGraph(ctx);
 }
 

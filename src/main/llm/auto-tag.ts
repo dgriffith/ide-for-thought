@@ -28,32 +28,37 @@ export async function runAutoTag(
   rootPath: string,
   relativePath: string,
 ): Promise<AutoTagPlan> {
-  const content = await notebaseFs.readFile(rootPath, relativePath);
-  const parsed = parseMarkdown(content);
+  graph.enterLLMContext();
+  try {
+    const content = await notebaseFs.readFile(rootPath, relativePath);
+    const parsed = parseMarkdown(content);
 
-  const thoughtbaseTags = graph.listTags(projectContext(rootPath)).map((t) => t.tag);
-  const existingNoteTags: string[] = [];
-  if (Array.isArray(parsed.frontmatter.tags)) {
-    for (const t of parsed.frontmatter.tags) {
-      if (typeof t === 'string') existingNoteTags.push(t);
+    const thoughtbaseTags = graph.listTags(projectContext(rootPath)).map((t) => t.tag);
+    const existingNoteTags: string[] = [];
+    if (Array.isArray(parsed.frontmatter.tags)) {
+      for (const t of parsed.frontmatter.tags) {
+        if (typeof t === 'string') existingNoteTags.push(t);
+      }
     }
+
+    const noteBody = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    const prompt = buildAutoTagPrompt({
+      noteTitle: parsed.title ?? '',
+      noteBody,
+      existingNoteTags,
+      thoughtbaseTags,
+    });
+
+    const { model } = await getSettings();
+    const raw = await complete(prompt, { model });
+    const suggested = parseAutoTagResponse(raw);
+    if (suggested.length === 0) return { added: [], content: null };
+
+    const { content: next, addedTags } = mergeTagsIntoContent(content, suggested);
+    if (addedTags.length === 0) return { added: [], content: null };
+
+    return { added: addedTags, content: next };
+  } finally {
+    graph.exitLLMContext();
   }
-
-  const noteBody = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
-  const prompt = buildAutoTagPrompt({
-    noteTitle: parsed.title ?? '',
-    noteBody,
-    existingNoteTags,
-    thoughtbaseTags,
-  });
-
-  const { model } = await getSettings();
-  const raw = await complete(prompt, { model });
-  const suggested = parseAutoTagResponse(raw);
-  if (suggested.length === 0) return { added: [], content: null };
-
-  const { content: next, addedTags } = mergeTagsIntoContent(content, suggested);
-  if (addedTags.length === 0) return { added: [], content: null };
-
-  return { added: addedTags, content: next };
 }
