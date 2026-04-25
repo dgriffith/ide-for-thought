@@ -8,6 +8,7 @@ import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
 import { installCsp } from './security';
+import { flushAllProjects } from './project-context';
 
 app.setName('Minerva');
 
@@ -49,4 +50,19 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// graph.ttl is a cold snapshot (#348). releaseProject persists per-project
+// when a window closes; this catches Cmd+Q where windows close concurrently
+// and we want the snapshot on disk before the process exits. Re-emits the
+// before-quit event after the flush so Electron's normal teardown still
+// runs.
+let isFlushingForQuit = false;
+app.on('before-quit', (event) => {
+  if (isFlushingForQuit) return;
+  event.preventDefault();
+  isFlushingForQuit = true;
+  flushAllProjects()
+    .catch((err) => console.warn('[quit] project flush failed:', err))
+    .finally(() => app.quit());
 });

@@ -162,7 +162,11 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   const debouncedPersist = () => {
     if (indexPersistTimer) clearTimeout(indexPersistTimer);
     indexPersistTimer = setTimeout(async () => {
-      await Promise.all([search.persist(projectCtx), graph.persistGraph(projectCtx)]);
+      // graph.ttl is a cold snapshot now (#348) — fully reconstructible
+      // from notes/sources/excerpts/CSVs/conversations/proposals, so we
+      // skip per-write serialization. Search index isn't reconstructed
+      // automatically, so it still gets the live persist.
+      await search.persist(projectCtx);
     }, 1000);
   };
 
