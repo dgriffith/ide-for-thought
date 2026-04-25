@@ -1,4 +1,5 @@
 import * as graph from '../graph/index';
+import type { ProjectContext } from '../project-context-types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -83,14 +84,14 @@ function proposalUri(): string {
  * - notify_only: applies the write immediately, creates an approved Proposal for audit
  * - autonomous: applies the write immediately, no proposal record
  */
-export async function proposeWrite(write: ProposedWrite): Promise<Proposal | null> {
+export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal | null> {
   const tier = getApprovalTier(write.operationType);
   const now = new Date().toISOString();
   const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * 86400000).toISOString();
 
   if (tier === 'autonomous') {
     // Apply immediately, no record
-    await applyTurtle(write.turtleDiff);
+    await applyTurtle(ctx, write.turtleDiff);
     return null;
   }
 
@@ -109,11 +110,11 @@ export async function proposeWrite(write: ProposedWrite): Promise<Proposal | nul
   };
 
   // Write proposal metadata to graph
-  await writeProposalToGraph(proposal);
+  await writeProposalToGraph(ctx, proposal);
 
   // For notify_only, also apply the mutation immediately
   if (tier === 'notify_only') {
-    await applyTurtle(write.turtleDiff);
+    await applyTurtle(ctx, write.turtleDiff);
   }
 
   return proposal;
@@ -122,31 +123,31 @@ export async function proposeWrite(write: ProposedWrite): Promise<Proposal | nul
 /**
  * Approve a pending proposal: apply its turtle diff and update status.
  */
-export async function approveProposal(uri: string): Promise<boolean> {
-  const proposal = await getProposal(uri);
+export async function approveProposal(ctx: ProjectContext, uri: string): Promise<boolean> {
+  const proposal = await getProposal(ctx, uri);
   if (!proposal || proposal.status !== 'pending') return false;
 
-  await applyTurtle(proposal.turtleDiff);
-  await updateProposalStatus(uri, 'approved');
+  await applyTurtle(ctx, proposal.turtleDiff);
+  await updateProposalStatus(ctx, uri, 'approved');
   return true;
 }
 
 /**
  * Reject a pending proposal: update status without applying.
  */
-export async function rejectProposal(uri: string): Promise<boolean> {
-  const proposal = await getProposal(uri);
+export async function rejectProposal(ctx: ProjectContext, uri: string): Promise<boolean> {
+  const proposal = await getProposal(ctx, uri);
   if (!proposal || proposal.status !== 'pending') return false;
 
-  await updateProposalStatus(uri, 'rejected');
+  await updateProposalStatus(ctx, uri, 'rejected');
   return true;
 }
 
 /**
  * Expire proposals past their autoExpires date.
  */
-export async function expireProposals(): Promise<number> {
-  const results = await graph.queryGraph(`
+export async function expireProposals(ctx: ProjectContext): Promise<number> {
+  const results = await graph.queryGraph(ctx, `
     PREFIX thought: <${THOUGHT}>
     SELECT ?proposal ?expires WHERE {
       ?proposal a thought:Proposal .
@@ -160,7 +161,7 @@ export async function expireProposals(): Promise<number> {
   for (const row of results.results as Record<string, string>[]) {
     const expires = new Date(row.expires);
     if (expires <= now) {
-      await updateProposalStatus(row.proposal, 'expired');
+      await updateProposalStatus(ctx, row.proposal, 'expired');
       count++;
     }
   }
@@ -170,12 +171,12 @@ export async function expireProposals(): Promise<number> {
 /**
  * List proposals, optionally filtered by status.
  */
-export async function listProposals(status?: string): Promise<Proposal[]> {
+export async function listProposals(ctx: ProjectContext, status?: string): Promise<Proposal[]> {
   const statusFilter = status
     ? `?proposal thought:proposalStatus thought:${status} .`
     : '';
 
-  const results = await graph.queryGraph(`
+  const results = await graph.queryGraph(ctx, `
     PREFIX thought: <${THOUGHT}>
     SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?turtleDiff ?affectsNode ?conversation WHERE {
       ?proposal a thought:Proposal .
@@ -211,8 +212,8 @@ export async function listProposals(status?: string): Promise<Proposal[]> {
 /**
  * Get a single proposal by URI.
  */
-export async function getProposal(uri: string): Promise<Proposal | null> {
-  const results = await graph.queryGraph(`
+export async function getProposal(ctx: ProjectContext, uri: string): Promise<Proposal | null> {
+  const results = await graph.queryGraph(ctx, `
     PREFIX thought: <${THOUGHT}>
     SELECT ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?turtleDiff ?affectsNode ?conversation WHERE {
       <${uri}> a thought:Proposal .
@@ -249,7 +250,7 @@ export async function getProposal(uri: string): Promise<Proposal | null> {
 
 // ── Internal Helpers ───────────────────────────────────────────────────────
 
-async function writeProposalToGraph(p: Proposal): Promise<void> {
+async function writeProposalToGraph(ctx: ProjectContext, p: Proposal): Promise<void> {
   const turtle = `
     <${p.uri}> a thought:Proposal ;
       thought:proposalStatus thought:${p.status} ;
@@ -262,19 +263,19 @@ async function writeProposalToGraph(p: Proposal): Promise<void> {
       ${p.affectsNodeUri ? `; thought:affectsNode <${p.affectsNodeUri}>` : ''}
       ${p.conversationUri ? `; thought:conversationRef <${p.conversationUri}>` : ''} .
   `;
-  await applyTurtle(turtle);
+  await applyTurtle(ctx, turtle);
 }
 
-async function updateProposalStatus(uri: string, newStatus: string): Promise<void> {
+async function updateProposalStatus(ctx: ProjectContext, uri: string, newStatus: string): Promise<void> {
   // Drop any prior thought:proposalStatus triples on this proposal
   // before adding the new one — otherwise the proposal accumulates
   // {pending, approved, ...} markers and history queries return all
   // historical states (#332).
-  graph.removeMatchingTriples(uri, `${THOUGHT}proposalStatus`);
-  await applyTurtle(`<${uri}> thought:proposalStatus thought:${newStatus} .`);
+  graph.removeMatchingTriples(ctx, uri, `${THOUGHT}proposalStatus`);
+  await applyTurtle(ctx, `<${uri}> thought:proposalStatus thought:${newStatus} .`);
 }
 
-async function applyTurtle(turtle: string): Promise<void> {
+async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
   // Use the graph module's parse infrastructure with standard prefixes
   const prefixed = `
     @prefix thought: <${THOUGHT}> .
@@ -286,8 +287,8 @@ async function applyTurtle(turtle: string): Promise<void> {
     @prefix prov: <http://www.w3.org/ns/prov#> .
     ${turtle}
   `;
-  graph.parseIntoStore(prefixed);
-  await graph.persistGraph();
+  graph.parseIntoStore(ctx, prefixed);
+  await graph.persistGraph(ctx);
 }
 
 function escapeTurtle(s: string): string {

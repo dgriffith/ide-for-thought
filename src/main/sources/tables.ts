@@ -3,6 +3,12 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
+import { projectContext } from '../project-context-types';
+
+function activeCtx() {
+  if (!currentRootPath) throw new Error('Tables DB is not initialized — no project open');
+  return projectContext(currentRootPath);
+}
 
 // ── Module state ────────────────────────────────────────────────────────────
 // Matches the `graph` module: single live project at a time. If Minerva ever
@@ -148,7 +154,7 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
       await connection.run(`DROP VIEW IF EXISTS "${previousName}"`);
     } catch { /* tolerate the rare rename race */ }
     tableToPath.delete(previousName);
-    unindexCsvTable(previousName);
+    unindexCsvTable(activeCtx(), previousName);
   }
 
   const absPath = path.join(rootPath, relativePath);
@@ -194,7 +200,7 @@ async function indexCsvTableShape(relativePath: string, tableName: string): Prom
       // ordinal_position is 1-based in DuckDB; we publish 0-based.
       index: Number(r.ordinal_position) - 1,
     }));
-    indexCsvTable({ tableName, relativePath, columns });
+    indexCsvTable(activeCtx(), { tableName, relativePath, columns });
   } catch (err) {
     console.warn(
       `[tables] Failed to index '${tableName}' into graph: ` +
@@ -213,7 +219,7 @@ export async function unregisterCsv(relativePath: string): Promise<void> {
   } catch { /* view may already be gone */ }
   pathToTable.delete(relativePath);
   tableToPath.delete(tableName);
-  unindexCsvTable(tableName);
+  unindexCsvTable(activeCtx(), tableName);
 }
 
 /**
@@ -225,7 +231,7 @@ export async function registerAllCsvs(rootPath: string): Promise<number> {
   // Wipe stale CSV-table triples up front so CSVs deleted while the app
   // was closed don't linger in the graph after a full rescan. Each
   // registered CSV writes its own triples as it goes.
-  unindexAllCsvTables();
+  unindexAllCsvTables(activeCtx());
   let count = 0;
   async function walk(dirPath: string) {
     let entries: import('node:fs').Dirent[];

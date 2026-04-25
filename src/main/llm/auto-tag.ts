@@ -1,6 +1,7 @@
 import * as notebaseFs from '../notebase/fs';
 import { parseMarkdown } from '../graph/parser';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 import { complete } from './index';
 import { getSettings } from './settings';
 import {
@@ -30,7 +31,7 @@ export async function runAutoTag(
   const content = await notebaseFs.readFile(rootPath, relativePath);
   const parsed = parseMarkdown(content);
 
-  const thoughtbaseTags = graph.listTags().map((t) => t.tag);
+  const thoughtbaseTags = graph.listTags(projectContext(rootPath)).map((t) => t.tag);
   const existingNoteTags: string[] = [];
   if (Array.isArray(parsed.frontmatter.tags)) {
     for (const t of parsed.frontmatter.tags) {

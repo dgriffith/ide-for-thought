@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as notebaseFs from './fs';
 import { rewriteTypedIdLinks } from './link-rewriting';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 
 export interface RenameIdOptions {
   markPathHandled?: (relativePath: string) => void;
@@ -26,26 +27,27 @@ export async function renameSource(
 ): Promise<RenameIdResult> {
   if (oldId === newId) return { rewrittenPaths: [] };
   const { markPathHandled, reindexHook } = opts;
+  const ctx = projectContext(rootPath);
 
   const oldDir = path.join(rootPath, '.minerva', 'sources', oldId);
   const newDir = path.join(rootPath, '.minerva', 'sources', newId);
 
   // Collect referring notes BEFORE the graph changes — query the old id.
-  const referringNotes = graph.findNotesCitingSource(oldId);
+  const referringNotes = graph.findNotesCitingSource(ctx, oldId);
 
   // Rename on disk.
   await fs.mkdir(path.dirname(newDir), { recursive: true });
   await fs.rename(oldDir, newDir);
 
   // Swap graph: remove old, index new.
-  graph.removeSource(oldId);
+  graph.removeSource(ctx, oldId);
   try {
     const metaContent = await fs.readFile(path.join(newDir, 'meta.ttl'), 'utf-8');
     let bodyContent: string | undefined;
     try {
       bodyContent = await fs.readFile(path.join(newDir, 'body.md'), 'utf-8');
     } catch { /* body optional */ }
-    graph.indexSource(newId, metaContent, bodyContent);
+    graph.indexSource(ctx, newId, metaContent, bodyContent);
   } catch {
     // meta.ttl missing — source is effectively removed as far as the graph is concerned.
   }
@@ -73,19 +75,20 @@ export async function renameExcerpt(
 ): Promise<RenameIdResult> {
   if (oldId === newId) return { rewrittenPaths: [] };
   const { markPathHandled, reindexHook } = opts;
+  const ctx = projectContext(rootPath);
 
   const oldPath = path.join(rootPath, '.minerva', 'excerpts', `${oldId}.ttl`);
   const newPath = path.join(rootPath, '.minerva', 'excerpts', `${newId}.ttl`);
 
-  const referringNotes = graph.findNotesQuotingExcerpt(oldId);
+  const referringNotes = graph.findNotesQuotingExcerpt(ctx, oldId);
 
   await fs.mkdir(path.dirname(newPath), { recursive: true });
   await fs.rename(oldPath, newPath);
 
-  graph.removeExcerpt(oldId);
+  graph.removeExcerpt(ctx, oldId);
   try {
     const content = await fs.readFile(newPath, 'utf-8');
-    graph.indexExcerpt(newId, content);
+    graph.indexExcerpt(ctx, newId, content);
   } catch {
     // ttl missing — excerpt removed.
   }
@@ -116,7 +119,7 @@ async function rewriteReferringNotes(
       if (rewritten === content) continue;
       markPathHandled?.(notePath);
       await notebaseFs.writeFile(rootPath, notePath, rewritten);
-      await graph.indexNote(notePath, rewritten);
+      await graph.indexNote(projectContext(rootPath), notePath, rewritten);
       reindexHook?.(notePath, rewritten);
       rewrittenPaths.push(notePath);
     } catch (err) {

@@ -10,6 +10,7 @@ import {
   queryGraph,
   parseSourceIdFromPath,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-sources-test-'));
@@ -38,10 +39,12 @@ this: a thought:WebPage ;
 
 describe('source indexing (issue #89)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -51,9 +54,9 @@ describe('source indexing (issue #89)', () => {
   it('indexAllNotes picks up hand-placed sources under .minerva/sources/', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
     writeSourceMeta(root, 'example-page', WEBPAGE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?id ?title WHERE {
         ?src minerva:sourceId ?id ; dc:title ?title .
       } ORDER BY ?id
@@ -65,9 +68,9 @@ describe('source indexing (issue #89)', () => {
 
   it('stores the source subtype from meta.ttl', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?type WHERE {
         ?src minerva:sourceId "smith-2023" ; a ?type .
         FILTER(STRSTARTS(STR(?type), "https://minerva.dev/ontology/thought#"))
@@ -79,9 +82,9 @@ describe('source indexing (issue #89)', () => {
 
   it('exposes source metadata (title, creator, doi) on the source node', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       PREFIX bibo: <http://purl.org/ontology/bibo/>
       SELECT ?title ?creator ?doi WHERE {
         ?src minerva:sourceId "smith-2023" .
@@ -98,9 +101,9 @@ describe('source indexing (issue #89)', () => {
 
   it('records relativePath pointing at .minerva/sources/<id>/meta.ttl', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?path WHERE { ?src minerva:sourceId "smith-2023" ; minerva:relativePath ?path . }
     `);
     const row = (results as Array<{ path: string }>)[0];
@@ -109,10 +112,10 @@ describe('source indexing (issue #89)', () => {
 
   it('removeSource drops the source from the graph', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    removeSource('smith-2023');
-    const { results } = await queryGraph(`
+    removeSource(ctx, 'smith-2023');
+    const { results } = await queryGraph(ctx, `
       SELECT ?id WHERE { ?src minerva:sourceId ?id . }
     `);
     expect(results).toHaveLength(0);
@@ -120,16 +123,16 @@ describe('source indexing (issue #89)', () => {
 
   it('re-indexing a source replaces its triples (no duplication)', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     const updated = `
       this: a thought:Article ;
           dc:title "A revised title" ;
           dc:creator "Alice Smith" .
     `;
-    indexSource('smith-2023', updated);
+    indexSource(ctx, 'smith-2023', updated);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?title WHERE { ?src minerva:sourceId "smith-2023" ; dc:title ?title . }
     `);
     const titles = (results as Array<{ title: string }>).map(r => r.title);

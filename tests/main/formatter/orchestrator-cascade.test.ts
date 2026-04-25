@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { formatFile } from '../../../src/main/formatter/orchestrator';
 // Rule side-effects — the orchestrator already imports the barrel, but we
 // repeat here so the test file is explicit about what it's exercising.
@@ -24,10 +25,12 @@ function readNote(root: string, rel: string): string {
 
 describe('formatter orchestrator heading-rename cascade (#156)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -39,8 +42,8 @@ describe('formatter orchestrator heading-rename cascade (#156)', () => {
     writeNote(root, 'notes/my-note.md', '# Old Title\n\nbody\n');
     writeNote(root, 'notes/other.md', 'See [[notes/my-note#old-title]] for context.\n');
 
-    await indexNote('notes/my-note.md', readNote(root, 'notes/my-note.md'));
-    await indexNote('notes/other.md', readNote(root, 'notes/other.md'));
+    await indexNote(ctx, 'notes/my-note.md', readNote(root, 'notes/my-note.md'));
+    await indexNote(ctx, 'notes/other.md', readNote(root, 'notes/other.md'));
 
     const result = await formatFile(root, 'notes/my-note.md', {
       enabled: { 'file-name-heading': true },
@@ -59,8 +62,8 @@ describe('formatter orchestrator heading-rename cascade (#156)', () => {
     writeNote(root, 'notes/foo.md', '# hello world\n\nbody\n');
     writeNote(root, 'notes/other.md', 'See [[notes/foo#hello-world]].\n');
 
-    await indexNote('notes/foo.md', readNote(root, 'notes/foo.md'));
-    await indexNote('notes/other.md', readNote(root, 'notes/other.md'));
+    await indexNote(ctx, 'notes/foo.md', readNote(root, 'notes/foo.md'));
+    await indexNote(ctx, 'notes/other.md', readNote(root, 'notes/other.md'));
 
     const result = await formatFile(root, 'notes/foo.md', {
       enabled: { 'capitalize-headings': true },
@@ -85,7 +88,7 @@ describe('formatter orchestrator heading-rename cascade (#156)', () => {
     // rename was detected (no change to existing headings, just an insert).
     writeNote(root, 'notes/foo.md', 'no heading yet\n');
 
-    await indexNote('notes/foo.md', readNote(root, 'notes/foo.md'));
+    await indexNote(ctx, 'notes/foo.md', readNote(root, 'notes/foo.md'));
 
     const result = await formatFile(root, 'notes/foo.md', {
       enabled: { 'file-name-heading': true },

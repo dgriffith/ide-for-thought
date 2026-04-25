@@ -8,6 +8,7 @@ import {
   findNotesLinkingToAnchor,
   headingsFor,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { renameAnchor } from '../../../src/main/notebase/rename-anchor';
 import { rewriteAnchorInLinks } from '../../../src/main/notebase/link-rewriting';
 
@@ -27,10 +28,12 @@ function readNote(root: string, relPath: string): string {
 
 describe('heading snapshots (issue #139)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -38,22 +41,22 @@ describe('heading snapshots (issue #139)', () => {
   });
 
   it('records headings after indexNote', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n## Overview\n\n## Components');
-    const headings = headingsFor('notes/foo.md');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview\n\n## Components');
+    const headings = headingsFor(ctx, 'notes/foo.md');
     expect(headings.map((h) => h.slug).sort()).toEqual(['components', 'foo', 'overview']);
   });
 
   it('does not flag a rename on the first indexNote call (initial index)', async () => {
     // Pre-seed some incoming links, then first-index the target — should not prompt.
-    await indexNote('other.md', 'See [[notes/foo#overview]].');
-    const { headingRenameCandidate } = await indexNote('notes/foo.md', '# Foo\n\n## Overview');
+    await indexNote(ctx, 'other.md', 'See [[notes/foo#overview]].');
+    const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview');
     expect(headingRenameCandidate).toBeUndefined();
   });
 
   it('flags a single heading rename with >0 incoming anchored links', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n## Overview');
-    await indexNote('other.md', 'See [[notes/foo#overview]].');
-    const { headingRenameCandidate } = await indexNote('notes/foo.md', '# Foo\n\n## Summary');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview');
+    await indexNote(ctx, 'other.md', 'See [[notes/foo#overview]].');
+    const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Summary');
     expect(headingRenameCandidate).toBeDefined();
     expect(headingRenameCandidate!.oldSlug).toBe('overview');
     expect(headingRenameCandidate!.newSlug).toBe('summary');
@@ -61,29 +64,29 @@ describe('heading snapshots (issue #139)', () => {
   });
 
   it('does not flag when there are no incoming links to the old slug', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n## Overview');
-    const { headingRenameCandidate } = await indexNote('notes/foo.md', '# Foo\n\n## Summary');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview');
+    const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Summary');
     expect(headingRenameCandidate).toBeUndefined();
   });
 
   it('does not flag ambiguous cases (multiple removals or additions)', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n## A\n\n## B');
-    await indexNote('other.md', '[[notes/foo#a]] [[notes/foo#b]]');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## A\n\n## B');
+    await indexNote(ctx, 'other.md', '[[notes/foo#a]] [[notes/foo#b]]');
     // Rename A→X and B→Y in the same edit — ambiguous, skip.
-    const { headingRenameCandidate } = await indexNote('notes/foo.md', '# Foo\n\n## X\n\n## Y');
+    const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## X\n\n## Y');
     expect(headingRenameCandidate).toBeUndefined();
   });
 
   it('does not flag a pure deletion (one removal, no addition)', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n## Overview');
-    await indexNote('other.md', '[[notes/foo#overview]]');
-    const { headingRenameCandidate } = await indexNote('notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview');
+    await indexNote(ctx, 'other.md', '[[notes/foo#overview]]');
+    const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo');
     expect(headingRenameCandidate).toBeUndefined();
   });
 
   it('ignores headings inside fenced code blocks', async () => {
-    await indexNote('notes/foo.md', '# Foo\n\n```\n## Not a heading\n```\n\n## Real');
-    const slugs = headingsFor('notes/foo.md').map((h) => h.slug);
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n```\n## Not a heading\n```\n\n## Real');
+    const slugs = headingsFor(ctx, 'notes/foo.md').map((h) => h.slug);
     expect(slugs).toContain('real');
     expect(slugs).not.toContain('not-a-heading');
   });
@@ -91,10 +94,12 @@ describe('heading snapshots (issue #139)', () => {
 
 describe('findNotesLinkingToAnchor (issue #139)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -102,22 +107,24 @@ describe('findNotesLinkingToAnchor (issue #139)', () => {
   });
 
   it('returns only notes with the exact anchor', async () => {
-    await indexNote('notes/foo.md', '# Foo');
-    await indexNote('a.md', '[[notes/foo#overview]]');
-    await indexNote('b.md', '[[notes/foo#other]]');
-    await indexNote('c.md', '[[notes/foo]]');  // no anchor
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'a.md', '[[notes/foo#overview]]');
+    await indexNote(ctx, 'b.md', '[[notes/foo#other]]');
+    await indexNote(ctx, 'c.md', '[[notes/foo]]');  // no anchor
 
-    expect(findNotesLinkingToAnchor('notes/foo.md', 'overview').sort()).toEqual(['a.md']);
-    expect(findNotesLinkingToAnchor('notes/foo.md', 'other').sort()).toEqual(['b.md']);
+    expect(findNotesLinkingToAnchor(ctx, 'notes/foo.md', 'overview').sort()).toEqual(['a.md']);
+    expect(findNotesLinkingToAnchor(ctx, 'notes/foo.md', 'other').sort()).toEqual(['b.md']);
   });
 });
 
 describe('renameAnchor integration (issue #139)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -129,10 +136,10 @@ describe('renameAnchor integration (issue #139)', () => {
     writeNote(root, 'a.md', 'See [[notes/foo#overview]].');
     writeNote(root, 'b.md', '[[supports::notes/foo#overview|rationale]]');
     writeNote(root, 'c.md', '[[notes/foo#unrelated]]');
-    await indexNote('notes/foo.md', '# Foo\n\n## Summary');
-    await indexNote('a.md', 'See [[notes/foo#overview]].');
-    await indexNote('b.md', '[[supports::notes/foo#overview|rationale]]');
-    await indexNote('c.md', '[[notes/foo#unrelated]]');
+    await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Summary');
+    await indexNote(ctx, 'a.md', 'See [[notes/foo#overview]].');
+    await indexNote(ctx, 'b.md', '[[supports::notes/foo#overview|rationale]]');
+    await indexNote(ctx, 'c.md', '[[notes/foo#unrelated]]');
 
     const { rewrittenPaths } = await renameAnchor(root, 'notes/foo.md', 'overview', 'summary');
 

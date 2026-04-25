@@ -4,6 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexSource, indexExcerpt, listAllSources, excerptIdsForSource } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 import { deleteSource } from '../../../src/main/sources/delete-source';
 
 function mkTemp(): string {
@@ -12,10 +13,12 @@ function mkTemp(): string {
 
 describe('deleteSource', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTemp();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(async () => {
@@ -31,7 +34,7 @@ describe('deleteSource', () => {
     await fsp.writeFile(path.join(sourceDir, 'body.md'), '# Test\n');
     await fsp.writeFile(path.join(sourceDir, 'original.pdf'), new Uint8Array([0x25, 0x50, 0x44, 0x46]));
 
-    indexSource(sourceId,
+    indexSource(ctx, sourceId,
       'this: a thought:PDFSource ; dc:title "Test" .\n',
       '# Test\n',
     );
@@ -41,12 +44,12 @@ describe('deleteSource', () => {
     for (const exId of ['ex-1', 'ex-2']) {
       const ttl = `this: a thought:Excerpt ;\n  thought:fromSource sources:${sourceId} ;\n  thought:citedText "..." .\n`;
       await fsp.writeFile(path.join(excerptsDir, `${exId}.ttl`), ttl);
-      indexExcerpt(exId, ttl);
+      indexExcerpt(ctx, exId, ttl);
     }
 
     // Sanity: the source + excerpts are in the graph before deletion.
-    expect(listAllSources().some((s) => s.sourceId === sourceId)).toBe(true);
-    expect(excerptIdsForSource(sourceId).sort()).toEqual(['ex-1', 'ex-2']);
+    expect(listAllSources(ctx).some((s) => s.sourceId === sourceId)).toBe(true);
+    expect(excerptIdsForSource(ctx, sourceId).sort()).toEqual(['ex-1', 'ex-2']);
 
     const result = await deleteSource(root, sourceId);
 
@@ -55,8 +58,8 @@ describe('deleteSource', () => {
     expect(fs.existsSync(sourceDir)).toBe(false);
     expect(fs.existsSync(path.join(excerptsDir, 'ex-1.ttl'))).toBe(false);
     expect(fs.existsSync(path.join(excerptsDir, 'ex-2.ttl'))).toBe(false);
-    expect(listAllSources().some((s) => s.sourceId === sourceId)).toBe(false);
-    expect(excerptIdsForSource(sourceId)).toEqual([]);
+    expect(listAllSources(ctx).some((s) => s.sourceId === sourceId)).toBe(false);
+    expect(excerptIdsForSource(ctx, sourceId)).toEqual([]);
   });
 
   it('is a no-op on an already-deleted source', async () => {

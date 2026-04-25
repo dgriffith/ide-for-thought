@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as notebaseFs from '../notebase/fs';
 import { parseMarkdown } from '../graph/parser';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 import { complete } from './index';
 import { getSettings } from './settings';
 import {
@@ -162,7 +163,7 @@ export async function pickInboundCandidates(
 
   const scored = new Map<string, number>();
   for (const tag of tags) {
-    for (const note of graph.notesByTag(tag)) {
+    for (const note of graph.notesByTag(projectContext(rootPath), tag)) {
       if (note.relativePath === activeRelPath) continue;
       scored.set(note.relativePath, (scored.get(note.relativePath) ?? 0) + 1);
     }

@@ -1,4 +1,5 @@
 import { queryGraph } from './index';
+import type { ProjectContext } from '../project-context-types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -14,11 +15,11 @@ export interface Inspection {
   suggestedAction?: string;
 }
 
-let lastResults: Inspection[] = [];
+const lastResultsByProject = new Map<string, Inspection[]>();
 let running = false;
 
-export function getInspections(): Inspection[] {
-  return lastResults;
+export function getInspections(ctx: ProjectContext): Inspection[] {
+  return lastResultsByProject.get(ctx.rootPath) ?? [];
 }
 
 export function isRunning(): boolean {
@@ -27,19 +28,20 @@ export function isRunning(): boolean {
 
 // ── Run All Checks ─────────────────────────────────────────────────────────
 
-export async function runAllChecks(): Promise<Inspection[]> {
-  if (running) return lastResults;
+export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
+  if (running) return lastResultsByProject.get(ctx.rootPath) ?? [];
   running = true;
 
   try {
     const results = await Promise.all([
-      checkUnsupportedClaims(),
-      checkStaleness(30), // 30 days
-      checkEvidenceGaps(),
-      checkContradictions(),
+      checkUnsupportedClaims(ctx),
+      checkStaleness(ctx, 30), // 30 days
+      checkEvidenceGaps(ctx),
+      checkContradictions(ctx),
     ]);
-    lastResults = results.flat();
-    return lastResults;
+    const flat = results.flat();
+    lastResultsByProject.set(ctx.rootPath, flat);
+    return flat;
   } finally {
     running = false;
   }
@@ -47,8 +49,8 @@ export async function runAllChecks(): Promise<Inspection[]> {
 
 // ── Individual Checks ──────────────────────────────────────────────────────
 
-async function checkUnsupportedClaims(): Promise<Inspection[]> {
-  const results = await queryGraph(`
+async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]> {
+  const results = await queryGraph(ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     SELECT ?claim ?label WHERE {
@@ -69,10 +71,10 @@ async function checkUnsupportedClaims(): Promise<Inspection[]> {
   }));
 }
 
-async function checkStaleness(thresholdDays: number): Promise<Inspection[]> {
+async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
   const cutoff = new Date(Date.now() - thresholdDays * 86400000).toISOString();
 
-  const results = await queryGraph(`
+  const results = await queryGraph(ctx, `
     PREFIX dc: <http://purl.org/dc/terms/>
     PREFIX minerva: <https://minerva.dev/ontology#>
     SELECT ?note ?title ?modified WHERE {
@@ -96,11 +98,11 @@ async function checkStaleness(thresholdDays: number): Promise<Inspection[]> {
   }));
 }
 
-async function checkEvidenceGaps(): Promise<Inspection[]> {
+async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   const inspections: Inspection[] = [];
 
   // Claims with grounds but no warrant
-  const noWarrant = await queryGraph(`
+  const noWarrant = await queryGraph(ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?claim ?label WHERE {
       ?claim a thought:Claim .
@@ -127,7 +129,7 @@ async function checkEvidenceGaps(): Promise<Inspection[]> {
   }
 
   // Warrants with no backing
-  const noBacking = await queryGraph(`
+  const noBacking = await queryGraph(ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?warrant ?label WHERE {
       ?warrant a thought:Warrant .
@@ -154,8 +156,8 @@ async function checkEvidenceGaps(): Promise<Inspection[]> {
   return inspections;
 }
 
-async function checkContradictions(): Promise<Inspection[]> {
-  const results = await queryGraph(`
+async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
+  const results = await queryGraph(ctx, `
     PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?a ?aLabel ?b ?bLabel WHERE {
       ?a thought:contradicts ?b .
@@ -179,16 +181,18 @@ async function checkContradictions(): Promise<Inspection[]> {
 
 // ── Timer ──────────────────────────────────────────────────────────────────
 
-let timer: ReturnType<typeof setInterval> | null = null;
+const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
 
-export function startPeriodicChecks(intervalMs: number = 5 * 60 * 1000): void {
-  stopPeriodicChecks();
-  timer = setInterval(() => { runAllChecks(); }, intervalMs);
+export function startPeriodicChecks(ctx: ProjectContext, intervalMs: number = 5 * 60 * 1000): void {
+  stopPeriodicChecks(ctx);
+  const timer = setInterval(() => { runAllChecks(ctx); }, intervalMs);
+  timersByProject.set(ctx.rootPath, timer);
 }
 
-export function stopPeriodicChecks(): void {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
+export function stopPeriodicChecks(ctx: ProjectContext): void {
+  const t = timersByProject.get(ctx.rootPath);
+  if (t) {
+    clearInterval(t);
+    timersByProject.delete(ctx.rootPath);
   }
 }

@@ -4,6 +4,7 @@ import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
 import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
 import * as graph from './graph/index';
+import { projectContext } from './project-context-types';
 import * as search from './search/index';
 import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
@@ -215,7 +216,7 @@ export function rebuildMenu(): void {
             const rootPath = getRootPath(win.id);
             if (!rootPath) return;
             await Promise.all([
-              graph.indexAllNotes(rootPath),
+              graph.indexAllNotes(projectContext(rootPath)),
               search.indexAllNotes(rootPath),
               tables.registerAllCsvs(rootPath),
             ]);
@@ -518,7 +519,7 @@ export function rebuildMenu(): void {
               filters: [{ name: 'Turtle', extensions: ['ttl'] }],
             });
             if (!result.canceled && result.filePath) {
-              await graph.exportGraph(result.filePath);
+              await graph.exportGraph(projectContext(rootPath), result.filePath);
             }
           },
         }));

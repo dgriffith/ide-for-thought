@@ -14,6 +14,7 @@ import {
   type ApprovalTier,
 } from '../../../src/main/llm/approval';
 import { initGraph, queryGraph } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 describe('approval policy', () => {
   beforeEach(() => {
@@ -66,10 +67,12 @@ describe('approval policy', () => {
 
 describe('updateProposalStatus replaces, does not append (#332)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-status-'));
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
     resetPolicy();
   });
 
@@ -78,14 +81,14 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
   });
 
   async function statusesFor(uri: string): Promise<string[]> {
-    const r = await queryGraph(`
+    const r = await queryGraph(ctx, `
       SELECT ?s WHERE { <${uri}> thought:proposalStatus ?s . }
     `);
     return (r.results as Array<{ s: string }>).map((row) => row.s);
   }
 
   it('approving a pending proposal leaves only the approved status', async () => {
-    const proposal = await proposeWrite({
+    const proposal = await proposeWrite(ctx, {
       operationType: 'new_claim',
       turtleDiff: '<https://ex.example/x> a <https://ex.example/Claim> .',
       note: 'test',
@@ -97,14 +100,14 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
       'https://minerva.dev/ontology/thought#pending',
     ]);
 
-    expect(await approveProposal(proposal!.uri)).toBe(true);
+    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
     expect(await statusesFor(proposal!.uri)).toEqual([
       'https://minerva.dev/ontology/thought#approved',
     ]);
   });
 
   it('rejecting a pending proposal leaves only the rejected status', async () => {
-    const proposal = await proposeWrite({
+    const proposal = await proposeWrite(ctx, {
       operationType: 'new_claim',
       turtleDiff: '<https://ex.example/y> a <https://ex.example/Claim> .',
       note: 'test',
@@ -112,7 +115,7 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
       affectsNodeUri: 'https://ex.example/y',
     });
     expect(proposal).not.toBeNull();
-    expect(await rejectProposal(proposal!.uri)).toBe(true);
+    expect(await rejectProposal(ctx, proposal!.uri)).toBe(true);
     expect(await statusesFor(proposal!.uri)).toEqual([
       'https://minerva.dev/ontology/thought#rejected',
     ]);

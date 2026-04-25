@@ -1,13 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
+import { projectContext, type ProjectContext } from '../project-context-types';
 import type { Conversation, ConversationMessage, ContextBundle, ConversationStatus } from '../../shared/types';
 
 const THOUGHT = 'https://minerva.dev/ontology/thought#';
 let conversationsDir: string | null = null;
+let activeRootPath: string | null = null;
 
 export function initConversations(rootPath: string): void {
   conversationsDir = path.join(rootPath, '.minerva', 'conversations');
+  activeRootPath = rootPath;
+}
+
+function activeCtx(): ProjectContext {
+  if (!activeRootPath) throw new Error('Conversations not initialized — no project open');
+  return projectContext(activeRootPath);
 }
 
 function ensureDir(): string {
@@ -177,7 +185,7 @@ async function writeConversationToGraph(conv: Conversation): Promise<void> {
       ${conv.triggerNodeUri ? `; thought:trigger <${conv.triggerNodeUri}>` : ''}
       ${conv.contextBundle.notePath ? `; thought:contextNote <${conv.contextBundle.notePath}>` : ''} .
   `;
-  graph.parseIntoStore(turtle);
+  graph.parseIntoStore(activeCtx(), turtle);
 }
 
 async function updateConversationInGraph(conv: Conversation): Promise<void> {
@@ -194,7 +202,7 @@ async function updateConversationInGraph(conv: Conversation): Promise<void> {
     <${uri}> thought:conversationStatus thought:${statusMap[conv.status]}
       ${conv.resolvedAt ? `; thought:resolvedAt "${conv.resolvedAt}"^^xsd:dateTime` : ''} .
   `;
-  graph.parseIntoStore(turtle);
+  graph.parseIntoStore(activeCtx(), turtle);
 }
 
 async function fileAsSource(conv: Conversation): Promise<void> {
@@ -212,6 +220,7 @@ async function fileAsSource(conv: Conversation): Promise<void> {
       thought:conversationContent "${escapeTurtle(transcript)}" ;
       dc:created "${conv.startedAt}"^^xsd:dateTime .
   `;
-  graph.parseIntoStore(turtle);
-  await graph.persistGraph();
+  const ctx = activeCtx();
+  graph.parseIntoStore(ctx, turtle);
+  await graph.persistGraph(ctx);
 }

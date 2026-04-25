@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import * as fs from '../notebase/fs';
 import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../shared/ontology-thought.ttl?raw';
@@ -161,7 +162,7 @@ export async function executeNotebaseTool(
       case 'read_note':
         return { content: await runRead(ctx, input), isError: false };
       case 'query_graph':
-        return runQuery(input);
+        return runQuery(ctx, input);
       case 'describe_graph_schema':
         return { content: runDescribeSchema(), isError: false };
       default:
@@ -198,12 +199,12 @@ async function runRead(ctx: ToolContext, input: unknown): Promise<string> {
   return fs.readFile(ctx.rootPath, relative_path);
 }
 
-async function runQuery(input: unknown): Promise<{ content: string; isError: boolean }> {
+async function runQuery(ctx: ToolContext, input: unknown): Promise<{ content: string; isError: boolean }> {
   const { sparql } = input as { sparql: string };
   if (typeof sparql !== 'string' || !sparql.trim()) {
     throw new Error('sparql is required');
   }
-  const response = await graph.queryGraph(sparql) as { results: unknown[]; error?: string };
+  const response = await graph.queryGraph(projectContext(ctx.rootPath), sparql) as { results: unknown[]; error?: string };
   if (response.error) {
     return {
       content: `SPARQL error: ${response.error}\n\nCall describe_graph_schema to see available classes and predicates.`,

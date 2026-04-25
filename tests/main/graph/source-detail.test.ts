@@ -9,6 +9,7 @@ import {
   getSourceDetail,
   getExcerptSource,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-source-detail-test-'));
@@ -46,10 +47,12 @@ this: a thought:Excerpt ;
 
 describe('getSourceDetail', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -57,15 +60,15 @@ describe('getSourceDetail', () => {
   });
 
   it('returns null for an unknown source id', async () => {
-    await indexAllNotes(root);
-    expect(getSourceDetail('nope')).toBeNull();
+    await indexAllNotes(ctx);
+    expect(getSourceDetail(ctx, 'nope')).toBeNull();
   });
 
   it('returns structured metadata including subtype, creators, DOI', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const detail = getSourceDetail('smith-2023');
+    const detail = getSourceDetail(ctx, 'smith-2023');
     expect(detail).not.toBeNull();
     expect(detail!.metadata.sourceId).toBe('smith-2023');
     expect(detail!.metadata.subtype).toBe('Article');
@@ -81,9 +84,9 @@ describe('getSourceDetail', () => {
   it('lists excerpts that belong to the source', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
     writeExcerpt(root, 'p42-graphs', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    const detail = getSourceDetail('smith-2023');
+    const detail = getSourceDetail(ctx, 'smith-2023');
     expect(detail!.excerpts).toHaveLength(1);
     expect(detail!.excerpts[0].excerptId).toBe('p42-graphs');
     expect(detail!.excerpts[0].citedText).toBe('Graphs are relational.');
@@ -92,11 +95,11 @@ describe('getSourceDetail', () => {
 
   it('returns cite backlinks from notes with [[cite::id]]', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
-    await indexNote('a.md', '# A\n\nAs [[cite::smith-2023]] shows...');
-    await indexNote('b.md', '# B\n\nSee also [[cite::smith-2023]].');
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'a.md', '# A\n\nAs [[cite::smith-2023]] shows...');
+    await indexNote(ctx, 'b.md', '# B\n\nSee also [[cite::smith-2023]].');
 
-    const detail = getSourceDetail('smith-2023');
+    const detail = getSourceDetail(ctx, 'smith-2023');
     const cites = detail!.backlinks.filter(b => b.kind === 'cite');
     expect(cites.map(b => b.relativePath).sort()).toEqual(['a.md', 'b.md']);
   });
@@ -104,10 +107,10 @@ describe('getSourceDetail', () => {
   it('returns quote backlinks via excerpts, carrying the excerpt id', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
     writeExcerpt(root, 'p42-graphs', EXCERPT_TTL);
-    await indexAllNotes(root);
-    await indexNote('c.md', '# C\n\n[[quote::p42-graphs]]');
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'c.md', '# C\n\n[[quote::p42-graphs]]');
 
-    const detail = getSourceDetail('smith-2023');
+    const detail = getSourceDetail(ctx, 'smith-2023');
     const quotes = detail!.backlinks.filter(b => b.kind === 'quote');
     expect(quotes).toHaveLength(1);
     expect(quotes[0].relativePath).toBe('c.md');
@@ -117,10 +120,12 @@ describe('getSourceDetail', () => {
 
 describe('getExcerptSource', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -130,13 +135,13 @@ describe('getExcerptSource', () => {
   it('resolves an excerpt to its source id via thought:fromSource', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
     writeExcerpt(root, 'p42-graphs', EXCERPT_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
-    expect(getExcerptSource('p42-graphs')).toEqual({ sourceId: 'smith-2023' });
+    expect(getExcerptSource(ctx, 'p42-graphs')).toEqual({ sourceId: 'smith-2023' });
   });
 
   it('returns null for an unknown excerpt', async () => {
-    await indexAllNotes(root);
-    expect(getExcerptSource('nope')).toBeNull();
+    await indexAllNotes(ctx);
+    expect(getExcerptSource(ctx, 'nope')).toBeNull();
   });
 });

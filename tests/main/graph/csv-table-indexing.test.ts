@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { initGraph, indexCsvTable, unindexCsvTable, unindexAllCsvTables, queryGraph } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-csv-table-test-'));
@@ -10,10 +11,12 @@ function mkTempProject(): string {
 
 describe('indexCsvTable — DuckDB table shape in the graph', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -21,7 +24,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
   });
 
   it('emits the table as csvw:Table and owl:Class', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'experiments',
       relativePath: 'data/experiments.csv',
       columns: [
@@ -29,7 +32,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
         { name: 'name', duckdbType: 'VARCHAR', index: 1 },
       ],
     });
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?type WHERE {
         ?t minerva:tableName "experiments" ;
            a ?type .
@@ -41,7 +44,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
   });
 
   it('exposes each column as csvw:Column + owl:DatatypeProperty with domain and xsd range', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'experiments',
       relativePath: 'data/experiments.csv',
       columns: [
@@ -49,7 +52,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
         { name: 'value', duckdbType: 'DOUBLE', index: 1 },
       ],
     });
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?name ?range ?domain WHERE {
         ?t minerva:tableName "experiments" ;
            csvw:tableSchema ?s .
@@ -72,7 +75,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
   });
 
   it('maps TIMESTAMP and BOOLEAN columns to xsd:dateTime and xsd:boolean', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'events',
       relativePath: 'events.csv',
       columns: [
@@ -80,7 +83,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
         { name: 'ok', duckdbType: 'BOOLEAN', index: 1 },
       ],
     });
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?name ?range WHERE {
         ?t minerva:tableName "events" ;
            csvw:tableSchema ?s .
@@ -96,7 +99,7 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
   });
 
   it('re-indexing the same table replaces the old triples (no stale columns)', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 't',
       relativePath: 't.csv',
       columns: [
@@ -104,14 +107,14 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
         { name: 'b', duckdbType: 'INTEGER', index: 1 },
       ],
     });
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 't',
       relativePath: 't.csv',
       columns: [
         { name: 'c', duckdbType: 'VARCHAR', index: 0 },
       ],
     });
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?name WHERE {
         ?t minerva:tableName "t" ;
            csvw:tableSchema ?s .
@@ -124,43 +127,43 @@ describe('indexCsvTable — DuckDB table shape in the graph', () => {
   });
 
   it('unindexCsvTable drops every triple for that table', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 't',
       relativePath: 't.csv',
       columns: [{ name: 'a', duckdbType: 'VARCHAR', index: 0 }],
     });
-    unindexCsvTable('t');
-    const { results } = await queryGraph(`
+    unindexCsvTable(ctx, 't');
+    const { results } = await queryGraph(ctx, `
       SELECT ?s WHERE { ?s minerva:tableName "t" . }
     `);
     expect(results).toEqual([]);
   });
 
   it('unindexAllCsvTables drops only CSV-registered tables, not markdown csvw:Tables', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'x',
       relativePath: 'x.csv',
       columns: [{ name: 'a', duckdbType: 'VARCHAR', index: 0 }],
     });
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'y',
       relativePath: 'y.csv',
       columns: [{ name: 'a', duckdbType: 'VARCHAR', index: 0 }],
     });
-    unindexAllCsvTables();
-    const { results } = await queryGraph(`
+    unindexAllCsvTables(ctx);
+    const { results } = await queryGraph(ctx, `
       SELECT ?s WHERE { ?s minerva:tableName ?n . }
     `);
     expect(results).toEqual([]);
   });
 
   it('links the SQL-table view back to the CSV file via minerva:fromFile', async () => {
-    indexCsvTable({
+    indexCsvTable(ctx, {
       tableName: 'experiments',
       relativePath: 'data/experiments.csv',
       columns: [{ name: 'id', duckdbType: 'INTEGER', index: 0 }],
     });
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?file WHERE {
         ?t minerva:tableName "experiments" ;
            minerva:fromFile ?file .

@@ -7,6 +7,7 @@ import {
   indexNote,
   queryGraph,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-fm-test-'));
@@ -14,10 +15,12 @@ function mkTempProject(): string {
 
 describe('frontmatter → graph indexing (issue #126)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -25,7 +28,7 @@ describe('frontmatter → graph indexing (issue #126)', () => {
   });
 
   it('maps known keys to canonical predicates (author → dc:creator, doi → bibo:doi, year → dc:issued)', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 title: My Paper
 author: Ada Lovelace
 doi: 10.1234/abc
@@ -34,7 +37,7 @@ year: 1843
 # My Paper
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       PREFIX bibo: <http://purl.org/ontology/bibo/>
       SELECT ?creator ?doi ?issued WHERE {
         ?note minerva:relativePath "paper.md" .
@@ -50,7 +53,7 @@ year: 1843
   });
 
   it('emits one triple per YAML list element', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 authors:
   - Alice Smith
   - Bob Jones
@@ -58,7 +61,7 @@ authors:
 # Paper
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?creator WHERE {
         ?note minerva:relativePath "paper.md" ; dc:creator ?creator .
       }
@@ -68,13 +71,13 @@ authors:
   });
 
   it('frontmatter tags become minerva:hasTag edges', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 tags: [research, epistemology]
 ---
 # Paper
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?tagName WHERE {
         ?note minerva:relativePath "paper.md" ;
               minerva:hasTag ?tag .
@@ -86,7 +89,7 @@ tags: [research, epistemology]
   });
 
   it('coerces integers, decimals, booleans to typed literals', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 pages: 42
 ratio: 3.14
 draft: true
@@ -94,7 +97,7 @@ draft: true
 # Paper
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       PREFIX bibo: <http://purl.org/ontology/bibo/>
       SELECT ?pages ?ratio ?draft WHERE {
         ?note minerva:relativePath "paper.md" .
@@ -110,13 +113,13 @@ draft: true
   });
 
   it('ISO dates become xsd:date / xsd:dateTime literals on dc:issued', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 date: 2023-07-15
 ---
 # Paper
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?issued WHERE {
         ?note minerva:relativePath "paper.md" ; dc:issued ?issued .
       }
@@ -127,14 +130,14 @@ date: 2023-07-15
   });
 
   it('resolves wiki-links in frontmatter values to note URIs (backlink-ready)', async () => {
-    await indexNote('a.md', '# A');
-    await indexNote('b.md', `---
+    await indexNote(ctx, 'a.md', '# A');
+    await indexNote(ctx, 'b.md', `---
 related: "[[a]]"
 ---
 # B
 `);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?target ?targetPath WHERE {
         ?note minerva:relativePath "b.md" ;
               minerva:meta-related ?target .
@@ -147,24 +150,24 @@ related: "[[a]]"
   });
 
   it('unknown keys still fall through to minerva:meta-<key>', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 weirdField: some value
 ---
 # Paper
 `);
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?v WHERE { ?note minerva:relativePath "paper.md" ; minerva:meta-weirdField ?v . }
     `);
     expect((results as Array<{ v: string }>)[0].v).toBe('some value');
   });
 
   it('frontmatter title still suppressed (H1/filename title wins the dc:title slot)', async () => {
-    await indexNote('paper.md', `---
+    await indexNote(ctx, 'paper.md', `---
 title: Frontmatter Title
 ---
 # H1 Heading
 `);
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?title WHERE { ?note minerva:relativePath "paper.md" ; dc:title ?title . }
     `);
     const titles = (results as Array<{ title: string }>).map(r => r.title);

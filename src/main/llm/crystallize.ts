@@ -1,5 +1,6 @@
 import { complete } from './index';
 import { proposeWrite } from './approval';
+import type { ProjectContext } from '../project-context-types';
 
 const CRYSTALLIZATION_PROMPT = `You are an epistemic analyst. Given the following conversation excerpt, extract structured thought components using the Minerva thought ontology.
 
@@ -38,6 +39,7 @@ export interface CrystallizationResult {
 }
 
 export async function crystallize(
+  ctx: ProjectContext,
   text: string,
   conversationUri: string,
   proposedBy: string = 'llm:crystallization',
@@ -63,7 +65,7 @@ ${text}`;
   const groundedTurtle = `${trimmed}`;
 
   // Route through approval engine as component_creation
-  await proposeWrite({
+  await proposeWrite(ctx, {
     operationType: 'component_creation',
     turtleDiff: groundedTurtle,
     note: `Crystallized ${componentCount} thought component${componentCount !== 1 ? 's' : ''} from conversation`,

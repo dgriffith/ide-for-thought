@@ -9,6 +9,7 @@ import {
   queryGraph,
   outgoingLinks,
 } from '../../../src/main/graph/index';
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cite-test-'));
@@ -29,10 +30,12 @@ this: a thought:Article ;
 
 describe('[[cite::source-id]] link (issue #91)', () => {
   let root: string;
+  let ctx: ProjectContext;
 
   beforeEach(async () => {
     root = mkTempProject();
-    await initGraph(root);
+    ctx = projectContext(root);
+    await initGraph(ctx);
   });
 
   afterEach(() => {
@@ -41,12 +44,12 @@ describe('[[cite::source-id]] link (issue #91)', () => {
 
   it('writes a thought:cites edge from the note to the source URI', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
+    await indexAllNotes(ctx);
 
     const noteContent = '# My thoughts\n\nAs [[cite::smith-2023]] argues, knowledge graphs…';
-    await indexNote('thoughts.md', noteContent);
+    await indexNote(ctx, 'thoughts.md', noteContent);
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?src WHERE {
         ?note minerva:relativePath "thoughts.md" .
         ?note thought:cites ?src .
@@ -57,9 +60,9 @@ describe('[[cite::source-id]] link (issue #91)', () => {
   });
 
   it('does not route cite targets through the note URI namespace', async () => {
-    await indexNote('thoughts.md', 'See [[cite::smith-2023]].');
+    await indexNote(ctx, 'thoughts.md', 'See [[cite::smith-2023]].');
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?path WHERE {
         ?note minerva:relativePath "thoughts.md" .
         ?note thought:cites ?src .
@@ -72,9 +75,9 @@ describe('[[cite::source-id]] link (issue #91)', () => {
   });
 
   it('uses thought:cites (not minerva:cites)', async () => {
-    await indexNote('thoughts.md', 'See [[cite::smith-2023]].');
+    await indexNote(ctx, 'thoughts.md', 'See [[cite::smith-2023]].');
 
-    const { results: withThought } = await queryGraph(`
+    const { results: withThought } = await queryGraph(ctx, `
       SELECT ?src WHERE {
         ?note minerva:relativePath "thoughts.md" .
         ?note thought:cites ?src .
@@ -82,7 +85,7 @@ describe('[[cite::source-id]] link (issue #91)', () => {
     `);
     expect(withThought).toHaveLength(1);
 
-    const { results: withMinerva } = await queryGraph(`
+    const { results: withMinerva } = await queryGraph(ctx, `
       SELECT ?src WHERE {
         ?note minerva:relativePath "thoughts.md" .
         ?note minerva:cites ?src .
@@ -93,20 +96,20 @@ describe('[[cite::source-id]] link (issue #91)', () => {
 
   it('reports cite links via outgoingLinks with linkType "cite"', async () => {
     writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
-    await indexAllNotes(root);
-    await indexNote('thoughts.md', 'See [[cite::smith-2023]].');
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'thoughts.md', 'See [[cite::smith-2023]].');
 
-    const links = outgoingLinks('thoughts.md');
+    const links = outgoingLinks(ctx, 'thoughts.md');
     const cite = links.find(l => l.linkType === 'cite');
     expect(cite).toBeDefined();
     expect(cite!.exists).toBe(true);
   });
 
   it('existing note-typed links (supports, references, …) still work', async () => {
-    await indexNote('a.md', '# A\n\nClaim A.');
-    await indexNote('b.md', '# B\n\n[[supports::a]] is the ground.');
+    await indexNote(ctx, 'a.md', '# A\n\nClaim A.');
+    await indexNote(ctx, 'b.md', '# B\n\n[[supports::a]] is the ground.');
 
-    const { results } = await queryGraph(`
+    const { results } = await queryGraph(ctx, `
       SELECT ?target WHERE {
         ?note minerva:relativePath "b.md" .
         ?note minerva:supports ?target .
