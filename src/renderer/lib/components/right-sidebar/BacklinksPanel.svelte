@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Backlink } from '../../../../shared/types';
-  import { api } from '../../ipc/client';
+  import { getLinkBundle } from '../../sidebar-link-bundle';
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
 
@@ -17,9 +17,9 @@
   let collapsedGroups = $state<Record<string, boolean>>({});
 
   $effect(() => {
-    const _ = revision;
     if (activeFilePath) {
-      api.links.backlinks(activeFilePath).then((r) => { links = r; });
+      // Coalesced fetch (#351) — siblings on the same tab switch share one IPC.
+      getLinkBundle(activeFilePath, revision).then((b) => { links = b.backlinks; });
     } else {
       links = [];
     }

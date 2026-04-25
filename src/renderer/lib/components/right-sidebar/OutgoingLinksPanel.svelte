@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { OutgoingLink } from '../../../../shared/types';
-  import { api } from '../../ipc/client';
+  import { getLinkBundle } from '../../sidebar-link-bundle';
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
 
@@ -17,9 +17,10 @@
   let collapsedGroups = $state<Record<string, boolean>>({});
 
   $effect(() => {
-    const _ = revision;
     if (activeFilePath) {
-      api.links.outgoing(activeFilePath).then((r) => { links = r; });
+      // Coalesced fetch (#351) — the sibling BacklinksPanel reads the
+      // same bundle, so siblings on a tab switch share one IPC.
+      getLinkBundle(activeFilePath, revision).then((b) => { links = b.outgoing; });
     } else {
       links = [];
     }
