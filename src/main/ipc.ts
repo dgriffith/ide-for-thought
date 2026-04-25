@@ -11,6 +11,8 @@ import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
 import { projectContext } from './project-context-types';
+import { writeAndReindex } from './notebase/write-pipeline';
+import type { WritePipelineHooks } from './notebase/write-pipeline';
 import * as search from './search/index';
 import * as savedQueries from './saved-queries';
 import { clearRecentProjects } from './recent-projects';
@@ -150,6 +152,25 @@ async function persistIndexes(rootPath: string): Promise<void> {
   await search.persist(ctx);
 }
 
+function broadcastRewritten(rootPath: string, paths: string[]): void {
+  if (paths.length === 0) return;
+  for (const targetWin of windowsForProject(rootPath)) {
+    targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, paths);
+  }
+}
+
+function broadcastHeadingRename(rootPath: string, candidate: graph.HeadingRenameCandidate): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    targetWin.webContents.send(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, candidate);
+  }
+}
+
+const hooks: WritePipelineHooks = {
+  markPathHandled,
+  broadcastRewritten,
+  broadcastHeadingRename,
+};
+
 export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_OPEN, async (e) => {
     const meta = await notebaseFs.openNotebase();
@@ -265,21 +286,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    markPathHandled(relativePath);
-    await notebaseFs.writeFile(rootPath, relativePath, content);
-    const ctx = projectContext(rootPath);
-    const { headingRenameCandidate } = await graph.indexNote(ctx, relativePath, content);
-    // graph.ttl is a cold snapshot (#348); flushes on release / quit.
-    search.indexNote(ctx, relativePath, content);
-    await search.persist(ctx);
-    // If a heading edit looks like a rename with affected incoming links,
-    // offer to rewrite them. The renderer pops the confirmation; approval
-    // routes back through NOTEBASE_RENAME_ANCHOR.
-    if (headingRenameCandidate) {
-      for (const targetWin of windowsForProject(rootPath)) {
-        targetWin.webContents.send(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, headingRenameCandidate);
-      }
-    }
+    // Renderer-initiated save — it already has the content, so suppress
+    // the rewritten broadcast (no need to tell the renderer it just wrote).
+    await writeAndReindex(rootPath, relativePath, content, hooks, {
+      suppressRewrittenBroadcast: true,
+    });
   });
 
   ipcMain.handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
@@ -342,13 +353,6 @@ export function registerIpcHandlers(): void {
 
     await persistIndexes(rootPath);
   });
-
-  const broadcastRewritten = (rootPath: string, paths: string[]) => {
-    if (paths.length === 0) return;
-    for (const targetWin of windowsForProject(rootPath)) {
-      targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, paths);
-    }
-  };
 
   ipcMain.handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
     const rootPath = rootPathFromEvent(e);
@@ -734,16 +738,10 @@ export function registerIpcHandlers(): void {
     const plan = await runAutoTag(rootPath, relativePath);
     if (!plan.content) return { added: [] };
 
-    // Route the write through the standard index + search + broadcast path,
-    // so open tabs of the tagged note refresh via NOTEBASE_REWRITTEN (same
-    // conflict handling as a link rewrite).
-    markPathHandled(relativePath);
-    await notebaseFs.writeFile(rootPath, relativePath, plan.content);
-    const ctx = projectContext(rootPath);
-    await graph.indexNote(ctx, relativePath, plan.content);
-    search.indexNote(ctx, relativePath, plan.content);
-    await persistIndexes(rootPath);
-    broadcastRewritten(rootPath, [relativePath]);
+    // Route through the canonical 6-step write pipeline so heading-rename
+    // detection fires uniformly with direct edits (#341 — this site
+    // historically open-coded a 5-step variant that skipped step 6).
+    await writeAndReindex(rootPath, relativePath, plan.content, hooks);
     return { added: plan.added };
   });
 
@@ -766,13 +764,8 @@ export function registerIpcHandlers(): void {
       );
       if (applied.length === 0) return { applied, skipped };
 
-      markPathHandled(activeRelPath);
-      await notebaseFs.writeFile(rootPath, activeRelPath, content);
-      const ctx = projectContext(rootPath);
-      await graph.indexNote(ctx, activeRelPath, content);
-      search.indexNote(ctx, activeRelPath, content);
-      await persistIndexes(rootPath);
-      broadcastRewritten(rootPath, [activeRelPath]);
+      // 6-step pipeline (#341).
+      await writeAndReindex(rootPath, activeRelPath, content, hooks);
       return { applied, skipped };
     },
   );
@@ -1067,13 +1060,15 @@ export function registerIpcHandlers(): void {
         accepted,
       );
 
-      // Write each touched source note through the standard index/search/broadcast pipeline.
-      const ctx = projectContext(rootPath);
+      // 6-step pipeline (#341), batched: each touched source goes through
+      // writeAndReindex with broadcast/persist suppressed so the loop emits
+      // a single NOTEBASE_REWRITTEN at the end. Heading-rename detection
+      // still fires per-file via the hooks.
       for (const [source, content] of updatedContents) {
-        markPathHandled(source);
-        await notebaseFs.writeFile(rootPath, source, content);
-        await graph.indexNote(ctx, source, content);
-        search.indexNote(ctx, source, content);
+        await writeAndReindex(rootPath, source, content, hooks, {
+          suppressRewrittenBroadcast: true,
+          skipPersist: true,
+        });
       }
       if (touchedPaths.length > 0) {
         await persistIndexes(rootPath);
