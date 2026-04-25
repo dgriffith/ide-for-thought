@@ -6,13 +6,12 @@ import { startWatching, stopWatching } from './notebase/watcher';
 import * as graph from './graph/index';
 import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
-import * as conversation from './llm/conversation';
-import * as healthChecks from './graph/health-checks';
 import * as tables from './sources/tables';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
-import { projectContext, type ProjectContext } from './project-context-types';
+import { acquireProject, releaseProject } from './project-context';
+import type { ProjectContext } from './project-context-types';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -87,7 +86,13 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
       stopWatching(win.id);
       watchers.delete(win.id);
     }
+    const heldRoot = contexts.get(win.id)?.rootPath ?? null;
     contexts.delete(win.id);
+    if (heldRoot) {
+      // Fire-and-forget: window's already gone; the release just disposes
+      // shared state if this was the last acquirer.
+      void releaseProject(heldRoot, win.id);
+    }
     persistSession();
   });
 
@@ -127,14 +132,20 @@ export function windowsForProject(rootPath: string): BrowserWindow[] {
 export async function openProjectInWindow(win: BrowserWindow, rootPath: string): Promise<void> {
   const ctx = getContext(win.id);
 
-  // Tear down previous
+  // Tear down previous: stop the watcher, and if the window already held a
+  // (different) project, release that project's reference. If the window
+  // was on the same project, no-op — we're effectively reloading.
   if (watchers.has(win.id)) {
     stopWatching(win.id);
     watchers.delete(win.id);
   }
+  const previousRoot = ctx.rootPath;
+  if (previousRoot && previousRoot !== rootPath) {
+    await releaseProject(previousRoot, win.id);
+  }
 
   ctx.rootPath = rootPath;
-  const projectCtx: ProjectContext = projectContext(rootPath);
+  const projectCtx: ProjectContext = await acquireProject(rootPath, win.id);
   addRecentProject(rootPath);
   rebuildMenu();
 
@@ -244,20 +255,11 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   });
   watchers.set(win.id, rootPath);
 
-  await graph.initGraph(projectCtx);
-  await tables.initTablesDb(projectCtx);
-  conversation.initConversations(rootPath);
-  await Promise.all([
-    graph.indexAllNotes(projectCtx),
-    search.indexAllNotes(projectCtx),
-    tables.registerAllCsvs(projectCtx),
-  ]);
-  // Tables panel subscribes to this; fires once after the initial scan so the
-  // sidebar populates without the renderer having to poll.
+  // Tables panel subscribes to this; fires once after the project's initial
+  // scan so this window's sidebar populates without the renderer having to
+  // poll. (For the second+ window on a project, the data is already
+  // registered, but the renderer still needs a kick to load it.)
   if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
-  // Run health checks after initial indexing, then periodically
-  healthChecks.runAllChecks(projectCtx);
-  healthChecks.startPeriodicChecks(projectCtx);
   persistSession();
 }
 
@@ -268,7 +270,11 @@ export function closeProjectInWindow(winId: number): void {
       stopWatching(winId);
       watchers.delete(winId);
     }
+    const previousRoot = ctx.rootPath;
     ctx.rootPath = null;
+    if (previousRoot) {
+      void releaseProject(previousRoot, winId);
+    }
   }
   rebuildMenu();
   persistSession();
