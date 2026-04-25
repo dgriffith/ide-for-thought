@@ -7,6 +7,8 @@ coverage/
 .idea/
 *.log
 .DS_Store
+__pycache__/
+*.pyc
 
 # Demo source/excerpt fixtures in the sample thoughtbase.
 # Everything else under sample-project/.minerva/ (bookmarks.json, tabs.json,
