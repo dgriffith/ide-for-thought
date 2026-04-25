@@ -3,25 +3,23 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
-import { projectContext } from '../project-context-types';
+import type { ProjectContext } from '../project-context-types';
 
-function activeCtx() {
-  if (!currentRootPath) throw new Error('Tables DB is not initialized — no project open');
-  return projectContext(currentRootPath);
+interface TablesState {
+  rootPath: string;
+  instance: DuckDBInstance;
+  connection: DuckDBConnection;
+  /** relativePath → tableName for the currently-registered CSV views. */
+  pathToTable: Map<string, string>;
+  /** tableName → relativePath, so we can detect + warn on collisions. */
+  tableToPath: Map<string, string>;
 }
 
-// ── Module state ────────────────────────────────────────────────────────────
-// Matches the `graph` module: single live project at a time. If Minerva ever
-// grows true multi-project-per-process, both modules move in lockstep.
+const states = new Map<string, TablesState>();
 
-let instance: DuckDBInstance | null = null;
-let connection: DuckDBConnection | null = null;
-let currentRootPath: string | null = null;
-
-/** relativePath → tableName for the currently-registered CSV views. */
-const pathToTable = new Map<string, string>();
-/** tableName → relativePath, so we can detect + warn on collisions. */
-const tableToPath = new Map<string, string>();
+function getState(ctx: ProjectContext): TablesState | null {
+  return states.get(ctx.rootPath) ?? null;
+}
 
 export type QueryResult =
   | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
@@ -34,23 +32,26 @@ export interface TableInfo {
   rowCount: number;
 }
 
-/** Open an in-memory DuckDB for the given project root. Idempotent per root. */
-export async function initTablesDb(rootPath: string): Promise<void> {
-  if (currentRootPath === rootPath && connection) return;
-  await closeTablesDb();
-  instance = await DuckDBInstance.create(':memory:');
-  connection = await instance.connect();
-  currentRootPath = rootPath;
+/** Open an in-memory DuckDB for the given project. Idempotent per project. */
+export async function initTablesDb(ctx: ProjectContext): Promise<void> {
+  if (states.has(ctx.rootPath)) return;
+  const instance = await DuckDBInstance.create(':memory:');
+  const connection = await instance.connect();
+  states.set(ctx.rootPath, {
+    rootPath: ctx.rootPath,
+    instance,
+    connection,
+    pathToTable: new Map(),
+    tableToPath: new Map(),
+  });
 }
 
-export async function closeTablesDb(): Promise<void> {
-  try { connection?.closeSync(); } catch { /* already closed */ }
-  try { instance?.closeSync(); } catch { /* already closed */ }
-  connection = null;
-  instance = null;
-  currentRootPath = null;
-  pathToTable.clear();
-  tableToPath.clear();
+export async function disposeProject(ctx: ProjectContext): Promise<void> {
+  const state = states.get(ctx.rootPath);
+  if (!state) return;
+  try { state.connection.closeSync(); } catch { /* already closed */ }
+  try { state.instance.closeSync(); } catch { /* already closed */ }
+  states.delete(ctx.rootPath);
 }
 
 /**
@@ -58,10 +59,11 @@ export async function closeTablesDb(): Promise<void> {
  * clone across the IPC boundary. Malformed SQL or runtime errors come back
  * as `{ ok: false, error }` — never thrown.
  */
-export async function runQuery(sql: string): Promise<QueryResult> {
-  if (!connection) return { ok: false, error: 'Tables DB is not initialized' };
+export async function runQuery(ctx: ProjectContext, sql: string): Promise<QueryResult> {
+  const state = getState(ctx);
+  if (!state) return { ok: false, error: 'Tables DB is not initialized' };
   try {
-    const reader = await connection.runAndReadAll(sql);
+    const reader = await state.connection.runAndReadAll(sql);
     const columns = reader.columnNames();
     const rows = reader.getRowObjectsJS() as Record<string, unknown>[];
     return { ok: true, columns, rows };
@@ -129,8 +131,10 @@ async function readCompanionOverride(rootPath: string, relativePath: string): Pr
  * re-registration. Re-register is called when the file is added or when the
  * companion note's `table_name:` may have changed.
  */
-export async function registerCsv(rootPath: string, relativePath: string): Promise<void> {
-  if (!connection) return;
+export async function registerCsv(ctx: ProjectContext, relativePath: string): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  const { rootPath, connection, pathToTable, tableToPath } = state;
   const override = await readCompanionOverride(rootPath, relativePath);
   const tableName = override ?? deriveTableName(relativePath);
 
@@ -154,7 +158,7 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
       await connection.run(`DROP VIEW IF EXISTS "${previousName}"`);
     } catch { /* tolerate the rare rename race */ }
     tableToPath.delete(previousName);
-    unindexCsvTable(activeCtx(), previousName);
+    unindexCsvTable(ctx, previousName);
   }
 
   const absPath = path.join(rootPath, relativePath);
@@ -168,7 +172,7 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
     // Reflect the shape into the knowledge graph (CSVW + OWL). This
     // lets SPARQL consumers ask "what tables do I have?", "what columns
     // does X expose?", and reason about column datatypes.
-    await indexCsvTableShape(relativePath, tableName);
+    await indexCsvTableShape(ctx, relativePath, tableName);
   } catch (err) {
     console.warn(
       `[tables] Failed to register '${relativePath}' as '${tableName}': ` +
@@ -183,11 +187,12 @@ export async function registerCsv(rootPath: string, relativePath: string): Promi
  * don't throw — the CSV is still queryable via SQL even if the graph
  * entry didn't land.
  */
-async function indexCsvTableShape(relativePath: string, tableName: string): Promise<void> {
-  if (!connection) return;
+async function indexCsvTableShape(ctx: ProjectContext, relativePath: string, tableName: string): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
   const safeName = tableName.replace(/'/g, "''");
   try {
-    const reader = await connection.runAndReadAll(
+    const reader = await state.connection.runAndReadAll(
       `SELECT column_name, data_type, ordinal_position ` +
       `FROM information_schema.columns ` +
       `WHERE table_name = '${safeName}' AND table_schema = 'main' ` +
@@ -200,7 +205,7 @@ async function indexCsvTableShape(relativePath: string, tableName: string): Prom
       // ordinal_position is 1-based in DuckDB; we publish 0-based.
       index: Number(r.ordinal_position) - 1,
     }));
-    indexCsvTable(activeCtx(), { tableName, relativePath, columns });
+    indexCsvTable(ctx, { tableName, relativePath, columns });
   } catch (err) {
     console.warn(
       `[tables] Failed to index '${tableName}' into graph: ` +
@@ -210,8 +215,10 @@ async function indexCsvTableShape(relativePath: string, tableName: string): Prom
 }
 
 /** Drop the view for a CSV path. No-op if the path was never registered. */
-export async function unregisterCsv(relativePath: string): Promise<void> {
-  if (!connection) return;
+export async function unregisterCsv(ctx: ProjectContext, relativePath: string): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  const { connection, pathToTable, tableToPath } = state;
   const tableName = pathToTable.get(relativePath);
   if (!tableName) return;
   try {
@@ -219,19 +226,21 @@ export async function unregisterCsv(relativePath: string): Promise<void> {
   } catch { /* view may already be gone */ }
   pathToTable.delete(relativePath);
   tableToPath.delete(tableName);
-  unindexCsvTable(activeCtx(), tableName);
+  unindexCsvTable(ctx, tableName);
 }
 
 /**
  * Scan the thoughtbase on project open and register every `.csv` file under
  * the root. Mirrors graph.indexAllNotes's walker shape.
  */
-export async function registerAllCsvs(rootPath: string): Promise<number> {
-  if (!connection) return 0;
+export async function registerAllCsvs(ctx: ProjectContext): Promise<number> {
+  const state = getState(ctx);
+  if (!state) return 0;
+  const { rootPath } = state;
   // Wipe stale CSV-table triples up front so CSVs deleted while the app
   // was closed don't linger in the graph after a full rescan. Each
   // registered CSV writes its own triples as it goes.
-  unindexAllCsvTables(activeCtx());
+  unindexAllCsvTables(ctx);
   let count = 0;
   async function walk(dirPath: string) {
     let entries: import('node:fs').Dirent[];
@@ -247,7 +256,7 @@ export async function registerAllCsvs(rootPath: string): Promise<number> {
         await walk(fullPath);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.csv')) {
         const rel = path.relative(rootPath, fullPath);
-        await registerCsv(rootPath, rel);
+        await registerCsv(ctx, rel);
         count++;
       }
     }
@@ -257,13 +266,14 @@ export async function registerAllCsvs(rootPath: string): Promise<number> {
 }
 
 /** Every registered CSV's table name, relative path, column names, and row count. */
-export async function listTables(): Promise<TableInfo[]> {
-  if (!connection) return [];
+export async function listTables(ctx: ProjectContext): Promise<TableInfo[]> {
+  const state = getState(ctx);
+  if (!state) return [];
   const out: TableInfo[] = [];
-  for (const [relativePath, name] of pathToTable.entries()) {
+  for (const [relativePath, name] of state.pathToTable.entries()) {
     const quoted = `"${name}"`;
-    const countR = await runQuery(`SELECT COUNT(*) AS n FROM ${quoted}`);
-    const colsR = await runQuery(
+    const countR = await runQuery(ctx, `SELECT COUNT(*) AS n FROM ${quoted}`);
+    const colsR = await runQuery(ctx,
       `SELECT column_name FROM information_schema.columns ` +
       `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main' ` +
       `ORDER BY ordinal_position`,
@@ -277,6 +287,6 @@ export async function listTables(): Promise<TableInfo[]> {
 }
 
 /** Exposed for tests. */
-export function _isOpen(): boolean {
-  return connection !== null;
+export function _isOpen(ctx: ProjectContext): boolean {
+  return states.has(ctx.rootPath);
 }

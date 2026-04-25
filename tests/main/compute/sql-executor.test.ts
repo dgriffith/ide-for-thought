@@ -5,28 +5,31 @@ import path from 'node:path';
 import os from 'node:os';
 import {
   initTablesDb,
-  closeTablesDb,
+  disposeProject,
   registerCsv,
 } from '../../../src/main/sources/tables';
 import { executeSql } from '../../../src/main/compute/executors/sql';
-
-const CTX = { rootPath: '/tmp/minerva-sql-exec-test' };
+import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 describe('executeSql (#240)', () => {
   let root: string;
+  let ctx: ProjectContext;
+  let CTX: { rootPath: string };
 
   beforeAll(async () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-sql-exec-test-'));
-    await initTablesDb(root);
+    ctx = projectContext(root);
+    CTX = { rootPath: root };
+    await initTablesDb(ctx);
     await fsp.writeFile(
       path.join(root, 'data.csv'),
       'name,count\nalpha,1\nbeta,2\ngamma,3\n',
     );
-    await registerCsv(root, 'data.csv');
+    await registerCsv(ctx, 'data.csv');
   });
 
   afterAll(async () => {
-    await closeTablesDb();
+    await disposeProject(ctx);
     await fsp.rm(root, { recursive: true, force: true });
   });
 

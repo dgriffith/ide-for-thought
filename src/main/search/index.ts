@@ -2,26 +2,47 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { SearchProvider, SearchResult } from './types';
 import { MiniSearchProvider } from './minisearch-provider';
+import type { ProjectContext } from '../project-context-types';
 
-let provider: SearchProvider = new MiniSearchProvider();
-let currentRootPath: string | null = null;
-
-function indexPath(): string {
-  return path.join(currentRootPath!, '.minerva', 'search-index.json');
+interface SearchState {
+  rootPath: string;
+  provider: SearchProvider;
 }
 
-export async function initSearch(rootPath: string): Promise<void> {
-  currentRootPath = rootPath;
-  await provider.load(indexPath());
+const states = new Map<string, SearchState>();
+
+function getState(ctx: ProjectContext): SearchState | null {
+  return states.get(ctx.rootPath) ?? null;
 }
 
-export async function indexAllNotes(rootPath: string): Promise<number> {
-  currentRootPath = rootPath;
-  provider.clear();
+function indexPath(state: SearchState): string {
+  return path.join(state.rootPath, '.minerva', 'search-index.json');
+}
+
+export async function initSearch(ctx: ProjectContext): Promise<void> {
+  let state = states.get(ctx.rootPath);
+  if (!state) {
+    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
+    states.set(ctx.rootPath, state);
+  }
+  await state.provider.load(indexPath(state));
+}
+
+export async function disposeProject(ctx: ProjectContext): Promise<void> {
+  states.delete(ctx.rootPath);
+}
+
+export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
+  let state = states.get(ctx.rootPath);
+  if (!state) {
+    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
+    states.set(ctx.rootPath, state);
+  }
+  state.provider.clear();
 
   let count = 0;
-  await walk(rootPath, rootPath);
-  await provider.save(indexPath());
+  await walk(state.rootPath, state.rootPath);
+  await state.provider.save(indexPath(state));
 
   async function walk(dirPath: string, root: string) {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -34,7 +55,7 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         const title = extractTitle(content) ?? path.basename(relativePath, '.md');
-        provider.index(relativePath, title, content);
+        state!.provider.index(relativePath, title, content);
         count++;
       }
     }
@@ -43,22 +64,29 @@ export async function indexAllNotes(rootPath: string): Promise<number> {
   return count;
 }
 
-export function indexNote(relativePath: string, content: string): void {
+export function indexNote(ctx: ProjectContext, relativePath: string, content: string): void {
+  const state = getState(ctx);
+  if (!state) return;
   const title = extractTitle(content) ?? path.basename(relativePath, '.md');
-  provider.index(relativePath, title, content);
+  state.provider.index(relativePath, title, content);
 }
 
-export function removeNote(relativePath: string): void {
-  provider.remove(relativePath);
+export function removeNote(ctx: ProjectContext, relativePath: string): void {
+  const state = getState(ctx);
+  if (!state) return;
+  state.provider.remove(relativePath);
 }
 
-export function search(query: string, opts?: { limit?: number }): SearchResult[] {
-  return provider.search(query, opts);
+export function search(ctx: ProjectContext, query: string, opts?: { limit?: number }): SearchResult[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  return state.provider.search(query, opts);
 }
 
-export async function persist(): Promise<void> {
-  if (!currentRootPath) return;
-  await provider.save(indexPath());
+export async function persist(ctx: ProjectContext): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  await state.provider.save(indexPath(state));
 }
 
 /** Simple title extraction matching what the graph parser does */

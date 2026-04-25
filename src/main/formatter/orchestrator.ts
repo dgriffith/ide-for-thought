@@ -115,8 +115,9 @@ async function writeThrough(
   content: string,
 ): Promise<void> {
   await notebaseFs.writeFile(rootPath, relativePath, content);
-  await graph.indexNote(projectContext(rootPath), relativePath, content);
-  search.indexNote(relativePath, content);
+  const ctx = projectContext(rootPath);
+  await graph.indexNote(ctx, relativePath, content);
+  search.indexNote(ctx, relativePath, content);
   // Caller is responsible for the batched persist + NOTEBASE_REWRITTEN
   // broadcast — doing it per-file in a folder run would thrash the
   // editor's open-tab refresh path.
