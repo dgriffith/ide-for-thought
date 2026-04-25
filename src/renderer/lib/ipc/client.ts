@@ -222,6 +222,9 @@ export interface ComputeApi {
     destPath?: string;
     title?: string;
   }): Promise<{ derivedPath: string; cellId: string; injectedId: boolean }>;
+  /** Wipe and respawn the project's Python kernel — palette command
+   *  "Compute: Restart Python Kernel". Loses every notebook's namespace. */
+  restartPythonKernel(): Promise<void>;
 }
 
 export interface ShellApi {
