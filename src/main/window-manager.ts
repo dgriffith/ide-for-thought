@@ -11,6 +11,7 @@ import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
+import { installNavigationGuards } from './security';
 import type { ProjectContext } from './project-context-types';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -71,6 +72,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   });
 
   contexts.set(win.id, { rootPath: null, graphStore: null });
+  installNavigationGuards(win.webContents);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);

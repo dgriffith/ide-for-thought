@@ -7,10 +7,12 @@ import { createWindow, openProjectInWindow } from './window-manager';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
+import { installCsp } from './security';
 
 app.setName('Minerva');
 
 app.whenReady().then(async () => {
+  installCsp();
   registerIpcHandlers();
   registerBuiltinExecutors();
   registerBuiltinExporters();
