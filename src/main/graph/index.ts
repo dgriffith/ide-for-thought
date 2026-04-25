@@ -329,6 +329,21 @@ function dateLit(iso: string): $rdf.Literal {
   return $rdf.lit(iso, undefined, XSD('dateTime'));
 }
 
+/**
+ * `dc:modified` should reflect the user's last edit, not the indexer's
+ * last sweep — otherwise checkStaleness sees every note as just-modified
+ * and is always-empty theatre (#336). Read mtime from disk; fall back to
+ * `now` only when the file is gone (mid-rename race) so the triple is
+ * still well-formed.
+ */
+function fileMtimeIso(state: GraphState, relativePath: string): string {
+  try {
+    return fsSync.statSync(path.join(state.rootPath, relativePath)).mtime.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
   ['thought', 'https://minerva.dev/ontology/thought#'],
@@ -533,8 +548,9 @@ export async function indexNote(
   store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
 
-  // Timestamps
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  // Timestamps — dc:modified is the user's last edit, sourced from
+  // disk mtime, not the indexer's wall clock (#336).
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
 
   // Folder membership
   const dir = path.dirname(relativePath);
@@ -893,7 +909,7 @@ function indexTurtleFile(
   store.add(subject, DC('title'), $rdf.lit(title), graph);
   store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
 
   // Folder membership
   const dir = path.dirname(relativePath);
@@ -936,7 +952,7 @@ function indexCsvFile(
   store.add(subject, DC('title'), $rdf.lit(title), graph);
   store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
 
   const dir = path.dirname(relativePath);
   if (dir && dir !== '.') {
@@ -1016,7 +1032,7 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
 
   store.add(subject, MINERVA('sourceId'), $rdf.lit(sourceId), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
   store.add(projectUri(state), MINERVA('containsSource'), subject, graph);
 
   try {
@@ -1108,7 +1124,7 @@ export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: st
 
   store.add(subject, MINERVA('excerptId'), $rdf.lit(excerptId), graph);
   store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(new Date().toISOString()), graph);
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
   store.add(projectUri(state), MINERVA('containsExcerpt'), subject, graph);
 
   try {
