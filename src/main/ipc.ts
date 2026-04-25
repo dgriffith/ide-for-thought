@@ -1,6 +1,7 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { isIndexable } from './notebase/indexable-files';
@@ -601,13 +602,27 @@ export function registerIpcHandlers(): void {
     const dir = relativePath
       ? path.join(rootPath, path.dirname(relativePath))
       : rootPath;
-    const { exec } = require('child_process');
+    // Use spawn with explicit args (no shell) so a filename containing
+    // shell metacharacters can't inject. Detached + unref so closing the
+    // app doesn't kill the user's terminal session.
+    const detached = { stdio: 'ignore' as const, detached: true };
     if (process.platform === 'darwin') {
-      exec(`open -a Terminal "${dir}"`);
+      spawn('open', ['-a', 'Terminal', dir], detached).unref();
     } else if (process.platform === 'win32') {
-      exec(`start cmd /K "cd /d ${dir}"`);
+      // `start` is a cmd.exe builtin; the empty title arg is start's
+      // documented quirk for paths-with-spaces. /D sets the new
+      // window's starting directory — no string interpolation needed.
+      spawn('cmd.exe', ['/c', 'start', '', '/D', dir, 'cmd.exe', '/K'], detached).unref();
     } else {
-      exec(`x-terminal-emulator --working-directory="${dir}" || xterm -e "cd '${dir}' && $SHELL"`);
+      // Try the Debian-style chooser first, fall back to xterm on
+      // spawn-error (binary missing). Both get the directory through
+      // explicit args / cwd, never the shell.
+      const child = spawn('x-terminal-emulator', [`--working-directory=${dir}`], detached);
+      child.once('error', () => {
+        const shellPath = process.env.SHELL ?? '/bin/sh';
+        spawn('xterm', ['-e', shellPath], { ...detached, cwd: dir }).unref();
+      });
+      child.unref();
     }
   });
 
