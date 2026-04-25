@@ -1,5 +1,6 @@
 import { dialog } from 'electron';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { INDEXABLE_EXTS } from './indexable-files';
@@ -63,11 +64,35 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
   return files;
 }
 
+/**
+ * Best-effort realpath: returns the canonicalised path when the prefix
+ * exists, falling back to the input when it doesn't (so projects can
+ * still be checked before they're created).
+ */
+function realPathSafe(p: string): string {
+  try {
+    return fsSync.realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
 export function assertSafePath(rootPath: string, relativePath: string): string {
-  const resolved = path.resolve(rootPath, relativePath);
-  if (!resolved.startsWith(rootPath + path.sep) && resolved !== rootPath) {
+  // realpath the rootPath so a project rooted on a symlinked path —
+  // notably macOS's /var → /private/var, which is where tmpdir() lives
+  // (#352) — doesn't make a normal in-project relative path look like
+  // a traversal. We resolve `relativePath` *against* the realpath'd
+  // root (rather than realpath'ing each result) because the leaf or
+  // any intermediate dir may not exist yet (write-to-create), and
+  // resolve doesn't follow symlinks anyway, so this canonical-prefix
+  // form is enough to make the startsWith check sound.
+  const realRoot = realPathSafe(rootPath);
+  const resolved = path.resolve(realRoot, relativePath);
+  if (!resolved.startsWith(realRoot + path.sep) && resolved !== realRoot) {
     throw new Error('Path traversal detected');
   }
+  // Return the realpath-anchored resolution: it's always usable by
+  // fs.* and won't drift between symlink endpoints in subsequent ops.
   return resolved;
 }
 
