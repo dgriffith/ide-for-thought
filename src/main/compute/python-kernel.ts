@@ -21,6 +21,7 @@ import readline from 'node:readline';
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { CellResult } from '../../shared/compute/types';
+import { startRpcServer, type RpcServer } from './rpc-server';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -46,6 +47,7 @@ interface KernelState {
   proc: ChildProcessWithoutNullStreams;
   ready: Promise<void>;
   pending: Map<string, PendingCell>;
+  rpc: RpcServer;
 }
 
 const kernels = new Map<string, KernelState>();
@@ -64,7 +66,8 @@ function resolvePythonBin(): string {
  * a localhost origin) the repo root is `process.cwd()`; in a packaged
  * build, electron-forge stages `resources/` next to the main bundle.
  */
-function kernelScriptPath(): string {
+/** Root of the bundled Python resources tree. */
+function pythonResourcesRoot(): string {
   // The build-time global is undefined in the test runner — guard so a
   // ReferenceError doesn't kill the import. In dev (or in tests) the
   // repo's `resources/` is reachable from cwd; in a packaged build,
@@ -73,21 +76,35 @@ function kernelScriptPath(): string {
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined'
       ? Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL)
       : !app?.isPackaged;
-  if (isDev) {
-    return path.join(process.cwd(), 'resources', 'python', 'minerva_kernel.py');
-  }
-  return path.join(process.resourcesPath, 'python', 'minerva_kernel.py');
+  return isDev
+    ? path.join(process.cwd(), 'resources', 'python')
+    : path.join(process.resourcesPath, 'python');
 }
 
-function spawnKernel(rootPath: string): KernelState {
+function kernelScriptPath(): string {
+  return path.join(pythonResourcesRoot(), 'minerva_kernel.py');
+}
+
+async function spawnKernel(rootPath: string): Promise<KernelState> {
   const py = resolvePythonBin();
   const script = kernelScriptPath();
+  // RPC server up first so the kernel can connect on first import.
+  const rpc = await startRpcServer(rootPath);
   const proc = spawn(py, [script], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    // PYTHONUNBUFFERED ensures the kernel's stdout writes flush
-    // immediately — without it, Python's buffering would hold each
-    // event line until 4KB accumulated, breaking the line-protocol.
-    env: { ...process.env, PYTHONUNBUFFERED: '1' },
+    env: {
+      ...process.env,
+      // PYTHONUNBUFFERED ensures the kernel's stdout writes flush
+      // immediately — without it, Python's buffering would hold each
+      // event line until 4KB accumulated, breaking the line-protocol.
+      PYTHONUNBUFFERED: '1',
+      // The bundled `minerva` package lives next to the kernel script;
+      // putting its parent on PYTHONPATH lets `import minerva` resolve
+      // without a pip install (#242).
+      PYTHONPATH: pythonResourcesRoot(),
+      MINERVA_IPC_SOCKET: rpc.socketPath,
+      MINERVA_PROJECT_ROOT: rootPath,
+    },
   }) as ChildProcessWithoutNullStreams;
 
   const pending = new Map<string, PendingCell>();
@@ -158,13 +175,17 @@ function spawnKernel(rootPath: string): KernelState {
     if (kernels.get(rootPath)?.proc === proc) {
       kernels.delete(rootPath);
     }
+    // Close the RPC socket on crash too — terminate() handles it on the
+    // graceful path, but a kernel that exits before terminate runs (e.g.
+    // os._exit, segfault) needs the socket cleaned up here.
+    void rpc.close().catch(() => undefined);
   });
 
   proc.on('error', (err) => {
     rejectReady(err);
   });
 
-  return { proc, ready, pending };
+  return { proc, ready, pending, rpc };
 }
 
 function finalizeCell(cell: PendingCell): void {
@@ -197,7 +218,7 @@ export async function runPython(
 ): Promise<CellResult> {
   let state = kernels.get(rootPath);
   if (!state || state.proc.killed || state.proc.exitCode !== null) {
-    state = spawnKernel(rootPath);
+    state = await spawnKernel(rootPath);
     kernels.set(rootPath, state);
   }
   try {
@@ -247,8 +268,8 @@ export async function shutdownAllKernels(): Promise<void> {
   await Promise.all(states.map(terminate));
 }
 
-function terminate(state: KernelState): Promise<void> {
-  return new Promise((resolve) => {
+async function terminate(state: KernelState): Promise<void> {
+  await new Promise<void>((resolve) => {
     if (state.proc.exitCode !== null) {
       resolve();
       return;
@@ -263,6 +284,9 @@ function terminate(state: KernelState): Promise<void> {
       resolve();
     });
   });
+  // Close the RPC socket once the kernel is gone (#242). Best-effort:
+  // a stale .sock inode in /tmp is harmless but unsightly.
+  await state.rpc.close().catch(() => undefined);
 }
 
 /** Test/diagnostic visibility — projects with a live kernel. */

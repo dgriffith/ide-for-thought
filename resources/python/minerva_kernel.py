@@ -72,11 +72,24 @@ def serialize_value(value):
         return repr(value)
 
 
+def set_current_notebook(notebook_path):
+    """Tell the bundled `minerva` library which notebook the cell is
+    running in (#242). The library reads this for `minerva.ctx()`."""
+    try:
+        import minerva
+        minerva._set_current_notebook(notebook_path)
+    except Exception:
+        # Library not on path / not importable — ignore; user code will
+        # surface a clearer error if they actually try to use it.
+        pass
+
+
 def exec_cell(req):
     cell_id = req.get('cellId')
     code = req.get('code', '')
     notebook = req.get('notebookPath') or '__default__'
     ns = get_ns(notebook)
+    set_current_notebook(notebook)
 
     started = time.monotonic()
     out = io.StringIO()
