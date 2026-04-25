@@ -1684,6 +1684,22 @@ export function parseIntoStore(turtle: string): void {
   }
 }
 
+/**
+ * Drop every triple matching `(subject, predicate, *)`. Used by the
+ * approval engine to replace single-cardinality predicates like
+ * `thought:proposalStatus` so a status change doesn't leave the prior
+ * status hanging on the same proposal (#332).
+ *
+ * Subject and predicate are passed as IRIs; both are required to keep
+ * the surface narrow — wholesale subject wipes go through the more
+ * specific `removeNote` / `removeSource` / `removeExcerpt` helpers.
+ */
+export function removeMatchingTriples(subjectIri: string, predicateIri: string): void {
+  if (!store) return;
+  invalidateN3Cache();
+  store.removeMatches($rdf.sym(subjectIri), $rdf.sym(predicateIri), undefined);
+}
+
 export function serializeGraph(): string {
   if (!store) return '';
   // Pass a dummy base that doesn't match any of our URIs,

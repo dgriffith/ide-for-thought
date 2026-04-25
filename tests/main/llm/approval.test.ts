@@ -1,11 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
 import {
   getApprovalTier,
   setPolicy,
   resetPolicy,
+  proposeWrite,
+  approveProposal,
+  rejectProposal,
   type OperationType,
   type ApprovalTier,
 } from '../../../src/main/llm/approval';
+import { initGraph, queryGraph } from '../../../src/main/graph/index';
 
 describe('approval policy', () => {
   beforeEach(() => {
@@ -53,6 +61,61 @@ describe('approval policy', () => {
 
   it('falls back to requires_approval for unknown operation types', () => {
     expect(getApprovalTier('unknown_op' as OperationType)).toBe('requires_approval');
+  });
+});
+
+describe('updateProposalStatus replaces, does not append (#332)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-status-'));
+    await initGraph(root);
+    resetPolicy();
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  async function statusesFor(uri: string): Promise<string[]> {
+    const r = await queryGraph(`
+      SELECT ?s WHERE { <${uri}> thought:proposalStatus ?s . }
+    `);
+    return (r.results as Array<{ s: string }>).map((row) => row.s);
+  }
+
+  it('approving a pending proposal leaves only the approved status', async () => {
+    const proposal = await proposeWrite({
+      operationType: 'new_claim',
+      turtleDiff: '<https://ex.example/x> a <https://ex.example/Claim> .',
+      note: 'test',
+      proposedBy: 'unit-test',
+      affectsNodeUri: 'https://ex.example/x',
+    });
+    expect(proposal).not.toBeNull();
+    expect(await statusesFor(proposal!.uri)).toEqual([
+      'https://minerva.dev/ontology/thought#pending',
+    ]);
+
+    expect(await approveProposal(proposal!.uri)).toBe(true);
+    expect(await statusesFor(proposal!.uri)).toEqual([
+      'https://minerva.dev/ontology/thought#approved',
+    ]);
+  });
+
+  it('rejecting a pending proposal leaves only the rejected status', async () => {
+    const proposal = await proposeWrite({
+      operationType: 'new_claim',
+      turtleDiff: '<https://ex.example/y> a <https://ex.example/Claim> .',
+      note: 'test',
+      proposedBy: 'unit-test',
+      affectsNodeUri: 'https://ex.example/y',
+    });
+    expect(proposal).not.toBeNull();
+    expect(await rejectProposal(proposal!.uri)).toBe(true);
+    expect(await statusesFor(proposal!.uri)).toEqual([
+      'https://minerva.dev/ontology/thought#rejected',
+    ]);
   });
 });
 

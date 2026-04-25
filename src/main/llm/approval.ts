@@ -266,25 +266,12 @@ async function writeProposalToGraph(p: Proposal): Promise<void> {
 }
 
 async function updateProposalStatus(uri: string, newStatus: string): Promise<void> {
-  // Remove old status triple and add new one
-  const turtle = `
-    <${uri}> thought:proposalStatus thought:${newStatus} .
-  `;
-  // We need to remove the old status first — use a SPARQL-style approach
-  // Since rdflib doesn't support SPARQL UPDATE, we query then manipulate
-  const results = await graph.queryGraph(`
-    PREFIX thought: <${THOUGHT}>
-    SELECT ?oldStatus WHERE {
-      <${uri}> thought:proposalStatus ?oldStatus .
-    }
-  `);
-  const rows = results.results as Record<string, string>[];
-  if (rows.length > 0) {
-    // Remove old status by re-parsing with the new status
-    // The simplest approach: write a turtle block that sets the new status
-    // The old triple remains but the query will find the latest
-    await applyTurtle(turtle);
-  }
+  // Drop any prior thought:proposalStatus triples on this proposal
+  // before adding the new one — otherwise the proposal accumulates
+  // {pending, approved, ...} markers and history queries return all
+  // historical states (#332).
+  graph.removeMatchingTriples(uri, `${THOUGHT}proposalStatus`);
+  await applyTurtle(`<${uri}> thought:proposalStatus thought:${newStatus} .`);
 }
 
 async function applyTurtle(turtle: string): Promise<void> {
