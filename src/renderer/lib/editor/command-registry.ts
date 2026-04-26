@@ -59,7 +59,7 @@ const STORAGE_KEY = 'keybindingOverrides';
 export function getOverrides(): KeyBindingOverride[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
+    if (stored) return JSON.parse(stored) as KeyBindingOverride[];
   } catch { /* ignore */ }
   return [];
 }

@@ -67,7 +67,7 @@ export function readFrontmatterKey(
   const m = block.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!m) return undefined;
   try {
-    const parsed = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]);
     if (parsed && typeof parsed === 'object') {
       return (parsed as Record<string, unknown>)[key];
     }
