@@ -67,10 +67,16 @@ contextBridge.exposeInMainWorld('api', {
   },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
-    save: (scope: string, name: string, description: string, query: string, language: string) =>
-      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query, language),
+    save: (scope: string, name: string, description: string, query: string, language: string, group: string | null = null) =>
+      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query, language, group),
     delete: (filePath: string) => ipcRenderer.invoke(Channels.QUERIES_DELETE, filePath),
     rename: (filePath: string, newName: string) => ipcRenderer.invoke(Channels.QUERIES_RENAME, filePath, newName),
+    move: (filePath: string, newScope: 'project' | 'global') =>
+      ipcRenderer.invoke(Channels.QUERIES_MOVE, filePath, newScope),
+    setGroup: (filePath: string, group: string | null) =>
+      ipcRenderer.invoke(Channels.QUERIES_SET_GROUP, filePath, group),
+    setOrder: (entries: Array<{ filePath: string; order: number | null }>) =>
+      ipcRenderer.invoke(Channels.QUERIES_SET_ORDER, entries),
   },
   search: {
     query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),

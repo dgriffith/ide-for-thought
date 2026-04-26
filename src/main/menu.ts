@@ -479,16 +479,31 @@ export function rebuildMenu(): void {
               label: q.name,
               click: () => send(Channels.MENU_OPEN_STOCK_QUERY, { query: q.query, language: q.language }),
             });
+            // #315 — render ungrouped queries first (in saved-queries.ts
+            // sort order), then one nested submenu per named group.
+            function renderScope(qs: typeof saved): Electron.MenuItemConstructorOptions[] {
+              const ungrouped = qs.filter((q) => q.group === null);
+              const groupNames = [...new Set(qs.filter((q) => q.group !== null).map((q) => q.group as string))]
+                .sort((a, b) => a.localeCompare(b));
+              const out: Electron.MenuItemConstructorOptions[] = ungrouped.map(mkEntry);
+              for (const g of groupNames) {
+                out.push({
+                  label: g,
+                  submenu: qs.filter((q) => q.group === g).map(mkEntry),
+                });
+              }
+              return out;
+            }
             const items: Electron.MenuItemConstructorOptions[] = [];
             // When both scopes are populated, nest under Thoughtbase ▸ /
             // Global ▸ submenus (mirrors the Stock Queries pattern).
             // When only one scope has entries, list flat — a one-branch
             // tree is noise.
             if (project.length > 0 && global.length > 0) {
-              items.push({ label: 'Thoughtbase', submenu: project.map(mkEntry) });
-              items.push({ label: 'Global', submenu: global.map(mkEntry) });
+              items.push({ label: 'Thoughtbase', submenu: renderScope(project) });
+              items.push({ label: 'Global', submenu: renderScope(global) });
             } else {
-              items.push(...(project.length > 0 ? project : global).map(mkEntry));
+              items.push(...renderScope(project.length > 0 ? project : global));
             }
             items.push({ type: 'separator' });
             items.push({

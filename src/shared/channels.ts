@@ -42,6 +42,12 @@ export const Channels = {
   QUERIES_SAVE: 'queries:save',
   QUERIES_DELETE: 'queries:delete',
   QUERIES_RENAME: 'queries:rename',
+  /** Move a query between scopes (#314). */
+  QUERIES_MOVE: 'queries:move',
+  /** Re-tag a query's @group (#315). */
+  QUERIES_SET_GROUP: 'queries:setGroup',
+  /** Apply a new @order across many queries at once (#315 — drag-reorder). */
+  QUERIES_SET_ORDER: 'queries:setOrder',
 
   // Search
   SEARCH_QUERY: 'search:query',
