@@ -82,7 +82,7 @@
   const formatterSections = CATEGORY_ORDER.map((cat) => ({
     category: cat,
     label: FORMATTER_CATEGORY_LABELS[cat] ?? cat,
-    rules: listRulesByCategory(cat) as FormatterRule<unknown>[],
+    rules: listRulesByCategory(cat),
   }));
   const hasAnyFormatterRules = formatterSections.some((s) => s.rules.length > 0);
   const DESTINATION_OPTIONS: { value: DestinationMode; label: string }[] = [

@@ -204,7 +204,7 @@ async function runQuery(ctx: ToolContext, input: unknown): Promise<{ content: st
   if (typeof sparql !== 'string' || !sparql.trim()) {
     throw new Error('sparql is required');
   }
-  const response = await graph.queryGraph(projectContext(ctx.rootPath), sparql) as { results: unknown[]; error?: string };
+  const response = await graph.queryGraph(projectContext(ctx.rootPath), sparql);
   if (response.error) {
     return {
       content: `SPARQL error: ${response.error}\n\nCall describe_graph_schema to see available classes and predicates.`,

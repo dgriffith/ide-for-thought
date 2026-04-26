@@ -30,7 +30,10 @@ function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
       const predicate = convertTerm(st.predicate, df) as N3.NamedNode;
       const object = convertTerm(st.object, df);
       if (subject && predicate && object) {
-        n3Store.addQuad(subject as any, predicate, object as any, df.defaultGraph());
+        // n3.addQuad's overloads insist on (Quad_Subject, Quad_Predicate,
+        // Quad_Object, ...) but our convertTerm produces N3.Term —
+        // structurally compatible for the runtime check it does.
+        n3Store.addQuad(subject as N3.Quad_Subject, predicate, object as N3.Quad_Object, df.defaultGraph());
       }
     } catch { /* skip malformed triples */ }
   }
@@ -38,8 +41,17 @@ function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
   return n3Store;
 }
 
-function convertTerm(term: any, df: typeof N3.DataFactory): N3.Term | null {
-  if (!term || !term.termType) return null;
+// rdflib's term shape isn't fully typed at this boundary — accept anything
+// shaped like { termType, value, datatype? } and translate to N3.
+interface RdflibTermLike {
+  termType?: string;
+  value?: string;
+  datatype?: { value: string };
+  language?: string;
+}
+
+function convertTerm(term: RdflibTermLike | null | undefined, df: typeof N3.DataFactory): N3.Term | null {
+  if (!term || !term.termType || term.value == null) return null;
   switch (term.termType) {
     case 'NamedNode': return df.namedNode(term.value);
     case 'BlankNode': return df.blankNode(term.value);
@@ -1397,7 +1409,7 @@ export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
   };
 }
 
-export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{ results: unknown[] }> {
+export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{ results: unknown[]; error?: string }> {
   const state = getState(ctx);
   if (!state || !engine) return { results: [] };
   const { store } = state;
@@ -1421,7 +1433,7 @@ export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{
 
     return { results };
   } catch (e) {
-    return { results: [], error: String(e) } as any;
+    return { results: [], error: String(e) };
   }
 }
 

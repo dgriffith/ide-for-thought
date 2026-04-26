@@ -44,13 +44,13 @@ export function formatContent(content: string, settings: FormatSettings): string
 /** Expose which rules would run, in order. Useful for the settings UI + tests. */
 export function resolveEnabled(settings: FormatSettings): EnabledRule[] {
   const all = listAllRules();
-  const byCategory = new Map<string, FormatterRule<any>[]>();
+  const byCategory = new Map<string, FormatterRule[]>();
   for (const r of all) {
     if (!byCategory.has(r.category)) byCategory.set(r.category, []);
     byCategory.get(r.category)!.push(r);
   }
 
-  const ordered: FormatterRule<any>[] = [];
+  const ordered: FormatterRule[] = [];
   for (const cat of CATEGORY_ORDER) {
     const group = byCategory.get(cat);
     if (group) ordered.push(...group);

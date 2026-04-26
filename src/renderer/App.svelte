@@ -454,9 +454,11 @@
     // Update open tab if the moved file was open
     const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === srcPath);
     if (tabIdx !== -1) {
-      const tab = editor.tabs[tabIdx] as any;
-      tab.relativePath = destPath;
-      tab.fileName = srcName;
+      const tab = editor.tabs[tabIdx];
+      if (tab.type === 'note') {
+        tab.relativePath = destPath;
+        tab.fileName = srcName;
+      }
     }
     await notebase.refresh();
   }
@@ -471,9 +473,11 @@
       // If the moved file was open, update the tab
       const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === clipboardItem!.relativePath);
       if (tabIdx !== -1) {
-        const tab = editor.tabs[tabIdx] as any;
-        tab.relativePath = destPath;
-        tab.fileName = srcName;
+        const tab = editor.tabs[tabIdx];
+        if (tab.type === 'note') {
+          tab.relativePath = destPath;
+          tab.fileName = srcName;
+        }
       }
       clipboardItem = null;
     } else {
@@ -1183,16 +1187,16 @@
     recordCurrentPosition();
 
     const targetTab = editor.tabs[index];
-    const savedOffset = targetTab?.type === 'note' ? (targetTab as any).cursorOffset : undefined;
-    const savedScroll = targetTab?.type === 'note' ? (targetTab as any).scrollTop : undefined;
+    const savedOffset = targetTab?.type === 'note' ? targetTab.cursorOffset : undefined;
+    const savedScroll = targetTab?.type === 'note' ? targetTab.scrollTop : undefined;
     if (targetTab?.type === 'note') {
-      await editor.openFile((targetTab as any).relativePath);
+      await editor.openFile(targetTab.relativePath);
       if (savedOffset != null) {
         requestAnimationFrame(() => {
           editorComponent?.restorePosition(savedOffset, savedScroll);
         });
       }
-      nav.record({ type: 'note', relativePath: (targetTab as any).relativePath, offset: savedOffset ?? 0 });
+      nav.record({ type: 'note', relativePath: targetTab.relativePath, offset: savedOffset ?? 0 });
     } else if (targetTab?.type === 'query') {
       editor.switchTab(index);
       nav.record({ type: 'query', tabId: targetTab.id });

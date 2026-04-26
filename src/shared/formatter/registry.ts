@@ -11,26 +11,26 @@
 
 import type { FormatterCategory, FormatterRule } from './types';
 
-const rules = new Map<string, FormatterRule<any>>();
+const rules = new Map<string, FormatterRule>();
 const order: string[] = [];
 
 export function registerRule<Config>(rule: FormatterRule<Config>): void {
   if (rules.has(rule.id)) {
     throw new Error(`Formatter rule "${rule.id}" is already registered.`);
   }
-  rules.set(rule.id, rule as FormatterRule<any>);
+  rules.set(rule.id, rule);
   order.push(rule.id);
 }
 
-export function getRule(id: string): FormatterRule<any> | undefined {
+export function getRule(id: string): FormatterRule | undefined {
   return rules.get(id);
 }
 
-export function listAllRules(): FormatterRule<any>[] {
+export function listAllRules(): FormatterRule[] {
   return order.map((id) => rules.get(id)!).filter(Boolean);
 }
 
-export function listRulesByCategory(category: FormatterCategory): FormatterRule<any>[] {
+export function listRulesByCategory(category: FormatterCategory): FormatterRule[] {
   return listAllRules().filter((r) => r.category === category);
 }
 

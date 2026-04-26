@@ -4,7 +4,7 @@
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
-  import { EditorState, Prec, Compartment } from '@codemirror/state';
+  import { EditorState, Prec, Compartment, type Extension } from '@codemirror/state';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
   import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
@@ -155,7 +155,7 @@
     return obj as { doc: string } & Record<string, unknown>;
   }
 
-  function cmTheme(): any {
+  function cmTheme(): Extension {
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
   }
 

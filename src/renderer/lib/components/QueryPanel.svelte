@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { EditorView, keymap, lineNumbers, placeholder } from '@codemirror/view';
-  import { EditorState, Compartment, Prec } from '@codemirror/state';
+  import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
   import { history, historyKeymap, defaultKeymap, indentWithTab } from '@codemirror/commands';
   import {
     bracketMatching,
@@ -138,7 +138,7 @@
     } catch { /* tables DB not ready — autocomplete just falls back to keywords */ }
   }
 
-  function languageExt(lang: QueryLanguage): any {
+  function languageExt(lang: QueryLanguage): Extension {
     if (lang === 'sql') {
       return sql({
         dialect: PostgreSQL,
@@ -155,7 +155,7 @@
       : 'SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}';
   }
 
-  function completionFor(lang: QueryLanguage): any {
+  function completionFor(lang: QueryLanguage): Extension {
     // lang-sql bundles its own completion source via the `schema` option;
     // we only need to override for SPARQL.
     if (lang === 'sql') return autocompletion();
@@ -166,7 +166,7 @@
     return getEffectiveTheme(getThemeMode()) === 'dark';
   }
 
-  function cmTheme(): any {
+  function cmTheme(): Extension {
     return isDark() ? oneDark : [];
   }
 
@@ -204,7 +204,7 @@
     { tag: t.comment, color: '#6c6f85', fontStyle: 'italic' },
   ]);
 
-  function cmHighlight(): any {
+  function cmHighlight(): Extension {
     return syntaxHighlighting(isDark() ? sparqlHighlightDark : sparqlHighlightLight);
   }
 

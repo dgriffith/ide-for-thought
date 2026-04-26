@@ -14,14 +14,14 @@ describe('applyBookmarkPathTransitions', () => {
   it('returns false on empty transitions and leaves tree untouched', () => {
     const tree = [bm('a', 'notes/a.md')];
     expect(applyBookmarkPathTransitions(tree, [])).toBe(false);
-    expect((tree[0] as any).relativePath).toBe('notes/a.md');
+    expect((tree[0] as { relativePath: string }).relativePath).toBe('notes/a.md');
   });
 
   it('rewrites an exact path match', () => {
     const tree = [bm('a', 'notes/a.md')];
     const changed = applyBookmarkPathTransitions(tree, [{ old: 'notes/a.md', new: 'archive/a.md' }]);
     expect(changed).toBe(true);
-    expect((tree[0] as any).relativePath).toBe('archive/a.md');
+    expect((tree[0] as { relativePath: string }).relativePath).toBe('archive/a.md');
   });
 
   it('rewrites bookmarks inside a renamed folder (prefix match)', () => {
@@ -35,15 +35,15 @@ describe('applyBookmarkPathTransitions', () => {
       { old: 'notes/sub/y.md', new: 'archive/sub/y.md' },
     ]);
     expect(changed).toBe(true);
-    expect((tree[0] as any).relativePath).toBe('archive/sub/x.md');
-    expect((tree[1] as any).relativePath).toBe('archive/sub/y.md');
-    expect((tree[2] as any).relativePath).toBe('other/z.md'); // untouched
+    expect((tree[0] as { relativePath: string }).relativePath).toBe('archive/sub/x.md');
+    expect((tree[1] as { relativePath: string }).relativePath).toBe('archive/sub/y.md');
+    expect((tree[2] as { relativePath: string }).relativePath).toBe('other/z.md'); // untouched
   });
 
   it('recurses into folders', () => {
     const tree = [folder('research', [bm('a', 'notes/a.md')])];
     applyBookmarkPathTransitions(tree, [{ old: 'notes/a.md', new: 'archive/a.md' }]);
-    expect((tree[0] as any).children[0].relativePath).toBe('archive/a.md');
+    expect((tree[0] as { children: Array<{ relativePath: string }> }).children[0].relativePath).toBe('archive/a.md');
   });
 
   it('stops at the first matching transition (longer prefixes win)', () => {
@@ -54,7 +54,7 @@ describe('applyBookmarkPathTransitions', () => {
       { old: 'notes', new: 'archive' },
       { old: 'notes/sub/x.md', new: 'archive/sub/new-x.md' },
     ]);
-    expect((tree[0] as any).relativePath).toBe('archive/sub/new-x.md');
+    expect((tree[0] as { relativePath: string }).relativePath).toBe('archive/sub/new-x.md');
   });
 
   it('returns false when no bookmark matches any transition', () => {
