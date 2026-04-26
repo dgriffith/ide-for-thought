@@ -83,7 +83,11 @@ describe('LLM write guard (#331)', () => {
     try {
       await proposeWrite(ctx, {
         operationType: 'tag_addition',
-        turtleDiff: '<https://ex/a> a <https://ex/T> .',
+        payloads: [{
+          kind: 'graph-triples',
+          turtle: '<https://ex/a> a <https://ex/T> .',
+          affectsNodeUris: ['https://ex/a'],
+        }],
         note: 'autonomous tier — applied directly',
         proposedBy: 'unit-test',
       });
@@ -102,7 +106,11 @@ describe('LLM write guard (#331)', () => {
     try {
       const p = await proposeWrite(ctx, {
         operationType: 'new_claim',
-        turtleDiff: '<https://ex/x> a <https://ex/Claim> .',
+        payloads: [{
+          kind: 'graph-triples',
+          turtle: '<https://ex/x> a <https://ex/Claim> .',
+          affectsNodeUris: ['https://ex/x'],
+        }],
         note: 'pending',
         proposedBy: 'unit-test',
       });
@@ -178,10 +186,13 @@ describe('crystallize provenance (#331)', () => {
     setPolicy('component_creation', 'requires_approval');
     const p = await proposeWrite(ctx, {
       operationType: 'component_creation',
-      turtleDiff: `<${aUri}> a <https://ex/T> .\n<${bUri}> a <https://ex/T> .`,
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: `<${aUri}> a <https://ex/T> .\n<${bUri}> a <https://ex/T> .`,
+        affectsNodeUris: [aUri, bUri],
+      }],
       note: 'two components',
       proposedBy: 'unit-test',
-      affectsNodeUris: [aUri, bUri],
     });
     expect(p).not.toBeNull();
 
@@ -213,10 +224,13 @@ describe('crystallize provenance (#331)', () => {
     `;
     const p = await proposeWrite(ctx, {
       operationType: 'component_creation',
-      turtleDiff,
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: turtleDiff,
+        affectsNodeUris: [componentUri],
+      }],
       note: 'test',
       proposedBy: 'unit-test',
-      affectsNodeUris: [componentUri],
     });
     expect(p).not.toBeNull();
     expect(await approveProposal(ctx, p!.uri)).toBe(true);

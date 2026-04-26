@@ -90,10 +90,13 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
   it('approving a pending proposal leaves only the approved status', async () => {
     const proposal = await proposeWrite(ctx, {
       operationType: 'new_claim',
-      turtleDiff: '<https://ex.example/x> a <https://ex.example/Claim> .',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: '<https://ex.example/x> a <https://ex.example/Claim> .',
+        affectsNodeUris: ['https://ex.example/x'],
+      }],
       note: 'test',
       proposedBy: 'unit-test',
-      affectsNodeUri: 'https://ex.example/x',
     });
     expect(proposal).not.toBeNull();
     expect(await statusesFor(proposal!.uri)).toEqual([
@@ -109,10 +112,13 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
   it('rejecting a pending proposal leaves only the rejected status', async () => {
     const proposal = await proposeWrite(ctx, {
       operationType: 'new_claim',
-      turtleDiff: '<https://ex.example/y> a <https://ex.example/Claim> .',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: '<https://ex.example/y> a <https://ex.example/Claim> .',
+        affectsNodeUris: ['https://ex.example/y'],
+      }],
       note: 'test',
       proposedBy: 'unit-test',
-      affectsNodeUri: 'https://ex.example/y',
     });
     expect(proposal).not.toBeNull();
     expect(await rejectProposal(ctx, proposal!.uri)).toBe(true);

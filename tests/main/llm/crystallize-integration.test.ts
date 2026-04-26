@@ -82,7 +82,12 @@ describe('crystallize() integration (#342)', () => {
     expect(p.proposedBy).toBe('llm:test');
     expect(p.conversationUri).toBe(CONV_URI);
     expect(p.affectsNodeUris.sort()).toEqual([CLAIM_URI, GROUNDS_URI].sort());
-    expect(p.turtleDiff).toContain(CLAIM_URI);
+    // Payload bundle now carries the turtle (#418).
+    expect(p.payloads).toHaveLength(1);
+    expect(p.payloads[0].kind).toBe('graph-triples');
+    if (p.payloads[0].kind === 'graph-triples') {
+      expect(p.payloads[0].turtle).toContain(CLAIM_URI);
+    }
   });
 
   it('approving the proposal applies the component triples to the graph', async () => {
