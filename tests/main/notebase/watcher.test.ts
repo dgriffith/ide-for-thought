@@ -5,6 +5,11 @@
  * and asserts the right callbacks fire with the right relative paths.
  * The watcher itself is a thin event-router; downstream indexing lives
  * in `window-manager.ts`.
+ *
+ * `startWatching` returns a promise that resolves after both chokidar
+ * watchers fire `ready`. Tests await it so we never race chokidar's
+ * initial scan — fixed-timeout `setTimeout` waits flake under parallel
+ * test load (#344's 10× run discovered this).
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -30,9 +35,8 @@ function makeWin(): StubWin {
 
 /**
  * Polls `predicate` every 25ms up to `timeoutMs`, resolving when it
- * returns true (chokidar events are async; callbacks may not fire on
- * the next microtask). Faster than a fixed sleep, less brittle than a
- * one-shot wait.
+ * returns true. Used to wait for callback events that arrive on
+ * chokidar's own schedule.
  */
 async function waitFor(
   predicate: () => boolean,
@@ -68,15 +72,11 @@ describe('startWatching() (#345)', () => {
   describe('notes-tree events', () => {
     it('emits onFileCreated for a new .md file (with relative path)', async () => {
       const created: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      // chokidar's initial scan needs a moment before subsequent writes
-      // reliably produce events. Without this, the first write races the
-      // watcher's "ready" state and gets dropped on slow CI.
-      await new Promise((r) => setTimeout(r, 200));
 
       await fsp.writeFile(path.join(root, 'hello.md'), '# Hello\n', 'utf-8');
       await waitFor(() => created.includes('hello.md'));
@@ -92,20 +92,19 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, rel), 'v1\n', 'utf-8');
 
       const changed: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: () => undefined,
         onFileChanged: (p) => changed.push(p),
         onFileDeleted: () => undefined,
       });
 
-      // chokidar's initial scan needs to fully complete and register the
-      // file's mtime before the next write looks like a `change`. Under
-      // parallel test load on macOS fsevents this can take longer than
-      // the 200ms used in other tests.
-      await new Promise((r) => setTimeout(r, 500));
       await fsp.writeFile(path.join(root, rel), 'v2\n', 'utf-8');
       await waitFor(() => changed.includes(rel));
-      expect(changed).toEqual([rel]);
+      // chokidar can emit multiple change events for a single write under
+      // macOS fsevents (open-for-write + close-after-write coalescing
+      // doesn't always happen). The contract is "the path was reported
+      // as changed", not "exactly once".
+      expect(changed).toContain(rel);
       expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CHANGED, rel);
     });
 
@@ -114,13 +113,12 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(root, rel), 'doomed\n', 'utf-8');
 
       const deleted: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: () => undefined,
         onFileChanged: () => undefined,
         onFileDeleted: (p) => deleted.push(p),
       });
 
-      await new Promise((r) => setTimeout(r, 200));
       await fsp.rm(path.join(root, rel));
       await waitFor(() => deleted.includes(rel));
       expect(deleted).toEqual([rel]);
@@ -129,12 +127,11 @@ describe('startWatching() (#345)', () => {
 
     it('handles all three indexable extensions (.md, .ttl, .csv)', async () => {
       const created: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
       await fsp.writeFile(path.join(root, 'a.md'), 'a\n', 'utf-8');
       await fsp.writeFile(path.join(root, 'b.ttl'), '@prefix x: <x> .\n', 'utf-8');
@@ -146,12 +143,11 @@ describe('startWatching() (#345)', () => {
 
     it('ignores non-indexable extensions like .png and .json', async () => {
       const created: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
       await fsp.writeFile(path.join(root, 'image.png'), 'fake', 'utf-8');
       await fsp.writeFile(path.join(root, 'config.json'), '{}', 'utf-8');
@@ -166,12 +162,11 @@ describe('startWatching() (#345)', () => {
 
     it('files in dot-prefixed dirs are ignored (e.g. .git, .obsidian)', async () => {
       const created: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
       await fsp.mkdir(path.join(root, '.git'), { recursive: true });
       await fsp.mkdir(path.join(root, '.obsidian'), { recursive: true });
@@ -190,12 +185,11 @@ describe('startWatching() (#345)', () => {
         isDestroyed: () => true,
         webContents: { send: vi.fn() },
       };
-      startWatching(root, destroyableWin as unknown as BrowserWindow, winId, {
+      await startWatching(root, destroyableWin as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
       await fsp.writeFile(path.join(root, 'x.md'), 'x\n', 'utf-8');
       // Wait long enough that, if the callback were going to fire, it would have.
@@ -208,17 +202,21 @@ describe('startWatching() (#345)', () => {
   describe('.minerva/{sources,excerpts} routing', () => {
     it('routes .minerva/sources/<id>/meta.ttl writes to onSourceMetaChanged', async () => {
       const sourceId = 'sha-abc123';
+      // Pre-create the source directory so it's part of the watcher's
+      // initial scan. chokidar can take a long time to spin up a new
+      // sub-watcher when a directory appears mid-flight, which flakes
+      // under parallel test load.
+      const dir = path.join(root, '.minerva', 'sources', sourceId);
+      await fsp.mkdir(dir, { recursive: true });
+
       const onSourceMetaChanged = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onSourceMetaChanged,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
-      const dir = path.join(root, '.minerva', 'sources', sourceId);
-      await fsp.mkdir(dir, { recursive: true });
       await fsp.writeFile(path.join(dir, 'meta.ttl'), '@prefix x: <x> .\n', 'utf-8');
 
       await waitFor(() => onSourceMetaChanged.mock.calls.length > 0);
@@ -229,17 +227,17 @@ describe('startWatching() (#345)', () => {
       // body.md edits also count as source metadata changes — they land in the
       // same `upsert` branch so the indexer can re-read both files.
       const sourceId = 'sha-bodyonly';
+      const dir = path.join(root, '.minerva', 'sources', sourceId);
+      await fsp.mkdir(dir, { recursive: true });
+
       const onSourceMetaChanged = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onSourceMetaChanged,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
-      const dir = path.join(root, '.minerva', 'sources', sourceId);
-      await fsp.mkdir(dir, { recursive: true });
       await fsp.writeFile(path.join(dir, 'body.md'), '# body\n', 'utf-8');
 
       await waitFor(() => onSourceMetaChanged.mock.calls.length > 0);
@@ -253,13 +251,12 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(dir, 'meta.ttl'), '@prefix x: <x> .\n', 'utf-8');
 
       const onSourceMetaDeleted = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onSourceMetaDeleted,
       });
-      await new Promise((r) => setTimeout(r, 200));
       await fsp.rm(path.join(dir, 'meta.ttl'));
 
       await waitFor(() => onSourceMetaDeleted.mock.calls.length > 0);
@@ -269,13 +266,12 @@ describe('startWatching() (#345)', () => {
     it('routes .minerva/excerpts/<id>.ttl writes to onExcerptChanged', async () => {
       const excerptId = 'ex-7';
       const onExcerptChanged = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onExcerptChanged,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
       const dir = path.join(root, '.minerva', 'excerpts');
       await fsp.mkdir(dir, { recursive: true });
@@ -292,13 +288,12 @@ describe('startWatching() (#345)', () => {
       await fsp.writeFile(path.join(dir, `${excerptId}.ttl`), '@prefix x: <x> .\n', 'utf-8');
 
       const onExcerptDeleted = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onExcerptDeleted,
       });
-      await new Promise((r) => setTimeout(r, 200));
       await fsp.rm(path.join(dir, `${excerptId}.ttl`));
 
       await waitFor(() => onExcerptDeleted.mock.calls.length > 0);
@@ -308,24 +303,22 @@ describe('startWatching() (#345)', () => {
     it('does NOT route unrelated .minerva/* files to source/excerpt callbacks', async () => {
       // graph.ttl, bookmarks.json, tabs.json, etc. all live under .minerva but
       // outside sources/excerpts — they must stay invisible to the watcher.
+      // Pre-create the sentinel source dir for the same reason as above.
+      const sentinelDir = path.join(root, '.minerva', 'sources', 'sentinel');
+      await fsp.mkdir(sentinelDir, { recursive: true });
+
       const onSourceMetaChanged = vi.fn();
       const onExcerptChanged = vi.fn();
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileChanged: () => undefined,
         onFileCreated: () => undefined,
         onFileDeleted: () => undefined,
         onSourceMetaChanged,
         onExcerptChanged,
       });
-      await new Promise((r) => setTimeout(r, 200));
 
-      await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
       await fsp.writeFile(path.join(root, '.minerva', 'graph.ttl'), '@prefix x: <x> .\n', 'utf-8');
       await fsp.writeFile(path.join(root, '.minerva', 'bookmarks.json'), '[]', 'utf-8');
-
-      // Plant a sentinel inside sources so we know the watcher is alive.
-      const sentinelDir = path.join(root, '.minerva', 'sources', 'sentinel');
-      await fsp.mkdir(sentinelDir, { recursive: true });
       await fsp.writeFile(path.join(sentinelDir, 'meta.ttl'), '@prefix x: <x> .\n', 'utf-8');
 
       await waitFor(() => onSourceMetaChanged.mock.calls.length > 0);
@@ -338,12 +331,11 @@ describe('startWatching() (#345)', () => {
   describe('stopWatching()', () => {
     it('detaches every watcher so subsequent file ops produce no callbacks', async () => {
       const created: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 150));
 
       stopWatching(winId);
       // Even after a generous wait, no event should land for files added
@@ -359,20 +351,18 @@ describe('startWatching() (#345)', () => {
 
     it('startWatching twice on the same id replaces the previous watcher', async () => {
       const firstCreated: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => firstCreated.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 150));
 
       const secondCreated: string[] = [];
-      startWatching(root, win as unknown as BrowserWindow, winId, {
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => secondCreated.push(p),
         onFileChanged: () => undefined,
         onFileDeleted: () => undefined,
       });
-      await new Promise((r) => setTimeout(r, 150));
 
       await fsp.writeFile(path.join(root, 'after.md'), 'x\n', 'utf-8');
       await waitFor(() => secondCreated.includes('after.md'));

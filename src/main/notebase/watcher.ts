@@ -42,7 +42,7 @@ export function startWatching(
   win: BrowserWindow,
   id: number,
   callbacks?: WatcherCallbacks,
-): void {
+): Promise<void> {
   stopWatching(id);
 
   const notes = watch(rootPath, {
@@ -114,6 +114,22 @@ export function startWatching(
   minervaData.on('unlink', (filePath) => handleMinervaEvent(filePath, 'delete'));
 
   watchers.set(id, { notes, minervaData });
+
+  // Resolve once both chokidar watchers have completed their initial scan
+  // and a brief settle window has elapsed. Production callers ignore this
+  // promise (the watcher works fine before ready — just no events for
+  // files added during the scan window). Tests await it so they don't
+  // have to race timing.
+  //
+  // The post-ready settle delay is real: on macOS fsevents the watcher
+  // can fire `ready` before the kernel-level event subscription is fully
+  // armed for new sub-directories, leading to dropped events on small
+  // file ops that follow immediately. 100ms is empirically enough to
+  // close the gap without making real teardown sluggish.
+  return Promise.all([
+    new Promise<void>((r) => notes.once('ready', () => r())),
+    new Promise<void>((r) => minervaData.once('ready', () => r())),
+  ]).then(() => new Promise<void>((r) => setTimeout(r, 100)));
 }
 
 export function stopWatching(id: number): void {

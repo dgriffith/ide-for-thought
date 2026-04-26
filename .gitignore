@@ -12,11 +12,26 @@ __pycache__/
 
 # Demo source/excerpt fixtures in the sample thoughtbase.
 # Everything else under sample-project/.minerva/ (bookmarks.json, tabs.json,
-# graph.ttl, conversations/, …) is still ignored — only the hand-authored
-# TTL fixtures that demonstrate [[cite::…]] / [[quote::…]] are tracked.
+# graph.ttl, conversations/, …) is still ignored. The hand-authored
+# TTL fixtures that demonstrate [[cite::…]] / [[quote::…]] are
+# allowlisted by their specific committed prefixes so dev-app artifacts
+# (sha-* PDF ingests, ad-hoc url-* captures) opened against the
+# sample-project don't quietly get tracked (#344).
 !tests/fixtures/sample-project/.minerva/
 tests/fixtures/sample-project/.minerva/*
 !tests/fixtures/sample-project/.minerva/sources/
-!tests/fixtures/sample-project/.minerva/sources/**
+tests/fixtures/sample-project/.minerva/sources/*
+!tests/fixtures/sample-project/.minerva/sources/arxiv-2604.18522/
+!tests/fixtures/sample-project/.minerva/sources/arxiv-2604.18522/**
+!tests/fixtures/sample-project/.minerva/sources/brooks-1986/
+!tests/fixtures/sample-project/.minerva/sources/brooks-1986/**
+!tests/fixtures/sample-project/.minerva/sources/toulmin-1958/
+!tests/fixtures/sample-project/.minerva/sources/toulmin-1958/**
+!tests/fixtures/sample-project/.minerva/sources/url-0fb7fa441088/
+!tests/fixtures/sample-project/.minerva/sources/url-0fb7fa441088/**
+!tests/fixtures/sample-project/.minerva/sources/url-1e5b3a5ab1bc/
+!tests/fixtures/sample-project/.minerva/sources/url-1e5b3a5ab1bc/**
+!tests/fixtures/sample-project/.minerva/sources/url-ab2b069842d3/
+!tests/fixtures/sample-project/.minerva/sources/url-ab2b069842d3/**
 !tests/fixtures/sample-project/.minerva/excerpts/
 !tests/fixtures/sample-project/.minerva/excerpts/**
