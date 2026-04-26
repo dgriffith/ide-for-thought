@@ -82,14 +82,14 @@
 <div class="proposals-panel" onkeydown={handleKeydown} tabindex="-1">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find proposal…"
     sortOptions={[
       { id: 'time', label: 'Newest first' },
       { id: 'type', label: 'By type' },
     ]}
     {sortId}
-    onSort={(id) => { sortId = id as 'time' | 'type'; }}
+    onSort={(id: string) => { sortId = id as 'time' | 'type'; }}
   />
   {#if shown().length === 0}
     <p class="empty">{proposals.length === 0 ? 'No pending proposals' : 'No matches'}</p>

@@ -71,7 +71,7 @@
 <div class="outline-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find heading…"
     onExpandAll={expandAll}
     onCollapseAll={collapseAll}

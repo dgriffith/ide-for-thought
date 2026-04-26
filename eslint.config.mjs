@@ -74,12 +74,17 @@ export default tseslint.config(
       // a hundred-line PR that mixes lint setup with real fixes.
       // Re-enable each in its own PR after the underlying cleanups land.
       // Still off — sites > 0; tracked in #382, batched separately.
+      // After the cleanup pass that landed alongside this config the
+      // remaining ~160 no-unsafe-* sites are concentrated in
+      // App.svelte (119), Preview.svelte (17), ConversationDialog (7),
+      // Sidebar (6), StatusBar (6), and a handful of singletons.
+      // Promote these to error once those files are typed.
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'off',             // 77 sites
-      '@typescript-eslint/no-unsafe-member-access': 'off',          // 108 sites
-      '@typescript-eslint/no-unsafe-call': 'off',                   // 99 sites
-      '@typescript-eslint/no-unsafe-argument': 'off',               // 79 sites
-      '@typescript-eslint/no-unsafe-return': 'off',                 // 23 sites
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/require-await': 'error',
       // checksVoidReturn.arguments off: the "Promise returned where void
       // was expected" check fires on every `setTimeout(async () => …)` /
@@ -115,6 +120,14 @@ export default tseslint.config(
       // `async () => stub` bodies that have nothing to await. That's the
       // whole point of the mock — the production interface IS async.
       '@typescript-eslint/require-await': 'off',
+      // Tests legitimately reach into `unknown`-typed query results and
+      // mock-returned shapes without re-typing every field; the
+      // strictness pays off in production code, not tests.
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {

@@ -134,7 +134,7 @@ export async function setModel(id: string, model: string | undefined): Promise<C
 export async function load(id: string): Promise<Conversation | null> {
   try {
     const data = await fs.readFile(convPath(id), 'utf-8');
-    return JSON.parse(data);
+    return JSON.parse(data) as Conversation;
   } catch {
     return null;
   }
@@ -149,7 +149,7 @@ export async function listAll(): Promise<Conversation[]> {
       if (!file.endsWith('.json')) continue;
       try {
         const data = await fs.readFile(path.join(dir, file), 'utf-8');
-        convs.push(JSON.parse(data));
+        convs.push(JSON.parse(data) as Conversation);
       } catch { /* skip malformed */ }
     }
     convs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

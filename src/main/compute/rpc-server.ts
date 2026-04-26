@@ -220,7 +220,7 @@ export async function startRpcServer(rootPath: string): Promise<RpcServer> {
     rl.on('line', async (line) => {
       let req: RpcRequest;
       try {
-        req = JSON.parse(line);
+        req = JSON.parse(line) as RpcRequest;
       } catch {
         // Malformed line — caller protocol bug. Drop it; the Python
         // side will time out on its own.

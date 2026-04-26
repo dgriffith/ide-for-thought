@@ -1,6 +1,15 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Channels } from '../shared/channels';
 
+/**
+ * Subscribe to an IPC channel and forward the typed payload to `cb`.
+ * Centralises the unavoidable cast at the IPC boundary — the main
+ * process owns the wire shape, so each subscriber names what it expects.
+ */
+function subscribeIpc<T>(channel: string, cb: (payload: T) => void): void {
+  ipcRenderer.on(channel, (_e, payload: unknown) => cb(payload as T));
+}
+
 contextBridge.exposeInMainWorld('api', {
   notebase: {
     open: () => ipcRenderer.invoke(Channels.NOTEBASE_OPEN),
@@ -30,21 +39,12 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
     searchInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),
     replaceInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_REPLACE_IN_NOTES, opts),
-    onFileChanged: (cb: (path: string) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_FILE_CHANGED, (_e, p) => cb(p));
-    },
-    onFileCreated: (cb: (path: string) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_FILE_CREATED, (_e, p) => cb(p));
-    },
-    onFileDeleted: (cb: (path: string) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_FILE_DELETED, (_e, p) => cb(p));
-    },
-    onRenamed: (cb: (transitions: Array<{ old: string; new: string }>) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_RENAMED, (_e, transitions) => cb(transitions));
-    },
-    onRewritten: (cb: (paths: string[]) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_REWRITTEN, (_e, paths) => cb(paths));
-    },
+    onFileChanged: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CHANGED, cb),
+    onFileCreated: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CREATED, cb),
+    onFileDeleted: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_DELETED, cb),
+    onRenamed: (cb: (transitions: Array<{ old: string; new: string }>) => void) =>
+      subscribeIpc(Channels.NOTEBASE_RENAMED, cb),
+    onRewritten: (cb: (paths: string[]) => void) => subscribeIpc(Channels.NOTEBASE_REWRITTEN, cb),
     onHeadingRenameSuggested: (cb: (candidate: {
       relativePath: string;
       oldSlug: string;
@@ -52,9 +52,7 @@ contextBridge.exposeInMainWorld('api', {
       newSlug: string;
       newText: string;
       incomingLinkCount: number;
-    }) => void) => {
-      ipcRenderer.on(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, (_e, c) => cb(c));
-    },
+    }) => void) => subscribeIpc(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, cb),
     renameAnchor: (targetRelativePath: string, oldSlug: string, newSlug: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
     renameSource: (oldId: string, newId: string) =>
@@ -151,9 +149,7 @@ contextBridge.exposeInMainWorld('api', {
     listActive: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST_ACTIVE),
     send: (convId: string, userMessage: string, systemPrompt?: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt),
-    onStream: (cb: (chunk: string) => void) => {
-      ipcRenderer.on(Channels.CONVERSATION_STREAM, (_e, chunk) => cb(chunk));
-    },
+    onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.CONVERSATION_STREAM, cb),
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
     crystallize: (text: string, conversationId: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_CRYSTALLIZE, text, conversationId),
@@ -199,13 +195,11 @@ contextBridge.exposeInMainWorld('api', {
     finishPdfOcr: (sourceId: string, pages: string[]) =>
       ipcRenderer.invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
     importBibtex: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_BIBTEX),
-    onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
-      ipcRenderer.on(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, (_e, progress) => cb(progress));
-    },
+    onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
+      subscribeIpc(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, cb),
     importZoteroRdf: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_ZOTERO_RDF),
-    onImportZoteroRdfProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) => {
-      ipcRenderer.on(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, (_e, progress) => cb(progress));
-    },
+    onImportZoteroRdfProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
+      subscribeIpc(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, cb),
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     delete: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_DELETE, sourceId),
     onChanged: (cb: () => void) => {
@@ -237,14 +231,10 @@ contextBridge.exposeInMainWorld('api', {
     execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
     prepareConversation: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
     cancel: () => ipcRenderer.invoke(Channels.TOOL_CANCEL),
-    onStream: (cb: (chunk: string) => void) => {
-      ipcRenderer.on(Channels.TOOL_STREAM, (_e, chunk) => cb(chunk));
-    },
+    onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.TOOL_STREAM, cb),
     getSettings: () => ipcRenderer.invoke(Channels.TOOL_GET_SETTINGS),
     setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
-    onInvoke: (cb: (toolId: string) => void) => {
-      ipcRenderer.on(Channels.TOOL_INVOKE, (_e, toolId) => cb(toolId));
-    },
+    onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
   menu: {
     onNewNote: (cb: () => void) => {
@@ -301,9 +291,8 @@ contextBridge.exposeInMainWorld('api', {
     onNewQuery: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());
     },
-    onOpenStockQuery: (cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_STOCK_QUERY, (_e, payload) => cb(payload));
-    },
+    onOpenStockQuery: (cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void) =>
+      subscribeIpc(Channels.MENU_OPEN_STOCK_QUERY, cb),
     onEditSavedQueries: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_EDIT_SAVED_QUERIES, () => cb());
     },
@@ -319,9 +308,7 @@ contextBridge.exposeInMainWorld('api', {
     onNewProject: (cb: () => void) => {
       ipcRenderer.on('menu:newProject', () => cb());
     },
-    onOpenRecentProject: (cb: (path: string) => void) => {
-      ipcRenderer.on('menu:openRecentProject', (_e, p) => cb(p));
-    },
+    onOpenRecentProject: (cb: (path: string) => void) => subscribeIpc('menu:openRecentProject', cb),
     onCloseProject: (cb: () => void) => {
       ipcRenderer.on('menu:closeProject', () => cb());
     },
@@ -385,18 +372,15 @@ contextBridge.exposeInMainWorld('api', {
     onIngestPdf: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_PDF, () => cb());
     },
-    onExport: (cb: (exporterId: string) => void) => {
-      ipcRenderer.on(Channels.MENU_EXPORT, (_e, id) => cb(id));
-    },
+    onExport: (cb: (exporterId: string) => void) => subscribeIpc(Channels.MENU_EXPORT, cb),
     onImportBibtex: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
     },
     onImportZoteroRdf: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_IMPORT_ZOTERO_RDF, () => cb());
     },
-    onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) => {
-      ipcRenderer.on('project:opened', (_e, meta) => cb(meta));
-    },
+    onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
+      subscribeIpc('project:opened', cb),
   },
 });
 

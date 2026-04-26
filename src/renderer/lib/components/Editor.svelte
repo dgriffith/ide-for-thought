@@ -677,7 +677,7 @@
     const mountedFilePath = filePath;
     return () => {
       view.scrollDOM.removeEventListener('scroll', onScroll);
-      const historySnapshot = view.state.toJSON({ history: historyField });
+      const historySnapshot = view.state.toJSON({ history: historyField }) as Record<string, unknown>;
       onEditorStateSave?.(
         mountedFilePath,
         view.state.selection.main.head,

@@ -152,7 +152,8 @@ function findMath(content: string): Range[] {
   // Inline math: single `$...$`. Skip anything already inside a block match.
   const inlineRe = /\$[^\n$]+?\$/g;
   while ((m = inlineRe.exec(content)) !== null) {
-    const inside = out.some((r) => m!.index >= r.start && m!.index < r.end);
+    const idx = m.index;
+    const inside = out.some((r) => idx >= r.start && idx < r.end);
     if (inside) continue;
     out.push({ start: m.index, end: m.index + m[0].length });
   }
