@@ -170,7 +170,7 @@ export interface PdfMeta {
  */
 export async function readPdfMeta(bytes: Uint8Array): Promise<PdfMeta> {
   const { info } = await getMeta(bytes);
-  const rec = info as Record<string, unknown>;
+  const rec = info;
 
   if (rec.EncryptFilterName != null) {
     throw new Error('This PDF is encrypted. Remove the password protection first, then try again.');
@@ -250,9 +250,9 @@ async function extractTextOrFail(
     // pdfjs throws a generic "No password given" for encrypted PDFs it
     // couldn't classify earlier. Translate for clarity.
     if (/password/i.test(msg) || /encrypt/i.test(msg)) {
-      throw new Error('This PDF is encrypted. Remove the password protection first, then try again.');
+      throw new Error('This PDF is encrypted. Remove the password protection first, then try again.', { cause: err });
     }
-    throw new Error(`PDF text extraction failed: ${msg}`);
+    throw new Error(`PDF text extraction failed: ${msg}`, { cause: err });
   }
 }
 

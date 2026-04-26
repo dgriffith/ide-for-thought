@@ -127,7 +127,7 @@ describe('rpc server method dispatch (#242)', () => {
   });
 
   it('typed-arg failure surfaces as TypeError', async () => {
-    const r = await dispatchMethod(root, 'sparql', { query: 42 as unknown });
+    const r = await dispatchMethod(root, 'sparql', { query: 42 });
     expect('error' in r).toBe(true);
     if ('error' in r) {
       expect(r.error.code).toBe('TypeError');

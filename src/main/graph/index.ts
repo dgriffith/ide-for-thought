@@ -1459,10 +1459,10 @@ export function notesByTag(ctx: ProjectContext, tag: string): TaggedNote[] {
     const subject = st.subject;
     // Sources also carry hasTag edges (body.md tags); filter them out —
     // sourcesByTag handles those.
-    const isNote = store!.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
+    const isNote = store.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
     if (!isNote) return [];
-    const titleStmts = store!.statementsMatching(subject, DC('title'), undefined);
-    const pathStmts = store!.statementsMatching(subject, MINERVA('relativePath'), undefined);
+    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
+    const pathStmts = store.statementsMatching(subject, MINERVA('relativePath'), undefined);
     const relativePath = pathStmts[0]?.object.value ?? '';
     if (!relativePath) return [];
     return [{
@@ -1481,10 +1481,10 @@ export function sourcesByTag(ctx: ProjectContext, tag: string): TaggedSource[] {
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), tagNode);
   return stmts.flatMap((st) => {
     const subject = st.subject;
-    const idStmts = store!.statementsMatching(subject, MINERVA('sourceId'), undefined);
+    const idStmts = store.statementsMatching(subject, MINERVA('sourceId'), undefined);
     const sourceId = idStmts[0]?.object.value;
     if (!sourceId) return [];
-    const titleStmts = store!.statementsMatching(subject, DC('title'), undefined);
+    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
     return [{
       sourceId,
       title: titleStmts[0]?.object.value ?? sourceId,
@@ -1683,7 +1683,7 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
   }
 
   const first = (pred: ReturnType<typeof MINERVA>): string | null => {
-    const stmts = store!.statementsMatching(subject, pred, undefined);
+    const stmts = store.statementsMatching(subject, pred, undefined);
     return stmts[0]?.object.value ?? null;
   };
 
@@ -1715,7 +1715,7 @@ function collectExcerptsForSource(state: GraphState, sourceSubject: $rdf.NamedNo
     seen.add(id);
 
     const first = (pred: ReturnType<typeof MINERVA>): string | null => {
-      const s = store!.statementsMatching(ex, pred, undefined);
+      const s = store.statementsMatching(ex, pred, undefined);
       return s[0]?.object.value ?? null;
     };
 
@@ -1742,13 +1742,13 @@ function collectSourceBacklinks(
   const seen = new Set<string>();
 
   const pushBacklink = (noteSubject: $rdf.NamedNode, kind: 'cite' | 'quote', viaExcerptId?: string) => {
-    const pathStmts = store!.statementsMatching(noteSubject, MINERVA('relativePath'), undefined);
+    const pathStmts = store.statementsMatching(noteSubject, MINERVA('relativePath'), undefined);
     const relativePath = pathStmts[0]?.object.value;
     if (!relativePath) return;
     const key = `${kind}::${relativePath}::${viaExcerptId ?? ''}`;
     if (seen.has(key)) return;
     seen.add(key);
-    const titleStmts = store!.statementsMatching(noteSubject, DC('title'), undefined);
+    const titleStmts = store.statementsMatching(noteSubject, DC('title'), undefined);
     results.push({
       relativePath,
       title: titleStmts[0]?.object.value ?? relativePath,

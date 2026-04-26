@@ -19,8 +19,8 @@ export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition
 
 const MAX_HISTORY = 100;
 
-let backStack = $state<NavPosition[]>([]);
-let forwardStack = $state<NavPosition[]>([]);
+const backStack = $state<NavPosition[]>([]);
+const forwardStack = $state<NavPosition[]>([]);
 let current = $state<NavPosition | null>(null);
 
 /** True if we're in the middle of a back/forward navigation — suppresses recording */

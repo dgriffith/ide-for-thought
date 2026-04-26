@@ -94,7 +94,7 @@ describe('crystallize() integration (#342)', () => {
       PREFIX thought: <https://minerva.dev/ontology/thought#>
       SELECT ?label WHERE { <${CLAIM_URI}> thought:label ?label . }
     `);
-    expect((beforeRows.results as unknown[]).length).toBe(0);
+    expect((beforeRows.results).length).toBe(0);
 
     const [pending] = await listProposals(ctx, 'pending');
     const ok = await approveProposal(ctx, pending.uri);
@@ -125,7 +125,7 @@ describe('crystallize() integration (#342)', () => {
       PREFIX thought: <https://minerva.dev/ontology/thought#>
       SELECT ?label WHERE { <${CLAIM_URI}> thought:label ?label . }
     `);
-    expect((rows.results as unknown[]).length).toBe(0);
+    expect((rows.results).length).toBe(0);
 
     // The integrity query stays clean: no LLM-attributed component is
     // sitting in the graph without an approved proposal pointing at it.
@@ -144,7 +144,7 @@ describe('crystallize() integration (#342)', () => {
         }
       }
     `);
-    expect((orphans.results as unknown[]).length).toBe(0);
+    expect((orphans.results).length).toBe(0);
   });
 
   it('skips proposeWrite entirely when the LLM returns nothing', async () => {

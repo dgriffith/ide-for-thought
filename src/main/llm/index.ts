@@ -78,11 +78,11 @@ export async function complete(
     callbacks = callbacksOrOptions;
     messages = [{ role: 'user', content: prompt }];
   } else if (callbacksOrOptions) {
-    const opts = callbacksOrOptions as CompleteOptions;
+    const opts = callbacksOrOptions;
     system = opts.system;
     callbacks = opts.callbacks;
     modelOverride = opts.model;
-    messages = (opts.messages ?? [{ role: 'user', content: prompt }]) as Anthropic.MessageParam[];
+    messages = (opts.messages ?? [{ role: 'user', content: prompt }]);
   } else {
     messages = [{ role: 'user', content: prompt }];
   }
@@ -107,7 +107,7 @@ export async function complete(
     messages,
   }, { signal: callbacks.signal });
 
-  stream.on('text', (delta) => callbacks!.onChunk(delta));
+  stream.on('text', (delta) => callbacks.onChunk(delta));
   const finalMessage = await stream.finalMessage();
   return extractText(finalMessage.content);
 }

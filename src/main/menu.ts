@@ -431,7 +431,7 @@ export function rebuildMenu(): void {
           toolTip: tool.description,
           click: () => send(Channels.TOOL_INVOKE, tool.id),
         })),
-      } as Electron.MenuItemConstructorOptions)),
+      })),
 
     // Query
     {

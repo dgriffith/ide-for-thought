@@ -238,6 +238,6 @@ describe('crystallize provenance (#331)', () => {
         }
       }
     `);
-    expect((r.results as unknown[]).length).toBe(0);
+    expect((r.results).length).toBe(0);
   });
 });

@@ -44,8 +44,8 @@ registerRule<Config>({
 
 function keyString(key: unknown): string | null {
   if (typeof key === 'string') return key;
-  if (key && typeof key === 'object' && YAML.isScalar(key as YAML.Scalar)) {
-    return String((key as YAML.Scalar).value);
+  if (key && typeof key === 'object' && YAML.isScalar(key)) {
+    return String((key).value);
   }
   return null;
 }

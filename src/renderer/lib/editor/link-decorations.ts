@@ -196,7 +196,7 @@ export function linkDecorations(opts: LinkOptions) {
   function linkElFromEvent(e: MouseEvent): HTMLElement | null {
     const target = e.target as HTMLElement | null;
     if (!target) return null;
-    return target.closest('.cm-clickable-link') as HTMLElement | null;
+    return target.closest('.cm-clickable-link');
   }
 
   const plugin = ViewPlugin.fromClass(

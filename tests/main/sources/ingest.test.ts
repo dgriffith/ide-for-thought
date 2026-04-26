@@ -177,12 +177,12 @@ describe('ingestUrl (#93)', () => {
   });
 
   function mockFetch(html: string, opts: { contentType?: string; status?: number } = {}): typeof fetch {
-    return (async () => {
+    return async () => {
       return new Response(html, {
         status: opts.status ?? 200,
         headers: { 'content-type': opts.contentType ?? 'text/html; charset=utf-8' },
       });
-    }) as unknown as typeof fetch;
+    };
   }
 
   it('writes original.html, body.md, and meta.ttl under sources/<id>/', async () => {
