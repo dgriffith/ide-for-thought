@@ -67,7 +67,6 @@ function findFencedCodeBlocks(content: string): Range[] {
   const out: Range[] = [];
   const lines = splitLines(content);
   let i = 0;
-  let offset = 0;
   const lineOffsets: number[] = [];
   // Pre-compute line start offsets for range math.
   {
@@ -83,7 +82,6 @@ function findFencedCodeBlocks(content: string): Range[] {
     const line = lines[i];
     const fenceMatch = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
     if (!fenceMatch) {
-      offset += line.length;
       i++;
       continue;
     }
@@ -100,7 +98,6 @@ function findFencedCodeBlocks(content: string): Range[] {
     const blockEnd = j < lines.length ? lineOffsets[j] : lineOffsets[lines.length];
     out.push({ start: blockStart, end: blockEnd });
     i = j;
-    offset = lineOffsets[j] ?? content.length;
   }
   return out;
 }

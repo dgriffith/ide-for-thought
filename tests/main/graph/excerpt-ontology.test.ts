@@ -7,7 +7,6 @@ const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
 const RDF = $rdf.Namespace('http://www.w3.org/1999/02/22-rdf-syntax-ns#');
 const RDFS = $rdf.Namespace('http://www.w3.org/2000/01/rdf-schema#');
 const OWL = $rdf.Namespace('http://www.w3.org/2002/07/owl#');
-const DC = $rdf.Namespace('http://purl.org/dc/terms/');
 const XSD = $rdf.Namespace('http://www.w3.org/2001/XMLSchema#');
 
 const ONTOLOGY_PATH = path.join(__dirname, '../../../src/shared/ontology-thought.ttl');

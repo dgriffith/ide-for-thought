@@ -38,10 +38,6 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') onCancel();
   }
-
-  function stemOf(p: string): string {
-    return p.replace(/\.md$/i, '');
-  }
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->

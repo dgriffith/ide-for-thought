@@ -60,7 +60,9 @@ export default tseslint.config(
       // Unused-vars/imports as warnings, with the standard `_`-prefix
       // escape hatch so tests/handlers can name args they intentionally
       // ignore.
-      '@typescript-eslint/no-unused-vars': ['warn', {
+      // Promoted to `error` after #401 swept the existing 22 sites —
+      // fresh dead imports/vars now fail the build.
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_',

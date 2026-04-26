@@ -211,12 +211,6 @@ function tokenize(src: string): Token[] {
 
 // ── Emitter ──────────────────────────────────────────────────────────────
 
-function isKeyword(tok: Token, ...names: string[]): boolean {
-  if (tok.type !== 'word') return false;
-  const upper = tok.text.toUpperCase();
-  return names.includes(upper);
-}
-
 function emit(tokens: Token[]): string {
   let out = '';
   let line = '';
@@ -231,18 +225,6 @@ function emit(tokens: Token[]): string {
     lastFlushedFirstWord = (line.trimStart().split(/\s+/, 1)[0] ?? '').toUpperCase();
     out += line.trimEnd() + '\n';
     line = '';
-  }
-
-  function startLine(extraIndent = 0) {
-    flush();
-    line = '  '.repeat(depth + extraIndent);
-  }
-
-  function appendToken(tokText: string, glue: 'space' | 'none' = 'space') {
-    if (line.length > 0 && line.trimEnd() === line && glue === 'space') {
-      line += ' ';
-    }
-    line += tokText;
   }
 
   // Top-level loop.

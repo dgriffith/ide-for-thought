@@ -9,7 +9,7 @@
   } from '../appearance/settings';
   import { getThemeMode, setThemeMode, type ThemeMode } from '../theme';
   import { api } from '../ipc/client';
-  import type { LLMSettings, WebSettings } from '../../../shared/tools/types';
+  import type { LLMSettings } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
   import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
   import {
@@ -27,7 +27,6 @@
     CATEGORY_ORDER,
   } from '../../../shared/formatter/registry';
   import '../../../shared/formatter/rules/index';
-  import type { FormatterRule } from '../../../shared/formatter/types';
   import type { FormatSettings } from '../../../shared/formatter/engine';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
   import { getAllToolInfos } from '../tools/tool-registry';

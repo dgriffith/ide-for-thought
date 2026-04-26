@@ -3,7 +3,6 @@ import { QueryEngine } from '@comunica/query-sparql-rdfjs';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
@@ -107,12 +106,6 @@ const states = new Map<string, GraphState>();
 
 function getState(ctx: ProjectContext): GraphState | null {
   return states.get(ctx.rootPath) ?? null;
-}
-
-function requireState(ctx: ProjectContext): GraphState {
-  const s = states.get(ctx.rootPath);
-  if (!s) throw new Error(`graph: no state for project "${ctx.rootPath}"`);
-  return s;
 }
 
 function invalidate(state: GraphState): void {
@@ -1338,10 +1331,6 @@ async function walkAndIndexExcerpts(ctx: ProjectContext, rootPath: string): Prom
 }
 
 // ── Query ───────────────────────────────────────────────────────────────────
-
-const SPARQL_PREFIXES = STANDARD_PREFIXES
-  .map(([prefix, iri]) => `PREFIX ${prefix}: <${iri}>`)
-  .join('\n') + '\n';
 
 export function injectSparqlPrefixes(sparql: string): string {
   // Only inject prefixes the user hasn't already declared. SPARQL's

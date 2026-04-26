@@ -21,7 +21,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { runPython, shutdownAllKernels, stopKernel } from '../../../src/main/compute/python-kernel';
 import { initGraph, indexNote } from '../../../src/main/graph/index';
-import { initSearch, indexNote as searchIndex } from '../../../src/main/search/index';
+import { initSearch } from '../../../src/main/search/index';
 import { initTablesDb } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
 

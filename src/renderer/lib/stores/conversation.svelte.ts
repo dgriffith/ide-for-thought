@@ -1,5 +1,5 @@
 import { api } from '../ipc/client';
-import type { Conversation, ContextBundle, ConversationMessage } from '../../../shared/types';
+import type { Conversation, ContextBundle } from '../../../shared/types';
 
 let activeConversation = $state<Conversation | null>(null);
 let allConversations = $state<Conversation[]>([]);
