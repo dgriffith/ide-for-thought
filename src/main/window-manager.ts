@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { startWatching, stopWatching } from './notebase/watcher';
+import { markPathHandled as markPathHandledImpl, wasHandled } from './notebase/path-dedup';
 import * as graph from './graph/index';
 import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
@@ -24,11 +25,10 @@ interface WindowContext {
 
 const contexts = new Map<number, WindowContext>();
 const watchers = new Map<number, string>();
-const recentlyHandledPaths = new Map<string, number>();
 
 /** Mark a path as recently handled by IPC to avoid duplicate watcher re-indexing */
 export function markPathHandled(relativePath: string): void {
-  recentlyHandledPaths.set(relativePath, Date.now());
+  markPathHandledImpl(relativePath);
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -152,12 +152,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   rebuildMenu();
 
   // Deduplication: IPC handlers mark paths they've already indexed
-  const wasHandled = (p: string) => {
-    const ts = recentlyHandledPaths.get(p);
-    if (!ts || Date.now() - ts > 2000) { recentlyHandledPaths.delete(p); return false; }
-    return true;
-  };
-
+  // (see `notebase/path-dedup.ts`).
   let indexPersistTimer: ReturnType<typeof setTimeout> | null = null;
   const debouncedPersist = () => {
     if (indexPersistTimer) clearTimeout(indexPersistTimer);
