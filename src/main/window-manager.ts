@@ -1,5 +1,4 @@
 import { BrowserWindow } from 'electron';
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { startWatching, stopWatching } from './notebase/watcher';

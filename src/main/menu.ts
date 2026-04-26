@@ -1,4 +1,4 @@
-import { Menu, shell, app, dialog, BrowserWindow } from 'electron';
+import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';

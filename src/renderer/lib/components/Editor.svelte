@@ -23,7 +23,7 @@
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
-  import { computeCellsExtension, computeCellsStyles } from '../editor/compute-cells';
+  import { computeCellsExtension } from '../editor/compute-cells';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
   import { clampMenuToViewport } from '../utils/menuClamp';

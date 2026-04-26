@@ -7,7 +7,7 @@
  * doesn't have Python on PATH.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
 import {
   runPython,

@@ -1220,10 +1220,11 @@
     }
   }
 
-  async function openConversationWithMessage(message: string) {
+  async function openConversationWithMessage(_message: string) {
     await openConversation();
-    // The conversation is now open; set the input to the message
-    // The user can review and send it
+    // TODO: actually thread `_message` into the dialog input. The
+    // call site exists, the wiring through ConversationDialog
+    // doesn't yet.
   }
 
   async function openConversation() {

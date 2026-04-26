@@ -4,7 +4,6 @@ import path from 'node:path';
 import os from 'node:os';
 import {
   initGraph,
-  indexNote,
   indexAllNotes,
   findNotesCitingSource,
   findNotesQuotingExcerpt,

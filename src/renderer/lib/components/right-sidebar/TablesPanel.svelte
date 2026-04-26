@@ -10,7 +10,6 @@
    * when a fence references a table the CSV watcher hasn't picked up.
    */
   import { api } from '../../ipc/client';
-  import type { TableInfo } from '../../ipc/client';
   import Ribbon from './Ribbon.svelte';
 
   interface Props {
