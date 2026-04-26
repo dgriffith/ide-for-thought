@@ -18,6 +18,7 @@
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
+  import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
   import OcrProgressDialog from './lib/components/OcrProgressDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
@@ -170,6 +171,13 @@
   let showGotoLine = $state(false);
   let showGotoNote = $state(false);
   let showEditSavedQueries = $state(false);
+  /** When non-null, the SaveQueryDialog is open with this initial state. */
+  let saveQueryRequest = $state<{
+    initialName: string;
+    initialScope: 'project' | 'global';
+    onConfirm: (args: { name: string; scope: 'project' | 'global' }) => void;
+    onCancel: () => void;
+  } | null>(null);
   let findInNotesMode = $state<'find' | 'replace' | null>(null);
   let ocrSession = $state<{ sourceId: string; title: string; pageCount: number } | null>(null);
   let ocrPdfBytes = $state<Uint8Array | null>(null);
@@ -291,10 +299,17 @@
   async function handleSaveQuery() {
     const tab = editor.activeQueryTab;
     if (!tab) return;
-    const name = await showPrompt('Query name:');
-    if (!name) return;
-    await api.queries.save('project', name, '', tab.query, tab.language);
-    tab.title = name;
+    const result = await new Promise<{ name: string; scope: 'project' | 'global' } | null>((resolve) => {
+      saveQueryRequest = {
+        initialName: tab.title === 'Query' ? '' : tab.title,
+        initialScope: notebase.meta ? 'project' : 'global',
+        onConfirm: (args) => { saveQueryRequest = null; resolve(args); },
+        onCancel: () => { saveQueryRequest = null; resolve(null); },
+      };
+    });
+    if (!result) return;
+    await api.queries.save(result.scope, result.name, '', tab.query, tab.language);
+    tab.title = result.name;
   }
 
   // ── Note refactoring: extract / split ──────────────────────────────────
@@ -1811,7 +1826,16 @@
     />
   {/if}
   {#if showEditSavedQueries}
-    <EditSavedQueriesDialog onClose={() => { showEditSavedQueries = false; }} />
+    <EditSavedQueriesDialog projectOpen={!!notebase.meta} onClose={() => { showEditSavedQueries = false; }} />
+  {/if}
+  {#if saveQueryRequest}
+    <SaveQueryDialog
+      projectOpen={!!notebase.meta}
+      initialName={saveQueryRequest.initialName}
+      initialScope={saveQueryRequest.initialScope}
+      onConfirm={saveQueryRequest.onConfirm}
+      onCancel={saveQueryRequest.onCancel}
+    />
   {/if}
   {#if ocrSession && ocrPdfBytes}
     <OcrProgressDialog

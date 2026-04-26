@@ -33,6 +33,11 @@ export interface SavedQuery {
   language: 'sparql' | 'sql';
   scope: 'project' | 'global';
   filePath: string;
+  /** Optional grouping label inside a scope (#315). Null = ungrouped. */
+  group: string | null;
+  /** User-supplied ordering hint inside its (scope, group) bucket (#315).
+   *  Null = no explicit position; falls back to alphabetical by name. */
+  order: number | null;
 }
 
 export interface OutgoingLink {

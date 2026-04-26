@@ -88,9 +88,15 @@ export interface LinksApi {
 
 export interface QueriesApi {
   list(): Promise<SavedQuery[]>;
-  save(scope: string, name: string, description: string, query: string, language: 'sparql' | 'sql'): Promise<SavedQuery>;
+  save(scope: string, name: string, description: string, query: string, language: 'sparql' | 'sql', group?: string | null): Promise<SavedQuery>;
   delete(filePath: string): Promise<void>;
   rename(filePath: string, newName: string): Promise<string>;
+  /** Move a query between scopes (#314). */
+  move(filePath: string, newScope: 'project' | 'global'): Promise<string>;
+  /** Re-tag a query's @group (#315). */
+  setGroup(filePath: string, group: string | null): Promise<void>;
+  /** Apply a new @order across many queries at once (#315 — drag-reorder). */
+  setOrder(entries: Array<{ filePath: string; order: number | null }>): Promise<void>;
 }
 
 export interface SearchApi {
