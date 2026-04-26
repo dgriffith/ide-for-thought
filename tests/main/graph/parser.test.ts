@@ -1,13 +1,75 @@
 import { describe, it, expect } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
 import { parseMarkdown } from '../../../src/main/graph/parser';
 
-const FIXTURE_DIR = path.join(__dirname, '../../fixtures/sample-project');
+// Fixture content is inlined rather than read from
+// `tests/fixtures/sample-project/` so this test stays deterministic
+// when someone opens the sample-project in the dev app and edits notes
+// (#344). The arXiv PDF fixture used by ingest-pdf / drop-import is
+// content-hashed so it doesn't share this risk.
 
-function readFixture(relativePath: string): string {
-  return fs.readFileSync(path.join(FIXTURE_DIR, relativePath), 'utf-8');
-}
+const ARCHITECTURE_MD = `---
+title: "Architecture Overview"
+description: "System architecture for the project"
+created: "2025-06-15T10:00:00Z"
+status: draft
+---
+
+# Architecture
+
+The system #architecture uses a layered approach.
+
+This [[supports::notes/design-patterns]] and [[expands::research/overview]].
+It also [[references::research/papers/lambda-calculus|Lambda Calculus paper]].
+
+## Components
+
+[[cite::arxiv-2604.18522]]
+The core #component layer handles data flow.
+
+\`\`\`turtle
+this: minerva:meta-complexity "high" .
+this: minerva:meta-priority "1" .
+
+@prefix arch: <https://minerva.dev/ontology#architecture/> .
+arch:LayeredPattern rdf:type minerva:Concept .
+arch:LayeredPattern dc:description "Separates concerns into distinct layers" .
+\`\`\`
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| UI | Svelte 5 | Reactive rendering |
+| Editor | CodeMirror 6 | Text editing |
+| Graph | RDFLib + N3 | Knowledge representation |
+| Query | Comunica | SPARQL execution |
+| Storage | Git | Version control |
+
+\`\`\`python
+# This [[fake-link]] inside a code block should be ignored
+x = "[[also-not-a-link]]"
+\`\`\`
+`;
+
+const EMPTY_NOTE_MD = '';
+
+const TYPE_THEORY_MD = `---
+title: "Type Theory Survey"
+created: "2025-03-20T14:00:00Z"
+---
+
+A survey of #cs/type-theory and #research approaches.
+
+This [[supersedes::research/overview]] with more recent findings.
+This is [[related-to::research/papers/lambda-calculus]].
+
+\`\`\`turtle
+@prefix bib: <http://purl.org/ontology/bibo/> .
+this: bib:authorList "Church, Pierce, Wadler" .
+this: bib:doi "10.1145/example" .
+this: dc:date "2025-03-20" .
+\`\`\`
+`;
 
 // ── Title extraction ────────────────────────────────────────────────────────
 
@@ -238,7 +300,7 @@ describe('frontmatter extraction', () => {
 // ── Fixture integration tests ───────────────────────────────────────────────
 
 describe('fixture: architecture.md', () => {
-  const result = parseMarkdown(readFixture('notes/architecture.md'));
+  const result = parseMarkdown(ARCHITECTURE_MD);
 
   it('extracts frontmatter title over H1', () => {
     expect(result.title).toBe('Architecture Overview');
@@ -273,7 +335,7 @@ describe('fixture: architecture.md', () => {
 });
 
 describe('fixture: empty-note.md', () => {
-  const result = parseMarkdown(readFixture('notes/empty-note.md'));
+  const result = parseMarkdown(EMPTY_NOTE_MD);
 
   it('handles empty content gracefully', () => {
     expect(result.title).toBeNull();
@@ -284,7 +346,7 @@ describe('fixture: empty-note.md', () => {
 });
 
 describe('fixture: type-theory.md', () => {
-  const result = parseMarkdown(readFixture('research/papers/type-theory.md'));
+  const result = parseMarkdown(TYPE_THEORY_MD);
 
   it('extracts slash-tags', () => {
     expect(result.tags).toContain('cs/type-theory');
