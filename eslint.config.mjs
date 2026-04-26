@@ -81,7 +81,15 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'off',               // 79 sites
       '@typescript-eslint/no-unsafe-return': 'off',                 // 23 sites
       '@typescript-eslint/require-await': 'error',
-      '@typescript-eslint/no-misused-promises': 'off',              // 45 sites
+      // checksVoidReturn.arguments off: the "Promise returned where void
+      // was expected" check fires on every `setTimeout(async () => …)` /
+      // `el.on('event', async () => …)` — common, harmless patterns the
+      // framework discards on purpose. The rule's other detections
+      // (Promise in conditional, in boolean spread, etc.) are the real
+      // bug-finders and stay on.
+      '@typescript-eslint/no-misused-promises': ['error', {
+        checksVoidReturn: { arguments: false },
+      }],
       // Re-enabled (#382) — small-count rules cleaned up site-by-site
       // and now catch new offenders.
       '@typescript-eslint/restrict-template-expressions': 'error',

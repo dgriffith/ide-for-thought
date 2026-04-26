@@ -6,14 +6,17 @@ import { Channels } from '../../shared/channels';
 
 import { INDEXABLE_EXTS } from './indexable-files';
 
+// Callbacks may return a Promise; the watcher invokes them as
+// fire-and-forget. Typing the return as `void | Promise<void>` lets
+// callers be explicitly async without tripping no-misused-promises.
 export interface WatcherCallbacks {
-  onFileChanged: (relativePath: string) => void;
-  onFileCreated: (relativePath: string) => void;
-  onFileDeleted: (relativePath: string) => void;
-  onSourceMetaChanged?: (sourceId: string) => void;
-  onSourceMetaDeleted?: (sourceId: string) => void;
-  onExcerptChanged?: (excerptId: string) => void;
-  onExcerptDeleted?: (excerptId: string) => void;
+  onFileChanged: (relativePath: string) => void | Promise<void>;
+  onFileCreated: (relativePath: string) => void | Promise<void>;
+  onFileDeleted: (relativePath: string) => void | Promise<void>;
+  onSourceMetaChanged?: (sourceId: string) => void | Promise<void>;
+  onSourceMetaDeleted?: (sourceId: string) => void | Promise<void>;
+  onExcerptChanged?: (excerptId: string) => void | Promise<void>;
+  onExcerptDeleted?: (excerptId: string) => void | Promise<void>;
 }
 
 interface WatcherPair {
@@ -55,11 +58,13 @@ export function startWatching(
     ignoreInitial: true,
   });
 
+  // Callbacks may be async (interface allows void | Promise<void>); the
+  // watcher invokes them as fire-and-forget. `void` makes that explicit.
   notes.on('change', (filePath) => {
     if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
-      callbacks?.onFileChanged(relative);
+      void callbacks?.onFileChanged(relative);
     }
   });
 
@@ -67,7 +72,7 @@ export function startWatching(
     if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
-      callbacks?.onFileCreated(relative);
+      void callbacks?.onFileCreated(relative);
     }
   });
 
@@ -75,7 +80,7 @@ export function startWatching(
     if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
-      callbacks?.onFileDeleted(relative);
+      void callbacks?.onFileDeleted(relative);
     }
   });
 
@@ -98,14 +103,14 @@ export function startWatching(
     if (win.isDestroyed()) return;
     const sourceId = extractSourceId(filePath);
     if (sourceId) {
-      if (kind === 'upsert') callbacks?.onSourceMetaChanged?.(sourceId);
-      else callbacks?.onSourceMetaDeleted?.(sourceId);
+      if (kind === 'upsert') void callbacks?.onSourceMetaChanged?.(sourceId);
+      else void callbacks?.onSourceMetaDeleted?.(sourceId);
       return;
     }
     const excerptId = extractExcerptId(filePath);
     if (excerptId) {
-      if (kind === 'upsert') callbacks?.onExcerptChanged?.(excerptId);
-      else callbacks?.onExcerptDeleted?.(excerptId);
+      if (kind === 'upsert') void callbacks?.onExcerptChanged?.(excerptId);
+      else void callbacks?.onExcerptDeleted?.(excerptId);
     }
   };
 
