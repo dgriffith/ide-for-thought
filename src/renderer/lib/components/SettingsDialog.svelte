@@ -144,11 +144,11 @@
 
   onMount(async () => {
     try {
-      const s = (await api.tools.getSettings()) as LLMSettings;
+      const s = await api.tools.getSettings();
       loadedLlm = s;
       model = s.model;
       apiKeyStatus = s.apiKey ? 'set' : 'unset';
-      const web = s.web ?? { enabled: true, allowedDomains: [], blockedDomains: [] } as WebSettings;
+      const web = s.web ?? { enabled: true, allowedDomains: [], blockedDomains: [] };
       webEnabled = web.enabled;
       allowedDomainsText = web.allowedDomains.join('\n');
       blockedDomainsText = web.blockedDomains.join('\n');
@@ -361,7 +361,7 @@
             <select
               id="destination"
               value={refactor.destination}
-              onchange={(e) => patchRefactor({ destination: (e.currentTarget as HTMLSelectElement).value as DestinationMode })}
+              onchange={(e) => patchRefactor({ destination: e.currentTarget.value as DestinationMode })}
             >
               {#each DESTINATION_OPTIONS as opt}
                 <option value={opt.value}>{opt.label}</option>
@@ -378,7 +378,7 @@
                 id="destination-template"
                 type="text"
                 value={refactor.destinationTemplate}
-                oninput={(e) => patchRefactor({ destinationTemplate: (e.currentTarget as HTMLInputElement).value })}
+                oninput={(e) => patchRefactor({ destinationTemplate: e.currentTarget.value })}
                 placeholder={'e.g. notes/{{date:YYYY}}/{{date:MM}}'}
               />
               <p class="hint">
@@ -394,7 +394,7 @@
               id="filename-prefix"
               type="text"
               value={refactor.filenamePrefix}
-              oninput={(e) => patchRefactor({ filenamePrefix: (e.currentTarget as HTMLInputElement).value })}
+              oninput={(e) => patchRefactor({ filenamePrefix: e.currentTarget.value })}
               placeholder={'e.g. {{date:YYYYMMDDHHmm}}-'}
             />
             <p class="hint">
@@ -407,7 +407,7 @@
               <input
                 type="checkbox"
                 checked={refactor.normalizeHeadings}
-                onchange={(e) => patchRefactor({ normalizeHeadings: (e.currentTarget as HTMLInputElement).checked })}
+                onchange={(e) => patchRefactor({ normalizeHeadings: e.currentTarget.checked })}
               />
               Normalize heading levels in extracted notes
             </label>
@@ -422,7 +422,7 @@
               <input
                 type="checkbox"
                 checked={refactor.transcludeByDefault}
-                onchange={(e) => patchRefactor({ transcludeByDefault: (e.currentTarget as HTMLInputElement).checked })}
+                onchange={(e) => patchRefactor({ transcludeByDefault: e.currentTarget.checked })}
                 disabled={!!refactor.linkTemplate}
               />
               Transclude by default
@@ -439,7 +439,7 @@
               id="link-template"
               rows="3"
               value={refactor.linkTemplate}
-              oninput={(e) => patchRefactor({ linkTemplate: (e.currentTarget as HTMLTextAreaElement).value })}
+              oninput={(e) => patchRefactor({ linkTemplate: e.currentTarget.value })}
               placeholder={'e.g. > See [[{{new_note_title}}]] — split from {{title}} on {{date}}'}
             ></textarea>
             <p class="hint">
@@ -456,7 +456,7 @@
               id="refactored-note-template"
               rows="4"
               value={refactor.refactoredNoteTemplate}
-              oninput={(e) => patchRefactor({ refactoredNoteTemplate: (e.currentTarget as HTMLTextAreaElement).value })}
+              oninput={(e) => patchRefactor({ refactoredNoteTemplate: e.currentTarget.value })}
               placeholder={'e.g. > Extracted from [[{{source}}]] on {{date}}\n\n{{new_note_content}}'}
             ></textarea>
             <p class="hint">
@@ -492,7 +492,7 @@
                       <input
                         type="checkbox"
                         checked={!!formatter.enabled[rule.id]}
-                        onchange={(e) => toggleFormatterRule(rule.id, (e.currentTarget as HTMLInputElement).checked)}
+                        onchange={(e) => toggleFormatterRule(rule.id, e.currentTarget.checked)}
                       />
                       {rule.title}
                     </label>
@@ -618,7 +618,7 @@
                       <td>
                         <select
                           value={toolModelOverrides[t.id] ?? ''}
-                          onchange={(e) => setToolOverride(t.id, (e.currentTarget as HTMLSelectElement).value)}
+                          onchange={(e) => setToolOverride(t.id, e.currentTarget.value)}
                         >
                           <option value="">Use tool preference</option>
                           {#each MODEL_OPTIONS as m}

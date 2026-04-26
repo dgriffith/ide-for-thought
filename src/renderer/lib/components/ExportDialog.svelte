@@ -74,7 +74,7 @@
       const list = await api.publish.listExporters();
       const entry = list.find((e) => e.id === exporterId);
       if (entry) {
-        acceptedKinds = entry.acceptedKinds as Scope[];
+        acceptedKinds = entry.acceptedKinds;
         // Pick the best default scope given what the exporter accepts
         // AND what the context supports.
         if (!acceptedKinds.includes(scope)) {

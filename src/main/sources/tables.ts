@@ -84,7 +84,7 @@ export function deriveTableName(relativePath: string): string {
   // Separator-ish characters collapse to a single underscore; anything else
   // non-alphanumeric just drops out.
   let name = withoutExt
-    .replace(/[\/\\.\-\s]+/g, '_')
+    .replace(/[/\\.\-\s]+/g, '_')
     .replace(/[^a-zA-Z0-9_]/g, '')
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');

@@ -259,7 +259,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const tok = tokens[idx];
     if (tok.info.trim() === 'output') {
-      const source = findSourceFenceBefore(tokens as Token[], idx);
+      const source = findSourceFenceBefore(tokens, idx);
       return renderComputeOutput(tok.content, source);
     }
     return defaultFence

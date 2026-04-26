@@ -228,7 +228,7 @@ export interface ExcerptInfo {
  * `thought:pageRange` become a CSL locator string.
  */
 export function excerptTtlToInfo(ttl: string, id: string): ExcerptInfo | null {
-  const sourceMatch = ttl.match(/thought:fromSource\s+sources:([\w\-\.]+)/);
+  const sourceMatch = ttl.match(/thought:fromSource\s+sources:([\w\-.]+)/);
   if (!sourceMatch) return null;
   const sourceId = sourceMatch[1];
   const pageLit = ttl.match(/thought:page\s+(\d+)/);

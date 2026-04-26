@@ -163,7 +163,7 @@
   $effect(() => {
     if (!detail || !highlightExcerptId) return;
     requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-excerpt-anchor="${CSS.escape(highlightExcerptId!)}"]`);
+      const el = document.querySelector(`[data-excerpt-anchor="${CSS.escape(highlightExcerptId)}"]`);
       if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
   });

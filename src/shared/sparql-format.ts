@@ -190,7 +190,7 @@ function tokenize(src: string): Token[] {
     // `:`/`-`/`.` (dots inside pname-ns or local names).
     if (/[A-Za-z_:]/.test(c)) {
       let j = i;
-      while (j < n && /[A-Za-z0-9_:.\-]/.test(src[j])) j++;
+      while (j < n && /[A-Za-z0-9_:.-]/.test(src[j])) j++;
       const text = src.slice(i, j).replace(/\.+$/, (dots) => {
         // Trailing dots belong to the statement terminator, not the name.
         return dots === '' ? '' : '';

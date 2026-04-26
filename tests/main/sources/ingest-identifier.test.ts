@@ -120,7 +120,7 @@ describe('ingestIdentifier (#96)', () => {
 
   function mockFetchForDoi(): typeof fetch {
     return async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       if (url.includes('api.crossref.org/works/')) {
         return new Response(JSON.stringify({
           message: {
@@ -189,7 +189,7 @@ describe('ingestIdentifier (#96)', () => {
 
   it('still creates the source when the advertised PDF fetch fails', async () => {
     const fetchImpl = async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       if (url.includes('api.crossref.org')) {
         return new Response(JSON.stringify({
           message: {
@@ -217,7 +217,7 @@ describe('ingestIdentifier (#96)', () => {
   it('saves the PDF when the fetch succeeds', async () => {
     const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // "%PDF"
     const fetchImpl = async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       if (url.includes('api.crossref.org')) {
         return new Response(JSON.stringify({
           message: {

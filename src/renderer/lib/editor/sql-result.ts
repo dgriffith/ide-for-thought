@@ -21,7 +21,11 @@ export function normalizeSqlRows(
               ? v.toString()
               : v instanceof Date
                 ? v.toISOString()
-                : String(v);
+                : typeof v === 'object'
+                  ? JSON.stringify(v)
+                  : typeof v === 'number' || typeof v === 'boolean'
+                    ? String(v)
+                    : '';
     }
     return out;
   });

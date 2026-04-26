@@ -137,10 +137,10 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
     if (!cell) return;
     switch (event.type) {
       case 'stdout':
-        cell.stdout.push(String(event.payload ?? ''));
+        cell.stdout.push(typeof event.payload === 'string' ? event.payload : '');
         break;
       case 'stderr':
-        cell.stderr.push(String(event.payload ?? ''));
+        cell.stderr.push(typeof event.payload === 'string' ? event.payload : '');
         break;
       case 'result':
         cell.result = event.payload;

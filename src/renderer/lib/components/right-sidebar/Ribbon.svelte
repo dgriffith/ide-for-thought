@@ -44,14 +44,14 @@
       class="search"
       value={search}
       placeholder={searchPlaceholder}
-      oninput={(e) => onSearch!((e.currentTarget as HTMLInputElement).value)}
+      oninput={(e) => onSearch?.(e.currentTarget.value)}
     />
   {/if}
   {#if sortOptions && sortOptions.length > 0 && onSort}
     <select
       class="sort"
       value={sortId}
-      onchange={(e) => onSort!((e.currentTarget as HTMLSelectElement).value)}
+      onchange={(e) => onSort?.(e.currentTarget.value)}
       title="Sort"
     >
       {#each sortOptions as opt}
