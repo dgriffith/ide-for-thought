@@ -65,6 +65,7 @@
     "@vitest/coverage-v8": "^2.1.9",
     "codemirror": "^6.0.1",
     "electron": "^35.7.5",
+    "happy-dom": "^20.9.0",
     "highlight.js": "^11.11.1",
     "markdown-it": "^14.1.1",
     "svelte": "^5.16.0",

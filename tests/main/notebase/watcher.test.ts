@@ -98,9 +98,11 @@ describe('startWatching() (#345)', () => {
         onFileDeleted: () => undefined,
       });
 
-      // chokidar's initial scan needs a moment to register the file, otherwise
-      // the next write looks like an `add`.
-      await new Promise((r) => setTimeout(r, 200));
+      // chokidar's initial scan needs to fully complete and register the
+      // file's mtime before the next write looks like a `change`. Under
+      // parallel test load on macOS fsevents this can take longer than
+      // the 200ms used in other tests.
+      await new Promise((r) => setTimeout(r, 500));
       await fsp.writeFile(path.join(root, rel), 'v2\n', 'utf-8');
       await waitFor(() => changed.includes(rel));
       expect(changed).toEqual([rel]);
