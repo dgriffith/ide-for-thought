@@ -257,7 +257,7 @@ export interface ConversationsApi {
 
 export interface ProposalsApi {
   list(status?: string): Promise<unknown[]>;
-  detail(uri: string): Promise<unknown | null>;
+  detail(uri: string): Promise<unknown>;
   approve(uri: string): Promise<boolean>;
   reject(uri: string): Promise<boolean>;
   expire(): Promise<number>;

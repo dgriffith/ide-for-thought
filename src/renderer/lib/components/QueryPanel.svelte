@@ -110,7 +110,7 @@
 
   async function refreshSchema(): Promise<void> {
     try {
-      schema = (await api.graph.schemaForCompletion()) as SparqlSchema;
+      schema = await api.graph.schemaForCompletion();
     } catch { /* graph not ready \u2014 keep schema null, completion falls back */ }
   }
 

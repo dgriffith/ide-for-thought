@@ -350,7 +350,7 @@
     const plan = planSplitByHeading({
       sourceRelativePath: tab.relativePath,
       sourceContent: tab.content,
-      level: level as 1 | 2 | 3,
+      level: level,
       today: todayDateString(),
       settings: getRefactorSettings(),
     });
@@ -571,7 +571,7 @@
     if (!review) return;
     autoLinkInboundReview = null;
     try {
-      const plain = $state.snapshot(accepted) as AutoLinkInboundSuggestion[];
+      const plain = $state.snapshot(accepted);
       const { applied, skipped } = await withBusy('Applying inbound links\u2026', () =>
         api.refactor.autoLinkInboundApply(review.relativePath, plain),
       );
@@ -595,7 +595,7 @@
     try {
       // Snapshot the suggestions before IPC — they came out of $state, which
       // wraps them in Svelte 5 proxies that structured-clone can't serialize.
-      const plain = $state.snapshot(accepted) as AutoLinkSuggestion[];
+      const plain = $state.snapshot(accepted);
       const { applied, skipped } = await withBusy('Applying links\u2026', () =>
         api.refactor.autoLinkApply(review.relativePath, plain),
       );
@@ -1019,8 +1019,8 @@
 
     // Snapshot across the Svelte 5 reactive boundary before use — the edited
     // proposal / include array came out of $state inside the dialog.
-    const plainProposal = $state.snapshot(edited) as DecomposeProposal;
-    const plainInclude = $state.snapshot(include) as boolean[];
+    const plainProposal = $state.snapshot(edited);
+    const plainInclude = $state.snapshot(include);
 
     const plan = planDecompose({
       sourceRelativePath: tab.relativePath,
@@ -1794,8 +1794,12 @@
         editorComponent?.gotoLineColumn(line, col);
         showGotoLine = false;
         if (editor.activeFilePath && editorComponent) {
+          // Capture the narrowed values before rAF — TS forgets the
+          // narrowing across the closure boundary.
+          const path = editor.activeFilePath;
+          const ec = editorComponent;
           requestAnimationFrame(() => {
-            nav.record({ type: 'note', relativePath: editor.activeFilePath!, offset: editorComponent!.getOffset() });
+            nav.record({ type: 'note', relativePath: path, offset: ec.getOffset() });
           });
         }
       }}

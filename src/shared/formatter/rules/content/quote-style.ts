@@ -28,7 +28,7 @@ registerRule<Config>({
       // apostrophes (don't, it's) aren't mis-split.
       let out = seg.replace(/"([^"\n]*)"/g, `${L_DOUBLE}$1${R_DOUBLE}`);
       out = out.replace(
-        /(^|[\s(\[{])'([^'\n]+?)'(?=[\s.,!?;:)\]}]|$)/gm,
+        /(^|[\s([{])'([^'\n]+?)'(?=[\s.,!?;:)\]}]|$)/gm,
         `$1${L_SINGLE}$2${R_SINGLE}`,
       );
       return out;

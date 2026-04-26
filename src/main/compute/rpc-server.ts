@@ -49,7 +49,7 @@ interface RpcFailure {
   error: { code: string; message: string };
 }
 
-type RpcMethod = (rootPath: string, params: Record<string, unknown>) => Promise<unknown> | unknown;
+type RpcMethod = (rootPath: string, params: Record<string, unknown>) => unknown;
 
 class RpcError extends Error {
   constructor(public code: string, message: string) {

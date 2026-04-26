@@ -73,28 +73,27 @@ export default tseslint.config(
       // per-rule cleanup separately — better than stalling adoption on
       // a hundred-line PR that mixes lint setup with real fixes.
       // Re-enable each in its own PR after the underlying cleanups land.
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-      '@typescript-eslint/require-await': 'off',
-      '@typescript-eslint/no-misused-promises': 'off',
-      '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/restrict-plus-operands': 'off',
-      '@typescript-eslint/no-redundant-type-constituents': 'off',
-      '@typescript-eslint/no-base-to-string': 'off',
-      '@typescript-eslint/unbound-method': 'off',
-      '@typescript-eslint/only-throw-error': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/await-thenable': 'off',
-      // 30 sites, mostly `(x as Y).foo` in tests. Cosmetic.
-      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
-      // 15 sites of `\.` / `\[` / `\-` inside character classes — safe
-      // either way, but touching parsers and editor regexes carries
-      // surface-area risk. Defer to a focused regex audit.
-      'no-useless-escape': 'off',
+      // Still off — sites > 0; tracked in #382, batched separately.
+      '@typescript-eslint/no-explicit-any': 'off',                  // 35 sites
+      '@typescript-eslint/no-unsafe-assignment': 'off',             // 77 sites
+      '@typescript-eslint/no-unsafe-member-access': 'off',          // 108 sites
+      '@typescript-eslint/no-unsafe-call': 'off',                   // 99 sites
+      '@typescript-eslint/no-unsafe-argument': 'off',               // 79 sites
+      '@typescript-eslint/no-unsafe-return': 'off',                 // 23 sites
+      '@typescript-eslint/require-await': 'off',                    // 37 sites
+      '@typescript-eslint/no-misused-promises': 'off',              // 45 sites
+      // Re-enabled (#382) — small-count rules cleaned up site-by-site
+      // and now catch new offenders.
+      '@typescript-eslint/restrict-template-expressions': 'error',
+      '@typescript-eslint/restrict-plus-operands': 'error',
+      '@typescript-eslint/unbound-method': 'error',
+      '@typescript-eslint/only-throw-error': 'error',
+      '@typescript-eslint/no-empty-object-type': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-redundant-type-constituents': 'error',
+      '@typescript-eslint/no-base-to-string': 'error',
+      'no-useless-escape': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
     },
   },
   {

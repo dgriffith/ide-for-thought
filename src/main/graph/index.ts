@@ -293,7 +293,7 @@ function resolveFrontmatterPredicate(key: string) {
 }
 
 /** Match [[target]] or [[target|display]] (no typed-link prefix — values are bare refs). */
-const FRONTMATTER_WIKILINK_RE = /^\[\[([^\[\]\n|]+)(?:\|[^\]]+)?\]\]$/;
+const FRONTMATTER_WIKILINK_RE = /^\[\[([^[\]\n|]+)(?:\|[^\]]+)?\]\]$/;
 
 /**
  * Turn a typed frontmatter scalar into an rdflib term.

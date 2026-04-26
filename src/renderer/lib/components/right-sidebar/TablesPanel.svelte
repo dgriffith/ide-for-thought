@@ -25,7 +25,7 @@
 
   async function refreshTables() {
     try {
-      const list = await api.tables.list() as TableInfo[];
+      const list = await api.tables.list();
       registeredTables = new Set(list.map((t) => t.name));
     } catch { /* tables db not ready — keep empty set */ }
   }

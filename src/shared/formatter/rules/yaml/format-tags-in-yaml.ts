@@ -30,7 +30,7 @@ registerRule<Config>({
         if (!YAML.isSeq(pair.value)) continue;
         for (const item of pair.value.items) {
           if (!YAML.isScalar(item)) continue;
-          const s = String(item.value ?? '');
+          const s = typeof item.value === 'string' ? item.value : '';
           const stripped = s.replace(/^#+/, '');
           item.value = prefix === 'hash' ? `#${stripped}` : stripped;
           // Discard any quoting hint the parser retained from the original

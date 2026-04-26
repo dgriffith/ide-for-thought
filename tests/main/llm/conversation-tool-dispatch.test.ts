@@ -154,7 +154,7 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     const last = secondMessages[2];
     const blocks = last.content as Anthropic.ToolResultBlockParam[];
     expect(blocks[0].is_error).toBe(true);
-    expect(String(blocks[0].content)).toMatch(/failed|not found|exist/i);
+    expect(typeof blocks[0].content === 'string' ? blocks[0].content : JSON.stringify(blocks[0].content)).toMatch(/failed|not found|exist/i);
   });
 
   it('breaks the loop on non-tool_use stop_reason without a third call', async () => {

@@ -27,13 +27,13 @@
 
   async function refresh() {
     loading = true;
-    inspections = await api.graph.inspections() as Inspection[];
+    inspections = await api.graph.inspections();
     loading = false;
   }
 
   async function runNow() {
     loading = true;
-    inspections = await api.graph.runInspections() as Inspection[];
+    inspections = await api.graph.runInspections();
     loading = false;
   }
 

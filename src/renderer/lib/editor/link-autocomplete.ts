@@ -27,7 +27,7 @@ export function detectCompletionPhase(before: string, pos: number): CompletionPh
 
   const inner = before.slice(openIdx + 2);
   // `[[` itself can't contain brackets or newlines in a well-formed link.
-  if (/[\[\]\n]/.test(inner)) return { kind: 'none' };
+  if (/[[\]\n]/.test(inner)) return { kind: 'none' };
 
   const innerStart = pos - inner.length;
 
@@ -193,7 +193,7 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
       return {
         from: phase.innerStart,
         options: [...linkTypeOptions(), ...notePathOptions(paths)],
-        validFor: /^[a-z0-9_\-\/\.: ]*$/i,
+        validFor: /^[a-z0-9_\-/.: ]*$/i,
       };
     }
 
@@ -208,13 +208,13 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
           // Source ids are lowercase alphanumerics + `.`, `_`, `-`; titles
           // additionally carry spaces and punctuation which the default
           // matcher can chew on.
-          validFor: /^[a-z0-9_\-\. ]*$/i,
+          validFor: /^[a-z0-9_\-. ]*$/i,
         };
       }
       return {
         from: phase.innerStart,
         options: notePathOptions(paths),
-        validFor: /^[a-z0-9_\-\/\. ]*$/i,
+        validFor: /^[a-z0-9_\-/. ]*$/i,
       };
     }
 
@@ -223,14 +223,14 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
       return {
         from: phase.innerStart,
         options: headingOptions(anchors.headings),
-        validFor: /^[a-z0-9_\-]*$/i,
+        validFor: /^[a-z0-9_-]*$/i,
       };
     }
     // block
     return {
       from: phase.innerStart,
       options: blockIdOptions(anchors.blockIds),
-      validFor: /^[a-z0-9_\-]*$/i,
+      validFor: /^[a-z0-9_-]*$/i,
     };
   };
 }

@@ -42,11 +42,11 @@ interface LinkOptions {
 
 // [[target]] | [[target|display]] | [[type::target]] | [[type::target|display]]
 // The inner cannot contain `[` or `]` to keep the match well-defined.
-const WIKI_RE = /\[\[([^\[\]\n]+)\]\]/g;
+const WIKI_RE = /\[\[([^[\]\n]+)\]\]/g;
 // [text](url) — text can't contain `]` or newline, url can't contain `)`, whitespace, or newline.
 const MARKDOWN_LINK_RE = /\[([^\]\n]+)\]\(([^)\s\n]+)\)/g;
 // Bare http(s) URL. Cut off common trailing punctuation ("See https://foo." → don't include the period).
-const BARE_URL_RE = /\bhttps?:\/\/[^\s<>()\[\]{}"'`]+/g;
+const BARE_URL_RE = /\bhttps?:\/\/[^\s<>()[\]{}"'`]+/g;
 
 /** Exposed for tests. */
 export function parseWikiInner(inner: string): {
