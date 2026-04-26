@@ -249,7 +249,7 @@ export function findSentence(doc: Text, from: number, to: number): { from: numbe
   }
 
   // Find end: scan forward for sentence boundary
-  let sEnd = to;
+  let sEnd: number;
   sentenceEnd.lastIndex = to > from ? to - 1 : from;
   const match = sentenceEnd.exec(text);
   if (match) {

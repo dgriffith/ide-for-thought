@@ -63,7 +63,7 @@ export function generateCellId(): string {
   // `crypto.randomUUID` is available in both main (Node ≥ 19) and
   // renderer (modern Electron). Take the first 8 hex chars of its
   // body — 32 bits, enough entropy for a library-of-notes scale.
-  const uuid = (globalThis.crypto as Crypto).randomUUID();
+  const uuid = (globalThis.crypto).randomUUID();
   return uuid.replace(/-/g, '').slice(0, 8);
 }
 

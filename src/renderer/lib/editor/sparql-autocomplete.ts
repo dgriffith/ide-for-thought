@@ -48,7 +48,7 @@ export function createSparqlCompletionSource(
       const vars = extractQueryVariables(all).map((v) => ({
         label: v,
         type: 'variable',
-      } as Completion));
+      }));
       return {
         from: phase.from,
         options: prefixMatchSort(vars, phase.prefix),

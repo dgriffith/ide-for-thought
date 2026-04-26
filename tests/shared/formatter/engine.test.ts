@@ -21,7 +21,7 @@ function rule(partial: Partial<FormatterRule<unknown>> & {
     description: '',
     defaultConfig: {},
     ...partial,
-  } as FormatterRule<unknown>;
+  };
 }
 
 describe('formatter engine (issue #153)', () => {

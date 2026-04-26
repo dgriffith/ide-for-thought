@@ -61,7 +61,7 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
         ?conv thought:contextNote ?n .
       }
     `);
-    expect((r.results as unknown[]).length).toBe(1);
+    expect((r.results).length).toBe(1);
   });
 
   it('omits contextNote entirely when there is no notePath', async () => {
@@ -72,7 +72,7 @@ describe('Conversation thought:contextNote is a real IRI (#350)', () => {
       PREFIX thought: <https://minerva.dev/ontology/thought#>
       SELECT ?n WHERE { <${expectedIri}> thought:contextNote ?n . }
     `);
-    expect((r.results as unknown[]).length).toBe(0);
+    expect((r.results).length).toBe(0);
   });
 
   it('reindexAllConversations heals historical relative-path-as-IRI dust', async () => {

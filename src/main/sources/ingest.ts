@@ -57,7 +57,7 @@ export async function ingestUrl(
   Object.defineProperty(document, 'baseURI', { value: normalized, configurable: true });
 
   const urlObj = new URL(normalized);
-  const structured = extractStructured(document as unknown as Parameters<typeof extractStructured>[0], urlObj);
+  const structured = extractStructured(document, urlObj);
 
   const { id: sourceId } = canonicalSourceId({
     doi: structured?.doi ?? undefined,
@@ -80,7 +80,7 @@ export async function ingestUrl(
     // Not found — proceed.
   }
 
-  const extracted = extractReadableFromDoc(document as unknown as Document, normalized);
+  const extracted = extractReadableFromDoc(document, normalized);
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'original.html'), html, 'utf-8');
@@ -156,7 +156,7 @@ export function extractReadable(html: string, url: string): ExtractedArticle {
   const { document } = parseHTML(html);
   Object.defineProperty(document, 'documentURI', { value: url, configurable: true });
   Object.defineProperty(document, 'baseURI', { value: url, configurable: true });
-  return extractReadableFromDoc(document as unknown as Document, url);
+  return extractReadableFromDoc(document, url);
 }
 
 /**

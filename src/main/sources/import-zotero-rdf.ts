@@ -41,7 +41,7 @@ const NS = {
 };
 
 function sym(iri: string): NamedNode {
-  return $rdf.sym(iri) as NamedNode;
+  return $rdf.sym(iri);
 }
 
 // Known bibliographic item classes. Anything else we see is ignored — a
@@ -104,7 +104,7 @@ export async function importZoteroRdfContent(
   try {
     $rdf.parse(rdfXml, store, PARSE_BASE, 'application/rdf+xml');
   } catch (err) {
-    throw new Error(`Zotero RDF parse failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`Zotero RDF parse failed: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
 
   const items = collectBibItems(store);
@@ -325,7 +325,7 @@ function extractPublisher(store: IndexedFormula, subject: NamedNode): string | n
     return st.object.value.trim() || null;
   }
   if (st.object.termType !== 'NamedNode' && st.object.termType !== 'BlankNode') return null;
-  return literalOf(store, st.object as NamedNode, `${NS.foaf}name`);
+  return literalOf(store, st.object, `${NS.foaf}name`);
 }
 
 function extractContainerTitle(store: IndexedFormula, subject: NamedNode): string | null {
@@ -334,7 +334,7 @@ function extractContainerTitle(store: IndexedFormula, subject: NamedNode): strin
   if (!st) return null;
   if (st.object.termType === 'Literal') return st.object.value.trim() || null;
   if (st.object.termType !== 'NamedNode' && st.object.termType !== 'BlankNode') return null;
-  return literalOf(store, st.object as NamedNode, `${NS.dc}title`);
+  return literalOf(store, st.object, `${NS.dc}title`);
 }
 
 export function extractIdentifiers(identifiers: string[]): {

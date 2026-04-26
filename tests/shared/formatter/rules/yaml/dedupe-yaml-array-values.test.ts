@@ -15,7 +15,7 @@ describe('dedupe-yaml-array-values (#155)', () => {
     expect(out).toContain('- b');
     expect(out).toContain('- c');
     // Three unique tags, so three `- ` lines.
-    expect((out.match(/^  - /gm) || []).length).toBe(3);
+    expect((out.match(/^ {2}- /gm) || []).length).toBe(3);
   });
 
   it('dedupes within flow-style sequences too', () => {

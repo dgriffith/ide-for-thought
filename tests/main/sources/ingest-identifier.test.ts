@@ -119,7 +119,7 @@ describe('ingestIdentifier (#96)', () => {
   afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
   function mockFetchForDoi(): typeof fetch {
-    return (async (input: RequestInfo | URL) => {
+    return async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('api.crossref.org/works/')) {
         return new Response(JSON.stringify({
@@ -137,7 +137,7 @@ describe('ingestIdentifier (#96)', () => {
         }), { status: 200, headers: { 'content-type': 'application/json' } });
       }
       return new Response('', { status: 404 });
-    }) as unknown as typeof fetch;
+    };
   }
 
   it('writes meta.ttl and body.md for a DOI ingest', async () => {
@@ -188,7 +188,7 @@ describe('ingestIdentifier (#96)', () => {
   });
 
   it('still creates the source when the advertised PDF fetch fails', async () => {
-    const fetchImpl = (async (input: RequestInfo | URL) => {
+    const fetchImpl = async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('api.crossref.org')) {
         return new Response(JSON.stringify({
@@ -203,7 +203,7 @@ describe('ingestIdentifier (#96)', () => {
       }
       // Simulate a 403 paywall on the PDF endpoint.
       return new Response('', { status: 403, statusText: 'Forbidden' });
-    }) as unknown as typeof fetch;
+    };
 
     const result = await ingestIdentifier(root, '10.1038/pdffail', { fetchImpl });
     expect(result.duplicate).toBe(false);
@@ -216,7 +216,7 @@ describe('ingestIdentifier (#96)', () => {
 
   it('saves the PDF when the fetch succeeds', async () => {
     const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // "%PDF"
-    const fetchImpl = (async (input: RequestInfo | URL) => {
+    const fetchImpl = async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input.toString();
       if (url.includes('api.crossref.org')) {
         return new Response(JSON.stringify({
@@ -230,7 +230,7 @@ describe('ingestIdentifier (#96)', () => {
         }), { status: 200, headers: { 'content-type': 'application/json' } });
       }
       return new Response(pdfBytes, { status: 200, headers: { 'content-type': 'application/pdf' } });
-    }) as unknown as typeof fetch;
+    };
 
     const result = await ingestIdentifier(root, '10.1038/pdfok', { fetchImpl });
     expect(result.pdfSaved).toBe(true);

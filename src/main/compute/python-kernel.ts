@@ -105,7 +105,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       MINERVA_IPC_SOCKET: rpc.socketPath,
       MINERVA_PROJECT_ROOT: rootPath,
     },
-  }) as ChildProcessWithoutNullStreams;
+  });
 
   const pending = new Map<string, PendingCell>();
   let resolveReady: () => void = () => {};
@@ -232,9 +232,9 @@ export async function runPython(
 
   const cellId = randomUUID();
   return new Promise<CellResult>((resolve) => {
-    state!.pending.set(cellId, { resolve, stdout: [], stderr: [] });
+    state.pending.set(cellId, { resolve, stdout: [], stderr: [] });
     const req = JSON.stringify({ op: 'exec', cellId, notebookPath, code });
-    state!.proc.stdin.write(req + '\n');
+    state.proc.stdin.write(req + '\n');
   });
 }
 

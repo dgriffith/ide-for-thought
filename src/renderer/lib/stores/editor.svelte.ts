@@ -56,7 +56,7 @@ let queryCounter = 0;
 
 // ── State ───────────────────────────────────────────────────────────────────
 
-let tabs = $state<Tab[]>([]);
+const tabs = $state<Tab[]>([]);
 let activeIndex = $state(-1);
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let tabPersistTimer: ReturnType<typeof setTimeout> | null = null;

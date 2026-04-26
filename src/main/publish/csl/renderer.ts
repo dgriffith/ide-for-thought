@@ -28,7 +28,7 @@ export interface RenderedBibliography {
 }
 
 export class CitationRenderer {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   private engine: any;
   private readonly items: Map<string, CslItem>;
   private readonly citedIds = new Set<string>();

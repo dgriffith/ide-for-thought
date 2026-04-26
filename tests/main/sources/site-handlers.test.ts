@@ -11,7 +11,7 @@ import {
 } from '../../../src/main/sources/site-handlers';
 
 function docFrom(html: string): DocLike {
-  return parseHTML(html).document as unknown as DocLike;
+  return parseHTML(html).document;
 }
 
 describe('citationMetaHandler (#221)', () => {
