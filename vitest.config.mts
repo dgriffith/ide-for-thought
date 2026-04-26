@@ -1,6 +1,25 @@
 import { defineConfig } from 'vitest/config';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { svelteTesting } from '@testing-library/svelte/vite';
 
 export default defineConfig({
+  // Svelte + testing-library plugins let vitest transform `.svelte`
+  // imports — needed for renderer component tests (#396 / OcrProgressDialog
+  // onwards). `svelteTesting` adds the browser resolve condition and
+  // wires the auto-cleanup hook between tests.
+  //
+  // Custom no-op `style` preprocessor bypasses vite-plugin-svelte's
+  // CSS preprocessing pass — under vitest 2 + vite 6 it explodes
+  // inside vite's `PartialEnvironment` constructor ("Cannot create
+  // proxy with a non-object as target or handler"). Component tests
+  // don't care about CSS, so leaving styles raw is fine.
+  plugins: [
+    svelte({
+      hot: false,
+      preprocess: { style: ({ content }) => ({ code: content }) },
+    }),
+    svelteTesting(),
+  ],
   resolve: {
     alias: {
       '@shared': '/src/shared',
