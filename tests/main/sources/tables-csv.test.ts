@@ -65,7 +65,7 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
   });
 
   afterEach(async () => {
-    await disposeProject(ctx);
+    disposeProject(ctx);
     await fsp.rm(root, { recursive: true, force: true });
   });
 

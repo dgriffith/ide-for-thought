@@ -80,7 +80,7 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'off',                   // 99 sites
       '@typescript-eslint/no-unsafe-argument': 'off',               // 79 sites
       '@typescript-eslint/no-unsafe-return': 'off',                 // 23 sites
-      '@typescript-eslint/require-await': 'off',                    // 37 sites
+      '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/no-misused-promises': 'off',              // 45 sites
       // Re-enabled (#382) — small-count rules cleaned up site-by-site
       // and now catch new offenders.
@@ -103,6 +103,10 @@ export default tseslint.config(
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
+      // Test mocks routinely satisfy Promise-returning interfaces with
+      // `async () => stub` bodies that have nothing to await. That's the
+      // whole point of the mock — the production interface IS async.
+      '@typescript-eslint/require-await': 'off',
     },
   },
   {

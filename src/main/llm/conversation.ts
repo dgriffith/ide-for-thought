@@ -31,10 +31,10 @@ export async function reindexAllConversations(): Promise<void> {
     try {
       const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
       const conv = JSON.parse(data) as Conversation;
-      await writeConversationToGraph(conv);
+      writeConversationToGraph(conv);
       if (conv.status !== 'active') {
         // Mirror the live status so resolve/abandon don't get dropped on reload.
-        await updateConversationInGraph(conv);
+        updateConversationInGraph(conv);
       }
     } catch (err) {
       console.warn(`[conversation] reindex skipped ${file}:`, err);
@@ -83,7 +83,7 @@ export async function create(
   if (options?.model) conv.model = options.model;
 
   await persist(conv);
-  await writeConversationToGraph(conv);
+  writeConversationToGraph(conv);
   return conv;
 }
 
@@ -176,7 +176,7 @@ async function setStatus(id: string, status: ConversationStatus): Promise<Conver
   }
 
   await persist(conv);
-  await updateConversationInGraph(conv);
+  updateConversationInGraph(conv);
 
   // On resolve, store as a thought:Source in the graph for provenance
   if (status === 'resolved') {
@@ -226,7 +226,7 @@ function clearConversationTriples(uri: string): void {
   graph.removeMatchingTriples(ctx, uri, 'http://purl.org/dc/terms/created');
 }
 
-async function writeConversationToGraph(conv: Conversation): Promise<void> {
+function writeConversationToGraph(conv: Conversation): void {
   const uri = convUri(conv.id);
   const ctx = activeCtx();
   // contextNote needs a real IRI, not the raw `notes/foo.md` string —
@@ -249,7 +249,7 @@ async function writeConversationToGraph(conv: Conversation): Promise<void> {
   graph.parseIntoStore(ctx, turtle);
 }
 
-async function updateConversationInGraph(conv: Conversation): Promise<void> {
+function updateConversationInGraph(conv: Conversation): void {
   const uri = convUri(conv.id);
   const statusMap: Record<ConversationStatus, string> = {
     active: 'active',

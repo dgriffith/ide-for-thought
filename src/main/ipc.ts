@@ -208,7 +208,7 @@ export function registerIpcHandlers(): void {
     return null;
   });
 
-  ipcMain.handle('notebase:newWindow', async (_e, rootPath?: string) => {
+  ipcMain.handle('notebase:newWindow', (_e, rootPath?: string) => {
     const win = createWindow();
     if (rootPath) {
       // Wait for window to be ready before opening project
@@ -258,7 +258,7 @@ export function registerIpcHandlers(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('notebase:openPathInNewWindow', async (_e, rootPath: string) => {
+  ipcMain.handle('notebase:openPathInNewWindow', (_e, rootPath: string) => {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);

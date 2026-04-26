@@ -46,7 +46,7 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
   });
 }
 
-export async function disposeProject(ctx: ProjectContext): Promise<void> {
+export function disposeProject(ctx: ProjectContext): void {
   const state = states.get(ctx.rootPath);
   if (!state) return;
   try { state.connection.closeSync(); } catch { /* already closed */ }

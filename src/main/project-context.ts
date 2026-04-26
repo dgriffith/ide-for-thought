@@ -96,8 +96,8 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   } catch (err) {
     console.warn(`[project-context] final persist failed for ${rootPath}:`, err);
   }
-  await tables.disposeProject(rec.ctx);
-  await search.disposeProject(rec.ctx);
+  tables.disposeProject(rec.ctx);
+  search.disposeProject(rec.ctx);
   graph.disposeProject(rec.ctx);
   projects.delete(rootPath);
 }

@@ -13,7 +13,7 @@ import { shutdownAllKernels } from './compute/python-kernel';
 
 app.setName('Minerva');
 
-void app.whenReady().then(async () => {
+void app.whenReady().then(() => {
   installCsp();
   registerIpcHandlers();
   registerBuiltinExecutors();

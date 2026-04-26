@@ -28,7 +28,7 @@ export async function initSearch(ctx: ProjectContext): Promise<void> {
   await state.provider.load(indexPath(state));
 }
 
-export async function disposeProject(ctx: ProjectContext): Promise<void> {
+export function disposeProject(ctx: ProjectContext): void {
   states.delete(ctx.rootPath);
 }
 

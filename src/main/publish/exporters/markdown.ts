@@ -23,6 +23,11 @@ export const markdownExporter: Exporter = {
   label: 'Markdown (passthrough)',
   accepts: (input) => input.kind !== 'tree',
   acceptedKinds: ['single-note', 'folder', 'project'],
+  // Exporter contract requires Promise<ExportOutput>; this trivial
+  // exporter has nothing to await but its async siblings (HTML, PDF,
+  // tree, site) do. Keep the signature uniform so the registry doesn't
+  // care which exporters happen to be sync today.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async run(plan) {
     const ctx = buildLinkResolverContext(plan);
     const files = plan.inputs
