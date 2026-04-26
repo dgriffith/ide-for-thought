@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit && svelte-check --threshold error && eslint .",
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
-    "test": "vitest"
+    "test": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
