@@ -105,7 +105,7 @@ export function mergeTagsIntoContent(content: string, newTags: string[]): MergeR
   let fm: Record<string, unknown> = {};
   if (match) {
     try {
-      const parsed = YAML.parse(match[1]);
+      const parsed: unknown = YAML.parse(match[1]);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         fm = parsed as Record<string, unknown>;
       }

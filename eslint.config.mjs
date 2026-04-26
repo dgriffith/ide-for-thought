@@ -73,18 +73,20 @@ export default tseslint.config(
       // per-rule cleanup separately — better than stalling adoption on
       // a hundred-line PR that mixes lint setup with real fixes.
       // Re-enable each in its own PR after the underlying cleanups land.
-      // Still off — sites > 0; tracked in #382, batched separately.
-      // After the cleanup pass that landed alongside this config the
-      // remaining ~160 no-unsafe-* sites are concentrated in
-      // App.svelte (119), Preview.svelte (17), ConversationDialog (7),
-      // Sidebar (6), StatusBar (6), and a handful of singletons.
-      // Promote these to error once those files are typed.
+      // no-unsafe-* family is on as `error` for `.ts` files. The Svelte
+      // override (below) flips them off for `**/*.svelte` because
+      // svelte-eslint-parser doesn't propagate `bind:this` ref types
+      // through into runes-mode component instances — the ~150 false
+      // positives in the Svelte tree don't reflect real type holes
+      // (tsc + svelte-check pass cleanly). Tests-block override below
+      // also flips them off (test fixtures legitimately reach into
+      // unknown shapes).
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-argument': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/require-await': 'error',
       // checksVoidReturn.arguments off: the "Promise returned where void
       // was expected" check fires on every `setTimeout(async () => …)` /
@@ -150,6 +152,19 @@ export default tseslint.config(
       // inside `$effect(() => { ... })`. The TS parser flags those as
       // unused expressions; they aren't.
       '@typescript-eslint/no-unused-expressions': 'off',
+      // svelte-eslint-parser doesn't propagate `bind:this` ref types
+      // through into runes-mode component instances — every
+      // `editorComponent?.foo()` becomes an unsafe-call on `any`. The
+      // ~150 false positives in the Svelte tree don't reflect real
+      // type holes (tsc + svelte-check pass cleanly), so the rules
+      // are off here. They stay on for `.ts` files where they catch
+      // genuine `any` leaks. Re-enable selectively if/when the
+      // svelte-eslint-parser closes the gap.
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
       // svelte-check already covers the core a11y + reactivity rules.
       // Keep eslint-plugin-svelte off here for now and re-enable
       // selectively as the project standardizes on rules we want.

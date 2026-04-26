@@ -19,7 +19,7 @@ const DEFAULTS: EditorSettings = {
 export function getEditorSettings(): EditorSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return { ...DEFAULTS, ...JSON.parse(stored) };
+    if (stored) return { ...DEFAULTS, ...(JSON.parse(stored) as Partial<EditorSettings>) };
   } catch { /* ignore */ }
   return { ...DEFAULTS };
 }
