@@ -15,7 +15,7 @@ const filePath = path.join(app.getPath('userData'), 'session.json');
 export function loadSession(): WindowState[] {
   try {
     const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
+    return JSON.parse(data) as WindowState[];
   } catch {
     return [];
   }

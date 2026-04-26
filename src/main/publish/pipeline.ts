@@ -210,7 +210,7 @@ function extractFrontmatter(content: string): Record<string, unknown> {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
   try {
-    const parsed = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]);
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};

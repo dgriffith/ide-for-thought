@@ -33,7 +33,7 @@ function settingsPath(): string {
 export async function getSettings(): Promise<LLMSettings> {
   try {
     const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
     return {
       apiKey: parsed.apiKey ?? process.env.ANTHROPIC_API_KEY ?? '',
       model: resolveModel(parsed.model),

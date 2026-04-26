@@ -36,11 +36,11 @@ function reindex(seg: string): string {
   const mapping = new Map<string, string>();
   order.forEach((oldName, i) => mapping.set(oldName, String(i + 1)));
 
-  const rewrittenRefs = seg.replace(REF_RE, (match, open, name, close) => {
+  const rewrittenRefs = seg.replace(REF_RE, (match: string, open: string, name: string, close: string) => {
     const next = mapping.get(name);
     return next ? `${open}${next}${close}` : match;
   });
-  return rewrittenRefs.replace(DEF_RE, (match, open, name, close) => {
+  return rewrittenRefs.replace(DEF_RE, (match: string, open: string, name: string, close: string) => {
     const next = mapping.get(name);
     return next ? `${open}${next}${close}` : match;
   });

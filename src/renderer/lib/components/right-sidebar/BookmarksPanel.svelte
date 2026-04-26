@@ -110,7 +110,7 @@
 <div class="bookmarks-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find bookmark…"
     onExpandAll={expandAll}
     onCollapseAll={collapseAll}

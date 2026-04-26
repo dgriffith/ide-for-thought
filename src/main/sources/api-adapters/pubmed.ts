@@ -43,7 +43,7 @@ async function fetchSummary(pmid: string, fetchImpl: typeof fetch): Promise<Pubm
   const url = `${PUBMED_SUMMARY}?db=pubmed&id=${encodeURIComponent(pmid)}&retmode=json`;
   const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`PubMed esummary ${res.status}: ${res.statusText}`);
-  return await res.json();
+  return await res.json() as PubmedEsummary;
 }
 
 async function fetchAbstract(pmid: string, fetchImpl: typeof fetch): Promise<string | null> {
@@ -56,7 +56,9 @@ async function fetchAbstract(pmid: string, fetchImpl: typeof fetch): Promise<str
 
 /** Exposed for tests. */
 export function parseAbstractXml(xml: string): string | null {
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  // linkedom's DOMParser returns `any`; cast at the boundary so downstream
+  // queries are type-checked. (Same pattern as arxiv.ts.)
+  const doc = new DOMParser().parseFromString(xml, 'text/xml') as unknown as Document;
   const parts: string[] = [];
   for (const el of doc.querySelectorAll('AbstractText')) {
     const text = el.textContent?.trim();

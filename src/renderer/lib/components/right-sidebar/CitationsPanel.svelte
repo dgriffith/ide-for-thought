@@ -81,7 +81,7 @@
 <div class="cite-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find citation…"
     sortOptions={[
       { id: 'document', label: 'Document order' },
@@ -89,7 +89,7 @@
       { id: 'kind', label: 'By kind' },
     ]}
     {sortId}
-    onSort={(id) => { sortId = id as 'document' | 'alpha' | 'kind'; }}
+    onSort={(id: string) => { sortId = id as 'document' | 'alpha' | 'kind'; }}
   />
   <div class="scroll">
     {#if entries().length === 0}

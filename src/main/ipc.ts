@@ -814,7 +814,7 @@ export function registerIpcHandlers(): void {
     try {
       const p = path.join(rootPath, '.minerva', 'formatter.json');
       const data = await fs.readFile(p, 'utf-8');
-      const parsed = JSON.parse(data);
+      const parsed = JSON.parse(data) as { enabled?: Record<string, boolean>; configs?: Record<string, unknown> };
       return {
         enabled: (parsed?.enabled && typeof parsed.enabled === 'object') ? parsed.enabled : {},
         configs: (parsed?.configs && typeof parsed.configs === 'object') ? parsed.configs : {},
@@ -1267,7 +1267,7 @@ export function registerIpcHandlers(): void {
     try {
       const bmPath = path.join(rootPath, '.minerva', 'bookmarks.json');
       const data = await fs.readFile(bmPath, 'utf-8');
-      return JSON.parse(data);
+      return JSON.parse(data) as unknown[];
     } catch { return []; }
   });
 

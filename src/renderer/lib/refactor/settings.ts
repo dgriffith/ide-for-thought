@@ -66,7 +66,7 @@ function readFromStorage(): RefactorSettings {
     if (typeof localStorage === 'undefined') return { ...DEFAULT_REFACTOR_SETTINGS };
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULT_REFACTOR_SETTINGS };
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<RefactorSettings> | null;
     if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_REFACTOR_SETTINGS };
     return { ...DEFAULT_REFACTOR_SETTINGS, ...parsed };
   } catch {

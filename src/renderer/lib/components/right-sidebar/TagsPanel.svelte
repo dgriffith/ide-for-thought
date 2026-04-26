@@ -45,7 +45,7 @@
 <div class="tags-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find tag…"
   />
   {#if tags().length === 0}

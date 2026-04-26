@@ -28,7 +28,7 @@ export function normalizePath(p: string): string {
  */
 export function rewriteWikiLinks(content: string, rewrites: Map<string, string>): string {
   if (rewrites.size === 0) return content;
-  return content.replace(WIKI_LINK_RE, (match, inner) => {
+  return content.replace(WIKI_LINK_RE, (match: string, inner: string) => {
     const parsed = parseWikiInner(inner);
     // Typed links that target non-notes (cite/quote) are out of scope —
     // their targets are ids, not paths. Skip them.
@@ -56,7 +56,7 @@ export function rewriteTypedIdLinks(
   rewrites: Map<string, string>,
 ): string {
   if (rewrites.size === 0) return content;
-  return content.replace(WIKI_LINK_RE, (match, inner) => {
+  return content.replace(WIKI_LINK_RE, (match: string, inner: string) => {
     const parsed = parseWikiInner(inner);
     if (parsed.type !== linkTypeName) return match;
     const newId = rewrites.get(parsed.target);
@@ -78,7 +78,7 @@ export function rewriteAnchorInLinks(
   newAnchor: string,
 ): string {
   const normalizedTarget = normalizePath(targetPath);
-  return content.replace(WIKI_LINK_RE, (match, inner) => {
+  return content.replace(WIKI_LINK_RE, (match: string, inner: string) => {
     const parsed = parseWikiInner(inner);
     if (parsed.type === 'cite' || parsed.type === 'quote') return match;
     if (normalizePath(parsed.target) !== normalizedTarget) return match;

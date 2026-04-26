@@ -68,7 +68,7 @@
 <div class="tables-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find table…"
   />
   <div class="scroll">

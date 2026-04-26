@@ -119,7 +119,7 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
   rl.on('line', (line) => {
     let event: KernelEvent;
     try {
-      event = JSON.parse(line);
+      event = JSON.parse(line) as KernelEvent;
     } catch {
       console.warn('[python-kernel] non-JSON event line:', line);
       return;

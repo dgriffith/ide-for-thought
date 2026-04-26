@@ -48,12 +48,12 @@ export class MiniSearchProvider implements SearchProvider {
     const limit = opts?.limit ?? 50;
     const raw = this.engine.search(query);
 
-    return raw.slice(0, limit).map((hit) => {
-      const doc = this.docs.get(hit.id as string);
+    return raw.slice(0, limit).map((hit: { id: string; title?: string; score: number }) => {
+      const doc = this.docs.get(hit.id);
       const snippet = doc ? extractSnippet(doc.content, query) : '';
       return {
-        relativePath: hit.id as string,
-        title: (hit as { title?: string }).title ?? doc?.title ?? hit.id,
+        relativePath: hit.id,
+        title: hit.title ?? doc?.title ?? hit.id,
         snippet,
         score: hit.score,
       };
@@ -76,7 +76,7 @@ export class MiniSearchProvider implements SearchProvider {
   async load(srcPath: string): Promise<void> {
     try {
       const raw = await fs.readFile(srcPath, 'utf-8');
-      const data = JSON.parse(raw);
+      const data = JSON.parse(raw) as { index: unknown; docs: Record<string, { title: string; content: string }> };
       this.engine = MiniSearch.loadJSON(JSON.stringify(data.index), {
         fields: ['title', 'content'],
         storeFields: ['title'],
@@ -84,7 +84,7 @@ export class MiniSearchProvider implements SearchProvider {
       });
       this.docs.clear();
       for (const [key, val] of Object.entries(data.docs)) {
-        this.docs.set(key, val as { title: string; content: string });
+        this.docs.set(key, val);
       }
     } catch {
       // No persisted index or corrupt — start fresh

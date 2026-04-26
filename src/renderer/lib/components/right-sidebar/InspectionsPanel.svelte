@@ -81,14 +81,14 @@
 <div class="inspections-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find inspection…"
     sortOptions={[
       { id: 'severity', label: 'By severity' },
       { id: 'type', label: 'By type' },
     ]}
     {sortId}
-    onSort={(id) => { sortId = id as 'severity' | 'type'; }}
+    onSort={(id: string) => { sortId = id as 'severity' | 'type'; }}
   />
   <div class="panel-header">
     <span class="count">

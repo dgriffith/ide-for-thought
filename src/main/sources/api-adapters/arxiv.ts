@@ -27,7 +27,10 @@ export async function fetchArxivMetadata(
 }
 
 export function parseArxivAtom(xml: string, arxivId: string): ArticleMetadata {
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  // linkedom's DOMParser is structurally compatible with the DOM `Document`
+  // type from the standard lib, but its declared return type is `any`. Cast
+  // once at the boundary so downstream queries are type-checked.
+  const doc = new DOMParser().parseFromString(xml, 'text/xml') as unknown as Document;
   const entry = doc.querySelector('entry');
   if (!entry) throw new Error(`arXiv: no <entry> in response for ${arxivId}`);
 

@@ -8,7 +8,7 @@ const filePath = path.join(app.getPath('userData'), 'recent-projects.json');
 export function getRecentProjects(): string[] {
   try {
     const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
+    return JSON.parse(data) as string[];
   } catch {
     return [];
   }

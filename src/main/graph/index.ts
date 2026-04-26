@@ -201,7 +201,7 @@ function configPath(rootPath: string): string {
 
 function readConfig(rootPath: string): ProjectConfig | null {
   try {
-    return JSON.parse(fsSync.readFileSync(configPath(rootPath), 'utf-8'));
+    return JSON.parse(fsSync.readFileSync(configPath(rootPath), 'utf-8')) as ProjectConfig;
   } catch { return null; }
 }
 

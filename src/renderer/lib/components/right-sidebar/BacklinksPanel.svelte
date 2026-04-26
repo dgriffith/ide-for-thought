@@ -64,14 +64,14 @@
 <div class="links-panel">
   <Ribbon
     {search}
-    onSearch={(q) => { search = q; }}
+    onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find mention…"
     sortOptions={[
       { id: 'type', label: 'By type' },
       { id: 'title', label: 'Alphabetical' },
     ]}
     {sortId}
-    onSort={(id) => { sortId = id as 'type' | 'title'; }}
+    onSort={(id: string) => { sortId = id as 'type' | 'title'; }}
     onExpandAll={sortId === 'type' ? expandAll : undefined}
     onCollapseAll={sortId === 'type' ? collapseAll : undefined}
   />
