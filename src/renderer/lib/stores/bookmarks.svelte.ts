@@ -13,7 +13,7 @@ function schedulePersist() {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    api.bookmarks.save($state.snapshot(tree));
+    void api.bookmarks.save($state.snapshot(tree));
   }, 500);
 }
 

@@ -75,9 +75,9 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   installNavigationGuards(win.webContents);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(
+    void win.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
   }
@@ -165,7 +165,9 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     }, 1000);
   };
 
-  startWatching(rootPath, win, win.id, {
+  // startWatching returns a ready-promise (#345); we don't await here
+  // because the watcher works fine before its initial scan completes.
+  void startWatching(rootPath, win, win.id, {
     onFileChanged: async (relativePath) => {
       if (wasHandled(relativePath)) return;
       // CSVs route to DuckDB first in an independent try. registerCsv doesn't

@@ -19,7 +19,7 @@
   $effect(() => {
     if (activeFilePath) {
       // Coalesced fetch (#351) — siblings on the same tab switch share one IPC.
-      getLinkBundle(activeFilePath, revision).then((b) => { links = b.backlinks; });
+      void getLinkBundle(activeFilePath, revision).then((b) => { links = b.backlinks; });
     } else {
       links = [];
     }

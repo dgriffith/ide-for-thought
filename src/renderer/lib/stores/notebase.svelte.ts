@@ -28,7 +28,7 @@ export function getNotebaseStore() {
   }
 
   function close() {
-    api.notebase.close();
+    void api.notebase.close();
     meta = null;
     files = [];
   }

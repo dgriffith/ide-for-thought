@@ -930,7 +930,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // derived-note builder's body format so a user-pasted block looks the
     // same as a "Save as note" output.
     const md = outputToMarkdownClipboard(outputMenu.output);
-    navigator.clipboard.writeText(md);
+    void navigator.clipboard.writeText(md);
     outputMenu = null;
   }
 

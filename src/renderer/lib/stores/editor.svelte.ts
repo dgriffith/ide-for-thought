@@ -201,7 +201,7 @@ export function getEditorStore() {
     if (autoSaveTimer) {
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
-      save();
+      void save();
     }
   }
 
@@ -243,7 +243,7 @@ export function getEditorStore() {
       }
     });
     const session: TabSession = { activeIndex, tabs: savedTabs };
-    api.tabs.save(session);
+    void api.tabs.save(session);
   }
 
   async function restoreTabs() {

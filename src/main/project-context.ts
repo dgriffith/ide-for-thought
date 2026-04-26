@@ -64,7 +64,8 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // before #350.
       await conversation.reindexAllConversations();
       // Health checks run once at open, then a periodic timer takes over.
-      healthChecks.runAllChecks(ctx);
+      // Fire-and-forget — no need to block project init on the result.
+      void healthChecks.runAllChecks(ctx);
       healthChecks.startPeriodicChecks(ctx);
     })();
     rec = { ctx, rootPath, acquirers: new Set(), initPromise };

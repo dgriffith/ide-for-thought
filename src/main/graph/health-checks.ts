@@ -185,7 +185,7 @@ const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
 
 export function startPeriodicChecks(ctx: ProjectContext, intervalMs: number = 5 * 60 * 1000): void {
   stopPeriodicChecks(ctx);
-  const timer = setInterval(() => { runAllChecks(ctx); }, intervalMs);
+  const timer = setInterval(() => { void runAllChecks(ctx); }, intervalMs);
   timersByProject.set(ctx.rootPath, timer);
 }
 

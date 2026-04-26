@@ -135,8 +135,11 @@ export function startWatching(
 export function stopWatching(id: number): void {
   const pair = watchers.get(id);
   if (pair) {
-    pair.notes.close();
-    pair.minervaData.close();
+    // chokidar's close() returns a Promise that resolves when handles
+    // are released. We don't block on it: callers (window-manager
+    // teardown, test cleanup) just want the watcher detached now.
+    void pair.notes.close();
+    void pair.minervaData.close();
     watchers.delete(id);
   }
 }

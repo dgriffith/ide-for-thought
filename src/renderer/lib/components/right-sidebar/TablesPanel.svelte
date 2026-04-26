@@ -30,7 +30,7 @@
     } catch { /* tables db not ready — keep empty set */ }
   }
 
-  $effect(() => { refreshTables(); });
+  $effect(() => { void refreshTables(); });
 
   // Pull out SQL fences first so we don't false-positive on "FROM" in
   // prose. Matches both ```sql and the query-directive fences that

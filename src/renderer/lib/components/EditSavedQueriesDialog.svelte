@@ -17,7 +17,7 @@
     queries = await window.api.queries.list();
   }
 
-  onMount(() => { load(); });
+  onMount(() => { void load(); });
 
   const projectQueries = $derived(queries.filter((q) => q.scope === 'project'));
   const globalQueries = $derived(queries.filter((q) => q.scope === 'global'));
@@ -73,7 +73,7 @@
                   bind:value={renameValue}
                   class="name-input"
                   onkeydown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitRename(q); }
+                    if (e.key === 'Enter') { e.preventDefault(); void commitRename(q); }
                     else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
                   }}
                   onblur={() => commitRename(q)}
@@ -99,7 +99,7 @@
                   bind:value={renameValue}
                   class="name-input"
                   onkeydown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitRename(q); }
+                    if (e.key === 'Enter') { e.preventDefault(); void commitRename(q); }
                     else if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
                   }}
                   onblur={() => commitRename(q)}

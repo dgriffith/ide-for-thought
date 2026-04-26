@@ -47,11 +47,11 @@
     proposals = result as Proposal[];
   }
 
-  onMount(() => { refresh(); });
+  onMount(() => { void refresh(); });
 
   $effect(() => {
     revision;
-    refresh();
+    void refresh();
   });
 
   async function handleApprove(uri: string) {
@@ -72,8 +72,8 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (!selectedUri) return;
-    if (e.key === 'y') { e.preventDefault(); handleApprove(selectedUri); }
-    if (e.key === 'n') { e.preventDefault(); handleReject(selectedUri); }
+    if (e.key === 'y') { e.preventDefault(); void handleApprove(selectedUri); }
+    if (e.key === 'n') { e.preventDefault(); void handleReject(selectedUri); }
     if (e.key === 's' || e.key === 'Escape') { e.preventDefault(); selectedUri = null; }
   }
 </script>

@@ -50,12 +50,13 @@ export default tseslint.config(
     },
     rules: {
       // ── Rules we're keeping on ────────────────────────────────────────
-      // Floating promises: the headline ask in #349. Set to `warn`, not
-      // `error`, because the codebase has ~80 existing offenders (mostly
-      // intentional fire-and-forget `api.*()` calls in Svelte event
-      // handlers). Editor + CI will surface them, future code gets
-      // caught, and the cleanup is tracked in its own follow-up.
-      '@typescript-eslint/no-floating-promises': 'warn',
+      // Floating promises: was warn during #349 adoption while the
+      // existing ~80 offenders got cleaned up; promoted to `error` after
+      // #381 audited every site (most became `void api.*()` for
+      // intentional fire-and-forget UI handlers, with main-process
+      // sites individually reviewed). New floating promises now fail
+      // the build.
+      '@typescript-eslint/no-floating-promises': 'error',
       // Unused-vars/imports as warnings, with the standard `_`-prefix
       // escape hatch so tests/handlers can name args they intentionally
       // ignore.

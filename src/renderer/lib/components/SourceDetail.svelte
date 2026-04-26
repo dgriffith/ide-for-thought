@@ -70,13 +70,13 @@
 
   $effect(() => {
     if (sourceId !== loadedId) {
-      load(sourceId);
+      void load(sourceId);
     }
   });
 
   $effect(() => {
     if (sourceId !== bodyLoadedFor) {
-      loadBody(sourceId);
+      void loadBody(sourceId);
     }
   });
 
@@ -156,7 +156,7 @@
   // was added/updated/removed (covers cross-window sync and any direct
   // filesystem edits the user made to excerpt ttls).
   api.sources.onExcerptsChanged(() => {
-    if (loadedId === sourceId) load(sourceId);
+    if (loadedId === sourceId) void load(sourceId);
   });
 
   // After render, if a specific excerpt was highlighted, scroll it into view.
@@ -178,7 +178,7 @@
   }
 
   function openExternal(url: string) {
-    api.shell.openExternal(url);
+    void api.shell.openExternal(url);
   }
 
   function excerptLocation(e: SourceExcerpt): string {

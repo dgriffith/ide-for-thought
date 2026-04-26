@@ -177,7 +177,7 @@
       <button onclick={() => { onRename(contextMenu!.target!); contextMenu = null; }}>
         Rename
       </button>
-      <button onclick={() => { navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
+      <button onclick={() => { void navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
         Copy Path
       </button>
       {#if !contextMenu.targetIsDir}
@@ -186,9 +186,9 @@
       <div class="submenu-item">
         <span class="submenu-trigger">Open In &#x25B8;</span>
         <div class="submenu">
-          <button onclick={() => { api.shell.revealFile(contextMenu!.target!); contextMenu = null; }}>Reveal in Finder</button>
-          <button onclick={() => { api.shell.openInDefault(contextMenu!.target!); contextMenu = null; }}>Open in Default App</button>
-          <button onclick={() => { api.shell.openInTerminal(contextMenu!.target!); contextMenu = null; }}>Open in Terminal</button>
+          <button onclick={() => { void api.shell.revealFile(contextMenu!.target!); contextMenu = null; }}>Reveal in Finder</button>
+          <button onclick={() => { void api.shell.openInDefault(contextMenu!.target!); contextMenu = null; }}>Open in Default App</button>
+          <button onclick={() => { void api.shell.openInTerminal(contextMenu!.target!); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
       <div class="separator"></div>
