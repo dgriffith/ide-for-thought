@@ -1,11 +1,14 @@
-# CI for Minerva (#340).
+# CI for Minerva (#340 + #394).
 #
-# Runs `pnpm lint && pnpm test` on every push to main and on every pull
-# request. macOS runner per the issue: matches the dev machine, and the
-# chokidar watcher tests (#345) exercise macOS fsevents semantics — a
-# Linux runner would need different timing tolerances.
+# Two jobs run in parallel:
+#   - lint-and-test: tsc + svelte-check + eslint + vitest
+#   - e2e: electron-forge package + Playwright Electron smoke
 #
-# No matrix: single Node + pnpm pinned to whatever the lockfile expects.
+# Both on macos-latest: matches the dev machine, and the chokidar
+# watcher tests (#345) exercise macOS fsevents semantics — a Linux
+# runner would need different timing tolerances. The e2e job
+# additionally needs a darwin Electron app bundle, so cross-platform
+# would mean separate package targets per platform.
 
 name: CI
 
@@ -51,3 +54,34 @@ jobs:
         # run for CI. Same effect as the local `pnpm coverage` minus the
         # report.
         run: pnpm exec vitest run
+
+  e2e:
+    # Runs in parallel with lint-and-test. Stays out of the unit loop
+    # because Electron boot is 5–10s and the watcher loop should stay
+    # snappy.
+    runs-on: macos-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: E2E (electron-forge package + Playwright)
+        # `test:e2e` builds the app via electron-forge package, then
+        # runs Playwright against the in-tree .vite/build/main.js
+        # entry. Single test today (#394 smoke); add cases per
+        # "the app stopped working entirely" incident.
+        run: pnpm test:e2e
