@@ -9,8 +9,8 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
     await initTablesDb(ctx);
   });
 
-  afterAll(async () => {
-    await disposeProject(ctx);
+  afterAll(() => {
+    disposeProject(ctx);
   });
 
   it('runs the trivial round-trip query', async () => {
@@ -76,7 +76,7 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
       const inSecond = await runQuery(otherCtx, `SELECT COUNT(*) AS n FROM scratch`);
       expect(inSecond.ok).toBe(false);
     } finally {
-      await disposeProject(otherCtx);
+      disposeProject(otherCtx);
     }
   });
 });

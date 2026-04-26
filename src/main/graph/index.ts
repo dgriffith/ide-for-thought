@@ -518,6 +518,11 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
 
 // ── Indexing ────────────────────────────────────────────────────────────────
 
+// indexNote is an async-by-contract public API: callers `await` it across
+// the project (ipc, write-pipeline, watchers, rename), and we want the
+// freedom to add real async work later without rippling out a signature
+// change. The current body happens to be sync.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function indexNote(
   ctx: ProjectContext,
   relativePath: string,

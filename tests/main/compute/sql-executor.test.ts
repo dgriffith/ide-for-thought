@@ -29,7 +29,7 @@ describe('executeSql (#240)', () => {
   });
 
   afterAll(async () => {
-    await disposeProject(ctx);
+    disposeProject(ctx);
     await fsp.rm(root, { recursive: true, force: true });
   });
 
