@@ -53,7 +53,7 @@ export class MiniSearchProvider implements SearchProvider {
       const snippet = doc ? extractSnippet(doc.content, query) : '';
       return {
         relativePath: hit.id as string,
-        title: (hit as any).title ?? doc?.title ?? hit.id,
+        title: (hit as { title?: string }).title ?? doc?.title ?? hit.id,
         snippet,
         score: hit.score,
       };

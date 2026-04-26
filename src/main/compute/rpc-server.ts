@@ -75,7 +75,7 @@ const methods: Record<string, RpcMethod> = {
   sparql: async (rootPath, params) => {
     const ctx = projectContext(rootPath);
     const query = asString(params.query, 'query');
-    const r = (await graph.queryGraph(ctx, query)) as { results: unknown[]; error?: string };
+    const r = await graph.queryGraph(ctx, query);
     if (r.error) queryError(r.error);
     return { rows: r.results };
   },

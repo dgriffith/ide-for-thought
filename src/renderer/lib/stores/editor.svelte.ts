@@ -369,8 +369,8 @@ export function getEditorStore() {
       } else {
         const response = await api.graph.query(tab.query);
         tab.executionTime = Math.round(performance.now() - start);
-        if ((response as any).error) {
-          tab.error = (response as any).error;
+        if (response.error) {
+          tab.error = response.error;
         } else if (response.results.length > 0) {
           tab.columns = Object.keys(response.results[0] as Record<string, string>);
           tab.results = response.results as Record<string, string>[];

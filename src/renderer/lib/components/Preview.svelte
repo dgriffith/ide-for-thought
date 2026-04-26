@@ -409,9 +409,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return true;
   });
 
-  md.renderer.rules.query_directive = (tokens: any[], idx: number) => {
+  md.renderer.rules.query_directive = (tokens: Token[], idx: number) => {
     const query = tokens[idx].content;
-    const { type, config } = tokens[idx].meta;
+    const { type, config } = tokens[idx].meta as { type: string; config: Record<string, unknown> };
     const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
     return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
   };

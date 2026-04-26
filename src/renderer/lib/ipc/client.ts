@@ -103,7 +103,7 @@ export interface GitApi {
 }
 
 export interface GraphApi {
-  query(sparql: string): Promise<{ results: unknown[] }>;
+  query(sparql: string): Promise<{ results: unknown[]; error?: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
   inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
   runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;

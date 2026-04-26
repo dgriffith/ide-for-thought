@@ -57,7 +57,7 @@
 
     try {
       const results = await api.graph.groundCheck(claim);
-      const match = (results as any[])?.[0];
+      const match = (results as Array<{ label: string; type: string }>)?.[0];
       const state = match
         ? { grounded: true, label: match.label, type: match.type }
         : { grounded: false };

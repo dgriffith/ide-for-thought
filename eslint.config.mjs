@@ -74,7 +74,7 @@ export default tseslint.config(
       // a hundred-line PR that mixes lint setup with real fixes.
       // Re-enable each in its own PR after the underlying cleanups land.
       // Still off — sites > 0; tracked in #382, batched separately.
-      '@typescript-eslint/no-explicit-any': 'off',                  // 35 sites
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'off',             // 77 sites
       '@typescript-eslint/no-unsafe-member-access': 'off',          // 108 sites
       '@typescript-eslint/no-unsafe-call': 'off',                   // 99 sites

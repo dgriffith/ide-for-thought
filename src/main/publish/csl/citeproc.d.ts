@@ -21,8 +21,8 @@ declare module 'citeproc' {
       citationsPre: unknown[],
       citationsPost: unknown[],
     ): [Record<string, unknown>, Array<[number, string, string]>];
-    // Engine exposes more — we treat it as `unknown` on the wrapper side.
-    cslXml?: unknown;
+    // Engine exposes more — we surface only the bits the wrapper reads.
+    cslXml?: { dataObj?: { attrs?: { class?: string } } };
   }
 
   const _default: {

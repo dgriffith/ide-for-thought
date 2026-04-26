@@ -13,7 +13,7 @@
  * exporters don't have to learn it.
  */
 
-import CSL from 'citeproc';
+import CSL, { Engine as CslEngine } from 'citeproc';
 import type { CslItem } from './source-to-csl';
 
 export interface RenderedBibliography {
@@ -28,8 +28,7 @@ export interface RenderedBibliography {
 }
 
 export class CitationRenderer {
-   
-  private engine: any;
+  private engine: CslEngine;
   private readonly items: Map<string, CslItem>;
   private readonly citedIds = new Set<string>();
   /** Ids we've been asked to render but couldn't find in `items`. */
@@ -79,7 +78,7 @@ export class CitationRenderer {
         [],
       );
       // citeproc returns [updateInfo, [[index, text, id], ...]]
-      const pairs = result[1] as Array<[number, string, string]>;
+      const pairs = result[1];
       return pairs.length > 0 ? pairs[0][1] : '';
     } catch (err) {
       return `<span class="csl-error" title="${escapeHtml(String(err))}">[citation error: ${escapeHtml(id)}]</span>`;
