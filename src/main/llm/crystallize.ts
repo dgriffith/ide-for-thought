@@ -76,11 +76,12 @@ ${text}`;
 
     await proposeWrite(ctx, {
       operationType: 'component_creation',
-      turtleDiff: groundedTurtle,
+      payloads: [
+        { kind: 'graph-triples', turtle: groundedTurtle, affectsNodeUris },
+      ],
       note: `Crystallized ${componentCount} thought component${componentCount !== 1 ? 's' : ''} from conversation`,
       conversationUri,
       proposedBy,
-      affectsNodeUris,
     });
 
     return { turtle: groundedTurtle, componentCount };
