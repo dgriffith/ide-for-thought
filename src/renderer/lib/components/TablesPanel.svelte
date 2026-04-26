@@ -98,14 +98,14 @@
     <button onclick={() => { onTableClick(contextMenu!.table.name); contextMenu = null; }}>
       Query (SELECT *)
     </button>
-    <button onclick={() => { navigator.clipboard.writeText(contextMenu!.table.name); contextMenu = null; }}>
+    <button onclick={() => { void navigator.clipboard.writeText(contextMenu!.table.name); contextMenu = null; }}>
       Copy Table Name
     </button>
     <div class="separator"></div>
     <button onclick={() => { onOpenCsv(contextMenu!.table.relativePath); contextMenu = null; }}>
       Open CSV
     </button>
-    <button onclick={() => { api.shell.revealFile(contextMenu!.table.relativePath); contextMenu = null; }}>
+    <button onclick={() => { void api.shell.revealFile(contextMenu!.table.relativePath); contextMenu = null; }}>
       Reveal in Finder
     </button>
   </div>

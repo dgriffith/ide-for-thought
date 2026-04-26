@@ -60,7 +60,7 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-    if (e.key === 'Enter' && stage === 'confirm') { e.preventDefault(); start(); }
+    if (e.key === 'Enter' && stage === 'confirm') { e.preventDefault(); void start(); }
   }
 
   const pct = $derived(

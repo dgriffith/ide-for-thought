@@ -37,9 +37,9 @@
     loading = false;
   }
 
-  onMount(() => { refresh(); });
+  onMount(() => { void refresh(); });
 
-  $effect(() => { revision; refresh(); });
+  $effect(() => { revision; void refresh(); });
 
   const filtered = $derived(() => {
     const q = search.trim().toLowerCase();

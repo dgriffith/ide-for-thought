@@ -585,7 +585,7 @@ export function rebuildMenu(): void {
         {
           label: 'Report Issue',
           click: () => {
-            shell.openExternal('https://github.com/dgriffith/minerva/issues');
+            void shell.openExternal('https://github.com/dgriffith/minerva/issues');
           },
         },
       ],

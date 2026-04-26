@@ -125,7 +125,7 @@
     });
     if (initialAutoMessage && initialAutoMessage.trim()) {
       input = initialAutoMessage;
-      requestAnimationFrame(() => { handleSend(); });
+      requestAnimationFrame(() => { void handleSend(); });
     }
   });
 
@@ -258,7 +258,7 @@
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
     if (e.key === 'Escape') {
       onClose();
@@ -337,7 +337,7 @@
               </ol>
             {/if}
             <div class="msg-actions">
-              <button class="msg-action-btn" onclick={() => { input = 'Tell me more about this.'; handleSend(); }} title="Continue exploring this topic">Explore Further</button>
+              <button class="msg-action-btn" onclick={() => { input = 'Tell me more about this.'; void handleSend(); }} title="Continue exploring this topic">Explore Further</button>
               <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Extract thought components">{crystallizing ? 'Filing...' : 'File This'}</button>
               <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Flag for later review">Flag for Later</button>
             </div>

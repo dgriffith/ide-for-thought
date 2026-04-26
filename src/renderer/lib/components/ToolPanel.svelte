@@ -76,7 +76,7 @@
     } else {
       panel.startRunning();
     }
-    executeToolRun();
+    void executeToolRun();
   }
 
   async function handleCancel() {
@@ -100,7 +100,7 @@
 
   function handleCopyToClipboard() {
     const text = panel.result?.output ?? panel.streamedOutput;
-    if (text) navigator.clipboard.writeText(text);
+    if (text) void navigator.clipboard.writeText(text);
   }
 
   // Called externally when panel opens in 'running' state (no params)
@@ -120,7 +120,7 @@
     }
 
     panel.startRunning();
-    executeToolRun();
+    void executeToolRun();
   }
 </script>
 

@@ -1267,7 +1267,7 @@
   }
 
   function handleRevealInSidebar(relativePath: string) {
-    api.shell.revealFile(relativePath);
+    void api.shell.revealFile(relativePath);
   }
 
   // Refresh tags when notebase opens
@@ -1278,7 +1278,7 @@
       sidebar?.refreshTags();
       sidebar?.refreshSources();
       sidebar?.refreshTables();
-      refreshSourcesCache();
+      void refreshSourcesCache();
     }, 100);
   };
 
@@ -1287,7 +1287,7 @@
   // newly-ingested sources become reachable without a manual reload.
   api.sources.onChanged(() => {
     sidebar?.refreshSources();
-    refreshSourcesCache();
+    void refreshSourcesCache();
   });
 
   // Main broadcasts after the initial CSV scan and on every register/unregister
@@ -1305,11 +1305,11 @@
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === '[') {
       e.preventDefault();
-      handleNavBack();
+      void handleNavBack();
     }
     if ((e.metaKey || e.ctrlKey) && e.key === ']') {
       e.preventDefault();
-      handleNavForward();
+      void handleNavForward();
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'p') {
       e.preventDefault();
@@ -1325,7 +1325,7 @@
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
       e.preventDefault();
-      handleNewNote();
+      void handleNewNote();
     }
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'w') {
       if (editor.activeIndex >= 0) {
@@ -1356,7 +1356,7 @@
       if (showConversation) {
         showConversation = false;
       } else {
-        openConversation();
+        void openConversation();
       }
     }
   }
@@ -1415,21 +1415,21 @@
     api.menu.onFindInNotes(() => { findInNotesMode = 'find'; });
     api.menu.onReplaceInNotes(() => { findInNotesMode = 'replace'; });
     api.menu.onPrint(() => window.print());
-    api.menu.onOpenInDefault(() => { if (editor.activeFilePath) api.shell.openInDefault(editor.activeFilePath); });
-    api.menu.onOpenInTerminal(() => { api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
+    api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
+    api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
     api.menu.onOpenSettings(() => { showSettings = true; });
 
     // Refactor menu (issue #172)
-    api.menu.onRefactorRename(() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); });
-    api.menu.onRefactorMove(() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); });
-    api.menu.onRefactorCopy(() => { if (editor.activeFilePath) handleCopyWithPrompt(editor.activeFilePath); });
+    api.menu.onRefactorRename(() => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); });
+    api.menu.onRefactorMove(() => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); });
+    api.menu.onRefactorCopy(() => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); });
     api.menu.onRefactorExtract(() => handleExtractSelection());
     api.menu.onRefactorSplitHere(() => handleSplitHere());
     api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
-    api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); });
-    api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); });
-    api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); });
-    api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); });
+    api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); });
+    api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); });
+    api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); });
+    api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); });
 
     // Format menu (issue #153)
     api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());
@@ -1594,7 +1594,7 @@
           const activePath = editor.activeFilePath ?? '';
           const slash = activePath.lastIndexOf('/');
           const destDir = slash >= 0 ? activePath.slice(0, slash) : '';
-          handleExternalDrop(destDir, files);
+          void handleExternalDrop(destDir, files);
         }}
       >
         {#if editor.tabs.length > 0}
@@ -1667,13 +1667,13 @@
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}
-                    onRename={() => { if (editor.activeFilePath) handleRename(editor.activeFilePath); }}
-                    onMove={() => { if (editor.activeFilePath) handleMoveWithPrompt(editor.activeFilePath); }}
-                    onCopyFile={() => { if (editor.activeFilePath) handleCopyWithPrompt(editor.activeFilePath); }}
-                    onAutoTag={() => { if (editor.activeFilePath) handleAutoTag(editor.activeFilePath); }}
-                    onAutoLink={() => { if (editor.activeFilePath) handleAutoLink(editor.activeFilePath); }}
-                    onAutoLinkInbound={() => { if (editor.activeFilePath) handleAutoLinkInbound(editor.activeFilePath); }}
-                    onDecompose={() => { if (editor.activeFilePath) handleDecompose(editor.activeFilePath); }}
+                    onRename={() => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); }}
+                    onMove={() => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); }}
+                    onCopyFile={() => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); }}
+                    onAutoTag={() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); }}
+                    onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
+                    onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
+                    onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
                     onFormatCurrentNote={() => handleFormatCurrentNote()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
@@ -1712,7 +1712,7 @@
           />
           <ToolPanel
             bind:this={toolPanelComponent}
-            onNoteCreated={() => { notebase.refresh(); sidebar?.refreshTags(); }}
+            onNoteCreated={() => { void notebase.refresh(); sidebar?.refreshTags(); }}
             onOpenConversation={handleOpenConversationFromTool}
           />
           {#if showConversation}
@@ -1762,7 +1762,7 @@
           onFileSelect={handleFileSelect}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
           onShowPrompt={showPrompt}
-          onOpenConversation={(msg) => { openConversationWithMessage(msg); }}
+          onOpenConversation={(msg) => { void openConversationWithMessage(msg); }}
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
           onOpenSource={handleOpenSource}
           onOpenExcerpt={handleOpenExcerpt}
@@ -1780,7 +1780,7 @@
   {#if showGotoNote}
     <GotoNoteDialog
       files={notebase.files}
-      onSelect={(path) => { showGotoNote = false; handleFileSelect(path); }}
+      onSelect={(path) => { showGotoNote = false; void handleFileSelect(path); }}
       onCancel={() => { showGotoNote = false; }}
     />
   {/if}

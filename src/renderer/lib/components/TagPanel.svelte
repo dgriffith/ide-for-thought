@@ -21,7 +21,7 @@
   }
 
   export function selectTag(tag: string) {
-    showNotesForTag(tag);
+    void showNotesForTag(tag);
   }
 
   async function showNotesForTag(tag: string) {

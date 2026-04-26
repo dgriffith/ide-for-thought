@@ -97,9 +97,9 @@
       <div class="submenu-item">
         <span class="submenu-trigger">Open In &#x25B8;</span>
         <div class="submenu">
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') api.shell.openInTerminal(t.relativePath); contextMenu = null; }}>Open in Terminal</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.openInTerminal(t.relativePath); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
     {/if}

@@ -61,7 +61,7 @@
   function copyAsList(): void {
     const header = tab.language === 'sql' ? 'language: sql\n---\n' : '';
     const block = `:::query-list\n${header}${tab.query.trim()}\n:::`;
-    navigator.clipboard.writeText(block);
+    void navigator.clipboard.writeText(block);
     copyMenuOpen = false;
   }
 
@@ -75,14 +75,14 @@
     const linkLine = linkCol ? `link: ${linkCol}\n` : '';
     const config = `${langLine}columns: ${cols}\n${linkLine}---\n`;
     const block = `:::query-table\n${config}${tab.query.trim()}\n:::`;
-    navigator.clipboard.writeText(block);
+    void navigator.clipboard.writeText(block);
     copyMenuOpen = false;
   }
 
   /** Paste-into-note as an executable fence (#238 shell picks it up). */
   function copyAsExecutableBlock(): void {
     const block = `\`\`\`${tab.language}\n${tab.query.trim()}\n\`\`\``;
-    navigator.clipboard.writeText(block);
+    void navigator.clipboard.writeText(block);
     copyMenuOpen = false;
   }
 

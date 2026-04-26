@@ -330,7 +330,7 @@
         onNavigate?.(link.href);
       }
     } else {
-      api.shell.openExternal(link.href);
+      void api.shell.openExternal(link.href);
     }
     closeMenu();
   }
@@ -449,7 +449,7 @@
         if (onOpenExcerpt) onOpenExcerpt(excerptId);
       },
       onOpenExternal: (url: string) => {
-        api.shell.openExternal(url);
+        void api.shell.openExternal(url);
       },
     }),
     computeCellsExtension({
@@ -905,9 +905,9 @@
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Open In &#x25B8;</span>
       <div class="submenu">
-        <button onclick={() => { api.shell.revealFile(filePath); closeMenu(); }}>Reveal in Finder</button>
-        <button onclick={() => { api.shell.openInDefault(filePath); closeMenu(); }}>Open in Default App</button>
-        <button onclick={() => { api.shell.openInTerminal(filePath); closeMenu(); }}>Open in Terminal</button>
+        <button onclick={() => { void api.shell.revealFile(filePath); closeMenu(); }}>Reveal in Finder</button>
+        <button onclick={() => { void api.shell.openInDefault(filePath); closeMenu(); }}>Open in Default App</button>
+        <button onclick={() => { void api.shell.openInTerminal(filePath); closeMenu(); }}>Open in Terminal</button>
       </div>
     </div>
     <div class="separator"></div>

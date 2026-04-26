@@ -614,7 +614,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return;
-    shell.openPath(path.join(rootPath, relativePath));
+    void shell.openPath(path.join(rootPath, relativePath));
   });
 
   ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, (e, relativePath?: string) => {

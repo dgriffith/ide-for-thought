@@ -20,7 +20,7 @@
     if (activeFilePath) {
       // Coalesced fetch (#351) — the sibling BacklinksPanel reads the
       // same bundle, so siblings on a tab switch share one IPC.
-      getLinkBundle(activeFilePath, revision).then((b) => { links = b.outgoing; });
+      void getLinkBundle(activeFilePath, revision).then((b) => { links = b.outgoing; });
     } else {
       links = [];
     }
