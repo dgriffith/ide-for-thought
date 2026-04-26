@@ -23,7 +23,7 @@ export function buildMenu(_win?: BrowserWindow): void {
   rebuildMenu();
 }
 
-export function rebuildMenu(): void {
+export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
   const recentProjects = getRecentProjects();
   // Enablement gate: most editor / ingest / graph operations require an
@@ -609,4 +609,41 @@ export function rebuildMenu(): void {
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+  return template;
+}
+
+/**
+ * Walk a menu template tree and collect every accelerator under each
+ * top-level menu. Returns a Map keyed by top-level menu label. Pure;
+ * no Electron runtime dependency. Used by the accelerator-collision
+ * test (#398).
+ */
+export function collectAcceleratorsByMenu(
+  template: Electron.MenuItemConstructorOptions[],
+): Map<string, Array<{ accelerator: string; path: string[] }>> {
+  const out = new Map<string, Array<{ accelerator: string; path: string[] }>>();
+  for (const top of template) {
+    const topLabel = String(top.label ?? top.role ?? '(unnamed)');
+    const found: Array<{ accelerator: string; path: string[] }> = [];
+    walkInto(top, [topLabel], found);
+    if (found.length > 0) out.set(topLabel, found);
+  }
+  return out;
+}
+
+function walkInto(
+  item: Electron.MenuItemConstructorOptions,
+  path: string[],
+  out: Array<{ accelerator: string; path: string[] }>,
+): void {
+  if (typeof item.accelerator === 'string') {
+    out.push({ accelerator: item.accelerator, path });
+  }
+  const sub = item.submenu;
+  if (Array.isArray(sub)) {
+    for (const child of sub) {
+      const childLabel = String(child.label ?? child.role ?? '(unnamed)');
+      walkInto(child, [...path, childLabel], out);
+    }
+  }
 }
