@@ -8,7 +8,7 @@ Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. I
 
 - `pnpm dev` — Start the dev server (electron-forge + Vite HMR)
 - `pnpm lint` — Type check: `tsc --noEmit` for `.ts` files, then `svelte-check --threshold error` for `.svelte` files (script/template drift, undefined references, wrong prop types). Warnings (a11y, state-referenced-locally) are not fatal.
-- `pnpm test` — Run tests (vitest)
+- `pnpm test` — Run tests once (vitest run). Use `pnpm test:watch` for the file-watcher loop.
 - `pnpm build` — Build distributable (electron-forge make)
 
 ## Architecture
@@ -54,7 +54,7 @@ To add a new main-process operation:
 
 ### File System
 - All paths are relative to the project root
-- `assertSafePath()` in `fs.ts` prevents path traversal — always use it
+- `assertSafePath()` in `fs.ts` prevents path traversal — always use it//
 - Hidden files (`.`) and `IGNORED_DIRS` (`.git`, `node_modules`, `.minerva`, `.obsidian`) are filtered from listings
 - Empty folders are shown in the sidebar (not filtered out)
 
