@@ -195,6 +195,8 @@ contextBridge.exposeInMainWorld('api', {
   research: {
     decomposeClaims: (args: unknown) =>
       ipcRenderer.invoke(Channels.RESEARCH_DECOMPOSE_CLAIMS, args),
+    findArguments: (args: unknown) =>
+      ipcRenderer.invoke(Channels.RESEARCH_FIND_ARGUMENTS, args),
   },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
@@ -366,6 +368,12 @@ contextBridge.exposeInMainWorld('api', {
     },
     onResearchDecomposeClaims: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_RESEARCH_DECOMPOSE_CLAIMS, () => cb());
+    },
+    onResearchFindSupporting: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_RESEARCH_FIND_SUPPORTING, () => cb());
+    },
+    onResearchFindOpposing: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_RESEARCH_FIND_OPPOSING, () => cb());
     },
     onFormatCurrentNote: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FORMAT_CURRENT_NOTE, () => cb());

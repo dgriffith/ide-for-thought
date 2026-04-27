@@ -430,6 +430,17 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           toolTip: 'Pull every distinct assertion in the selection (or the whole note) out as a typed thought:Claim. Files a Proposal.',
           click: () => send(Channels.MENU_RESEARCH_DECOMPOSE_CLAIMS),
         }),
+        { type: 'separator' },
+        gate({
+          label: 'Find Supporting Arguments',
+          toolTip: 'For the Claim under the cursor, generate the strongest cases in favour of it (web-grounded). Files a Proposal of Grounds nodes.',
+          click: () => send(Channels.MENU_RESEARCH_FIND_SUPPORTING),
+        }),
+        gate({
+          label: 'Find Opposing Arguments',
+          toolTip: 'For the Claim under the cursor, generate the strongest cases against it (web-grounded). Files a Proposal of Grounds nodes.',
+          click: () => send(Channels.MENU_RESEARCH_FIND_OPPOSING),
+        }),
       ],
     },
 

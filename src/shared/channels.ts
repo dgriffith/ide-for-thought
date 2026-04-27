@@ -129,6 +129,12 @@ export const Channels = {
   RESEARCH_DECOMPOSE_CLAIMS: 'research:decomposeClaims',
   /** Editor right-click → "Decompose into Claims". */
   MENU_RESEARCH_DECOMPOSE_CLAIMS: 'menu:research:decomposeClaims',
+  /** Research tool: find supporting / opposing arguments for a Claim (#409 / #410). Single channel, polarity in args. */
+  RESEARCH_FIND_ARGUMENTS: 'research:findArguments',
+  /** Menu bar / right-click → "Find Supporting Arguments". */
+  MENU_RESEARCH_FIND_SUPPORTING: 'menu:research:findSupporting',
+  /** Menu bar / right-click → "Find Opposing Arguments". */
+  MENU_RESEARCH_FIND_OPPOSING: 'menu:research:findOpposing',
 
   /** Ingest a URL (#93). Fetches, runs Readability, persists under .minerva/sources/<id>/. */
   SOURCES_INGEST_URL: 'sources:ingestUrl',

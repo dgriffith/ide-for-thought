@@ -27,6 +27,7 @@
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { extractClaimUri } from '../../../shared/refactor/find-arguments';
 
   export interface CursorInfo {
     line: number;
@@ -78,6 +79,8 @@
     onAutoLinkInbound?: () => void;
     onDecompose?: () => void;
     onDecomposeClaims?: () => void;
+    onFindSupportingArguments?: () => void;
+    onFindOpposingArguments?: () => void;
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
@@ -112,6 +115,8 @@
     onAutoLinkInbound,
     onDecompose,
     onDecomposeClaims,
+    onFindSupportingArguments,
+    onFindOpposingArguments,
     onFormatCurrentNote,
     getNotePaths,
     getSources,
@@ -124,7 +129,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null; claimUri: string | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
   // Separate from the main context menu: right-click anywhere in the
   // gutter opens a tiny toggle for line-number visibility. Keeps the
@@ -269,14 +274,24 @@
     let link: LinkRange | null = null;
     let hasSelection = false;
     let docPos: number | null = null;
+    let claimUri: string | null = null;
     if (view) {
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
       docPos = pos ?? null;
       if (pos != null) link = findLinkAt(view.state, pos);
       const sel = view.state.selection.main;
       hasSelection = sel.from !== sel.to;
+      // Resolve a thought:Claim URI from (1) the active selection, then
+      // (2) the line under the right-click. Powers Find Supporting /
+      // Opposing Arguments — those need a Claim node to link Grounds to.
+      const selText = hasSelection ? view.state.sliceDoc(sel.from, sel.to) : '';
+      claimUri = extractClaimUri(selText);
+      if (!claimUri && pos != null) {
+        const line = view.state.doc.lineAt(pos);
+        claimUri = extractClaimUri(line.text);
+      }
     }
-    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos };
+    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos, claimUri };
     const close = () => {
       closeMenu();
       window.removeEventListener('click', close);
@@ -568,6 +583,27 @@
     return { from: main.from, to: main.to };
   }
 
+  /**
+   * Resolve a thought:Claim URI from the active selection, then the
+   * line under the cursor. Returns null when nothing matches. Used by
+   * Find Supporting / Opposing Arguments to identify their target.
+   *
+   * Prefers the right-click context (savedSelection / contextMenu) when
+   * one is open, since the menu may have moved focus off the editor by
+   * the time the App handler runs.
+   */
+  export function getClaimUriAtCursor(): string | null {
+    if (!view) return null;
+    if (contextMenu?.claimUri) return contextMenu.claimUri;
+    const sel = view.state.selection.main;
+    if (sel.from !== sel.to) {
+      const hit = extractClaimUri(view.state.sliceDoc(sel.from, sel.to));
+      if (hit) return hit;
+    }
+    const line = view.state.doc.lineAt(sel.head);
+    return extractClaimUri(line.text);
+  }
+
   export function gotoOffset(offset: number) {
     if (!view) return;
     const clamped = Math.max(0, Math.min(offset, view.state.doc.length));
@@ -847,11 +883,30 @@
         </div>
       {/if}
     {/if}
-    {#if onDecomposeClaims}
+    {#if onDecomposeClaims || onFindSupportingArguments || onFindOpposingArguments}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Research &#x25B8;</span>
         <div class="submenu">
-          <button onclick={() => handleMenuAction(() => onDecomposeClaims?.())}>Decompose into Claims</button>
+          {#if onDecomposeClaims}
+            <button onclick={() => handleMenuAction(() => onDecomposeClaims?.())}>Decompose into Claims</button>
+          {/if}
+          {#if onFindSupportingArguments || onFindOpposingArguments}
+            {#if onDecomposeClaims}<div class="separator"></div>{/if}
+            {#if onFindSupportingArguments}
+              <button
+                onclick={() => handleMenuAction(() => onFindSupportingArguments?.())}
+                disabled={!contextMenu?.claimUri}
+                title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
+              >Find Supporting Arguments</button>
+            {/if}
+            {#if onFindOpposingArguments}
+              <button
+                onclick={() => handleMenuAction(() => onFindOpposingArguments?.())}
+                disabled={!contextMenu?.claimUri}
+                title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
+              >Find Opposing Arguments</button>
+            {/if}
+          {/if}
         </div>
       </div>
     {/if}
