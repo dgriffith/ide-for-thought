@@ -1061,6 +1061,57 @@
     sidebar?.refreshTags();
   }
 
+  async function handleFindArguments(polarity: 'support' | 'oppose') {
+    if (!notebase.meta) return;
+    const claimUri = editorComponent?.getClaimUriAtCursor() ?? null;
+    if (!claimUri) {
+      await showConfirm(
+        'Place the cursor on (or select) a line containing a claim URI — for example, the `<https://minerva.dev/c/claim-…>` line in a decomposition note.',
+        polarity === 'support'
+          ? CONFIRM_KEYS.findArgumentsNoClaim
+          : CONFIRM_KEYS.findArgumentsNoClaim,
+        'OK',
+      );
+      return;
+    }
+    try {
+      const result = await withBusy(
+        polarity === 'support' ? 'Finding supporting arguments…' : 'Finding opposing arguments…',
+        () => api.research.findArguments({ polarity, claimUri }),
+      );
+      if (result.error) {
+        await showConfirm(
+          `${polarity === 'support' ? 'Find Supporting' : 'Find Opposing'} Arguments failed: ${result.error}`,
+          CONFIRM_KEYS.findArgumentsFailed,
+          'OK',
+        );
+        return;
+      }
+      if (result.verdict === 'no-strong-arguments-found') {
+        await showConfirm(
+          polarity === 'support'
+            ? 'The LLM found no strong supporting arguments for this claim. (That is a real answer, not a failure — see the anti-flattery rule.)'
+            : 'The LLM found no strong opposing arguments for this claim. (That is a real answer, not a failure — see the anti-flattery rule.)',
+          CONFIRM_KEYS.findArgumentsNoStrong,
+          'OK',
+        );
+        return;
+      }
+      await showConfirm(
+        `Filed ${result.argumentCount} ${polarity === 'support' ? 'supporting' : 'opposing'} argument${result.argumentCount === 1 ? '' : 's'} as a Proposal — review in the Proposals panel.`,
+        CONFIRM_KEYS.findArgumentsFiled,
+        'OK',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(
+        `${polarity === 'support' ? 'Find Supporting' : 'Find Opposing'} Arguments failed: ${msg}`,
+        CONFIRM_KEYS.findArgumentsFailed,
+        'OK',
+      );
+    }
+  }
+
   async function handleDecomposeClaims() {
     if (!notebase.meta) return;
     const tab = editor.activeNoteTab;
@@ -1498,6 +1549,8 @@
     api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); });
     api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); });
     api.menu.onResearchDecomposeClaims(() => { void handleDecomposeClaims(); });
+    api.menu.onResearchFindSupporting(() => { void handleFindArguments('support'); });
+    api.menu.onResearchFindOpposing(() => { void handleFindArguments('oppose'); });
 
     // Format menu (issue #153)
     api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());
@@ -1743,6 +1796,8 @@
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
                     onDecomposeClaims={() => { void handleDecomposeClaims(); }}
+                    onFindSupportingArguments={() => { void handleFindArguments('support'); }}
+                    onFindOpposingArguments={() => { void handleFindArguments('oppose'); }}
                     onFormatCurrentNote={() => handleFormatCurrentNote()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');

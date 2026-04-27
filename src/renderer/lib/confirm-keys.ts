@@ -24,6 +24,10 @@ export const CONFIRM_KEYS = {
   decomposeClaimsNoClaims: 'decompose-claims-no-claims',
   decomposeClaimsFiled: 'decompose-claims-filed',
   decomposeClaimsFailed: 'decompose-claims-failed',
+  findArgumentsNoClaim: 'find-arguments-no-claim',
+  findArgumentsNoStrong: 'find-arguments-no-strong',
+  findArgumentsFiled: 'find-arguments-filed',
+  findArgumentsFailed: 'find-arguments-failed',
   formatFailed: 'format-failed',
   formatComplete: 'format-complete',
   formatAllConfirm: 'format-all-confirm',
@@ -135,6 +139,30 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Decompose into Claims failed',
     description:
       'Shown when Decompose into Claims errors out (network failure, missing API key, malformed LLM response, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.findArgumentsNoClaim,
+    title: 'Find Arguments: no claim under cursor',
+    description:
+      'Shown when Find Supporting / Opposing Arguments is invoked without a thought:Claim URI in the selection or current line.',
+  },
+  {
+    key: CONFIRM_KEYS.findArgumentsNoStrong,
+    title: 'Find Arguments: no strong arguments found',
+    description:
+      'Shown when the LLM honestly reports it cannot find strong supporting / opposing arguments for the claim. (Anti-flattery rule — this is a real answer, not a failure.)',
+  },
+  {
+    key: CONFIRM_KEYS.findArgumentsFiled,
+    title: 'Find Arguments: proposal filed',
+    description:
+      'Shown after Find Supporting / Opposing Arguments successfully files N Grounds nodes as a Proposal — review in the Proposals panel.',
+  },
+  {
+    key: CONFIRM_KEYS.findArgumentsFailed,
+    title: 'Find Arguments failed',
+    description:
+      'Shown when Find Supporting / Opposing Arguments errors out (network failure, missing API key, malformed LLM response, etc).',
   },
   {
     key: CONFIRM_KEYS.formatFailed,
