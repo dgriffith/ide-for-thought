@@ -409,9 +409,20 @@ export interface IdeApi {
   tabs: TabsApi;
   tools: ToolsApi;
   refactor: RefactorApi;
+  research: ResearchApi;
   formatter: FormatterApi;
   sources: SourcesApi;
   menu: MenuApi;
+}
+
+export interface ResearchApi {
+  /** #408 — decompose a passage into individual thought:Claim components. Returns a ProposalBundle URI when claims were extracted. */
+  decomposeClaims(args: {
+    passage: string;
+    sourceRelPath?: string | null;
+    proposedBy?: string;
+    model?: string;
+  }): Promise<{ claimCount: number; proposalUri: string | null; error: string }>;
 }
 
 export interface SourcesApi {

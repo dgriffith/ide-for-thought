@@ -192,6 +192,10 @@ contextBridge.exposeInMainWorld('api', {
     decomposeSuggest: (relativePath: string, hints?: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
+  research: {
+    decomposeClaims: (args: unknown) =>
+      ipcRenderer.invoke(Channels.RESEARCH_DECOMPOSE_CLAIMS, args),
+  },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
     ingestIdentifier: (identifier: string) =>

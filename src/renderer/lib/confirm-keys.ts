@@ -21,6 +21,9 @@ export const CONFIRM_KEYS = {
   autoLinkFailed: 'auto-link-failed',
   decomposeFailed: 'decompose-failed',
   decomposeBadProposal: 'decompose-bad-proposal',
+  decomposeClaimsNoClaims: 'decompose-claims-no-claims',
+  decomposeClaimsFiled: 'decompose-claims-filed',
+  decomposeClaimsFailed: 'decompose-claims-failed',
   formatFailed: 'format-failed',
   formatComplete: 'format-complete',
   formatAllConfirm: 'format-all-confirm',
@@ -114,6 +117,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Decompose Note returned an unusable proposal',
     description:
       'Shown when the LLM\u2019s response can\u2019t be parsed into a valid parent + children structure.',
+  },
+  {
+    key: CONFIRM_KEYS.decomposeClaimsNoClaims,
+    title: 'Decompose into Claims: no claims found',
+    description:
+      'Shown when the LLM did not extract any claims from the selected passage (usually because the passage is too short or contains only questions / hedges).',
+  },
+  {
+    key: CONFIRM_KEYS.decomposeClaimsFiled,
+    title: 'Decompose into Claims: proposal filed',
+    description:
+      'Shown after Decompose into Claims successfully extracts N claims and files them as a single Proposal — review in the Proposals panel.',
+  },
+  {
+    key: CONFIRM_KEYS.decomposeClaimsFailed,
+    title: 'Decompose into Claims failed',
+    description:
+      'Shown when Decompose into Claims errors out (network failure, missing API key, malformed LLM response, etc).',
   },
   {
     key: CONFIRM_KEYS.formatFailed,

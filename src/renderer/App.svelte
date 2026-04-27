@@ -1061,6 +1061,53 @@
     sidebar?.refreshTags();
   }
 
+  async function handleDecomposeClaims() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) return;
+    const selection = editorComponent?.getSelectionRange();
+    const passage = selection && selection.from !== selection.to
+      ? tab.content.slice(selection.from, selection.to)
+      : tab.content;
+    if (!passage.trim()) return;
+    try {
+      const result = await withBusy('Decomposing claims…', () =>
+        api.research.decomposeClaims({
+          passage,
+          sourceRelPath: tab.relativePath,
+        }),
+      );
+      if (result.error) {
+        await showConfirm(
+          `Decompose into Claims failed: ${result.error}`,
+          CONFIRM_KEYS.decomposeClaimsFailed,
+          'OK',
+        );
+        return;
+      }
+      if (result.claimCount === 0) {
+        await showConfirm(
+          'The passage did not yield any claims. Try a longer passage with concrete assertions.',
+          CONFIRM_KEYS.decomposeClaimsNoClaims,
+          'OK',
+        );
+        return;
+      }
+      await showConfirm(
+        `Filed ${result.claimCount} claim${result.claimCount === 1 ? '' : 's'} as a Proposal — review in the Proposals panel.`,
+        CONFIRM_KEYS.decomposeClaimsFiled,
+        'OK',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(
+        `Decompose into Claims failed: ${msg}`,
+        CONFIRM_KEYS.decomposeClaimsFailed,
+        'OK',
+      );
+    }
+  }
+
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
     try {
@@ -1694,6 +1741,7 @@
                     onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
+                    onDecomposeClaims={() => { void handleDecomposeClaims(); }}
                     onFormatCurrentNote={() => handleFormatCurrentNote()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
