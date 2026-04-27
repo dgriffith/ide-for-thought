@@ -1497,6 +1497,7 @@
     api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); });
     api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); });
     api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); });
+    api.menu.onResearchDecomposeClaims(() => { void handleDecomposeClaims(); });
 
     // Format menu (issue #153)
     api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());

@@ -378,6 +378,7 @@ export interface MenuApi {
   onRefactorAutoLink(cb: () => void): void;
   onRefactorAutoLinkInbound(cb: () => void): void;
   onRefactorDecompose(cb: () => void): void;
+  onResearchDecomposeClaims(cb: () => void): void;
   onFormatCurrentNote(cb: () => void): void;
   onFormatFolder(cb: () => void): void;
   onFormatAll(cb: () => void): void;
