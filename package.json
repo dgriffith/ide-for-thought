@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit && svelte-check --threshold error && eslint .",
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
-    "test": "vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "build:e2e": "electron-forge package",
     "test:e2e": "pnpm build:e2e && playwright test"

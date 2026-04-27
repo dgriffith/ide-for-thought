@@ -50,10 +50,7 @@ jobs:
         run: pnpm lint
 
       - name: Test
-        # `pnpm test` runs vitest in watch mode by default; force a single
-        # run for CI. Same effect as the local `pnpm coverage` minus the
-        # report.
-        run: pnpm exec vitest run
+        run: pnpm test
 
   e2e:
     # Runs in parallel with lint-and-test. Stays out of the unit loop
