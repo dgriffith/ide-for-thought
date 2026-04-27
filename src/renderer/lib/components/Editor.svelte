@@ -77,6 +77,7 @@
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
     onDecompose?: () => void;
+    onDecomposeClaims?: () => void;
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
@@ -110,6 +111,7 @@
     onAutoLink,
     onAutoLinkInbound,
     onDecompose,
+    onDecomposeClaims,
     onFormatCurrentNote,
     getNotePaths,
     getSources,
@@ -844,6 +846,14 @@
           </div>
         </div>
       {/if}
+    {/if}
+    {#if onDecomposeClaims}
+      <div class="submenu-item" onmouseenter={adjustSubmenu}>
+        <span class="submenu-trigger">Research &#x25B8;</span>
+        <div class="submenu">
+          <button onclick={() => handleMenuAction(() => onDecomposeClaims?.())}>Decompose into Claims</button>
+        </div>
+      </div>
     {/if}
     <div class="separator"></div>
     {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
