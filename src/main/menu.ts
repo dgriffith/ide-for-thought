@@ -421,6 +421,18 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
+    // Research — LLM-powered tools that produce approval-gated proposals (#408 et al).
+    {
+      label: 'Research',
+      submenu: [
+        gate({
+          label: 'Decompose into Claims',
+          toolTip: 'Pull every distinct assertion in the selection (or the whole note) out as a typed thought:Claim. Files a Proposal.',
+          click: () => send(Channels.MENU_RESEARCH_DECOMPOSE_CLAIMS),
+        }),
+      ],
+    },
+
     // Tools for Thought — dynamic menus from tool registry
     ...CATEGORIES
       .filter(cat => getToolsByCategory(cat.id).length > 0)
