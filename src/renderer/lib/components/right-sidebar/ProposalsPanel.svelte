@@ -86,21 +86,19 @@
   }
 
   function formatApplied(p: Proposal): string {
-    const notes: string[] = [];
-    let triples = 0;
-    for (const pl of p.payloads ?? []) {
-      if (pl.kind === 'note') notes.push((pl as NotePayload).relativePath);
-      else if (pl.kind === 'graph-triples') triples++;
-    }
-    const parts: string[] = [];
+    // Aggregate the same way bundleEffectsSummary does (so before/after
+    // text matches), and inline the first few note paths so the user can
+    // jump to them.
+    const summary = bundleEffectsSummary(p);
+    const notes = (p.payloads ?? [])
+      .filter((pl): pl is NotePayload => pl.kind === 'note')
+      .map((pl) => pl.relativePath);
     if (notes.length > 0) {
       const head = notes.slice(0, 3).join(', ');
       const rest = notes.length > 3 ? ` (+${notes.length - 3} more)` : '';
-      parts.push(`${notes.length} note${notes.length === 1 ? '' : 's'}: ${head}${rest}`);
+      return `Approved — landed ${summary}. Notes: ${head}${rest}`;
     }
-    if (triples > 0) parts.push(`${triples} triples-block${triples === 1 ? '' : 's'}`);
-    if (parts.length === 0) return 'Approved (no recognised payloads)';
-    return `Approved — landed ${parts.join(' + ')}`;
+    return `Approved — landed ${summary}.`;
   }
 
   async function handleReject(uri: string) {
@@ -136,10 +134,59 @@
     }
     if (p.kind === 'graph-triples') {
       const tp = p as TriplesPayload;
-      const tripleCount = (tp.turtle.match(/\.\s*$/gm) ?? []).length || 1;
-      return `${tripleCount} triple${tripleCount === 1 ? '' : 's'} affecting ${tp.affectsNodeUris.length} node${tp.affectsNodeUris.length === 1 ? '' : 's'}`;
+      const types = countTypedSubjects(tp.turtle);
+      if (types.size === 0) {
+        return `${tp.affectsNodeUris.length} node${tp.affectsNodeUris.length === 1 ? '' : 's'}`;
+      }
+      return [...types.entries()]
+        .map(([type, n]) => `${n} ${type}${n === 1 ? '' : 's'}`)
+        .join(', ');
     }
     return p.kind;
+  }
+
+  /**
+   * Count distinct rdf:type assignments in a Turtle blob, keyed by short
+   * type name (e.g. "Claim" from `a thought:Claim`). Used to give the
+   * proposal preview a real-language summary — "23 Claims" rather than
+   * "23 triples affecting 23 nodes" — so the user doesn't mistake graph
+   * components for files-on-disk.
+   */
+  function countTypedSubjects(turtle: string): Map<string, number> {
+    const out = new Map<string, number>();
+    // `a thought:X`, `a minerva:Y`, `rdf:type thought:Z`. Captures the local
+    // name after the prefix; falls back to the full prefixed form.
+    const re = /(?:^|\s|;)\s*(?:a|rdf:type)\s+(?:[a-zA-Z][\w-]*:)?([A-Za-z][\w-]*)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(turtle)) !== null) {
+      const t = m[1];
+      out.set(t, (out.get(t) ?? 0) + 1);
+    }
+    return out;
+  }
+
+  /**
+   * Bundle-level "what will this do" line: aggregates across all payloads
+   * so the user can see at a glance whether they're approving notes,
+   * graph nodes, or both. Mirrors formatApplied (post-approve banner).
+   */
+  function bundleEffectsSummary(p: Proposal): string {
+    let noteCount = 0;
+    const types = new Map<string, number>();
+    let unknownTriples = 0;
+    for (const pl of p.payloads ?? []) {
+      if (pl.kind === 'note') noteCount++;
+      else if (pl.kind === 'graph-triples') {
+        const c = countTypedSubjects((pl as TriplesPayload).turtle);
+        if (c.size === 0) unknownTriples++;
+        for (const [t, n] of c) types.set(t, (types.get(t) ?? 0) + n);
+      }
+    }
+    const parts: string[] = [];
+    if (noteCount > 0) parts.push(`${noteCount} note${noteCount === 1 ? '' : 's'}`);
+    for (const [t, n] of types) parts.push(`${n} ${t}${n === 1 ? '' : 's'}`);
+    if (unknownTriples > 0) parts.push(`${unknownTriples} triples block${unknownTriples === 1 ? '' : 's'}`);
+    return parts.length === 0 ? 'no recognised payloads' : parts.join(', ');
   }
 
   function payloadPreview(p: Payload): string {
@@ -184,8 +231,10 @@
         >
           <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
           <span class="proposal-note">{p.note}</span>
+          <span class="proposal-effects" title="What approving this proposal will create">
+            Will create: {bundleEffectsSummary(p)}
+          </span>
           <span class="proposal-meta">
-            <span class="proposal-payload-count">{p.payloads?.length ?? 0} payload{(p.payloads?.length ?? 0) === 1 ? '' : 's'}</span>
             <span class="proposal-by">{p.proposedBy}</span>
           </span>
         </button>
@@ -286,14 +335,15 @@
     white-space: nowrap;
   }
 
+  .proposal-effects {
+    font-size: 11px;
+    color: var(--accent);
+  }
   .proposal-meta {
     display: flex;
     gap: 8px;
     font-size: 10px;
     color: var(--text-muted);
-  }
-  .proposal-payload-count {
-    color: var(--accent);
   }
   .proposal-by {
     font-size: 10px;

@@ -83,7 +83,10 @@ ${text}`;
       payloads: [
         { kind: 'graph-triples', turtle: groundedTurtle, affectsNodeUris },
       ],
-      note: `Crystallized ${componentCount} thought component${componentCount !== 1 ? 's' : ''} from conversation`,
+      // Be explicit that this is graph nodes, not files. The Proposals
+      // panel "Will create:" line breaks this out by type, but the
+      // summary line is what the user reads first.
+      note: `Extracted ${componentCount} graph component${componentCount !== 1 ? 's' : ''} (Claims/Grounds/etc.) — graph nodes, not notes`,
       conversationUri,
       proposedBy,
     });
