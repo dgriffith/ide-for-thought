@@ -12,7 +12,7 @@
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
-  import { expandSelectionToNoteFiles, resolveDeletionTargets } from './lib/sidebar-tree-utils';
+  import { expandSelectionToNoteFiles, resolveSelectionTargets, pathExistsInTree } from './lib/sidebar-tree-utils';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
@@ -456,7 +456,7 @@
 
     const selectionPaths = sidebar?.getSelectionPaths() ?? [];
     const targets = selectionPaths.length > 0
-      ? resolveDeletionTargets(new Set(selectionPaths), notebase.files)
+      ? resolveSelectionTargets(new Set(selectionPaths), notebase.files)
       : [{ relativePath, isDirectory }];
     if (targets.length === 0) return;
 
@@ -516,55 +516,175 @@
 
   // ── Sidebar clipboard ──────────────────────────────────────────────────
 
-  let clipboardItem = $state<{ relativePath: string; isDirectory: boolean; mode: 'cut' | 'copy' } | null>(null);
+  /**
+   * Multi-path clipboard. Cut / Copy capture the current sidebar
+   * selection at click time (the right-click menu has already promoted
+   * single-clicks to single-selections, so the selection always
+   * matches what the user expects). The (relativePath, isDirectory)
+   * args from the menu callback are kept as a fallback for the rare
+   * path where the menu fires without a populated selection.
+   */
+  let clipboardItems = $state<{
+    items: Array<{ relativePath: string; isDirectory: boolean }>;
+    mode: 'cut' | 'copy';
+  } | null>(null);
+
+  function collectClipboardTargets(
+    fallbackPath: string,
+    fallbackIsDir: boolean,
+  ): Array<{ relativePath: string; isDirectory: boolean }> {
+    const sel = sidebar?.getSelectionPaths() ?? [];
+    if (sel.length > 0) return resolveSelectionTargets(new Set(sel), notebase.files);
+    return [{ relativePath: fallbackPath, isDirectory: fallbackIsDir }];
+  }
 
   function handleCut(relativePath: string, isDirectory: boolean) {
-    clipboardItem = { relativePath, isDirectory, mode: 'cut' };
+    clipboardItems = { items: collectClipboardTargets(relativePath, isDirectory), mode: 'cut' };
   }
 
   function handleCopy(relativePath: string, isDirectory: boolean) {
-    clipboardItem = { relativePath, isDirectory, mode: 'copy' };
+    clipboardItems = { items: collectClipboardTargets(relativePath, isDirectory), mode: 'copy' };
   }
 
+  /**
+   * Drag-move. When the dragged path is itself part of the sidebar
+   * selection, every selected item moves to `destDirectory` (Finder /
+   * VS Code convention). Otherwise we move just the dragged item —
+   * dragging a non-selected row should not silently drag the
+   * selection elsewhere on screen.
+   *
+   * Per-item: skip same-dir no-ops, skip collisions (collected for the
+   * summary), retarget any open tab whose path was the source.
+   */
   async function handleMove(srcPath: string, destDirectory: string) {
     if (!notebase.meta) return;
-    const srcName = srcPath.split('/').pop()!;
-    const destPath = destDirectory ? `${destDirectory}/${srcName}` : srcName;
-    if (srcPath === destPath) return;
-    await api.notebase.rename(srcPath, destPath);
-    // Update open tab if the moved file was open
-    const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === srcPath);
-    if (tabIdx !== -1) {
-      const tab = editor.tabs[tabIdx];
-      if (tab.type === 'note') {
-        tab.relativePath = destPath;
-        tab.fileName = srcName;
+
+    const sel = sidebar?.getSelectionPaths() ?? [];
+    const targets =
+      sel.includes(srcPath) && sel.length > 1
+        ? resolveSelectionTargets(new Set(sel), notebase.files)
+        : (() => {
+            // Look up isDirectory from the tree so a folder drag still
+            // round-trips correctly (rename works for both, but resolving
+            // here keeps the shape consistent for the summary dialog).
+            const exists = pathExistsInTree(srcPath, notebase.files);
+            if (!exists) return [];
+            const stack = [...notebase.files];
+            while (stack.length) {
+              const n = stack.pop()!;
+              if (n.relativePath === srcPath) return [{ relativePath: srcPath, isDirectory: !!n.isDirectory }];
+              if (n.children) stack.push(...n.children);
+            }
+            return [];
+          })();
+    if (targets.length === 0) return;
+
+    const collisions: string[] = [];
+    const failures: Array<{ path: string; error: string }> = [];
+    for (const t of targets) {
+      const name = t.relativePath.split('/').pop()!;
+      const destPath = destDirectory ? `${destDirectory}/${name}` : name;
+      if (destPath === t.relativePath) continue;
+      if (pathExistsInTree(destPath, notebase.files)) {
+        collisions.push(destPath);
+        continue;
+      }
+      try {
+        await api.notebase.rename(t.relativePath, destPath);
+        const tabIdx = editor.tabs.findIndex((tab) => tab.type === 'note' && tab.relativePath === t.relativePath);
+        if (tabIdx !== -1) {
+          const tab = editor.tabs[tabIdx];
+          if (tab.type === 'note') {
+            tab.relativePath = destPath;
+            tab.fileName = name;
+          }
+        }
+      } catch (err) {
+        failures.push({ path: t.relativePath, error: err instanceof Error ? err.message : String(err) });
       }
     }
     await notebase.refresh();
+    sidebar?.clearSelection();
+    if (collisions.length > 0 || failures.length > 0) {
+      await reportClipboardSummary('Move', targets.length, collisions, failures);
+    }
   }
 
+  /**
+   * Paste handler for the multi-path clipboard. Cut+Paste renames
+   * each item into `destDirectory` and clears the clipboard +
+   * selection on success; Copy+Paste leaves both alone (the user may
+   * want to paste again somewhere else). Collisions and failures are
+   * collected per-item and reported in a single summary dialog rather
+   * than aborting the batch.
+   */
   async function handlePaste(destDirectory: string) {
-    if (!clipboardItem || !notebase.meta) return;
-    const srcName = clipboardItem.relativePath.split('/').pop()!;
-    const destPath = destDirectory ? `${destDirectory}/${srcName}` : srcName;
+    if (!clipboardItems || !notebase.meta) return;
+    const { items, mode } = clipboardItems;
 
-    if (clipboardItem.mode === 'cut') {
-      await api.notebase.rename(clipboardItem.relativePath, destPath);
-      // If the moved file was open, update the tab
-      const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === clipboardItem!.relativePath);
-      if (tabIdx !== -1) {
-        const tab = editor.tabs[tabIdx];
-        if (tab.type === 'note') {
-          tab.relativePath = destPath;
-          tab.fileName = srcName;
-        }
+    const collisions: string[] = [];
+    const failures: Array<{ path: string; error: string }> = [];
+    for (const item of items) {
+      const name = item.relativePath.split('/').pop()!;
+      const destPath = destDirectory ? `${destDirectory}/${name}` : name;
+      if (destPath === item.relativePath) continue;
+      if (pathExistsInTree(destPath, notebase.files)) {
+        collisions.push(destPath);
+        continue;
       }
-      clipboardItem = null;
-    } else {
-      await api.notebase.copy(clipboardItem.relativePath, destPath);
+      try {
+        if (mode === 'cut') {
+          await api.notebase.rename(item.relativePath, destPath);
+          const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === item.relativePath);
+          if (tabIdx !== -1) {
+            const tab = editor.tabs[tabIdx];
+            if (tab.type === 'note') {
+              tab.relativePath = destPath;
+              tab.fileName = name;
+            }
+          }
+        } else {
+          await api.notebase.copy(item.relativePath, destPath);
+        }
+      } catch (err) {
+        failures.push({ path: item.relativePath, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (mode === 'cut') {
+      clipboardItems = null;
+      sidebar?.clearSelection();
     }
     await notebase.refresh();
+    if (collisions.length > 0 || failures.length > 0) {
+      await reportClipboardSummary(mode === 'cut' ? 'Move' : 'Copy', items.length, collisions, failures);
+    }
+  }
+
+  async function reportClipboardSummary(
+    label: 'Move' | 'Copy',
+    total: number,
+    collisions: string[],
+    failures: Array<{ path: string; error: string }>,
+  ): Promise<void> {
+    const lines: string[] = [];
+    if (collisions.length > 0) {
+      const head = collisions.slice(0, 5).map((p) => `• ${p}`).join('\n');
+      const tail = collisions.length > 5 ? `\n…and ${collisions.length - 5} more` : '';
+      lines.push(`Skipped ${collisions.length} (destination already exists):\n${head}${tail}`);
+    }
+    if (failures.length > 0) {
+      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
+      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
+      lines.push(`Failed (${failures.length}):\n${head}${tail}`);
+    }
+    const skipped = collisions.length + failures.length;
+    const completed = total - skipped;
+    const key = label === 'Move' ? CONFIRM_KEYS.moveCollision : CONFIRM_KEYS.copyCollision;
+    await showConfirm(
+      `${label} complete: ${completed} of ${total}.\n\n${lines.join('\n\n')}`,
+      key,
+      'OK',
+    );
   }
 
   async function handleRename(relativePath: string) {
@@ -1769,7 +1889,7 @@
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
-          canPaste={clipboardItem !== null}
+          canPaste={clipboardItems !== null}
         />
       {/if}
       <div
