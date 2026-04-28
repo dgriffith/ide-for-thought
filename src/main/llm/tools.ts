@@ -123,8 +123,8 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
         payloads: {
           type: 'array',
           minItems: 1,
-          maxItems: 16,
-          description: 'One or more note payloads to file.',
+          maxItems: 64,
+          description: 'One or more note payloads to file. Use a single propose_notes call for the whole bundle (parent + children) rather than several calls — the user reviews the bundle as one card.',
           items: {
             type: 'object',
             properties: {

@@ -204,6 +204,7 @@ export async function completeWithTools(
 
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       if (callbacks) {
         callbacks.onChunk(`\n\n_Running \`${use.name}\`..._\n\n`);
       }
@@ -217,6 +218,9 @@ export async function completeWithTools(
         use.input,
         toolCallbacks,
       );
+      if (isError) {
+        console.warn(`[conv] tool ${use.name} returned error:`, content.slice(0, 300));
+      }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: use.id,
