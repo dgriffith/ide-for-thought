@@ -204,6 +204,20 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
   const proposal = await getProposal(ctx, uri);
   if (!proposal || proposal.status !== 'pending') return false;
 
+  if (proposal.payloads.length === 0) {
+    // Don't quietly flip status to approved on an empty bundle — that's
+    // the silent-no-op the user hit. Either the proposal was filed wrong,
+    // or its payload JSON is broken. Either way the user deserves to see it.
+    throw new Error(
+      `Proposal ${uri} has no payloads to apply. Refusing to approve it as a no-op.`,
+    );
+  }
+
+  console.log(
+    `[approval] applying ${proposal.payloads.length} payload(s) for ${uri}: ` +
+    proposal.payloads.map((p) => p.kind).join(', '),
+  );
+
   await applyBundle(ctx, proposal.payloads);
   await updateProposalStatus(ctx, uri, 'approved');
   return true;
@@ -335,14 +349,31 @@ function proposalFromRow(r: Record<string, string>): Proposal {
 }
 
 function parsePayloads(json: string | undefined): ProposalPayload[] {
-  if (!json) return [];
-  try {
-    const parsed: unknown = JSON.parse(json);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as ProposalPayload[];
-  } catch {
+  if (!json) {
+    // This can be a real proposal-with-zero-payloads or a graph that was
+    // written before #418. Returning [] silently was masking the bug Dave
+    // hit ("approve succeeded but no notes appeared") — log loudly so the
+    // dev console shows it next time.
+    console.warn('[approval] proposal has no payloadJson — returning empty payload list');
     return [];
   }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (e) {
+    // Throwing here is correct: a proposal whose payload JSON is corrupt
+    // should NOT silently approve as a no-op — the user clicked Approve
+    // expecting something to land. Surface the error to the panel.
+    throw new Error(
+      `Proposal payload JSON failed to parse (${e instanceof Error ? e.message : String(e)}). ` +
+      `Length: ${json.length}; head: ${JSON.stringify(json.slice(0, 120))}`,
+      { cause: e },
+    );
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`Proposal payload JSON is not an array (got ${typeof parsed}).`);
+  }
+  return parsed as ProposalPayload[];
 }
 
 /** Split the GROUP_CONCAT result for affectsNode URIs back into a list.
@@ -525,6 +556,7 @@ async function updateProposalStatus(ctx: ProjectContext, uri: string, newStatus:
 }
 
 async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
+  const cleaned = stripTurtleCodeFence(turtle);
   const prefixed = `
     @prefix thought: <${THOUGHT}> .
     @prefix minerva: <https://minerva.dev/ontology#> .
@@ -533,7 +565,7 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
     @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
     @prefix prov: <http://www.w3.org/ns/prov#> .
-    ${turtle}
+    ${cleaned}
   `;
   // Pre-flight parse into a throwaway store. graph.parseIntoStore
   // swallows parse errors with a console.error (it's the right call
@@ -557,4 +589,20 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
 
 function escapeTurtle(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+/**
+ * LLMs frequently emit Turtle wrapped in a markdown code fence —
+ * ```turtle\n<turtle>\n``` — even when the prompt says "no code fence."
+ * rdflib refuses to parse the fence as Turtle. Strip a single leading
+ * ```<lang>\n and a single trailing \n``` before parsing. Any internal
+ * backticks (e.g. inside string literals) are left alone.
+ *
+ * Returns the input unchanged when no fence is detected.
+ */
+export function stripTurtleCodeFence(turtle: string): string {
+  // Match opening fence at first non-whitespace position; capture body up to
+  // the matching closing fence at end of string (allowing trailing whitespace).
+  const m = /^\s*```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```\s*$/.exec(turtle);
+  return m ? m[1] : turtle;
 }

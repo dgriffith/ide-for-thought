@@ -416,6 +416,38 @@ export function getEditorStore() {
     schedulePersistTabs();
   }
 
+  /**
+   * Close every note tab whose file was deleted (or sat under a deleted
+   * directory). Drops dirty buffers without prompting — the file is gone
+   * on disk; preserving a stale buffer would just create a ghost.
+   *
+   * Path matching covers the file itself AND any descendant of a deleted
+   * directory (`relativePath === deleted` or starts with `deleted + '/'`).
+   * Returns the count of tabs closed for caller diagnostics.
+   */
+  function closeTabsForDeletedPath(deleted: string): number {
+    const isUnder = (p: string) => p === deleted || p.startsWith(deleted + '/');
+    let closed = 0;
+    // Walk in reverse so each splice doesn't disturb pending indexes.
+    for (let i = tabs.length - 1; i >= 0; i--) {
+      const t = tabs[i];
+      if (isNote(t) && isUnder(t.relativePath)) {
+        tabs.splice(i, 1);
+        if (i === activeIndex) {
+          activeIndex = -1;
+        } else if (i < activeIndex) {
+          activeIndex--;
+        }
+        closed++;
+      }
+    }
+    if (activeIndex < 0 && tabs.length > 0) {
+      activeIndex = Math.min(tabs.length - 1, Math.max(0, activeIndex));
+    }
+    if (closed > 0) schedulePersistTabs();
+    return closed;
+  }
+
   function switchTab(index: number) {
     if (index >= 0 && index < tabs.length) {
       flushAutoSave();
@@ -449,6 +481,7 @@ export function getEditorStore() {
     openSource,
     save,
     isPathDirty,
+    closeTabsForDeletedPath,
     applyRenameTransitions,
     reloadTabFromDisk,
     setContent,

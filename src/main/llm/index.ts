@@ -4,13 +4,22 @@ import {
   buildConversationTools,
   executeNotebaseTool,
   type ToolContext,
+  type ToolCallbacks,
 } from './tools';
 import type { Citation } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
+import type { ConversationDraft } from '../../shared/conversation-drafts';
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
   signal?: AbortSignal;
+  /**
+   * Fired when the propose_notes tool produces a ConversationDraft. The
+   * conversation IPC handler forwards drafts to the renderer via
+   * Channels.CONVERSATION_DRAFT. Optional — calls without it will reject
+   * propose_notes invocations with a "no UI surface" error.
+   */
+  onDraft?: (draft: ConversationDraft) => void;
 }
 
 export interface ChatMessage {
@@ -195,14 +204,23 @@ export async function completeWithTools(
 
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
+      console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       if (callbacks) {
         callbacks.onChunk(`\n\n_Running \`${use.name}\`..._\n\n`);
+      }
+      const toolCallbacks: ToolCallbacks = {};
+      if (callbacks?.onDraft) {
+        toolCallbacks.onDraft = callbacks.onDraft;
       }
       const { content, isError } = await executeNotebaseTool(
         toolContext,
         use.name,
         use.input,
+        toolCallbacks,
       );
+      if (isError) {
+        console.warn(`[conv] tool ${use.name} returned error:`, content.slice(0, 300));
+      }
       toolResults.push({
         type: 'tool_result',
         tool_use_id: use.id,

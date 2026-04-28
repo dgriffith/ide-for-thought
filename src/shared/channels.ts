@@ -108,9 +108,11 @@ export const Channels = {
   MENU_REFACTOR_DECOMPOSE: 'menu:refactor:decompose',
 
   // Formatter menu (issue #153)
-  MENU_FORMAT_CURRENT_NOTE: 'menu:format:currentNote',
-  MENU_FORMAT_FOLDER: 'menu:format:folder',
-  MENU_FORMAT_ALL: 'menu:format:all',
+  /** Selection-driven Format command. Runs on whatever is selected in
+   *  the left sidebar (files + folders), falling back to the active
+   *  note when nothing is selected. Replaces the old three-variant
+   *  set (Format Current Note / Format Folder / Format All). */
+  MENU_FORMAT: 'menu:format',
 
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
@@ -227,6 +229,10 @@ export const Channels = {
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
   CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
+  /** main → renderer: a propose_notes tool call produced a draft for review. Payload is ConversationDraft. */
+  CONVERSATION_DRAFT: 'conversation:draft',
+  /** renderer → main: user approved a draft; file the bundle as a Proposal AND auto-approve it. */
+  CONVERSATION_FILE_DRAFT: 'conversation:fileDraft',
   CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',

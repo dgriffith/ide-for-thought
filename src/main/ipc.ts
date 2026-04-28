@@ -70,13 +70,16 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
   'The user is working inside a thoughtbase: a collection of interlinked notes backed by an RDF knowledge graph.',
   '',
-  'You have six tools. Prefer the thoughtbase tools for anything inside the user\'s notes; use the web tools for facts, events, documentation, or sources outside the thoughtbase.',
+  'You have read tools, web tools, and one write tool (propose_notes). Prefer the thoughtbase tools for anything inside the user\'s notes; use the web tools for facts, events, documentation, or sources outside the thoughtbase.',
   '',
-  'Thoughtbase tools:',
+  'Thoughtbase read tools:',
   '- search_notes: full-text search across the thoughtbase.',
   '- read_note: read a specific note by its relative path.',
   '- query_graph: run a SPARQL query against the knowledge graph (minerva/thought prefixes are auto-injected).',
   '- describe_graph_schema: fetch the full ontology TTL. Call this before writing a non-trivial SPARQL query if you are unsure about class or predicate names.',
+  '',
+  'Thoughtbase write tool:',
+  '- propose_notes: file one or more notes for the user to review. The user sees an inline draft card with Approve/Discard. **You MUST call this tool — do NOT just describe the notes in chat and ask the user to file them, and do NOT tell them you can\'t create notes.** If you have just outlined a structure (a learning journey, a topic breakdown, a per-section explanation, a multi-claim summary), and the user wants it filed, call propose_notes with the whole bundle in one call (parent + children). The trust principle is preserved: nothing lands until the user clicks Approve.',
   '',
   'Web tools:',
   '- web_search: search the web for current information, news, documentation, or external references.',
@@ -87,8 +90,9 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   '- For structural questions (what links to what, which notes share a tag, which claims cite a source), use query_graph; fall back to describe_graph_schema if a query fails or you are guessing at predicates.',
   '- For current events, external facts, recent research, or things outside the thoughtbase, use web_search.',
   '- It\'s often useful to combine tools: search_notes to see what the user already has, then web_search to fill in what they don\'t. Cite your web sources.',
+  '- When the user agrees to file something ("yes, file it", "file these as notes", "save this", "create the notes"), CALL propose_notes immediately — do not describe what you would file, do not ask for further confirmation. The Approve/Discard card IS the user\'s confirmation step.',
   '',
-  'You cannot modify the graph or create notes. If the user asks you to change something, describe the change clearly so they can apply it — or note that an approval-gated proposal tool will be added later.',
+  'When you call propose_notes, do NOT also paste the same content inline in your reply. The inline draft card is the deliverable; pasting the content too is duplicate noise.',
   '',
   'Answer in GitHub-flavored markdown. When you reference a note, cite its relative path so the user can open it.',
 ].join('\n');
@@ -1184,6 +1188,10 @@ export function registerIpcHandlers(): void {
     const controller = new AbortController();
     convAbortControllers.set(win.id, controller);
 
+    // Unconditional log so we can prove the current build is loaded —
+    // if the user reports "no log messages" again, this is missing too.
+    console.log(`[conv] SEND start: conv=${convId} userMsgLen=${userMessage.length}`);
+
     graph.enterLLMContext();
     try {
       const conv = await conversation.appendMessage(convId, 'user', userMessage);
@@ -1205,12 +1213,17 @@ export function registerIpcHandlers(): void {
       const result = await completeWithTools({
         system: effectiveSystem,
         messages,
-        toolContext: { rootPath },
+        toolContext: { rootPath, conversationId: convId },
         model: conv.model,
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
               win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+            }
+          },
+          onDraft: (draft) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
             }
           },
           signal: controller.signal,
@@ -1242,10 +1255,53 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (e, text: string, conversationId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    // Unconditional log — surfaces the "user clicked File Selection as
+    // Components" path, which produces graph-triples (NOT notes).
+    // Helps distinguish "model called propose_notes" from "user
+    // crystallized."
+    console.log(`[conv] CRYSTALLIZE: conv=${conversationId} textLen=${text.length}`);
     const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
     const conv = await conversation.load(conversationId);
     return crystallize(projectContext(rootPath), text, convUri, 'llm:crystallization', conv?.model);
   });
+
+  // The user clicked Approve on a propose_notes draft card. We file the
+  // bundle through the standard approval engine AND auto-approve it —
+  // the user already reviewed the card, a second pending state in the
+  // Proposals panel would be redundant. (See conversation-drafts.ts.)
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_DRAFT,
+    async (e, draft: import('../shared/conversation-drafts').ConversationDraft) => {
+      console.log('[conv] FILE_DRAFT received', {
+        draftId: draft?.draftId,
+        conversationId: draft?.conversationId,
+        payloads: Array.isArray(draft?.payloads) ? draft.payloads.length : 'not-array',
+      });
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!draft || !Array.isArray(draft.payloads) || draft.payloads.length === 0) {
+        throw new Error(
+          `FILE_DRAFT: draft has no payloads (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'component_creation',
+        payloads: draft.payloads,
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      if (proposal) {
+        await approval.approveProposal(ctx, proposal.uri);
+      }
+      return {
+        proposalUri: proposal?.uri ?? null,
+        applied: true,
+      };
+    },
+  );
 
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
     return conversation.setModel(convId, model);

@@ -415,11 +415,28 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         { type: 'separator' },
         // Deterministic markdown normalisation (issue #152 epic). Nested
         // under Refactor so the title bar stays lean.
-        gate({ label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) }),
-        gate({ label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) }),
-        gate({ label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) }),
+        gate({
+          label: 'Format',
+          toolTip: 'Format the active note, or every note in the left-sidebar selection (use \u2318-click / shift-click to multi-select, \u2318-A to select all).',
+          click: () => send(Channels.MENU_FORMAT),
+        }),
       ],
     },
+
+    // Tools for Thought — dynamic menus from tool registry. Order picked
+    // deliberately so the menu reads top-down as a workflow: Refactor (the
+    // structural moves), then Learning (read+understand), then Research
+    // (write+propose), then Analysis (cross-cutting).
+    ...['learning' as const]
+      .filter((id) => getToolsByCategory(id).length > 0)
+      .map((id) => ({
+        label: CATEGORIES.find((c) => c.id === id)!.label,
+        submenu: getToolsByCategory(id).map(tool => gate({
+          label: tool.name,
+          toolTip: tool.description,
+          click: () => send(Channels.TOOL_INVOKE, tool.id),
+        })),
+      })),
 
     // Research — LLM-powered tools that produce approval-gated proposals (#408 et al).
     {
@@ -444,9 +461,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // Tools for Thought — dynamic menus from tool registry
+    // Remaining Tools-for-Thought categories (analysis + any ThinkingTool
+    // category that isn't already surfaced above).
     ...CATEGORIES
-      .filter(cat => getToolsByCategory(cat.id).length > 0)
+      .filter(cat => cat.id !== 'learning' && cat.id !== 'research' && getToolsByCategory(cat.id).length > 0)
       .map(cat => ({
         label: cat.label,
         submenu: getToolsByCategory(cat.id).map(tool => gate({

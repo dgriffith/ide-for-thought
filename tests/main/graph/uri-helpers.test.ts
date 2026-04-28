@@ -36,6 +36,24 @@ describe('noteUri', () => {
     const uri = noteUri(BASE, 'research/papers/lambda-calculus.md');
     expect(uri).toBe(`${BASE}note/research/papers/lambda-calculus`);
   });
+
+  it('encodes spaces and punctuation in path segments (regression: NamedNode IRI must not contain unencoded spaces)', () => {
+    // The user hit this when a propose_notes draft included a child note
+    // titled "Sets, Functions, and the Need for Types" — rdflib refuses to
+    // mint a NamedNode for an IRI with a literal space.
+    const uri = noteUri(BASE, 'notes/learning-journeys/type-theory/Sets, Functions, and the Need for Types.md');
+    expect(uri).toBe(
+      `${BASE}note/notes/learning-journeys/type-theory/${encodeURIComponent('Sets, Functions, and the Need for Types')}`,
+    );
+    expect(uri).not.toMatch(/ /);
+  });
+
+  it('encodes Unicode and other special characters segment-by-segment', () => {
+    const uri = noteUri(BASE, 'notes/topics/Curry–Howard correspondence.md');
+    expect(uri).toContain(`${BASE}note/notes/topics/`);
+    expect(uri).not.toMatch(/ /);
+    expect(uri).not.toMatch(/–/);
+  });
 });
 
 describe('tagUri', () => {
@@ -54,6 +72,12 @@ describe('folderUri', () => {
   it('maps relative path to URI', () => {
     const uri = folderUri(BASE, 'research/papers');
     expect(uri).toBe(`${BASE}folder/research/papers`);
+  });
+
+  it('encodes spaces in folder segments', () => {
+    const uri = folderUri(BASE, 'research/Type Theory Papers');
+    expect(uri).toBe(`${BASE}folder/research/${encodeURIComponent('Type Theory Papers')}`);
+    expect(uri).not.toMatch(/ /);
   });
 });
 

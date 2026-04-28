@@ -159,6 +159,8 @@ contextBridge.exposeInMainWorld('api', {
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
     crystallize: (text: string, conversationId: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_CRYSTALLIZE, text, conversationId),
+    onDraft: (cb: (draft: unknown) => void) => subscribeIpc(Channels.CONVERSATION_DRAFT, cb),
+    fileDraft: (draft: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
     setModel: (conversationId: string, model: string | undefined) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
     slashCommand: (convId: string, slashCmd: string, argText: string) =>
@@ -375,14 +377,8 @@ contextBridge.exposeInMainWorld('api', {
     onResearchFindOpposing: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_RESEARCH_FIND_OPPOSING, () => cb());
     },
-    onFormatCurrentNote: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_CURRENT_NOTE, () => cb());
-    },
-    onFormatFolder: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_FOLDER, () => cb());
-    },
-    onFormatAll: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_ALL, () => cb());
+    onFormat: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FORMAT, () => cb());
     },
     onIngestUrl: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());
