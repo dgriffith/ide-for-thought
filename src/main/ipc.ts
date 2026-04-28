@@ -1272,8 +1272,19 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     Channels.CONVERSATION_FILE_DRAFT,
     async (e, draft: import('../shared/conversation-drafts').ConversationDraft) => {
+      console.log('[conv] FILE_DRAFT received', {
+        draftId: draft?.draftId,
+        conversationId: draft?.conversationId,
+        payloads: Array.isArray(draft?.payloads) ? draft.payloads.length : 'not-array',
+      });
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
+      if (!draft || !Array.isArray(draft.payloads) || draft.payloads.length === 0) {
+        throw new Error(
+          `FILE_DRAFT: draft has no payloads (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
       const ctx = projectContext(rootPath);
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'component_creation',

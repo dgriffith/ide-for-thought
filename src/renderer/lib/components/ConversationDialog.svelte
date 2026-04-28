@@ -28,6 +28,7 @@
   let drafts = $state<ConversationDraft[]>([]);
   let pendingDraftIds = $state<Set<string>>(new Set());
   let expandedDraftIds = $state<Set<string>>(new Set());
+  let lastDraftError = $state<string | null>(null);
   let groundingCache = new Map<string, { grounded: boolean; label?: string; type?: string }>();
   let defaultModel = $state<string | null>(null);
 
@@ -148,10 +149,17 @@
     if (pendingDraftIds.has(draft.draftId)) return;
     pendingDraftIds = new Set([...pendingDraftIds, draft.draftId]);
     try {
-      await api.conversations.fileDraft(draft);
+      // Svelte 5 $state values are Proxies; Electron's structured-clone
+      // rejects reactive Proxies at the preload-bridge boundary. Snapshot
+      // before crossing IPC or fileDraft silently no-ops.
+      const snapshot = $state.snapshot(draft);
+      console.log('[draft] approve clicked', { draftId: snapshot.draftId, payloads: snapshot.payloads.length });
+      const result = await api.conversations.fileDraft(snapshot);
+      console.log('[draft] file result', result);
       drafts = drafts.filter((d) => d.draftId !== draft.draftId);
     } catch (e) {
       console.error('[draft] file failed:', e);
+      lastDraftError = e instanceof Error ? e.message : String(e);
     } finally {
       const next = new Set(pendingDraftIds);
       next.delete(draft.draftId);
@@ -438,6 +446,9 @@
       {#if drafts.length > 0}
         <div class="drafts-region">
           <div class="drafts-region-label">Proposed by the assistant — review and approve:</div>
+          {#if lastDraftError}
+            <div class="draft-error">Approve failed: {lastDraftError}</div>
+          {/if}
           {#each drafts as draft (draft.draftId)}
             <div class="draft-card">
               <div class="draft-summary">
@@ -733,6 +744,14 @@
     font-size: 11px;
     color: var(--text-muted);
     letter-spacing: 0.02em;
+  }
+  .draft-error {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
   }
   .draft-card {
     border: 1px solid var(--border);

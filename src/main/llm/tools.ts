@@ -340,7 +340,10 @@ function runProposeNotes(
       draftId: draft.draftId,
       noteCount: parsed.payloads.length,
       paths: parsed.payloads.map((p) => p.relativePath),
-      hint: 'The user is reviewing the bundle inline. Continue your response naturally; do not repeat the note contents.',
+      // Be very explicit about stopping. An ambiguous "continue naturally"
+      // hint led the model into a tool-use loop — calling propose_notes
+      // again, and again, and again, up to maxIterations.
+      hint: 'STOP. The bundle has been queued for user review. End this turn with ONE short acknowledgement sentence ("Drafted N notes for review.") and DO NOT call propose_notes again in this turn. DO NOT call any other tool. DO NOT repeat the note contents inline.',
     }) + `\n\n(filed as draft: ${titles})`,
     isError: false,
   };
