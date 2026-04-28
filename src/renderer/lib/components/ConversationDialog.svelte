@@ -5,6 +5,7 @@
   import { getSlashCommands } from '../tools/tool-registry';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+  import type { ConversationDraft } from '../../../shared/conversation-drafts';
 
   interface Props {
     onClose: () => void;
@@ -22,6 +23,11 @@
   let messagesEl = $state<HTMLDivElement>();
   let crystallizing = $state(false);
   let crystallizeResult = $state<{ componentCount: number } | null>(null);
+  // Drafts emitted by the propose_notes tool, scoped to the active conversation.
+  // Cleared when the dialog closes; not persisted across reload.
+  let drafts = $state<ConversationDraft[]>([]);
+  let pendingDraftIds = $state<Set<string>>(new Set());
+  let expandedDraftIds = $state<Set<string>>(new Set());
   let groundingCache = new Map<string, { grounded: boolean; label?: string; type?: string }>();
   let defaultModel = $state<string | null>(null);
 
@@ -123,11 +129,46 @@
       streamedChunks += chunk;
       scrollToBottom();
     });
+    api.conversations.onDraft((draft) => {
+      // Only show drafts from the conversation we're currently looking at;
+      // if the user opens a different one mid-stream, drafts for the prior
+      // conversation are still cached but not surfaced (closing the dialog
+      // drops them anyway).
+      if (!conv.active || draft.conversationId !== conv.active.id) return;
+      drafts = [...drafts, draft];
+      scrollToBottom();
+    });
     if (initialAutoMessage && initialAutoMessage.trim()) {
       input = initialAutoMessage;
       requestAnimationFrame(() => { void handleSend(); });
     }
   });
+
+  async function approveDraft(draft: ConversationDraft) {
+    if (pendingDraftIds.has(draft.draftId)) return;
+    pendingDraftIds = new Set([...pendingDraftIds, draft.draftId]);
+    try {
+      await api.conversations.fileDraft(draft);
+      drafts = drafts.filter((d) => d.draftId !== draft.draftId);
+    } catch (e) {
+      console.error('[draft] file failed:', e);
+    } finally {
+      const next = new Set(pendingDraftIds);
+      next.delete(draft.draftId);
+      pendingDraftIds = next;
+    }
+  }
+
+  function rejectDraft(draft: ConversationDraft) {
+    drafts = drafts.filter((d) => d.draftId !== draft.draftId);
+  }
+
+  function toggleDraftExpanded(draftId: string) {
+    const next = new Set(expandedDraftIds);
+    if (next.has(draftId)) next.delete(draftId);
+    else next.add(draftId);
+    expandedDraftIds = next;
+  }
 
   // Run grounding checks on claim annotations after messages render
   $effect(() => {
@@ -291,9 +332,9 @@
             <option value={m.value}>{m.label}</option>
           {/each}
         </select>
-        <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="File selected text as thought components">File Selection</button>
-        <button class="conv-btn" onclick={handleResolve} title="Resolve — file results to graph">Resolve</button>
-        <button class="conv-btn" onclick={handleAbandon} title="Abandon — close without filing">Abandon</button>
+        <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="Extract claims/grounds from selected text and file as a Proposal">File Selection as Components</button>
+        <button class="conv-btn" onclick={handleResolve} title="Mark this conversation resolved (status flag only — no content is filed) and close">Mark Resolved &amp; Close</button>
+        <button class="conv-btn" onclick={handleAbandon} title="Mark this conversation abandoned (status flag only — no content is filed) and close">Mark Abandoned &amp; Close</button>
         <button class="conv-btn close" onclick={onClose} title="Hide (conversation stays active)">&#x2715;</button>
       </div>
     </div>
@@ -355,6 +396,48 @@
       {#if crystallizeResult}
         <div class="crystallize-notice">
           Filed {crystallizeResult.componentCount} component{crystallizeResult.componentCount !== 1 ? 's' : ''} as proposal{crystallizeResult.componentCount !== 1 ? 's' : ''} — review in Proposals panel
+        </div>
+      {/if}
+      {#if drafts.length > 0}
+        <div class="drafts-region">
+          <div class="drafts-region-label">Proposed by the assistant — review and approve:</div>
+          {#each drafts as draft (draft.draftId)}
+            <div class="draft-card">
+              <div class="draft-summary">
+                <strong>{draft.payloads.length} note{draft.payloads.length === 1 ? '' : 's'}</strong>
+                <span class="draft-note">{draft.note}</span>
+              </div>
+              <ul class="draft-paths">
+                {#each draft.payloads as p}
+                  <li>
+                    <button
+                      class="draft-path-btn"
+                      onclick={() => toggleDraftExpanded(draft.draftId + ':' + p.relativePath)}
+                      title={expandedDraftIds.has(draft.draftId + ':' + p.relativePath) ? 'Hide preview' : 'Preview'}
+                    >
+                      <span class="draft-path">{p.relativePath}</span>
+                      <span class="draft-toggle">{expandedDraftIds.has(draft.draftId + ':' + p.relativePath) ? '▾' : '▸'}</span>
+                    </button>
+                    {#if expandedDraftIds.has(draft.draftId + ':' + p.relativePath)}
+                      <pre class="draft-preview">{p.content}</pre>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+              <div class="draft-actions">
+                <button
+                  class="draft-btn primary"
+                  disabled={pendingDraftIds.has(draft.draftId)}
+                  onclick={() => approveDraft(draft)}
+                >{pendingDraftIds.has(draft.draftId) ? 'Filing…' : 'Approve & file'}</button>
+                <button
+                  class="draft-btn"
+                  disabled={pendingDraftIds.has(draft.draftId)}
+                  onclick={() => rejectDraft(draft)}
+                >Discard</button>
+              </div>
+            </div>
+          {/each}
         </div>
       {/if}
     </div>
@@ -599,6 +682,110 @@
     font-size: 10px;
     flex-shrink: 0;
     margin-left: auto;
+  }
+
+  .drafts-region {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drafts-region-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+  }
+  .draft-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--bg-button);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .draft-summary {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+  .draft-note {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .draft-paths {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .draft-path-btn {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 3px;
+  }
+  .draft-path-btn:hover {
+    background: var(--bg-hover, var(--bg));
+  }
+  .draft-path {
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+  }
+  .draft-toggle {
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+  .draft-preview {
+    margin: 4px 0 4px 18px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    max-height: 280px;
+  }
+  .draft-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .draft-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .draft-btn:hover:not(:disabled) {
+    background: var(--bg-hover, var(--bg));
+  }
+  .draft-btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .draft-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .msg-actions {

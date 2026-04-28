@@ -227,6 +227,10 @@ export const Channels = {
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
   CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
+  /** main → renderer: a propose_notes tool call produced a draft for review. Payload is ConversationDraft. */
+  CONVERSATION_DRAFT: 'conversation:draft',
+  /** renderer → main: user approved a draft; file the bundle as a Proposal AND auto-approve it. */
+  CONVERSATION_FILE_DRAFT: 'conversation:fileDraft',
   CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',

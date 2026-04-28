@@ -259,6 +259,12 @@ export interface ConversationsApi {
   crystallize(text: string, conversationId: string): Promise<{ turtle: string; componentCount: number }>;
   slashCommand(convId: string, slashCmd: string, argText: string): Promise<Conversation>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
+  /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
+  onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
+  /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */
+  fileDraft(
+    draft: import('../../../shared/conversation-drafts').ConversationDraft,
+  ): Promise<{ proposalUri: string | null; applied: boolean }>;
 }
 
 export interface ProposalsApi {

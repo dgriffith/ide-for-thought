@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type Anthropic from '@anthropic-ai/sdk';
 import * as fs from '../notebase/fs';
 import * as graph from '../graph/index';
@@ -5,9 +6,30 @@ import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../shared/ontology-thought.ttl?raw';
+import type {
+  ConversationDraft,
+  DraftPayload,
+  ProposeNotesInput,
+} from '../../shared/conversation-drafts';
 
 export interface ToolContext {
   rootPath: string;
+  /**
+   * Identifier of the conversation this tool execution is bound to. Required
+   * for any tool that drafts proposals (`propose_notes`) so the draft event
+   * can be routed back to the right ConversationDialog. Optional for tools
+   * that don't draft.
+   */
+  conversationId?: string;
+}
+
+/**
+ * Side-channel callbacks the tool runner can invoke. `onDraft` is the only
+ * one today and is wired by the conversation IPC handler to forward drafts
+ * to the renderer via `Channels.CONVERSATION_DRAFT`.
+ */
+export interface ToolCallbacks {
+  onDraft?: (draft: ConversationDraft) => void;
 }
 
 export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
@@ -76,6 +98,58 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ['sparql'],
+    },
+  },
+  {
+    name: 'propose_notes',
+    description:
+      'Propose one or more new notes for the user to review. Use this when ' +
+      'you want to file structured prose into the thoughtbase (e.g. a ' +
+      'learning-journey index + per-stop child notes, an explanation broken ' +
+      'into linked sub-notes, a summary of a research finding). The user ' +
+      'reviews the bundle as an inline card; Approve files them through the ' +
+      'standard approval engine, Reject discards. You will be told the bundle ' +
+      'was drafted — assume the user will see it. Continue your response ' +
+      'naturally; do NOT repeat the note contents inline.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        note: {
+          type: 'string',
+          description:
+            'A short sentence describing why you are proposing this bundle. ' +
+            'Surfaced to the user on the inline review card.',
+        },
+        payloads: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 16,
+          description: 'One or more note payloads to file.',
+          items: {
+            type: 'object',
+            properties: {
+              kind: {
+                type: 'string',
+                enum: ['note'],
+                description: 'Only "note" is supported today.',
+              },
+              relativePath: {
+                type: 'string',
+                description:
+                  'Project-relative target path, e.g. "notes/distributed-consensus/raft.md". ' +
+                  'Apply-time collision dedup will append "-2" if a file already exists at the path.',
+              },
+              content: {
+                type: 'string',
+                description:
+                  'Full note body in GitHub-flavored markdown. Include a level-1 heading and any frontmatter you want.',
+              },
+            },
+            required: ['kind', 'relativePath', 'content'],
+          },
+        },
+      },
+      required: ['note', 'payloads'],
     },
   },
   {
@@ -154,6 +228,7 @@ export async function executeNotebaseTool(
   ctx: ToolContext,
   name: string,
   input: unknown,
+  callbacks: ToolCallbacks = {},
 ): Promise<{ content: string; isError: boolean }> {
   try {
     switch (name) {
@@ -165,6 +240,8 @@ export async function executeNotebaseTool(
         return runQuery(ctx, input);
       case 'describe_graph_schema':
         return { content: runDescribeSchema(), isError: false };
+      case 'propose_notes':
+        return runProposeNotes(ctx, input, callbacks);
       default:
         return { content: `Unknown tool: ${name}`, isError: true };
     }
@@ -215,6 +292,91 @@ async function runQuery(ctx: ToolContext, input: unknown): Promise<{ content: st
     return { content: 'No bindings.', isError: false };
   }
   return { content: JSON.stringify(response.results, null, 2), isError: false };
+}
+
+/**
+ * The propose_notes tool deliberately does NOT call proposeWrite. Doing
+ * so here would file the bundle behind the user's back, which violates
+ * the trust principle ("LLM proposes, human approves"). Instead it
+ * builds a ConversationDraft, hands it to the renderer via the
+ * onDraft callback, and returns to the model with a brief
+ * acknowledgement.
+ */
+function runProposeNotes(
+  ctx: ToolContext,
+  input: unknown,
+  callbacks: ToolCallbacks,
+): { content: string; isError: boolean } {
+  if (!callbacks.onDraft) {
+    return {
+      content: 'propose_notes is only available in conversation contexts.',
+      isError: true,
+    };
+  }
+  if (!ctx.conversationId) {
+    return {
+      content: 'propose_notes requires a bound conversation id.',
+      isError: true,
+    };
+  }
+  const parsed = parseProposeNotesInput(input);
+  if ('error' in parsed) {
+    return { content: parsed.error, isError: true };
+  }
+
+  const draft: ConversationDraft = {
+    draftId: `draft-${randomUUID()}`,
+    conversationId: ctx.conversationId,
+    note: parsed.note,
+    payloads: parsed.payloads,
+    createdAt: new Date().toISOString(),
+  };
+  callbacks.onDraft(draft);
+
+  const titles = parsed.payloads.map((p) => p.relativePath).join(', ');
+  return {
+    content: JSON.stringify({
+      status: 'drafted',
+      draftId: draft.draftId,
+      noteCount: parsed.payloads.length,
+      paths: parsed.payloads.map((p) => p.relativePath),
+      hint: 'The user is reviewing the bundle inline. Continue your response naturally; do not repeat the note contents.',
+    }) + `\n\n(filed as draft: ${titles})`,
+    isError: false,
+  };
+}
+
+function parseProposeNotesInput(
+  input: unknown,
+): ProposeNotesInput | { error: string } {
+  if (!input || typeof input !== 'object') {
+    return { error: 'propose_notes input must be an object.' };
+  }
+  const obj = input as Record<string, unknown>;
+  const note = typeof obj.note === 'string' ? obj.note.trim() : '';
+  if (!note) return { error: '`note` is required and must be a non-empty string.' };
+  if (!Array.isArray(obj.payloads) || obj.payloads.length === 0) {
+    return { error: '`payloads` must be a non-empty array.' };
+  }
+  const payloads: DraftPayload[] = [];
+  for (const raw of obj.payloads) {
+    if (!raw || typeof raw !== 'object') {
+      return { error: 'Each payload must be an object.' };
+    }
+    const p = raw as Record<string, unknown>;
+    if (p.kind !== 'note') {
+      return { error: `Unsupported payload kind: ${String(p.kind)}. Only "note" is supported today.` };
+    }
+    const relativePath = typeof p.relativePath === 'string' ? p.relativePath.trim() : '';
+    const content = typeof p.content === 'string' ? p.content : '';
+    if (!relativePath) return { error: 'payload.relativePath is required.' };
+    if (!content) return { error: 'payload.content is required.' };
+    if (relativePath.includes('..') || relativePath.startsWith('/') || relativePath.startsWith('\\')) {
+      return { error: `Unsafe relativePath: ${relativePath}` };
+    }
+    payloads.push({ kind: 'note', relativePath, content });
+  }
+  return { note, payloads };
 }
 
 function runDescribeSchema(): string {

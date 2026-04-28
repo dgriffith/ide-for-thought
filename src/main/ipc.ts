@@ -1205,12 +1205,17 @@ export function registerIpcHandlers(): void {
       const result = await completeWithTools({
         system: effectiveSystem,
         messages,
-        toolContext: { rootPath },
+        toolContext: { rootPath, conversationId: convId },
         model: conv.model,
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
               win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+            }
+          },
+          onDraft: (draft) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
             }
           },
           signal: controller.signal,
@@ -1246,6 +1251,33 @@ export function registerIpcHandlers(): void {
     const conv = await conversation.load(conversationId);
     return crystallize(projectContext(rootPath), text, convUri, 'llm:crystallization', conv?.model);
   });
+
+  // The user clicked Approve on a propose_notes draft card. We file the
+  // bundle through the standard approval engine AND auto-approve it —
+  // the user already reviewed the card, a second pending state in the
+  // Proposals panel would be redundant. (See conversation-drafts.ts.)
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_DRAFT,
+    async (e, draft: import('../shared/conversation-drafts').ConversationDraft) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'component_creation',
+        payloads: draft.payloads,
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      if (proposal) {
+        await approval.approveProposal(ctx, proposal.uri);
+      }
+      return {
+        proposalUri: proposal?.uri ?? null,
+        applied: true,
+      };
+    },
+  );
 
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
     return conversation.setModel(convId, model);
