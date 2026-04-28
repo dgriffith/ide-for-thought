@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { flattenVisible, expandSelectionToNoteFiles, resolveDeletionTargets } from '../../src/renderer/lib/sidebar-tree-utils';
+import { flattenVisible, expandSelectionToNoteFiles, resolveSelectionTargets, pathExistsInTree } from '../../src/renderer/lib/sidebar-tree-utils';
 import type { NoteFile } from '../../src/shared/types';
 
 const tree: NoteFile[] = [
@@ -92,14 +92,14 @@ describe('expandSelectionToNoteFiles', () => {
   });
 });
 
-describe('resolveDeletionTargets', () => {
+describe('resolveSelectionTargets', () => {
   it('keeps directories as directories (does NOT expand to descendants)', () => {
-    const r = resolveDeletionTargets(new Set(['notes/sub']), tree);
+    const r = resolveSelectionTargets(new Set(['notes/sub']), tree);
     expect(r).toEqual([{ relativePath: 'notes/sub', isDirectory: true }]);
   });
 
   it('keeps a mixed file + folder selection as two separate targets', () => {
-    const r = resolveDeletionTargets(new Set(['notes/sub', 'top.md']), tree);
+    const r = resolveSelectionTargets(new Set(['notes/sub', 'top.md']), tree);
     expect(r.sort((a, b) => a.relativePath.localeCompare(b.relativePath))).toEqual([
       { relativePath: 'notes/sub', isDirectory: true },
       { relativePath: 'top.md', isDirectory: false },
@@ -110,12 +110,12 @@ describe('resolveDeletionTargets', () => {
     // Deleting `notes/sub` already removes `notes/sub/b.md`; surfacing both
     // would either double-fail or paper over a real error after the parent
     // disappears.
-    const r = resolveDeletionTargets(new Set(['notes/sub', 'notes/sub/b.md']), tree);
+    const r = resolveSelectionTargets(new Set(['notes/sub', 'notes/sub/b.md']), tree);
     expect(r).toEqual([{ relativePath: 'notes/sub', isDirectory: true }]);
   });
 
   it('drops nested descendants when an outer directory is selected', () => {
-    const r = resolveDeletionTargets(new Set(['notes', 'notes/sub/b.md', 'notes/a.md']), tree);
+    const r = resolveSelectionTargets(new Set(['notes', 'notes/sub/b.md', 'notes/a.md']), tree);
     expect(r).toEqual([{ relativePath: 'notes', isDirectory: true }]);
   });
 
@@ -126,7 +126,7 @@ describe('resolveDeletionTargets', () => {
       { name: 'notes', relativePath: 'notes', isDirectory: true, children: [] },
       { name: 'notesArchive.md', relativePath: 'notesArchive.md', isDirectory: false },
     ];
-    const r = resolveDeletionTargets(new Set(['notes', 'notesArchive.md']), sharedPrefixTree);
+    const r = resolveSelectionTargets(new Set(['notes', 'notesArchive.md']), sharedPrefixTree);
     expect(r.sort((a, b) => a.relativePath.localeCompare(b.relativePath))).toEqual([
       { relativePath: 'notes', isDirectory: true },
       { relativePath: 'notesArchive.md', isDirectory: false },
@@ -134,11 +134,30 @@ describe('resolveDeletionTargets', () => {
   });
 
   it('drops paths missing from the tree (stale selection)', () => {
-    const r = resolveDeletionTargets(new Set(['gone.md', 'top.md']), tree);
+    const r = resolveSelectionTargets(new Set(['gone.md', 'top.md']), tree);
     expect(r).toEqual([{ relativePath: 'top.md', isDirectory: false }]);
   });
 
   it('returns empty for an empty selection', () => {
-    expect(resolveDeletionTargets(new Set(), tree)).toEqual([]);
+    expect(resolveSelectionTargets(new Set(), tree)).toEqual([]);
+  });
+});
+
+describe('pathExistsInTree', () => {
+  it('finds a file at the root', () => {
+    expect(pathExistsInTree('top.md', tree)).toBe(true);
+  });
+  it('finds a deeply nested file', () => {
+    expect(pathExistsInTree('notes/sub/c.md', tree)).toBe(true);
+  });
+  it('finds a directory', () => {
+    expect(pathExistsInTree('notes/sub', tree)).toBe(true);
+  });
+  it('returns false for a missing path', () => {
+    expect(pathExistsInTree('notes/missing.md', tree)).toBe(false);
+  });
+  it('returns false for a path that shares a prefix with a real one', () => {
+    // `notes/sub` exists but `notes/su` must NOT match.
+    expect(pathExistsInTree('notes/su', tree)).toBe(false);
   });
 });

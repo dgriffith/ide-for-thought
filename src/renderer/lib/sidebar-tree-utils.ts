@@ -70,20 +70,20 @@ export function expandSelectionToNoteFiles(
 }
 
 /**
- * Resolve a sidebar selection to a list of deletion targets — distinct
- * from `expandSelectionToNoteFiles` because Delete operates on whatever
- * the user chose (folders stay folders, non-md files stay), not just
- * the .md descendants.
+ * Resolve a sidebar selection to a list of action targets — distinct
+ * from `expandSelectionToNoteFiles` because Delete / Cut / Copy /
+ * drag-Move all operate on whatever the user chose (folders stay
+ * folders, non-md files stay), not just the .md descendants.
  *
  * Two rules:
- *   1. Drop paths whose ancestor directory is also selected — deleting
- *      a folder removes its contents, so listing both is wasted work
- *      (and may surface a confusing post-delete error if the child
- *      is gone by the time we get to it).
+ *   1. Drop paths whose ancestor directory is also selected — acting
+ *      on a folder already covers its contents, so listing both is
+ *      wasted work (and may surface a confusing post-action error if
+ *      the child is gone / already moved by the time we get to it).
  *   2. Drop paths missing from the tree (stale selection from a
  *      concurrent file-system change).
  */
-export function resolveDeletionTargets(
+export function resolveSelectionTargets(
   selection: ReadonlySet<string>,
   tree: NoteFile[],
 ): Array<{ relativePath: string; isDirectory: boolean }> {
@@ -112,4 +112,20 @@ export function resolveDeletionTargets(
     out.push({ relativePath: node.relativePath, isDirectory: !!node.isDirectory });
   }
   return out;
+}
+
+/**
+ * True iff `path` (file OR directory) appears anywhere in `tree`. Used
+ * for paste/move collision detection — `api.notebase.readFile` only
+ * works for files, so a folder collision would slip through if we
+ * relied on that.
+ */
+export function pathExistsInTree(path: string, tree: NoteFile[]): boolean {
+  const stack: NoteFile[] = [...tree];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (node.relativePath === path) return true;
+    if (node.children) stack.push(...node.children);
+  }
+  return false;
 }
