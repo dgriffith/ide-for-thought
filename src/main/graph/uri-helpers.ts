@@ -9,8 +9,13 @@ export function coinBaseUri(rootPath: string): string {
 }
 
 export function noteUri(baseUri: string, relativePath: string): string {
+  // Encode each path segment so spaces, commas, parens, etc. become a valid
+  // IRI per RFC 3987. Encoding the whole string with encodeURIComponent
+  // would also encode "/", which would erase the folder structure that
+  // makes these IRIs human-readable. Segment-wise keeps slashes intact.
   const clean = relativePath.replace(/\.(md|ttl)$/, '');
-  return `${baseUri}note/${clean}`;
+  const encoded = clean.split('/').map(encodeURIComponent).join('/');
+  return `${baseUri}note/${encoded}`;
 }
 
 export function tagUri(baseUri: string, tagName: string): string {
@@ -18,7 +23,11 @@ export function tagUri(baseUri: string, tagName: string): string {
 }
 
 export function folderUri(baseUri: string, relativePath: string): string {
-  return `${baseUri}folder/${relativePath}`;
+  // Same per-segment encoding rationale as noteUri — folder paths can carry
+  // spaces or punctuation when the user organises notes into folders with
+  // human-readable names.
+  const encoded = relativePath.split('/').map(encodeURIComponent).join('/');
+  return `${baseUri}folder/${encoded}`;
 }
 
 export function sourceUri(baseUri: string, sourceId: string): string {
