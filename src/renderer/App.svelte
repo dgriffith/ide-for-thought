@@ -448,9 +448,12 @@
       await api.notebase.deleteFolder(relativePath);
     } else {
       await api.notebase.deleteFile(relativePath);
-      const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === relativePath);
-      if (tabIdx !== -1) editor.closeTab(tabIdx);
     }
+    // Close any open tabs that pointed at the deleted path — handles both
+    // a single file and every descendant of a deleted directory. Was
+    // previously only done for the single-file case, leaving ghost tabs
+    // under deleted folders.
+    editor.closeTabsForDeletedPath(relativePath);
     await notebase.refresh();
     sidebar?.refreshTags();
   }
@@ -1599,7 +1602,10 @@
       }, 200);
     };
     api.notebase.onFileCreated(scheduleTreeRefresh);
-    api.notebase.onFileDeleted(scheduleTreeRefresh);
+    api.notebase.onFileDeleted((deletedPath) => {
+      editor.closeTabsForDeletedPath(deletedPath);
+      scheduleTreeRefresh();
+    });
 
     // Notebase rename/rewrite notifications from main — keep open tabs
     // consistent with disk so the next auto-save doesn't overwrite a

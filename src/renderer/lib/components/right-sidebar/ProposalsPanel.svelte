@@ -300,9 +300,11 @@
               <button class="action-btn reject" onclick={() => handleReject(p.uri)} disabled={processing || p.status !== 'pending'} title={p.status !== 'pending' ? `Already ${p.status}` : 'Reject without applying'}>
                 Reject (n)
               </button>
-              <button class="action-btn skip" onclick={() => selectedUri = null}>
-                Skip (s)
-              </button>
+              <button
+                class="action-btn skip"
+                onclick={() => selectedUri = null}
+                title="Collapse this proposal's detail view (no state change)"
+              >Close (s)</button>
             </div>
           </div>
         {/if}

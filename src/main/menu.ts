@@ -421,6 +421,21 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
+    // Tools for Thought — dynamic menus from tool registry. Order picked
+    // deliberately so the menu reads top-down as a workflow: Refactor (the
+    // structural moves), then Learning (read+understand), then Research
+    // (write+propose), then Analysis (cross-cutting).
+    ...['learning' as const]
+      .filter((id) => getToolsByCategory(id).length > 0)
+      .map((id) => ({
+        label: CATEGORIES.find((c) => c.id === id)!.label,
+        submenu: getToolsByCategory(id).map(tool => gate({
+          label: tool.name,
+          toolTip: tool.description,
+          click: () => send(Channels.TOOL_INVOKE, tool.id),
+        })),
+      })),
+
     // Research — LLM-powered tools that produce approval-gated proposals (#408 et al).
     {
       label: 'Research',
@@ -444,9 +459,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // Tools for Thought — dynamic menus from tool registry
+    // Remaining Tools-for-Thought categories (analysis + any ThinkingTool
+    // category that isn't already surfaced above).
     ...CATEGORIES
-      .filter(cat => getToolsByCategory(cat.id).length > 0)
+      .filter(cat => cat.id !== 'learning' && cat.id !== 'research' && getToolsByCategory(cat.id).length > 0)
       .map(cat => ({
         label: cat.label,
         submenu: getToolsByCategory(cat.id).map(tool => gate({
