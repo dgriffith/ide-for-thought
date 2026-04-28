@@ -1188,6 +1188,10 @@ export function registerIpcHandlers(): void {
     const controller = new AbortController();
     convAbortControllers.set(win.id, controller);
 
+    // Unconditional log so we can prove the current build is loaded —
+    // if the user reports "no log messages" again, this is missing too.
+    console.log(`[conv] SEND start: conv=${convId} userMsgLen=${userMessage.length}`);
+
     graph.enterLLMContext();
     try {
       const conv = await conversation.appendMessage(convId, 'user', userMessage);
@@ -1251,6 +1255,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (e, text: string, conversationId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
+    // Unconditional log — surfaces the "user clicked File Selection as
+    // Components" path, which produces graph-triples (NOT notes).
+    // Helps distinguish "model called propose_notes" from "user
+    // crystallized."
+    console.log(`[conv] CRYSTALLIZE: conv=${conversationId} textLen=${text.length}`);
     const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
     const conv = await conversation.load(conversationId);
     return crystallize(projectContext(rootPath), text, convUri, 'llm:crystallization', conv?.model);
