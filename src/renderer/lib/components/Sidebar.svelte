@@ -15,6 +15,8 @@
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
+    onAddTag?: (relativePath: string, isDirectory: boolean) => void;
+    onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     onRename: (relativePath: string) => void;
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
@@ -30,7 +32,7 @@
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
@@ -217,6 +219,8 @@
         {onNewNote}
         {onNewFolder}
         {onDelete}
+        {onAddTag}
+        {onRemoveTag}
         onContextMenuTarget={handleContextMenuTarget}
         {onRename}
         {onCut}

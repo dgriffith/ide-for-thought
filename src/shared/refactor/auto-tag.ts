@@ -95,6 +95,76 @@ export interface MergeResult {
 }
 
 /**
+ * Reads the existing frontmatter `tags:` list out of a note. Returns
+ * an empty array when there's no frontmatter, no `tags` key, or the
+ * key isn't an array of strings. Used by the bulk-tag UI to compute
+ * the union of tags across a selection (so Remove Tag's autocomplete
+ * only offers tags actually present on the selected notes).
+ */
+export function extractTagsFromContent(content: string): string[] {
+  const match = content.match(FRONTMATTER_RE);
+  if (!match) return [];
+  let parsed: unknown;
+  try { parsed = YAML.parse(match[1]); } catch { return []; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+  const fm = parsed as Record<string, unknown>;
+  if (!Array.isArray(fm.tags)) return [];
+  return fm.tags.filter((t): t is string => typeof t === 'string');
+}
+
+export interface RemoveResult {
+  /** Updated note content. Equals the input when no removals applied. */
+  content: string;
+  /** Tags actually removed (case-insensitive match against `tagsToRemove`). */
+  removedTags: string[];
+}
+
+/**
+ * Removes `tagsToRemove` from the note's frontmatter `tags:` array,
+ * case-insensitively. Leaves the rest of the frontmatter untouched.
+ * If `tags` becomes empty, the key is dropped (rather than left as
+ * `tags: []`, which is noise in the indexer and on disk).
+ */
+export function removeTagsFromContent(content: string, tagsToRemove: string[]): RemoveResult {
+  const match = content.match(FRONTMATTER_RE);
+  if (!match) return { content, removedTags: [] };
+  let parsed: unknown;
+  try { parsed = YAML.parse(match[1]); } catch { return { content, removedTags: [] }; }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { content, removedTags: [] };
+  }
+  const fm = parsed as Record<string, unknown>;
+  if (!Array.isArray(fm.tags)) return { content, removedTags: [] };
+
+  const removeSet = new Set(tagsToRemove.map((t) => t.toLowerCase()));
+  const removedTags: string[] = [];
+  const keptTags: unknown[] = [];
+  for (const t of fm.tags) {
+    if (typeof t !== 'string') { keptTags.push(t); continue; }
+    if (removeSet.has(t.toLowerCase())) {
+      removedTags.push(t);
+    } else {
+      keptTags.push(t);
+    }
+  }
+  if (removedTags.length === 0) return { content, removedTags: [] };
+
+  if (keptTags.length === 0) delete fm.tags;
+  else fm.tags = keptTags;
+
+  // If the frontmatter ends up empty (no remaining keys) drop the
+  // block entirely \u2014 same rationale as dropping an empty `tags:` key.
+  const body = content.slice(match[0].length);
+  if (Object.keys(fm).length === 0) {
+    return { content: body.replace(/^\n+/, ''), removedTags };
+  }
+  const yamlBlock = YAML.stringify(fm).trimEnd();
+  const rendered = `---\n${yamlBlock}\n---\n`;
+  const separator = body.startsWith('\n') || body === '' ? '' : '\n';
+  return { content: rendered + separator + body, removedTags };
+}
+
+/**
  * Merges `newTags` into the note\u2019s frontmatter `tags:` array. Skips tags
  * that are already present (case-insensitive). Creates a frontmatter block
  * when the note has none.

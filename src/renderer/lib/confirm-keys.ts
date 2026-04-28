@@ -29,6 +29,10 @@ export const CONFIRM_KEYS = {
   findArgumentsNoStrong: 'find-arguments-no-strong',
   findArgumentsFiled: 'find-arguments-filed',
   findArgumentsFailed: 'find-arguments-failed',
+  bulkTagFailed: 'bulk-tag-failed',
+  bulkTagComplete: 'bulk-tag-complete',
+  bulkTagNoSelection: 'bulk-tag-no-selection',
+  bulkTagNoTagsOnSelection: 'bulk-tag-no-tags-on-selection',
   formatFailed: 'format-failed',
   formatComplete: 'format-complete',
   formatAllConfirm: 'format-all-confirm',
@@ -170,6 +174,30 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Find Arguments failed',
     description:
       'Shown when Find Supporting / Opposing Arguments errors out (network failure, missing API key, malformed LLM response, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkTagComplete,
+    title: 'Bulk Add/Remove Tag complete',
+    description:
+      'Summary dialog after a sidebar Add Tag / Remove Tag operation finishes (counts of notes changed and any per-note failures).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkTagFailed,
+    title: 'Bulk Add/Remove Tag failed',
+    description:
+      'Shown when a bulk tag operation fails outright (e.g. fetching the tag vocabulary errored before the loop started).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkTagNoSelection,
+    title: 'Bulk Tag: no .md files in selection',
+    description:
+      'Shown when Add Tag / Remove Tag is invoked on a sidebar selection that resolves to no .md files (e.g. only a .csv file selected).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkTagNoTagsOnSelection,
+    title: 'Remove Tag: selection has no tags',
+    description:
+      'Shown when Remove Tag is invoked on a selection whose notes have no frontmatter tags — there is nothing to remove.',
   },
   {
     key: CONFIRM_KEYS.formatFailed,

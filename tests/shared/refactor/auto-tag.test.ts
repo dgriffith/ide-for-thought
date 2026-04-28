@@ -4,6 +4,8 @@ import {
   buildAutoTagPrompt,
   parseAutoTagResponse,
   mergeTagsIntoContent,
+  removeTagsFromContent,
+  extractTagsFromContent,
 } from '../../../src/shared/refactor/auto-tag';
 
 describe('buildAutoTagPrompt (issue #174)', () => {
@@ -153,5 +155,78 @@ describe('mergeTagsIntoContent', () => {
     expect(out.content).toContain('# Title');
     expect(out.content).toContain('First para.');
     expect(out.content).toContain('Second para.');
+  });
+});
+
+describe('extractTagsFromContent', () => {
+  it('returns the tags array verbatim when present', () => {
+    const content = '---\ntags:\n  - alpha\n  - beta\n---\nbody\n';
+    expect(extractTagsFromContent(content)).toEqual(['alpha', 'beta']);
+  });
+  it('returns [] when there is no frontmatter', () => {
+    expect(extractTagsFromContent('plain body\n')).toEqual([]);
+  });
+  it('returns [] when frontmatter exists but has no tags key', () => {
+    expect(extractTagsFromContent('---\ntitle: x\n---\nbody\n')).toEqual([]);
+  });
+  it('returns [] when tags is not an array', () => {
+    expect(extractTagsFromContent('---\ntags: alpha\n---\nbody\n')).toEqual([]);
+  });
+  it('drops non-string entries from the tags array', () => {
+    const content = '---\ntags:\n  - alpha\n  - 42\n  - beta\n---\nbody\n';
+    expect(extractTagsFromContent(content)).toEqual(['alpha', 'beta']);
+  });
+  it('returns [] on malformed YAML rather than throwing', () => {
+    // The frontmatter regex matches but YAML.parse rejects it.
+    expect(extractTagsFromContent('---\ntags: [a, b\n---\nbody\n')).toEqual([]);
+  });
+});
+
+describe('removeTagsFromContent', () => {
+  it('removes a tag (case-insensitive) and reports it', () => {
+    const content = '---\ntitle: Note\ntags:\n  - alpha\n  - Beta\n---\nbody\n';
+    const out = removeTagsFromContent(content, ['BETA']);
+    expect(out.removedTags).toEqual(['Beta']);
+    const fm = YAML.parse(out.content.match(/^---\n([\s\S]*?)\n---/)![1]);
+    expect(fm.tags).toEqual(['alpha']);
+    expect(fm.title).toBe('Note');
+  });
+
+  it('drops the tags key entirely when the last tag is removed', () => {
+    const content = '---\ntitle: Note\ntags:\n  - only-one\n---\nbody\n';
+    const out = removeTagsFromContent(content, ['only-one']);
+    expect(out.removedTags).toEqual(['only-one']);
+    expect(out.content).not.toMatch(/^tags:/m);
+    expect(out.content).toMatch(/title: Note/);
+  });
+
+  it('drops the whole frontmatter block when removing the last tag leaves it empty', () => {
+    // tags was the only key — losing it strands the block, so we drop it
+    // entirely rather than leaving a `---\n---` artifact on disk.
+    const content = '---\ntags:\n  - solo\n---\nbody text\n';
+    const out = removeTagsFromContent(content, ['solo']);
+    expect(out.content).toBe('body text\n');
+  });
+
+  it('returns content unchanged when the tag is not present', () => {
+    const content = '---\ntags:\n  - alpha\n---\nbody\n';
+    const out = removeTagsFromContent(content, ['missing']);
+    expect(out.removedTags).toEqual([]);
+    expect(out.content).toBe(content);
+  });
+
+  it('returns content unchanged when there is no frontmatter', () => {
+    const out = removeTagsFromContent('bare body\n', ['anything']);
+    expect(out.removedTags).toEqual([]);
+    expect(out.content).toBe('bare body\n');
+  });
+
+  it('preserves other frontmatter keys', () => {
+    const content = '---\ntitle: T\nauthor: me\ntags:\n  - drop\n  - keep\n---\nbody\n';
+    const out = removeTagsFromContent(content, ['drop']);
+    const fm = YAML.parse(out.content.match(/^---\n([\s\S]*?)\n---/)![1]);
+    expect(fm.title).toBe('T');
+    expect(fm.author).toBe('me');
+    expect(fm.tags).toEqual(['keep']);
   });
 });

@@ -13,6 +13,11 @@
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
   import { expandSelectionToNoteFiles, resolveSelectionTargets, pathExistsInTree } from './lib/sidebar-tree-utils';
+  import {
+    mergeTagsIntoContent,
+    removeTagsFromContent,
+    extractTagsFromContent,
+  } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
@@ -120,7 +125,7 @@
   }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
-  let promptDialog = $state<{ message: string; resolve: (value: string | null) => void } | null>(null);
+  let promptDialog = $state<{ message: string; suggestions?: string[]; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
   /**
@@ -133,9 +138,9 @@
   } | null>(null);
   const confirmSuppression = getConfirmSuppressionStore();
 
-  function showPrompt(message: string): Promise<string | null> {
+  function showPrompt(message: string, options: { suggestions?: string[] } = {}): Promise<string | null> {
     return new Promise((resolve) => {
-      promptDialog = { message, resolve };
+      promptDialog = { message, suggestions: options.suggestions, resolve };
     });
   }
 
@@ -815,6 +820,169 @@
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
     }
+  }
+
+  /**
+   * Resolve the sidebar selection to the list of .md files a bulk-tag
+   * operation should touch. Returns null when nothing applies — the
+   * caller surfaces the "no .md files" dialog.
+   */
+  function bulkTagTargets(fallbackPath?: string, fallbackIsDir?: boolean): string[] | null {
+    const sel = sidebar?.getSelectionPaths() ?? [];
+    if (sel.length > 0) {
+      return expandSelectionToNoteFiles(new Set(sel), notebase.files);
+    }
+    if (fallbackPath && !fallbackIsDir && fallbackPath.endsWith('.md')) {
+      return [fallbackPath];
+    }
+    if (fallbackPath && fallbackIsDir) {
+      return expandSelectionToNoteFiles(new Set([fallbackPath]), notebase.files);
+    }
+    return null;
+  }
+
+  /**
+   * Bulk Add Tag. Prompts for a tag name (autocompleted from the
+   * thoughtbase vocabulary) and appends it to every .md in the
+   * selection. Per-note: noop if the tag is already present
+   * (mergeTagsIntoContent handles that). Per-batch: failures are
+   * collected into a summary instead of aborting.
+   */
+  async function handleAddTag(targetPath?: string, targetIsDir?: boolean) {
+    if (!notebase.meta) return;
+    const targets = bulkTagTargets(targetPath, targetIsDir);
+    if (targets === null || targets.length === 0) {
+      await showConfirm(
+        'The selection contains no .md files to tag.',
+        CONFIRM_KEYS.bulkTagNoSelection,
+        'OK',
+      );
+      return;
+    }
+
+    let vocab: string[];
+    try {
+      vocab = (await api.tags.list()).map((t) => t.tag);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Add Tag failed: ${msg}`, CONFIRM_KEYS.bulkTagFailed, 'OK');
+      return;
+    }
+
+    const raw = await showPrompt(
+      `Add tag to ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
+      { suggestions: vocab },
+    );
+    if (!raw) return;
+    const tag = raw.trim().toLowerCase();
+    if (!tag) return;
+
+    let changed = 0;
+    const failures: Array<{ path: string; error: string }> = [];
+    for (const path of targets) {
+      try {
+        const content = await api.notebase.readFile(path);
+        const { content: next, addedTags } = mergeTagsIntoContent(content, [tag]);
+        if (addedTags.length > 0) {
+          await api.notebase.writeFile(path, next);
+          changed++;
+        }
+      } catch (err) {
+        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    sidebar?.refreshTags();
+    await reportBulkTagSummary('Add', tag, targets.length, changed, failures);
+  }
+
+  /**
+   * Bulk Remove Tag. Prompts with the union of tags actually present
+   * on the selected .md files (so the autocomplete only offers
+   * tags it can plausibly remove). Per-note removal is
+   * case-insensitive.
+   */
+  async function handleRemoveTag(targetPath?: string, targetIsDir?: boolean) {
+    if (!notebase.meta) return;
+    const targets = bulkTagTargets(targetPath, targetIsDir);
+    if (targets === null || targets.length === 0) {
+      await showConfirm(
+        'The selection contains no .md files to tag.',
+        CONFIRM_KEYS.bulkTagNoSelection,
+        'OK',
+      );
+      return;
+    }
+
+    // Build the union of tags across the selection. We need the
+    // file contents anyway for the writes that follow, but the
+    // prompt has to come first — so do a read pass up-front.
+    const tagSet = new Set<string>();
+    const readFailures: Array<{ path: string; error: string }> = [];
+    const cache = new Map<string, string>();
+    for (const path of targets) {
+      try {
+        const content = await api.notebase.readFile(path);
+        cache.set(path, content);
+        for (const t of extractTagsFromContent(content)) tagSet.add(t);
+      } catch (err) {
+        readFailures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (tagSet.size === 0) {
+      await showConfirm(
+        'None of the selected notes have tags to remove.',
+        CONFIRM_KEYS.bulkTagNoTagsOnSelection,
+        'OK',
+      );
+      return;
+    }
+    const suggestions = [...tagSet].sort();
+    const raw = await showPrompt(
+      `Remove tag from ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
+      { suggestions },
+    );
+    if (!raw) return;
+    const tag = raw.trim().toLowerCase();
+    if (!tag) return;
+
+    let changed = 0;
+    const failures: Array<{ path: string; error: string }> = [...readFailures];
+    for (const path of targets) {
+      // Skip files that already errored on read — we don't have
+      // content to operate on and re-reading would just re-fail.
+      if (!cache.has(path)) continue;
+      try {
+        const content = cache.get(path)!;
+        const { content: next, removedTags } = removeTagsFromContent(content, [tag]);
+        if (removedTags.length > 0) {
+          await api.notebase.writeFile(path, next);
+          changed++;
+        }
+      } catch (err) {
+        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    sidebar?.refreshTags();
+    await reportBulkTagSummary('Remove', tag, targets.length, changed, failures);
+  }
+
+  async function reportBulkTagSummary(
+    op: 'Add' | 'Remove',
+    tag: string,
+    total: number,
+    changed: number,
+    failures: Array<{ path: string; error: string }>,
+  ): Promise<void> {
+    const verb = op === 'Add' ? 'tagged' : 'untagged';
+    let msg = `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`;
+    if (failures.length > 0) {
+      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
+      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
+      msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
+    }
+    await showConfirm(msg, CONFIRM_KEYS.bulkTagComplete, 'OK');
   }
 
   /**
@@ -1877,6 +2045,8 @@
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
           onDelete={handleDelete}
+          onAddTag={handleAddTag}
+          onRemoveTag={handleRemoveTag}
           onRename={handleRename}
           onCut={handleCut}
           onCopy={handleCopy}
@@ -2160,6 +2330,7 @@
   {#if promptDialog}
     <PromptDialog
       message={promptDialog.message}
+      suggestions={promptDialog.suggestions ?? []}
       onConfirm={handlePromptConfirm}
       onCancel={handlePromptCancel}
     />
