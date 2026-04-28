@@ -11,6 +11,7 @@ import type {
   DraftPayload,
   ProposeNotesInput,
 } from '../../shared/conversation-drafts';
+import { fixupBundleLinks } from '../../shared/refactor/bundle-link-fixup';
 
 export interface ToolContext {
   rootPath: string;
@@ -108,9 +109,19 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
       'learning-journey index + per-stop child notes, an explanation broken ' +
       'into linked sub-notes, a summary of a research finding). The user ' +
       'reviews the bundle as an inline card; Approve files them through the ' +
-      'standard approval engine, Reject discards. You will be told the bundle ' +
-      'was drafted — assume the user will see it. Continue your response ' +
-      'naturally; do NOT repeat the note contents inline.',
+      'standard approval engine, Reject discards.\n' +
+      '\n' +
+      'CRITICAL — wiki-link rule: when one note in the bundle links to another, ' +
+      'the wiki-link target MUST be the basename of the OTHER note\'s ' +
+      'relativePath (filename without the .md extension), spelled IDENTICALLY. ' +
+      'Wiki-link resolution is exact-match on basename — `[[Sets, Functions, ' +
+      'and the Need for Types]]` only resolves to ' +
+      '`notes/.../Sets, Functions, and the Need for Types.md`. Pick paths and ' +
+      'link targets together, in one pass; do not invent friendlier names for ' +
+      'links. Bad: `[[stop-1]]` while the file is `notes/.../Sets, Functions, ' +
+      'and the Need for Types.md`. Good: `[[Sets, Functions, and the Need for ' +
+      'Types]]`. Prefer paths without commas/punctuation in the basename if you ' +
+      'can — they\'re easier to link to.',
     input_schema: {
       type: 'object',
       properties: {
@@ -137,12 +148,15 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
                 type: 'string',
                 description:
                   'Project-relative target path, e.g. "notes/distributed-consensus/raft.md". ' +
-                  'Apply-time collision dedup will append "-2" if a file already exists at the path.',
+                  'Apply-time collision dedup will append "-2" if a file already exists at the path. ' +
+                  'Pick basenames you are willing to use as wiki-link targets unchanged — see CRITICAL rule in the tool description.',
               },
               content: {
                 type: 'string',
                 description:
-                  'Full note body in GitHub-flavored markdown. Include a level-1 heading and any frontmatter you want.',
+                  'Full note body in GitHub-flavored markdown. Include a level-1 heading and any frontmatter you want. ' +
+                  'When linking to a sibling note in this same bundle, use [[<basename>]] where <basename> is the OTHER ' +
+                  'payload\'s relativePath without the trailing ".md" — spelled IDENTICALLY (capitalisation, punctuation, spaces).',
               },
             },
             required: ['kind', 'relativePath', 'content'],
@@ -324,11 +338,30 @@ function runProposeNotes(
     return { content: parsed.error, isError: true };
   }
 
+  // Models routinely pick human-readable relativePaths ("Sets, Functions,
+  // and the Need for Types.md") and link them with shorter convenience
+  // names ("[[stop-1]]") — those don't resolve. Walk the bundle and
+  // rewrite inter-bundle wiki-links so they target sibling basenames.
+  const fixup = fixupBundleLinks(
+    parsed.payloads.map((p) => ({ relativePath: p.relativePath, content: p.content })),
+  );
+  if (fixup.rewritten.length > 0) {
+    console.log(
+      `[propose_notes] rewrote ${fixup.rewritten.reduce((n, r) => n + r.rewrites.length, 0)} ` +
+      `inter-bundle wiki-link(s) across ${fixup.rewritten.length} note(s)`,
+    );
+  }
+  const fixedPayloads: DraftPayload[] = parsed.payloads.map((p, i) => ({
+    kind: 'note',
+    relativePath: p.relativePath,
+    content: fixup.notes[i].content,
+  }));
+
   const draft: ConversationDraft = {
     draftId: `draft-${randomUUID()}`,
     conversationId: ctx.conversationId,
     note: parsed.note,
-    payloads: parsed.payloads,
+    payloads: fixedPayloads,
     createdAt: new Date().toISOString(),
   };
   callbacks.onDraft(draft);
