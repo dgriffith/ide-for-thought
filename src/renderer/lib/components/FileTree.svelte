@@ -27,6 +27,12 @@
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
+    /** Fired right before a tree-item context menu opens. Lets the
+     *  parent promote the right-clicked item into the selection (Finder
+     *  / VS Code: right-clicking outside the selection drops it to a
+     *  single-item selection). The parent decides whether the click
+     *  hit an existing selection or not. */
+    onContextMenuTarget?: (relativePath: string) => void;
     onRename: (relativePath: string) => void;
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
@@ -36,7 +42,7 @@
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -88,6 +94,10 @@
   function handleContextMenu(e: MouseEvent, dirPath: string, target?: string, targetIsDir?: boolean) {
     e.preventDefault();
     e.stopPropagation();
+    // Promote the right-clicked item into the selection BEFORE the
+    // menu opens — actions read selection at click time, so the menu
+    // and the action layer must agree on what's selected.
+    if (target !== undefined) onContextMenuTarget?.(target);
     contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath, target, targetIsDir };
     const close = () => {
       contextMenu = null;
@@ -131,6 +141,7 @@
             {onNewNote}
             {onNewFolder}
             {onDelete}
+            {onContextMenuTarget}
             {onRename}
             {onCut}
             {onCopy}

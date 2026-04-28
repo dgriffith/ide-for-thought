@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { flattenVisible, expandSelectionToNoteFiles } from '../../src/renderer/lib/sidebar-tree-utils';
+import { flattenVisible, expandSelectionToNoteFiles, resolveDeletionTargets } from '../../src/renderer/lib/sidebar-tree-utils';
 import type { NoteFile } from '../../src/shared/types';
 
 const tree: NoteFile[] = [
@@ -89,5 +89,56 @@ describe('expandSelectionToNoteFiles', () => {
       { name: 'empty', relativePath: 'empty', isDirectory: true, children: [] },
     ];
     expect(expandSelectionToNoteFiles(new Set(['empty']), emptyTree)).toEqual([]);
+  });
+});
+
+describe('resolveDeletionTargets', () => {
+  it('keeps directories as directories (does NOT expand to descendants)', () => {
+    const r = resolveDeletionTargets(new Set(['notes/sub']), tree);
+    expect(r).toEqual([{ relativePath: 'notes/sub', isDirectory: true }]);
+  });
+
+  it('keeps a mixed file + folder selection as two separate targets', () => {
+    const r = resolveDeletionTargets(new Set(['notes/sub', 'top.md']), tree);
+    expect(r.sort((a, b) => a.relativePath.localeCompare(b.relativePath))).toEqual([
+      { relativePath: 'notes/sub', isDirectory: true },
+      { relativePath: 'top.md', isDirectory: false },
+    ]);
+  });
+
+  it('drops a child path when its ancestor directory is also selected', () => {
+    // Deleting `notes/sub` already removes `notes/sub/b.md`; surfacing both
+    // would either double-fail or paper over a real error after the parent
+    // disappears.
+    const r = resolveDeletionTargets(new Set(['notes/sub', 'notes/sub/b.md']), tree);
+    expect(r).toEqual([{ relativePath: 'notes/sub', isDirectory: true }]);
+  });
+
+  it('drops nested descendants when an outer directory is selected', () => {
+    const r = resolveDeletionTargets(new Set(['notes', 'notes/sub/b.md', 'notes/a.md']), tree);
+    expect(r).toEqual([{ relativePath: 'notes', isDirectory: true }]);
+  });
+
+  it('keeps siblings whose names share a prefix with a selected dir', () => {
+    // `notesArchive` must NOT be treated as a child of `notes`. The ancestor
+    // check uses `path.startsWith(dir + '/')` for exactly this reason.
+    const sharedPrefixTree: NoteFile[] = [
+      { name: 'notes', relativePath: 'notes', isDirectory: true, children: [] },
+      { name: 'notesArchive.md', relativePath: 'notesArchive.md', isDirectory: false },
+    ];
+    const r = resolveDeletionTargets(new Set(['notes', 'notesArchive.md']), sharedPrefixTree);
+    expect(r.sort((a, b) => a.relativePath.localeCompare(b.relativePath))).toEqual([
+      { relativePath: 'notes', isDirectory: true },
+      { relativePath: 'notesArchive.md', isDirectory: false },
+    ]);
+  });
+
+  it('drops paths missing from the tree (stale selection)', () => {
+    const r = resolveDeletionTargets(new Set(['gone.md', 'top.md']), tree);
+    expect(r).toEqual([{ relativePath: 'top.md', isDirectory: false }]);
+  });
+
+  it('returns empty for an empty selection', () => {
+    expect(resolveDeletionTargets(new Set(), tree)).toEqual([]);
   });
 });

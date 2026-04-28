@@ -12,7 +12,7 @@
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
-  import { expandSelectionToNoteFiles } from './lib/sidebar-tree-utils';
+  import { expandSelectionToNoteFiles, resolveDeletionTargets } from './lib/sidebar-tree-utils';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
@@ -439,24 +439,79 @@
     await notebase.refresh();
   }
 
+  /**
+   * Selection-driven Delete. Same model as Format: the sidebar's
+   * multi-selection is the source of truth, and the right-click menu
+   * has already promoted single-clicks to single-selections. The
+   * (relativePath, isDirectory) args are kept for the legacy callback
+   * signature but ignored when a selection exists.
+   *
+   * Best-effort across all targets: failures are collected and
+   * reported in one summary dialog rather than aborting the batch.
+   * `closeTabsForDeletedPath` runs per successful target so a folder
+   * delete also closes any open tabs for files inside it.
+   */
   async function handleDelete(relativePath: string, isDirectory: boolean) {
     if (!notebase.meta) return;
-    const label = isDirectory ? 'folder' : 'note';
-    const name = relativePath.split('/').pop();
-    const confirmed = await showConfirm(`Delete ${label} "${name}"?`, CONFIRM_KEYS.delete, 'Delete');
-    if (!confirmed) return;
-    if (isDirectory) {
-      await api.notebase.deleteFolder(relativePath);
+
+    const selectionPaths = sidebar?.getSelectionPaths() ?? [];
+    const targets = selectionPaths.length > 0
+      ? resolveDeletionTargets(new Set(selectionPaths), notebase.files)
+      : [{ relativePath, isDirectory }];
+    if (targets.length === 0) return;
+
+    const noun = (() => {
+      if (targets.length === 1) return targets[0].isDirectory ? 'folder' : 'note';
+      const allDirs = targets.every((t) => t.isDirectory);
+      const allFiles = targets.every((t) => !t.isDirectory);
+      if (allDirs) return 'folders';
+      if (allFiles) return 'notes';
+      return 'items';
+    })();
+
+    let message: string;
+    if (targets.length === 1) {
+      const name = targets[0].relativePath.split('/').pop();
+      message = `Delete ${noun} "${name}"?`;
     } else {
-      await api.notebase.deleteFile(relativePath);
+      const sample = targets.slice(0, 3).map((t) => t.relativePath).join(', ');
+      const more = targets.length > 3 ? ', …' : '';
+      message = `Delete ${targets.length} ${noun} (${sample}${more})?`;
     }
-    // Close any open tabs that pointed at the deleted path — handles both
-    // a single file and every descendant of a deleted directory. Was
-    // previously only done for the single-file case, leaving ghost tabs
-    // under deleted folders.
-    editor.closeTabsForDeletedPath(relativePath);
+
+    const confirmed = await showConfirm(message, CONFIRM_KEYS.delete, 'Delete');
+    if (!confirmed) return;
+
+    const failures: Array<{ path: string; error: string }> = [];
+    for (const t of targets) {
+      try {
+        if (t.isDirectory) {
+          await api.notebase.deleteFolder(t.relativePath);
+        } else {
+          await api.notebase.deleteFile(t.relativePath);
+        }
+        editor.closeTabsForDeletedPath(t.relativePath);
+      } catch (err) {
+        failures.push({
+          path: t.relativePath,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     await notebase.refresh();
     sidebar?.refreshTags();
+    sidebar?.clearSelection();
+
+    if (failures.length > 0) {
+      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
+      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
+      await showConfirm(
+        `Failed to delete ${failures.length} of ${targets.length} item${targets.length === 1 ? '' : 's'}:\n${head}${tail}`,
+        CONFIRM_KEYS.deletePartialFailure,
+        'OK',
+      );
+    }
   }
 
   // ── Sidebar clipboard ──────────────────────────────────────────────────
