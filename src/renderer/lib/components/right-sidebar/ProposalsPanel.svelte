@@ -31,6 +31,10 @@
   let lastSuccess = $state<string | null>(null);
   let search = $state('');
   let sortId = $state<'time' | 'type'>('time');
+  // Most flows are auto-approve (inline draft cards) so by default a user
+  // wouldn't see anything in this panel — defaulting to "all" makes the
+  // audit trail visible. Pending stays a one-click toggle for triage mode.
+  let statusFilter = $state<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
   const shown = $derived(() => {
     const q = search.trim().toLowerCase();
@@ -50,9 +54,16 @@
   });
 
   async function refresh() {
-    const result = await api.proposals.list('pending');
+    const result = statusFilter === 'all'
+      ? await api.proposals.list()
+      : await api.proposals.list(statusFilter);
     proposals = result as Proposal[];
   }
+
+  $effect(() => {
+    statusFilter; // reactive trigger
+    void refresh();
+  });
 
   onMount(() => { void refresh(); });
 
@@ -216,6 +227,22 @@
     {sortId}
     onSort={(id: string) => { sortId = id as 'time' | 'type'; }}
   />
+  <div class="status-tabs" role="tablist" aria-label="Filter proposals by status">
+    {#each [
+      { id: 'all',      label: 'All' },
+      { id: 'pending',  label: 'Pending' },
+      { id: 'approved', label: 'Approved' },
+      { id: 'rejected', label: 'Rejected' },
+    ] as tab}
+      <button
+        class="status-tab"
+        class:active={statusFilter === tab.id}
+        onclick={() => statusFilter = tab.id as typeof statusFilter}
+        role="tab"
+        aria-selected={statusFilter === tab.id}
+      >{tab.label}</button>
+    {/each}
+  </div>
   {#if lastSuccess}
     <div class="success-banner" role="status">{lastSuccess}</div>
   {/if}
@@ -232,9 +259,10 @@
           <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
           <span class="proposal-note">{p.note}</span>
           <span class="proposal-effects" title="What approving this proposal will create">
-            Will create: {bundleEffectsSummary(p)}
+            {p.status === 'pending' ? 'Will create' : 'Created'}: {bundleEffectsSummary(p)}
           </span>
           <span class="proposal-meta">
+            <span class="proposal-status status-{p.status}">{p.status}</span>
             <span class="proposal-by">{p.proposedBy}</span>
           </span>
         </button>
@@ -266,10 +294,10 @@
               <div class="error-banner">{lastError}</div>
             {/if}
             <div class="proposal-actions">
-              <button class="action-btn approve" onclick={() => handleApprove(p.uri)} disabled={processing}>
+              <button class="action-btn approve" onclick={() => handleApprove(p.uri)} disabled={processing || p.status !== 'pending'} title={p.status !== 'pending' ? `Already ${p.status}` : 'Approve and apply'}>
                 Approve (y)
               </button>
-              <button class="action-btn reject" onclick={() => handleReject(p.uri)} disabled={processing}>
+              <button class="action-btn reject" onclick={() => handleReject(p.uri)} disabled={processing || p.status !== 'pending'} title={p.status !== 'pending' ? `Already ${p.status}` : 'Reject without applying'}>
                 Reject (n)
               </button>
               <button class="action-btn skip" onclick={() => selectedUri = null}>
@@ -291,6 +319,29 @@
     outline: none;
   }
 
+  .status-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+  .status-tab {
+    flex: 1;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .status-tab:hover { color: var(--text); }
+  .status-tab.active {
+    color: var(--text);
+    border-color: var(--accent);
+    background: var(--bg-button);
+  }
   .empty {
     color: var(--text-muted);
     font-size: 12px;
@@ -349,6 +400,18 @@
     font-size: 10px;
     color: var(--text-muted);
   }
+  .proposal-status {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .proposal-status.status-approved { color: var(--accent); border-color: var(--accent); }
+  .proposal-status.status-pending { color: var(--text); }
+  .proposal-status.status-rejected,
+  .proposal-status.status-expired { color: var(--text-muted); }
 
   .proposal-detail {
     border: 1px solid var(--border);

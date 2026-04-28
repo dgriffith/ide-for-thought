@@ -6,6 +6,19 @@
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
   import type { ConversationDraft } from '../../../shared/conversation-drafts';
+  import MarkdownIt from 'markdown-it';
+
+  // Lightweight markdown-it for assistant message rendering. No HTML
+  // passthrough (the model produces text we don't want to interpret as
+  // HTML). Linkify on so URLs become clickable. The richer pipeline lives
+  // in Preview.svelte (hljs, katex, charts, queries) — this just needs
+  // headings, lists, code blocks, links, emphasis.
+  const md = new MarkdownIt({
+    html: false,
+    linkify: true,
+    breaks: true,
+    typographer: true,
+  });
 
   interface Props {
     onClose: () => void;
@@ -44,12 +57,37 @@
     await conv.setModel(value || undefined);
   }
 
-  // Parse [[claim: ...]] annotations in assistant output
+  // Render the assistant message:
+  //   1. Stash any [[claim: …]] annotations behind a unique placeholder
+  //      so markdown-it doesn't mangle them as malformed link syntax.
+  //   2. Run markdown-it on the rest.
+  //   3. Substitute the placeholders back as the grounding-check spans.
+  // html:false in the MarkdownIt config means raw HTML in the model's
+  // text is escaped — placeholders survive only because we replace them
+  // in the post-pass after rendering.
   function renderAnnotatedContent(text: string): string {
-    return text.replace(/\[\[claim:\s*(.+?)\]\]/g, (_match, claim) => {
-      const escaped = claim.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      return `<span class="llm-claim" data-claim="${escaped}" title="Checking grounding...">${escaped}</span>`;
+    const claims: string[] = [];
+    const stashed = text.replace(/\[\[claim:\s*(.+?)\]\]/g, (_, claim: string) => {
+      const idx = claims.length;
+      claims.push(claim);
+      // Token markdown-it leaves alone (no special chars, won't appear in
+      // normal prose). The trailing END disambiguates indexes with digits.
+      return `MINERVACLAIM${idx}END`;
     });
+    let rendered = md.render(stashed);
+    rendered = rendered.replace(
+      /MINERVACLAIM(\d+)END/g,
+      (_, idxStr: string) => {
+        const claim = claims[Number(idxStr)] ?? '';
+        const escaped = claim
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+        return `<span class="llm-claim" data-claim="${escaped}" title="Checking grounding...">${escaped}</span>`;
+      },
+    );
+    return rendered;
   }
 
   async function checkGrounding(el: HTMLElement) {
