@@ -97,6 +97,18 @@
     selectionStore.clear();
   }
 
+  /**
+   * Right-click on a tree row opens the context menu. If the row was
+   * already part of the multi-selection, leave selection alone (so a
+   * Delete/Format runs on the whole selection). If it wasn't, drop to
+   * a single-item selection on the right-clicked row — matches Finder
+   * and VS Code, and ensures the menu's Delete acts on the row the
+   * user just clicked rather than a stale selection elsewhere.
+   */
+  function handleContextMenuTarget(path: string): void {
+    if (!selectionStore.has(path)) selectionStore.setSingle(path);
+  }
+
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
     const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
@@ -205,6 +217,7 @@
         {onNewNote}
         {onNewFolder}
         {onDelete}
+        onContextMenuTarget={handleContextMenuTarget}
         {onRename}
         {onCut}
         {onCopy}

@@ -10,6 +10,7 @@
 
 export const CONFIRM_KEYS = {
   delete: 'confirm-delete',
+  deletePartialFailure: 'delete-partial-failure',
   deleteSource: 'delete-source',
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
@@ -55,6 +56,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Delete file or folder',
     description:
       'Prompt before removing a note, folder, or source from the thoughtbase.',
+  },
+  {
+    key: CONFIRM_KEYS.deletePartialFailure,
+    title: 'Delete: partial failure',
+    description:
+      'Shown after a multi-select Delete when some items could not be removed (e.g. permissions, file in use). Lists the failures so the user can investigate without re-issuing the whole delete.',
   },
   {
     key: CONFIRM_KEYS.deleteSource,

@@ -68,3 +68,48 @@ export function expandSelectionToNoteFiles(
   }
   return [...found];
 }
+
+/**
+ * Resolve a sidebar selection to a list of deletion targets — distinct
+ * from `expandSelectionToNoteFiles` because Delete operates on whatever
+ * the user chose (folders stay folders, non-md files stay), not just
+ * the .md descendants.
+ *
+ * Two rules:
+ *   1. Drop paths whose ancestor directory is also selected — deleting
+ *      a folder removes its contents, so listing both is wasted work
+ *      (and may surface a confusing post-delete error if the child
+ *      is gone by the time we get to it).
+ *   2. Drop paths missing from the tree (stale selection from a
+ *      concurrent file-system change).
+ */
+export function resolveDeletionTargets(
+  selection: ReadonlySet<string>,
+  tree: NoteFile[],
+): Array<{ relativePath: string; isDirectory: boolean }> {
+  const byPath = new Map<string, NoteFile>();
+  const walk = (nodes: NoteFile[]) => {
+    for (const n of nodes) {
+      byPath.set(n.relativePath, n);
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(tree);
+
+  const selectedDirs: string[] = [];
+  for (const p of selection) {
+    if (byPath.get(p)?.isDirectory) selectedDirs.push(p);
+  }
+
+  const out: Array<{ relativePath: string; isDirectory: boolean }> = [];
+  for (const p of selection) {
+    const node = byPath.get(p);
+    if (!node) continue;
+    const coveredByAncestor = selectedDirs.some(
+      (d) => d !== p && p.startsWith(d + '/'),
+    );
+    if (coveredByAncestor) continue;
+    out.push({ relativePath: node.relativePath, isDirectory: !!node.isDirectory });
+  }
+  return out;
+}
