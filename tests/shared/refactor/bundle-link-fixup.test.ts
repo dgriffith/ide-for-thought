@@ -26,35 +26,46 @@ describe('slugifyForLink', () => {
 });
 
 describe('resolveBundleTarget', () => {
+  // Index reflects post-fixup behaviour: rewrites point at the FULL
+  // relativePath stem (no .md), since handleNavigate today requires that.
   const idx = {
     bySlug: new Map([
-      ['sets-functions-and-the-need-for-types', 'Sets, Functions, and the Need for Types'],
-      ['raft', 'Raft'],
-      ['stop-1', '01-Sets'],
+      ['sets-functions-and-the-need-for-types', 'notes/journey/Sets, Functions, and the Need for Types'],
+      ['raft', 'notes/topic/Raft'],
+      ['stop-1', 'notes/journey/01-Sets'],
     ]),
     byLower: new Map([
-      ['sets, functions, and the need for types', 'Sets, Functions, and the Need for Types'],
-      ['raft', 'Raft'],
-      ['01-sets', '01-Sets'],
+      ['sets, functions, and the need for types', 'notes/journey/Sets, Functions, and the Need for Types'],
+      ['raft', 'notes/topic/Raft'],
+      ['01-sets', 'notes/journey/01-Sets'],
     ]),
-    basenames: ['Sets, Functions, and the Need for Types', 'Raft', '01-Sets'],
+    byFullSlug: new Map([
+      ['notes-journey-sets-functions-and-the-need-for-types', 'notes/journey/Sets, Functions, and the Need for Types'],
+      ['notes-topic-raft', 'notes/topic/Raft'],
+      ['notes-journey-01-sets', 'notes/journey/01-Sets'],
+    ]),
+    stems: [
+      'notes/journey/Sets, Functions, and the Need for Types',
+      'notes/topic/Raft',
+      'notes/journey/01-Sets',
+    ],
   };
 
-  it('returns null for an exact-match basename (already correct, no rewrite)', () => {
-    expect(resolveBundleTarget('Raft', idx)).toBeNull();
+  it('returns null when the target is already a full sibling stem (no rewrite)', () => {
+    expect(resolveBundleTarget('notes/topic/Raft', idx)).toBeNull();
   });
 
-  it('matches via slug when the link target is a shortened convenience name', () => {
-    expect(resolveBundleTarget('stop-1', idx)).toBe('01-Sets');
+  it('matches via basename slug when the link target is a shortened convenience name', () => {
+    expect(resolveBundleTarget('stop-1', idx)).toBe('notes/journey/01-Sets');
   });
 
-  it('matches via lowercased exact', () => {
-    expect(resolveBundleTarget('raft', idx)).toBe('Raft');
+  it('matches via lowercased basename', () => {
+    expect(resolveBundleTarget('raft', idx)).toBe('notes/topic/Raft');
   });
 
   it('matches via slug when the target uses different punctuation', () => {
     expect(resolveBundleTarget('Sets Functions and the Need for Types', idx))
-      .toBe('Sets, Functions, and the Need for Types');
+      .toBe('notes/journey/Sets, Functions, and the Need for Types');
   });
 
   it('returns null when the target matches no sibling at all', () => {
@@ -63,31 +74,7 @@ describe('resolveBundleTarget', () => {
 });
 
 describe('fixupBundleLinks', () => {
-  it('rewrites inter-bundle wiki-links to sibling basenames', () => {
-    const result = fixupBundleLinks([
-      {
-        relativePath: 'notes/journey/index.md',
-        content: '# Journey\n\n- [[stop-1]]\n- [[stop-2]]\n',
-      },
-      {
-        relativePath: 'notes/journey/Sets, Functions, and the Need for Types.md',
-        content: '# Sets and Functions\n',
-      },
-      {
-        relativePath: 'notes/journey/Type Constructors.md',
-        content: '# Type Constructors\n',
-      },
-    ]);
-
-    // The model's "stop-1" / "stop-2" don't slug-match anything in this
-    // bundle — neither basename is "stop-1" or "stop-2" or close. So
-    // these stay untouched (they might point somewhere outside).
-    expect(result.notes[0].content).toContain('[[stop-1]]');
-    expect(result.notes[0].content).toContain('[[stop-2]]');
-    expect(result.rewritten).toHaveLength(0);
-  });
-
-  it('rewrites a punctuation-stripped link to the comma-bearing basename', () => {
+  it('rewrites a punctuation-stripped link to the FULL relativePath stem of the matching sibling', () => {
     const result = fixupBundleLinks([
       {
         relativePath: 'notes/journey/index.md',
@@ -99,11 +86,14 @@ describe('fixupBundleLinks', () => {
       },
     ]);
 
-    expect(result.notes[0].content).toContain('[[Sets, Functions, and the Need for Types]]');
+    // Wiki-link target is rewritten to the full stem (no .md), because
+    // handleNavigate today requires the full project-relative path.
+    expect(result.notes[0].content)
+      .toContain('[[notes/journey/Sets, Functions, and the Need for Types]]');
     expect(result.rewritten).toHaveLength(1);
     expect(result.rewritten[0].rewrites[0]).toEqual({
       from: 'Sets Functions and the Need for Types',
-      to: 'Sets, Functions, and the Need for Types',
+      to: 'notes/journey/Sets, Functions, and the Need for Types',
     });
   });
 
@@ -137,8 +127,9 @@ describe('fixupBundleLinks', () => {
         content: '# Stop\n',
       },
     ]);
+    // Rewrite to full stem; anchor + display text preserved.
     expect(result.notes[0].content)
-      .toContain('[[Sets, Functions, and the Need for Types#proofs|proofs section]]');
+      .toContain('[[notes/Sets, Functions, and the Need for Types#proofs|proofs section]]');
   });
 
   it('leaves links targeting notes outside the bundle alone', () => {
@@ -161,5 +152,31 @@ describe('fixupBundleLinks', () => {
     ];
     fixupBundleLinks(inputs);
     expect(inputs[0].content).toBe(originalContent);
+  });
+
+  it('rewrites a basename-only link in the index to the full stem of the matching child', () => {
+    const result = fixupBundleLinks([
+      {
+        relativePath: 'notes/learning-journeys/type-theory/index.md',
+        content: '- [[Sets, Functions, and the Need for Types]]\n- [[Type Constructors]]\n',
+      },
+      {
+        relativePath: 'notes/learning-journeys/type-theory/Sets, Functions, and the Need for Types.md',
+        content: '# Stop 1\n',
+      },
+      {
+        relativePath: 'notes/learning-journeys/type-theory/Type Constructors.md',
+        content: '# Stop 2\n',
+      },
+    ]);
+
+    expect(result.notes[0].content).toContain(
+      '[[notes/learning-journeys/type-theory/Sets, Functions, and the Need for Types]]',
+    );
+    expect(result.notes[0].content).toContain(
+      '[[notes/learning-journeys/type-theory/Type Constructors]]',
+    );
+    expect(result.rewritten).toHaveLength(1);
+    expect(result.rewritten[0].rewrites).toHaveLength(2);
   });
 });

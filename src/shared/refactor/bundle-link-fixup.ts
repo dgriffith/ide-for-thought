@@ -25,14 +25,20 @@ interface SiblingIndex {
   bySlug: Map<string, string>;
   /** Same keyed by lowercased basename. */
   byLower: Map<string, string>;
-  /** Exact basenames in the bundle (used as the values both maps point at). */
-  basenames: string[];
+  /** Same keyed by lowercased + slugified FULL stem (relativePath without .md). */
+  byFullSlug: Map<string, string>;
+  /** Full relativePath stems (without .md) — what we rewrite TO. */
+  stems: string[];
 }
 
 function basenameOf(relativePath: string): string {
   const parts = relativePath.split('/');
   const last = parts[parts.length - 1] ?? relativePath;
   return last.replace(/\.(md|ttl)$/i, '');
+}
+
+function stemOf(relativePath: string): string {
+  return relativePath.replace(/\.(md|ttl)$/i, '');
 }
 
 /** Lowercase, replace non-alphanumeric with `-`, collapse runs, trim hyphens. */
@@ -46,42 +52,50 @@ export function slugifyForLink(s: string): string {
 function buildIndex(notes: BundleNote[]): SiblingIndex {
   const bySlug = new Map<string, string>();
   const byLower = new Map<string, string>();
-  const basenames: string[] = [];
+  const byFullSlug = new Map<string, string>();
+  const stems: string[] = [];
   for (const n of notes) {
+    const stem = stemOf(n.relativePath);
     const base = basenameOf(n.relativePath);
-    basenames.push(base);
-    bySlug.set(slugifyForLink(base), base);
-    byLower.set(base.toLowerCase(), base);
+    stems.push(stem);
+    bySlug.set(slugifyForLink(base), stem);
+    byLower.set(base.toLowerCase(), stem);
+    byFullSlug.set(slugifyForLink(stem), stem);
   }
-  return { bySlug, byLower, basenames };
+  return { bySlug, byLower, byFullSlug, stems };
 }
 
 /**
- * Try to find the sibling basename a wiki-link target was meant to
- * point at. Returns null when the target doesn't look like a sibling
- * link (e.g. matches an exact basename — already correct — or doesn't
- * look like any sibling at all).
+ * Try to find the sibling's full relativePath stem the wiki-link target
+ * was meant to point at. Returns null when the target doesn't look like
+ * a sibling link (e.g. it's already the full stem of a sibling, or
+ * doesn't look like any sibling at all). Returns the stem to rewrite
+ * to when a match is found — wiki-links require the full path today.
  *
  * Order:
- *   1. Exact basename match → already correct, no rewrite needed.
- *   2. Slugified target matches a sibling's slug.
- *   3. Lowercased target matches a sibling's lowercased basename.
- *   4. The target is the slug of one sibling but spelled with hyphens
- *      while the bundle uses spaces (or vice versa).
+ *   1. Exact full stem of a sibling → already correct, no rewrite.
+ *   2. Basename match (case-sensitive) → rewrite to full stem.
+ *   3. Slugified basename match → rewrite to full stem.
+ *   4. Slugified full stem match (covers things like "journey/raft").
+ *   5. Lowercased basename match.
  */
 export function resolveBundleTarget(
   target: string,
   index: SiblingIndex,
 ): string | null {
-  // Already correct
-  if (index.basenames.includes(target)) return null;
+  // Already a full stem of a sibling
+  if (index.stems.includes(target)) return null;
 
-  const slug = slugifyForLink(target);
-  const slugMatch = index.bySlug.get(slug);
+  const targetSlug = slugifyForLink(target);
+
+  const slugMatch = index.bySlug.get(targetSlug);
   if (slugMatch) return slugMatch;
 
-  const lower = index.byLower.get(target.toLowerCase());
-  if (lower) return lower;
+  const fullSlugMatch = index.byFullSlug.get(targetSlug);
+  if (fullSlugMatch) return fullSlugMatch;
+
+  const lowerMatch = index.byLower.get(target.toLowerCase());
+  if (lowerMatch) return lowerMatch;
 
   return null;
 }

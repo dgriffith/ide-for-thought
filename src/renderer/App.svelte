@@ -11,6 +11,7 @@
   import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
+  import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
@@ -207,7 +208,13 @@
     const hashIdx = target.indexOf('#');
     const pathPart = hashIdx >= 0 ? target.slice(0, hashIdx) : target;
     const anchor = hashIdx >= 0 ? target.slice(hashIdx + 1) : null;
-    const notePath = pathPart.endsWith('.md') ? pathPart : `${pathPart}.md`;
+    // Resolve against the actual note tree before falling back to a
+    // naive `${target}.md`. Lets short-form wiki-links like [[raft]],
+    // [[Sets, Functions]], or [[journey/raft]] open the correct file
+    // regardless of how deeply nested it is.
+    const flat = flattenNoteFiles(notebase.files);
+    const resolved = resolveWikiLinkTarget(pathPart, flat);
+    const notePath = resolved ?? (pathPart.endsWith('.md') ? pathPart : `${pathPart}.md`);
     await editor.openFile(notePath);
     // Route anchors: preview scrolls by element id; editor jumps by doc offset.
     if (anchor) {
