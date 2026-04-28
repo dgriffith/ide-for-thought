@@ -525,6 +525,7 @@ async function updateProposalStatus(ctx: ProjectContext, uri: string, newStatus:
 }
 
 async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
+  const cleaned = stripTurtleCodeFence(turtle);
   const prefixed = `
     @prefix thought: <${THOUGHT}> .
     @prefix minerva: <https://minerva.dev/ontology#> .
@@ -533,7 +534,7 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
     @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
     @prefix prov: <http://www.w3.org/ns/prov#> .
-    ${turtle}
+    ${cleaned}
   `;
   // Pre-flight parse into a throwaway store. graph.parseIntoStore
   // swallows parse errors with a console.error (it's the right call
@@ -557,4 +558,20 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
 
 function escapeTurtle(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+/**
+ * LLMs frequently emit Turtle wrapped in a markdown code fence —
+ * ```turtle\n<turtle>\n``` — even when the prompt says "no code fence."
+ * rdflib refuses to parse the fence as Turtle. Strip a single leading
+ * ```<lang>\n and a single trailing \n``` before parsing. Any internal
+ * backticks (e.g. inside string literals) are left alone.
+ *
+ * Returns the input unchanged when no fence is detected.
+ */
+export function stripTurtleCodeFence(turtle: string): string {
+  // Match opening fence at first non-whitespace position; capture body up to
+  // the matching closing fence at end of string (allowing trailing whitespace).
+  const m = /^\s*```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```\s*$/.exec(turtle);
+  return m ? m[1] : turtle;
 }

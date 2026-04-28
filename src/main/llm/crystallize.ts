@@ -1,5 +1,5 @@
 import { complete } from './index';
-import { proposeWrite } from './approval';
+import { proposeWrite, stripTurtleCodeFence } from './approval';
 import * as graph from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
 
@@ -54,8 +54,12 @@ export async function crystallize(
 
 ${text}`;
 
-    const turtle = await complete(prompt, model ? { model } : undefined);
-    const trimmed = turtle.trim();
+    const raw = await complete(prompt, model ? { model } : undefined);
+    // The model often wraps Turtle in a ```turtle code fence even when the
+    // prompt forbids it. Strip before everything downstream — counting
+    // components, extracting subject IRIs, the diff view in the Proposals
+    // panel — so the stored payload is clean.
+    const trimmed = stripTurtleCodeFence(raw).trim();
 
     if (!trimmed) {
       return { turtle: '', componentCount: 0 };
