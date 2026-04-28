@@ -28,6 +28,7 @@
   let expandedPayloads = $state<Set<string>>(new Set());
   let processing = $state(false);
   let lastError = $state<string | null>(null);
+  let lastSuccess = $state<string | null>(null);
   let search = $state('');
   let sortId = $state<'time' | 'type'>('time');
 
@@ -63,11 +64,16 @@
   async function handleApprove(uri: string) {
     processing = true;
     lastError = null;
+    lastSuccess = null;
+    // Snapshot the proposal's payload summary BEFORE approve flips status —
+    // that lets the success banner say exactly what landed (and where).
+    const snapshot = proposals.find((p) => p.uri === uri);
     try {
       const ok = await api.proposals.approve(uri);
       if (!ok) {
         lastError = 'Approve returned false — proposal may already be approved/rejected, or its payload has gone stale. Refresh to check.';
       } else {
+        if (snapshot) lastSuccess = formatApplied(snapshot);
         selectedUri = null;
       }
     } catch (e) {
@@ -77,6 +83,24 @@
       await refresh();
       processing = false;
     }
+  }
+
+  function formatApplied(p: Proposal): string {
+    const notes: string[] = [];
+    let triples = 0;
+    for (const pl of p.payloads ?? []) {
+      if (pl.kind === 'note') notes.push((pl as NotePayload).relativePath);
+      else if (pl.kind === 'graph-triples') triples++;
+    }
+    const parts: string[] = [];
+    if (notes.length > 0) {
+      const head = notes.slice(0, 3).join(', ');
+      const rest = notes.length > 3 ? ` (+${notes.length - 3} more)` : '';
+      parts.push(`${notes.length} note${notes.length === 1 ? '' : 's'}: ${head}${rest}`);
+    }
+    if (triples > 0) parts.push(`${triples} triples-block${triples === 1 ? '' : 's'}`);
+    if (parts.length === 0) return 'Approved (no recognised payloads)';
+    return `Approved — landed ${parts.join(' + ')}`;
   }
 
   async function handleReject(uri: string) {
@@ -145,6 +169,9 @@
     {sortId}
     onSort={(id: string) => { sortId = id as 'time' | 'type'; }}
   />
+  {#if lastSuccess}
+    <div class="success-banner" role="status">{lastSuccess}</div>
+  {/if}
   {#if shown().length === 0}
     <p class="empty">{proposals.length === 0 ? 'No pending proposals' : 'No matches'}</p>
   {:else}
@@ -340,6 +367,15 @@
     margin: 4px 8px;
     padding: 6px 8px;
     border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
+  }
+  .success-banner {
+    margin: 0 0 8px 0;
+    padding: 6px 8px;
+    border: 1px solid var(--accent);
     border-radius: 3px;
     background: var(--bg-button);
     color: var(--text);
