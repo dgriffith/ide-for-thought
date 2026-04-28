@@ -9,7 +9,21 @@
     activeFilePath: string | null;
     depth?: number;
     canPaste?: boolean;
-    onFileSelect: (relativePath: string) => void;
+    /** Project-relative paths of every directory currently expanded.
+     *  Single source of truth lives at Sidebar so multi-select can
+     *  compute the visible-order list across the whole tree. */
+    expanded: Record<string, boolean>;
+    /** Selection set (relativePaths). Same lifecycle as `expanded`. */
+    selection: ReadonlySet<string>;
+    onToggleDir: (path: string) => void;
+    /** Fired for any tree-item click. The handler decides plain-click
+     *  semantics (open file, set selection) vs modifier semantics
+     *  (toggle/range, no-open) based on the modifier flags. */
+    onItemClick: (
+      relativePath: string,
+      isDirectory: boolean,
+      mods: { shift: boolean; meta: boolean },
+    ) => void;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
@@ -22,9 +36,8 @@
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, onFileSelect, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
-  let expanded = $state<Record<string, boolean>>({});
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
@@ -70,9 +83,7 @@
     }
   }
 
-  function toggleDir(path: string) {
-    expanded[path] = !expanded[path];
-  }
+  // expanded is now lifted to Sidebar; we just dispatch upward.
 
   function handleContextMenu(e: MouseEvent, dirPath: string, target?: string, targetIsDir?: boolean) {
     e.preventDefault();
@@ -94,8 +105,9 @@
         <button
           class="tree-item dir"
           class:drop-hover={dropTarget === file.relativePath}
+          class:selected={selection.has(file.relativePath)}
           style:padding-left="{depth * 16 + 8}px"
-          onclick={() => toggleDir(file.relativePath)}
+          onclick={(e) => onItemClick(file.relativePath, true, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
           draggable={true}
           ondragstart={(e) => handleDragStart(e, file.relativePath)}
@@ -112,7 +124,10 @@
             {activeFilePath}
             depth={depth + 1}
             {canPaste}
-            {onFileSelect}
+            {expanded}
+            {selection}
+            {onToggleDir}
+            {onItemClick}
             {onNewNote}
             {onNewFolder}
             {onDelete}
@@ -129,8 +144,9 @@
         <button
           class="tree-item file"
           class:active={activeFilePath === file.relativePath}
+          class:selected={selection.has(file.relativePath)}
           style:padding-left="{depth * 16 + 8}px"
-          onclick={() => onFileSelect(file.relativePath)}
+          onclick={(e) => onItemClick(file.relativePath, false, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath.includes('/') ? file.relativePath.substring(0, file.relativePath.lastIndexOf('/')) : '', file.relativePath, false)}
           draggable={true}
           ondragstart={(e) => handleDragStart(e, file.relativePath)}
@@ -232,6 +248,15 @@
   .tree-item.active {
     background: var(--bg-button-hover);
     color: var(--accent);
+  }
+
+  .tree-item.selected {
+    background: var(--bg-button);
+    outline: 1px solid var(--accent);
+    outline-offset: -1px;
+  }
+  .tree-item.selected.active {
+    background: var(--bg-button-hover);
   }
 
   .tree-item.drop-hover {

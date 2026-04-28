@@ -377,14 +377,8 @@ contextBridge.exposeInMainWorld('api', {
     onResearchFindOpposing: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_RESEARCH_FIND_OPPOSING, () => cb());
     },
-    onFormatCurrentNote: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_CURRENT_NOTE, () => cb());
-    },
-    onFormatFolder: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_FOLDER, () => cb());
-    },
-    onFormatAll: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT_ALL, () => cb());
+    onFormat: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FORMAT, () => cb());
     },
     onIngestUrl: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());

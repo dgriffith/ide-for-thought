@@ -5,6 +5,8 @@
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
+  import { flattenVisible } from '../sidebar-tree-utils';
 
   interface Props {
     files: NoteFile[];
@@ -35,6 +37,65 @@
   let tablesPanel = $state<TablesPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+
+  // Lifted up from FileTree so multi-select can compute visible-order
+  // ranges across the whole tree. Persists across re-renders within a
+  // session; not saved to disk.
+  let expanded = $state<Record<string, boolean>>({});
+  const selectionStore = getSidebarSelectionStore();
+
+  function toggleDir(path: string): void {
+    expanded = { ...expanded, [path]: !expanded[path] };
+  }
+
+  /**
+   * Plain click → set single selection AND open the file (the historical
+   * behaviour everyone has muscle memory for).
+   * ⌘/Ctrl click → toggle path in/out of selection, do NOT open.
+   * Shift click → range from anchor to clicked path in visible order.
+   * Folders behave the same except plain-click also toggles expand.
+   */
+  function handleItemClick(
+    path: string,
+    isDirectory: boolean,
+    mods: { shift: boolean; meta: boolean },
+  ): void {
+    if (mods.shift) {
+      selectionStore.selectRange(path, flattenVisible(files, expanded));
+      return;
+    }
+    if (mods.meta) {
+      selectionStore.toggle(path);
+      return;
+    }
+    selectionStore.setSingle(path);
+    if (isDirectory) {
+      toggleDir(path);
+    } else {
+      onFileSelect(path);
+    }
+  }
+
+  /** Ctrl/Cmd-A while focus is in the sidebar selects every visible row. */
+  function handleKeyDown(e: KeyboardEvent): void {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+      e.preventDefault();
+      selectionStore.selectAll(flattenVisible(files, expanded));
+      return;
+    }
+    if (e.key === 'Escape' && selectionStore.count > 0) {
+      e.preventDefault();
+      selectionStore.clear();
+      return;
+    }
+  }
+
+  export function getSelectionPaths(): string[] {
+    return selectionStore.paths();
+  }
+  export function clearSelection(): void {
+    selectionStore.clear();
+  }
 
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
@@ -108,6 +169,8 @@
   }
 </script>
 
+<svelte:window onkeydown={handleKeyDown} />
+
 <aside class="sidebar" style:width="{width}px">
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
@@ -131,7 +194,25 @@
         if (src) onMove(src, '');
       }}
     >
-      <FileTree {files} {activeFilePath} {canPaste} {onFileSelect} {onNewNote} {onNewFolder} {onDelete} {onRename} {onCut} {onCopy} {onPaste} {onMove} {onBookmark} {onExternalDrop} />
+      <FileTree
+        {files}
+        {activeFilePath}
+        {canPaste}
+        {expanded}
+        selection={selectionStore.selected}
+        onToggleDir={toggleDir}
+        onItemClick={handleItemClick}
+        {onNewNote}
+        {onNewFolder}
+        {onDelete}
+        {onRename}
+        {onCut}
+        {onCopy}
+        {onPaste}
+        {onMove}
+        {onBookmark}
+        {onExternalDrop}
+      />
     </div>
     <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
     {#if onSourceSelect && onShowConfirm}

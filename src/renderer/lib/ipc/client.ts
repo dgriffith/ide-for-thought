@@ -387,9 +387,7 @@ export interface MenuApi {
   onResearchDecomposeClaims(cb: () => void): void;
   onResearchFindSupporting(cb: () => void): void;
   onResearchFindOpposing(cb: () => void): void;
-  onFormatCurrentNote(cb: () => void): void;
-  onFormatFolder(cb: () => void): void;
-  onFormatAll(cb: () => void): void;
+  onFormat(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
   onIngestPdf(cb: () => void): void;

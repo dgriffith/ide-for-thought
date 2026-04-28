@@ -415,9 +415,11 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         { type: 'separator' },
         // Deterministic markdown normalisation (issue #152 epic). Nested
         // under Refactor so the title bar stays lean.
-        gate({ label: 'Format Current Note', click: () => send(Channels.MENU_FORMAT_CURRENT_NOTE) }),
-        gate({ label: 'Format Folder\u2026', click: () => send(Channels.MENU_FORMAT_FOLDER) }),
-        gate({ label: 'Format All Notes', click: () => send(Channels.MENU_FORMAT_ALL) }),
+        gate({
+          label: 'Format',
+          toolTip: 'Format the active note, or every note in the left-sidebar selection (use \u2318-click / shift-click to multi-select, \u2318-A to select all).',
+          click: () => send(Channels.MENU_FORMAT),
+        }),
       ],
     },
 

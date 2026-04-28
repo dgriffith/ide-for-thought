@@ -12,6 +12,7 @@
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
+  import { expandSelectionToNoteFiles } from './lib/sidebar-tree-utils';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
@@ -641,11 +642,65 @@
     }
   }
 
-  async function handleFormatCurrentNote() {
+  /**
+   * Selection-driven Format. Resolves "what to format" in priority:
+   *
+   *   1. Sidebar selection \u2014 every .md under any selected file or
+   *      folder (recursing into folders).
+   *   2. Active note tab \u2014 fallback when nothing is selected.
+   *
+   * Multi-file format runs through the bulk formatFolder API on every
+   * unique containing folder of the selection. Single-file selection
+   * (or active-tab fallback) uses formatContent so the in-memory
+   * editor buffer is updated instead of dirty-on-disk drift.
+   */
+  async function handleFormat() {
     if (!notebase.meta) return;
-    const tab = editor.activeNoteTab;
-    if (!tab) return;
     const settings = getFormatSettings();
+
+    const selectionPaths = sidebar?.getSelectionPaths() ?? [];
+    if (selectionPaths.length > 0) {
+      const targets = expandSelectionToNoteFiles(new Set(selectionPaths), notebase.files);
+      if (targets.length === 0) {
+        await showConfirm(
+          'The selection contains no .md files to format.',
+          CONFIRM_KEYS.formatFailed,
+          'OK',
+        );
+        return;
+      }
+      try {
+        let totalChanged = 0;
+        let totalScanned = 0;
+        await withBusy(`Formatting ${targets.length} note${targets.length === 1 ? '' : 's'}\u2026`, async () => {
+          for (const path of targets) {
+            const result = await api.formatter.formatFile(path, settings);
+            totalScanned++;
+            if (result.changed) totalChanged++;
+          }
+        });
+        await showConfirm(
+          `Formatting complete. Changed ${totalChanged} of ${totalScanned} file${totalScanned === 1 ? '' : 's'}.`,
+          CONFIRM_KEYS.formatComplete,
+          'OK',
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
+      }
+      return;
+    }
+
+    // Fallback: active note tab.
+    const tab = editor.activeNoteTab;
+    if (!tab) {
+      await showConfirm(
+        'Open a note (or select notes/folders in the left sidebar) to format.',
+        CONFIRM_KEYS.formatFailed,
+        'OK',
+      );
+      return;
+    }
     try {
       const result = await withBusy('Formatting\u2026', () =>
         api.formatter.formatContent(tab.content, settings, tab.relativePath),
@@ -653,51 +708,6 @@
       if (result !== tab.content) {
         editor.setContent(result);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
-    }
-  }
-
-  async function handleFormatFolder() {
-    if (!notebase.meta) return;
-    const raw = await showPrompt('Format every .md under folder (leave empty for root):');
-    if (raw === null) return;
-    const relDir = raw.trim().replace(/^\/+|\/+$/g, '');
-    const settings = getFormatSettings();
-    try {
-      const summary = await withBusy('Formatting folder\u2026', () =>
-        api.formatter.formatFolder(relDir, settings),
-      );
-      await showConfirm(
-        `Formatting complete. Changed ${summary.changedPaths.length} of ${summary.totalScanned} file${summary.totalScanned === 1 ? '' : 's'}.`,
-        CONFIRM_KEYS.formatComplete,
-        'OK',
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
-    }
-  }
-
-  async function handleFormatAll() {
-    if (!notebase.meta) return;
-    const ok = await showConfirm(
-      'Format every note in the thoughtbase? Rewrites are applied in-place through the standard write pipeline.',
-      CONFIRM_KEYS.formatAllConfirm,
-      'Format all',
-    );
-    if (!ok) return;
-    const settings = getFormatSettings();
-    try {
-      const summary = await withBusy('Formatting all notes\u2026', () =>
-        api.formatter.formatFolder('', settings),
-      );
-      await showConfirm(
-        `Formatting complete. Changed ${summary.changedPaths.length} of ${summary.totalScanned} file${summary.totalScanned === 1 ? '' : 's'}.`,
-        CONFIRM_KEYS.formatComplete,
-        'OK',
-      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
@@ -1563,9 +1573,7 @@
     api.menu.onResearchFindOpposing(() => { void handleFindArguments('oppose'); });
 
     // Format menu (issue #153)
-    api.menu.onFormatCurrentNote(() => handleFormatCurrentNote());
-    api.menu.onFormatFolder(() => handleFormatFolder());
-    api.menu.onFormatAll(() => handleFormatAll());
+    api.menu.onFormat(() => handleFormat());
 
     // Ingest URL (#93)
     api.menu.onIngestUrl(() => handleIngestUrl());
@@ -1811,7 +1819,7 @@
                     onDecomposeClaims={() => { void handleDecomposeClaims(); }}
                     onFindSupportingArguments={() => { void handleFindArguments('support'); }}
                     onFindOpposingArguments={() => { void handleFindArguments('oppose'); }}
-                    onFormatCurrentNote={() => handleFormatCurrentNote()}
+                    onFormatCurrentNote={() => handleFormat()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
