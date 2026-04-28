@@ -163,6 +163,28 @@
     drafts = drafts.filter((d) => d.draftId !== draft.draftId);
   }
 
+  /**
+   * "File as notes" — meta-prompts the model to take its previous reply
+   * and call propose_notes for it. The system prompt already nudges the
+   * model toward propose_notes when the user asks to file content; this
+   * is the explicit, unambiguous trigger for when the model didn't pick
+   * up on the request implicitly.
+   *
+   * The user-visible message in the chat is short ("File the previous
+   * response as notes."); the work is done by the model in its next
+   * turn — which should produce a propose_notes tool call and an
+   * inline draft card.
+   */
+  function fileMessageAsNotes(messageContent: string) {
+    if (!conv.active || streaming) return;
+    // Quote a short head of the message so the chat record shows what
+    // the user asked to be filed; the system prompt directive is what
+    // actually drives the propose_notes call.
+    const head = messageContent.slice(0, 120).replace(/\s+/g, ' ').trim();
+    input = `File your previous response as notes. Call the propose_notes tool with one or more note payloads — one for the parent / index, plus one per logical section. Don't repeat the contents in this reply; the inline review card is the deliverable.\n\n(short snippet for context: "${head}…")`;
+    requestAnimationFrame(() => { void handleSend(); });
+  }
+
   function toggleDraftExpanded(draftId: string) {
     const next = new Set(expandedDraftIds);
     if (next.has(draftId)) next.delete(draftId);
@@ -332,7 +354,7 @@
             <option value={m.value}>{m.label}</option>
           {/each}
         </select>
-        <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="Extract claims/grounds from selected text and file as a Proposal">File Selection as Components</button>
+        <button class="conv-btn" onclick={handleCrystallizeSelection} disabled={crystallizing} title="Extract Claims/Grounds/etc. from selected text as graph nodes (NOT files — these become triples in the knowledge graph). For files, use the &quot;File as Notes&quot; button under each assistant message.">Extract Selection as Components</button>
         <button class="conv-btn" onclick={handleResolve} title="Mark this conversation resolved (status flag only — no content is filed) and close">Mark Resolved &amp; Close</button>
         <button class="conv-btn" onclick={handleAbandon} title="Mark this conversation abandoned (status flag only — no content is filed) and close">Mark Abandoned &amp; Close</button>
         <button class="conv-btn close" onclick={onClose} title="Hide (conversation stays active)">&#x2715;</button>
@@ -378,9 +400,24 @@
               </ol>
             {/if}
             <div class="msg-actions">
-              <button class="msg-action-btn" onclick={() => { input = 'Tell me more about this.'; void handleSend(); }} title="Continue exploring this topic">Explore Further</button>
-              <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Extract thought components">{crystallizing ? 'Filing...' : 'File This'}</button>
-              <button class="msg-action-btn" onclick={() => handleCrystallize(msg.content)} disabled={crystallizing} title="Flag for later review">Flag for Later</button>
+              <button
+                class="msg-action-btn primary"
+                onclick={() => fileMessageAsNotes(msg.content)}
+                disabled={streaming}
+                title="Ask the assistant to file this response as one or more new notes (you'll review the bundle inline before anything lands)"
+              >File as Notes</button>
+              <button
+                class="msg-action-btn"
+                onclick={() => handleCrystallize(msg.content)}
+                disabled={crystallizing}
+                title="Extract Claims/Grounds/etc. as graph nodes (NOT files — these become triples in the knowledge graph)"
+              >{crystallizing ? 'Extracting…' : 'Extract Components'}</button>
+              <button
+                class="msg-action-btn"
+                onclick={() => { input = 'Tell me more about this.'; void handleSend(); }}
+                disabled={streaming}
+                title="Continue exploring this topic"
+              >Explore Further</button>
             </div>
           {:else}
             <div class="msg-content">{msg.content}</div>
@@ -806,6 +843,14 @@
 
   .msg-action-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
   .msg-action-btn:disabled { opacity: 0.4; cursor: default; }
+  .msg-action-btn.primary {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .msg-action-btn.primary:hover:not(:disabled) {
+    background: var(--accent);
+    color: var(--bg);
+  }
 
   .msg-content :global(.llm-claim) {
     border-bottom: 1px dashed var(--text-muted);
