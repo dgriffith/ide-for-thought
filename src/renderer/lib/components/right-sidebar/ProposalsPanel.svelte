@@ -3,6 +3,10 @@
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
 
+  type NotePayload = { kind: 'note'; relativePath: string; content: string };
+  type TriplesPayload = { kind: 'graph-triples'; turtle: string; affectsNodeUris: string[] };
+  type Payload = NotePayload | TriplesPayload | { kind: string; [k: string]: unknown };
+
   interface Proposal {
     uri: string;
     status: string;
@@ -10,7 +14,7 @@
     note: string;
     proposedBy: string;
     proposedAt: string;
-    turtleDiff: string;
+    payloads: Payload[];
   }
 
   interface Props {
@@ -21,7 +25,9 @@
 
   let proposals = $state<Proposal[]>([]);
   let selectedUri = $state<string | null>(null);
+  let expandedPayloads = $state<Set<string>>(new Set());
   let processing = $state(false);
+  let lastError = $state<string | null>(null);
   let search = $state('');
   let sortId = $state<'time' | 'type'>('time');
 
@@ -56,18 +62,66 @@
 
   async function handleApprove(uri: string) {
     processing = true;
-    await api.proposals.approve(uri);
-    selectedUri = null;
-    await refresh();
-    processing = false;
+    lastError = null;
+    try {
+      const ok = await api.proposals.approve(uri);
+      if (!ok) {
+        lastError = 'Approve returned false — proposal may already be approved/rejected, or its payload has gone stale. Refresh to check.';
+      } else {
+        selectedUri = null;
+      }
+    } catch (e) {
+      lastError = `Approve failed: ${e instanceof Error ? e.message : String(e)}`;
+      console.error('[proposal] approve failed:', e);
+    } finally {
+      await refresh();
+      processing = false;
+    }
   }
 
   async function handleReject(uri: string) {
     processing = true;
-    await api.proposals.reject(uri);
-    selectedUri = null;
-    await refresh();
-    processing = false;
+    lastError = null;
+    try {
+      const ok = await api.proposals.reject(uri);
+      if (!ok) {
+        lastError = 'Reject returned false — proposal may already be resolved. Refresh to check.';
+      } else {
+        selectedUri = null;
+      }
+    } catch (e) {
+      lastError = `Reject failed: ${e instanceof Error ? e.message : String(e)}`;
+      console.error('[proposal] reject failed:', e);
+    } finally {
+      await refresh();
+      processing = false;
+    }
+  }
+
+  function togglePayload(uri: string, idx: number) {
+    const key = `${uri}::${idx}`;
+    const next = new Set(expandedPayloads);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    expandedPayloads = next;
+  }
+
+  function payloadSummary(p: Payload): string {
+    if (p.kind === 'note') {
+      const np = p as NotePayload;
+      return np.relativePath;
+    }
+    if (p.kind === 'graph-triples') {
+      const tp = p as TriplesPayload;
+      const tripleCount = (tp.turtle.match(/\.\s*$/gm) ?? []).length || 1;
+      return `${tripleCount} triple${tripleCount === 1 ? '' : 's'} affecting ${tp.affectsNodeUris.length} node${tp.affectsNodeUris.length === 1 ? '' : 's'}`;
+    }
+    return p.kind;
+  }
+
+  function payloadPreview(p: Payload): string {
+    if (p.kind === 'note') return (p as NotePayload).content;
+    if (p.kind === 'graph-triples') return (p as TriplesPayload).turtle;
+    return JSON.stringify(p, null, 2);
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -103,14 +157,38 @@
         >
           <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
           <span class="proposal-note">{p.note}</span>
-          <span class="proposal-by">{p.proposedBy}</span>
+          <span class="proposal-meta">
+            <span class="proposal-payload-count">{p.payloads?.length ?? 0} payload{(p.payloads?.length ?? 0) === 1 ? '' : 's'}</span>
+            <span class="proposal-by">{p.proposedBy}</span>
+          </span>
         </button>
 
         {#if selectedUri === p.uri}
           <div class="proposal-detail">
-            <div class="diff-view">
-              <pre>{p.turtleDiff}</pre>
-            </div>
+            {#if (p.payloads?.length ?? 0) === 0}
+              <div class="empty">No payloads on this proposal — nothing will land if you approve.</div>
+            {:else}
+              <ul class="payload-list">
+                {#each p.payloads as payload, i}
+                  <li>
+                    <button
+                      class="payload-row"
+                      onclick={() => togglePayload(p.uri, i)}
+                    >
+                      <span class="payload-kind">{payload.kind}</span>
+                      <span class="payload-summary">{payloadSummary(payload)}</span>
+                      <span class="payload-toggle">{expandedPayloads.has(`${p.uri}::${i}`) ? '▾' : '▸'}</span>
+                    </button>
+                    {#if expandedPayloads.has(`${p.uri}::${i}`)}
+                      <pre class="payload-preview">{payloadPreview(payload)}</pre>
+                    {/if}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+            {#if lastError}
+              <div class="error-banner">{lastError}</div>
+            {/if}
             <div class="proposal-actions">
               <button class="action-btn approve" onclick={() => handleApprove(p.uri)} disabled={processing}>
                 Approve (y)
@@ -181,6 +259,15 @@
     white-space: nowrap;
   }
 
+  .proposal-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .proposal-payload-count {
+    color: var(--accent);
+  }
   .proposal-by {
     font-size: 10px;
     color: var(--text-muted);
@@ -192,21 +279,71 @@
     overflow: hidden;
   }
 
-  .diff-view {
-    padding: 8px;
-    background: var(--bg-code, var(--bg-titlebar));
-    overflow-x: auto;
-    max-height: 150px;
+  .payload-list {
+    list-style: none;
+    padding: 4px 0;
+    margin: 0;
+    max-height: 320px;
     overflow-y: auto;
   }
-
-  .diff-view pre {
-    margin: 0;
+  .payload-row {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 8px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .payload-row:hover { background: var(--bg-button); }
+  .payload-kind {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    min-width: 90px;
+  }
+  .payload-summary {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .payload-toggle {
+    color: var(--text-muted);
+  }
+  .payload-preview {
+    margin: 4px 8px 8px 8px;
+    padding: 6px 8px;
+    background: var(--bg-code, var(--bg-titlebar));
+    border: 1px solid var(--border);
+    border-radius: 3px;
     font-size: 11px;
     font-family: 'SF Mono', 'Fira Code', monospace;
     color: var(--text);
     white-space: pre-wrap;
     word-wrap: break-word;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .empty {
+    padding: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .error-banner {
+    margin: 4px 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 11px;
   }
 
   .proposal-actions {
