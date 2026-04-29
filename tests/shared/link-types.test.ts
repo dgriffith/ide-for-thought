@@ -65,3 +65,21 @@ describe('quote link type', () => {
     expect(quote.targetKind).toBe('excerpt');
   });
 });
+
+describe('load-bearing-for link type (#413)', () => {
+  const lbf = getLinkType('load-bearing-for');
+
+  it('uses the thought-namespaced predicate loadBearingFor', () => {
+    // The research tool's system prompt instructs the model to emit
+    // `[[load-bearing-for::source]]`; that has to materialise as
+    // `thought:loadBearingFor` in the graph. The indexer derives the
+    // predicate from this entry — keep them aligned.
+    expect(lbf.name).toBe('load-bearing-for');
+    expect(lbf.predicate).toBe('loadBearingFor');
+    expect(lbf.predicateNamespace).toBe('thought');
+  });
+
+  it('targets a note (default), not a source/excerpt', () => {
+    expect(lbf.targetKind ?? 'note').toBe('note');
+  });
+});

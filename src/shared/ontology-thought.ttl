@@ -439,6 +439,11 @@ thought:supports a owl:ObjectProperty ;
     rdfs:domain thought:Component ;
     rdfs:range thought:Component .
 
+thought:loadBearingFor a owl:ObjectProperty ;
+    rdfs:label "load-bearing for" ;
+    rdfs:comment "This claim is the single highest-leverage assertion of another resource (typically a note containing a multi-claim passage): if it were false, the rest of that resource's argument would not survive. Filed by the find-load-bearing-claim research tool (#413)." ;
+    rdfs:domain thought:Claim .
+
 thought:challenges a owl:ObjectProperty ;
     rdfs:label "challenges" ;
     rdfs:comment "This component undermines or questions another." ;

@@ -458,6 +458,12 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           toolTip: 'For the Claim under the cursor, generate the strongest cases against it (web-grounded). Files a Proposal of Grounds nodes.',
           click: () => send(Channels.MENU_RESEARCH_FIND_OPPOSING),
         }),
+        { type: 'separator' },
+        gate({
+          label: 'Find Load-Bearing Claim',
+          toolTip: 'Open a conversation that identifies the single claim in the selection (or the whole note) whose falsity would collapse the rest of the argument, plus 2-3 runners-up. The model proposes a note for review.',
+          click: () => send(Channels.TOOL_INVOKE, 'research.load-bearing-claim'),
+        }),
       ],
     },
 
