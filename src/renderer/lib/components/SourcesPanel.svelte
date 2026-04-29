@@ -13,7 +13,6 @@
 
   let sources = $state<SourceMetadata[]>([]);
   let filter = $state('');
-  let collapsed = $state(false);
   let contextMenu = $state<{ x: number; y: number; source: SourceMetadata } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
@@ -23,6 +22,12 @@
     if (next.x !== contextMenu.x || next.y !== contextMenu.y) {
       contextMenu = { ...contextMenu, ...next };
     }
+  });
+
+  // Fetch on mount so the panel populates whenever it's switched into,
+  // not only when the host calls refresh().
+  $effect(() => {
+    void refresh();
   });
 
   function handleContextMenu(e: MouseEvent, source: SourceMetadata) {
@@ -73,44 +78,35 @@
 </script>
 
 <div class="sources-panel">
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="panel-header" onclick={() => { collapsed = !collapsed; }}>
-    <span class="chevron" class:collapsed>▾</span>
-    <span>Sources</span>
-    <span class="count">{sources.length}</span>
-  </div>
-
-  {#if !collapsed}
-    {#if sources.length === 0}
-      <div class="empty">No sources yet. File → Ingest URL… to start.</div>
-    {:else}
-      <div class="filter-row">
-        <input
-          type="text"
-          class="filter-input"
-          placeholder="Filter sources…"
-          bind:value={filter}
-        />
-      </div>
-      <div class="source-list">
-        {#each visible as s (s.sourceId)}
-          <button
-            class="source-item"
-            onclick={() => onSourceSelect(s.sourceId)}
-            oncontextmenu={(e) => handleContextMenu(e, s)}
-            title={s.sourceId}
-          >
-            <div class="source-title">{s.title ?? s.sourceId}</div>
-            {#if s.creators.length > 0 || s.year}
-              <div class="source-byline">{formatByline(s.creators, s.year)}</div>
-            {/if}
-          </button>
-        {/each}
-        {#if visible.length === 0}
-          <div class="empty">No matches.</div>
-        {/if}
-      </div>
-    {/if}
+  {#if sources.length === 0}
+    <div class="empty">No sources yet. File → Ingest URL… to start.</div>
+  {:else}
+    <div class="filter-row">
+      <input
+        type="text"
+        class="filter-input"
+        placeholder="Filter sources…"
+        bind:value={filter}
+      />
+    </div>
+    <div class="source-list">
+      {#each visible as s (s.sourceId)}
+        <button
+          class="source-item"
+          onclick={() => onSourceSelect(s.sourceId)}
+          oncontextmenu={(e) => handleContextMenu(e, s)}
+          title={s.sourceId}
+        >
+          <div class="source-title">{s.title ?? s.sourceId}</div>
+          {#if s.creators.length > 0 || s.year}
+            <div class="source-byline">{formatByline(s.creators, s.year)}</div>
+          {/if}
+        </button>
+      {/each}
+      {#if visible.length === 0}
+        <div class="empty">No matches.</div>
+      {/if}
+    </div>
   {/if}
 
   {#if contextMenu}
@@ -149,51 +145,21 @@
   }
   .context-menu button:hover { background: var(--bg-button); }
   .sources-panel {
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-    max-height: 40%;
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
 
-  .panel-header {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    letter-spacing: 0.5px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .chevron {
-    display: inline-block;
-    transition: transform 0.15s;
-  }
-  .chevron.collapsed {
-    transform: rotate(-90deg);
-  }
-
-  .count {
-    margin-left: auto;
-    font-size: 10px;
-    opacity: 0.7;
-  }
-
   .empty {
-    padding: 6px 12px 10px;
+    padding: 8px 12px;
     font-size: 11px;
     color: var(--text-muted);
     line-height: 1.4;
   }
 
   .filter-row {
-    padding: 0 8px 6px;
+    padding: 8px 8px 6px;
   }
 
   .filter-input {

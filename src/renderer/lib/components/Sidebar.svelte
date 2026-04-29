@@ -8,6 +8,8 @@
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
 
+  type PanelType = 'notes' | 'sites' | 'tags' | 'tables';
+
   interface Props {
     files: NoteFile[];
     activeFilePath: string | null;
@@ -33,6 +35,7 @@
   }
 
   let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
@@ -80,6 +83,9 @@
 
   /** Ctrl/Cmd-A while focus is in the sidebar selects every visible row. */
   function handleKeyDown(e: KeyboardEvent): void {
+    // Selection shortcuts only make sense on the Notes panel where the
+    // file tree lives. On other tabs there's nothing to select.
+    if (activePanel !== 'notes') return;
     if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
       e.preventDefault();
       selectionStore.selectAll(flattenVisible(files, expanded));
@@ -165,6 +171,10 @@
     setTimeout(() => window.addEventListener('click', close), 0);
   }
 
+  // Auto-switch to a panel when the host calls a refresh on it. Refresh
+  // calls fired while a panel isn't mounted are no-ops; the panel
+  // refetches its data on its next mount, so switching tabs always
+  // shows the latest state.
   export function refreshTags() {
     tagPanel?.refresh();
   }
@@ -178,8 +188,13 @@
   }
 
   export function selectTag(tag: string) {
-    tagPanel?.refresh();
-    setTimeout(() => tagPanel?.selectTag(tag), 50);
+    activePanel = 'tags';
+    // Wait for TagPanel to mount before driving it — bind:this resolves
+    // after the {#if} switches the tab in.
+    setTimeout(() => {
+      tagPanel?.refresh();
+      setTimeout(() => tagPanel?.selectTag(tag), 50);
+    }, 0);
   }
 </script>
 
@@ -189,61 +204,96 @@
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
 
-  {#if files.length > 0}
-    <div
-      class="file-list"
-      class:root-drop-hover={rootDropHover}
-      oncontextmenu={handleContextMenu}
-      ondragover={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = 'move'; rootDropHover = true; }}
-      ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
-      ondrop={(e) => {
-        e.preventDefault();
-        rootDropHover = false;
-        const files = e.dataTransfer?.files;
-        if (files && files.length > 0) {
-          onExternalDrop?.('', files);
-          return;
-        }
-        const src = e.dataTransfer!.getData('text/plain');
-        if (src) onMove(src, '');
-      }}
-    >
-      <FileTree
-        {files}
-        {activeFilePath}
-        {canPaste}
-        {expanded}
-        selection={selectionStore.selected}
-        onToggleDir={toggleDir}
-        onItemClick={handleItemClick}
-        {onNewNote}
-        {onNewFolder}
-        {onDelete}
-        {onAddTag}
-        {onRemoveTag}
-        onContextMenuTarget={handleContextMenuTarget}
-        {onRename}
-        {onCut}
-        {onCopy}
-        {onPaste}
-        {onMove}
-        {onBookmark}
-        {onExternalDrop}
-      />
-    </div>
-    <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
-    {#if onSourceSelect && onShowConfirm}
-      <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} />
+  <div class="panel-tabs">
+    <button
+      class="panel-tab"
+      class:active={activePanel === 'notes'}
+      onclick={() => activePanel = 'notes'}
+      title="Notes"
+    >&#x25A4;</button>
+    <button
+      class="panel-tab"
+      class:active={activePanel === 'sites'}
+      onclick={() => activePanel = 'sites'}
+      title="Sites"
+    >&#x2761;</button>
+    <button
+      class="panel-tab"
+      class:active={activePanel === 'tags'}
+      onclick={() => activePanel = 'tags'}
+      title="Tags"
+    >#</button>
+    <button
+      class="panel-tab"
+      class:active={activePanel === 'tables'}
+      onclick={() => activePanel = 'tables'}
+      title="Tables"
+    >&#x229E;</button>
+  </div>
+
+  <div class="panel-content">
+    {#if activePanel === 'notes'}
+      {#if files.length > 0}
+        <div
+          class="file-list"
+          class:root-drop-hover={rootDropHover}
+          oncontextmenu={handleContextMenu}
+          ondragover={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = 'move'; rootDropHover = true; }}
+          ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
+          ondrop={(e) => {
+            e.preventDefault();
+            rootDropHover = false;
+            const dropped = e.dataTransfer?.files;
+            if (dropped && dropped.length > 0) {
+              onExternalDrop?.('', dropped);
+              return;
+            }
+            const src = e.dataTransfer!.getData('text/plain');
+            if (src) onMove(src, '');
+          }}
+        >
+          <FileTree
+            {files}
+            {activeFilePath}
+            {canPaste}
+            {expanded}
+            selection={selectionStore.selected}
+            onToggleDir={toggleDir}
+            onItemClick={handleItemClick}
+            {onNewNote}
+            {onNewFolder}
+            {onDelete}
+            {onAddTag}
+            {onRemoveTag}
+            onContextMenuTarget={handleContextMenuTarget}
+            {onRename}
+            {onCut}
+            {onCopy}
+            {onPaste}
+            {onMove}
+            {onBookmark}
+            {onExternalDrop}
+          />
+        </div>
+      {:else}
+        <div class="empty" oncontextmenu={handleContextMenu}>
+          <p>No notes yet</p>
+        </div>
+      {/if}
+    {:else if activePanel === 'sites'}
+      {#if onSourceSelect && onShowConfirm}
+        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} />
+      {/if}
+    {:else if activePanel === 'tags'}
+      <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
+    {:else if activePanel === 'tables'}
+      {#if onTableClick && onOpenCsv}
+        <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
+      {/if}
     {/if}
-    {#if onTableClick && onOpenCsv}
-      <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
-    {/if}
-  {:else}
-    <div class="empty" oncontextmenu={handleContextMenu}>
-      <p>No notes yet</p>
-    </div>
-  {/if}
-{#if contextMenu}
+  </div>
+
+  {#if contextMenu}
     <div
       class="context-menu"
       bind:this={contextMenuEl}
@@ -285,6 +335,50 @@
   .resize-handle.dragging {
     background: var(--accent);
     opacity: 0.3;
+  }
+
+  .panel-tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .panel-tabs::-webkit-scrollbar {
+    height: 6px;
+  }
+  .panel-tabs::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  .panel-tab {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  .panel-tab:hover {
+    background: var(--bg-button);
+  }
+
+  .panel-tab.active {
+    background: var(--bg-button-hover);
+    color: var(--text);
+  }
+
+  .panel-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .file-list {

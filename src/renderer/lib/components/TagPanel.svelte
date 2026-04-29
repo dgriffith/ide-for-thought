@@ -20,6 +20,12 @@
     if (activeTag) await loadForTag(activeTag);
   }
 
+  // Fetch on mount so the panel populates whenever it's switched into,
+  // not only when the host calls refresh().
+  $effect(() => {
+    void refresh();
+  });
+
   export function selectTag(tag: string) {
     void showNotesForTag(tag);
   }
@@ -46,8 +52,7 @@
 </script>
 
 <div class="tag-panel">
-  <div class="panel-header">
-    <span>Tags</span>
+  <div class="controls-row">
     <label class="sources-toggle" title="Include sources in tag results">
       <input type="checkbox" bind:checked={showSources} />
       <span>sources</span>
@@ -103,31 +108,23 @@
 
 <style>
   .tag-panel {
-    border-top: 1px solid var(--border);
-    flex-shrink: 0;
-    max-height: 50%;
+    flex: 1;
     overflow-y: auto;
   }
 
-  .panel-header {
-    padding: 8px 12px;
+  .controls-row {
+    padding: 8px 12px 6px;
     font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
     color: var(--text-muted);
-    letter-spacing: 0.5px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   .sources-toggle {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-weight: 400;
-    text-transform: lowercase;
-    letter-spacing: 0;
     cursor: pointer;
     user-select: none;
   }
