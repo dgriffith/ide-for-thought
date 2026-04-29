@@ -84,6 +84,11 @@ export interface LinksApi {
   backlinks(relativePath: string): Promise<Backlink[]>;
   /** Coalesced fetch (#351) — both directions in one IPC. */
   bundle(relativePath: string): Promise<{ outgoing: OutgoingLink[]; backlinks: Backlink[] }>;
+  /** Per-source citation aggregation for the active note (#111). */
+  citationsForNote(
+    relativePath: string,
+    content?: string,
+  ): Promise<import('../../../shared/types').CitationGroup[]>;
 }
 
 export interface QueriesApi {

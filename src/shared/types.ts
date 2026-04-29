@@ -114,6 +114,25 @@ export interface SourceExcerpt {
   locationText: string | null;
 }
 
+/**
+ * One source cited by a note (#111). Aggregates inline `[[cite::id]]`
+ * occurrences with `[[quote::ex]]` occurrences whose excerpts resolve
+ * to the same source, so the panel can show "Smith 2020 — 4 cites,
+ * 2 quotes" with the relevant excerpts nested underneath.
+ */
+export interface CitationGroup {
+  sourceId: string;
+  title: string | null;
+  year: string | null;
+  creators: string[];
+  /** Number of inline `[[cite::sourceId]]` occurrences in the note. */
+  citeCount: number;
+  /** Total inline `[[quote::ex]]` occurrences whose excerpt belongs to this source. */
+  quoteCount: number;
+  /** Excerpts of this source that the note actually quotes, with per-excerpt count. */
+  excerpts: (SourceExcerpt & { quoteCount: number })[];
+}
+
 export interface SourceBacklink {
   relativePath: string;
   title: string;

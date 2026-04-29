@@ -1788,6 +1788,120 @@ function collectSourceBacklinks(
   return results;
 }
 
+/**
+ * Per-source aggregation of every citation a note makes (#111).
+ *
+ * Walks the indexed `thought:cites` and `thought:quotes` edges from
+ * the note. The graph stores at most one edge per (note, predicate,
+ * target) pair regardless of how many times the citation appears
+ * inline, so we re-scan the note's content to derive *occurrence
+ * counts* — that's the bit users actually want when they're seeing
+ * "this source is referenced 4 times in this note." The graph drives
+ * the source set, the content drives the count.
+ */
+export function citationsForNote(
+  ctx: ProjectContext,
+  relativePath: string,
+  content: string,
+): import('../../shared/types').CitationGroup[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+  const noteSubject = noteUri(state, relativePath);
+
+  // Source URIs the note cites — keyed by URI string because rdflib
+  // hands back fresh NamedNode instances per call, so a JS Set on the
+  // node would treat them as distinct.
+  const sourceUris = new Map<string, $rdf.NamedNode>();
+  for (const st of store.statementsMatching(noteSubject, THOUGHT('cites'), undefined)) {
+    const node = st.object as $rdf.NamedNode;
+    sourceUris.set(node.value, node);
+  }
+
+  // Quote edges → set of excerpts the note quotes; resolve each to its
+  // owning source. An excerpt without a fromSource link is malformed
+  // ingest output; skip silently rather than surfacing a half-row.
+  for (const st of store.statementsMatching(noteSubject, THOUGHT('quotes'), undefined)) {
+    const excerptNode = st.object as $rdf.NamedNode;
+    const fromStmts = store.statementsMatching(excerptNode, THOUGHT('fromSource'), undefined);
+    const sourceNode = fromStmts[0]?.object as $rdf.NamedNode | undefined;
+    if (!sourceNode) continue;
+    sourceUris.set(sourceNode.value, sourceNode);
+  }
+
+  // Count inline occurrences in the note content. Use the same
+  // typed-link regex as the editor's decoration rules so anything
+  // visible to the user as a citation is counted as one. Strip
+  // bibliography-block content (#113) so its rendered entries don't
+  // re-inflate the count for sources that no longer have inline cites.
+  const countable = content.replace(
+    /<!-- minerva:bibliography -->[\s\S]*?<!-- \/minerva:bibliography -->/g,
+    '',
+  );
+  const occurrences = new Map<string, number>(); // key: `cite:id` or `quote:ex`
+  const RE = /\[\[(cite|quote)::([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = RE.exec(countable)) !== null) {
+    const kind = m[1].toLowerCase();
+    const id = m[2].trim();
+    const key = `${kind}:${id}`;
+    occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+  }
+
+  const groups: import('../../shared/types').CitationGroup[] = [];
+  for (const sourceNode of sourceUris.values()) {
+    const idStmts = store.statementsMatching(sourceNode, MINERVA('sourceId'), undefined);
+    const sourceId = idStmts[0]?.object.value;
+    if (!sourceId) continue;
+    const meta = collectSourceMetadata(state, sourceId, sourceNode);
+
+    // Cites: occurrences keyed by the source id directly.
+    const citeCount = occurrences.get(`cite:${sourceId}`) ?? 0;
+
+    // Quotes: walk every excerpt whose fromSource is this source AND
+    // whose id appears in the note. Per-excerpt count comes from the
+    // occurrence map.
+    const allExcerpts = collectExcerptsForSource(state, sourceNode);
+    const noteExcerpts: (import('../../shared/types').SourceExcerpt & { quoteCount: number })[] = [];
+    let totalQuoteCount = 0;
+    for (const ex of allExcerpts) {
+      const c = occurrences.get(`quote:${ex.excerptId}`) ?? 0;
+      if (c === 0) continue;
+      noteExcerpts.push({ ...ex, quoteCount: c });
+      totalQuoteCount += c;
+    }
+
+    // A source ends up in the result set when EITHER it's directly
+    // cited or one of its excerpts is quoted. If both counts are zero,
+    // the graph thinks the note references it but the content doesn't —
+    // possible during transient indexer/disk skew. Skip silently.
+    if (citeCount === 0 && totalQuoteCount === 0) continue;
+
+    groups.push({
+      sourceId,
+      title: meta.title,
+      year: meta.year,
+      creators: meta.creators,
+      citeCount,
+      quoteCount: totalQuoteCount,
+      excerpts: noteExcerpts,
+    });
+  }
+
+  // Stable, useful order: most-cited first, then alpha by title for
+  // ties. "Most-cited first" matches the user's mental model of
+  // skimming a paper — the heavy hitters at the top.
+  groups.sort((a, b) => {
+    const totalA = a.citeCount + a.quoteCount;
+    const totalB = b.citeCount + b.quoteCount;
+    if (totalA !== totalB) return totalB - totalA;
+    const ta = (a.title ?? a.sourceId).toLowerCase();
+    const tb = (b.title ?? b.sourceId).toLowerCase();
+    return ta.localeCompare(tb);
+  });
+  return groups;
+}
+
 /** Resolve an excerpt-id to the sourceId of its fromSource, or null if not found. */
 export function getExcerptSource(ctx: ProjectContext, excerptId: string): { sourceId: string } | null {
   const state = getState(ctx);

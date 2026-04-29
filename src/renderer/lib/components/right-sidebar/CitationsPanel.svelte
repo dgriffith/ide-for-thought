@@ -1,110 +1,191 @@
 <script lang="ts">
   /**
-   * Per-note Citations panel: lists every [[cite::source-id]] and
-   * [[quote::excerpt-id]] in the active note. Citations open the source
-   * tab; quotes open the source scrolled to the excerpt.
+   * Per-source citation panel (#111).
    *
-   * Sources are fetched once per panel mount to label cite entries with
-   * their title. Excerpt labels aren't pre-fetched — the existing
-   * excerpt → source resolver handles that at click time, same as the
-   * editor's inline click.
+   * Aggregates every `[[cite::id]]` and `[[quote::ex]]` in the active
+   * note into one row per cited source — title, year, byline, total
+   * occurrence count, and the list of excerpts the note quotes from
+   * that source. Driven by a SPARQL query in main (`thought:cites` +
+   * `thought:quotes` → fromSource), with occurrence counts re-derived
+   * from the live editor buffer so the count reflects what the user
+   * is typing, not the last save.
+   *
+   * Click a source row → open its tab. Click an excerpt → open the
+   * source scrolled to the excerpt.
    */
-  import { onMount } from 'svelte';
   import { api } from '../../ipc/client';
-  import type { SourceMetadata } from '../../../../shared/types';
+  import type { CitationGroup } from '../../../../shared/types';
   import Ribbon from './Ribbon.svelte';
 
   interface Props {
+    activeFilePath: string | null;
     content: string;
+    revision: number;
     onOpenSource: (sourceId: string) => void;
     onOpenExcerpt: (excerptId: string) => void;
   }
 
-  let { content, onOpenSource, onOpenExcerpt }: Props = $props();
+  let { activeFilePath, content, revision, onOpenSource, onOpenExcerpt }: Props = $props();
 
-  let sourcesById = $state<Record<string, SourceMetadata>>({});
+  let groups = $state<CitationGroup[]>([]);
   let search = $state('');
-  let sortId = $state<'document' | 'alpha' | 'kind'>('document');
+  let sortId = $state<'count' | 'alpha'>('count');
+  let expanded = $state<Record<string, boolean>>({});
 
-  onMount(async () => {
-    try {
-      const all = await api.sources.listAll();
-      sourcesById = Object.fromEntries(all.map((s) => [s.sourceId, s]));
-    } catch { /* no project or sources dir missing — leave empty */ }
+  // Debounce content-driven refreshes — re-running the IPC on every
+  // keystroke is wasteful, especially because the graph has to walk
+  // its `thought:cites` / `thought:quotes` indexes for the active
+  // note and citation edits are rare relative to typing.
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    // Track activeFilePath, content, and revision reactively.
+    const path = activeFilePath;
+    const c = content;
+    revision;
+    if (!path) {
+      groups = [];
+      return;
+    }
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      void api.links.citationsForNote(path, c).then((result) => {
+        groups = result;
+      }).catch(() => {
+        groups = [];
+      });
+      debounceTimer = null;
+    }, 200);
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+    };
   });
 
-  // [[cite::id]] and [[quote::id]] with optional |label suffix. Case on
-  // the typed prefix is normalised to lowercase so CITE/Cite still
-  // catches — consistent with the editor's decoration rules.
-  const citeRe = /\[\[(cite|quote)::([^\]|]+)(?:\|[^\]]*)?\]\]/g;
-
-  function labelFor(kind: 'cite' | 'quote', id: string): string {
-    if (kind === 'cite') {
-      const src = sourcesById[id];
-      return src?.title || id;
-    }
-    return id;
+  function bylineFor(g: CitationGroup): string {
+    const who = g.creators.length === 0 ? ''
+      : g.creators.length === 1 ? g.creators[0]
+      : g.creators.length === 2 ? `${g.creators[0]} and ${g.creators[1]}`
+      : `${g.creators[0]} et al.`;
+    if (who && g.year) return `${who} · ${g.year}`;
+    return who || (g.year ?? '');
   }
 
-  const entries = $derived(() => {
-    const out: { kind: 'cite' | 'quote'; id: string }[] = [];
-    const seen = new Set<string>();
-    let m: RegExpExecArray | null;
-    citeRe.lastIndex = 0;
-    while ((m = citeRe.exec(content)) !== null) {
-      const kind = m[1].toLowerCase() as 'cite' | 'quote';
-      const id = m[2].trim();
-      const key = `${kind}:${id}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ kind, id });
-    }
+  function totalCount(g: CitationGroup): number {
+    return g.citeCount + g.quoteCount;
+  }
+
+  function matchesSearch(g: CitationGroup, q: string): boolean {
+    if (!q) return true;
+    if ((g.title ?? '').toLowerCase().includes(q)) return true;
+    if (g.sourceId.toLowerCase().includes(q)) return true;
+    if (g.creators.some((c) => c.toLowerCase().includes(q))) return true;
+    // Search inside excerpt cited text, so a user looking for "growth"
+    // can find the source they quoted that phrase from.
+    if (g.excerpts.some((e) => (e.citedText ?? '').toLowerCase().includes(q))) return true;
+    return false;
+  }
+
+  const visible = $derived.by(() => {
     const q = search.trim().toLowerCase();
-    const filtered = q
-      ? out.filter((e) => labelFor(e.kind, e.id).toLowerCase().includes(q) || e.id.toLowerCase().includes(q))
-      : out;
+    const filtered = groups.filter((g) => matchesSearch(g, q));
     if (sortId === 'alpha') {
-      return [...filtered].sort((a, b) => labelFor(a.kind, a.id).localeCompare(labelFor(b.kind, b.id)));
-    }
-    if (sortId === 'kind') {
-      // cite first, quote second, stable within kind — gives a predictable
-      // grouping without inventing a separate group-header UI just for this.
       return [...filtered].sort((a, b) => {
-        if (a.kind === b.kind) return 0;
-        return a.kind === 'cite' ? -1 : 1;
+        const ta = (a.title ?? a.sourceId).toLowerCase();
+        const tb = (b.title ?? b.sourceId).toLowerCase();
+        return ta.localeCompare(tb);
       });
     }
     return filtered;
   });
+
+  function truncate(s: string, max: number): string {
+    if (s.length <= max) return s;
+    return s.slice(0, max - 1).trimEnd() + '…';
+  }
+
+  function locatorFor(ex: CitationGroup['excerpts'][number]): string | null {
+    if (ex.page) return `p. ${ex.page}`;
+    if (ex.pageRange) return `pp. ${ex.pageRange}`;
+    if (ex.locationText) return ex.locationText;
+    return null;
+  }
 </script>
 
 <div class="cite-panel">
   <Ribbon
     {search}
     onSearch={(q: string) => { search = q; }}
-    searchPlaceholder="Find citation…"
+    searchPlaceholder="Find source…"
     sortOptions={[
-      { id: 'document', label: 'Document order' },
+      { id: 'count', label: 'Most cited' },
       { id: 'alpha', label: 'Alphabetical' },
-      { id: 'kind', label: 'By kind' },
     ]}
     {sortId}
-    onSort={(id: string) => { sortId = id as 'document' | 'alpha' | 'kind'; }}
+    onSort={(id: string) => { sortId = id as 'count' | 'alpha'; }}
   />
   <div class="scroll">
-    {#if entries().length === 0}
+    {#if visible.length === 0}
       <div class="empty">No citations in this note</div>
     {:else}
-      <div class="count">{entries().length} citation{entries().length !== 1 ? 's' : ''}</div>
-      {#each entries() as e}
-        <button
-          class="row"
-          onclick={() => e.kind === 'cite' ? onOpenSource(e.id) : onOpenExcerpt(e.id)}
-          title={`${e.kind}::${e.id}`}
-        >
-          <span class="badge" class:quote={e.kind === 'quote'}>{e.kind === 'cite' ? 'cite' : 'quote'}</span>
-          <span class="label">{labelFor(e.kind, e.id)}</span>
-        </button>
+      <div class="count">
+        {visible.length} source{visible.length === 1 ? '' : 's'} cited
+      </div>
+      {#each visible as g (g.sourceId)}
+        {@const isExpanded = expanded[g.sourceId] ?? false}
+        {@const hasExcerpts = g.excerpts.length > 0}
+        <div class="source-row">
+          <div class="source-line">
+            <button
+              class="disclose"
+              class:has-excerpts={hasExcerpts}
+              onclick={() => { if (hasExcerpts) expanded = { ...expanded, [g.sourceId]: !isExpanded }; }}
+              disabled={!hasExcerpts}
+              aria-label={hasExcerpts ? (isExpanded ? 'Collapse excerpts' : 'Expand excerpts') : ''}
+            >{hasExcerpts ? (isExpanded ? '▾' : '▸') : ''}</button>
+            <button
+              class="source-main"
+              onclick={() => onOpenSource(g.sourceId)}
+              title={g.sourceId}
+            >
+              <div class="source-title">{g.title ?? g.sourceId}</div>
+              {#if bylineFor(g)}
+                <div class="source-byline">{bylineFor(g)}</div>
+              {/if}
+            </button>
+            <span class="count-badge" title={`${g.citeCount} cite${g.citeCount === 1 ? '' : 's'}, ${g.quoteCount} quote${g.quoteCount === 1 ? '' : 's'}`}>
+              {totalCount(g)}×
+            </span>
+          </div>
+          {#if isExpanded && hasExcerpts}
+            <ul class="excerpts">
+              {#each g.excerpts as ex (ex.excerptId)}
+                {@const locator = locatorFor(ex)}
+                <li>
+                  <button
+                    class="excerpt"
+                    onclick={() => onOpenExcerpt(ex.excerptId)}
+                    title={ex.excerptId}
+                  >
+                    {#if ex.citedText}
+                      <span class="excerpt-text">“{truncate(ex.citedText, 80)}”</span>
+                    {:else}
+                      <span class="excerpt-text excerpt-id">{ex.excerptId}</span>
+                    {/if}
+                    {#if locator}
+                      <span class="excerpt-locator">{locator}</span>
+                    {/if}
+                    {#if ex.quoteCount > 1}
+                      <span class="excerpt-count">×{ex.quoteCount}</span>
+                    {/if}
+                  </button>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </div>
       {/each}
     {/if}
   </div>
@@ -127,32 +208,114 @@
     font-size: 11px;
     color: var(--text-muted);
   }
-  .row {
+  .source-row {
+    border-bottom: 1px solid var(--border);
+  }
+  .source-row:last-child { border-bottom: none; }
+  .source-line {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    width: 100%;
-    padding: 3px 12px;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px 8px;
+  }
+  .disclose {
+    flex-shrink: 0;
+    width: 16px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+    align-self: flex-start;
+    margin-top: 3px;
+  }
+  .disclose:disabled { cursor: default; visibility: hidden; }
+  .disclose.has-excerpts:hover { color: var(--text); }
+  .source-main {
+    flex: 1;
+    min-width: 0;
     border: none;
     background: none;
     color: var(--text);
-    font-size: 12px;
     cursor: pointer;
     text-align: left;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
   }
-  .row:hover { background: var(--bg-button); }
-  .badge {
-    flex-shrink: 0;
-    padding: 1px 6px;
-    border-radius: 3px;
+  .source-main:hover .source-title { color: var(--accent); }
+  .source-title {
+    font-size: 12px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .source-byline {
     font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .count-badge {
+    flex-shrink: 0;
+    align-self: flex-start;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
     background: var(--bg-button);
     color: var(--text-muted);
+    margin-top: 2px;
   }
-  .badge.quote { background: var(--accent); color: var(--bg); }
-  .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .empty { padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center; }
+  .excerpts {
+    list-style: none;
+    margin: 0;
+    padding: 0 8px 6px 28px;
+  }
+  .excerpts li { margin: 0; }
+  .excerpt {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+  .excerpt:hover { background: var(--bg-button); }
+  .excerpt-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .excerpt-id {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+    color: var(--text-muted);
+  }
+  .excerpt-locator {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .excerpt-count {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+  .empty {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
 </style>

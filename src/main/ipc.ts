@@ -491,6 +491,20 @@ export function registerIpcHandlers(): void {
     };
   });
 
+  ipcMain.handle(
+    Channels.LINKS_CITATIONS_FOR_NOTE,
+    async (e, relativePath: string, content?: string) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) return [];
+      // Renderer can pass live content (current editor buffer) so the
+      // count reflects what the user is typing right now. Falling back
+      // to disk preserves correctness when the panel refreshes from a
+      // graph event without an open editor buffer.
+      const text = content ?? await notebaseFs.readFile(rootPath, relativePath).catch(() => '');
+      return graph.citationsForNote(projectContext(rootPath), relativePath, text);
+    },
+  );
+
   // Saved queries
   ipcMain.handle(Channels.QUERIES_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);

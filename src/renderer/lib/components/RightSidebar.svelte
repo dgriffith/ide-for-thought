@@ -145,7 +145,7 @@
     {:else if activePanel === 'tables'}
       <TablesPanel {content} {onOpenQuery} />
     {:else if activePanel === 'citations'}
-      <CitationsPanel {content} {onOpenSource} {onOpenExcerpt} />
+      <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
       <BookmarksPanel {onFileSelect} {onShowPrompt} />
     {:else if activePanel === 'inspections'}

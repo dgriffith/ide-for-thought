@@ -36,6 +36,13 @@ export const Channels = {
   /** Coalesced fetch for the active-file link panels — one IPC, one
    *  graph-state round-trip, both directions back together (#351). */
   LINKS_BUNDLE: 'links:bundle',
+  /**
+   * Per-source aggregation of every citation in a note (#111). Driven
+   * by the indexed `thought:cites` / `thought:quotes` edges; counts
+   * come from re-scanning the note's content since the graph
+   * deduplicates triples.
+   */
+  LINKS_CITATIONS_FOR_NOTE: 'links:citationsForNote',
 
   // Saved queries
   QUERIES_LIST: 'queries:list',

@@ -64,6 +64,8 @@ contextBridge.exposeInMainWorld('api', {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),
     backlinks: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BACKLINKS, relativePath),
     bundle: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BUNDLE, relativePath),
+    citationsForNote: (relativePath: string, content?: string) =>
+      ipcRenderer.invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
   },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
