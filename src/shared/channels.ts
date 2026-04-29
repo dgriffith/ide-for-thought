@@ -128,6 +128,14 @@ export const Channels = {
   /** Persist the per-project CSL style id. (#113) */
   BIBLIOGRAPHY_SET_STYLE: 'bibliography:setStyle',
 
+  /**
+   * Render a batch of inline citations through citeproc using the
+   * project's configured CSL style (#110). Input is the cite/quote
+   * refs in document order; output is the formatted markers plus an
+   * optional bibliography for numeric-class styles.
+   */
+  CITATION_RENDER_INLINE: 'citation:renderInline',
+
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
   /** LLM-suggested outbound wiki-links for a note (#175). */

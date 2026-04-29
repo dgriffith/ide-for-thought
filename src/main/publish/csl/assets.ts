@@ -11,21 +11,29 @@ import APA_CSL from './bundled/apa.csl?raw';
 // @ts-expect-error same — see above.
 import CHICAGO_AD_CSL from './bundled/chicago-author-date.csl?raw';
 // @ts-expect-error same — see above.
+import CHICAGO_NOTES_CSL from './bundled/chicago-notes-bibliography.csl?raw';
+// @ts-expect-error same — see above.
 import IEEE_CSL from './bundled/ieee.csl?raw';
+// @ts-expect-error same — see above.
+import MLA_CSL from './bundled/modern-language-association.csl?raw';
 // @ts-expect-error same — see above.
 import EN_US_LOCALE from './bundled/locales-en-US.xml?raw';
 
 export const BUNDLED_STYLES: Record<string, string> = {
   apa: APA_CSL as string,
   'chicago-author-date': CHICAGO_AD_CSL as string,
+  'chicago-notes-bibliography': CHICAGO_NOTES_CSL as string,
   ieee: IEEE_CSL as string,
+  mla: MLA_CSL as string,
 };
 
 /** Human-readable labels for each bundled style id, for UI pickers. */
 export const BUNDLED_STYLE_LABELS: Record<string, string> = {
   apa: 'APA (7th edition)',
   'chicago-author-date': 'Chicago (author–date)',
+  'chicago-notes-bibliography': 'Chicago (notes & bibliography)',
   ieee: 'IEEE',
+  mla: 'MLA (9th edition)',
 };
 
 export const BUNDLED_LOCALES: Record<string, string> = {

@@ -418,7 +418,17 @@ export interface IdeApi {
   sources: SourcesApi;
   sites: SitesApi;
   bibliography: BibliographyApi;
+  citations: CitationsApi;
   menu: MenuApi;
+}
+
+export interface CitationsApi {
+  renderInline(refs: { kind: 'cite' | 'quote'; id: string }[]): Promise<{
+    markers: string[];
+    bibliography: string[] | null;
+    missing: string[];
+    styleId: string;
+  }>;
 }
 
 export interface SitesApi {

@@ -260,6 +260,10 @@ contextBridge.exposeInMainWorld('api', {
     generate: (relativePath: string) =>
       ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GENERATE, relativePath),
   },
+  citations: {
+    renderInline: (refs: { kind: 'cite' | 'quote'; id: string }[]) =>
+      ipcRenderer.invoke(Channels.CITATION_RENDER_INLINE, refs),
+  },
   menu: {
     onNewNote: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_NOTE, () => cb());

@@ -49,6 +49,7 @@ import {
   setBibliographyStyleId,
 } from './project-config';
 import { BUNDLED_STYLES, BUNDLED_STYLE_LABELS, DEFAULT_STYLE } from './publish/csl/assets';
+import { renderInlineCitations, type InlineCiteRequest } from './citations/render-inline';
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
 import { importBibtex } from './sources/import-bibtex';
@@ -776,6 +777,14 @@ export function registerIpcHandlers(): void {
     }
     setBibliographyStyleId(rootPath, styleId);
   });
+  ipcMain.handle(Channels.CITATION_RENDER_INLINE, async (e, refs: InlineCiteRequest[]) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) {
+      return { markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE };
+    }
+    return await renderInlineCitations(rootPath, refs ?? []);
+  });
+
   ipcMain.handle(Channels.BIBLIOGRAPHY_GENERATE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');

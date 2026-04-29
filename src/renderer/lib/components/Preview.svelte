@@ -474,6 +474,15 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   let previewEl = $state<HTMLDivElement>();
   let activeCharts: ChartHandle[] = [];
 
+  /**
+   * Numeric-style preview bibliography (#110). Author-date / note styles
+   * carry their context inline and don't need a preview-side
+   * accumulation; numeric styles ([1], [2]) are opaque without one.
+   * `null` when the current style is non-numeric or there are no
+   * citations.
+   */
+  let cslBibliographyEntries = $state<string[] | null>(null);
+
   // After render, find query-block placeholders and execute queries
   $effect(() => {
     rendered; // track dependency on rendered HTML
@@ -489,8 +498,69 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       cites?.forEach((el) => resolveCiteLabel(el as HTMLElement));
       const quotes = previewEl?.querySelectorAll('.quote-link');
       quotes?.forEach((el) => resolveQuoteLabel(el as HTMLElement));
+      // CSL marker pass — runs in parallel with the per-element
+      // metadata fetches. Citeproc-rendered markers replace the
+      // raw cite/quote display text per the project's CSL style.
+      void applyCslMarkers();
     });
   });
+
+  /**
+   * Walk every cite/quote link in document order, batch them into one
+   * IPC call, and swap each link's `.link-display` text for the
+   * citeproc-rendered marker. Document order matters for numeric
+   * styles ("[1]" goes to the first-cited item) — `querySelectorAll`
+   * returns DOM-order, which equals source-order here.
+   */
+  async function applyCslMarkers(): Promise<void> {
+    const root = previewEl;
+    if (!root) return;
+    const links = Array.from(
+      root.querySelectorAll<HTMLElement>('.cite-link, .quote-link'),
+    );
+    if (links.length === 0) {
+      cslBibliographyEntries = null;
+      return;
+    }
+    const refs: { kind: 'cite' | 'quote'; id: string }[] = [];
+    for (const el of links) {
+      if (el.classList.contains('cite-link')) {
+        const id = el.dataset.sourceId;
+        if (id) refs.push({ kind: 'cite', id });
+      } else {
+        const id = el.dataset.excerptId;
+        if (id) refs.push({ kind: 'quote', id });
+      }
+    }
+    if (refs.length === 0) {
+      cslBibliographyEntries = null;
+      return;
+    }
+    let response: Awaited<ReturnType<typeof api.citations.renderInline>>;
+    try {
+      response = await api.citations.renderInline(refs);
+    } catch (err) {
+      console.warn('[preview] citation render failed:', err);
+      cslBibliographyEntries = null;
+      return;
+    }
+    // The DOM may have re-rendered while the IPC was in flight; bail
+    // if the link set we measured is no longer current.
+    const currentLinks = root.querySelectorAll<HTMLElement>('.cite-link, .quote-link');
+    if (currentLinks.length !== links.length) return;
+    for (let i = 0; i < links.length; i++) {
+      const el = links[i];
+      const marker = response.markers[i];
+      if (typeof marker !== 'string') continue;
+      // Respect the user's |display override — they asked for that
+      // exact text and citeproc shouldn't override it.
+      if (el.dataset.displayOverride === '1') continue;
+      const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
+      if (!displayEl) continue;
+      displayEl.innerHTML = marker;
+    }
+    cslBibliographyEntries = response.bibliography;
+  }
 
   // After render, if the caller asked us to jump to a heading or block, do it.
   $effect(() => {
@@ -556,32 +626,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return meta;
   }
 
-  function applyCiteMeta(el: HTMLElement, displayEl: HTMLSpanElement, sourceId: string, meta: CiteMeta) {
+  function applyCiteMeta(el: HTMLElement, _displayEl: HTMLSpanElement, _sourceId: string, meta: CiteMeta) {
+    // Display text is owned by the CSL marker pass (#110); we only
+    // populate tooltip metadata here.
     el.dataset.tooltipKind = 'cite';
     el.dataset.tooltipPayload = JSON.stringify(meta);
-    if (el.dataset.displayOverride !== '1') {
-      displayEl.textContent = formatCiteLabel(sourceId, meta);
-    }
-  }
-
-  function formatCiteLabel(sourceId: string, meta: CiteMeta): string {
-    const title = meta.title;
-    const byline = formatByline(meta.creators, meta.year);
-    if (title && byline) return `${title} — ${byline}`;
-    if (title) return title;
-    if (byline) return byline;
-    return sourceId;
-  }
-
-  function formatByline(creators: string[], year?: string): string {
-    const who = creators.length === 0 ? ''
-      : creators.length === 1 ? creators[0]
-      : creators.length === 2 ? `${creators[0]} and ${creators[1]}`
-      : `${creators[0]} et al.`;
-    if (who && year) return `${who} (${year})`;
-    if (who) return who;
-    if (year) return `(${year})`;
-    return '';
   }
 
   async function resolveQuoteLabel(el: HTMLElement) {
@@ -630,27 +679,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }
   }
 
-  function applyQuoteMeta(el: HTMLElement, displayEl: HTMLSpanElement, excerptId: string, meta: QuoteMeta) {
+  function applyQuoteMeta(el: HTMLElement, _displayEl: HTMLSpanElement, _excerptId: string, meta: QuoteMeta) {
+    // Display text is owned by the CSL marker pass (#110); we only
+    // populate tooltip metadata here.
     el.dataset.tooltipKind = 'quote';
     el.dataset.tooltipPayload = JSON.stringify(meta);
-    if (el.dataset.displayOverride !== '1') {
-      displayEl.textContent = formatQuoteLabel(excerptId, meta);
-    }
-  }
-
-  function formatQuoteLabel(excerptId: string, meta: QuoteMeta): string {
-    const quoted = meta.citedText;
-    const src = meta.sourceTitle || meta.sourceCreator;
-    const snippet = quoted ? truncate(quoted, 80) : '';
-    if (snippet && src) return `“${snippet}” — ${src}`;
-    if (snippet) return `“${snippet}”`;
-    if (src) return src;
-    return excerptId;
-  }
-
-  function truncate(s: string, max: number): string {
-    if (s.length <= max) return s;
-    return s.slice(0, max - 1).trimEnd() + '…';
   }
 
   async function executeQueryBlock(el: HTMLElement) {
@@ -1036,6 +1069,15 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   onmouseout={handleMouseOut}
 >
   {@html rendered}
+  {#if cslBibliographyEntries && cslBibliographyEntries.length > 0}
+    <aside class="csl-numeric-bibliography" aria-label="References">
+      <h2>References</h2>
+      {#each cslBibliographyEntries as entry, i (i)}
+        <!-- citeproc emits trusted HTML from project-controlled meta.ttl -->
+        <div class="csl-bibliography-entry">{@html entry}</div>
+      {/each}
+    </aside>
+  {/if}
   <div
     class="cite-tooltip"
     class:visible={tooltipVisible}
@@ -1438,5 +1480,30 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   }
   .compute-output-menu button:hover {
     background: var(--bg-button);
+  }
+
+  /* Numeric-style preview bibliography (#110). */
+  .csl-numeric-bibliography {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .csl-numeric-bibliography h2 {
+    font-size: 14px;
+    margin: 0 0 8px 0;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .csl-bibliography-entry {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    padding-left: 1.5em;
+    text-indent: -1.5em;
+  }
+  .csl-bibliography-entry :global(.csl-entry) {
+    /* citeproc emits its own div wrapper; let it inherit our entry styles. */
+    display: inline;
   }
 </style>
