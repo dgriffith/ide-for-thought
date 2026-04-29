@@ -51,6 +51,7 @@ export async function resolvePlan(
   });
 
   return {
+    inputKind: input.kind,
     inputs,
     excluded,
     linkPolicy: opts.linkPolicy ?? 'inline-title',

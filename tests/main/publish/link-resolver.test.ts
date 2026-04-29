@@ -8,6 +8,7 @@ import type { ExportPlan, LinkPolicy } from '../../../src/main/publish/types';
 
 function mkPlan(linkPolicy: LinkPolicy): ExportPlan {
   return {
+    inputKind: 'project',
     inputs: [
       {
         relativePath: 'notes/foo.md',

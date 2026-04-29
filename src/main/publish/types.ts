@@ -74,6 +74,14 @@ export interface ExportPlanExclusion {
 }
 
 export interface ExportPlan {
+  /**
+   * The scope the user picked — preserved here so exporters can
+   * distinguish "the whole project" from "a folder that happens to
+   * contain every note". The BibTeX exporter, for instance, treats
+   * project scope as "whole library" (every loaded source) and
+   * folder/single-note as "intersect with what these notes cite".
+   */
+  inputKind: ExportInput['kind'];
   inputs: ExportPlanFile[];
   excluded: ExportPlanExclusion[];
   linkPolicy: LinkPolicy;

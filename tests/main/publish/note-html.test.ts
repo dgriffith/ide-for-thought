@@ -13,6 +13,7 @@ function mkTempProject(): string {
 
 function planWithNote(overrides: Partial<ExportPlan['inputs'][number]>, planOverrides: Partial<ExportPlan> = {}): ExportPlan {
   return {
+    inputKind: 'single-note',
     inputs: [
       {
         relativePath: 'notes/x.md',
@@ -61,6 +62,7 @@ describe('noteHtmlExporter (#248)', () => {
 
   it('multi-note scope preserves the source tree so follow-to-file links resolve', async () => {
     const plan: ExportPlan = {
+      inputKind: 'project',
       inputs: [
         { relativePath: 'notes/a.md', kind: 'note', content: '# A\n', frontmatter: {}, title: 'A' },
         { relativePath: 'notes/sub/b.md', kind: 'note', content: '# B\n', frontmatter: {}, title: 'B' },
@@ -102,6 +104,7 @@ describe('noteHtmlExporter (#248)', () => {
 
   it('linkPolicy follow-to-file emits .html-linked anchors only when target is in plan', async () => {
     const plan: ExportPlan = {
+      inputKind: 'project',
       inputs: [
         { relativePath: 'a.md', kind: 'note', content: '# A\n\nTo [[b]] and [[nowhere]].\n', frontmatter: {}, title: 'A' },
         { relativePath: 'b.md', kind: 'note', content: '', frontmatter: {}, title: 'B' },
@@ -196,6 +199,7 @@ describe('noteHtmlExporter — image inlining', () => {
     await fsp.writeFile(path.join(root, 'notes/pixel.png'), png);
     const content = '# X\n\n![pixel](pixel.png)\n';
     const plan: ExportPlan = {
+      inputKind: 'single-note',
       inputs: [{ relativePath: 'notes/x.md', kind: 'note', content, frontmatter: {}, title: 'X' }],
       excluded: [],
       linkPolicy: 'inline-title',
@@ -210,6 +214,7 @@ describe('noteHtmlExporter — image inlining', () => {
 
   it('leaves images alone when assetPolicy is keep-relative', async () => {
     const plan: ExportPlan = {
+      inputKind: 'single-note',
       inputs: [{
         relativePath: 'notes/x.md', kind: 'note',
         content: '![pixel](pixel.png)\n', frontmatter: {}, title: 'X',
@@ -226,6 +231,7 @@ describe('noteHtmlExporter — image inlining', () => {
 
   it('leaves http(s) images alone even with inline-base64', async () => {
     const plan: ExportPlan = {
+      inputKind: 'single-note',
       inputs: [{
         relativePath: 'notes/x.md', kind: 'note',
         content: '![remote](https://example.org/img.png)\n', frontmatter: {}, title: 'X',
