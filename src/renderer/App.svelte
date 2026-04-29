@@ -1424,57 +1424,6 @@
     sidebar?.refreshTags();
   }
 
-  async function handleFindArguments(polarity: 'support' | 'oppose') {
-    if (!notebase.meta) return;
-    const claimUri = editorComponent?.getClaimUriAtCursor() ?? null;
-    if (!claimUri) {
-      await showConfirm(
-        'Place the cursor on (or select) a line containing a claim URI — for example, the `<https://minerva.dev/c/claim-…>` line in a decomposition note.',
-        polarity === 'support'
-          ? CONFIRM_KEYS.findArgumentsNoClaim
-          : CONFIRM_KEYS.findArgumentsNoClaim,
-        'OK',
-      );
-      return;
-    }
-    try {
-      const result = await withBusy(
-        polarity === 'support' ? 'Finding supporting arguments…' : 'Finding opposing arguments…',
-        () => api.research.findArguments({ polarity, claimUri }),
-      );
-      if (result.error) {
-        await showConfirm(
-          `${polarity === 'support' ? 'Find Supporting' : 'Find Opposing'} Arguments failed: ${result.error}`,
-          CONFIRM_KEYS.findArgumentsFailed,
-          'OK',
-        );
-        return;
-      }
-      if (result.verdict === 'no-strong-arguments-found') {
-        await showConfirm(
-          polarity === 'support'
-            ? 'The LLM found no strong supporting arguments for this claim. (That is a real answer, not a failure — see the anti-flattery rule.)'
-            : 'The LLM found no strong opposing arguments for this claim. (That is a real answer, not a failure — see the anti-flattery rule.)',
-          CONFIRM_KEYS.findArgumentsNoStrong,
-          'OK',
-        );
-        return;
-      }
-      await showConfirm(
-        `Filed ${result.argumentCount} ${polarity === 'support' ? 'supporting' : 'opposing'} argument${result.argumentCount === 1 ? '' : 's'} as a Proposal — review in the Proposals panel.`,
-        CONFIRM_KEYS.findArgumentsFiled,
-        'OK',
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(
-        `${polarity === 'support' ? 'Find Supporting' : 'Find Opposing'} Arguments failed: ${msg}`,
-        CONFIRM_KEYS.findArgumentsFailed,
-        'OK',
-      );
-    }
-  }
-
   async function handleDecomposeClaims() {
     if (!notebase.meta) return;
     const tab = editor.activeNoteTab;
@@ -1711,7 +1660,15 @@
         context: invocation.context,
       });
     } catch (err) {
+      // The tool's `buildSystemPrompt` may throw with a user-facing
+      // explanation (e.g. find-arguments throws "right-click on a
+      // claim line first" when no URI was extracted from the cursor).
+      // Surface that message as a dialog rather than logging it
+      // silently to console — otherwise the user sees nothing happen
+      // when they pick a misconfigured tool.
+      const msg = err instanceof Error ? err.message : String(err);
       console.error('[tool] prepareConversation failed:', err);
+      await showConfirm(msg, CONFIRM_KEYS.toolPrepareFailed, 'OK');
       return;
     }
 
@@ -1912,8 +1869,6 @@
     api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); });
     api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); });
     api.menu.onResearchDecomposeClaims(() => { void handleDecomposeClaims(); });
-    api.menu.onResearchFindSupporting(() => { void handleFindArguments('support'); });
-    api.menu.onResearchFindOpposing(() => { void handleFindArguments('oppose'); });
 
     // Format menu (issue #153)
     api.menu.onFormat(() => handleFormat());
@@ -2162,8 +2117,6 @@
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
                     onDecomposeClaims={() => { void handleDecomposeClaims(); }}
-                    onFindSupportingArguments={() => { void handleFindArguments('support'); }}
-                    onFindOpposingArguments={() => { void handleFindArguments('oppose'); }}
                     onFormatCurrentNote={() => handleFormat()}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');

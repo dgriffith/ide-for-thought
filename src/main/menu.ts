@@ -450,13 +450,13 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         { type: 'separator' },
         gate({
           label: 'Find Supporting Arguments',
-          toolTip: 'For the Claim under the cursor, generate the strongest cases in favour of it (web-grounded). Files a Proposal of Grounds nodes.',
-          click: () => send(Channels.MENU_RESEARCH_FIND_SUPPORTING),
+          toolTip: 'For the Claim under the cursor, open a conversation that surfaces the strongest cases in favour of it (web-grounded). The model proposes a note for review.',
+          click: () => send(Channels.TOOL_INVOKE, 'research.find-supporting-arguments'),
         }),
         gate({
           label: 'Find Opposing Arguments',
-          toolTip: 'For the Claim under the cursor, generate the strongest cases against it (web-grounded). Files a Proposal of Grounds nodes.',
-          click: () => send(Channels.MENU_RESEARCH_FIND_OPPOSING),
+          toolTip: 'For the Claim under the cursor, open a conversation that surfaces the strongest cases against it (web-grounded). The model proposes a note for review.',
+          click: () => send(Channels.TOOL_INVOKE, 'research.find-opposing-arguments'),
         }),
         { type: 'separator' },
         gate({

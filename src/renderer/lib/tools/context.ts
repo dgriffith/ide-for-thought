@@ -1,6 +1,7 @@
 import type { ToolContext, ContextRequirement } from '../../../shared/tools/types';
 import { getEditorStore } from '../stores/editor.svelte';
 import { api } from '../ipc/client';
+import { extractClaimUri } from '../../../shared/refactor/find-arguments';
 import type { EditorView } from '@codemirror/view';
 
 export async function gatherContext(
@@ -14,6 +15,48 @@ export async function gatherContext(
     const { from, to } = editorView.state.selection.main;
     if (from !== to) {
       ctx.selectedText = editorView.state.sliceDoc(from, to);
+    }
+  }
+
+  if (requirements.includes('claimUnderCursor') && editorView) {
+    // Mirror Editor.svelte's getClaimUriAtCursor: prefer the active
+    // selection, fall back to the current line. Centralising the URI
+    // extraction here keeps the right-click context-menu disabled
+    // state and the tool invocation honest about the same source.
+    const sel = editorView.state.selection.main;
+    let uri: string | null = null;
+    if (sel.from !== sel.to) {
+      uri = extractClaimUri(editorView.state.sliceDoc(sel.from, sel.to));
+    }
+    if (!uri) {
+      const line = editorView.state.doc.lineAt(sel.head);
+      uri = extractClaimUri(line.text);
+    }
+    if (uri) {
+      ctx.claimUri = uri;
+      // Look up label + sourceText so the tool's first message can show
+      // the user (and the model) the claim text without needing a
+      // round-trip query_graph call. If the URI doesn't resolve to a
+      // thought:Claim, the metadata stays empty — the tool can still
+      // operate on the URI alone, the user just won't see the source
+      // passage in the seeded message.
+      try {
+        const r = await api.graph.query(`
+          PREFIX thought: <https://minerva.dev/ontology/thought#>
+          SELECT ?label ?sourceText WHERE {
+            <${uri}> a thought:Claim .
+            OPTIONAL { <${uri}> thought:label ?label . }
+            OPTIONAL { <${uri}> thought:sourceText ?sourceText . }
+          } LIMIT 1
+        `);
+        const rows = r.results as Array<{ label?: string; sourceText?: string }>;
+        if (rows.length > 0) {
+          ctx.claimLabel = rows[0].label ?? '';
+          ctx.claimSourceText = rows[0].sourceText ?? '';
+        }
+      } catch {
+        // Graph not initialised / query error — leave metadata empty.
+      }
     }
   }
 

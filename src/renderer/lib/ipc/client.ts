@@ -385,8 +385,6 @@ export interface MenuApi {
   onRefactorAutoLinkInbound(cb: () => void): void;
   onRefactorDecompose(cb: () => void): void;
   onResearchDecomposeClaims(cb: () => void): void;
-  onResearchFindSupporting(cb: () => void): void;
-  onResearchFindOpposing(cb: () => void): void;
   onFormat(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
@@ -430,18 +428,6 @@ export interface ResearchApi {
     proposedBy?: string;
     model?: string;
   }): Promise<{ claimCount: number; proposalUri: string | null; error: string }>;
-  /** #409 / #410 — find supporting / opposing arguments for an existing thought:Claim. Web-grounded; the no-strong-arguments-found verdict is a real answer (no Proposal filed). */
-  findArguments(args: {
-    polarity: 'support' | 'oppose';
-    claimUri: string;
-    proposedBy?: string;
-    model?: string;
-  }): Promise<{
-    verdict: 'arguments-found' | 'no-strong-arguments-found';
-    argumentCount: number;
-    proposalUri: string | null;
-    error: string;
-  }>;
 }
 
 export interface SourcesApi {

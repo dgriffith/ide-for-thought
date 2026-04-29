@@ -328,6 +328,14 @@ function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | Frontmat
     const noteRel = target.endsWith('.md') ? target : `${target}.md`;
     return $rdf.sym(uriHelpers.noteUri(projectBaseUri, noteRel));
   }
+  // Bare absolute URI → IRI node. Lets a frontmatter key like
+  // `supports: https://minerva.dev/c/claim-…` materialise as a real
+  // graph edge to that node, rather than as an opaque string literal.
+  // The tail check excludes whitespace so we don't mis-classify a
+  // longer string that happens to start with a URL.
+  if (/^https?:\/\/\S+$/.test(value)) {
+    return $rdf.sym(value);
+  }
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return $rdf.lit(value, undefined, XSD('date'));
   }
