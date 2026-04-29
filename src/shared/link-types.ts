@@ -40,6 +40,17 @@ export const LINK_TYPES: LinkType[] = [
     color: '#f38ba8', // red
   },
   {
+    // #413 — surfaces in load-bearing-claim analysis notes:
+    //   `Load-bearing for [[load-bearing-for::source-note]].`
+    // The indexer materialises this as a `thought:loadBearingFor` triple
+    // from the analysis note to the source it analyses.
+    name: 'load-bearing-for',
+    label: 'Load-bearing for',
+    predicate: 'loadBearingFor',
+    predicateNamespace: 'thought',
+    color: '#f9e2af', // yellow — high-leverage / "watch this"
+  },
+  {
     name: 'expands',
     label: 'Expands',
     predicate: 'expands',

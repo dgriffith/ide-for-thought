@@ -4,6 +4,9 @@ import './analysis/steelman';
 import './analysis/taboo';
 import './analysis/murphyjitsu';
 
+// Research tools
+import './research/load-bearing-claim';
+
 // Learning tools
 import './learning/summarize';
 import './learning/explain-like-im';
