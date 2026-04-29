@@ -42,6 +42,8 @@ export const CONFIRM_KEYS = {
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
   saveCellOutputFailed: 'save-cell-output-failed',
   exportComplete: 'export-complete',
+  bibliographyResult: 'bibliography-result',
+  bibliographyFailed: 'bibliography-failed',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -226,6 +228,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Export complete',
     description:
       'Summary dialog after an export finishes (how many files were written and to which directory).',
+  },
+  {
+    key: CONFIRM_KEYS.bibliographyResult,
+    title: 'Bibliography updated',
+    description:
+      'Summary dialog after Insert/Update Bibliography finishes — entry count and any cited ids the renderer could not resolve.',
+  },
+  {
+    key: CONFIRM_KEYS.bibliographyFailed,
+    title: 'Bibliography failed',
+    description:
+      'Shown when Insert/Update Bibliography errors out (file read failure, citeproc engine error, etc).',
   },
 ];
 

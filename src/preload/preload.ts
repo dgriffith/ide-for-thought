@@ -244,6 +244,22 @@ contextBridge.exposeInMainWorld('api', {
     setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
+  sites: {
+    list: () => ipcRenderer.invoke(Channels.SITES_LIST),
+    add: (domain: string, label?: string) =>
+      ipcRenderer.invoke(Channels.SITES_ADD, domain, label),
+    remove: (id: string) => ipcRenderer.invoke(Channels.SITES_REMOVE, id),
+    login: (id: string) => ipcRenderer.invoke(Channels.SITES_LOGIN, id),
+    logout: (id: string) => ipcRenderer.invoke(Channels.SITES_LOGOUT, id),
+  },
+  bibliography: {
+    listStyles: () => ipcRenderer.invoke(Channels.BIBLIOGRAPHY_LIST_STYLES),
+    getStyle: () => ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GET_STYLE),
+    setStyle: (styleId: string) =>
+      ipcRenderer.invoke(Channels.BIBLIOGRAPHY_SET_STYLE, styleId),
+    generate: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GENERATE, relativePath),
+  },
   menu: {
     onNewNote: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_NOTE, () => cb());
@@ -364,6 +380,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onFormat: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FORMAT, () => cb());
+    },
+    onBibliography: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_BIBLIOGRAPHY, () => cb());
     },
     onIngestUrl: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());

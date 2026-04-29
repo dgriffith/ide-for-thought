@@ -114,6 +114,20 @@ export const Channels = {
    *  set (Format Current Note / Format Folder / Format All). */
   MENU_FORMAT: 'menu:format',
 
+  /** Insert/Update Bibliography menu trigger (#113). */
+  MENU_BIBLIOGRAPHY: 'menu:bibliography',
+
+  /** Generate (or remove, when there are no remaining citations) the
+   *  References section for a note. Returns the rendered entries count
+   *  and any cited ids the renderer couldn't resolve. (#113) */
+  BIBLIOGRAPHY_GENERATE: 'bibliography:generate',
+  /** List bundled CSL styles, for the Settings picker. (#113) */
+  BIBLIOGRAPHY_LIST_STYLES: 'bibliography:listStyles',
+  /** Read the per-project configured CSL style id. (#113) */
+  BIBLIOGRAPHY_GET_STYLE: 'bibliography:getStyle',
+  /** Persist the per-project CSL style id. (#113) */
+  BIBLIOGRAPHY_SET_STYLE: 'bibliography:setStyle',
+
   /** Renderer-initiated LLM Auto-tag of a note (#174). */
   REFACTOR_AUTO_TAG: 'refactor:autoTag',
   /** LLM-suggested outbound wiki-links for a note (#175). */
@@ -265,4 +279,12 @@ export const Channels = {
   SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   GRAPH_EXPORT: 'graph:export',
+
+  // Privileged sites (per-machine domains the user has logged in to so
+  // Minerva-initiated fetches can carry their session cookies).
+  SITES_LIST: 'sites:list',
+  SITES_ADD: 'sites:add',
+  SITES_REMOVE: 'sites:remove',
+  SITES_LOGIN: 'sites:login',
+  SITES_LOGOUT: 'sites:logout',
 } as const;

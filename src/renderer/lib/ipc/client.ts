@@ -385,6 +385,7 @@ export interface MenuApi {
   onRefactorAutoLinkInbound(cb: () => void): void;
   onRefactorDecompose(cb: () => void): void;
   onFormat(cb: () => void): void;
+  onBibliography(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
   onIngestPdf(cb: () => void): void;
@@ -415,7 +416,29 @@ export interface IdeApi {
   refactor: RefactorApi;
   formatter: FormatterApi;
   sources: SourcesApi;
+  sites: SitesApi;
+  bibliography: BibliographyApi;
   menu: MenuApi;
+}
+
+export interface SitesApi {
+  list(): Promise<import('../../../shared/types').PrivilegedSite[]>;
+  add(domain: string, label?: string): Promise<import('../../../shared/types').PrivilegedSite>;
+  remove(id: string): Promise<void>;
+  login(id: string): Promise<void>;
+  logout(id: string): Promise<void>;
+}
+
+export interface BibliographyApi {
+  listStyles(): Promise<{ id: string; label: string }[]>;
+  getStyle(): Promise<string>;
+  setStyle(styleId: string): Promise<void>;
+  generate(relativePath: string): Promise<{
+    entriesCount: number;
+    missingIds: string[];
+    changed: boolean;
+    styleId: string;
+  }>;
 }
 
 

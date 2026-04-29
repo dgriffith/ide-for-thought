@@ -1057,6 +1057,44 @@
     }
   }
 
+  async function handleBibliography() {
+    if (!notebase.meta) return;
+    const tab = editor.activeNoteTab;
+    if (!tab) {
+      await showConfirm(
+        'Open a note to insert/update its bibliography.',
+        CONFIRM_KEYS.bibliographyFailed,
+        'OK',
+      );
+      return;
+    }
+    try {
+      // Save any unsaved buffer first — the generator reads from disk so
+      // citations the user just typed wouldn't otherwise be picked up.
+      if (tab.content !== tab.savedContent) await editor.save();
+      const result = await withBusy('Generating bibliography…', () =>
+        api.bibliography.generate(tab.relativePath),
+      );
+      const lines: string[] = [];
+      if (result.entriesCount === 0 && !result.changed) {
+        lines.push('No citations found in this note.');
+      } else if (result.entriesCount === 0 && result.changed) {
+        lines.push('Removed References section (no remaining citations).');
+      } else {
+        lines.push(
+          `${result.entriesCount} ${result.entriesCount === 1 ? 'entry' : 'entries'} written using ${result.styleId}.`,
+        );
+      }
+      if (result.missingIds.length > 0) {
+        lines.push(`Couldn't resolve: ${result.missingIds.join(', ')}.`);
+      }
+      await showConfirm(lines.join(' '), CONFIRM_KEYS.bibliographyResult, 'OK');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Bibliography failed: ${msg}`, CONFIRM_KEYS.bibliographyFailed, 'OK');
+    }
+  }
+
   async function handleIngestUrl() {
     if (!notebase.meta) return;
     const raw = await showPrompt('URL to ingest:');
@@ -1824,6 +1862,9 @@
 
     // Format menu (issue #153)
     api.menu.onFormat(() => handleFormat());
+
+    // Insert/Update Bibliography (#113)
+    api.menu.onBibliography(() => { void handleBibliography(); });
 
     // Ingest URL (#93)
     api.menu.onIngestUrl(() => handleIngestUrl());

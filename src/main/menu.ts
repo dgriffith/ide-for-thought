@@ -420,6 +420,12 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           toolTip: 'Format the active note, or every note in the left-sidebar selection (use \u2318-click / shift-click to multi-select, \u2318-A to select all).',
           click: () => send(Channels.MENU_FORMAT),
         }),
+        { type: 'separator' },
+        gate({
+          label: 'Insert/Update Bibliography',
+          toolTip: 'Render a References section listing every source the active note cites, in the project\u2019s configured CSL style.',
+          click: () => send(Channels.MENU_BIBLIOGRAPHY),
+        }),
       ],
     },
 

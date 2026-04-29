@@ -35,6 +35,20 @@ import {
 import { ingestUrl } from './sources/ingest';
 import * as tables from './sources/tables';
 import { ingestIdentifier } from './sources/ingest-identifier';
+import {
+  listSites as listPrivilegedSites,
+  addSite as addPrivilegedSite,
+  removeSite as removePrivilegedSite,
+  logoutSite as logoutPrivilegedSite,
+  openLoginWindow as openPrivilegedLogin,
+  privilegedFetch,
+} from './privileged-sites';
+import { generateBibliography } from './bibliography/generate';
+import {
+  getBibliographyStyleId,
+  setBibliographyStyleId,
+} from './project-config';
+import { BUNDLED_STYLES, BUNDLED_STYLE_LABELS, DEFAULT_STYLE } from './publish/csl/assets';
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
 import { importBibtex } from './sources/import-bibtex';
@@ -731,6 +745,55 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // Privileged sites
+  ipcMain.handle(Channels.SITES_LIST, () => listPrivilegedSites());
+  ipcMain.handle(Channels.SITES_ADD, (_e, domain: string, label?: string) =>
+    addPrivilegedSite(domain, label),
+  );
+  ipcMain.handle(Channels.SITES_REMOVE, (_e, id: string) => removePrivilegedSite(id));
+  ipcMain.handle(Channels.SITES_LOGIN, async (_e, id: string) => {
+    await openPrivilegedLogin(id);
+  });
+  ipcMain.handle(Channels.SITES_LOGOUT, (_e, id: string) => logoutPrivilegedSite(id));
+
+  // Bibliography (#113)
+  ipcMain.handle(Channels.BIBLIOGRAPHY_LIST_STYLES, () =>
+    Object.keys(BUNDLED_STYLES).map((id) => ({
+      id,
+      label: BUNDLED_STYLE_LABELS[id] ?? id,
+    })),
+  );
+  ipcMain.handle(Channels.BIBLIOGRAPHY_GET_STYLE, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return DEFAULT_STYLE;
+    return getBibliographyStyleId(rootPath) ?? DEFAULT_STYLE;
+  });
+  ipcMain.handle(Channels.BIBLIOGRAPHY_SET_STYLE, (e, styleId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    if (!Object.prototype.hasOwnProperty.call(BUNDLED_STYLES, styleId)) {
+      throw new Error(`Unknown CSL style: ${styleId}`);
+    }
+    setBibliographyStyleId(rootPath, styleId);
+  });
+  ipcMain.handle(Channels.BIBLIOGRAPHY_GENERATE, async (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const original = await notebaseFs.readFile(rootPath, relativePath);
+    const result = await generateBibliography(rootPath, original);
+    if (result.changed) {
+      // 6-step pipeline keeps graph + search + open editors in sync
+      // with on-disk content, just like a manual save.
+      await writeAndReindex(rootPath, relativePath, result.content, hooks);
+    }
+    return {
+      entriesCount: result.entriesCount,
+      missingIds: result.missingIds,
+      changed: result.changed,
+      styleId: result.styleId,
+    };
+  });
+
   // Tools for Thought
   const activeAbortControllers = new Map<number, AbortController>();
 
@@ -855,13 +918,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.SOURCES_INGEST_URL, async (e, url: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    return await ingestUrl(rootPath, url);
+    return await ingestUrl(rootPath, url, { fetchImpl: privilegedFetch });
   });
 
   ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    return await ingestIdentifier(rootPath, identifier);
+    return await ingestIdentifier(rootPath, identifier, { fetchImpl: privilegedFetch });
   });
 
   ipcMain.handle(Channels.FILES_DROP_IMPORT, async (e, targetFolder: string, localPaths: string[]) => {

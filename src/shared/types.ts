@@ -176,6 +176,22 @@ export interface ConversationMessage {
   citations?: Citation[];
 }
 
+/**
+ * A site the user has authenticated to in an Electron persistent partition,
+ * so Minerva-initiated fetches to that domain can carry their session.
+ * Per-machine state — cookies live in userData under the partition.
+ */
+export interface PrivilegedSite {
+  id: string;
+  /** Bare hostname suffix to match against, e.g. `arxiv.org`. */
+  domain: string;
+  /** Optional human label; falls back to `domain`. */
+  label: string;
+  addedAt: string;
+  /** ISO timestamp of the most recent in-app login window close. */
+  lastLoginAt: string | null;
+}
+
 export type ConversationStatus = 'active' | 'resolved' | 'abandoned';
 
 export interface Conversation {
