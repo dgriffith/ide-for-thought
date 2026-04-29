@@ -28,7 +28,6 @@ import {
 } from './llm/auto-link';
 import { suggestDecomposition, type DecomposeHints } from './llm/decompose';
 import { decomposeClaims, type DecomposeClaimsArgs } from './llm/decompose-claims';
-import { findArguments, type FindArgumentsArgs } from './llm/find-arguments';
 import {
   formatNoteContent,
   formatFile as formatFileOnDisk,
@@ -829,15 +828,6 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
       return decomposeClaims(projectContext(rootPath), args);
-    },
-  );
-
-  ipcMain.handle(
-    Channels.RESEARCH_FIND_ARGUMENTS,
-    async (e, args: FindArgumentsArgs) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
-      return findArguments(projectContext(rootPath), args);
     },
   );
 

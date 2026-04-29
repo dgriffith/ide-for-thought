@@ -58,6 +58,11 @@ const MAP: Record<string, FrontmatterPredicate> = {
   // thought:* (source-specific bits we define)
   accessedAt: THOUGHT('accessedAt'),
   archivedAt: THOUGHT('archivedAt'),
+  // Argumentation predicates — surface in research-tool analysis notes
+  // so a note like `supports: <claim-uri>` materialises a
+  // thought:supports edge from the analysis note to the claim node.
+  supports: THOUGHT('supports'),
+  rebuts: THOUGHT('rebuts'),
 
   // prov:* (provenance — #244 derived notes)
   derived_from: PROV('wasDerivedFrom'),

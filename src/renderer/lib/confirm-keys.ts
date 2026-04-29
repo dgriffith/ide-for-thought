@@ -25,10 +25,11 @@ export const CONFIRM_KEYS = {
   decomposeClaimsNoClaims: 'decompose-claims-no-claims',
   decomposeClaimsFiled: 'decompose-claims-filed',
   decomposeClaimsFailed: 'decompose-claims-failed',
-  findArgumentsNoClaim: 'find-arguments-no-claim',
-  findArgumentsNoStrong: 'find-arguments-no-strong',
-  findArgumentsFiled: 'find-arguments-filed',
-  findArgumentsFailed: 'find-arguments-failed',
+  /** Generic — shown when a conversational tool's `buildSystemPrompt`
+   *  throws (e.g. Find Supporting/Opposing Arguments was invoked with
+   *  no claim under the cursor). The message body comes from the
+   *  thrown Error, so a single key covers all such tools. */
+  toolPrepareFailed: 'tool-prepare-failed',
   bulkTagFailed: 'bulk-tag-failed',
   bulkTagComplete: 'bulk-tag-complete',
   bulkTagNoSelection: 'bulk-tag-no-selection',
@@ -152,28 +153,10 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
       'Shown when Decompose into Claims errors out (network failure, missing API key, malformed LLM response, etc).',
   },
   {
-    key: CONFIRM_KEYS.findArgumentsNoClaim,
-    title: 'Find Arguments: no claim under cursor',
+    key: CONFIRM_KEYS.toolPrepareFailed,
+    title: 'Tool could not start',
     description:
-      'Shown when Find Supporting / Opposing Arguments is invoked without a thought:Claim URI in the selection or current line.',
-  },
-  {
-    key: CONFIRM_KEYS.findArgumentsNoStrong,
-    title: 'Find Arguments: no strong arguments found',
-    description:
-      'Shown when the LLM honestly reports it cannot find strong supporting / opposing arguments for the claim. (Anti-flattery rule — this is a real answer, not a failure.)',
-  },
-  {
-    key: CONFIRM_KEYS.findArgumentsFiled,
-    title: 'Find Arguments: proposal filed',
-    description:
-      'Shown after Find Supporting / Opposing Arguments successfully files N Grounds nodes as a Proposal — review in the Proposals panel.',
-  },
-  {
-    key: CONFIRM_KEYS.findArgumentsFailed,
-    title: 'Find Arguments failed',
-    description:
-      'Shown when Find Supporting / Opposing Arguments errors out (network failure, missing API key, malformed LLM response, etc).',
+      'Shown when a conversational tool refuses to start with a user-facing reason (e.g. missing context like a claim under the cursor). The dialog body carries the specific reason from the tool.',
   },
   {
     key: CONFIRM_KEYS.bulkTagComplete,

@@ -4,7 +4,16 @@ export type ContextRequirement =
   | 'selectedText'
   | 'fullNote'
   | 'relatedNotes'
-  | 'taggedNotes';
+  | 'taggedNotes'
+  /**
+   * Extracts the thought:Claim URI from the editor's active selection
+   * or current line, then looks up the claim's label and source-text
+   * from the graph. Used by tools that operate on a specific claim
+   * (Find Supporting / Opposing Arguments). When no claim is found,
+   * `claimUri` is left undefined and the tool's `buildSystemPrompt`
+   * is responsible for either erroring or producing a helpful message.
+   */
+  | 'claimUnderCursor';
 
 export type OutputMode =
   | 'newNote'
@@ -31,6 +40,16 @@ export interface ToolContext {
   fullNoteTitle?: string;
   relatedNotes?: { path: string; title: string; content: string }[];
   taggedNotes?: { path: string; title: string; content: string }[];
+  /** Populated by the `claimUnderCursor` requirement. URI of the
+   *  thought:Claim node found at the editor cursor's selection or
+   *  current line. Undefined when none was found. */
+  claimUri?: string;
+  /** thought:label of the claim above. Empty string when the URI
+   *  resolved but the claim has no label. */
+  claimLabel?: string;
+  /** thought:sourceText of the claim — the verbatim passage the
+   *  claim was extracted from. May be empty. */
+  claimSourceText?: string;
   parameterValues?: Record<string, string>;
 }
 
