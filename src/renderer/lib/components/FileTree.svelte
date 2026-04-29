@@ -27,6 +27,8 @@
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
+    onAddTag?: (relativePath: string, isDirectory: boolean) => void;
+    onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
     /** Fired right before a tree-item context menu opens. Lets the
      *  parent promote the right-clicked item into the selection (Finder
      *  / VS Code: right-clicking outside the selection drops it to a
@@ -42,7 +44,7 @@
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -141,6 +143,8 @@
             {onNewNote}
             {onNewFolder}
             {onDelete}
+            {onAddTag}
+            {onRemoveTag}
             {onContextMenuTarget}
             {onRename}
             {onCut}
@@ -218,6 +222,19 @@
           <button onclick={() => { void api.shell.openInTerminal(contextMenu!.target); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
+      {#if onAddTag || onRemoveTag}
+        <div class="separator"></div>
+        {#if onAddTag}
+          <button onclick={() => { onAddTag(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+            Add Tag…
+          </button>
+        {/if}
+        {#if onRemoveTag}
+          <button onclick={() => { onRemoveTag(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+            Remove Tag…
+          </button>
+        {/if}
+      {/if}
       <div class="separator"></div>
       <button onclick={() => { onDelete(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
         Delete
