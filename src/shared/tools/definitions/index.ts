@@ -8,6 +8,7 @@ import './analysis/murphyjitsu';
 import './research/load-bearing-claim';
 import './research/find-supporting-arguments';
 import './research/find-opposing-arguments';
+import './research/decompose-into-claims';
 
 // Learning tools
 import './learning/summarize';

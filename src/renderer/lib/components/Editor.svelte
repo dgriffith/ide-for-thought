@@ -78,7 +78,6 @@
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
     onDecompose?: () => void;
-    onDecomposeClaims?: () => void;
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
@@ -112,7 +111,6 @@
     onAutoLink,
     onAutoLinkInbound,
     onDecompose,
-    onDecomposeClaims,
     onFormatCurrentNote,
     getNotePaths,
     getSources,
@@ -879,32 +877,32 @@
         </div>
       {/if}
     {/if}
-    {#if onDecomposeClaims || onToolInvoke}
+    {#if onToolInvoke}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Research &#x25B8;</span>
         <div class="submenu">
-          {#if onDecomposeClaims}
-            <button onclick={() => handleMenuAction(() => onDecomposeClaims?.())}>Decompose into Claims</button>
-          {/if}
-          {#if onToolInvoke}
-            {#if onDecomposeClaims}<div class="separator"></div>{/if}
-            <!-- Find Supporting / Opposing Arguments are conversational tools
-                 (research.find-{supporting,opposing}-arguments). Their tool
-                 def's 'claimUnderCursor' requirement makes the cursor-on-
-                 a-claim-line check authoritative; the disabled state here
-                 is just early UX feedback so users see why the items are
-                 inert before clicking. -->
-            <button
-              onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-supporting-arguments'))}
-              disabled={!contextMenu?.claimUri}
-              title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
-            >Find Supporting Arguments</button>
-            <button
-              onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-opposing-arguments'))}
-              disabled={!contextMenu?.claimUri}
-              title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
-            >Find Opposing Arguments</button>
-          {/if}
+          <!-- Decompose into Claims is a conversational tool
+               (research.decompose-into-claims). Routes through the
+               standard tool-registry path so seeded conversations
+               stay in one pipeline. -->
+          <button onclick={() => handleMenuAction(() => onToolInvoke?.('research.decompose-into-claims'))}>Decompose into Claims</button>
+          <div class="separator"></div>
+          <!-- Find Supporting / Opposing Arguments are conversational tools
+               (research.find-{supporting,opposing}-arguments). Their tool
+               def's 'claimUnderCursor' requirement makes the cursor-on-
+               a-claim-line check authoritative; the disabled state here
+               is just early UX feedback so users see why the items are
+               inert before clicking. -->
+          <button
+            onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-supporting-arguments'))}
+            disabled={!contextMenu?.claimUri}
+            title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
+          >Find Supporting Arguments</button>
+          <button
+            onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-opposing-arguments'))}
+            disabled={!contextMenu?.claimUri}
+            title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
+          >Find Opposing Arguments</button>
         </div>
       </div>
     {/if}
