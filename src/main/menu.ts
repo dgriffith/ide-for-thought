@@ -444,8 +444,8 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       submenu: [
         gate({
           label: 'Decompose into Claims',
-          toolTip: 'Pull every distinct assertion in the selection (or the whole note) out as a typed thought:Claim. Files a Proposal.',
-          click: () => send(Channels.MENU_RESEARCH_DECOMPOSE_CLAIMS),
+          toolTip: 'Open a conversation that decomposes the selection (or the whole note) into individual claims, each as its own thought:Claim note. The model proposes a parent + per-claim bundle for review.',
+          click: () => send(Channels.TOOL_INVOKE, 'research.decompose-into-claims'),
         }),
         { type: 'separator' },
         gate({

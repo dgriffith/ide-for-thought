@@ -27,7 +27,6 @@ import {
   applyInboundSuggestions,
 } from './llm/auto-link';
 import { suggestDecomposition, type DecomposeHints } from './llm/decompose';
-import { decomposeClaims, type DecomposeClaimsArgs } from './llm/decompose-claims';
 import {
   formatNoteContent,
   formatFile as formatFileOnDisk,
@@ -819,15 +818,6 @@ export function registerIpcHandlers(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
       return suggestDecomposition(rootPath, activeRelPath, hints ?? {});
-    },
-  );
-
-  ipcMain.handle(
-    Channels.RESEARCH_DECOMPOSE_CLAIMS,
-    async (e, args: DecomposeClaimsArgs) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
-      return decomposeClaims(projectContext(rootPath), args);
     },
   );
 

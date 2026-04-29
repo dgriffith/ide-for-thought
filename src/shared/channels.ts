@@ -127,11 +127,6 @@ export const Channels = {
   /** LLM-driven decomposition of a note into a parent index + children (#178). */
   REFACTOR_DECOMPOSE_SUGGEST: 'refactor:decomposeSuggest',
 
-  /** Research tool: decompose a passage into individual thought:Claim components (#408). */
-  RESEARCH_DECOMPOSE_CLAIMS: 'research:decomposeClaims',
-  /** Editor right-click → "Decompose into Claims". */
-  MENU_RESEARCH_DECOMPOSE_CLAIMS: 'menu:research:decomposeClaims',
-
   /** Ingest a URL (#93). Fetches, runs Readability, persists under .minerva/sources/<id>/. */
   SOURCES_INGEST_URL: 'sources:ingestUrl',
   /** Ingest a DOI / arXiv id / PubMed id (#96). Hits CrossRef / arXiv / PubMed. */

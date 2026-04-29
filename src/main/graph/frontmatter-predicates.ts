@@ -63,6 +63,21 @@ const MAP: Record<string, FrontmatterPredicate> = {
   // thought:supports edge from the analysis note to the claim node.
   supports: THOUGHT('supports'),
   rebuts: THOUGHT('rebuts'),
+  // Decompose-into-Claims surface (#408): claim notes carry these
+  // frontmatter keys so the indexer materialises proper thought:*
+  // edges without a separate triples payload. Kebab-case keys are
+  // canonical; the camelCase aliases mirror existing convention.
+  'claim-kind': THOUGHT('claimKind'),
+  claimKind: THOUGHT('claimKind'),
+  'source-text': THOUGHT('sourceText'),
+  sourceText: THOUGHT('sourceText'),
+  'extracted-by': THOUGHT('extractedBy'),
+  extractedBy: THOUGHT('extractedBy'),
+  'extracted-from': THOUGHT('extractedFrom'),
+  extractedFrom: THOUGHT('extractedFrom'),
+  // Parent decomposition note → source note. Lets queries surface
+  // every decomposition the user has filed for a given passage.
+  decomposes: THOUGHT('decomposes'),
 
   // prov:* (provenance — #244 derived notes)
   derived_from: PROV('wasDerivedFrom'),

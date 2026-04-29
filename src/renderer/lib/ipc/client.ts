@@ -384,7 +384,6 @@ export interface MenuApi {
   onRefactorAutoLink(cb: () => void): void;
   onRefactorAutoLinkInbound(cb: () => void): void;
   onRefactorDecompose(cb: () => void): void;
-  onResearchDecomposeClaims(cb: () => void): void;
   onFormat(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
@@ -414,21 +413,11 @@ export interface IdeApi {
   tabs: TabsApi;
   tools: ToolsApi;
   refactor: RefactorApi;
-  research: ResearchApi;
   formatter: FormatterApi;
   sources: SourcesApi;
   menu: MenuApi;
 }
 
-export interface ResearchApi {
-  /** #408 — decompose a passage into individual thought:Claim components. Returns a ProposalBundle URI when claims were extracted. */
-  decomposeClaims(args: {
-    passage: string;
-    sourceRelPath?: string | null;
-    proposedBy?: string;
-    model?: string;
-  }): Promise<{ claimCount: number; proposalUri: string | null; error: string }>;
-}
 
 export interface SourcesApi {
   /** Ingest a URL: fetches, runs Readability, persists under .minerva/sources/<id>/. */

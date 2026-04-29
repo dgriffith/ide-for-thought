@@ -194,10 +194,6 @@ contextBridge.exposeInMainWorld('api', {
     decomposeSuggest: (relativePath: string, hints?: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
-  research: {
-    decomposeClaims: (args: unknown) =>
-      ipcRenderer.invoke(Channels.RESEARCH_DECOMPOSE_CLAIMS, args),
-  },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
     ingestIdentifier: (identifier: string) =>
@@ -365,9 +361,6 @@ contextBridge.exposeInMainWorld('api', {
     },
     onRefactorDecompose: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_DECOMPOSE, () => cb());
-    },
-    onResearchDecomposeClaims: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_RESEARCH_DECOMPOSE_CLAIMS, () => cb());
     },
     onFormat: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FORMAT, () => cb());

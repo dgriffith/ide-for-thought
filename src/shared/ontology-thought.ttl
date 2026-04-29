@@ -578,6 +578,21 @@ thought:sourceText a owl:DatatypeProperty ;
     rdfs:domain thought:Component ;
     rdfs:range xsd:string .
 
+thought:claimKind a owl:DatatypeProperty ;
+    rdfs:label "claim kind" ;
+    rdfs:comment "Categorisation of a thought:Claim — typically factual / evaluative / definitional / predictive. Filed by the decompose-into-claims research tool (#408)." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:string .
+
+thought:extractedFrom a owl:ObjectProperty ;
+    rdfs:label "extracted from" ;
+    rdfs:comment "This component (typically a thought:Claim) was extracted from the linked source note. Lets a reader follow a claim back to the passage it came from." ;
+    rdfs:domain thought:Component .
+
+thought:decomposes a owl:ObjectProperty ;
+    rdfs:label "decomposes" ;
+    rdfs:comment "This note is a decomposition of the linked source note — i.e. a parent index whose children are the individual thought:Claim notes extracted from the source. Filed by the decompose-into-claims research tool (#408)." .
+
 # ── Metadata ──────────────────────────────────────────────────────────────
 
 thought:label a owl:DatatypeProperty ;
