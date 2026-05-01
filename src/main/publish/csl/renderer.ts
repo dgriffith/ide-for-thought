@@ -62,26 +62,40 @@ export class CitationRenderer {
       this.missingIds.add(id);
       return `<span class="csl-missing">[missing: ${escapeHtml(id)}]</span>`;
     }
-    this.citedIds.add(id);
-    const citationItem: Record<string, unknown> = { id };
-    if (locator) {
-      citationItem.locator = locator;
-      citationItem.label = 'page';
-    }
+    return this.renderCitationCluster([{ id, locator }]);
+  }
+
+  /**
+   * Render multiple cites as a single in-text mark — `(Foo 2020; Bar 2021)`
+   * in author-date styles, `[1, 2]` in numeric styles, etc. (#298).
+   *
+   * Caller is responsible for filtering out unknown ids; this method
+   * trusts every entry resolves through `retrieveItem`. Empty input
+   * returns an empty string. Single-item input is equivalent to
+   * `renderCitation` and is the path that single `[[cite::]]` takes.
+   */
+  renderCitationCluster(items: Array<{ id: string; locator?: string }>): string {
+    if (items.length === 0) return '';
+    for (const item of items) this.citedIds.add(item.id);
+    const citationItems = items.map((item) => {
+      const c: Record<string, unknown> = { id: item.id };
+      if (item.locator) {
+        c.locator = item.locator;
+        c.label = 'page';
+      }
+      return c;
+    });
     try {
       const result = this.engine.processCitationCluster(
-        {
-          citationItems: [citationItem],
-          properties: { noteIndex: this.noteIndex++ },
-        },
+        { citationItems, properties: { noteIndex: this.noteIndex++ } },
         [],
         [],
       );
-      // citeproc returns [updateInfo, [[index, text, id], ...]]
       const pairs = result[1];
       return pairs.length > 0 ? pairs[0][1] : '';
     } catch (err) {
-      return `<span class="csl-error" title="${escapeHtml(String(err))}">[citation error: ${escapeHtml(id)}]</span>`;
+      const ids = items.map((i) => i.id).join(', ');
+      return `<span class="csl-error" title="${escapeHtml(String(err))}">[citation error: ${escapeHtml(ids)}]</span>`;
     }
   }
 
