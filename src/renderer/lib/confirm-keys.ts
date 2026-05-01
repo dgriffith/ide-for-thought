@@ -41,6 +41,8 @@ export const CONFIRM_KEYS = {
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
   saveCellOutputFailed: 'save-cell-output-failed',
+  /** Image-upload rejection toast (#455) — too-large, unsupported MIME, etc. */
+  imageUploadFailed: 'image-upload-failed',
   exportComplete: 'export-complete',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
@@ -222,6 +224,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Save cell output failed',
     description:
       'Shown when "Save as note" on a compute-cell output errors out (path collision, write error, etc). Kept separate from ingest-failed so suppressing one doesn\'t mute the other.',
+  },
+  {
+    key: CONFIRM_KEYS.imageUploadFailed,
+    title: 'Image upload rejected',
+    description:
+      'Shown when a drag-and-drop or paste image upload is rejected — too large (>5MB), unsupported MIME, empty blob, or write failure. Suppressing this won\'t silently swallow uploads; the editor still does nothing for unsupported drops, the user just stops getting the explanation.',
   },
   {
     key: CONFIRM_KEYS.exportComplete,

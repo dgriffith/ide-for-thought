@@ -325,6 +325,22 @@ export function registerIpcHandlers(): void {
     return notebaseFs.readBinaryFile(rootPath, relativePath);
   });
 
+  ipcMain.handle(Channels.NOTEBASE_WRITE_BINARY, async (e, relativePath: string, bytes: Uint8Array) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    // The renderer wraps payload as a Uint8Array; structured-clone
+    // hands us a Buffer at this end. Either way `writeBinaryFile`
+    // re-wraps as a strict Uint8Array view.
+    const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    await notebaseFs.writeBinaryFile(rootPath, relativePath, view);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    return notebaseFs.fileExists(rootPath, relativePath);
+  });
+
   ipcMain.handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');

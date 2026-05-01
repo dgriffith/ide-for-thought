@@ -17,6 +17,10 @@ export interface NotebaseApi {
   readFile(relativePath: string): Promise<string>;
   /** Binary-safe read for images / pdfs / other non-text assets (#244). */
   readBinary(relativePath: string): Promise<Uint8Array>;
+  /** Binary-safe write — used by the editor's image-upload path (#455). */
+  writeBinary(relativePath: string, bytes: Uint8Array): Promise<void>;
+  /** Cheap existence check — used to dedupe content-hashed assets (#455). */
+  fileExists(relativePath: string): Promise<boolean>;
   writeFile(relativePath: string, content: string): Promise<void>;
   createFile(relativePath: string): Promise<void>;
   deleteFile(relativePath: string): Promise<void>;
