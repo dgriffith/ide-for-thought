@@ -9,6 +9,7 @@ import {
 import type { Citation } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
+import { formatToolCall } from './format-tool-call';
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
@@ -180,6 +181,14 @@ export async function completeWithTools(
       if (block.type === 'text') {
         textPieces.push(block.text);
         collectCitations(block, citationMap);
+      } else if (block.type === 'server_tool_use') {
+        // Server-side tools (web_search, web_fetch) execute in the API
+        // and never round-trip through our client-side dispatch — but
+        // the user still pays for the wall-clock wait, so surface them
+        // in the stream the same way we do client-side tool calls.
+        if (callbacks) {
+          callbacks.onChunk(`\n\n_${formatToolCall(block.name, block.input)}…_\n\n`);
+        }
       }
     }
 
@@ -206,7 +215,7 @@ export async function completeWithTools(
     for (const use of toolUses) {
       console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
       if (callbacks) {
-        callbacks.onChunk(`\n\n_Running \`${use.name}\`..._\n\n`);
+        callbacks.onChunk(`\n\n_${formatToolCall(use.name, use.input)}…_\n\n`);
       }
       const toolCallbacks: ToolCallbacks = {};
       if (callbacks?.onDraft) {
