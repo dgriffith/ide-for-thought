@@ -88,6 +88,8 @@ export interface ExportPlan {
   assetPolicy: AssetPolicy;
   /** CSL style id; exporters ignore when not set. */
   citationStyle?: string;
+  /** CSL locale id (#301). Exporters ignore when not set. */
+  citationLocale?: string;
   /** Absolute destination directory for exporters that write multiple files. */
   outputDir?: string;
   /**

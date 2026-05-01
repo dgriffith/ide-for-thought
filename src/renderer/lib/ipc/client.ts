@@ -173,11 +173,25 @@ export interface FilesApi {
 export type { CellOutput, CellResult } from '../../../shared/compute/types';
 import type { CellResult } from '../../../shared/compute/types';
 
+export interface CitationAuditPayload {
+  /** Resolved style id after fallback (e.g. 'apa'). */
+  styleId: string;
+  /** Resolved locale id after fallback (e.g. 'en-US'). */
+  localeId: string;
+  availableStyles: Array<{ id: string; label: string }>;
+  availableLocales: Array<{ id: string; label: string }>;
+  /** Sources that'll appear in the rendered bibliography, ordered by ref count desc. */
+  bySource: Array<{ sourceId: string; title: string; refCount: number }>;
+  /** Cite/quote ids that couldn't be resolved against the project's sources/excerpts. */
+  missing: Array<{ id: string; kind: 'cite' | 'quote'; refCount: number }>;
+}
+
 export interface ExportPreviewPlan {
   exporterId: string;
   exporterLabel: string;
   inputs: Array<{ relativePath: string; kind: 'note' | 'source' | 'excerpt'; title: string }>;
   excluded: Array<{ relativePath: string; reason: string }>;
+  citations: CitationAuditPayload;
 }
 
 export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree';
@@ -191,6 +205,8 @@ export interface RunExportInput {
   };
   outputDir: string;
   linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
+  citationStyle?: string;
+  citationLocale?: string;
 }
 
 export interface RunExportResult {
@@ -206,7 +222,12 @@ export interface PublishApi {
   /** Resolve an ExportPlan without running it — for the preview dialog. */
   resolvePlan(
     input: RunExportInput['input'],
-    opts?: { exporterId?: string; linkPolicy?: RunExportInput['linkPolicy'] },
+    opts?: {
+      exporterId?: string;
+      linkPolicy?: RunExportInput['linkPolicy'];
+      citationStyle?: string;
+      citationLocale?: string;
+    },
   ): Promise<ExportPreviewPlan>;
   /**
    * Run the exporter. When `outputDir` is omitted, main opens a directory

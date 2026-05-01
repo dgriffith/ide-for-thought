@@ -24,6 +24,8 @@
 
   let scope = $state<Scope>('project');
   let linkPolicy = $state<LinkPolicy>('inline-title');
+  let citationStyle = $state<string>('apa');
+  let citationLocale = $state<string>('en-US');
   let plan = $state<ExportPreviewPlan | null>(null);
   let loading = $state(false);
   let exporting = $state(false);
@@ -57,7 +59,12 @@
     loading = true;
     error = null;
     try {
-      plan = await api.publish.resolvePlan(scopeInput(), { exporterId, linkPolicy });
+      plan = await api.publish.resolvePlan(scopeInput(), {
+        exporterId,
+        linkPolicy,
+        citationStyle,
+        citationLocale,
+      });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       plan = null;
@@ -88,12 +95,14 @@
     })();
   });
 
-  // Re-resolve whenever the scope or link policy changes. `$effect`
+  // Re-resolve whenever an input affecting the plan changes. `$effect`
   // re-runs on any tracked read, so wrapping refreshPlan() in here
-  // subscribes to scope, linkPolicy, activeFilePath, and activeFolder.
+  // subscribes to scope, linkPolicy, citationStyle/locale, activeFilePath.
   $effect(() => {
     void scope;
     void linkPolicy;
+    void citationStyle;
+    void citationLocale;
     void activeFilePath;
     if (!acceptedLoaded) return;
     void refreshPlan();
@@ -108,6 +117,8 @@
         exporterId,
         input: scopeInput(),
         linkPolicy,
+        citationStyle,
+        citationLocale,
       });
       if (result === null) return; // user cancelled the directory picker
       onExported(result);
@@ -171,6 +182,26 @@
       </select>
     </div>
 
+    {#if plan}
+      <div class="option-row">
+        <label for="citation-style">Citation style</label>
+        <select id="citation-style" bind:value={citationStyle}>
+          {#each plan.citations.availableStyles as s (s.id)}
+            <option value={s.id}>{s.label}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="option-row">
+        <label for="citation-locale">Citation locale</label>
+        <select id="citation-locale" bind:value={citationLocale}>
+          {#each plan.citations.availableLocales as l (l.id)}
+            <option value={l.id}>{l.label}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
+
     {#if loading}
       <div class="status">Resolving plan…</div>
     {:else if plan}
@@ -213,6 +244,40 @@
           {/if}
         </div>
       </div>
+
+      {#if plan.citations.bySource.length > 0 || plan.citations.missing.length > 0}
+        <div class="audit-section citations-section">
+          <h3>
+            Citations <span class="count">{plan.citations.bySource.length}</span>
+            {#if plan.citations.missing.length > 0}
+              <span class="count missing-count">{plan.citations.missing.length} missing</span>
+            {/if}
+          </h3>
+          {#if plan.citations.missing.length > 0}
+            <ul class="missing-list">
+              {#each plan.citations.missing as m (m.kind + ':' + m.id)}
+                <li>
+                  <span class="title">[missing {m.kind}: {m.id}]</span>
+                  <span class="reason">{m.refCount} reference{m.refCount === 1 ? '' : 's'}</span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
+          {#if plan.citations.bySource.length > 0}
+            <ul>
+              {#each plan.citations.bySource.slice(0, 60) as s (s.sourceId)}
+                <li>
+                  <span class="title">{s.title}</span>
+                  <span class="reason">{s.sourceId} · {s.refCount} ref{s.refCount === 1 ? '' : 's'}</span>
+                </li>
+              {/each}
+              {#if plan.citations.bySource.length > 60}
+                <li class="more">…and {plan.citations.bySource.length - 60} more</li>
+              {/if}
+            </ul>
+          {/if}
+        </div>
+      {/if}
     {/if}
 
     {#if error}
@@ -368,6 +433,26 @@
     font-size: 11px;
     color: var(--text-muted);
     font-style: italic;
+  }
+
+  /* Citations span the full grid width — they're a separate concern from
+     Including/Excluded so the user can audit them at full reading width. */
+  .citations-section {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+  }
+  .citations-section .missing-count {
+    background: var(--bg-button);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .citations-section .missing-list li .title {
+    color: var(--accent);
+  }
+  .citations-section .missing-list {
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px dashed var(--border);
   }
   .audit-section .more {
     border-bottom: none;

@@ -48,7 +48,8 @@ import {
   getBibliographyStyleId,
   setBibliographyStyleId,
 } from './project-config';
-import { BUNDLED_STYLES, BUNDLED_STYLE_LABELS, DEFAULT_STYLE } from './publish/csl/assets';
+import { BUNDLED_STYLES, BUNDLED_STYLE_LABELS, BUNDLED_LOCALES, DEFAULT_STYLE } from './publish/csl/assets';
+import { buildCitationAudit } from './publish/csl/audit';
 import { renderInlineCitations, type InlineCiteRequest } from './citations/render-inline';
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
@@ -992,14 +993,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, async (e, input: publish.ExportInput, opts?: {
     exporterId?: string;
     linkPolicy?: publish.LinkPolicy;
+    citationStyle?: string;
+    citationLocale?: string;
   }) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    const plan = await publish.resolvePlan(rootPath, input, { linkPolicy: opts?.linkPolicy });
+    const plan = await publish.resolvePlan(rootPath, input, {
+      linkPolicy: opts?.linkPolicy,
+      citationStyle: opts?.citationStyle,
+      citationLocale: opts?.citationLocale,
+    });
     // Strip `content` + `frontmatter` from the wire payload — the preview
     // only needs to audit paths, kinds, and exclusion reasons; loading
     // every file's text over IPC is wasteful.
     const exporter = opts?.exporterId ? publish.getExporter(opts.exporterId) : null;
+    const audit = plan.citations
+      ? buildCitationAudit(plan.inputs, plan.citations)
+      : { bySource: [], missing: [] };
     return {
       exporterId: exporter?.id ?? '',
       exporterLabel: exporter?.label ?? '',
@@ -1009,6 +1019,17 @@ export function registerIpcHandlers(): void {
         title: f.title,
       })),
       excluded: plan.excluded,
+      citations: {
+        styleId: plan.citations?.styleId ?? DEFAULT_STYLE,
+        localeId: plan.citations?.localeId ?? 'en-US',
+        availableStyles: Object.keys(BUNDLED_STYLES).map((id) => ({
+          id,
+          label: BUNDLED_STYLE_LABELS[id] ?? id,
+        })),
+        availableLocales: Object.keys(BUNDLED_LOCALES).map((id) => ({ id, label: id })),
+        bySource: audit.bySource,
+        missing: audit.missing,
+      },
     };
   });
 

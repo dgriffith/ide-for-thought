@@ -34,6 +34,7 @@ export interface ResolvePlanOptions {
   linkPolicy?: LinkPolicy;
   assetPolicy?: AssetPolicy;
   citationStyle?: string;
+  citationLocale?: string;
   outputDir?: string;
 }
 
@@ -48,6 +49,7 @@ export async function resolvePlan(
 
   const citations = await loadCitationAssets(rootPath, {
     styleId: opts.citationStyle,
+    localeId: opts.citationLocale,
   });
 
   return {
@@ -57,6 +59,7 @@ export async function resolvePlan(
     linkPolicy: opts.linkPolicy ?? 'inline-title',
     assetPolicy: opts.assetPolicy ?? 'keep-relative',
     citationStyle: opts.citationStyle,
+    citationLocale: opts.citationLocale,
     outputDir: opts.outputDir,
     rootPath,
     citations,
