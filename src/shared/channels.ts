@@ -307,6 +307,11 @@ export const Channels = {
   /** Open a native file picker scoped to executable files; returns the
    *  picked path or null on cancel. */
   COMPUTE_BROWSE_PYTHON: 'compute:browsePython',
+  /** Per-project Python trust flag (#373). Read returns true once the
+   *  user has OK'd cell execution for the current project; write is
+   *  fired by the first-run trust dialog when the user clicks Run. */
+  COMPUTE_GET_PYTHON_TRUST: 'compute:getPythonTrust',
+  COMPUTE_SET_PYTHON_TRUST: 'compute:setPythonTrust',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

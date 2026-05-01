@@ -96,6 +96,18 @@
      * route through here.
      */
     onUploadError?: (message: string) => void;
+    /**
+     * Run-cell handler (#373). When supplied, replaces the direct
+     * `api.compute.runCell` call. App.svelte injects a trust-gated
+     * variant that prompts on first Python execution per thoughtbase.
+     * Keeping it pluggable lets headless / test contexts run cells
+     * without going through the dialog flow.
+     */
+    onRunCell?: (
+      language: string,
+      code: string,
+      notePath: string,
+    ) => Promise<import('../../../shared/compute/types').CellResult>;
   }
 
   let {
@@ -129,6 +141,7 @@
     getSources,
     initialHistory,
     onUploadError,
+    onRunCell,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -478,7 +491,11 @@
       },
     }),
     computeCellsExtension({
-      runCell: (language, code) => api.compute.runCell(language, code, filePath),
+      runCell: (language, code) => (
+        onRunCell
+          ? onRunCell(language, code, filePath)
+          : api.compute.runCell(language, code, filePath)
+      ),
     }),
     EditorView.domEventHandlers({
       // Snapshot the selection at the very start of a right-click, before

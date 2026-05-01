@@ -2,11 +2,20 @@
   interface Props {
     message: string;
     confirmLabel?: string;
+    /**
+     * When true, hide the "Don't ask again" checkbox. Used by the
+     * Python trust dialog (#373) where consent is project-scoped, not
+     * machine-scoped — the localStorage suppression that would normally
+     * fire on this checkbox would leak per-thoughtbase trust into a
+     * global "trust everywhere" state, which is explicitly out of
+     * scope for #373.
+     */
+    hideDontAskAgain?: boolean;
     onConfirm: (dontAskAgain: boolean) => void;
     onCancel: () => void;
   }
 
-  let { message, confirmLabel = 'OK', onConfirm, onCancel }: Props = $props();
+  let { message, confirmLabel = 'OK', hideDontAskAgain = false, onConfirm, onCancel }: Props = $props();
   let dontAskAgain = $state(false);
   let confirmBtn = $state<HTMLButtonElement>();
 
@@ -27,10 +36,12 @@
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
   <div class="dialog">
     <p class="message">{message}</p>
-    <label class="dont-ask">
-      <input type="checkbox" bind:checked={dontAskAgain} />
-      Don't ask again
-    </label>
+    {#if !hideDontAskAgain}
+      <label class="dont-ask">
+        <input type="checkbox" bind:checked={dontAskAgain} />
+        Don't ask again
+      </label>
+    {/if}
     <div class="actions">
       <button class="btn secondary" onclick={onCancel}>Cancel</button>
       <button class="btn primary" bind:this={confirmBtn} onclick={() => onConfirm(dontAskAgain)}>{confirmLabel}</button>

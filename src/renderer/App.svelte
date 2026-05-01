@@ -51,6 +51,7 @@
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
+  import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import {
     planExtract,
     planSplitHere,
@@ -126,7 +127,7 @@
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; suggestions?: string[]; resolve: (value: string | null) => void } | null>(null);
-  let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; resolve: (value: boolean) => void } | null>(null);
+  let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; hideDontAskAgain?: boolean; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
   /**
    * Three-way prompt for opening / creating a thoughtbase when the
@@ -144,10 +145,15 @@
     });
   }
 
-  function showConfirm(message: string, key: string, confirmLabel = 'OK'): Promise<boolean> {
+  function showConfirm(
+    message: string,
+    key: string,
+    confirmLabel = 'OK',
+    options: { hideDontAskAgain?: boolean } = {},
+  ): Promise<boolean> {
     if (confirmSuppression.isSuppressed(key)) return Promise.resolve(true);
     return new Promise((resolve) => {
-      confirmDialog = { message, confirmLabel, key, resolve };
+      confirmDialog = { message, confirmLabel, key, hideDontAskAgain: options.hideDontAskAgain, resolve };
     });
   }
 
@@ -2122,6 +2128,9 @@
                       // user-facing but not blocking.
                       void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
                     }}
+                    onRunCell={(language, code, notePath) =>
+                      runCellWithTrust(language, code, notePath, { showConfirm })
+                    }
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
@@ -2297,6 +2306,7 @@
     <ConfirmDialog
       message={confirmDialog.message}
       confirmLabel={confirmDialog.confirmLabel}
+      hideDontAskAgain={confirmDialog.hideDontAskAgain}
       onConfirm={handleConfirmOk}
       onCancel={handleConfirmCancel}
     />
