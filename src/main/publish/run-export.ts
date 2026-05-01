@@ -31,6 +31,11 @@ export interface RunExportInput {
    * private-by-default rules.
    */
   forceInclude?: string[];
+  /**
+   * Manual deselection: paths the user unchecked in the preview
+   * dialog's Including list (#293). Force-excluded from the export.
+   */
+  forceExclude?: string[];
 }
 
 export interface RunExportResult {
@@ -61,6 +66,7 @@ export async function runExport(
     citationStyle: args.citationStyle,
     citationLocale: args.citationLocale,
     forceInclude: args.forceInclude,
+    forceExclude: args.forceExclude,
     outputDir: args.outputDir,
   });
   const output = await runExporter(exporter, plan);

@@ -1098,6 +1098,7 @@ export function registerIpcHandlers(): void {
     citationStyle?: string;
     citationLocale?: string;
     forceInclude?: string[];
+    forceExclude?: string[];
   }) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
@@ -1106,6 +1107,7 @@ export function registerIpcHandlers(): void {
       citationStyle: opts?.citationStyle,
       citationLocale: opts?.citationLocale,
       forceInclude: opts?.forceInclude,
+      forceExclude: opts?.forceExclude,
     });
     // Strip `content` + `frontmatter` from the wire payload — the preview
     // only needs to audit paths, kinds, and exclusion reasons; loading

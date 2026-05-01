@@ -209,6 +209,8 @@ export interface RunExportInput {
   citationLocale?: string;
   /** Manual per-export exclusion overrides — relative paths to force-include (#283). */
   forceInclude?: string[];
+  /** Manual per-export deselection — relative paths to force-exclude (#293). */
+  forceExclude?: string[];
 }
 
 export interface RunExportResult {
@@ -230,6 +232,7 @@ export interface PublishApi {
       citationStyle?: string;
       citationLocale?: string;
       forceInclude?: string[];
+      forceExclude?: string[];
     },
   ): Promise<ExportPreviewPlan>;
   /**

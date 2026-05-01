@@ -44,6 +44,12 @@ export interface ResolvePlanOptions {
    * `overridden: true` so the preview dialog can render the badge.
    */
   forceInclude?: string[];
+  /**
+   * Manual per-export deselection via the preview dialog (#293). Paths
+   * in this set are removed from `inputs` and surfaced in `excluded`
+   * with reason "manually excluded", regardless of the default rules.
+   */
+  forceExclude?: string[];
 }
 
 export async function resolvePlan(
@@ -54,6 +60,7 @@ export async function resolvePlan(
   let inputs: ExportPlanFile[];
   let excluded: ExportPlanExclusion[];
   const forceInclude = new Set(opts.forceInclude ?? []);
+  const forceExclude = new Set(opts.forceExclude ?? []);
   if (input.kind === 'tree') {
     ({ inputs, excluded } = await collectTreeEntries(rootPath, input, forceInclude));
   } else if (input.kind === 'source') {
@@ -66,6 +73,24 @@ export async function resolvePlan(
     ({ inputs, excluded } = await collectSourceEntry(rootPath, input));
   } else {
     ({ inputs, excluded } = await collectFilesystemEntries(rootPath, input, forceInclude));
+  }
+
+  // Apply manual deselection (#293): move force-excluded inputs to the
+  // excluded list with a clear reason. Done after resolution so the
+  // resolver's normal logic isn't bypassed; the user's manual call
+  // wins last.
+  if (forceExclude.size > 0) {
+    const kept: ExportPlanFile[] = [];
+    for (const f of inputs) {
+      if (forceExclude.has(f.relativePath)) {
+        excluded.push({ relativePath: f.relativePath, reason: 'manually excluded' });
+      } else {
+        kept.push(f);
+      }
+    }
+    inputs = kept;
+    // Sort excluded for deterministic preview ordering.
+    excluded.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   }
 
   const citations = await loadCitationAssets(rootPath, {

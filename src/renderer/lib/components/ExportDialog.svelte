@@ -40,12 +40,23 @@
   // user has explicitly re-included; the pipeline force-includes them
   // even when the private-by-default rules would otherwise exclude.
   let overrides = $state(new Set<string>());
+  // Manual deselections (#293). Set of relative paths the user has
+  // unchecked in the Including list; the pipeline force-excludes them
+  // and surfaces them in Excluded with reason "manually excluded".
+  let deselections = $state(new Set<string>());
 
   function toggleOverride(relativePath: string): void {
     const next = new Set(overrides);
     if (next.has(relativePath)) next.delete(relativePath);
     else next.add(relativePath);
     overrides = next;
+  }
+
+  function toggleDeselection(relativePath: string): void {
+    const next = new Set(deselections);
+    if (next.has(relativePath)) next.delete(relativePath);
+    else next.add(relativePath);
+    deselections = next;
   }
 
   const activeFolder = $derived.by(() => {
@@ -80,6 +91,7 @@
         citationStyle,
         citationLocale,
         forceInclude: [...overrides],
+        forceExclude: [...deselections],
       });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -123,6 +135,7 @@
     void citationLocale;
     void activeFilePath;
     void overrides;
+    void deselections;
     if (!acceptedLoaded) return;
     void refreshPlan();
   });
@@ -139,6 +152,7 @@
         citationStyle,
         citationLocale,
         forceInclude: [...overrides],
+        forceExclude: [...deselections],
       });
       if (result === null) return; // user cancelled the directory picker
       onExported(result);
@@ -234,13 +248,26 @@
                 {overrides.size} overridden
               </span>
             {/if}
+            {#if deselections.size > 0}
+              <span class="count override-count" title="{deselections.size} item{deselections.size === 1 ? '' : 's'} manually excluded for this export">
+                {deselections.size} unchecked
+              </span>
+            {/if}
           </h3>
           {#if plan.inputs.length === 0}
             <p class="empty">Nothing to export in this scope.</p>
           {:else}
+            <p class="hint">Uncheck a row to drop it from this export only.</p>
             <ul>
               {#each plan.inputs.slice(0, 40) as f (f.relativePath)}
                 <li class:overridden={f.overridden}>
+                  <input
+                    type="checkbox"
+                    class="row-check"
+                    checked
+                    onchange={() => toggleDeselection(f.relativePath)}
+                    title="Uncheck to drop this note from the export"
+                  />
                   <span class="title">
                     {f.title}
                     {#if f.overridden}
@@ -272,7 +299,11 @@
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
                 <li
                   class="clickable"
-                  onclick={() => toggleOverride(ex.relativePath)}
+                  onclick={() => (
+                    ex.reason === 'manually excluded'
+                      ? toggleDeselection(ex.relativePath)
+                      : toggleOverride(ex.relativePath)
+                  )}
                   title="Click to re-include in the export"
                 >
                   <span class="title">{ex.relativePath}</span>
@@ -475,6 +506,29 @@
     font-size: 11px;
     color: var(--text-muted);
     font-style: italic;
+  }
+
+  /* Including-row checkbox for manual deselection (#293). */
+  .audit-section .row-check {
+    margin-right: 6px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 3px;
+  }
+  .audit-section li {
+    flex-direction: row;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .audit-section li > .title,
+  .audit-section li > .path,
+  .audit-section li > .reason {
+    flex-basis: 100%;
+  }
+  .audit-section li > .row-check ~ .title,
+  .audit-section li > .row-check ~ .path,
+  .audit-section li > .row-check ~ .reason {
+    flex-basis: calc(100% - 22px);
   }
 
   /* Excluded-row click affordance + override badge (#283). */
