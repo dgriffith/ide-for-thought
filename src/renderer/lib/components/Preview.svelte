@@ -23,6 +23,13 @@
 
   interface Props {
     content: string;
+    /**
+     * Project-relative path of the note being rendered. Used to
+     * resolve relative `![](image.png)` references against the note's
+     * directory (#244 image rendering). Null when no file is open or
+     * the editor's path isn't surfaced (preview-only contexts).
+     */
+    notePath?: string | null;
     onNavigate: (target: string) => void;
     onTagSelect?: (tag: string) => void;
     onOpenSource?: (sourceId: string) => void;
@@ -45,7 +52,7 @@
     }) => void;
   }
 
-  let { content, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved, onTaskToggle, onSaveCellOutput }: Props = $props();
+  let { content, notePath = null, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved, onTaskToggle, onSaveCellOutput }: Props = $props();
 
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
@@ -251,6 +258,34 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
   };
 
+  /**
+   * Image rule (#244). markdown-it would normally emit `<img src="…">`
+   * with the URL untouched; in the renderer that breaks for relative
+   * paths because the document base is the Vite dev server / packaged
+   * app URL, not the user's project root.
+   *
+   * Strategy: emit a placeholder `<img class="local-image" data-rel="…">`
+   * for relative paths and let a post-render pass fetch each via
+   * `api.notebase.readBinary`, then swap in a data URL. http(s) /
+   * data: / file: pass through unchanged.
+   */
+  md.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const tok = tokens[idx];
+    const srcIdx = tok.attrIndex('src');
+    if (srcIdx < 0) return self.renderToken(tokens, idx, options);
+    const src = tok.attrs![srcIdx][1];
+    if (/^(?:https?:|data:|file:|blob:|mailto:)/i.test(src) || src.startsWith('//')) {
+      // Absolute / data URL — render normally.
+      return self.renderToken(tokens, idx, options);
+    }
+    const rel = resolveRelativeImagePath(src, notePath);
+    const altIdx = tok.attrIndex('alt');
+    const alt = altIdx >= 0 ? tok.attrs![altIdx][1] : (tok.content ?? '');
+    const titleIdx = tok.attrIndex('title');
+    const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx][1])}"` : '';
+    return `<img class="local-image" data-rel="${escapeAttr(rel)}" alt="${escapeAttr(alt)}"${title} />`;
+  };
+
   // Compute-cell output blocks (#238). A ```output fence below an executable
   // fence carries the JSON payload the executor produced; render it as a
   // shape-specific artifact (table / error / text / pretty JSON) rather
@@ -295,6 +330,100 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       }
     }
     return null;
+  }
+
+  /**
+   * Resolve a relative `![](src)` reference against the note's
+   * directory and normalise so `..` segments collapse. Returns a
+   * project-rooted relative path (no leading `/`).
+   */
+  function resolveRelativeImagePath(src: string, fromNote: string | null | undefined): string {
+    // Split off the note's parent directory. The regex form
+    // `/\/[^/]*$/` would silently fall back to the full string when
+    // there's no slash — i.e. for a project-root note like
+    // `graph.md`, `noteDir` would become `graph.md` and downstream
+    // resolution would treat the file itself as a directory (the
+    // ENOTDIR symptom). Use a guarded lastIndexOf instead.
+    const lastSlash = fromNote ? fromNote.lastIndexOf('/') : -1;
+    const noteDir = lastSlash > 0 && fromNote ? fromNote.slice(0, lastSlash) : '';
+    const baseSegments = noteDir ? noteDir.split('/') : [];
+    const srcSegments = src.split('/');
+    const out: string[] = [...baseSegments];
+    for (const seg of srcSegments) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') {
+        if (out.length > 0) out.pop();
+        continue;
+      }
+      out.push(seg);
+    }
+    return out.join('/');
+  }
+
+  /**
+   * Cache of {projectRelPath → data URL} for images referenced from
+   * the rendered note. Survives re-renders so panning around a long
+   * doc doesn't keep refetching the same `<img>` over and over.
+   * Cleared when the active note changes (the path-keyed cache stays
+   * project-scoped automatically since paths include the note dir).
+   */
+  const imageDataUrlCache = new Map<string, string>();
+
+  /** MIME guess from a relative-path extension; data URLs need it explicit. */
+  function mimeFromPath(rel: string): string {
+    const ext = rel.toLowerCase().match(/\.([^./\\]+)$/)?.[1] ?? '';
+    if (ext === 'png') return 'image/png';
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'gif') return 'image/gif';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'svg') return 'image/svg+xml';
+    if (ext === 'avif') return 'image/avif';
+    return 'application/octet-stream';
+  }
+
+  /**
+   * Post-render hydration: walk every `.local-image[data-rel]`
+   * placeholder, fetch the asset bytes via the binary IPC, and
+   * inline as a data URL. Cached so re-renders are O(1) per image.
+   */
+  async function hydrateLocalImages(): Promise<void> {
+    const root = previewEl;
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.local-image[data-rel]'));
+    await Promise.all(imgs.map(async (img) => {
+      const rel = img.dataset.rel;
+      if (!rel) return;
+      const cached = imageDataUrlCache.get(rel);
+      if (cached) {
+        if (img.src !== cached) img.src = cached;
+        return;
+      }
+      try {
+        if (typeof api.notebase.readBinary !== 'function') {
+          throw new Error(
+            'api.notebase.readBinary is not exposed. Preload changes require a full Electron restart (Cmd-R reloads the renderer only).',
+          );
+        }
+        const bytes = await api.notebase.readBinary(rel);
+        // Buffer encoding via btoa over a small string is cheap; the
+        // chunked builder avoids "Maximum call stack" for big images.
+        let bin = '';
+        const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        const CHUNK = 0x8000;
+        for (let i = 0; i < view.length; i += CHUNK) {
+          bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
+        }
+        const url = `data:${mimeFromPath(rel)};base64,${btoa(bin)}`;
+        imageDataUrlCache.set(rel, url);
+        img.src = url;
+      } catch (err) {
+        // Missing / unreadable — flag the placeholder visually and log
+        // the underlying error to the devtools console so a typo'd
+        // path or a missing asset is easy to debug.
+        console.warn('[preview] image hydration failed for', rel, err);
+        img.classList.add('local-image-broken');
+      }
+    }));
   }
 
   function renderComputeOutput(content: string, source: { language: string; code: string } | null): string {
@@ -535,6 +664,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // metadata fetches. Citeproc-rendered markers replace the
       // raw cite/quote display text per the project's CSL style.
       void applyCslMarkers();
+      // Image hydration (#244) — same shape as CSL markers: walk the
+      // rendered DOM, fetch each `<img class="local-image">` via the
+      // binary IPC, swap in a data URL. Cached per-path so re-renders
+      // skip the round-trip.
+      void hydrateLocalImages();
     });
   });
 
@@ -1011,6 +1145,34 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     outputMenu = null;
   }
 
+  function handleCopyAsCsv(): void {
+    if (!outputMenu || outputMenu.output.type !== 'table') return;
+    const csv = tableToCsv(outputMenu.output.columns, outputMenu.output.rows);
+    void navigator.clipboard.writeText(csv);
+    outputMenu = null;
+  }
+
+  /**
+   * RFC-4180-ish CSV: quote fields containing commas, quotes, or
+   * newlines; double internal quotes; CRLF row terminator. Pasted into
+   * Excel / Numbers / Sheets it parses back to the original table.
+   */
+  function tableToCsv(
+    columns: string[],
+    rows: Array<Array<string | number | boolean | null>>,
+  ): string {
+    const escape = (v: string | number | boolean | null): string => {
+      if (v == null) return '';
+      const s = String(v);
+      if (/[",\r\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const lines = [columns.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
+    return lines.join('\r\n');
+  }
+
   function outputToMarkdownClipboard(output: import('../../../shared/compute/types').CellOutput): string {
     if (output.type === 'table') {
       if (output.columns.length === 0) return '*(empty result)*';
@@ -1138,6 +1300,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       <button role="menuitem" onclick={handleSaveAsNote}>Save as note…</button>
     {/if}
     <button role="menuitem" onclick={handleCopyAsMarkdown}>Copy as markdown</button>
+    {#if outputMenu.output.type === 'table'}
+      <button role="menuitem" onclick={handleCopyAsCsv}>Copy as CSV</button>
+    {/if}
   </div>
 {/if}
 
@@ -1507,6 +1672,26 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     border-radius: 4px;
     background: #fff; /* Many matplotlib figures save with transparent bg */
     cursor: zoom-in;
+  }
+  /* Local images from `![](path)` references (#244). Pre-hydration
+     they're empty `<img>` placeholders; sized with a min-height so
+     the page doesn't reflow when the data URL lands. The .broken
+     state surfaces unresolvable paths so the user can spot the typo. */
+  .preview :global(img.local-image) {
+    max-width: 100%;
+    height: auto;
+    min-height: 1em;
+  }
+  .preview :global(img.local-image-broken) {
+    outline: 1px dashed var(--accent);
+    background: var(--bg-button);
+    min-height: 80px;
+  }
+  .preview :global(img.local-image-broken)::after {
+    content: 'image not found';
+    color: var(--text-muted);
+    font-size: 11px;
+    font-style: italic;
   }
   .preview :global(.compute-output-image.zoomed) {
     cursor: zoom-out;

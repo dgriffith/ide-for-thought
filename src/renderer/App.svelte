@@ -1276,7 +1276,13 @@
       `Save cell output as note. Path (default: notes/derived/):`,
     );
     if (dest === null) return; // user cancelled
-    const trimmed = dest.trim();
+    let trimmed = dest.trim();
+    // Add `.md` if the user typed a bare path. The pipeline writes a
+    // markdown note unconditionally, so a missing extension would
+    // produce a file that `Open` doesn't recognise as a note.
+    if (trimmed.length > 0 && !/\.md$/i.test(trimmed)) {
+      trimmed += '.md';
+    }
     try {
       const result = await api.compute.saveCellOutput({
         sourcePath,
@@ -2124,6 +2130,7 @@
               <div class="preview-panel">
                 <Preview
                   content={editor.content}
+                  notePath={editor.activeFilePath}
                   onNavigate={handleNavigate}
                   onTagSelect={handleTagSelect}
                   onOpenSource={handleOpenSource}

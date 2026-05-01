@@ -15,6 +15,8 @@ export interface NotebaseApi {
   clearRecent(): Promise<void>;
   listFiles(): Promise<NoteFile[]>;
   readFile(relativePath: string): Promise<string>;
+  /** Binary-safe read for images / pdfs / other non-text assets (#244). */
+  readBinary(relativePath: string): Promise<Uint8Array>;
   writeFile(relativePath: string, content: string): Promise<void>;
   createFile(relativePath: string): Promise<void>;
   deleteFile(relativePath: string): Promise<void>;
