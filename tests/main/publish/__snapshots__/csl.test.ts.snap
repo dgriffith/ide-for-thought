@@ -13,7 +13,7 @@ exports[`bundled CSL styles render end-to-end (#296) > chicago-notes-bibliograph
 {
   "entry": "  <div class="csl-entry">Smith, Jane, and Bob Jones. “On the Growth of Things.” <i>Journal of Things</i> 12, no. 3 (2020): 45–67. https://doi.org/10.1234/foo.bar.</div>
 ",
-  "inText": "Jane Smith and Bob Jones, “On the Growth of Things,” <i>Journal of Things</i> 12, no. 3 (2020): 45–67, https://doi.org/10.1234/foo.bar.",
+  "inText": "<sup class="footnote-ref" id="fnref-1"><a href="#fn-1">1</a></sup>",
   "isNote": true,
 }
 `;

@@ -626,3 +626,126 @@ describe('locator alias renders into citations (#299)', () => {
     expect(html).toContain('100');
   });
 });
+
+// ── Chicago full-note / footnote rendering (#297) ────────────────────────
+//
+// Chicago full-note (`chicago-notes-bibliography`) is a `class="note"`
+// CSL style. Citations in the rendered HTML should be `<sup>` markers
+// linking to a Footnotes section at the bottom; the actual citation
+// text becomes the footnote body. APA's inline-references behaviour
+// must remain unaffected.
+
+describe('Chicago full-note / footnote rendering (#297)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    await fsp.mkdir(path.join(root, '.minerva/sources/brooks-1986'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/brooks-1986/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "No Silver Bullet" ;
+  dc:creator "Brooks, Frederick P." ;
+  dc:issued "1986"^^xsd:gYear ;
+  schema:inContainer "Computer" .\n`,
+      'utf-8',
+    );
+    await fsp.mkdir(path.join(root, '.minerva/sources/popper-1959'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/popper-1959/meta.ttl'),
+      `this: a thought:Book ;
+  dc:title "The Logic of Scientific Discovery" ;
+  dc:creator "Popper, Karl" ;
+  dc:issued "1959"^^xsd:gYear .\n`,
+      'utf-8',
+    );
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('renderer flags note-class styles via isNoteStyle', async () => {
+    const noteAssets = await loadCitationAssets(root, { styleId: 'chicago-notes-bibliography' });
+    expect(noteAssets.createRenderer().isNoteStyle).toBe(true);
+
+    const inlineAssets = await loadCitationAssets(root, { styleId: 'apa' });
+    expect(inlineAssets.createRenderer().isNoteStyle).toBe(false);
+  });
+
+  it('note-style renderCitation returns a <sup> marker, not the citation text inline', async () => {
+    const assets = await loadCitationAssets(root, { styleId: 'chicago-notes-bibliography' });
+    const renderer = assets.createRenderer();
+    const first = renderer.renderCitation('brooks-1986');
+    expect(first).toMatch(/^<sup class="footnote-ref" id="fnref-1"><a href="#fn-1">1<\/a><\/sup>$/);
+    const second = renderer.renderCitation('popper-1959');
+    expect(second).toContain('fnref-2');
+    expect(second).toContain('#fn-2');
+  });
+
+  it('renderFootnotes returns the bodies in note-index order', async () => {
+    const assets = await loadCitationAssets(root, { styleId: 'chicago-notes-bibliography' });
+    const renderer = assets.createRenderer();
+    renderer.renderCitation('brooks-1986');
+    renderer.renderCitation('popper-1959');
+    const fns = renderer.renderFootnotes().notes;
+    expect(fns).toHaveLength(2);
+    expect(fns[0].index).toBe(1);
+    expect(fns[1].index).toBe(2);
+    expect(fns[0].body).toContain('Brooks');
+    expect(fns[1].body).toContain('Popper');
+  });
+
+  it('in-text styles return empty footnotes (renderCitation keeps inline behavior)', async () => {
+    const assets = await loadCitationAssets(root, { styleId: 'apa' });
+    const renderer = assets.createRenderer();
+    const out = renderer.renderCitation('brooks-1986');
+    expect(out).toContain('Brooks');
+    expect(out).toContain('1986');
+    expect(out).not.toContain('footnote-ref');
+    expect(renderer.renderFootnotes().notes).toEqual([]);
+  });
+
+  it('note-html exporter emits a Footnotes section under chicago-notes-bibliography', async () => {
+    await fsp.writeFile(path.join(root, 'note.md'),
+      'See [[cite::brooks-1986]] and also [[cite::popper-1959]].\n', 'utf-8');
+    const plan = await resolvePlan(
+      root,
+      { kind: 'single-note', relativePath: 'note.md' },
+      { citationStyle: 'chicago-notes-bibliography' },
+    );
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+
+    // Inline marks: two <sup> footnote refs.
+    expect(html).toMatch(/<sup class="footnote-ref" id="fnref-1">/);
+    expect(html).toMatch(/<sup class="footnote-ref" id="fnref-2">/);
+    // Footnotes section at the bottom with both bodies + back-refs.
+    expect(html).toContain('<section class="footnotes">');
+    expect(html).toContain('<h2>Footnotes</h2>');
+    expect(html).toMatch(/<li id="fn-1">[\s\S]*?Brooks[\s\S]*?<\/li>/);
+    expect(html).toMatch(/<li id="fn-2">[\s\S]*?Popper[\s\S]*?<\/li>/);
+    expect(html).toContain('href="#fnref-1"');
+    expect(html).toContain('href="#fnref-2"');
+    // Bibliography section also appears for note styles (Chicago renders both).
+    expect(html).toContain('<section class="references">');
+    expect(html).toContain('<h2>Bibliography</h2>');
+  });
+
+  it('inline (APA) export still emits References, not Footnotes', async () => {
+    await fsp.writeFile(path.join(root, 'apa-note.md'),
+      'See [[cite::brooks-1986]].\n', 'utf-8');
+    const plan = await resolvePlan(
+      root,
+      { kind: 'single-note', relativePath: 'apa-note.md' },
+      { citationStyle: 'apa' },
+    );
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).not.toContain('<section class="footnotes">');
+    expect(html).toContain('<section class="references">');
+    expect(html).toContain('<h2>References</h2>');
+    // No footnote `<sup>` markers — the inline rendering puts the
+    // citation text inline. (The CSS class `.footnote-ref` is in the
+    // embedded stylesheet but no element actually carries it.)
+    expect(html).not.toMatch(/<sup class="footnote-ref"/);
+  });
+});

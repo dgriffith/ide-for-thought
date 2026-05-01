@@ -27,13 +27,32 @@ export interface RenderedBibliography {
   isNote: boolean;
 }
 
+/** Footnote bodies collected during a render session, in note-index order. */
+export interface RenderedFootnotes {
+  /** [{ index: 1, body: '<i>Toulmin</i>, …' }, …] */
+  notes: Array<{ index: number; body: string }>;
+}
+
 export class CitationRenderer {
   private engine: CslEngine;
   private readonly items: Map<string, CslItem>;
   private readonly citedIds = new Set<string>();
   /** Ids we've been asked to render but couldn't find in `items`. */
   private readonly missingIds = new Set<string>();
-  private noteIndex = 0;
+  /**
+   * 1-based note counter. Note styles use this as the visible footnote
+   * marker; in-text styles ignore the value beyond bibliography ordering.
+   */
+  private noteIndex = 1;
+  /** True when the loaded CSL style is class="note" (Chicago full-note, Turabian, …). */
+  readonly isNoteStyle: boolean;
+  /**
+   * Footnote bodies for note-class styles (#297). Populated as
+   * `renderCitation` / `renderCitationCluster` fires; the citeproc-rendered
+   * text is stashed here and the inline mark is replaced with a `<sup>`
+   * marker. Empty for in-text styles.
+   */
+  private readonly footnotes: Array<{ index: number; body: string }> = [];
 
   constructor(style: string, locale: string, items: Map<string, CslItem>) {
     this.items = items;
@@ -50,6 +69,7 @@ export class CitationRenderer {
       retrieveLocale: () => locale,
     };
     this.engine = new CSL.Engine(sys, style);
+    this.isNoteStyle = Boolean(this.engine.cslXml?.dataObj?.attrs?.class === 'note');
   }
 
   /**
@@ -88,18 +108,37 @@ export class CitationRenderer {
       }
       return c;
     });
+    const noteIndex = this.noteIndex++;
     try {
       const result = this.engine.processCitationCluster(
-        { citationItems, properties: { noteIndex: this.noteIndex++ } },
+        { citationItems, properties: { noteIndex } },
         [],
         [],
       );
       const pairs = result[1];
-      return pairs.length > 0 ? pairs[0][1] : '';
+      const text = pairs.length > 0 ? pairs[0][1] : '';
+      // Note-class styles: stash the rendered text as a footnote body
+      // and emit a `<sup>` marker linking to it (#297). The marker uses
+      // a stable id-pair (`fnref-N` / `fn-N`) so the bottom-of-document
+      // footnotes section can render back-references.
+      if (this.isNoteStyle) {
+        this.footnotes.push({ index: noteIndex, body: text });
+        return `<sup class="footnote-ref" id="fnref-${noteIndex}"><a href="#fn-${noteIndex}">${noteIndex}</a></sup>`;
+      }
+      return text;
     } catch (err) {
       const ids = items.map((i) => i.id).join(', ');
       return `<span class="csl-error" title="${escapeHtml(String(err))}">[citation error: ${escapeHtml(ids)}]</span>`;
     }
+  }
+
+  /**
+   * Footnote bodies collected during this render session (#297). Empty
+   * for in-text styles. Order matches the noteIndex citeproc was given,
+   * which is the document order of `renderCitationCluster` calls.
+   */
+  renderFootnotes(): RenderedFootnotes {
+    return { notes: this.footnotes.slice() };
   }
 
   /**

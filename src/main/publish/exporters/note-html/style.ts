@@ -86,6 +86,20 @@ table {
 }
 th, td { padding: 0.4em 0.8em; border: 1px solid var(--border); text-align: left; vertical-align: top; }
 th { background: var(--code-bg); font-weight: 600; }
+.footnote-ref {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 0.1em;
+}
+.footnote-ref a { text-decoration: none; }
+.footnote-back {
+  margin-left: 0.4em;
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 0.85em;
+}
+.footnote-back:hover { text-decoration: underline; }
 .footnotes {
   margin-top: 3em;
   padding-top: 1em;
@@ -93,7 +107,14 @@ th { background: var(--code-bg); font-weight: 600; }
   font-size: 0.9em;
   color: var(--fg-muted);
 }
+.footnotes h2 {
+  border-bottom: none;
+  margin: 0 0 0.6em;
+  font-size: 1.15em;
+  color: var(--fg);
+}
 .footnotes ol { padding-left: 2em; }
+.footnotes li { margin-bottom: 0.4em; }
 .references {
   margin-top: 3em;
   padding-top: 1em;
