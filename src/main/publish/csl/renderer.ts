@@ -142,6 +142,25 @@ export class CitationRenderer {
   }
 
   /**
+   * Build a bibliography from an explicit list of source ids — decoupled
+   * from the per-render `citedIds` set so a tree-html bundle can
+   * consolidate citations across many per-note renderers (#300).
+   *
+   * Unknown ids are silently dropped; valid ids that have already been
+   * cited through this engine are fine (citeproc-js de-dupes
+   * internally). Returns the same shape as `renderBibliography`.
+   */
+  renderBibliographyFor(ids: string[]): RenderedBibliography {
+    const known = ids.filter((id) => this.items.has(id));
+    if (known.length === 0) return { entries: [], isNote: this.isNoteStyle };
+    this.engine.updateItems(known);
+    const result = this.engine.makeBibliography();
+    if (!result) return { entries: [], isNote: this.isNoteStyle };
+    const [, rawEntries] = result as [{ hangingindent?: boolean; 'second-field-align'?: string }, string[]];
+    return { entries: rawEntries, isNote: this.isNoteStyle };
+  }
+
+  /**
    * Render every cited item as a bibliography. Order follows the CSL
    * style's rules. Returns an empty result when no citations fired —
    * exporters should skip emitting the References section in that case.

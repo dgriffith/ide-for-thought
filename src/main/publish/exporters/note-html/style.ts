@@ -136,6 +136,16 @@ th { background: var(--code-bg); font-weight: 600; }
   font-size: 0.8em;
   text-align: right;
 }
+/* Tree-html bundle: per-note "References →" footer link to references.html (#300). */
+.bundle-refs-link {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--border);
+  font-size: 0.9em;
+  text-align: right;
+}
+.bundle-refs-link a { color: var(--accent); text-decoration: none; }
+.bundle-refs-link a:hover { text-decoration: underline; }
 
 /* highlight.js token styling — minimal light theme so code fences
  * render readably without pulling an external stylesheet. */

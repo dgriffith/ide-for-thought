@@ -13,6 +13,26 @@ import type { Exporter, ExportOutput } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
 /**
+ * Render the collected footnote bodies for note-class styles as a
+ * `<section class="footnotes">` (#297). Returns the empty string when
+ * no footnotes fired or the renderer isn't a note style — exporters
+ * concatenate the result so an empty section just disappears.
+ *
+ * Exposed (not private) so the tree-html bundle exporter can emit
+ * per-note footnotes while consolidating the Bibliography at bundle
+ * level (#300).
+ */
+export function renderFootnotesSection(renderer: CitationRenderer): string {
+  if (!renderer.isNoteStyle) return '';
+  const fns = renderer.renderFootnotes().notes;
+  if (fns.length === 0) return '';
+  const lis = fns.map((n) => (
+    `<li id="fn-${n.index}">${n.body} <a href="#fnref-${n.index}" class="footnote-back" aria-label="Back to text">↩</a></li>`
+  )).join('\n');
+  return `\n<section class="footnotes">\n<h2>Footnotes</h2>\n<ol>\n${lis}\n</ol>\n</section>`;
+}
+
+/**
  * Append the rendered bibliography (or footnotes, for note-class styles
  * like Chicago full-note — #297). Emits nothing when no citations
  * fired so the exported HTML doesn't grow an empty-references divot.
@@ -23,11 +43,8 @@ import type { CitationRenderer } from '../../csl';
  */
 function appendCitationsTail(body: string, renderer: CitationRenderer): string {
   if (renderer.isNoteStyle) {
-    const fns = renderer.renderFootnotes().notes;
-    if (fns.length === 0) return body;
-    const lis = fns.map((n) => (
-      `<li id="fn-${n.index}">${n.body} <a href="#fnref-${n.index}" class="footnote-back" aria-label="Back to text">↩</a></li>`
-    )).join('\n');
+    const footnotes = renderFootnotesSection(renderer);
+    if (!footnotes) return body;
     // Note styles ship a Bibliography too — alphabetised, full-form,
     // separate from the inline footnotes. Emit it after the footnotes
     // when citeproc gave us bibliography entries.
@@ -35,7 +52,7 @@ function appendCitationsTail(body: string, renderer: CitationRenderer): string {
     const bibSection = bib.entries.length > 0
       ? `\n<section class="references">\n<h2>Bibliography</h2>\n<ol>\n${bib.entries.map((e) => `<li>${e}</li>`).join('\n')}\n</ol>\n</section>`
       : '';
-    return `${body}\n<section class="footnotes">\n<h2>Footnotes</h2>\n<ol>\n${lis}\n</ol>\n</section>${bibSection}`;
+    return `${body}${footnotes}${bibSection}`;
   }
   const bib = renderer.renderBibliography();
   if (bib.entries.length === 0) return body;
