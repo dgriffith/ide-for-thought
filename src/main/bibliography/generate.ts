@@ -124,6 +124,5 @@ export async function generateBibliography(
   );
   // `loadCitationAssets` already falls back to APA when styleId is
   // unknown; surface what was actually used so the UI can confirm.
-  const usedStyleId = styleId && assets.style ? styleId : 'apa';
-  return { content, entriesCount, missingIds, changed, styleId: usedStyleId };
+  return { content, entriesCount, missingIds, changed, styleId: assets.styleId };
 }

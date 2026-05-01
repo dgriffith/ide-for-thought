@@ -21,6 +21,10 @@ export interface RunExportInput {
   outputDir: string;
   linkPolicy?: LinkPolicy;
   assetPolicy?: AssetPolicy;
+  /** CSL style id (#301). Falls back to the bundled default when absent. */
+  citationStyle?: string;
+  /** CSL locale id (#301). Falls back to en-US. */
+  citationLocale?: string;
 }
 
 export interface RunExportResult {
@@ -48,6 +52,8 @@ export async function runExport(
   const plan = await resolvePlan(rootPath, args.input, {
     linkPolicy: args.linkPolicy,
     assetPolicy: args.assetPolicy,
+    citationStyle: args.citationStyle,
+    citationLocale: args.citationLocale,
     outputDir: args.outputDir,
   });
   const output = await runExporter(exporter, plan);

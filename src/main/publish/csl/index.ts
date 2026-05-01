@@ -26,7 +26,13 @@ export interface BuildRendererOptions {
  * want a fresh session call `assets.createRenderer()` per note.
  */
 export interface CitationAssets {
+  /** Resolved CSL style id after fallback (e.g. 'apa'). Surfaced for the preview UI (#301). */
+  styleId: string;
+  /** Resolved CSL locale id after fallback (e.g. 'en-US'). */
+  localeId: string;
+  /** Raw CSL XML for the resolved style — what citeproc-js consumes. */
   style: string;
+  /** Raw locale XML. */
   locale: string;
   items: Map<string, CslItem>;
   excerpts: Map<string, { sourceId: string; locator?: string }>;
@@ -81,6 +87,8 @@ export async function loadCitationAssets(
   } catch { /* no .minerva/excerpts */ }
 
   return {
+    styleId,
+    localeId,
     style,
     locale,
     items,
