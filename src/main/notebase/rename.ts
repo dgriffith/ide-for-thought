@@ -1,7 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as notebaseFs from './fs';
-import { rewriteWikiLinks, normalizePath as normalizeLinkPath } from './link-rewriting';
+import {
+  rewriteWikiLinks,
+  rewriteRelativeMarkdownLinks,
+  normalizePath as normalizeLinkPath,
+} from './link-rewriting';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { isIndexable } from './indexable-files';
@@ -17,6 +21,31 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
       if (entry.isDirectory()) {
         results.push(...await listIndexableFiles(rootPath, rel));
       } else if (isIndexable(entry.name)) {
+        results.push(rel);
+      }
+    }
+  } catch { /* directory may not exist */ }
+  return results;
+}
+
+/**
+ * List every file (any extension) under `relDir`, used to build the
+ * markdown-rewrites map. The wiki-link rewriter cares only about
+ * indexable notes, but markdown image refs can target .png/.svg/.csv
+ * etc — those need to be in the rewrites map so a sibling note's
+ * `![alt](pic.png)` gets re-relativized when the folder moves.
+ */
+async function listAllFiles(rootPath: string, relDir: string): Promise<string[]> {
+  const results: string[] = [];
+  const absDir = path.join(rootPath, relDir);
+  try {
+    const entries = await fs.readdir(absDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const rel = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        results.push(...await listAllFiles(rootPath, rel));
+      } else {
         results.push(rel);
       }
     }
@@ -65,7 +94,7 @@ export async function renameWithLinkRewrites(
   const oldStat = await fs.stat(path.join(rootPath, oldRelPath));
   const isDirectory = oldStat.isDirectory();
 
-  // Build the rewrites map: normalized-old-path → normalized-new-path.
+  // Build the wiki-link rewrites map: normalized-old-path → normalized-new-path.
   const rewrites = new Map<string, string>();
   if (isDirectory) {
     const descendants = await listIndexableFiles(rootPath, oldRelPath);
@@ -75,6 +104,21 @@ export async function renameWithLinkRewrites(
     }
   } else if (isIndexable(oldRelPath)) {
     rewrites.set(normalizeLinkPath(oldRelPath), normalizeLinkPath(newRelPath));
+  }
+
+  // Markdown-link rewrites map: full-path → full-path. Covers every
+  // file moved by this rename (indexable or not), since a sibling
+  // note's `![alt](pic.png)` needs re-relativizing when `pic.png`
+  // moves alongside it. The wiki-link map above is a strict subset
+  // of this one (md-files only, with the `.md` suffix stripped).
+  const mdRewrites = new Map<string, string>();
+  if (isDirectory) {
+    const descendants = await listAllFiles(rootPath, oldRelPath);
+    for (const d of descendants) {
+      mdRewrites.set(d, newRelPath + d.slice(oldRelPath.length));
+    }
+  } else {
+    mdRewrites.set(oldRelPath, newRelPath);
   }
 
   // Compute referring notes BEFORE renaming (querying pre-rename graph state).
@@ -115,25 +159,66 @@ export async function renameWithLinkRewrites(
     transitions.push({ old: oldRelPath, new: newRelPath });
   }
 
-  // Rewrite wiki-links in every referring note. If a referring note was itself
-  // inside the renamed folder, translate its old path to the new one first.
+  // Rewrite links across the project. Two rewriters run in one pass:
+  //   - wiki-link rewriter (graph-driven): only referring notes need a
+  //     pass, since wiki-link targets are root-relative.
+  //   - markdown-link rewriter (whole-project sweep): authored relative
+  //     paths can target moved files OR live inside a moved file —
+  //     both directions need re-relativization, and the graph doesn't
+  //     index markdown-link edges, so we walk every indexable note.
+  // Both passes share a single read/write cycle per file so we don't
+  // double-write notes that both passes would touch.
   const rewrittenPaths: string[] = [];
-  for (const notePath of referringNotes) {
-    const normalized = normalizeLinkPath(notePath);
-    const rewrittenBase = rewrites.get(normalized);
-    const actualPath = rewrittenBase !== undefined ? `${rewrittenBase}.md` : notePath;
+  const allNotes = await listIndexableFiles(rootPath, '');
+  for (const currentPath of allNotes) {
+    // The note's path BEFORE the rename. For files moved as part of
+    // this rename, that's their pre-rename location; otherwise it's
+    // unchanged. Markdown links are resolved against the OLD source
+    // location since that's where the author wrote them.
+    const oldEquivalent = isDirectory && currentPath.startsWith(`${newRelPath}/`)
+      ? oldRelPath + currentPath.slice(newRelPath.length)
+      : currentPath === newRelPath
+        ? oldRelPath
+        : currentPath;
+
+    let content: string;
     try {
-      const content = await notebaseFs.readFile(rootPath, actualPath);
-      const rewritten = rewriteWikiLinks(content, rewrites);
-      if (rewritten !== content) {
-        markPathHandled?.(actualPath);
-        await notebaseFs.writeFile(rootPath, actualPath, rewritten);
-        await graph.indexNote(ctx, actualPath, rewritten);
-        reindexHook?.(actualPath, rewritten);
-        rewrittenPaths.push(actualPath);
-      }
+      content = await notebaseFs.readFile(rootPath, currentPath);
     } catch (err) {
-      console.error(`[minerva] Link rewrite failed for ${actualPath}:`, err instanceof Error ? err.message : err);
+      console.error(`[minerva] Read for rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+      continue;
+    }
+
+    let rewritten = content;
+
+    // Wiki-link pass — only useful when this note actually refers to
+    // one of the moved targets. The graph-driven set tells us which.
+    if (referringNotes.has(oldEquivalent)) {
+      rewritten = rewriteWikiLinks(rewritten, rewrites);
+    }
+
+    // Markdown-link pass — applies whenever the source moved (so all
+    // its relative links need re-relativizing) OR a target moved (so
+    // a link in this note may need its target updated). The rewriter
+    // itself is a fast no-op when neither condition fires for this
+    // file's content.
+    rewritten = rewriteRelativeMarkdownLinks(
+      rewritten,
+      oldEquivalent,
+      currentPath,
+      mdRewrites,
+    );
+
+    if (rewritten !== content) {
+      try {
+        markPathHandled?.(currentPath);
+        await notebaseFs.writeFile(rootPath, currentPath, rewritten);
+        await graph.indexNote(ctx, currentPath, rewritten);
+        reindexHook?.(currentPath, rewritten);
+        rewrittenPaths.push(currentPath);
+      } catch (err) {
+        console.error(`[minerva] Link rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+      }
     }
   }
 

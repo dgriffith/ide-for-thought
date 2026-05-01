@@ -176,3 +176,79 @@ describe('renameWithLinkRewrites — folder rename (issue #136)', () => {
     expect(readNote(root, 'archive/overview.md')).toContain('[[archive/a]]');
   });
 });
+
+describe('renameWithLinkRewrites — markdown relative links (#NEW)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('rewrites a markdown link in a referrer when the target file moves', async () => {
+    writeNote(root, 'notes/foo.md', '# Foo');
+    writeNote(root, 'notes/overview.md', 'See [foo](./foo.md) for context.\n');
+    await indexNote(ctx, 'notes/foo.md', '# Foo');
+    await indexNote(ctx, 'notes/overview.md', 'See [foo](./foo.md) for context.\n');
+
+    await renameWithLinkRewrites(root, 'notes/foo.md', 'archive/foo.md');
+
+    expect(readNote(root, 'notes/overview.md'))
+      .toBe('See [foo](../archive/foo.md) for context.\n');
+  });
+
+  it('re-relativizes outbound markdown links in a moved file', async () => {
+    writeNote(root, 'notes/a.md', 'See [other](./other.md).\n');
+    writeNote(root, 'notes/other.md', '# Other');
+    await indexNote(ctx, 'notes/a.md', 'See [other](./other.md).\n');
+    await indexNote(ctx, 'notes/other.md', '# Other');
+
+    await renameWithLinkRewrites(root, 'notes/a.md', 'notes/sub/a.md');
+
+    // The moved note's outbound link must still resolve to notes/other.md.
+    expect(readNote(root, 'notes/sub/a.md')).toContain('[other](../other.md)');
+  });
+
+  it('rewrites image refs alongside text links', async () => {
+    writeNote(root, 'assets/pic.png', 'fake-image-bytes');
+    writeNote(root, 'notes/a.md', '![alt](../assets/pic.png)\n');
+    await indexNote(ctx, 'notes/a.md', '![alt](../assets/pic.png)\n');
+
+    await renameWithLinkRewrites(root, 'notes/a.md', 'archive/a.md');
+
+    // From archive/a.md, ../assets/pic.png still works.
+    expect(readNote(root, 'archive/a.md')).toContain('![alt](../assets/pic.png)');
+  });
+
+  it('moves a sibling image alongside its parent folder and keeps refs valid', async () => {
+    writeNote(root, 'notes/a.md', '![alt](./pic.png)\n');
+    writeNote(root, 'notes/pic.png', 'fake');
+    writeNote(root, 'other/refers.md', '![](../notes/pic.png)\n');
+    await indexNote(ctx, 'notes/a.md', '![alt](./pic.png)\n');
+    await indexNote(ctx, 'other/refers.md', '![](../notes/pic.png)\n');
+
+    await renameWithLinkRewrites(root, 'notes', 'archive');
+
+    // Inside the moved folder: a.md and pic.png stayed siblings.
+    expect(readNote(root, 'archive/a.md')).toContain('![alt](./pic.png)');
+    // Outside: the referrer's ../notes/pic.png becomes ../archive/pic.png.
+    expect(readNote(root, 'other/refers.md')).toContain('![](../archive/pic.png)');
+  });
+
+  it('leaves URL-scheme and bare-anchor links alone', async () => {
+    const original =
+      'See [w](https://example.com), [m](mailto:x@y.z), [a](#anchor).\n';
+    writeNote(root, 'notes/a.md', original);
+    await indexNote(ctx, 'notes/a.md', original);
+
+    await renameWithLinkRewrites(root, 'notes/a.md', 'archive/a.md');
+
+    expect(readNote(root, 'archive/a.md')).toBe(original);
+  });
+});
