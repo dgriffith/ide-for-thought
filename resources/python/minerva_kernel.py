@@ -324,6 +324,17 @@ def exec_cell(req):
                 'evalue': 'Cell called sys.exit()',
                 'traceback': traceback.format_exc().splitlines(),
             }
+        except KeyboardInterrupt:
+            # Cell was interrupted via "Compute: Interrupt Cell" (#372)
+            # — SIGINT on POSIX, _thread.interrupt_main() on Windows.
+            # Surface as a structured error so any partial stdout
+            # captured up to the interrupt still rides through to the
+            # renderer below.
+            error_payload = {
+                'ename': 'KeyboardInterrupt',
+                'evalue': 'Cell interrupted',
+                'traceback': traceback.format_exc().splitlines(),
+            }
         except BaseException as e:
             error_payload = {
                 'ename': type(e).__name__,
@@ -349,7 +360,20 @@ def exec_cell(req):
 
 def main():
     emit({'type': 'ready'})
-    for line in sys.stdin:
+    while True:
+        try:
+            line = sys.stdin.readline()
+        except KeyboardInterrupt:
+            # SIGINT delivered between cells — i.e. the user mashed
+            # Interrupt Cell after the previous cell already finished
+            # but before the next request arrives. Swallow and keep
+            # serving; killing the kernel here would lose every
+            # notebook's namespace, exactly the failure mode the
+            # interrupt was supposed to avoid (#372).
+            continue
+        if not line:
+            # EOF — parent process closed stdin.
+            break
         line = line.strip()
         if not line:
             continue

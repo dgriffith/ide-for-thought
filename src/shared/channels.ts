@@ -286,6 +286,12 @@ export const Channels = {
   /** Wipe and respawn the project's Python kernel. Loses every notebook's
    *  namespace state — palette command "Compute: Restart Python Kernel". */
   COMPUTE_RESTART_PYTHON_KERNEL: 'compute:restartPythonKernel',
+  /** Send SIGINT to the active Python kernel so a runaway cell can
+   *  be interrupted without losing namespace state — palette command
+   *  "Compute: Interrupt Cell" (#372). POSIX-only for v1; Windows
+   *  returns an unsupported-platform marker the UI surfaces as a
+   *  "use Restart" suggestion. */
+  COMPUTE_INTERRUPT_PYTHON: 'compute:interruptPython',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

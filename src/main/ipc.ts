@@ -71,7 +71,7 @@ import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
 import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from './notebase/search-in-notes';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
-import { restartKernel as restartPythonKernel } from './compute/python-kernel';
+import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
 import * as publish from './publish';
 import { createExcerpt } from './sources/create-excerpt';
@@ -1079,6 +1079,12 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return;
     await restartPythonKernel(rootPath);
+  });
+
+  ipcMain.handle(Channels.COMPUTE_INTERRUPT_PYTHON, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { ok: false, reason: 'no-kernel' };
+    return interruptPythonKernel(rootPath);
   });
 
   ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, async (e, input: SaveCellOutputInput) => {

@@ -302,6 +302,47 @@ export async function runPython(
 }
 
 /**
+ * Result of an interrupt request — distinguishes the cases that
+ * matter for UX (success, no kernel running, platform unsupported)
+ * so the caller can surface the right message.
+ */
+export type InterruptResult =
+  | { ok: true }
+  | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' };
+
+/**
+ * Interrupt the running cell in `rootPath`'s kernel without
+ * restarting (#372). POSIX SIGINT delivers asynchronously to the
+ * Python process; the cell's main thread sees it as
+ * `KeyboardInterrupt` regardless of where it's blocked, and the
+ * exec loop's catch handler surfaces a structured error event.
+ *
+ * Windows is gated for now — a reliable child-process interrupt
+ * requires either a separate process group + CTRL_BREAK_EVENT or a
+ * threaded stdin reader inside the kernel that can dispatch
+ * `_thread.interrupt_main()` mid-user-code. Both belong to a
+ * follow-up; until then Windows callers see `unsupported-platform`
+ * and the UI can suggest Restart instead.
+ *
+ * Returns `no-kernel` for a project with no live kernel — there's
+ * nothing to interrupt, and a missing-kernel error would be noise
+ * from a hot keypress immediately after startup or after Restart.
+ */
+export function interruptKernel(rootPath: string): InterruptResult {
+  const state = kernels.get(rootPath);
+  if (!state || state.proc.exitCode !== null) return { ok: false, reason: 'no-kernel' };
+  if (process.platform === 'win32') {
+    return { ok: false, reason: 'unsupported-platform' };
+  }
+  try {
+    state.proc.kill('SIGINT');
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: 'signal-failed' };
+  }
+}
+
+/**
  * Tear down the kernel for `rootPath`. SIGTERM with a 2s grace before
  * SIGKILL. Used by `Compute: Restart Python Kernel` and as the per-
  * project unit of `shutdownAllKernels`.

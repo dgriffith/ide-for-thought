@@ -130,6 +130,7 @@ contextBridge.exposeInMainWorld('api', {
     saveCellOutput: (input: unknown) =>
       ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
     restartPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
+    interruptPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_INTERRUPT_PYTHON),
   },
   publish: {
     listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),
