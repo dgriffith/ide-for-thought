@@ -95,15 +95,14 @@ skipIfNoPython('python kernel (#241)', () => {
     expect(r.error).toMatch(/nope/);
   });
 
-  it('non-JSON-serialisable result falls back to repr', async () => {
-    // Sets aren't JSON-serialisable; the kernel falls back to repr.
+  it('non-JSON-serialisable result falls back to text/plain repr', async () => {
+    // Sets aren't JSON-serialisable; under the MIME-bundle protocol
+    // (#243) the kernel routes them through text/plain so they reach
+    // the renderer as a 'text' output (was 'json' pre-#243).
     const r = await runPython(ROOT, 'repr.md', '{1, 2, 3}');
     expect(r.ok).toBe(true);
-    if (!r.ok || r.output.type !== 'json') return;
-    // Set ordering isn't guaranteed; just check it's a stringified set
-    // with the elements somewhere inside.
-    expect(typeof r.output.value).toBe('string');
-    const repr = String(r.output.value);
+    if (!r.ok || r.output.type !== 'text') return;
+    const repr = r.output.value;
     expect(repr.startsWith('{')).toBe(true);
     expect(repr.endsWith('}')).toBe(true);
     for (const n of [1, 2, 3]) expect(repr).toContain(String(n));
@@ -158,6 +157,134 @@ skipIfNoPython('python kernel (#241)', () => {
     expect(recovered.ok).toBe(true);
     if (!recovered.ok || recovered.output.type !== 'text') return;
     expect(recovered.output.value).toBe('alive');
+  });
+
+  // ── Rich output (#243) ──────────────────────────────────────────────
+
+  function pyModuleAvailable(mod: string): boolean {
+    const bin = process.env.MINERVA_PYTHON ?? 'python3';
+    try {
+      execSync(`${bin} -c "import ${mod}"`, { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  const skipIfNoPandas = pyModuleAvailable('pandas') ? it : it.skip;
+  const skipIfNoMatplotlib = pyModuleAvailable('matplotlib') ? it : it.skip;
+  const skipIfNoPil = pyModuleAvailable('PIL') ? it : it.skip;
+
+  skipIfNoPandas('pandas DataFrame → table output with columns + rows', async () => {
+    const r = await runPython(ROOT, 'df.md', `
+import pandas as pd
+pd.DataFrame({'a': [1, 2, 3], 'b': ['x', 'y', 'z']})
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.output.type).toBe('table');
+    if (r.output.type !== 'table') return;
+    expect(r.output.columns).toEqual(['a', 'b']);
+    expect(r.output.rows).toEqual([[1, 'x'], [2, 'y'], [3, 'z']]);
+    // No truncation for 3 rows.
+    expect(r.output.truncated).toBe(false);
+    expect(r.output.totalRows).toBe(3);
+  });
+
+  skipIfNoPandas('pandas DataFrame > 1000 rows → truncated:true with totalRows preserved', async () => {
+    const r = await runPython(ROOT, 'df-big.md', `
+import pandas as pd
+pd.DataFrame({'i': list(range(1500))})
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'table') return;
+    expect(r.output.rows.length).toBe(1000);
+    expect(r.output.truncated).toBe(true);
+    expect(r.output.totalRows).toBe(1500);
+  });
+
+  skipIfNoMatplotlib('matplotlib Figure as last expression → image/png output', async () => {
+    const r = await runPython(ROOT, 'fig.md', `
+import matplotlib
+matplotlib.use('Agg')  # headless: no GUI backend in CI
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3], [1, 4, 9])
+fig
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'image') return;
+    expect(r.output.mime).toBe('image/png');
+    // base64-encoded PNGs always start with the magic-bytes signature
+    // `iVBORw0KGgo` (decoding to 89 50 4E 47 0D 0A 1A 0A).
+    expect(r.output.data.startsWith('iVBORw0KGgo')).toBe(true);
+  });
+
+  skipIfNoMatplotlib('Axes object also resolves to its parent Figure', async () => {
+    const r = await runPython(ROOT, 'axes.md', `
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.plot([1, 2, 3])
+ax  # bare Axes — should still render as a PNG via fig
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'image') return;
+    expect(r.output.mime).toBe('image/png');
+  });
+
+  skipIfNoPil('PIL.Image as last expression → image/png output', async () => {
+    const r = await runPython(ROOT, 'pil.md', `
+from PIL import Image
+Image.new('RGB', (8, 8), color='red')
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'image') return;
+    expect(r.output.mime).toBe('image/png');
+    expect(r.output.data.startsWith('iVBORw0KGgo')).toBe(true);
+  });
+
+  it('object with _repr_html_ → html output', async () => {
+    // Ad-hoc class — no third-party lib dependency.
+    const r = await runPython(ROOT, 'reprhtml.md', `
+class Bold:
+    def _repr_html_(self):
+        return '<b>hello</b>'
+Bold()
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'html') return;
+    expect(r.output.html).toBe('<b>hello</b>');
+  });
+
+  it('object with _repr_svg_ → image/svg+xml output', async () => {
+    const r = await runPython(ROOT, 'reprsvg.md', `
+class Circle:
+    def _repr_svg_(self):
+        return '<svg xmlns="http://www.w3.org/2000/svg"><circle cx="5" cy="5" r="4"/></svg>'
+Circle()
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'image') return;
+    expect(r.output.mime).toBe('image/svg+xml');
+    expect(r.output.data).toContain('<circle');
+  });
+
+  it('object with _repr_png_ → image/png output (bytes path)', async () => {
+    // Construct an obviously-not-a-real PNG byte sequence to verify the
+    // bytes-path takes precedence and the kernel base64-encodes it.
+    const r = await runPython(ROOT, 'reprpng.md', `
+class Tiny:
+    def _repr_png_(self):
+        return bytes([0x89, 0x50, 0x4E, 0x47])  # PNG magic prefix
+Tiny()
+    `.trim());
+    expect(r.ok).toBe(true);
+    if (!r.ok || r.output.type !== 'image') return;
+    expect(r.output.mime).toBe('image/png');
+    // base64 of bytes 89 50 4E 47 = "iVBORw=="
+    expect(r.output.data).toBe('iVBORw==');
   });
 
   it('two projects keep independent kernels', async () => {

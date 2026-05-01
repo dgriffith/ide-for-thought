@@ -19,6 +19,7 @@
   import { api } from '../ipc/client';
   import { normalizeSqlRows } from '../editor/sql-result';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
+  import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
 
   interface Props {
     content: string;
@@ -319,15 +320,47 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     } else if (p.type === 'table' && Array.isArray(p.columns) && Array.isArray(p.rows)) {
       const columns = p.columns as string[];
       const rows = p.rows as Array<Array<string | number | boolean | null>>;
+      const totalRows = typeof p.totalRows === 'number' ? p.totalRows : null;
+      const truncated = p.truncated === true;
       const headers = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
       const body = rows.map((r) => {
         const cells = r.map((v) => `<td>${escapeHtml(v == null ? '' : String(v))}</td>`).join('');
         return `<tr>${cells}</tr>`;
       }).join('');
-      inner = `<table class="compute-output compute-output-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+      // Truncation footer (#243): when the kernel capped rows, surface
+      // the gap so the user knows there's more data than they can see
+      // and can re-run with `df.tail(...)` / `.iloc[]` if they need it.
+      const footer = truncated && totalRows
+        ? `<p class="compute-output-truncation">Showing ${rows.length} of ${totalRows} rows · ${totalRows - rows.length} more hidden</p>`
+        : '';
+      inner = `<div class="compute-output-table-wrap"><table class="compute-output compute-output-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>${footer}</div>`;
       saveable = true;
     } else if (p.type === 'json') {
       inner = `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(p.value, null, 2))}</pre>`;
+      saveable = true;
+    } else if (p.type === 'image' && (p.mime === 'image/png' || p.mime === 'image/svg+xml')) {
+      // Inline image (#243). PNG → data URL with base64 payload; SVG →
+      // raw markup wrapped in a div so the host stylesheet can scope it.
+      // Click-to-zoom toggles a `.zoomed` class via the global compute
+      // output click handler (App.svelte) — same affordance as save-as-note.
+      const data = typeof p.data === 'string' ? p.data : '';
+      if (p.mime === 'image/png') {
+        inner = `<img class="compute-output compute-output-image" src="data:image/png;base64,${escapeAttr(data)}" alt="cell output" />`;
+      } else {
+        // SVG: insert raw markup. SVG is rendered inline, so any embedded
+        // <script> would execute. Sanitize with the same DOMPurify config
+        // the html branch uses.
+        const safe = sanitizeComputeOutputHtml(data);
+        inner = `<div class="compute-output compute-output-svg">${safe}</div>`;
+      }
+      saveable = true;
+    } else if (p.type === 'html' && typeof p.html === 'string') {
+      // _repr_html_ output (Seaborn styled tables, IPython.display.HTML, …).
+      // DOMPurify with a strict allowlist — no <script>, no <iframe>,
+      // no event handlers — so a malformed _repr_html_ from a user-side
+      // library can't escape the output container.
+      const safe = sanitizeComputeOutputHtml(p.html);
+      inner = `<div class="compute-output compute-output-html">${safe}</div>`;
       saveable = true;
     } else {
       // Unknown type — show the raw JSON so the user can tell what came back.
@@ -905,6 +938,17 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       const wrap = menuBtn.closest<HTMLElement>('.compute-output-wrap');
       if (!wrap) return;
       openOutputMenu(menuBtn, wrap);
+      return;
+    }
+
+    // Click-to-zoom on inline compute output images (#243). Toggles
+    // a `.zoomed` class so the stylesheet flips between thumbnail and
+    // full-size views without a modal dialog.
+    const outputImg = el.closest<HTMLElement>('.compute-output-image');
+    if (outputImg && outputImg instanceof HTMLImageElement) {
+      e.preventDefault();
+      outputImg.classList.toggle('zoomed');
+      return;
     }
   }
 
@@ -1425,6 +1469,76 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     border-radius: 0 4px 4px 0;
     font-family: var(--font-mono, ui-monospace, monospace);
     white-space: pre-wrap;
+  }
+
+  /* Rich-output additions (#243). DataFrame tables get a max-height
+     so a 1000-row dump doesn't push the rest of the note off-screen;
+     overflow auto so the user can scroll inside the box. The footer
+     sits below the scroll viewport so the row counts stay anchored
+     while the user scrubs the rows. */
+  .preview :global(.compute-output-table-wrap) {
+    margin: 0 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .preview :global(.compute-output-table-wrap) :global(.compute-output-table) {
+    max-height: 420px;
+    display: block;
+    overflow: auto;
+  }
+  .preview :global(.compute-output-table-wrap) :global(.compute-output-table thead) {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .preview :global(.compute-output-truncation) {
+    margin: 0;
+    padding: 6px 12px;
+    background: var(--bg-button);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .preview :global(.compute-output-image) {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    background: #fff; /* Many matplotlib figures save with transparent bg */
+    cursor: zoom-in;
+  }
+  .preview :global(.compute-output-image.zoomed) {
+    cursor: zoom-out;
+    max-width: none;
+    max-height: 90vh;
+  }
+  .preview :global(.compute-output-svg) {
+    background: #fff;
+    padding: 8px;
+    border-radius: 4px;
+  }
+  .preview :global(.compute-output-svg) :global(svg) {
+    max-width: 100%;
+    height: auto;
+  }
+  .preview :global(.compute-output-html) {
+    /* Sanitised _repr_html_ output. Scope styling so the output's own
+       inline styles don't bleed into the rest of the note: a CSS
+       containment boundary keeps fonts / margins from escaping. */
+    contain: content;
+    background: var(--bg);
+    padding: 8px 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  .preview :global(.compute-output-html) :global(table) {
+    border-collapse: collapse;
+  }
+  .preview :global(.compute-output-html) :global(th),
+  .preview :global(.compute-output-html) :global(td) {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
   }
 
   /* Output overflow-menu button — sits in the top-right corner of each
