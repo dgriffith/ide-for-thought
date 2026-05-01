@@ -135,6 +135,16 @@ export const Channels = {
   /** Persist the per-project CSL style id. (#113) */
   BIBLIOGRAPHY_SET_STYLE: 'bibliography:setStyle',
 
+  /** List user-imported CSL styles + locales for the Settings UI. (#302) */
+  CSL_LIST_USER_STYLES: 'csl:listUserStyles',
+  CSL_LIST_USER_LOCALES: 'csl:listUserLocales',
+  /** Open file picker, validate, copy into .minerva/csl-{styles,locales}/. (#302) */
+  CSL_IMPORT_STYLE: 'csl:importStyle',
+  CSL_IMPORT_LOCALE: 'csl:importLocale',
+  /** Delete a user-imported style/locale by id. (#302) */
+  CSL_REMOVE_STYLE: 'csl:removeStyle',
+  CSL_REMOVE_LOCALE: 'csl:removeLocale',
+
   /**
    * Render a batch of inline citations through citeproc using the
    * project's configured CSL style (#110). Input is the cite/quote

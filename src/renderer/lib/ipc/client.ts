@@ -444,6 +444,7 @@ export interface IdeApi {
   sources: SourcesApi;
   sites: SitesApi;
   bibliography: BibliographyApi;
+  csl: CslApi;
   citations: CitationsApi;
   menu: MenuApi;
 }
@@ -466,7 +467,8 @@ export interface SitesApi {
 }
 
 export interface BibliographyApi {
-  listStyles(): Promise<{ id: string; label: string }[]>;
+  /** List bundled + user-imported styles. `isUser` flags entries from `.minerva/csl-styles/` so the UI can render them differently. */
+  listStyles(): Promise<{ id: string; label: string; isUser?: boolean }[]>;
   getStyle(): Promise<string>;
   setStyle(styleId: string): Promise<void>;
   generate(relativePath: string): Promise<{
@@ -475,6 +477,21 @@ export interface BibliographyApi {
     changed: boolean;
     styleId: string;
   }>;
+}
+
+/**
+ * User-imported CSL assets (#302). Project-scoped; files live under
+ * `.minerva/csl-styles/` and `.minerva/csl-locales/` so they travel with
+ * the thoughtbase via git.
+ */
+export interface CslApi {
+  listUserStyles(): Promise<{ id: string; label: string; filePath: string }[]>;
+  listUserLocales(): Promise<{ id: string; filePath: string }[]>;
+  /** Open a file picker, validate, copy into `.minerva/csl-styles/`. Returns `null` when the user cancels. */
+  importStyle(): Promise<{ id: string; label: string; filePath: string } | null>;
+  importLocale(): Promise<{ id: string; filePath: string } | null>;
+  removeStyle(id: string): Promise<void>;
+  removeLocale(id: string): Promise<void>;
 }
 
 
