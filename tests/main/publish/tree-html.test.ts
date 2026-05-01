@@ -89,3 +89,123 @@ describe('tree-html exporter (#251) — through the pipeline', () => {
     expect(indexHtml).toContain('href="b.html"');
   });
 });
+
+// ── Consolidated bibliography across the bundle (#300) ───────────────────
+
+describe('tree-html consolidated bibliography (#300)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    await fsp.mkdir(path.join(root, '.minerva/sources/foo-2020'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/foo-2020/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Foo Studies" ;
+  dc:creator "Foo, Alice" ;
+  dc:issued "2020"^^xsd:gYear .\n`,
+      'utf-8');
+    await fsp.mkdir(path.join(root, '.minerva/sources/bar-2021'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/bar-2021/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Bar Considered" ;
+  dc:creator "Bar, Bob" ;
+  dc:issued "2021"^^xsd:gYear .\n`,
+      'utf-8');
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('emits one references.html with deduplicated entries across all notes', async () => {
+    // Three notes; both Foo and Bar are cited from multiple notes.
+    await fsp.writeFile(path.join(root, 'a.md'),
+      '# A\n\nSee [[cite::foo-2020]] and [[b]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'),
+      '# B\n\nPer [[cite::foo-2020]], also [[cite::bar-2021]] and [[c]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'c.md'),
+      '# C\n\nFinally [[cite::bar-2021]].\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
+    const output = await runExporter(treeHtmlExporter, plan);
+
+    const paths = output.files.map((f) => f.path).sort();
+    expect(paths).toContain('references.html');
+
+    const refs = String(output.files.find((f) => f.path === 'references.html')!.contents);
+    // One entry per source despite four total cite occurrences.
+    expect(refs).toContain('Foo');
+    expect(refs).toContain('Bar');
+    expect(refs).toContain('<title>References</title>');
+    // No duplicate Foo entries — count occurrences of "Foo Studies".
+    const fooMatches = (refs.match(/Foo Studies/g) ?? []).length;
+    expect(fooMatches).toBe(1);
+  });
+
+  it('each cite-bearing note grows a "References →" footer link to references.html', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'),
+      '# A\n\n[[cite::foo-2020]] and [[b]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'),
+      '# B\n\nNo cites here.\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
+    const output = await runExporter(treeHtmlExporter, plan);
+
+    const indexHtml = String(output.files.find((f) => f.path === 'index.html')!.contents);
+    const bHtml = String(output.files.find((f) => f.path === 'b.html')!.contents);
+    expect(indexHtml).toContain('class="bundle-refs-link"');
+    expect(indexHtml).toContain('href="references.html"');
+    // Note b.md has no citations, so no "References →" footer.
+    expect(bHtml).not.toContain('class="bundle-refs-link"');
+  });
+
+  it('nested-path notes get a relative href to references.html', async () => {
+    await fsp.mkdir(path.join(root, 'sub'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'a.md'),
+      '# A\n\n[[sub/deep]]\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'sub/deep.md'),
+      '# Deep\n\n[[cite::foo-2020]]\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
+    const output = await runExporter(treeHtmlExporter, plan);
+    const deepHtml = String(output.files.find((f) => f.path === 'sub/deep.html')!.contents);
+    // sub/deep.html is one directory deeper than the bundle root, so
+    // the link climbs one level: ../references.html.
+    expect(deepHtml).toContain('href="../references.html"');
+  });
+
+  it('omits references.html when no notes cite anything', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '# A\n[[b]]\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'), '# B\nno cites\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
+    const output = await runExporter(treeHtmlExporter, plan);
+    expect(output.files.map((f) => f.path)).not.toContain('references.html');
+  });
+
+  it('note-style export: per-note Footnotes + bundle-level Bibliography', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'),
+      '# A\n\n[[cite::foo-2020]] and [[b]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'),
+      '# B\n\n[[cite::bar-2021]]\n', 'utf-8');
+    const plan = await resolvePlan(
+      root,
+      { kind: 'tree', relativePath: 'a.md', maxDepth: 3 },
+      { citationStyle: 'chicago-notes-bibliography' },
+    );
+    const output = await runExporter(treeHtmlExporter, plan);
+
+    const indexHtml = String(output.files.find((f) => f.path === 'index.html')!.contents);
+    const bHtml = String(output.files.find((f) => f.path === 'b.html')!.contents);
+    // Each note has its own footnote section starting at 1.
+    expect(indexHtml).toContain('<section class="footnotes">');
+    expect(indexHtml).toContain('id="fn-1"');
+    expect(bHtml).toContain('<section class="footnotes">');
+    expect(bHtml).toContain('id="fn-1"');
+
+    // Bundle-level Bibliography page (heading flips for note styles).
+    const refs = String(output.files.find((f) => f.path === 'references.html')!.contents);
+    expect(refs).toContain('<title>Bibliography</title>');
+    expect(refs).toContain('Foo');
+    expect(refs).toContain('Bar');
+  });
+});
