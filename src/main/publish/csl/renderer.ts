@@ -55,14 +55,16 @@ export class CitationRenderer {
   /**
    * Render a single in-text citation. `locator` is a page or range
    * string; when set, citeproc emits "Smith 2020, p. 12" style output.
-   * The rendered string is HTML (citeproc's default `html` output mode).
+   * `label` is the CSL locator label ("page", "chapter", "section", …);
+   * defaults to "page" for back-compat (#299). The rendered string is
+   * HTML (citeproc's default `html` output mode).
    */
-  renderCitation(id: string, locator?: string): string {
+  renderCitation(id: string, locator?: string, label?: string): string {
     if (!this.items.has(id)) {
       this.missingIds.add(id);
       return `<span class="csl-missing">[missing: ${escapeHtml(id)}]</span>`;
     }
-    return this.renderCitationCluster([{ id, locator }]);
+    return this.renderCitationCluster([{ id, locator, label }]);
   }
 
   /**
@@ -73,15 +75,16 @@ export class CitationRenderer {
    * trusts every entry resolves through `retrieveItem`. Empty input
    * returns an empty string. Single-item input is equivalent to
    * `renderCitation` and is the path that single `[[cite::]]` takes.
+   * Per-item `label` defaults to "page" when omitted (#299).
    */
-  renderCitationCluster(items: Array<{ id: string; locator?: string }>): string {
+  renderCitationCluster(items: Array<{ id: string; locator?: string; label?: string }>): string {
     if (items.length === 0) return '';
     for (const item of items) this.citedIds.add(item.id);
     const citationItems = items.map((item) => {
       const c: Record<string, unknown> = { id: item.id };
       if (item.locator) {
         c.locator = item.locator;
-        c.label = 'page';
+        c.label = item.label ?? 'page';
       }
       return c;
     });
