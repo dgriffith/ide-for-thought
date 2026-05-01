@@ -20,7 +20,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
-import type { CellResult } from '../../shared/compute/types';
+import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -200,11 +200,67 @@ function finalizeCell(cell: PendingCell): void {
   // Output precedence: a `result` payload (last-expression value) wins;
   // otherwise stdout+stderr concatenated as text.
   if (cell.result !== undefined) {
-    cell.resolve({ ok: true, output: { type: 'json', value: cell.result } });
+    cell.resolve({ ok: true, output: bundleToOutput(cell.result) });
     return;
   }
   const text = (cell.stdout.join('') + cell.stderr.join('')).replace(/\n+$/, '');
   cell.resolve({ ok: true, output: { type: 'text', value: text } });
+}
+
+/**
+ * Translate a kernel-emitted MIME bundle into a typed CellOutput (#243).
+ *
+ * The kernel sends `{mime, data}` for every last-expression result —
+ * pandas DataFrame, matplotlib Figure, PIL Image, `_repr_html_`,
+ * `_repr_png_`, `_repr_svg_`, and JSON-roundtrippable scalars all
+ * route through here. Anything we don't recognise falls through to
+ * `text` (or `json` for JSON-roundtrippable payloads) so the renderer
+ * always has something to display.
+ *
+ * Defensive against pre-#243 kernels (or non-Python executors) that
+ * still emit a bare value: detect the bundle shape, fall back to
+ * wrapping as a `json` output otherwise.
+ */
+export function bundleToOutput(raw: unknown): CellOutput {
+  if (!isMimeBundle(raw)) {
+    // Pre-#243 shape: bare value, treat as JSON.
+    return { type: 'json', value: raw };
+  }
+  const { mime, data } = raw;
+  switch (mime) {
+    case 'application/vnd.minerva.dataframe+json': {
+      const d = data as { columns: string[]; rows: Array<Array<string | number | boolean | null>>; totalRows: number; truncated: boolean };
+      return {
+        type: 'table',
+        columns: d.columns,
+        rows: d.rows,
+        totalRows: d.totalRows,
+        truncated: d.truncated,
+      };
+    }
+    case 'image/png':
+    case 'image/svg+xml':
+      return { type: 'image', mime, data: data as string };
+    case 'text/html':
+      return { type: 'html', html: data as string };
+    case 'text/plain':
+      return { type: 'text', value: data as string };
+    case 'application/json':
+      return { type: 'json', value: data };
+    default:
+      // Unknown MIME: surface the raw payload as JSON so the user
+      // can see what came back rather than silently dropping it.
+      return { type: 'json', value: raw };
+  }
+}
+
+function isMimeBundle(value: unknown): value is KernelMimeBundle {
+  return (
+    typeof value === 'object'
+    && value !== null
+    && typeof (value as Record<string, unknown>).mime === 'string'
+    && 'data' in (value as Record<string, unknown>)
+  );
 }
 
 /**

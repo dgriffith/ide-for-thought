@@ -57,19 +57,213 @@ def reset_namespaces(notebook_path):
 
 
 def serialize_value(value):
-    """Best-effort: prefer JSON-roundtrippable, fall back to repr.
+    """Pick the richest MIME representation we can produce for `value`.
 
-    The renderer renders 'json' outputs richly and 'text' outputs as
-    monospace. Whatever we send under 'result' goes into the json branch,
-    so unrepresentable types fall back to a string repr to keep the
-    output legible rather than dropping it on the floor.
+    Returns a `{'mime': str, 'data': any}` bundle. The main-process side
+    decodes the bundle into a typed CellOutput (#243). The order of
+    detection runs richest → fallback, so a pandas DataFrame doesn't
+    accidentally fall through to its text repr just because it also
+    has a `_repr_html_`.
     """
+    bundle = (
+        try_dataframe(value)
+        or try_matplotlib(value)
+        or try_pil_image(value)
+        or try_repr_html(value)
+        or try_repr_png(value)
+        or try_repr_svg(value)
+        or try_json_value(value)
+    )
+    if bundle is not None:
+        return bundle
+    return {'mime': 'text/plain', 'data': repr(value)}
+
+
+# ── Detector helpers ──────────────────────────────────────────────────
+#
+# Each helper returns either a {mime, data} bundle or None. We avoid
+# hard-importing the user-side libraries (pandas, matplotlib, PIL) at
+# kernel start — only check the type when the library is actually loaded
+# in the user's namespace, so kernel boot stays cheap and a project that
+# never touches pandas doesn't pay its import cost.
+
+
+# Cap rows the kernel emits inline. Matches the issue's 1000-row cap;
+# the renderer surfaces "Showing 1000 of N" when truncated.
+DATAFRAME_MAX_ROWS = 1000
+
+# Cap on the size of any one image bundle (raw bytes). Anything bigger
+# falls through to a text/plain marker so we don't stuff a 50MB PNG
+# through stdio (#243).
+IMAGE_MAX_BYTES = 5 * 1024 * 1024
+
+
+def try_dataframe(value):
+    if 'pandas' not in sys.modules:
+        return None
+    pd = sys.modules['pandas']
+    if not isinstance(value, getattr(pd, 'DataFrame', tuple())):
+        return None
+    total = int(len(value))
+    truncated = total > DATAFRAME_MAX_ROWS
+    df = value.head(DATAFRAME_MAX_ROWS) if truncated else value
+    columns = [str(c) for c in df.columns]
+    rows = []
+    for tup in df.itertuples(index=False, name=None):
+        rows.append([_cell_value(v) for v in tup])
+    return {
+        'mime': 'application/vnd.minerva.dataframe+json',
+        'data': {
+            'columns': columns,
+            'rows': rows,
+            'totalRows': total,
+            'truncated': truncated,
+        },
+    }
+
+
+def try_matplotlib(value):
+    """Trailing-figure path: a cell whose last expression is a Figure
+    (or `plt.gcf()`, or a sequence-of-axes that resolves back to one)
+    renders as an inline PNG. The matplotlib backend hook for explicit
+    `plt.show()` capture is a separate ticket — this covers the
+    common case."""
+    if 'matplotlib' not in sys.modules:
+        return None
+    figure_module = sys.modules.get('matplotlib.figure')
+    if figure_module is None:
+        return None
+    Figure = getattr(figure_module, 'Figure', None)
+    if Figure is None:
+        return None
+    fig = None
+    if isinstance(value, Figure):
+        fig = value
+    elif hasattr(value, 'figure') and isinstance(getattr(value, 'figure', None), Figure):
+        # An Axes (or AxesSubplot) — pull the parent figure.
+        fig = value.figure
+    if fig is None:
+        return None
+    import io as _io
+    import base64 as _b64
+    buf = _io.BytesIO()
     try:
-        # Round-trip test — JSON.dumps catches most opaque types.
+        fig.savefig(buf, format='png', bbox_inches='tight')
+    except Exception:
+        return None
+    raw = buf.getvalue()
+    if len(raw) > IMAGE_MAX_BYTES:
+        return {
+            'mime': 'text/plain',
+            'data': '[Figure too large to render inline (>{} bytes)]'.format(IMAGE_MAX_BYTES),
+        }
+    return {'mime': 'image/png', 'data': _b64.b64encode(raw).decode('ascii')}
+
+
+def try_pil_image(value):
+    if 'PIL.Image' not in sys.modules and 'PIL' not in sys.modules:
+        return None
+    try:
+        from PIL import Image as _PILImage
+    except Exception:
+        return None
+    if not isinstance(value, _PILImage.Image):
+        return None
+    import io as _io
+    import base64 as _b64
+    buf = _io.BytesIO()
+    try:
+        # PIL Images often default to RGBA / palette modes; PNG handles
+        # all of them. Fixed format keeps the renderer-side mime stable.
+        save_kwargs = {}
+        fmt = 'PNG'
+        value.save(buf, fmt, **save_kwargs)
+    except Exception:
+        return None
+    raw = buf.getvalue()
+    if len(raw) > IMAGE_MAX_BYTES:
+        return {
+            'mime': 'text/plain',
+            'data': '[Image too large to render inline (>{} bytes)]'.format(IMAGE_MAX_BYTES),
+        }
+    return {'mime': 'image/png', 'data': _b64.b64encode(raw).decode('ascii')}
+
+
+def try_repr_html(value):
+    fn = getattr(value, '_repr_html_', None)
+    if not callable(fn):
+        return None
+    try:
+        html = fn()
+    except Exception:
+        return None
+    if not isinstance(html, str) or not html.strip():
+        return None
+    return {'mime': 'text/html', 'data': html}
+
+
+def try_repr_png(value):
+    fn = getattr(value, '_repr_png_', None)
+    if not callable(fn):
+        return None
+    try:
+        png = fn()
+    except Exception:
+        return None
+    if not isinstance(png, (bytes, bytearray)):
+        return None
+    if len(png) > IMAGE_MAX_BYTES:
+        return None
+    import base64 as _b64
+    return {'mime': 'image/png', 'data': _b64.b64encode(bytes(png)).decode('ascii')}
+
+
+def try_repr_svg(value):
+    fn = getattr(value, '_repr_svg_', None)
+    if not callable(fn):
+        return None
+    try:
+        svg = fn()
+    except Exception:
+        return None
+    if not isinstance(svg, str) or not svg.strip():
+        return None
+    return {'mime': 'image/svg+xml', 'data': svg}
+
+
+def try_json_value(value):
+    """JSON-roundtrippable scalars / lists / dicts pass through as a
+    JSON bundle. Renderer treats this as a structured value; falls back
+    to text/plain repr if not roundtrippable."""
+    try:
         json.dumps(value)
-        return value
     except (TypeError, ValueError):
-        return repr(value)
+        return None
+    return {'mime': 'application/json', 'data': value}
+
+
+def _cell_value(v):
+    """Coerce a DataFrame cell into a JSON-emittable scalar.
+
+    Pandas hands us numpy scalars (`int64`, `float64`, `Timestamp`, …)
+    that don't survive `json.dumps`. We coerce on the way out so the
+    renderer doesn't have to know about pandas types.
+    """
+    if v is None:
+        return None
+    # Pandas / numpy scalar — `.item()` unwraps to a native Python type.
+    item = getattr(v, 'item', None)
+    if callable(item):
+        try:
+            v = item()
+        except Exception:
+            pass
+    if isinstance(v, (str, bool, int, float)) or v is None:
+        # Filter out NaN — JSON has no representation; emit null.
+        if isinstance(v, float) and v != v:  # NaN check
+            return None
+        return v
+    return str(v)
 
 
 def set_current_notebook(notebook_path):
