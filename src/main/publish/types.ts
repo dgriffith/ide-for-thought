@@ -66,6 +66,13 @@ export interface ExportPlanFile {
   frontmatter: Record<string, unknown>;
   /** Title for link-resolver display — frontmatter.title, H1, or filename stem. */
   title: string;
+  /**
+   * True when the user manually re-included this file via the preview
+   * dialog's exclusion override (#283). The pipeline would otherwise
+   * have dropped it via the private-by-default rules. Surfaced so the
+   * preview can render an "overridden" badge.
+   */
+  overridden?: boolean;
 }
 
 export interface ExportPlanExclusion {

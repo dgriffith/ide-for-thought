@@ -36,6 +36,14 @@ export interface ResolvePlanOptions {
   citationStyle?: string;
   citationLocale?: string;
   outputDir?: string;
+  /**
+   * Manual per-export exclusion override (#283). Paths in this set are
+   * force-included even when the exclusion rules would otherwise drop
+   * them (private folder, `private: true` frontmatter, `#private` tag).
+   * The plan's `inputs` row for an overridden file carries
+   * `overridden: true` so the preview dialog can render the badge.
+   */
+  forceInclude?: string[];
 }
 
 export async function resolvePlan(
@@ -45,8 +53,9 @@ export async function resolvePlan(
 ): Promise<ExportPlan> {
   let inputs: ExportPlanFile[];
   let excluded: ExportPlanExclusion[];
+  const forceInclude = new Set(opts.forceInclude ?? []);
   if (input.kind === 'tree') {
-    ({ inputs, excluded } = await collectTreeEntries(rootPath, input));
+    ({ inputs, excluded } = await collectTreeEntries(rootPath, input, forceInclude));
   } else if (input.kind === 'source') {
     // Source-as-input (#253): the exporter pulls the source body +
     // related excerpts + linking notes itself; the pipeline just needs
@@ -56,7 +65,7 @@ export async function resolvePlan(
     // uniformly across exporters.
     ({ inputs, excluded } = await collectSourceEntry(rootPath, input));
   } else {
-    ({ inputs, excluded } = await collectFilesystemEntries(rootPath, input));
+    ({ inputs, excluded } = await collectFilesystemEntries(rootPath, input, forceInclude));
   }
 
   const citations = await loadCitationAssets(rootPath, {
@@ -113,6 +122,7 @@ async function collectSourceEntry(
 async function collectTreeEntries(
   rootPath: string,
   input: ExportInput,
+  forceInclude: Set<string> = new Set(),
 ): Promise<{ inputs: ExportPlanFile[]; excluded: ExportPlanExclusion[] }> {
   if (!input.relativePath) {
     throw new Error('Tree export requires a root note (input.relativePath).');
@@ -128,17 +138,28 @@ async function collectTreeEntries(
         return null;
       }
     },
-    isExcluded: (rel: string, content: string) => checkExclusion(rel, content),
+    isExcluded: (rel: string, content: string) => {
+      // Force-included paths bypass exclusion entirely (#283); tree
+      // resolution still walks them as bridges between other notes.
+      if (forceInclude.has(rel)) return { excluded: false };
+      return checkExclusion(rel, content);
+    },
   });
 
   const inputs: ExportPlanFile[] = tree.included.map((entry) => {
     const { frontmatter, title } = parseHeader(entry.relativePath, entry.content);
+    // `overridden` flag is only meaningful for files that *would* have
+    // been excluded — re-evaluate the rule so legitimately-included
+    // files don't wear an unwarranted "overridden" badge.
+    const wouldExclude = forceInclude.has(entry.relativePath)
+      && checkExclusion(entry.relativePath, entry.content).excluded;
     return {
       relativePath: entry.relativePath,
       kind: 'note',
       content: entry.content,
       frontmatter,
       title,
+      overridden: wouldExclude,
     };
   });
   const excluded: ExportPlanExclusion[] = tree.excluded.map((e) => ({
@@ -153,6 +174,7 @@ async function collectTreeEntries(
 async function collectFilesystemEntries(
   rootPath: string,
   input: ExportInput,
+  forceInclude: Set<string> = new Set(),
 ): Promise<{ inputs: ExportPlanFile[]; excluded: ExportPlanExclusion[] }> {
   const candidatePaths = await collectCandidatePaths(rootPath, input);
 
@@ -169,7 +191,7 @@ async function collectFilesystemEntries(
     }
 
     const check = checkExclusion(rel, content);
-    if (check.excluded) {
+    if (check.excluded && !forceInclude.has(rel)) {
       excluded.push({ relativePath: rel, reason: check.reason ?? 'excluded' });
       continue;
     }
@@ -179,6 +201,7 @@ async function collectFilesystemEntries(
       kind: 'note',
       content,
       frontmatter,
+      overridden: check.excluded,
       title,
     });
   }
