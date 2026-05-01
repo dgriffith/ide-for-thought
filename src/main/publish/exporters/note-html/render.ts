@@ -138,6 +138,12 @@ function installTagRule(_md: MarkdownIt): void {
  * then `plan.citations.createRenderer()` at rule-install time. Without
  * either, falls back to a visible stub so nothing leaks raw wiki-link
  * syntax into the exported output.
+ *
+ * Consecutive cites separated only by whitespace are collected into a
+ * single citation cluster (#298) — `[[cite::a]] [[cite::b]]` becomes
+ * `(Foo 2020; Bar 2021)` instead of two adjacent parentheticals. The
+ * merge is skipped when any id in the run is missing so each missing
+ * marker stays visible in its original position.
  */
 function installCiteStubRule(
   md: MarkdownIt,
@@ -150,34 +156,96 @@ function installCiteStubRule(
   md.inline.ruler.after('wiki_link', 'cite_stub', (state, silent) => {
     const src = state.src;
     const pos = state.pos;
-    if (src.charCodeAt(pos) !== 0x5b || src.charCodeAt(pos + 1) !== 0x5b) return false;
-    const close = src.indexOf(']]', pos + 2);
-    if (close < 0) return false;
-    const inner = src.slice(pos + 2, close);
-    const m = inner.match(/^(cite|quote)::(.+)$/i);
-    if (!m) return false;
-    if (silent) { state.pos = close + 2; return true; }
-    const kind = m[1].toLowerCase();
-    const id = m[2].trim();
-    const token = state.push('html_inline', '', 0);
+    const first = parseCiteAt(src, pos);
+    if (!first) return false;
+    if (silent) { state.pos = first.endPos; return true; }
 
-    if (activeRenderer && citations) {
-      if (kind === 'quote') {
-        const ex = citations.excerpts.get(id);
-        if (ex) {
-          token.content = activeRenderer.renderCitation(ex.sourceId, ex.locator);
-        } else {
-          token.content = `<span class="csl-missing">[missing excerpt: ${escapeHtml(id)}]</span>`;
-        }
-      } else {
-        token.content = activeRenderer.renderCitation(id);
-      }
-    } else {
-      token.content = `<sup class="cite-stub" title="${escapeAttr(kind + ': ' + id)}">[${escapeHtml(id)}]</sup>`;
+    const items: ParsedCite[] = [first];
+    let scanPos = first.endPos;
+    while (true) {
+      let p = scanPos;
+      while (p < src.length && isInlineWhitespace(src.charCodeAt(p))) p++;
+      const next = parseCiteAt(src, p);
+      if (!next) break;
+      items.push(next);
+      scanPos = next.endPos;
     }
-    state.pos = close + 2;
+
+    const token = state.push('html_inline', '', 0);
+    token.content = renderCiteRun(items, activeRenderer, citations);
+    state.pos = scanPos;
     return true;
   });
+}
+
+interface ParsedCite {
+  kind: 'cite' | 'quote';
+  id: string;
+  endPos: number;
+}
+
+function parseCiteAt(src: string, pos: number): ParsedCite | null {
+  if (src.charCodeAt(pos) !== 0x5b /* [ */ || src.charCodeAt(pos + 1) !== 0x5b) return null;
+  const close = src.indexOf(']]', pos + 2);
+  if (close < 0) return null;
+  const inner = src.slice(pos + 2, close);
+  const m = inner.match(/^(cite|quote)::(.+)$/i);
+  if (!m) return null;
+  return {
+    kind: m[1].toLowerCase() as 'cite' | 'quote',
+    id: m[2].trim(),
+    endPos: close + 2,
+  };
+}
+
+function isInlineWhitespace(code: number): boolean {
+  return code === 0x20 /* space */ || code === 0x09 /* tab */ || code === 0x0a /* LF */ || code === 0x0d /* CR */;
+}
+
+function renderCiteRun(
+  items: ParsedCite[],
+  activeRenderer: CitationRenderer | null,
+  citations: ExportPlan['citations'],
+): string {
+  if (!activeRenderer || !citations) {
+    return items
+      .map((item) => `<sup class="cite-stub" title="${escapeAttr(item.kind + ': ' + item.id)}">[${escapeHtml(item.id)}]</sup>`)
+      .join(' ');
+  }
+
+  // Resolve each item to (sourceId, locator). Missing markers preserve
+  // the original kind so users see "missing excerpt" vs "missing source".
+  type Resolved =
+    | { ok: true; sourceId: string; locator?: string }
+    | { ok: false; missingMarker: string };
+  const resolved: Resolved[] = items.map((item) => {
+    if (item.kind === 'quote') {
+      const ex = citations.excerpts.get(item.id);
+      if (!ex) return { ok: false, missingMarker: `<span class="csl-missing">[missing excerpt: ${escapeHtml(item.id)}]</span>` };
+      if (!citations.items.has(ex.sourceId)) return { ok: false, missingMarker: `<span class="csl-missing">[missing: ${escapeHtml(ex.sourceId)}]</span>` };
+      return { ok: true, sourceId: ex.sourceId, locator: ex.locator };
+    }
+    if (!citations.items.has(item.id)) return { ok: false, missingMarker: `<span class="csl-missing">[missing: ${escapeHtml(item.id)}]</span>` };
+    return { ok: true, sourceId: item.id, locator: undefined };
+  });
+
+  // Any missing → render each item independently so missing markers
+  // stay visible in their original positions. Single item → also
+  // independent (no merge to perform).
+  if (items.length === 1 || resolved.some((r) => !r.ok)) {
+    return resolved
+      .map((r) => (r.ok ? activeRenderer.renderCitation(r.sourceId, r.locator) : r.missingMarker))
+      .join(' ');
+  }
+
+  // All items resolved → single merged cluster.
+  return activeRenderer.renderCitationCluster(
+    resolved.map((r) => {
+      // Type narrowing: we proved every r is { ok: true } above.
+      const ok = r as Extract<Resolved, { ok: true }>;
+      return { id: ok.sourceId, locator: ok.locator };
+    }),
+  );
 }
 
 // ── Asset inlining ─────────────────────────────────────────────────────────
