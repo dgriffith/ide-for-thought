@@ -12,6 +12,7 @@ import { noteMarkdownExporter } from './exporters/note-markdown';
 import { noteHtmlExporter } from './exporters/note-html';
 import { notePdfExporter } from './exporters/note-pdf';
 import { treeHtmlExporter } from './exporters/tree-html';
+import { staticSiteExporter } from './exporters/static-site';
 import { pandocExporter } from './exporters/pandoc';
 import { bibtexExporter } from './exporters/bibtex';
 
@@ -21,6 +22,7 @@ export function registerBuiltinExporters(): void {
   registerExporter(noteHtmlExporter);
   registerExporter(notePdfExporter);
   registerExporter(treeHtmlExporter);
+  registerExporter(staticSiteExporter);
   registerExporter(pandocExporter);
   registerExporter(bibtexExporter);
 }
