@@ -262,6 +262,14 @@ contextBridge.exposeInMainWorld('api', {
     generate: (relativePath: string) =>
       ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GENERATE, relativePath),
   },
+  csl: {
+    listUserStyles: () => ipcRenderer.invoke(Channels.CSL_LIST_USER_STYLES),
+    listUserLocales: () => ipcRenderer.invoke(Channels.CSL_LIST_USER_LOCALES),
+    importStyle: () => ipcRenderer.invoke(Channels.CSL_IMPORT_STYLE),
+    importLocale: () => ipcRenderer.invoke(Channels.CSL_IMPORT_LOCALE),
+    removeStyle: (id: string) => ipcRenderer.invoke(Channels.CSL_REMOVE_STYLE, id),
+    removeLocale: (id: string) => ipcRenderer.invoke(Channels.CSL_REMOVE_LOCALE, id),
+  },
   citations: {
     renderInline: (refs: { kind: 'cite' | 'quote'; id: string }[]) =>
       ipcRenderer.invoke(Channels.CITATION_RENDER_INLINE, refs),

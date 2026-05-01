@@ -9,7 +9,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { CitationRenderer } from './renderer';
 import { sourceTtlToCsl, excerptTtlToInfo, type CslItem } from './source-to-csl';
-import { BUNDLED_STYLES, BUNDLED_LOCALES, DEFAULT_STYLE, DEFAULT_LOCALE } from './assets';
+import { DEFAULT_STYLE, DEFAULT_LOCALE } from './assets';
+import { getMergedStyles, getMergedLocales } from './user-assets';
 
 export { CitationRenderer } from './renderer';
 export type { CslItem, ExcerptInfo } from './source-to-csl';
@@ -51,10 +52,15 @@ export async function loadCitationAssets(
   rootPath: string,
   opts: BuildRendererOptions = {},
 ): Promise<CitationAssets> {
-  const styleId = opts.styleId && BUNDLED_STYLES[opts.styleId] ? opts.styleId : DEFAULT_STYLE;
-  const localeId = opts.localeId && BUNDLED_LOCALES[opts.localeId] ? opts.localeId : DEFAULT_LOCALE;
-  const style = BUNDLED_STYLES[styleId];
-  const locale = BUNDLED_LOCALES[localeId];
+  // Merged registry: bundled + user-imported under .minerva/csl-{styles,locales}/.
+  // User entries win on id collision so a project-specific override of a
+  // bundled style takes effect without code changes (#302).
+  const { styles: availableStyles } = await getMergedStyles(rootPath);
+  const { locales: availableLocales } = await getMergedLocales(rootPath);
+  const styleId = opts.styleId && availableStyles[opts.styleId] ? opts.styleId : DEFAULT_STYLE;
+  const localeId = opts.localeId && availableLocales[opts.localeId] ? opts.localeId : DEFAULT_LOCALE;
+  const style = availableStyles[styleId];
+  const locale = availableLocales[localeId];
 
   const items = new Map<string, CslItem>();
   const excerpts = new Map<string, { sourceId: string; locator?: string }>();
