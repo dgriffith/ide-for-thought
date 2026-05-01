@@ -34,7 +34,7 @@ describe('tree-html exporter (#251) — through the pipeline', () => {
     }, { linkPolicy: 'follow-to-file' });
     const output = await runExporter(treeHtmlExporter, plan);
 
-    const paths = output.files.map((f) => f.path).sort();
+    const paths = output.files.map((f) => f.path).filter((p) => p.endsWith('.html')).sort();
     expect(paths).toEqual(['index.html', 'notes/ch1.html', 'notes/ch2.html']);
 
     const indexHtml = String(output.files.find((f) => f.path === 'index.html')!.contents);
@@ -51,7 +51,7 @@ describe('tree-html exporter (#251) — through the pipeline', () => {
     await fsp.writeFile(path.join(root, 'd.md'), 'deep\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 2 });
     const output = await runExporter(treeHtmlExporter, plan);
-    const paths = output.files.map((f) => f.path).sort();
+    const paths = output.files.map((f) => f.path).filter((p) => p.endsWith('.html')).sort();
     expect(paths).toEqual(['b.html', 'c.html', 'index.html']);
     expect(paths).not.toContain('d.html');
   });
@@ -64,7 +64,7 @@ describe('tree-html exporter (#251) — through the pipeline', () => {
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 3 });
     expect(plan.excluded.map((e) => e.relativePath)).toEqual(['private/secret.md']);
     const output = await runExporter(treeHtmlExporter, plan);
-    const paths = output.files.map((f) => f.path).sort();
+    const paths = output.files.map((f) => f.path).filter((p) => p.endsWith('.html')).sort();
     expect(paths).toEqual(['index.html', 'public.html']);
   });
 
@@ -73,7 +73,8 @@ describe('tree-html exporter (#251) — through the pipeline', () => {
     await fsp.writeFile(path.join(root, 'b.md'), '[[a]]\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 10 });
     const output = await runExporter(treeHtmlExporter, plan);
-    expect(output.files.map((f) => f.path).sort()).toEqual(['b.html', 'index.html']);
+    const paths = output.files.map((f) => f.path).filter((p) => p.endsWith('.html')).sort();
+    expect(paths).toEqual(['b.html', 'index.html']);
   });
 
   it('forces follow-to-file even when the plan arrived with inline-title', async () => {
@@ -180,6 +181,55 @@ describe('tree-html consolidated bibliography (#300)', () => {
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
     const output = await runExporter(treeHtmlExporter, plan);
     expect(output.files.map((f) => f.path)).not.toContain('references.html');
+  });
+
+  it('emits a single shared style.css and links every page to it (#292)', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '# A\n[[b]]\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'), '# B\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 2 });
+    const output = await runExporter(treeHtmlExporter, plan);
+    const paths = output.files.map((f) => f.path);
+    expect(paths).toContain('style.css');
+    // No inline <style> block in any page — they reference the external file instead.
+    for (const f of output.files) {
+      if (!f.path.endsWith('.html')) continue;
+      const html = String(f.contents);
+      expect(html).not.toContain('<style>');
+      expect(html).toContain('rel="stylesheet"');
+    }
+  });
+
+  it('per-page stylesheet href is depth-aware: nested pages climb up to root (#292)', async () => {
+    await fsp.mkdir(path.join(root, 'sub/deep'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'a.md'), '# A\n[[sub/deep/leaf]]\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'sub/deep/leaf.md'), '# Leaf\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 3 });
+    const output = await runExporter(treeHtmlExporter, plan);
+    const root_ = String(output.files.find((f) => f.path === 'index.html')!.contents);
+    const leaf = String(output.files.find((f) => f.path === 'sub/deep/leaf.html')!.contents);
+    expect(root_).toContain('href="style.css"');
+    expect(leaf).toContain('href="../../style.css"');
+  });
+
+  it('sidebar lists every page; current page marked with aria-current + class (#292)', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '# A\n[[b]]\n[[c]]\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'b.md'),
+      '---\ntitle: Page B\n---\n# Page B\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'c.md'),
+      '---\ntitle: Page C\n---\n# Page C\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'a.md', maxDepth: 2 });
+    const output = await runExporter(treeHtmlExporter, plan);
+    const indexHtml = String(output.files.find((f) => f.path === 'index.html')!.contents);
+    expect(indexHtml).toContain('class="bundle-tree"');
+    expect(indexHtml).toContain('Page B');
+    expect(indexHtml).toContain('Page C');
+    // Root page is current → its <li> is `class="current"` and the <a> is aria-current.
+    expect(indexHtml).toMatch(/<li class="current"><a [^>]*aria-current="page">/);
+
+    const bHtml = String(output.files.find((f) => f.path === 'b.html')!.contents);
+    // On page B, B's row is current; the root note's row is not.
+    expect(bHtml).toMatch(/<li class="current"><a [^>]*>Page B<\/a><\/li>/);
+    expect(bHtml).not.toMatch(/<li class="current"><a [^>]*aria-current="page">[^<]*<\/a><\/li>[\s\S]*<li class="current">/);
   });
 
   it('note-style export: per-note Footnotes + bundle-level Bibliography', async () => {

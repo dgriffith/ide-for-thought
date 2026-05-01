@@ -7,18 +7,23 @@
  * forced to `follow-to-file` and the root renamed to `index.html`.
  * Cross-links inside the bundle resolve relative to each page.
  *
+ * Every page links to a single shared `style.css` at the bundle root
+ * and carries a sidebar with the manifest tree (#292) — the current
+ * page is highlighted so a reader can jump around without back-button
+ * acrobatics.
+ *
  * Each note gets its own `CitationRenderer` so per-note footnote
  * numbering is local (Chicago full-note, etc.); cited-id sets are
  * unioned across notes and the merged bibliography lands in a single
  * `references.html` at the bundle root (#300).
  *
- * Deferred to follow-up tickets: shared external stylesheet, sidebar
- * navigation (#292), manual deselection of notes (#293).
+ * Deferred to follow-up tickets: manual deselection of notes (#293).
  */
 
 import { renderNoteBody, inlineImages } from '../note-html/render';
 import { wrapHtml } from '../note-html/shell';
 import { renderFootnotesSection } from '../note-html';
+import { NOTE_HTML_STYLE } from '../note-html/style';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
 
 export const treeHtmlExporter: Exporter = {
@@ -60,7 +65,13 @@ export const treeHtmlExporter: Exporter = {
       const withFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
       const withRefLink = appendBundleReferenceLink(withFootnotes, note, rootNote, noteHasCites);
       const body = await inlineImages(withRefLink, note, rootPath, bundlePlan.assetPolicy);
-      const html = wrapHtml({ title: note.title, body });
+      const rootRel = relativeToRoot(note.relativePath, rootNote);
+      const html = wrapHtml({
+        title: note.title,
+        body,
+        stylesheetHref: `${rootRel}style.css`,
+        sidebarHtml: renderSidebar(notes, rootNote, note.relativePath, rootRel),
+      });
       files.push({
         path: outputPathFor(note, rootNote),
         contents: html,
@@ -83,9 +94,24 @@ export const treeHtmlExporter: Exporter = {
         const refsBody = `<h1>${heading}</h1>\n<section class="references">\n<ol>\n${entries}\n</ol>\n</section>`;
         files.push({
           path: 'references.html',
-          contents: wrapHtml({ title: heading, body: refsBody }),
+          contents: wrapHtml({
+            title: heading,
+            body: refsBody,
+            stylesheetHref: 'style.css',
+            sidebarHtml: renderSidebar(notes, rootNote, 'references.html', ''),
+          }),
         });
       }
+    }
+
+    // Shared stylesheet at the bundle root (#292). Appended only when
+    // we actually emitted notes — empty bundles don't get a stub
+    // style.css.
+    if (files.length > 0) {
+      files.push({
+        path: 'style.css',
+        contents: `${NOTE_HTML_STYLE}\n${BUNDLE_NAV_STYLE}`,
+      });
     }
 
     const excluded = plan.excluded.length;
@@ -95,6 +121,115 @@ export const treeHtmlExporter: Exporter = {
     return { files, summary };
   },
 };
+
+/**
+ * Number of `../` segments needed to reach the bundle root from a
+ * given note's emitted path. The root note (index.html) sits at depth
+ * 0; `notes/foo.html` is depth 1 (one `../`); `sub/deep/leaf.html` is
+ * depth 2 (`../../`). Used for the per-page stylesheet + sidebar
+ * link hrefs so deep-nested pages still resolve cleanly.
+ */
+function relativeToRoot(relativePath: string, rootNote: ExportPlanFile): string {
+  if (relativePath === rootNote.relativePath) return '';
+  const depth = relativePath.split('/').length - 1;
+  return depth === 0 ? '' : '../'.repeat(depth);
+}
+
+/**
+ * Sidebar nav (#292): a flat list of every page in the bundle. The
+ * current page is marked with `aria-current="page"` and a CSS class
+ * so the reader knows where they are. Order follows the resolver's
+ * BFS manifest so the visual structure matches the underlying tree.
+ */
+function renderSidebar(
+  notes: ExportPlanFile[],
+  rootNote: ExportPlanFile,
+  currentPath: string,
+  rootRel: string,
+): string {
+  const items = notes.map((note) => {
+    const href = note.relativePath === rootNote.relativePath
+      ? `${rootRel}index.html`
+      : rootRel + note.relativePath.replace(/\.md$/i, '.html');
+    const isCurrent = note.relativePath === currentPath
+      || (currentPath === 'references.html' && false /* references is its own item below */);
+    const cls = isCurrent ? 'current' : '';
+    const aria = isCurrent ? ' aria-current="page"' : '';
+    return `<li class="${cls}"><a href="${escapeAttr(href)}"${aria}>${escapeHtml(note.title)}</a></li>`;
+  });
+  return `<nav class="bundle-tree"><h2 class="bundle-tree-heading">Pages</h2><ol>${items.join('')}</ol></nav>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escapeAttr(s: string): string { return escapeHtml(s); }
+
+const BUNDLE_NAV_STYLE = `
+/* Tree-html bundle: shared stylesheet + sidebar nav (#292). */
+body.with-sidebar {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+  padding: 0;
+  max-width: none;
+}
+body.with-sidebar > article { padding: 48px 32px 96px; max-width: 72ch; min-width: 0; }
+body.with-sidebar aside.bundle-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--code-bg);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  font-size: 0.9em;
+}
+.bundle-tree-heading {
+  font-size: 0.7em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0 0 0.6em;
+}
+.bundle-tree ol { list-style: none; padding: 0; margin: 0; }
+.bundle-tree li { margin-bottom: 0.25em; }
+.bundle-tree a {
+  display: block;
+  padding: 0.25em 0.5em;
+  border-radius: 3px;
+  text-decoration: none;
+  color: var(--fg);
+}
+.bundle-tree a:hover { background: var(--quote-border); }
+.bundle-tree li.current a {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  body.with-sidebar { grid-template-columns: 1fr; }
+  body.with-sidebar aside.bundle-nav {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+@media print {
+  body.with-sidebar aside.bundle-nav { display: none; }
+  body.with-sidebar { grid-template-columns: 1fr; }
+  body.with-sidebar > article { padding: 0; }
+}
+`;
 
 /**
  * Root note → `index.html` at the bundle root.
