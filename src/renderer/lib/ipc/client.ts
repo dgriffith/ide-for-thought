@@ -194,7 +194,7 @@ export interface ExportPreviewPlan {
   citations: CitationAuditPayload;
 }
 
-export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree';
+export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 'source';
 
 export interface RunExportInput {
   exporterId: string;
