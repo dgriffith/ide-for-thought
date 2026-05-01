@@ -392,6 +392,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         return;
       }
       try {
+        if (typeof api.notebase.readBinary !== 'function') {
+          throw new Error(
+            'api.notebase.readBinary is not exposed. Preload changes require a full Electron restart (Cmd-R reloads the renderer only).',
+          );
+        }
         const bytes = await api.notebase.readBinary(rel);
         // Buffer encoding via btoa over a small string is cheap; the
         // chunked builder avoids "Maximum call stack" for big images.
@@ -404,10 +409,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         const url = `data:${mimeFromPath(rel)};base64,${btoa(bin)}`;
         imageDataUrlCache.set(rel, url);
         img.src = url;
-      } catch {
-        // Missing / unreadable — flag the placeholder visually so the
-        // user knows the path didn't resolve. Markdown-renderer-style
-        // alt-text fallback is handled by the browser itself.
+      } catch (err) {
+        // Missing / unreadable — flag the placeholder visually and log
+        // the underlying error to the devtools console so a typo'd
+        // path or a missing asset is easy to debug.
+        console.warn('[preview] image hydration failed for', rel, err);
         img.classList.add('local-image-broken');
       }
     }));
