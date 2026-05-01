@@ -13,6 +13,7 @@ import { noteHtmlExporter } from './exporters/note-html';
 import { notePdfExporter } from './exporters/note-pdf';
 import { treeHtmlExporter } from './exporters/tree-html';
 import { treePdfExporter } from './exporters/tree-pdf';
+import { treeMarkdownExporter } from './exporters/tree-markdown';
 import { staticSiteExporter } from './exporters/static-site';
 import { annotatedReadingExporter } from './exporters/annotated-reading';
 import { pandocExporter } from './exporters/pandoc';
@@ -25,6 +26,7 @@ export function registerBuiltinExporters(): void {
   registerExporter(notePdfExporter);
   registerExporter(treeHtmlExporter);
   registerExporter(treePdfExporter);
+  registerExporter(treeMarkdownExporter);
   registerExporter(staticSiteExporter);
   registerExporter(annotatedReadingExporter);
   registerExporter(pandocExporter);
