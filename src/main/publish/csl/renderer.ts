@@ -54,8 +54,22 @@ export class CitationRenderer {
    */
   private readonly footnotes: Array<{ index: number; body: string }> = [];
 
-  constructor(style: string, locale: string, items: Map<string, CslItem>) {
+  /**
+   * Output format passed to citeproc-js. Default `html` matches the
+   * note-html / tree-html exporter's needs (italics as `<i>`, etc.);
+   * `text` produces clean prose for markdown / plain-text outputs
+   * where embedded HTML would be noise (#250).
+   */
+  readonly outputFormat: 'html' | 'text';
+
+  constructor(
+    style: string,
+    locale: string,
+    items: Map<string, CslItem>,
+    opts: { outputFormat?: 'html' | 'text' } = {},
+  ) {
     this.items = items;
+    this.outputFormat = opts.outputFormat ?? 'html';
     const sys = {
       retrieveItem: (id: string) => {
         const item = this.items.get(id);
@@ -69,6 +83,9 @@ export class CitationRenderer {
       retrieveLocale: () => locale,
     };
     this.engine = new CSL.Engine(sys, style);
+    if (this.outputFormat === 'text') {
+      this.engine.setOutputFormat('text');
+    }
     this.isNoteStyle = Boolean(this.engine.cslXml?.dataObj?.attrs?.class === 'note');
   }
 
@@ -82,7 +99,9 @@ export class CitationRenderer {
   renderCitation(id: string, locator?: string, label?: string): string {
     if (!this.items.has(id)) {
       this.missingIds.add(id);
-      return `<span class="csl-missing">[missing: ${escapeHtml(id)}]</span>`;
+      return this.outputFormat === 'text'
+        ? `[missing: ${id}]`
+        : `<span class="csl-missing">[missing: ${escapeHtml(id)}]</span>`;
     }
     return this.renderCitationCluster([{ id, locator, label }]);
   }
@@ -123,7 +142,12 @@ export class CitationRenderer {
       // footnotes section can render back-references.
       if (this.isNoteStyle) {
         this.footnotes.push({ index: noteIndex, body: text });
-        return `<sup class="footnote-ref" id="fnref-${noteIndex}"><a href="#fn-${noteIndex}">${noteIndex}</a></sup>`;
+        // Note-style marker shape depends on output format: Pandoc-style
+        // `[^N]` for markdown output, anchored `<sup>` for HTML so the
+        // exporter can wire up clickable back-references.
+        return this.outputFormat === 'text'
+          ? `[^${noteIndex}]`
+          : `<sup class="footnote-ref" id="fnref-${noteIndex}"><a href="#fn-${noteIndex}">${noteIndex}</a></sup>`;
       }
       return text;
     } catch (err) {

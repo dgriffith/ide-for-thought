@@ -8,6 +8,7 @@
 
 import { registerExporter } from './registry';
 import { markdownExporter } from './exporters/markdown';
+import { noteMarkdownExporter } from './exporters/note-markdown';
 import { noteHtmlExporter } from './exporters/note-html';
 import { notePdfExporter } from './exporters/note-pdf';
 import { treeHtmlExporter } from './exporters/tree-html';
@@ -16,6 +17,7 @@ import { bibtexExporter } from './exporters/bibtex';
 
 export function registerBuiltinExporters(): void {
   registerExporter(markdownExporter);
+  registerExporter(noteMarkdownExporter);
   registerExporter(noteHtmlExporter);
   registerExporter(notePdfExporter);
   registerExporter(treeHtmlExporter);
