@@ -517,9 +517,16 @@
       // `.minerva/assets/inline/` and insert `![](relative-path)` at
       // the drop position. Non-image drops (text, urls, internal CM
       // moves) fall through to the default handler.
+      //
+      // Both handlers stopPropagation when they take the drop —
+      // App.svelte's `.editor-pane` wrapper has its own ondrop that
+      // routes to the project-import flow (PDFs, markdown imports).
+      // Without stopPropagation an image drop fires both handlers and
+      // the import path rejects the JPEG with "doesn't ingest *.jpeg".
       dragover: (e) => {
         if (e.dataTransfer && hasImageFiles(e.dataTransfer)) {
           e.preventDefault();
+          e.stopPropagation();
           e.dataTransfer.dropEffect = 'copy';
           return true;
         }
@@ -528,6 +535,7 @@
       drop: (e, v) => {
         if (!e.dataTransfer || !hasImageFiles(e.dataTransfer)) return false;
         e.preventDefault();
+        e.stopPropagation();
         const dropPos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
         const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
         void handleImageUploads(files, dropPos);
