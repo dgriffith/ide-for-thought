@@ -181,7 +181,14 @@ function installCiteStubRule(
 interface ParsedCite {
   kind: 'cite' | 'quote';
   id: string;
+  /** Alias-derived locator + label (#299). null when no parseable locator was supplied. */
+  aliasLocator: ParsedLocator | null;
   endPos: number;
+}
+
+interface ParsedLocator {
+  locator: string;
+  label: string;
 }
 
 function parseCiteAt(src: string, pos: number): ParsedCite | null {
@@ -191,12 +198,71 @@ function parseCiteAt(src: string, pos: number): ParsedCite | null {
   const inner = src.slice(pos + 2, close);
   const m = inner.match(/^(cite|quote)::(.+)$/i);
   if (!m) return null;
+  const rawTarget = m[2];
+  const pipe = rawTarget.indexOf('|');
+  const id = (pipe >= 0 ? rawTarget.slice(0, pipe) : rawTarget).trim();
+  const alias = pipe >= 0 ? rawTarget.slice(pipe + 1).trim() : '';
   return {
     kind: m[1].toLowerCase() as 'cite' | 'quote',
-    id: m[2].trim(),
+    id,
+    aliasLocator: parseLocatorAlias(alias),
     endPos: close + 2,
   };
 }
+
+/**
+ * Map common locator-shaped aliases to CSL `{ locator, label }` (#299).
+ *
+ * Recognises bare page references (`42`, `42-45`, `iv-xii`), `p.` / `pp.`
+ * prefixes, and the ten most-used CSL labels (chapter, section, figure,
+ * table, note, paragraph, volume, line, verse, column). Anything else
+ * returns null and the caller drops the alias silently — matches
+ * wiki-link convention: an alias that doesn't parse as a locator is
+ * display text, and citations don't have display text.
+ */
+export function parseLocatorAlias(alias: string): ParsedLocator | null {
+  if (!alias) return null;
+  // Match all hyphen-shaped dashes: ASCII '-', en-dash, em-dash, figure-dash.
+  const RANGE = '[\\u2010-\\u2015\\-]';
+  const PAGE_LIKE_RE = new RegExp(`^[0-9ivxlcdm]+(?:${RANGE}[0-9ivxlcdm]+)?$`, 'i');
+
+  // Labelled form: "ch. 3", "chapter 3", "§ 4", "¶ 7".
+  const labelled = alias.match(/^([A-Za-z§¶]+)\.?\s+(.+)$/);
+  if (labelled) {
+    const tag = labelled[1].toLowerCase();
+    const value = labelled[2].trim();
+    const label = LOCATOR_LABEL_BY_TAG[tag];
+    if (label) {
+      // For page labels, prefer the bare-number form: "pp. 42-45" → "42-45".
+      // Other labels keep what's provided ("section 4.2", "ch. 3").
+      return { locator: value, label };
+    }
+  }
+  // Bare form: "42", "42-45", "iv-xii".
+  if (PAGE_LIKE_RE.test(alias)) {
+    return { locator: alias.trim(), label: 'page' };
+  }
+  return null;
+}
+
+/**
+ * Common label aliases → canonical CSL locator label. Keep the keys
+ * lowercased; matched case-insensitively. Page-y synonyms collapse to
+ * 'page' since CSL has only one page-locator label.
+ */
+const LOCATOR_LABEL_BY_TAG: Record<string, string> = {
+  p: 'page', pp: 'page', page: 'page', pages: 'page',
+  ch: 'chapter', chap: 'chapter', chapter: 'chapter', chapters: 'chapter',
+  sec: 'section', section: 'section', sections: 'section', '§': 'section',
+  fig: 'figure', figure: 'figure', figures: 'figure',
+  tbl: 'table', table: 'table', tables: 'table',
+  n: 'note', note: 'note', notes: 'note',
+  para: 'paragraph', paragraph: 'paragraph', paragraphs: 'paragraph', '¶': 'paragraph',
+  vol: 'volume', volume: 'volume', volumes: 'volume',
+  l: 'line', line: 'line', lines: 'line',
+  v: 'verse', verse: 'verse', verses: 'verse',
+  col: 'column', column: 'column', columns: 'column',
+};
 
 function isInlineWhitespace(code: number): boolean {
   return code === 0x20 /* space */ || code === 0x09 /* tab */ || code === 0x0a /* LF */ || code === 0x0d /* CR */;
@@ -213,20 +279,30 @@ function renderCiteRun(
       .join(' ');
   }
 
-  // Resolve each item to (sourceId, locator). Missing markers preserve
-  // the original kind so users see "missing excerpt" vs "missing source".
+  // Resolve each item to (sourceId, locator, label). Missing markers
+  // preserve the original kind so users see "missing excerpt" vs
+  // "missing: source-id". For locators (#299): an explicit alias
+  // (`[[cite::id|p. 42]]`) wins; otherwise a quote falls back to the
+  // excerpt's intrinsic page/range; bare cites have no locator.
   type Resolved =
-    | { ok: true; sourceId: string; locator?: string }
+    | { ok: true; sourceId: string; locator?: string; label?: string }
     | { ok: false; missingMarker: string };
   const resolved: Resolved[] = items.map((item) => {
     if (item.kind === 'quote') {
       const ex = citations.excerpts.get(item.id);
       if (!ex) return { ok: false, missingMarker: `<span class="csl-missing">[missing excerpt: ${escapeHtml(item.id)}]</span>` };
       if (!citations.items.has(ex.sourceId)) return { ok: false, missingMarker: `<span class="csl-missing">[missing: ${escapeHtml(ex.sourceId)}]</span>` };
-      return { ok: true, sourceId: ex.sourceId, locator: ex.locator };
+      const locator = item.aliasLocator?.locator ?? ex.locator;
+      const label = item.aliasLocator?.label;
+      return { ok: true, sourceId: ex.sourceId, locator, label };
     }
     if (!citations.items.has(item.id)) return { ok: false, missingMarker: `<span class="csl-missing">[missing: ${escapeHtml(item.id)}]</span>` };
-    return { ok: true, sourceId: item.id, locator: undefined };
+    return {
+      ok: true,
+      sourceId: item.id,
+      locator: item.aliasLocator?.locator,
+      label: item.aliasLocator?.label,
+    };
   });
 
   // Any missing → render each item independently so missing markers
@@ -234,7 +310,7 @@ function renderCiteRun(
   // independent (no merge to perform).
   if (items.length === 1 || resolved.some((r) => !r.ok)) {
     return resolved
-      .map((r) => (r.ok ? activeRenderer.renderCitation(r.sourceId, r.locator) : r.missingMarker))
+      .map((r) => (r.ok ? activeRenderer.renderCitation(r.sourceId, r.locator, r.label) : r.missingMarker))
       .join(' ');
   }
 
@@ -243,7 +319,7 @@ function renderCiteRun(
     resolved.map((r) => {
       // Type narrowing: we proved every r is { ok: true } above.
       const ok = r as Extract<Resolved, { ok: true }>;
-      return { id: ok.sourceId, locator: ok.locator };
+      return { id: ok.sourceId, locator: ok.locator, label: ok.label };
     }),
   );
 }

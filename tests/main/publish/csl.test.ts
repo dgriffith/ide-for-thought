@@ -12,6 +12,7 @@ import {
 import { loadCitationAssets } from '../../../src/main/publish/csl';
 import { resolvePlan, runExporter } from '../../../src/main/publish/pipeline';
 import { noteHtmlExporter } from '../../../src/main/publish/exporters/note-html';
+import { parseLocatorAlias } from '../../../src/main/publish/exporters/note-html/render';
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-csl-test-'));
@@ -419,5 +420,158 @@ describe('consecutive-cite merging (#298)', () => {
     expect(html).toContain('Foo');
     expect(html).toContain('2020');
     expect(html).not.toContain('[[cite::foo-2020]]');
+  });
+});
+
+// ── Locator alias parsing (#299) ─────────────────────────────────────────
+//
+// `[[cite::id|p. 42]]` should populate the citeproc locator + label so
+// the rendered citation reads "(Toulmin 1958, p. 42)" instead of
+// dropping the alias on the floor.
+
+describe('parseLocatorAlias (#299)', () => {
+  it('bare digits → page locator', () => {
+    expect(parseLocatorAlias('42')).toEqual({ locator: '42', label: 'page' });
+  });
+
+  it('bare digit range → page locator', () => {
+    expect(parseLocatorAlias('42-45')).toEqual({ locator: '42-45', label: 'page' });
+    // Real-world dashes from typography-aware editors.
+    expect(parseLocatorAlias('42–45')).toEqual({ locator: '42–45', label: 'page' });
+  });
+
+  it('roman numerals → page locator (front-matter pages)', () => {
+    expect(parseLocatorAlias('iv')).toEqual({ locator: 'iv', label: 'page' });
+    expect(parseLocatorAlias('iv-xii')).toEqual({ locator: 'iv-xii', label: 'page' });
+  });
+
+  it('p. / pp. prefix → page locator with the prefix stripped', () => {
+    expect(parseLocatorAlias('p. 42')).toEqual({ locator: '42', label: 'page' });
+    expect(parseLocatorAlias('pp. 42-45')).toEqual({ locator: '42-45', label: 'page' });
+    expect(parseLocatorAlias('page 42')).toEqual({ locator: '42', label: 'page' });
+    expect(parseLocatorAlias('pages 42–45')).toEqual({ locator: '42–45', label: 'page' });
+  });
+
+  it('chapter / section / figure / paragraph labels', () => {
+    expect(parseLocatorAlias('ch. 3')).toEqual({ locator: '3', label: 'chapter' });
+    expect(parseLocatorAlias('chapter 3')).toEqual({ locator: '3', label: 'chapter' });
+    expect(parseLocatorAlias('sec. 4.2')).toEqual({ locator: '4.2', label: 'section' });
+    expect(parseLocatorAlias('§ 4')).toEqual({ locator: '4', label: 'section' });
+    expect(parseLocatorAlias('fig. 7')).toEqual({ locator: '7', label: 'figure' });
+    expect(parseLocatorAlias('¶ 12')).toEqual({ locator: '12', label: 'paragraph' });
+  });
+
+  it('non-locator alias falls through (returns null)', () => {
+    expect(parseLocatorAlias('the seminal essay')).toBeNull();
+    expect(parseLocatorAlias('see below')).toBeNull();
+    expect(parseLocatorAlias('')).toBeNull();
+    // Unknown label tag — drop the whole thing rather than guessing.
+    expect(parseLocatorAlias('xyz. 3')).toBeNull();
+  });
+});
+
+describe('locator alias renders into citations (#299)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    await fsp.mkdir(path.join(root, '.minerva/sources/toulmin-1958'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/toulmin-1958/meta.ttl'),
+      `this: a thought:Book ;
+  dc:title "The Uses of Argument" ;
+  dc:creator "Toulmin, Stephen" ;
+  dc:issued "1958"^^xsd:gYear .\n`,
+      'utf-8',
+    );
+    // Excerpt with its own page so we can verify alias overrides intrinsic.
+    await fsp.mkdir(path.join(root, '.minerva/excerpts'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/excerpts/ex-toulmin-foundations.ttl'),
+      `this: a thought:Excerpt ;
+  thought:fromSource sources:toulmin-1958 ;
+  thought:page 11 .\n`,
+      'utf-8',
+    );
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('[[cite::id|42]] renders with "p. 42" inline', async () => {
+    await fsp.writeFile(path.join(root, 'cite-bare.md'),
+      'See [[cite::toulmin-1958|42]].\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'cite-bare.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('Toulmin');
+    expect(html).toContain('p.');
+    expect(html).toContain('42');
+    expect(html).not.toContain('[missing:');
+  });
+
+  it('[[cite::id|pp. 42-45]] renders the range', async () => {
+    await fsp.writeFile(path.join(root, 'cite-range.md'),
+      'See [[cite::toulmin-1958|pp. 42-45]].\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'cite-range.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toMatch(/42[-–]45/);
+    expect(html).toContain('pp.');
+  });
+
+  it('[[cite::id|ch. 3]] renders with chapter label', async () => {
+    await fsp.writeFile(path.join(root, 'cite-chapter.md'),
+      'See [[cite::toulmin-1958|ch. 3]].\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'cite-chapter.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    // APA renders chapter labels as "Chapter 3" or "ch. 3" depending on
+    // style; either way the digit + a chapter token must appear.
+    expect(html).toMatch(/[Cc]hap?\.|[Cc]hapter/);
+    expect(html).toContain('3');
+  });
+
+  it('non-locator alias is dropped (citation still renders, no locator)', async () => {
+    await fsp.writeFile(path.join(root, 'cite-prose.md'),
+      'See [[cite::toulmin-1958|the seminal essay]] here.\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'cite-prose.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('Toulmin');
+    expect(html).toContain('1958');
+    // Alias text doesn't leak into the rendered citation.
+    expect(html).not.toContain('the seminal essay');
+    expect(html).not.toContain('[missing:');
+  });
+
+  it('[[quote::id|p. 99]] alias overrides the excerpt\'s intrinsic page', async () => {
+    await fsp.writeFile(path.join(root, 'quote-override.md'),
+      'See [[quote::ex-toulmin-foundations|p. 99]].\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'quote-override.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('99');
+    // The excerpt's own page (11) should not also appear in the citation.
+    expect(html).not.toMatch(/p\.\s*11\b/);
+  });
+
+  it('locator survives the merge path: two cites with locators in one cluster', async () => {
+    await fsp.mkdir(path.join(root, '.minerva/sources/popper-1959'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/popper-1959/meta.ttl'),
+      `this: a thought:Book ;
+  dc:title "The Logic of Scientific Discovery" ;
+  dc:creator "Popper, Karl" ;
+  dc:issued "1959"^^xsd:gYear .\n`, 'utf-8');
+    await fsp.writeFile(path.join(root, 'cite-merge.md'),
+      'See [[cite::toulmin-1958|p. 42]] [[cite::popper-1959|p. 100]].\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'cite-merge.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    // One merged paren containing both authors + both pages.
+    expect(html).not.toContain(') (');
+    expect(html).toContain('Toulmin');
+    expect(html).toContain('Popper');
+    expect(html).toContain('42');
+    expect(html).toContain('100');
   });
 });
