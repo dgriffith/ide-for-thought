@@ -13,11 +13,30 @@ import type { Exporter, ExportOutput } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
 /**
- * Append the rendered bibliography for everything cited in this note.
- * Emits nothing when no citations fired — skips the empty-references
- * divot in the exported HTML.
+ * Append the rendered bibliography (or footnotes, for note-class styles
+ * like Chicago full-note — #297). Emits nothing when no citations
+ * fired so the exported HTML doesn't grow an empty-references divot.
+ *
+ * For note styles the cite rule has already replaced inline citations
+ * with `<sup>` markers; here we render the collected footnote bodies
+ * as a `<section class="footnotes">` at the bottom of the note.
  */
-function appendReferences(body: string, renderer: CitationRenderer): string {
+function appendCitationsTail(body: string, renderer: CitationRenderer): string {
+  if (renderer.isNoteStyle) {
+    const fns = renderer.renderFootnotes().notes;
+    if (fns.length === 0) return body;
+    const lis = fns.map((n) => (
+      `<li id="fn-${n.index}">${n.body} <a href="#fnref-${n.index}" class="footnote-back" aria-label="Back to text">↩</a></li>`
+    )).join('\n');
+    // Note styles ship a Bibliography too — alphabetised, full-form,
+    // separate from the inline footnotes. Emit it after the footnotes
+    // when citeproc gave us bibliography entries.
+    const bib = renderer.renderBibliography();
+    const bibSection = bib.entries.length > 0
+      ? `\n<section class="references">\n<h2>Bibliography</h2>\n<ol>\n${bib.entries.map((e) => `<li>${e}</li>`).join('\n')}\n</ol>\n</section>`
+      : '';
+    return `${body}\n<section class="footnotes">\n<h2>Footnotes</h2>\n<ol>\n${lis}\n</ol>\n</section>${bibSection}`;
+  }
   const bib = renderer.renderBibliography();
   if (bib.entries.length === 0) return body;
   const entries = bib.entries.map((e) => `<li>${e}</li>`).join('\n');
@@ -48,7 +67,7 @@ export const noteHtmlExporter: Exporter = {
       // is a follow-up; this is the simple, correct v1.
       const renderer = plan.citations?.createRenderer();
       const rawBody = renderNoteBody(f, plan, renderer);
-      const withReferences = renderer ? appendReferences(rawBody, renderer) : rawBody;
+      const withReferences = renderer ? appendCitationsTail(rawBody, renderer) : rawBody;
       const body = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);
       const html = wrapHtml({ title: f.title, body });
       files.push({
