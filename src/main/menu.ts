@@ -227,9 +227,11 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         }),
         gate({
           label: 'Interrupt Cell',
-          // Cmd+. matches Jupyter's interrupt shortcut; Ctrl+. on
-          // Linux/Win is a sensible substitute (Cmd is mac-only).
-          accelerator: process.platform === 'darwin' ? 'Cmd+.' : 'Ctrl+.',
+          // No default accelerator (#372). Cmd+. (the Jupyter
+          // standard) collides with macOS Zoom In on this app's View
+          // menu; the safest defaults for "Interrupt" are taken
+          // elsewhere too. Users can wire their own via the
+          // keybindings settings.
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
             if (!win) return;
