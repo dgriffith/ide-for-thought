@@ -186,9 +186,11 @@ export async function completeWithTools(
         // and never round-trip through our client-side dispatch — but
         // the user still pays for the wall-clock wait, so surface them
         // in the stream the same way we do client-side tool calls.
-        if (callbacks) {
-          callbacks.onChunk(`\n\n_${formatToolCall(block.name, block.input)}…_\n\n`);
-        }
+        // Push to textPieces too so the indicator persists in the saved
+        // assistant message (the live stream gets cleared on reload).
+        const indicator = `\n\n_${formatToolCall(block.name, block.input)}…_\n\n`;
+        textPieces.push(indicator);
+        if (callbacks) callbacks.onChunk(indicator);
       }
     }
 
@@ -214,9 +216,12 @@ export async function completeWithTools(
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
       console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
-      if (callbacks) {
-        callbacks.onChunk(`\n\n_${formatToolCall(use.name, use.input)}…_\n\n`);
-      }
+      // Persist the indicator alongside the live-stream notice so it
+      // survives conversation reload and reads inline with the rest
+      // of the assistant's text.
+      const indicator = `\n\n_${formatToolCall(use.name, use.input)}…_\n\n`;
+      textPieces.push(indicator);
+      if (callbacks) callbacks.onChunk(indicator);
       const toolCallbacks: ToolCallbacks = {};
       if (callbacks?.onDraft) {
         toolCallbacks.onDraft = callbacks.onDraft;
