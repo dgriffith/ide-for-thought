@@ -1,0 +1,50 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`bundled CSL styles render end-to-end (#296) > chicago-author-date: in-text citation + bibliography render and snapshot 1`] = `
+{
+  "entry": "  <div class="csl-entry">Smith, Jane, and Bob Jones. 2020. “On the Growth of Things.” <i>Journal of Things</i> 12 (3): 45–67. https://doi.org/10.1234/foo.bar.</div>
+",
+  "inText": "(Smith and Jones 2020)",
+  "isNote": false,
+}
+`;
+
+exports[`bundled CSL styles render end-to-end (#296) > chicago-notes-bibliography: in-text citation + bibliography render and snapshot 1`] = `
+{
+  "entry": "  <div class="csl-entry">Smith, Jane, and Bob Jones. “On the Growth of Things.” <i>Journal of Things</i> 12, no. 3 (2020): 45–67. https://doi.org/10.1234/foo.bar.</div>
+",
+  "inText": "Jane Smith and Bob Jones, “On the Growth of Things,” <i>Journal of Things</i> 12, no. 3 (2020): 45–67, https://doi.org/10.1234/foo.bar.",
+  "isNote": true,
+}
+`;
+
+exports[`bundled CSL styles render end-to-end (#296) > ieee: in-text citation + bibliography render and snapshot 1`] = `
+{
+  "entry": "  <div class="csl-entry">
+    <div class="csl-left-margin">[1]</div><div class="csl-right-inline">J. Smith and B. Jones, “On the Growth of Things,” <i>Journal of Things</i>, vol. 12, no. 3, pp. 45–67, Apr. 2020, doi: 10.1234/foo.bar.</div>
+  </div>
+",
+  "inText": "[1]",
+  "isNote": false,
+}
+`;
+
+exports[`bundled CSL styles render end-to-end (#296) > mla: in-text citation + bibliography render and snapshot 1`] = `
+{
+  "entry": "  <div class="csl-entry">Smith, Jane, and Bob Jones. “On the Growth of Things.” <i>Journal of Things</i>, vol. 12, no. 3, Apr. 2020, pp. 45–67, https://doi.org/10.1234/foo.bar.</div>
+",
+  "inText": "(Smith and Jones)",
+  "isNote": false,
+}
+`;
+
+exports[`bundled CSL styles render end-to-end (#296) > vancouver: in-text citation + bibliography render and snapshot 1`] = `
+{
+  "entry": "  <div class="csl-entry">
+    <div class="csl-left-margin">1.</div><div class="csl-right-inline">Smith J, Jones B. On the Growth of Things. Journal of Things. 2020 Apr 15;12(3):45–67. doi:10.1234/foo.bar</div>
+  </div>
+",
+  "inText": "(1)",
+  "isNote": false,
+}
+`;

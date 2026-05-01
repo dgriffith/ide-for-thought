@@ -17,6 +17,8 @@ import IEEE_CSL from './bundled/ieee.csl?raw';
 // @ts-expect-error same — see above.
 import MLA_CSL from './bundled/modern-language-association.csl?raw';
 // @ts-expect-error same — see above.
+import VANCOUVER_CSL from './bundled/vancouver.csl?raw';
+// @ts-expect-error same — see above.
 import EN_US_LOCALE from './bundled/locales-en-US.xml?raw';
 
 export const BUNDLED_STYLES: Record<string, string> = {
@@ -25,6 +27,7 @@ export const BUNDLED_STYLES: Record<string, string> = {
   'chicago-notes-bibliography': CHICAGO_NOTES_CSL as string,
   ieee: IEEE_CSL as string,
   mla: MLA_CSL as string,
+  vancouver: VANCOUVER_CSL as string,
 };
 
 /** Human-readable labels for each bundled style id, for UI pickers. */
@@ -34,6 +37,7 @@ export const BUNDLED_STYLE_LABELS: Record<string, string> = {
   'chicago-notes-bibliography': 'Chicago (notes & bibliography)',
   ieee: 'IEEE',
   mla: 'MLA (9th edition)',
+  vancouver: 'Vancouver (NLM citation-sequence)',
 };
 
 export const BUNDLED_LOCALES: Record<string, string> = {

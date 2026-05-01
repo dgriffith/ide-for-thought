@@ -243,3 +243,54 @@ describe('CSL integration through the export pipeline', () => {
     expect(html).not.toContain('<section class="references">');
   });
 });
+
+// ── Bundled-style snapshots (#296) ───────────────────────────────────────
+//
+// One bibliography snapshot per non-APA bundled style against the same
+// fixture project. APA is already covered by explicit assertions above;
+// these guard the other four against accidental file swaps. If a style
+// file is updated upstream and the rendering shifts, the snapshot diff
+// makes the change visible — confirm intent, then `pnpm test -u`.
+
+describe('bundled CSL styles render end-to-end (#296)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    await fsp.mkdir(path.join(root, '.minerva/sources/smith-2020'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/smith-2020/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "On the Growth of Things" ;
+  dc:creator "Smith, Jane" ;
+  dc:creator "Jones, Bob" ;
+  dc:issued "2020-04-15"^^xsd:date ;
+  schema:inContainer "Journal of Things" ;
+  bibo:volume "12" ;
+  bibo:issue "3" ;
+  bibo:pages "45-67" ;
+  bibo:doi "10.1234/foo.bar" .\n`,
+      'utf-8',
+    );
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    'chicago-author-date',
+    'chicago-notes-bibliography',
+    'mla',
+    'ieee',
+    'vancouver',
+  ])('%s: in-text citation + bibliography render and snapshot', async (styleId) => {
+    const assets = await loadCitationAssets(root, { styleId });
+    const renderer = assets.createRenderer();
+    const inText = renderer.renderCitation('smith-2020');
+    const { entries, isNote } = renderer.renderBibliography();
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toContain('On the Growth of Things');
+    expect({ inText, entry: entries[0], isNote }).toMatchSnapshot();
+  });
+});
