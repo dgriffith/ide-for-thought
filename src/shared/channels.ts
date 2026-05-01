@@ -298,6 +298,15 @@ export const Channels = {
    *  returns an unsupported-platform marker the UI surfaces as a
    *  "use Restart" suggestion. */
   COMPUTE_INTERRUPT_PYTHON: 'compute:interruptPython',
+  /** Per-machine Python interpreter override (#374). */
+  COMPUTE_GET_PYTHON_SETTINGS: 'compute:getPythonSettings',
+  COMPUTE_SET_PYTHON_SETTINGS: 'compute:setPythonSettings',
+  /** Probe a candidate interpreter (path or empty for the resolver
+   *  default) for "does it run + what version". */
+  COMPUTE_PROBE_PYTHON: 'compute:probePython',
+  /** Open a native file picker scoped to executable files; returns the
+   *  picked path or null on cancel. */
+  COMPUTE_BROWSE_PYTHON: 'compute:browsePython',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

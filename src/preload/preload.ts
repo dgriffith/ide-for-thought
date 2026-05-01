@@ -135,6 +135,12 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
     restartPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
     interruptPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_INTERRUPT_PYTHON),
+    getPythonSettings: () => ipcRenderer.invoke(Channels.COMPUTE_GET_PYTHON_SETTINGS),
+    setPythonSettings: (settings: { pythonPath: string }) =>
+      ipcRenderer.invoke(Channels.COMPUTE_SET_PYTHON_SETTINGS, settings),
+    probePython: (candidate?: string) =>
+      ipcRenderer.invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),
+    browsePython: () => ipcRenderer.invoke(Channels.COMPUTE_BROWSE_PYTHON),
   },
   publish: {
     listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),
