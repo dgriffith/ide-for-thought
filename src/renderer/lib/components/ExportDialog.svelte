@@ -19,6 +19,10 @@
 
   let { exporterId, activeFilePath, onCancel, onExported }: Props = $props();
 
+  // The dialog only renders the four user-facing scopes; `source`
+  // (#253) is invoked from the Sources sidebar context menu, not
+  // through this dialog's radio group, so the dialog filters it out
+  // when populating from the registry.
   type Scope = 'project' | 'folder' | 'single-note' | 'tree';
   type LinkPolicy = 'drop' | 'inline-title' | 'follow-to-file';
 
@@ -81,7 +85,9 @@
       const list = await api.publish.listExporters();
       const entry = list.find((e) => e.id === exporterId);
       if (entry) {
-        acceptedKinds = entry.acceptedKinds;
+        // Filter out `source` — that scope is reachable only from the
+        // Sources sidebar context menu (#253), not this dialog.
+        acceptedKinds = entry.acceptedKinds.filter((k): k is Scope => k !== 'source');
         // Pick the best default scope given what the exporter accepts
         // AND what the context supports.
         if (!acceptedKinds.includes(scope)) {

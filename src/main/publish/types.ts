@@ -13,12 +13,13 @@
 
 /** What the caller asked to export. The pipeline resolves this into a plan. */
 export interface ExportInput {
-  kind: 'single-note' | 'folder' | 'project' | 'tree';
+  kind: 'single-note' | 'folder' | 'project' | 'tree' | 'source';
   /**
    * For `single-note`: the note's relative path.
    * For `folder`: the folder's relative path (empty = project root).
    * For `project`: ignored; always the whole project.
    * For `tree`: the root note whose reachable wiki-link closure we bundle.
+   * For `source`: the source id (i.e. directory name under `.minerva/sources/`).
    */
   relativePath?: string;
   /**

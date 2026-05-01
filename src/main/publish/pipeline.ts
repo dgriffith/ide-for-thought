@@ -43,9 +43,21 @@ export async function resolvePlan(
   input: ExportInput,
   opts: ResolvePlanOptions = {},
 ): Promise<ExportPlan> {
-  const { inputs, excluded } = input.kind === 'tree'
-    ? await collectTreeEntries(rootPath, input)
-    : await collectFilesystemEntries(rootPath, input);
+  let inputs: ExportPlanFile[];
+  let excluded: ExportPlanExclusion[];
+  if (input.kind === 'tree') {
+    ({ inputs, excluded } = await collectTreeEntries(rootPath, input));
+  } else if (input.kind === 'source') {
+    // Source-as-input (#253): the exporter pulls the source body +
+    // related excerpts + linking notes itself; the pipeline just needs
+    // to verify the source exists and pass the id through. We surface
+    // the source body as a single ExportPlanFile so exclusion-style
+    // semantics (private filtering, frontmatter parsing) still apply
+    // uniformly across exporters.
+    ({ inputs, excluded } = await collectSourceEntry(rootPath, input));
+  } else {
+    ({ inputs, excluded } = await collectFilesystemEntries(rootPath, input));
+  }
 
   const citations = await loadCitationAssets(rootPath, {
     styleId: opts.citationStyle,
@@ -63,6 +75,36 @@ export async function resolvePlan(
     outputDir: opts.outputDir,
     rootPath,
     citations,
+  };
+}
+
+// ── Source-mode resolution (#253) ──────────────────────────────────────────
+
+async function collectSourceEntry(
+  rootPath: string,
+  input: ExportInput,
+): Promise<{ inputs: ExportPlanFile[]; excluded: ExportPlanExclusion[] }> {
+  if (!input.relativePath) {
+    throw new Error('Source export requires a source id (input.relativePath).');
+  }
+  const sourceId = input.relativePath;
+  const bodyRel = `.minerva/sources/${sourceId}/body.md`;
+  let content: string;
+  try {
+    content = await fs.readFile(path.join(rootPath, bodyRel), 'utf-8');
+  } catch {
+    throw new Error(`Source body not found: ${bodyRel}`);
+  }
+  const { frontmatter, title } = parseHeader(bodyRel, content);
+  return {
+    inputs: [{
+      relativePath: bodyRel,
+      kind: 'source',
+      content,
+      frontmatter,
+      title: title || sourceId,
+    }],
+    excluded: [],
   };
 }
 
