@@ -243,3 +243,181 @@ describe('CSL integration through the export pipeline', () => {
     expect(html).not.toContain('<section class="references">');
   });
 });
+
+// ── Consecutive-cite merging (#298) ──────────────────────────────────────
+//
+// `[[cite::a]] [[cite::b]]` should render as a single merged
+// parenthetical — `(Foo 2020; Bar 2021)` in author-date styles — rather
+// than two adjacent ones. The merge is gated on every id resolving so
+// missing markers stay visible at their original positions.
+
+describe('consecutive-cite merging (#298)', () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    await fsp.mkdir(path.join(root, '.minerva/sources/foo-2020'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/foo-2020/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Foo Studies" ;
+  dc:creator "Foo, Alice" ;
+  dc:issued "2020"^^xsd:gYear .\n`,
+      'utf-8',
+    );
+    await fsp.mkdir(path.join(root, '.minerva/sources/bar-2021'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/bar-2021/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Bar Considered" ;
+  dc:creator "Bar, Bob" ;
+  dc:issued "2021"^^xsd:gYear .\n`,
+      'utf-8',
+    );
+    await fsp.mkdir(path.join(root, '.minerva/excerpts'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/excerpts/ex-foo-1.ttl'),
+      `this: a thought:Excerpt ;
+  thought:fromSource sources:foo-2020 ;
+  thought:page 7 .\n`,
+      'utf-8',
+    );
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('renderCitationCluster merges two ids into one APA parenthetical', async () => {
+    const assets = await loadCitationAssets(root);
+    const renderer = assets.createRenderer();
+    const rendered = renderer.renderCitationCluster([
+      { id: 'foo-2020' },
+      { id: 'bar-2021' },
+    ]);
+    // APA: "(Bar, 2021; Foo, 2020)" — alphabetised, single parenthetical.
+    expect(rendered).toMatch(/^\([^)]*\)$/);
+    expect(rendered).toContain('Bar');
+    expect(rendered).toContain('Foo');
+    expect(rendered).toContain(';');
+    // Both ids are tracked as cited so they appear in the bibliography.
+    expect(renderer.cited().has('foo-2020')).toBe(true);
+    expect(renderer.cited().has('bar-2021')).toBe(true);
+  });
+
+  it('two adjacent [[cite::]] in markdown render as a single merged mark', async () => {
+    await fsp.writeFile(path.join(root, 'merge.md'),
+      '# Merge\n\nAs [[cite::foo-2020]] [[cite::bar-2021]] showed.\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'merge.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+
+    // Exactly one citation parenthetical, containing both names + a
+    // semicolon separator. Two separate parens would show up as
+    // ") (" somewhere in the rendered text.
+    expect(html).not.toContain(') (');
+    const inText = html.match(/\([^)]*Foo[^)]*Bar[^)]*\)|\([^)]*Bar[^)]*Foo[^)]*\)/);
+    expect(inText).not.toBeNull();
+    expect(inText![0]).toContain(';');
+  });
+
+  it('three consecutive cites separated by single spaces all merge', async () => {
+    await fsp.mkdir(path.join(root, '.minerva/sources/baz-2022'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/baz-2022/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Baz Notes" ;
+  dc:creator "Baz, Carol" ;
+  dc:issued "2022"^^xsd:gYear .\n`,
+      'utf-8',
+    );
+    await fsp.writeFile(path.join(root, 'three.md'),
+      'See [[cite::foo-2020]] [[cite::bar-2021]] [[cite::baz-2022]].\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'three.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+
+    // Single paren containing all three names + two semicolons.
+    const matches = html.match(/\([^)]+\)/g) ?? [];
+    const citationParen = matches.find((p) => /Foo|Bar|Baz/.test(p));
+    expect(citationParen).toBeDefined();
+    expect(citationParen).toContain('Foo');
+    expect(citationParen).toContain('Bar');
+    expect(citationParen).toContain('Baz');
+    // Two `; ` separators for three items in one cluster.
+    expect((citationParen!.match(/;/g) ?? []).length).toBe(2);
+  });
+
+  it('newline-separated cites also merge (whitespace, not punctuation)', async () => {
+    await fsp.writeFile(path.join(root, 'wrapped.md'),
+      'Per [[cite::foo-2020]]\n[[cite::bar-2021]] this holds.\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'wrapped.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).not.toContain(') (');
+    expect(html).toMatch(/\([^)]*(Foo|Bar)[^)]*;[^)]*\)/);
+  });
+
+  it('cite + quote with locator merges and the locator survives', async () => {
+    await fsp.writeFile(path.join(root, 'mixed.md'),
+      'Per [[cite::bar-2021]] [[quote::ex-foo-1]].\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'mixed.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    // One paren, both names, the page locator from the excerpt.
+    expect(html).not.toContain(') (');
+    const paren = (html.match(/\([^)]*\)/g) ?? []).find((p) => /Foo|Bar/.test(p));
+    expect(paren).toBeDefined();
+    expect(paren).toContain('Foo');
+    expect(paren).toContain('Bar');
+    expect(paren).toContain('7');
+  });
+
+  it('non-whitespace separator (comma) prevents the merge', async () => {
+    await fsp.writeFile(path.join(root, 'comma.md'),
+      'Per [[cite::foo-2020]], [[cite::bar-2021]] showed.\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'comma.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    // Two separate parentheticals, each with a single name.
+    const parens = (html.match(/\([^)]+\)/g) ?? []).filter((p) => /Foo|Bar/.test(p));
+    expect(parens.length).toBe(2);
+    expect(parens.some((p) => p.includes('Foo') && !p.includes('Bar'))).toBe(true);
+    expect(parens.some((p) => p.includes('Bar') && !p.includes('Foo'))).toBe(true);
+  });
+
+  it('missing id in a run falls back to per-item rendering so [missing: x] stays visible', async () => {
+    await fsp.writeFile(path.join(root, 'missing.md'),
+      'See [[cite::foo-2020]] [[cite::nope-2099]] [[cite::bar-2021]].\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'missing.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('[missing: nope-2099]');
+    // Each present cite renders as its own parenthetical when a sibling
+    // is missing — no merged cluster swallows them.
+    const parens = (html.match(/\([^)]+\)/g) ?? []).filter((p) => /Foo|Bar/.test(p));
+    expect(parens.some((p) => p.includes('Foo') && !p.includes('Bar'))).toBe(true);
+    expect(parens.some((p) => p.includes('Bar') && !p.includes('Foo'))).toBe(true);
+  });
+
+  it('single [[cite::]] (no neighbour) still works exactly as before', async () => {
+    await fsp.writeFile(path.join(root, 'single.md'),
+      'Just [[cite::foo-2020]] alone.\n',
+      'utf-8',
+    );
+    const plan = await resolvePlan(root, { kind: 'single-note', relativePath: 'single.md' });
+    const output = await runExporter(noteHtmlExporter, plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('Foo');
+    expect(html).toContain('2020');
+    expect(html).not.toContain('[[cite::foo-2020]]');
+  });
+});
