@@ -338,7 +338,14 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
    * project-rooted relative path (no leading `/`).
    */
   function resolveRelativeImagePath(src: string, fromNote: string | null | undefined): string {
-    const noteDir = fromNote ? fromNote.replace(/\/[^/]*$/, '') : '';
+    // Split off the note's parent directory. The regex form
+    // `/\/[^/]*$/` would silently fall back to the full string when
+    // there's no slash — i.e. for a project-root note like
+    // `graph.md`, `noteDir` would become `graph.md` and downstream
+    // resolution would treat the file itself as a directory (the
+    // ENOTDIR symptom). Use a guarded lastIndexOf instead.
+    const lastSlash = fromNote ? fromNote.lastIndexOf('/') : -1;
+    const noteDir = lastSlash > 0 && fromNote ? fromNote.slice(0, lastSlash) : '';
     const baseSegments = noteDir ? noteDir.split('/') : [];
     const srcSegments = src.split('/');
     const out: string[] = [...baseSegments];
