@@ -25,6 +25,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_READ_FILE, relativePath),
     readBinary: (relativePath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_READ_BINARY, relativePath),
+    writeBinary: (relativePath: string, bytes: Uint8Array) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_WRITE_BINARY, relativePath, bytes),
+    fileExists: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_FILE_EXISTS, relativePath),
     writeFile: (relativePath: string, content: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_WRITE_FILE, relativePath, content),
     createFile: (relativePath: string) =>

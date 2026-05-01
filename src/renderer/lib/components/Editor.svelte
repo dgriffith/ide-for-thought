@@ -14,6 +14,12 @@
   import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { historyField } from '@codemirror/commands';
   import { api } from '../ipc/client';
+  import {
+    uploadImage,
+    relativeAssetPathForNote,
+    rejectionMessage,
+    type UploadResult,
+  } from '../editor/image-upload';
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
     toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
@@ -83,6 +89,13 @@
     getNotePaths?: () => string[];
     /** Live list of Sources for `[[cite::…]]` autocomplete. */
     getSources?: () => readonly import('../../../shared/types').SourceMetadata[];
+    /**
+     * Callback for image upload rejections — too-large, unsupported
+     * MIME, etc. — so the host app can surface a toast / dialog (#455).
+     * Errors that aren't user-facing (write-failed mid-stream) also
+     * route through here.
+     */
+    onUploadError?: (message: string) => void;
   }
 
   let {
@@ -115,6 +128,7 @@
     getNotePaths,
     getSources,
     initialHistory,
+    onUploadError,
   }: Props = $props();
 
   const analysisTools = getToolInfosByCategory('analysis');
@@ -497,8 +511,97 @@
         showContextMenu(e);
         return true;
       },
+      // Drag-and-drop image upload (#455). When the dataTransfer
+      // carries one or more image files, intercept before CodeMirror's
+      // default text-drop handler runs — copy each into
+      // `.minerva/assets/inline/` and insert `![](relative-path)` at
+      // the drop position. Non-image drops (text, urls, internal CM
+      // moves) fall through to the default handler.
+      dragover: (e) => {
+        if (e.dataTransfer && hasImageFiles(e.dataTransfer)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          return true;
+        }
+        return false;
+      },
+      drop: (e, v) => {
+        if (!e.dataTransfer || !hasImageFiles(e.dataTransfer)) return false;
+        e.preventDefault();
+        const dropPos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
+        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+        void handleImageUploads(files, dropPos);
+        return true;
+      },
+      // Paste-image upload (#455). Catches the macOS Cmd+Shift+Ctrl+4
+      // → Cmd+V workflow and any other clipboard image source. Non-
+      // image clipboard contents (text / html) fall through.
+      paste: (e, v) => {
+        const items = e.clipboardData?.items;
+        if (!items) return false;
+        const files: File[] = [];
+        for (const item of items) {
+          if (item.kind !== 'file') continue;
+          if (!item.type.startsWith('image/')) continue;
+          const f = item.getAsFile();
+          if (f) files.push(f);
+        }
+        if (files.length === 0) return false;
+        e.preventDefault();
+        void handleImageUploads(files, v.state.selection.main.head);
+        return true;
+      },
     }),
   ];
+
+  /** True iff the DataTransfer carries at least one image file. Used
+   *  by the dragover gate so a text-drop or internal-CM drop still
+   *  routes through the editor's default handlers. */
+  function hasImageFiles(dt: DataTransfer): boolean {
+    // `items` is the modern API; `files` is the fallback. Either
+    // surface lets us spot an image without consuming the data.
+    if (dt.items) {
+      for (const item of dt.items) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) return true;
+      }
+    }
+    if (dt.files) {
+      for (const f of dt.files) {
+        if (f.type.startsWith('image/')) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Run the image-upload pipeline for each file, accumulate the
+   * resulting `![](…)` snippets, and insert them at the requested
+   * editor position in one transaction so undo collapses the whole
+   * batch into a single step.
+   */
+  async function handleImageUploads(files: File[], insertPos: number): Promise<void> {
+    if (!view || files.length === 0) return;
+    const snippets: string[] = [];
+    for (const file of files) {
+      const result: UploadResult = await uploadImage(file, { filename: file.name, mimeHint: file.type });
+      if (!result.ok) {
+        onUploadError?.(rejectionMessage(result));
+        continue;
+      }
+      const rel = relativeAssetPathForNote(filePath, result.relativePath);
+      const alt = (result.alt ?? '').replace(/\.[^.]+$/, '').replace(/[[\]]/g, '');
+      snippets.push(`![${alt}](${rel})`);
+    }
+    if (snippets.length === 0) return;
+    // Surround with newlines when the drop target isn't at the start
+    // of a line — most usefully, matches what a paste of a screenshot
+    // mid-paragraph produces in Obsidian / Bear / Notion.
+    const insert = '\n' + snippets.join('\n') + '\n';
+    view.dispatch({
+      changes: { from: insertPos, to: insertPos, insert },
+      selection: { anchor: insertPos + insert.length },
+    });
+  }
 
   async function tagCompletion(context: CompletionContext): Promise<CompletionResult | null> {
     const match = context.matchBefore(/#[\w-/]*/);

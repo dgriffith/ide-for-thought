@@ -115,6 +115,36 @@ export async function readBinaryFile(rootPath: string, relativePath: string): Pr
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
+/**
+ * Binary-safe write — pair to `readBinaryFile`. Used for image upload
+ * via drag-and-drop / paste in the editor (#455). Same path-traversal
+ * guard as `writeFile`; creates parent directories on demand.
+ */
+export async function writeBinaryFile(
+  rootPath: string,
+  relativePath: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const fullPath = assertSafePath(rootPath, relativePath);
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  await fs.writeFile(fullPath, bytes);
+}
+
+/**
+ * True iff `relativePath` resolves to an existing file. Used by the
+ * asset-upload path to skip rewriting an asset that's already on
+ * disk under the same content-hashed name (#455).
+ */
+export async function fileExists(rootPath: string, relativePath: string): Promise<boolean> {
+  const fullPath = assertSafePath(rootPath, relativePath);
+  try {
+    const stat = await fs.stat(fullPath);
+    return stat.isFile();
+  } catch {
+    return false;
+  }
+}
+
 export async function writeFile(rootPath: string, relativePath: string, content: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });

@@ -6,6 +6,12 @@ export const Channels = {
   /** Read an arbitrary file as bytes — used by the Preview's image rule
    *  to inline `![](...)` references as data URLs (#244 image rendering). */
   NOTEBASE_READ_BINARY: 'notebase:readBinary',
+  /** Write a binary blob (image / pdf / etc.) under a project-relative
+   *  path. Used by the editor's image-upload-on-drop path (#455). */
+  NOTEBASE_WRITE_BINARY: 'notebase:writeBinary',
+  /** Cheap existence check — used by the upload path to dedupe
+   *  content-hashed assets (#455). */
+  NOTEBASE_FILE_EXISTS: 'notebase:fileExists',
   NOTEBASE_WRITE_FILE: 'notebase:writeFile',
   NOTEBASE_CREATE_FILE: 'notebase:createFile',
   NOTEBASE_DELETE_FILE: 'notebase:deleteFile',

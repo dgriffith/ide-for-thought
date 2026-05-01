@@ -2116,6 +2116,12 @@
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
                     onFormatCurrentNote={() => handleFormat()}
+                    onUploadError={(message) => {
+                      // Image-upload rejection (#455). Surface via the
+                      // existing confirm dialog with a dismissable key —
+                      // user-facing but not blocking.
+                      void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
+                    }}
                     onInsertQueryList={async () => {
                       const tag = await showPrompt('Tag name:');
                       if (!tag) return;
