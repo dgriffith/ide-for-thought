@@ -75,6 +75,15 @@
 
   function handleDrop(e: DragEvent, destDir: string) {
     e.preventDefault();
+    // Critical: prevent the event from bubbling to the parent FileTree
+    // (recursive case) and to Sidebar.svelte's `.file-list` root-drop
+    // handler. Without this, a drop on a subfolder fires onMove twice —
+    // once for the folder, then again for root with destDirectory='' —
+    // and the two handleMove calls race against the same selection
+    // snapshot. Net effect: some moved items land at root instead of
+    // the dropped-on folder, and others ENOENT because an earlier
+    // interleaved rename already moved them.
+    e.stopPropagation();
     dropTarget = null;
     // External file drops (from Finder, Explorer, another app) arrive with a
     // populated `files` list; the internal-move drag sets `text/plain`
