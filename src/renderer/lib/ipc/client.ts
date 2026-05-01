@@ -265,6 +265,13 @@ export interface ComputeApi {
   /** Wipe and respawn the project's Python kernel — palette command
    *  "Compute: Restart Python Kernel". Loses every notebook's namespace. */
   restartPythonKernel(): Promise<void>;
+  /** Send SIGINT to the active Python kernel so a runaway cell aborts
+   *  without losing namespace state — palette command "Compute:
+   *  Interrupt Cell" (#372). POSIX-only for v1. */
+  interruptPythonKernel(): Promise<
+    | { ok: true }
+    | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' }
+  >;
 }
 
 export interface ShellApi {

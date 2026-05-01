@@ -9,7 +9,7 @@ import * as search from './search/index';
 import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
 import { listSavedQueries } from './saved-queries';
-import { restartKernel as restartPythonKernel } from './compute/python-kernel';
+import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
@@ -223,6 +223,19 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
               tables.registerAllCsvs(ctx),
             ]);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          },
+        }),
+        gate({
+          label: 'Interrupt Cell',
+          // Cmd+. matches Jupyter's interrupt shortcut; Ctrl+. on
+          // Linux/Win is a sensible substitute (Cmd is mac-only).
+          accelerator: process.platform === 'darwin' ? 'Cmd+.' : 'Ctrl+.',
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            interruptPythonKernel(rootPath);
           },
         }),
         gate({
