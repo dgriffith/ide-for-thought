@@ -1011,6 +1011,34 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     outputMenu = null;
   }
 
+  function handleCopyAsCsv(): void {
+    if (!outputMenu || outputMenu.output.type !== 'table') return;
+    const csv = tableToCsv(outputMenu.output.columns, outputMenu.output.rows);
+    void navigator.clipboard.writeText(csv);
+    outputMenu = null;
+  }
+
+  /**
+   * RFC-4180-ish CSV: quote fields containing commas, quotes, or
+   * newlines; double internal quotes; CRLF row terminator. Pasted into
+   * Excel / Numbers / Sheets it parses back to the original table.
+   */
+  function tableToCsv(
+    columns: string[],
+    rows: Array<Array<string | number | boolean | null>>,
+  ): string {
+    const escape = (v: string | number | boolean | null): string => {
+      if (v == null) return '';
+      const s = String(v);
+      if (/[",\r\n]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+    const lines = [columns.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
+    return lines.join('\r\n');
+  }
+
   function outputToMarkdownClipboard(output: import('../../../shared/compute/types').CellOutput): string {
     if (output.type === 'table') {
       if (output.columns.length === 0) return '*(empty result)*';
@@ -1138,6 +1166,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       <button role="menuitem" onclick={handleSaveAsNote}>Save as note…</button>
     {/if}
     <button role="menuitem" onclick={handleCopyAsMarkdown}>Copy as markdown</button>
+    {#if outputMenu.output.type === 'table'}
+      <button role="menuitem" onclick={handleCopyAsCsv}>Copy as CSV</button>
+    {/if}
   </div>
 {/if}
 

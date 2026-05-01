@@ -81,16 +81,31 @@ export async function saveCellOutput(
   }
 
   const derivedPath = input.destPath ?? defaultDerivedNotePath(input.sourcePath, cellId);
-  const markdown = buildDerivedNote({
+  const { markdown, assets } = buildDerivedNote({
     title: input.title,
     output: input.output,
     sourcePath: input.sourcePath,
     cellId,
+    derivedPath,
   });
 
   const destFull = path.join(rootPath, derivedPath);
   await fs.mkdir(path.dirname(destFull), { recursive: true });
   await fs.writeFile(destFull, markdown, 'utf-8');
+
+  // Sidecar assets — image / SVG cell outputs land under
+  // `.minerva/assets/derived/` (#244 phase 2). Sequential rather than
+  // parallel since most saves emit zero or one asset; the parallel
+  // form would just add ceremony.
+  for (const asset of assets) {
+    const assetFull = path.join(rootPath, asset.relativePath);
+    await fs.mkdir(path.dirname(assetFull), { recursive: true });
+    if (typeof asset.contents === 'string') {
+      await fs.writeFile(assetFull, asset.contents, 'utf-8');
+    } else {
+      await fs.writeFile(assetFull, asset.contents);
+    }
+  }
 
   return { derivedPath, cellId, injectedId: wasNew };
 }

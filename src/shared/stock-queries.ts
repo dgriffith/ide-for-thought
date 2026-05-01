@@ -235,6 +235,23 @@ SELECT ?sourceId ?title ?creator WHERE {
 ORDER BY ?sourceId`,
   },
   {
+    name: 'Compute: derived notes missing their source (#244)',
+    description: 'Notes saved via "Save cell output as note" whose source notebook no longer exists — surfaces breakage from a delete/rename that didn\'t fix up the derived note\'s provenance.',
+    language: 'sparql',
+    query: `${PREFIXES}
+PREFIX prov: <http://www.w3.org/ns/prov#>
+
+SELECT ?derived ?missingSource WHERE {
+  ?derived prov:wasDerivedFrom ?missingSource .
+  # The source URI doesn't appear as a subject anywhere in the graph
+  # — i.e. the indexer never saw a note at that path. Renaming a
+  # source without fixing up the derived note's frontmatter falls
+  # into this bucket.
+  FILTER NOT EXISTS { ?missingSource ?p ?o }
+}
+ORDER BY ?derived`,
+  },
+  {
     name: 'Trust: Unreviewed LLM writes',
     description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
     language: 'sparql',

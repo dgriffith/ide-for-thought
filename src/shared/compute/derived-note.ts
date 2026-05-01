@@ -26,11 +26,35 @@ export interface BuildDerivedNoteInput {
   cellId: string;
   /** Override the timestamp (tests use a fixed clock). */
   now?: () => Date;
+  /**
+   * Relative path the derived note will be written to. Used to compute
+   * relative `![](…)` image paths so a saved chart resolves correctly
+   * regardless of how deep the derived note sits. When omitted, the
+   * default `notes/derived/<stem>-<cellId>.md` shape from
+   * `defaultDerivedNotePath` is assumed.
+   */
+  derivedPath?: string;
 }
 
-export function buildDerivedNote(input: BuildDerivedNoteInput): string {
+export interface BuildDerivedNoteResult {
+  /** The note's markdown body (frontmatter + heading + rendered output + backlink). */
+  markdown: string;
+  /**
+   * Sidecar files the saver should write alongside the note. Image and
+   * SVG outputs (#243) produce one entry here; tabular and JSON
+   * outputs leave the array empty.
+   *
+   * `relativePath` is project-relative (e.g.
+   * `.minerva/assets/derived/foo-123.png`); the markdown body
+   * references it via a path made relative to the note itself.
+   */
+  assets: Array<{ relativePath: string; contents: Uint8Array | string }>;
+}
+
+export function buildDerivedNote(input: BuildDerivedNoteInput): BuildDerivedNoteResult {
   const now = (input.now ?? (() => new Date()))().toISOString();
   const title = input.title ?? defaultTitleFrom(input.sourcePath, input.cellId);
+  const derivedPath = input.derivedPath ?? defaultDerivedNotePath(input.sourcePath, input.cellId);
 
   // `derived_from` is emitted as a wiki-link form so the frontmatter
   // indexer resolves it to the source note's URI — that's what lets
@@ -48,7 +72,11 @@ export function buildDerivedNote(input: BuildDerivedNoteInput): string {
     '---',
   ].join('\n');
 
-  const body = renderOutputToMarkdown(input.output);
+  const { body, assets } = renderOutputForDerivedNote(input.output, {
+    derivedPath,
+    cellId: input.cellId,
+    sourcePath: input.sourcePath,
+  });
 
   // Wiki-link target is the source note's basename (anchors on its
   // `cell-<id>` slug), matching Minerva's existing `[[path#anchor]]`
@@ -58,11 +86,22 @@ export function buildDerivedNote(input: BuildDerivedNoteInput): string {
   const backlinkTarget = linkTargetForSource(input.sourcePath);
   const backlink = `*Derived from [[${backlinkTarget}#cell-${input.cellId}]] on ${now.slice(0, 10)}.*`;
 
-  return `${frontmatter}\n\n# ${escapeHeading(title)}\n\n${body}\n\n${backlink}\n`;
+  const markdown = `${frontmatter}\n\n# ${escapeHeading(title)}\n\n${body}\n\n${backlink}\n`;
+  return { markdown, assets };
 }
 
 // ── Output → markdown ──────────────────────────────────────────────────────
 
+/**
+ * Render an output for the derived note. Pure body shape — no
+ * frontmatter, no backlink — used by the clipboard "Copy as markdown"
+ * affordance and by the asset-aware variant below.
+ *
+ * Image and HTML outputs (#243) get rendered through the asset-aware
+ * variant since they need sidecar files; this string-only path falls
+ * back to a code block so the clipboard helper still produces
+ * something legible.
+ */
 export function renderOutputToMarkdown(output: CellOutput): string {
   if (output.type === 'table') {
     return renderTableToMarkdown(output.columns, output.rows);
@@ -73,8 +112,72 @@ export function renderOutputToMarkdown(output: CellOutput): string {
   if (output.type === 'json') {
     return '```json\n' + JSON.stringify(output.value, null, 2) + '\n```';
   }
-  // Exhaustiveness — current CellOutput union covers the three above.
+  if (output.type === 'image') {
+    // Clipboard path for an image — embed as a data URL so a paste into
+    // GitHub/Substack/etc. still renders. The asset-aware path used by
+    // "Save as note" produces a sidecar file + relative `![](…)`.
+    if (output.mime === 'image/png') {
+      return `![](data:image/png;base64,${output.data})`;
+    }
+    return '```svg\n' + output.data + '\n```';
+  }
+  if (output.type === 'html') {
+    return output.html;
+  }
   return '```\n' + JSON.stringify(output) + '\n```';
+}
+
+/**
+ * Asset-aware variant: image and SVG outputs produce a sidecar file
+ * under `.minerva/assets/derived/` and an `![](relative-path)` body.
+ * Other output types route through the string-only path above.
+ */
+function renderOutputForDerivedNote(
+  output: CellOutput,
+  ctx: { derivedPath: string; cellId: string; sourcePath: string },
+): { body: string; assets: BuildDerivedNoteResult['assets'] } {
+  if (output.type === 'image') {
+    const ext = output.mime === 'image/png' ? 'png' : 'svg';
+    const stem = pathStem(ctx.sourcePath);
+    const assetRel = `.minerva/assets/derived/${stem}-${ctx.cellId}.${ext}`;
+    const contents: Uint8Array | string = output.mime === 'image/png'
+      ? base64ToBytes(output.data)
+      : output.data;
+    const relFromNote = relativeFromNoteToAsset(ctx.derivedPath, assetRel);
+    return {
+      body: `![](${relFromNote})`,
+      assets: [{ relativePath: assetRel, contents }],
+    };
+  }
+  return { body: renderOutputToMarkdown(output), assets: [] };
+}
+
+/**
+ * Path made relative from a note's directory to a project-rooted
+ * asset path. Independent of `node:path` so this stays usable in the
+ * renderer / browser without polyfills.
+ */
+function relativeFromNoteToAsset(notePath: string, assetPath: string): string {
+  const noteDir = notePath.includes('/') ? notePath.slice(0, notePath.lastIndexOf('/')) : '';
+  const noteSegments = noteDir ? noteDir.split('/') : [];
+  const assetSegments = assetPath.split('/');
+  let common = 0;
+  while (
+    common < noteSegments.length
+    && common < assetSegments.length
+    && noteSegments[common] === assetSegments[common]
+  ) common++;
+  const ups = noteSegments.length - common;
+  const upParts: string[] = Array.from({ length: ups }, () => '..');
+  const downs = assetSegments.slice(common);
+  return [...upParts, ...downs].join('/');
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  // Buffer is the cheapest path in Node; the renderer doesn't run this
+  // code (it sticks to renderOutputToMarkdown for clipboard rendering).
+  const buf = Buffer.from(b64, 'base64');
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
 function renderTableToMarkdown(
@@ -102,6 +205,15 @@ function defaultTitleFrom(sourcePath: string, cellId: string): string {
   const base = sourcePath.split('/').pop() ?? sourcePath;
   const stem = base.replace(/\.md$/i, '');
   return `${stem} — cell ${cellId}`;
+}
+
+function pathStem(relativePath: string): string {
+  const base = relativePath.split('/').pop() ?? 'note';
+  return base
+    .replace(/\.md$/i, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'note';
 }
 
 /**
