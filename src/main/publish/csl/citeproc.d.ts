@@ -21,6 +21,8 @@ declare module 'citeproc' {
       citationsPre: unknown[],
       citationsPost: unknown[],
     ): [Record<string, unknown>, Array<[number, string, string]>];
+    /** Switch the engine's output format ("html" / "text" / "rtf"). */
+    setOutputFormat(fmt: 'html' | 'text' | 'rtf'): void;
     // Engine exposes more — we surface only the bits the wrapper reads.
     cslXml?: { dataObj?: { attrs?: { class?: string } } };
   }

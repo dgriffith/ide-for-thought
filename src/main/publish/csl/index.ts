@@ -38,8 +38,13 @@ export interface CitationAssets {
   items: Map<string, CslItem>;
   excerpts: Map<string, { sourceId: string; locator?: string }>;
   knownSourceIds: string[];
-  /** Factory for a fresh renderer — one per note for per-note bibliographies. */
-  createRenderer(): CitationRenderer;
+  /**
+   * Factory for a fresh renderer — one per note for per-note
+   * bibliographies. The optional `outputFormat` switches citeproc-js
+   * to plain-text output for markdown / clean-text exporters (#250);
+   * defaults to HTML for note-html / tree-html.
+   */
+  createRenderer(opts?: { outputFormat?: 'html' | 'text' }): CitationRenderer;
 }
 
 /**
@@ -100,6 +105,6 @@ export async function loadCitationAssets(
     items,
     excerpts,
     knownSourceIds: [...items.keys()],
-    createRenderer: () => new CitationRenderer(style, locale, items),
+    createRenderer: (opts) => new CitationRenderer(style, locale, items, opts),
   };
 }
