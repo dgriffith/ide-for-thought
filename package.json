@@ -33,6 +33,7 @@
     "citeproc": "^2.4.63",
     "date-fns": "^4.1.0",
     "isomorphic-git": "^1.27.1",
+    "jszip": "^3.10.1",
     "katex": "^0.16.45",
     "linkedom": "^0.18.12",
     "markdown-it-footnote": "^4.0.0",
