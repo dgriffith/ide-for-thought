@@ -167,9 +167,11 @@
       if (e.shiftKey) {
         selectionStore.selectRange(next, visible);
       } else {
+        // Move focus + single-select, but DON'T open the file.
+        // Opening would steal focus to the editor and break the next
+        // arrow press; Finder / VS Code arrow nav follows the same
+        // rule — arrow walks the cursor; Enter opens.
         selectionStore.setSingle(next);
-        const node = findNode(files, next);
-        if (node && !node.isDirectory) onFileSelect(next);
       }
       void scrollFocusedIntoView();
       return;
