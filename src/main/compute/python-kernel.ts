@@ -104,6 +104,13 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       PYTHONPATH: pythonResourcesRoot(),
       MINERVA_IPC_SOCKET: rpc.socketPath,
       MINERVA_PROJECT_ROOT: rootPath,
+      // Force matplotlib's non-interactive Agg backend (#243). Without
+      // this, importing pyplot on macOS spawns a Cocoa GUI process
+      // that bounces in the dock and leaks across app sessions; we
+      // render figures to PNG bytes inside the kernel, so the GUI
+      // backend is pure overhead. Reading MPLBACKEND on import is
+      // matplotlib's documented config seam — no user code change.
+      MPLBACKEND: 'Agg',
     },
   });
 
