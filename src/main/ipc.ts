@@ -1097,6 +1097,7 @@ export function registerIpcHandlers(): void {
     linkPolicy?: publish.LinkPolicy;
     citationStyle?: string;
     citationLocale?: string;
+    forceInclude?: string[];
   }) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
@@ -1104,6 +1105,7 @@ export function registerIpcHandlers(): void {
       linkPolicy: opts?.linkPolicy,
       citationStyle: opts?.citationStyle,
       citationLocale: opts?.citationLocale,
+      forceInclude: opts?.forceInclude,
     });
     // Strip `content` + `frontmatter` from the wire payload — the preview
     // only needs to audit paths, kinds, and exclusion reasons; loading
@@ -1124,6 +1126,7 @@ export function registerIpcHandlers(): void {
         relativePath: f.relativePath,
         kind: f.kind,
         title: f.title,
+        overridden: f.overridden ?? false,
       })),
       excluded: plan.excluded,
       citations: {

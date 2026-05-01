@@ -25,6 +25,12 @@ export interface RunExportInput {
   citationStyle?: string;
   /** CSL locale id (#301). Falls back to en-US. */
   citationLocale?: string;
+  /**
+   * Manual exclusion overrides: paths the user re-included via the
+   * preview dialog (#283). Force-included regardless of the
+   * private-by-default rules.
+   */
+  forceInclude?: string[];
 }
 
 export interface RunExportResult {
@@ -54,6 +60,7 @@ export async function runExport(
     assetPolicy: args.assetPolicy,
     citationStyle: args.citationStyle,
     citationLocale: args.citationLocale,
+    forceInclude: args.forceInclude,
     outputDir: args.outputDir,
   });
   const output = await runExporter(exporter, plan);

@@ -189,7 +189,7 @@ export interface CitationAuditPayload {
 export interface ExportPreviewPlan {
   exporterId: string;
   exporterLabel: string;
-  inputs: Array<{ relativePath: string; kind: 'note' | 'source' | 'excerpt'; title: string }>;
+  inputs: Array<{ relativePath: string; kind: 'note' | 'source' | 'excerpt'; title: string; overridden: boolean }>;
   excluded: Array<{ relativePath: string; reason: string }>;
   citations: CitationAuditPayload;
 }
@@ -207,6 +207,8 @@ export interface RunExportInput {
   linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
   citationStyle?: string;
   citationLocale?: string;
+  /** Manual per-export exclusion overrides — relative paths to force-include (#283). */
+  forceInclude?: string[];
 }
 
 export interface RunExportResult {
@@ -227,6 +229,7 @@ export interface PublishApi {
       linkPolicy?: RunExportInput['linkPolicy'];
       citationStyle?: string;
       citationLocale?: string;
+      forceInclude?: string[];
     },
   ): Promise<ExportPreviewPlan>;
   /**

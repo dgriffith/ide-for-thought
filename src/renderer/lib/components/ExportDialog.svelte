@@ -36,6 +36,17 @@
   let error = $state<string | null>(null);
   let acceptedKinds = $state<readonly Scope[]>(['single-note', 'folder', 'project']);
   let acceptedLoaded = $state(false);
+  // Per-export exclusion overrides (#283). Set of relative paths the
+  // user has explicitly re-included; the pipeline force-includes them
+  // even when the private-by-default rules would otherwise exclude.
+  let overrides = $state(new Set<string>());
+
+  function toggleOverride(relativePath: string): void {
+    const next = new Set(overrides);
+    if (next.has(relativePath)) next.delete(relativePath);
+    else next.add(relativePath);
+    overrides = next;
+  }
 
   const activeFolder = $derived.by(() => {
     if (!activeFilePath) return '';
@@ -68,6 +79,7 @@
         linkPolicy,
         citationStyle,
         citationLocale,
+        forceInclude: [...overrides],
       });
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
@@ -110,6 +122,7 @@
     void citationStyle;
     void citationLocale;
     void activeFilePath;
+    void overrides;
     if (!acceptedLoaded) return;
     void refreshPlan();
   });
@@ -125,6 +138,7 @@
         linkPolicy,
         citationStyle,
         citationLocale,
+        forceInclude: [...overrides],
       });
       if (result === null) return; // user cancelled the directory picker
       onExported(result);
@@ -213,14 +227,30 @@
     {:else if plan}
       <div class="audit">
         <div class="audit-section">
-          <h3>Including <span class="count">{plan.inputs.length}</span></h3>
+          <h3>
+            Including <span class="count">{plan.inputs.length}</span>
+            {#if overrides.size > 0}
+              <span class="count override-count" title="{overrides.size} item{overrides.size === 1 ? '' : 's'} re-included via override">
+                {overrides.size} overridden
+              </span>
+            {/if}
+          </h3>
           {#if plan.inputs.length === 0}
             <p class="empty">Nothing to export in this scope.</p>
           {:else}
             <ul>
               {#each plan.inputs.slice(0, 40) as f (f.relativePath)}
-                <li>
-                  <span class="title">{f.title}</span>
+                <li class:overridden={f.overridden}>
+                  <span class="title">
+                    {f.title}
+                    {#if f.overridden}
+                      <button
+                        class="badge-btn"
+                        onclick={() => toggleOverride(f.relativePath)}
+                        title="Click to remove the override and exclude this note again"
+                      >overridden ✕</button>
+                    {/if}
+                  </span>
                   <span class="path">{f.relativePath}</span>
                 </li>
               {/each}
@@ -236,9 +266,15 @@
           {#if plan.excluded.length === 0}
             <p class="empty">Nothing excluded.</p>
           {:else}
+            <p class="hint">Click any excluded row to re-include it in this export.</p>
             <ul>
               {#each plan.excluded.slice(0, 40) as ex (ex.relativePath)}
-                <li>
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+                <li
+                  class="clickable"
+                  onclick={() => toggleOverride(ex.relativePath)}
+                  title="Click to re-include in the export"
+                >
                   <span class="title">{ex.relativePath}</span>
                   <span class="reason">{ex.reason}</span>
                 </li>
@@ -439,6 +475,43 @@
     font-size: 11px;
     color: var(--text-muted);
     font-style: italic;
+  }
+
+  /* Excluded-row click affordance + override badge (#283). */
+  .audit-section li.clickable {
+    cursor: pointer;
+  }
+  .audit-section li.clickable:hover {
+    background: var(--bg-button);
+  }
+  .audit-section .hint {
+    margin: 0 0 6px;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .audit-section li.overridden .title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .audit-section .badge-btn {
+    background: var(--bg-button);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 500;
+    padding: 1px 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .audit-section .badge-btn:hover { background: var(--bg-button-hover); }
+  .audit-section .override-count {
+    background: var(--bg-button);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   /* Citations span the full grid width — they're a separate concern from
