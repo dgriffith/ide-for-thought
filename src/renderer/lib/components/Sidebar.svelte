@@ -7,6 +7,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
+  import { tick } from 'svelte';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables';
 
@@ -54,6 +55,44 @@
   }
 
   /**
+   * Look up a node by its relative path. Linear walk; the tree is
+   * small enough (typical thoughtbase < 5k notes) that the `Map`
+   * variant in `sidebar-tree-utils` would be over-engineering for
+   * the keyboard-nav callsites that hit this once per arrow press.
+   */
+  function findNode(nodes: NoteFile[], path: string): NoteFile | null {
+    for (const n of nodes) {
+      if (n.relativePath === path) return n;
+      if (n.children) {
+        const hit = findNode(n.children, path);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }
+
+  /** Total visible rows in the file tree — denominator for the badge. */
+  const totalVisible = $derived(flattenVisible(files, expanded).length);
+
+  /**
+   * Scroll the keyboard-focused row into view after an arrow press,
+   * pinning to the nearest viewport edge so PageDown-style runs feel
+   * smooth. Defers to the next microtask so the DOM has the new
+   * `.kb-focused` class applied.
+   */
+  let fileListEl = $state<HTMLDivElement | undefined>();
+  async function scrollFocusedIntoView(): Promise<void> {
+    await tick();
+    const path = selectionStore.focused;
+    if (!path || !fileListEl) return;
+    const escaped = (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path);
+    const row = fileListEl.querySelector(`[data-relative-path="${escaped}"]`);
+    if (row && row instanceof HTMLElement) {
+      row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  /**
    * Plain click → set single selection AND open the file (the historical
    * behaviour everyone has muscle memory for).
    * ⌘/Ctrl click → toggle path in/out of selection, do NOT open.
@@ -95,6 +134,66 @@
       e.preventDefault();
       selectionStore.clear();
       return;
+    }
+  }
+
+  /**
+   * Keyboard navigation when the file-list itself has focus (#428).
+   * Lives on the file-list element rather than `<svelte:window>` so
+   * arrow keys in the editor don't accidentally drive the sidebar
+   * cursor — the issue calls out "Tab or click the tree first" as
+   * the explicit handoff.
+   */
+  function handleTreeKeyDown(e: KeyboardEvent): void {
+    const visible = flattenVisible(files, expanded);
+    // ⌘-↓/↑ on a focused folder: expand / collapse. Targets the
+    // currently-focused row, not the next one. Fold the current row
+    // open or shut without disturbing the cursor.
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      const cur = selectionStore.focused;
+      if (!cur) return;
+      const node = findNode(files, cur);
+      if (!node?.isDirectory) return;
+      e.preventDefault();
+      const isExpanded = !!expanded[cur];
+      if (e.key === 'ArrowDown' && !isExpanded) toggleDir(cur);
+      if (e.key === 'ArrowUp' && isExpanded) toggleDir(cur);
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next = selectionStore.moveFocus(e.key === 'ArrowDown' ? 'down' : 'up', visible);
+      if (next === null) return;
+      if (e.shiftKey) {
+        selectionStore.selectRange(next, visible);
+      } else {
+        // Move focus + single-select, but DON'T open the file.
+        // Opening would steal focus to the editor and break the next
+        // arrow press; Finder / VS Code arrow nav follows the same
+        // rule — arrow walks the cursor; Enter opens.
+        selectionStore.setSingle(next);
+      }
+      void scrollFocusedIntoView();
+      return;
+    }
+    if (e.key === 'Enter') {
+      const cur = selectionStore.focused;
+      if (!cur) return;
+      const node = findNode(files, cur);
+      if (node && !node.isDirectory) {
+        e.preventDefault();
+        onFileSelect(cur);
+      } else if (node?.isDirectory) {
+        e.preventDefault();
+        toggleDir(cur);
+      }
+      return;
+    }
+    if (e.key === ' ') {
+      const cur = selectionStore.focused;
+      if (!cur) return;
+      e.preventDefault();
+      selectionStore.toggle(cur);
     }
   }
 
@@ -234,9 +333,19 @@
   <div class="panel-content">
     {#if activePanel === 'notes'}
       {#if files.length > 0}
+        {#if selectionStore.count > 0}
+          <div class="selection-badge">
+            <span class="count">{selectionStore.count} of {totalVisible} selected</span>
+            <button class="clear-btn" onclick={() => selectionStore.clear()}>clear</button>
+          </div>
+        {/if}
+        <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
         <div
           class="file-list"
           class:root-drop-hover={rootDropHover}
+          tabindex="0"
+          bind:this={fileListEl}
+          onkeydown={handleTreeKeyDown}
           oncontextmenu={handleContextMenu}
           ondragover={(e) => { e.preventDefault(); e.dataTransfer!.dropEffect = 'move'; rootDropHover = true; }}
           ondragleave={(e) => { if (e.currentTarget === e.target) rootDropHover = false; }}
@@ -258,6 +367,7 @@
             {canPaste}
             {expanded}
             selection={selectionStore.selected}
+            focusedPath={selectionStore.focused}
             onToggleDir={toggleDir}
             onItemClick={handleItemClick}
             {onNewNote}
@@ -385,7 +495,38 @@
     flex: 1;
     overflow-y: auto;
     padding: 4px 0;
+    /* Make the tree focusable for keyboard nav (#428) — the focus ring
+       hugs the file-list border rather than the default outline so it
+       reads as "the tree is keyboard-armed" without being a thick blue
+       glow inside the sidebar. */
+    outline: none;
   }
+  .file-list:focus-visible {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  /* Selection-count badge above the file tree (#428). */
+  .selection-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-button);
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .selection-badge .count { flex: 1; }
+  .selection-badge .clear-btn {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .selection-badge .clear-btn:hover { text-decoration: underline; }
 
   .file-list.root-drop-hover {
     outline: 1px dashed var(--accent);

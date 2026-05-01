@@ -15,6 +15,8 @@
     expanded: Record<string, boolean>;
     /** Selection set (relativePaths). Same lifecycle as `expanded`. */
     selection: ReadonlySet<string>;
+    /** Keyboard cursor (#428). The row arrow keys would move from. */
+    focusedPath: string | null;
     onToggleDir: (path: string) => void;
     /** Fired for any tree-item click. The handler decides plain-click
      *  semantics (open file, set selection) vs modifier semantics
@@ -44,7 +46,7 @@
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -127,6 +129,8 @@
           class="tree-item dir"
           class:drop-hover={dropTarget === file.relativePath}
           class:selected={selection.has(file.relativePath)}
+          class:kb-focused={focusedPath === file.relativePath}
+          data-relative-path={file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
           onclick={(e) => onItemClick(file.relativePath, true, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
@@ -147,6 +151,7 @@
             {canPaste}
             {expanded}
             {selection}
+            {focusedPath}
             {onToggleDir}
             {onItemClick}
             {onNewNote}
@@ -169,6 +174,8 @@
           class="tree-item file"
           class:active={activeFilePath === file.relativePath}
           class:selected={selection.has(file.relativePath)}
+          class:kb-focused={focusedPath === file.relativePath}
+          data-relative-path={file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
           onclick={(e) => onItemClick(file.relativePath, false, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath.includes('/') ? file.relativePath.substring(0, file.relativePath.lastIndexOf('/')) : '', file.relativePath, false)}
@@ -294,6 +301,12 @@
   }
   .tree-item.selected.active {
     background: var(--bg-button-hover);
+  }
+  /* Keyboard cursor (#428): a faint left bar marks the row arrow keys
+     would move from. Distinct from `.selected` so multi-selection stays
+     legible — the cursor sits on top of the selection styling. */
+  .tree-item.kb-focused {
+    box-shadow: inset 2px 0 0 var(--accent);
   }
 
   .tree-item.drop-hover {
