@@ -276,6 +276,26 @@ export interface ComputeApi {
     | { ok: true }
     | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' }
   >;
+  /**
+   * Per-machine Python interpreter override (#374). Empty `pythonPath`
+   * means "no override; use $MINERVA_PYTHON or python3". Stored under
+   * Electron's userData dir, NOT in the project — the override is
+   * machine-scoped (different projects on the same machine share it).
+   */
+  getPythonSettings(): Promise<{ pythonPath: string }>;
+  setPythonSettings(settings: { pythonPath: string }): Promise<void>;
+  /**
+   * Probe a candidate interpreter — verify it runs + capture the
+   * version string. Empty / omitted `candidate` probes the active
+   * resolver pick (the Settings UI's "what's running" display). */
+  probePython(candidate?: string): Promise<{
+    ok: boolean;
+    path: string;
+    version?: string;
+    error?: string;
+  }>;
+  /** Native file picker for selecting a Python interpreter; null on cancel. */
+  browsePython(): Promise<string | null>;
 }
 
 export interface ShellApi {

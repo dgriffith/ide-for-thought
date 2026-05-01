@@ -22,6 +22,7 @@ import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
+import { resolvePythonInterpreter } from './python-settings';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -53,12 +54,16 @@ interface KernelState {
 const kernels = new Map<string, KernelState>();
 
 /**
- * Resolve the Python interpreter to invoke. v1 honours $MINERVA_PYTHON
- * and falls back to `python3` on PATH. Bundled-Python + a Settings
- * UI override are tracked in #374.
+ * Resolve the Python interpreter to invoke (#374). Discovery order:
+ *   1. Per-machine Settings override stored under userData.
+ *   2. `$MINERVA_PYTHON` env var (legacy / CI / scripting escape hatch).
+ *   3. `python3` on PATH.
+ *
+ * Async since the Settings file lives on disk; the kernel spawn path
+ * awaits this on every fresh spawn (cheap — a single fs.readFile).
  */
-function resolvePythonBin(): string {
-  return process.env.MINERVA_PYTHON ?? 'python3';
+async function resolvePythonBin(): Promise<string> {
+  return resolvePythonInterpreter();
 }
 
 /**
@@ -86,7 +91,7 @@ function kernelScriptPath(): string {
 }
 
 async function spawnKernel(rootPath: string): Promise<KernelState> {
-  const py = resolvePythonBin();
+  const py = await resolvePythonBin();
   const script = kernelScriptPath();
   // RPC server up first so the kernel can connect on first import.
   const rpc = await startRpcServer(rootPath);

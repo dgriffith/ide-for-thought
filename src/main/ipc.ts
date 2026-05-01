@@ -72,6 +72,13 @@ import { dropImport } from './notebase/drop-import';
 import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from './notebase/search-in-notes';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from './compute/registry';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
+import {
+  getPythonSettings,
+  setPythonSettings,
+  probePythonInterpreter,
+  resolvePythonInterpreter,
+  type PythonSettings,
+} from './compute/python-settings';
 import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
 import * as publish from './publish';
 import { createExcerpt } from './sources/create-excerpt';
@@ -1101,6 +1108,39 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return { ok: false, reason: 'no-kernel' };
     return interruptPythonKernel(rootPath);
+  });
+
+  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
+    return await getPythonSettings();
+  });
+
+  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (_e, settings: PythonSettings) => {
+    await setPythonSettings({
+      pythonPath: typeof settings?.pythonPath === 'string' ? settings.pythonPath : '',
+    });
+  });
+
+  ipcMain.handle(Channels.COMPUTE_PROBE_PYTHON, async (_e, candidate?: string) => {
+    // Empty `candidate` → probe the same interpreter the resolver
+    // would pick right now (override → env var → python3). That's
+    // the "active" interpreter the Settings status line surfaces.
+    const target = candidate?.trim() ? candidate : await resolvePythonInterpreter();
+    return await probePythonInterpreter(target);
+  });
+
+  ipcMain.handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Choose Python interpreter',
+      // No file-extension filter — a Python binary on macOS / Linux
+      // typically has no extension, and a venv shim is just `python`
+      // or `python3`. The probe step that follows verifies the pick
+      // is actually runnable, so over-permissive picking is fine.
+      properties: ['openFile', 'showHiddenFiles', 'noResolveAliases'],
+      buttonLabel: 'Use this interpreter',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
   });
 
   ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, async (e, input: SaveCellOutputInput) => {
