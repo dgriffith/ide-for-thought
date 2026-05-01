@@ -317,6 +317,14 @@ export function registerIpcHandlers(): void {
     return notebaseFs.readFile(rootPath, relativePath);
   });
 
+  ipcMain.handle(Channels.NOTEBASE_READ_BINARY, async (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    // Pass the bytes back as a Buffer; Electron's structured-clone
+    // bridge wraps it in a Uint8Array on the renderer side.
+    return notebaseFs.readBinaryFile(rootPath, relativePath);
+  });
+
   ipcMain.handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');

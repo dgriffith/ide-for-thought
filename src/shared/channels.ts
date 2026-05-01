@@ -3,6 +3,9 @@ export const Channels = {
   NOTEBASE_OPEN: 'notebase:open',
   NOTEBASE_LIST_FILES: 'notebase:listFiles',
   NOTEBASE_READ_FILE: 'notebase:readFile',
+  /** Read an arbitrary file as bytes — used by the Preview's image rule
+   *  to inline `![](...)` references as data URLs (#244 image rendering). */
+  NOTEBASE_READ_BINARY: 'notebase:readBinary',
   NOTEBASE_WRITE_FILE: 'notebase:writeFile',
   NOTEBASE_CREATE_FILE: 'notebase:createFile',
   NOTEBASE_DELETE_FILE: 'notebase:deleteFile',

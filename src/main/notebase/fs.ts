@@ -101,6 +101,20 @@ export async function readFile(rootPath: string, relativePath: string): Promise<
   return fs.readFile(fullPath, 'utf-8');
 }
 
+/**
+ * Binary-safe read for images / pdfs / other non-text assets the
+ * renderer needs to display inline (#244 image rendering, #243 image
+ * cell outputs persisted as sidecar files). Returns the raw bytes;
+ * the caller decides how to encode (base64 + data URL is typical).
+ *
+ * Same path-traversal guard as `readFile`: out-of-root reads throw.
+ */
+export async function readBinaryFile(rootPath: string, relativePath: string): Promise<Uint8Array> {
+  const fullPath = assertSafePath(rootPath, relativePath);
+  const buf = await fs.readFile(fullPath);
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+}
+
 export async function writeFile(rootPath: string, relativePath: string, content: string): Promise<void> {
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
