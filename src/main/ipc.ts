@@ -47,6 +47,8 @@ import { generateBibliography } from './bibliography/generate';
 import {
   getBibliographyStyleId,
   setBibliographyStyleId,
+  getPythonTrust,
+  setPythonTrust,
 } from './project-config';
 import { DEFAULT_STYLE } from './publish/csl/assets';
 import { buildCitationAudit } from './publish/csl/audit';
@@ -1126,6 +1128,18 @@ export function registerIpcHandlers(): void {
     // the "active" interpreter the Settings status line surfaces.
     const target = candidate?.trim() ? candidate : await resolvePythonInterpreter();
     return await probePythonInterpreter(target);
+  });
+
+  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_TRUST, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    return getPythonTrust(rootPath);
+  });
+
+  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_TRUST, (e, trusted: boolean) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    setPythonTrust(rootPath, trusted === true);
   });
 
   ipcMain.handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {

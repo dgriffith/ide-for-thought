@@ -296,6 +296,13 @@ export interface ComputeApi {
   }>;
   /** Native file picker for selecting a Python interpreter; null on cancel. */
   browsePython(): Promise<string | null>;
+  /**
+   * Per-project Python trust flag (#373). The renderer-side guard
+   * around `runCell` consults this before firing a Python execution;
+   * the first-run trust dialog calls `setPythonTrust(true)` when
+   * the user clicks Run. */
+  getPythonTrust(): Promise<boolean>;
+  setPythonTrust(trusted: boolean): Promise<void>;
 }
 
 export interface ShellApi {

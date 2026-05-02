@@ -16,6 +16,17 @@ export interface ProjectConfigShape {
     /** CSL style id; one of BUNDLED_STYLES keys. Falls back to APA. */
     styleId?: string;
   };
+  /** Compute-related per-project settings (#373). */
+  compute?: {
+    /**
+     * Has the user OK'd Python cell execution for this thoughtbase?
+     * Trust is project-scoped — opening a different thoughtbase
+     * prompts again. The flag is recorded once via the first-run
+     * trust dialog; cancelling the dialog blocks execution and
+     * leaves the flag unset.
+     */
+    pythonTrusted?: boolean;
+  };
 }
 
 function configPath(rootPath: string): string {
@@ -51,4 +62,16 @@ export function getBibliographyStyleId(rootPath: string): string | null {
 
 export function setBibliographyStyleId(rootPath: string, styleId: string): void {
   patchProjectConfig(rootPath, { bibliography: { styleId } });
+}
+
+/** Per-project Python trust flag (#373). Default false. */
+export function getPythonTrust(rootPath: string): boolean {
+  return readProjectConfig(rootPath).compute?.pythonTrusted === true;
+}
+
+export function setPythonTrust(rootPath: string, trusted: boolean): void {
+  // Merge into the existing compute slice rather than overwriting it,
+  // so a future `compute.<other>` field doesn't get clobbered.
+  const existing = readProjectConfig(rootPath).compute ?? {};
+  patchProjectConfig(rootPath, { compute: { ...existing, pythonTrusted: trusted } });
 }

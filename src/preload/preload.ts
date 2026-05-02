@@ -141,6 +141,9 @@ contextBridge.exposeInMainWorld('api', {
     probePython: (candidate?: string) =>
       ipcRenderer.invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),
     browsePython: () => ipcRenderer.invoke(Channels.COMPUTE_BROWSE_PYTHON),
+    getPythonTrust: () => ipcRenderer.invoke(Channels.COMPUTE_GET_PYTHON_TRUST),
+    setPythonTrust: (trusted: boolean) =>
+      ipcRenderer.invoke(Channels.COMPUTE_SET_PYTHON_TRUST, trusted),
   },
   publish: {
     listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),

@@ -43,6 +43,10 @@ export const CONFIRM_KEYS = {
   saveCellOutputFailed: 'save-cell-output-failed',
   /** Image-upload rejection toast (#455) — too-large, unsupported MIME, etc. */
   imageUploadFailed: 'image-upload-failed',
+  /** First-run Python trust dialog (#373). The dialog hides the
+   *  Don't-ask-again checkbox — consent is project-scoped, not
+   *  machine-scoped, so the localStorage suppression mustn't fire. */
+  pythonTrust: 'python-trust',
   exportComplete: 'export-complete',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
@@ -230,6 +234,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Image upload rejected',
     description:
       'Shown when a drag-and-drop or paste image upload is rejected — too large (>5MB), unsupported MIME, empty blob, or write failure. Suppressing this won\'t silently swallow uploads; the editor still does nothing for unsupported drops, the user just stops getting the explanation.',
+  },
+  {
+    key: CONFIRM_KEYS.pythonTrust,
+    title: 'Python trust prompt',
+    description:
+      'First-run prompt before Python cells execute in a new thoughtbase (#373). Trust is recorded per-project in `.minerva/config.json`, not per-machine — the dialog hides the Don\'t-ask-again checkbox, and this entry is here so the suppression UI lists the key for completeness but suppressing it has no effect.',
   },
   {
     key: CONFIRM_KEYS.exportComplete,
