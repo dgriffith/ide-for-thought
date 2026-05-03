@@ -79,6 +79,12 @@ describe('callout-plugin: marker stripping', () => {
     expect(html).toContain('<strong>bold</strong>');
     expect(html).toContain('Body with');
   });
+
+  it('renders body text exactly once (regression: pre-tokenizing inline.children doubled output)', () => {
+    const html = md().render('> [!note]\n> Body.\n');
+    const occurrences = html.split('Body.').length - 1;
+    expect(occurrences).toBe(1);
+  });
 });
 
 describe('callout-plugin: nesting', () => {
