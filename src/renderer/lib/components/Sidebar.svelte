@@ -7,7 +7,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
-  import { getSidebarSettings } from '../sidebar/settings';
+  import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick } from 'svelte';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables';
@@ -44,6 +44,13 @@
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
+  /** Mirrored from sidebar/settings so the toolbar toggle reflects the
+   *  current state and persists changes write-through. */
+  let autoReveal = $state(getSidebarSettings().autoReveal);
+  function toggleAutoReveal(): void {
+    autoReveal = !autoReveal;
+    setSidebarSettings({ autoReveal });
+  }
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
@@ -112,7 +119,7 @@
   $effect(() => {
     const path = activeFilePath;
     if (!path) return;
-    if (!getSidebarSettings().autoReveal) return;
+    if (!autoReveal) return;
     if (activePanel !== 'notes') return;
     if (rootName && !rootExpanded) rootExpanded = true;
     expandAncestors(path);
@@ -429,6 +436,15 @@
             title="Collapse all folders"
             aria-label="Collapse all folders"
           >&#x2B0D;</button>
+          <button
+            type="button"
+            class="tool-btn"
+            class:active={autoReveal}
+            onclick={toggleAutoReveal}
+            title={autoReveal ? 'Auto-reveal active file: on' : 'Auto-reveal active file: off'}
+            aria-label="Toggle auto-reveal active file"
+            aria-pressed={autoReveal}
+          >&#x29BF;</button>
         </div>
         {#if selectionStore.count > 0}
           <div class="selection-badge">
@@ -636,6 +652,10 @@
   .tool-btn:hover {
     background: var(--bg-button);
     color: var(--text);
+  }
+  .tool-btn.active {
+    background: var(--bg-button-hover);
+    color: var(--accent);
   }
 
   /* Selection-count badge above the file tree (#428). */
