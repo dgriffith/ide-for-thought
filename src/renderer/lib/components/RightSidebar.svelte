@@ -1,5 +1,6 @@
 <script lang="ts">
   import OutlinePanel from './right-sidebar/OutlinePanel.svelte';
+  import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
@@ -10,7 +11,7 @@
   import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
 
   type PanelType =
-    | 'outline' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'footnotes' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
 
   interface Props {
@@ -85,6 +86,12 @@
     >&#x2630;</button>
     <button
       class="panel-tab"
+      class:active={activePanel === 'footnotes'}
+      onclick={() => activePanel = 'footnotes'}
+      title="Footnotes"
+    >&#x2042;</button>
+    <button
+      class="panel-tab"
       class:active={activePanel === 'outgoing'}
       onclick={() => activePanel = 'outgoing'}
       title="Outgoing Links"
@@ -136,6 +143,8 @@
   <div class="panel-content">
     {#if activePanel === 'outline'}
       <OutlinePanel {content} {onScrollToLine} />
+    {:else if activePanel === 'footnotes'}
+      <FootnotesPanel {content} {onScrollToLine} />
     {:else if activePanel === 'outgoing'}
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} />
     {:else if activePanel === 'backlinks'}
