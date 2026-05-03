@@ -7,6 +7,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
+  import { getSidebarSettings } from '../sidebar/settings';
   import { tick } from 'svelte';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables';
@@ -57,6 +58,75 @@
 
   function toggleDir(path: string): void {
     expanded = { ...expanded, [path]: !expanded[path] };
+  }
+
+  /** Walk every directory in the tree, regardless of current expanded
+   *  state. Used by Expand All. */
+  function collectAllDirPaths(nodes: NoteFile[]): string[] {
+    const out: string[] = [];
+    const walk = (ns: NoteFile[]) => {
+      for (const n of ns) {
+        if (n.isDirectory) {
+          out.push(n.relativePath);
+          if (n.children) walk(n.children);
+        }
+      }
+    };
+    walk(nodes);
+    return out;
+  }
+
+  function expandAll(): void {
+    const next: Record<string, boolean> = {};
+    for (const p of collectAllDirPaths(files)) next[p] = true;
+    expanded = next;
+    if (rootName) rootExpanded = true;
+  }
+
+  function collapseAll(): void {
+    expanded = {};
+  }
+
+  /** Expand every ancestor folder of `path` so the row becomes
+   *  visible. Pure-additive: never collapses anything the user has
+   *  open (#460). */
+  function expandAncestors(path: string): void {
+    if (!path) return;
+    const parts = path.split('/');
+    if (parts.length <= 1) return;
+    const patch: Record<string, boolean> = {};
+    let acc = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      acc = acc ? `${acc}/${parts[i]}` : parts[i];
+      if (!expanded[acc]) patch[acc] = true;
+    }
+    if (Object.keys(patch).length > 0) {
+      expanded = { ...expanded, ...patch };
+    }
+  }
+
+  /** Auto-reveal the active file in the tree (#460). Expands ancestor
+   *  folders and scrolls the row into view whenever the active file
+   *  changes. Disabled via the sidebar setting. Skipped when the
+   *  Notes panel isn't visible (no DOM target to scroll). */
+  $effect(() => {
+    const path = activeFilePath;
+    if (!path) return;
+    if (!getSidebarSettings().autoReveal) return;
+    if (activePanel !== 'notes') return;
+    if (rootName && !rootExpanded) rootExpanded = true;
+    expandAncestors(path);
+    void scrollPathIntoView(path);
+  });
+
+  async function scrollPathIntoView(path: string): Promise<void> {
+    await tick();
+    if (!fileListEl) return;
+    const escaped = (typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(path) : path);
+    const row = fileListEl.querySelector(`[data-relative-path="${escaped}"]`);
+    if (row && row instanceof HTMLElement) {
+      row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   }
 
   /**
@@ -344,6 +414,22 @@
   <div class="panel-content">
     {#if activePanel === 'notes'}
       {#if files.length > 0}
+        <div class="notes-toolbar">
+          <button
+            type="button"
+            class="tool-btn"
+            onclick={expandAll}
+            title="Expand all folders"
+            aria-label="Expand all folders"
+          >&#x2B0C;</button>
+          <button
+            type="button"
+            class="tool-btn"
+            onclick={collapseAll}
+            title="Collapse all folders"
+            aria-label="Collapse all folders"
+          >&#x2B0D;</button>
+        </div>
         {#if selectionStore.count > 0}
           <div class="selection-badge">
             <span class="count">{selectionStore.count} of {totalVisible} selected</span>
@@ -528,6 +614,28 @@
   }
   .file-list:focus-visible {
     box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  /* Toolbar above the file tree — Expand All / Collapse All (#460). */
+  .notes-toolbar {
+    display: flex;
+    gap: 2px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tool-btn {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .tool-btn:hover {
+    background: var(--bg-button);
+    color: var(--text);
   }
 
   /* Selection-count badge above the file tree (#428). */
