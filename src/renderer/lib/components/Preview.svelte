@@ -15,6 +15,7 @@
   import 'katex/dist/katex.min.css';
   import { installMath } from '../markdown/math-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
+  import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { getLinkType } from '../../../shared/link-types';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
@@ -296,9 +297,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   const defaultFence = md.renderer.rules.fence;
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const tok = tokens[idx];
-    if (tok.info.trim() === 'output') {
+    const info = tok.info.trim().toLowerCase();
+    if (info === 'output') {
       const source = findSourceFenceBefore(tokens, idx);
       return renderComputeOutput(tok.content, source);
+    }
+    if (info === 'mermaid') {
+      // Emit a placeholder whose textContent is the diagram source.
+      // The post-render effect lazy-loads mermaid and swaps innerHTML
+      // for rendered SVG. Using textContent (not a data attribute)
+      // sidesteps HTML attribute-value newline normalization.
+      const escaped = (tok.content ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      return `<div class="mermaid-block" data-mermaid-pending="1">${escaped}</div>\n`;
     }
     return defaultFence
       ? defaultFence(tokens, idx, options, env, self)
@@ -671,8 +684,23 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // binary IPC, swap in a data URL. Cached per-path so re-renders
       // skip the round-trip.
       void hydrateLocalImages();
+      // Mermaid hydration (#467) — lazy-loads the library on first use,
+      // replaces .mermaid-block placeholders with rendered SVG, surfaces
+      // parse errors inline.
+      if (previewEl) void hydrateMermaidBlocks(previewEl);
     });
   });
+
+  /**
+   * Re-render mermaid diagrams against the new theme tokens. Called
+   * from App.svelte when the user cycles the theme — the existing
+   * SVG was generated with the old palette and would otherwise look
+   * out of place.
+   */
+  export function updateTheme(): void {
+    invalidateMermaidTheme();
+    if (previewEl) void hydrateMermaidBlocks(previewEl);
+  }
 
   /**
    * Walk every cite/quote link in document order, batch them into one

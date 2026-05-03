@@ -197,3 +197,45 @@ details.callout[open] > summary.callout-title::after {
 .callout-abstract .callout-icon::before { content: '\2630'; }
 .callout-todo .callout-icon::before     { content: '\2610'; }
 .callout-unknown .callout-icon::before  { content: '\25CF'; }
+
+/* Mermaid diagram blocks (#467). Centered SVG with subtle bordered
+   panel; error renders inline so a single broken diagram can't brick
+   the doc. */
+.mermaid-block {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow-x: auto;
+  min-height: 40px;
+}
+.mermaid-block svg {
+  max-width: 100%;
+  height: auto;
+}
+.mermaid-block[data-mermaid-rendered="pending"]::before {
+  content: 'Rendering diagram\2026';
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.mermaid-error {
+  width: 100%;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-button);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: left;
+}
+.mermaid-error pre {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}

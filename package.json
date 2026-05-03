@@ -38,6 +38,7 @@
     "katex": "^0.16.45",
     "linkedom": "^0.18.12",
     "markdown-it-footnote": "^4.0.0",
+    "mermaid": "^11.14.0",
     "minisearch": "^7.2.0",
     "n3": "^2.0.3",
     "pdfjs-dist": "^5.6.205",

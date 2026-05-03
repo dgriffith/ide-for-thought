@@ -115,6 +115,7 @@
   let rightSidebarVisible = $state(false);
   let editorComponent = $state<Editor>();
   let queryPanelComponent = $state<QueryPanel>();
+  let previewComponent = $state<Preview>();
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
   // Cache of every indexed source, refreshed on `sources:changed` and on
@@ -1609,6 +1610,7 @@
     themeLabel = cycleTheme();
     editorComponent?.updateTheme();
     queryPanelComponent?.updateTheme();
+    previewComponent?.updateTheme();
   }
 
   async function handleSwitchTab(index: number) {
@@ -2145,6 +2147,7 @@
             {#if viewMode === 'preview' || viewMode === 'split'}
               <div class="preview-panel">
                 <Preview
+                  bind:this={previewComponent}
                   content={editor.content}
                   notePath={editor.activeFilePath}
                   onNavigate={handleNavigate}
@@ -2373,6 +2376,7 @@
         themeLabel = getThemeMode();
         editorComponent?.updateTheme();
         queryPanelComponent?.updateTheme();
+        previewComponent?.updateTheme();
       }}
       onClose={() => { showSettings = false; }}
     />
