@@ -19,6 +19,11 @@
     type RefactorSettings,
   } from '../refactor/settings';
   import {
+    getSidebarSettings,
+    setSidebarSettings,
+    type SidebarSettings,
+  } from '../sidebar/settings';
+  import {
     getFormatSettings,
     setFormatSettings,
   } from '../formatter/settings';
@@ -58,6 +63,12 @@
   function patchRefactor(patch: Partial<RefactorSettings>): void {
     refactor = { ...refactor, ...patch };
     setRefactorSettings(patch);
+  }
+
+  let sidebar = $state<SidebarSettings>({ ...getSidebarSettings() });
+  function patchSidebar(patch: Partial<SidebarSettings>): void {
+    sidebar = { ...sidebar, ...patch };
+    setSidebarSettings(patch);
   }
 
   // Formatter settings (#154). Mirror the persisted map into local state so
@@ -508,6 +519,21 @@
           </div>
 
         {:else if activeTab === 'behaviors'}
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={sidebar.autoReveal}
+                onchange={(e) => patchSidebar({ autoReveal: e.currentTarget.checked })}
+              />
+              Auto-reveal active file in sidebar
+            </label>
+            <p class="hint">
+              When the active editor changes, scroll the matching row into view in the
+              Notes panel and expand its parent folders. Never collapses anything you've
+              already opened.
+            </p>
+          </div>
           <div class="field">
             <label>Don't-ask-again confirmations</label>
             <p class="hint">
