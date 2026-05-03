@@ -2000,6 +2000,7 @@
         <Sidebar
           bind:this={sidebar}
           files={notebase.files}
+          rootName={notebase.meta?.name}
           activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
           onNewNote={handleNewNote}

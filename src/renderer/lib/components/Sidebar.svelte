@@ -13,6 +13,10 @@
 
   interface Props {
     files: NoteFile[];
+    /** Project name shown as the synthetic root row above the file
+     *  tree. Not a real tree node — sits outside the multi-selection
+     *  model so Delete/Cut/⌘A can't accidentally target it. */
+    rootName?: string;
     activeFilePath: string | null;
     onFileSelect: (relativePath: string, searchQuery?: string) => void;
     onNewNote: (directory: string) => void;
@@ -35,9 +39,10 @@
     canPaste?: boolean;
   }
 
-  let { files, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
+  let rootExpanded = $state(true);
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
@@ -257,17 +262,23 @@
     window.addEventListener('mouseup', onUp);
   }
 
-  function handleContextMenu(e: MouseEvent) {
-    // Let FileTree's own context menu handle clicks on tree items
-    const target = e.target as HTMLElement;
-    if (target.closest('.tree-item')) return;
-    e.preventDefault();
-    contextMenu = { x: e.clientX, y: e.clientY };
+  function openRootContextMenu(x: number, y: number) {
+    contextMenu = { x, y };
     const close = () => {
       contextMenu = null;
       window.removeEventListener('click', close);
     };
     setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function handleContextMenu(e: MouseEvent) {
+    // Let FileTree's own context menu handle clicks on tree items
+    // (except the synthetic root row, which has no FileTree handler).
+    const target = e.target as HTMLElement;
+    const treeItem = target.closest('.tree-item');
+    if (treeItem && !treeItem.classList.contains('root-item')) return;
+    e.preventDefault();
+    openRootContextMenu(e.clientX, e.clientY);
   }
 
   // Auto-switch to a panel when the host calls a refresh on it. Refresh
@@ -361,29 +372,43 @@
             if (src) onMove(src, '');
           }}
         >
-          <FileTree
-            {files}
-            {activeFilePath}
-            {canPaste}
-            {expanded}
-            selection={selectionStore.selected}
-            focusedPath={selectionStore.focused}
-            onToggleDir={toggleDir}
-            onItemClick={handleItemClick}
-            {onNewNote}
-            {onNewFolder}
-            {onDelete}
-            {onAddTag}
-            {onRemoveTag}
-            onContextMenuTarget={handleContextMenuTarget}
-            {onRename}
-            {onCut}
-            {onCopy}
-            {onPaste}
-            {onMove}
-            {onBookmark}
-            {onExternalDrop}
-          />
+          {#if rootName}
+            <button
+              type="button"
+              class="tree-item dir root-item"
+              onclick={() => rootExpanded = !rootExpanded}
+              title={rootName}
+            >
+              <span class="icon">{rootExpanded ? '▾' : '▸'}</span>
+              {rootName}
+            </button>
+          {/if}
+          {#if rootExpanded}
+            <FileTree
+              {files}
+              {activeFilePath}
+              depth={rootName ? 1 : 0}
+              {canPaste}
+              {expanded}
+              selection={selectionStore.selected}
+              focusedPath={selectionStore.focused}
+              onToggleDir={toggleDir}
+              onItemClick={handleItemClick}
+              {onNewNote}
+              {onNewFolder}
+              {onDelete}
+              {onAddTag}
+              {onRemoveTag}
+              onContextMenuTarget={handleContextMenuTarget}
+              {onRename}
+              {onCut}
+              {onCopy}
+              {onPaste}
+              {onMove}
+              {onBookmark}
+              {onExternalDrop}
+            />
+          {/if}
         </div>
       {:else}
         <div class="empty" oncontextmenu={handleContextMenu}>
@@ -531,6 +556,35 @@
   .file-list.root-drop-hover {
     outline: 1px dashed var(--accent);
     outline-offset: -2px;
+  }
+
+  /* Synthetic root row at the top of the file tree. Mimics the
+     `.tree-item.dir` look from FileTree (we can't share styles
+     across component boundaries with scoped CSS) so it reads as
+     "the project folder" rather than a one-off header. */
+  .tree-item.root-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 4px;
+  }
+  .tree-item.root-item:hover {
+    background: var(--bg-button);
+  }
+  .tree-item.root-item .icon {
+    font-size: 12px;
+    width: 14px;
+    flex-shrink: 0;
+    text-align: center;
   }
 
   .empty {
