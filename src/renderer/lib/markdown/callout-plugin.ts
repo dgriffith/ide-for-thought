@@ -101,38 +101,115 @@ export function installCallouts(md: MarkdownIt): void {
 function calloutCoreRule(state: StateCore): void {
   const tokens = state.tokens;
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].type !== 'blockquote_open') continue;
-    const pIdx = i + 1;
-    if (pIdx >= tokens.length || tokens[pIdx].type !== 'paragraph_open') continue;
-    const inlineIdx = pIdx + 1;
-    if (inlineIdx >= tokens.length || tokens[inlineIdx].type !== 'inline') continue;
-    const inline = tokens[inlineIdx];
-    const m = inline.content.match(MARKER_RE);
-    if (!m) continue;
-    const type = m[1].toLowerCase();
-    const fold = m[2];
-    const titleRaw = (m[3] ?? '').trim();
-    const title = titleRaw.length > 0
-      ? titleRaw
-      : (TITLE_DEFAULTS[type] ?? capitalize(type));
-
-    tokens[i].attrSet('data-callout', type);
-    tokens[i].attrSet('data-callout-title', title);
-    if (fold === '+') tokens[i].attrSet('data-callout-fold', 'open');
-    else if (fold === '-') tokens[i].attrSet('data-callout-fold', 'closed');
-
-    const remainder = inline.content.slice(m[0].length);
-    if (remainder.trim().length === 0) {
-      // Strip the marker-only paragraph entirely (open + inline + close).
-      tokens.splice(pIdx, 3);
-    } else {
-      // Strip the marker prefix; the core `inline` rule (which runs
-      // after this one) will tokenize `inline.content` into children.
-      // Don't touch `inline.children` here — that rule APPENDS to the
-      // existing children, so any pre-tokenization would render twice.
-      inline.content = remainder;
+    if (tokens[i].type === 'blockquote_open') {
+      tryCalloutOnBlockquote(tokens, i);
+    } else if (tokens[i].type === 'paragraph_open') {
+      // Lenient extension to the standard syntax: a paragraph whose
+      // first line is `[!type]` becomes a callout too. Obsidian and
+      // GitHub require the leading `>`, but users in this repo write
+      // the bare form often enough that supporting it removes friction.
+      // Bare callouts are non-collapsible (no DOM container we can
+      // toggle without inventing more syntax).
+      tryCalloutOnBareParagraph(tokens, i);
     }
   }
+}
+
+function tryCalloutOnBlockquote(tokens: Token[], i: number): void {
+  const pIdx = i + 1;
+  if (pIdx >= tokens.length || tokens[pIdx].type !== 'paragraph_open') return;
+  const inlineIdx = pIdx + 1;
+  if (inlineIdx >= tokens.length || tokens[inlineIdx].type !== 'inline') return;
+  const inline = tokens[inlineIdx];
+  const m = inline.content.match(MARKER_RE);
+  if (!m) return;
+  applyCalloutAttrs(tokens[i], m);
+  stripMarkerFromParagraph(tokens, pIdx, m[0].length);
+}
+
+function tryCalloutOnBareParagraph(tokens: Token[], pIdx: number): void {
+  const inlineIdx = pIdx + 1;
+  if (inlineIdx >= tokens.length || tokens[inlineIdx].type !== 'inline') return;
+  const inline = tokens[inlineIdx];
+  const m = inline.content.match(MARKER_RE);
+  if (!m) return;
+  // Only fire on a top-level paragraph — nested-in-list/blockquote
+  // paragraphs already get handled (or correctly ignored) by the
+  // blockquote pass. The token stream's `level` field tracks nesting.
+  if (tokens[pIdx].level !== 0) return;
+
+  // Bare callouts: rewrite `paragraph_open`/`paragraph_close` into
+  // synthetic `blockquote_open`/`blockquote_close` so the existing
+  // render rules (which key off `data-callout` on the blockquote token)
+  // produce the same wrapper without divergent code paths.
+  const closeIdx = findMatchingParagraphClose(tokens, pIdx);
+  if (closeIdx === -1) return;
+
+  const TokenCtor = tokens[pIdx].constructor as new (
+    type: string, tag: string, nesting: -1 | 0 | 1,
+  ) => Token;
+  const open = new TokenCtor('blockquote_open', 'blockquote', 1);
+  open.block = true;
+  open.markup = '>';
+  applyCalloutAttrs(open, m);
+  const close = new TokenCtor('blockquote_close', 'blockquote', -1);
+  close.block = true;
+
+  tokens[pIdx] = open;
+  tokens[closeIdx] = close;
+
+  // Wrap the original inline back in a paragraph so the renderer still
+  // emits a <p> for the body. Insert paragraph_open before inline and
+  // paragraph_close after it.
+  const newPOpen = new TokenCtor('paragraph_open', 'p', 1);
+  newPOpen.block = true;
+  const newPClose = new TokenCtor('paragraph_close', 'p', -1);
+  newPClose.block = true;
+  tokens.splice(closeIdx, 0, newPClose);
+  tokens.splice(pIdx + 1, 0, newPOpen);
+
+  // pIdx+1 is now newPOpen, pIdx+2 is the inline.
+  stripMarkerFromInline(tokens, pIdx + 2, m[0].length);
+}
+
+function applyCalloutAttrs(blockquoteOpen: Token, m: RegExpMatchArray): void {
+  const type = m[1].toLowerCase();
+  const fold = m[2];
+  const titleRaw = (m[3] ?? '').trim();
+  const title = titleRaw.length > 0
+    ? titleRaw
+    : (TITLE_DEFAULTS[type] ?? capitalize(type));
+  blockquoteOpen.attrSet('data-callout', type);
+  blockquoteOpen.attrSet('data-callout-title', title);
+  if (fold === '+') blockquoteOpen.attrSet('data-callout-fold', 'open');
+  else if (fold === '-') blockquoteOpen.attrSet('data-callout-fold', 'closed');
+}
+
+function stripMarkerFromParagraph(tokens: Token[], pIdx: number, markerLen: number): void {
+  const inline = tokens[pIdx + 1];
+  const remainder = inline.content.slice(markerLen);
+  if (remainder.trim().length === 0) {
+    tokens.splice(pIdx, 3);
+  } else {
+    stripMarkerFromInline(tokens, pIdx + 1, markerLen);
+  }
+}
+
+function stripMarkerFromInline(tokens: Token[], inlineIdx: number, markerLen: number): void {
+  const inline = tokens[inlineIdx];
+  inline.content = inline.content.slice(markerLen);
+  // Don't touch inline.children — the core inline rule that runs next
+  // will tokenize the new content and appends to children, so any
+  // pre-tokenization would double-render.
+}
+
+function findMatchingParagraphClose(tokens: Token[], openIdx: number): number {
+  for (let i = openIdx + 1; i < tokens.length; i++) {
+    if (tokens[i].type === 'paragraph_close' && tokens[i].level === tokens[openIdx].level) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 /**

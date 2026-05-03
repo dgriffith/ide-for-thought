@@ -87,6 +87,26 @@ describe('callout-plugin: marker stripping', () => {
   });
 });
 
+describe('callout-plugin: bare paragraph form (lenient extension)', () => {
+  it('renders [!type] without a leading > as a callout too', () => {
+    const html = md().render('[!note]\nBody of the callout.\n');
+    expect(html).toContain('class="callout callout-note"');
+    expect(html).toContain('Body of the callout.');
+  });
+
+  it('plain paragraphs are unaffected', () => {
+    const html = md().render('Just a normal paragraph.\n');
+    expect(html).not.toContain('callout');
+    expect(html).toContain('<p>Just a normal paragraph.</p>');
+  });
+
+  it('bare form with same-line title sets the title', () => {
+    const html = md().render('[!tip] Pro tip\n');
+    expect(html).toContain('callout-tip');
+    expect(html).toContain('Pro tip');
+  });
+});
+
 describe('callout-plugin: nesting', () => {
   it('detects callouts at every blockquote level independently', () => {
     const src = [

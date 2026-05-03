@@ -108,3 +108,92 @@ body {
     --border: #7c7f93;
   }
 }
+
+/* Callouts (#465). Obsidian-style boxes built on top of the
+   blockquote primitive. Lives in global.css instead of Preview's
+   scoped CSS so @html-rendered children always match — Svelte's
+   :global() chain proved unreliable here. Per CLAUDE.md "no danger
+   styling": warning/failure/danger/bug use peach/mauve, not reds. */
+.callout {
+  --callout-color: var(--accent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--callout-color);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--callout-color) 10%, transparent);
+  margin: 0 0 12px;
+  padding: 0;
+  color: var(--text);
+  overflow: hidden;
+}
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: var(--callout-color);
+  user-select: none;
+}
+details.callout > summary.callout-title {
+  cursor: pointer;
+  list-style: none;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+details.callout > summary.callout-title::-webkit-details-marker { display: none; }
+details.callout > summary.callout-title::after {
+  content: '\25B8';
+  margin-left: auto;
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+details.callout[open] > summary.callout-title::after {
+  transform: rotate(90deg);
+}
+.callout-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+.callout-content {
+  padding: 0 12px 8px;
+}
+.callout-content > :first-child { margin-top: 0; }
+.callout-content > :last-child { margin-bottom: 0; }
+
+.callout-note     { --callout-color: var(--accent); }
+.callout-info     { --callout-color: #8caaee; }
+.callout-tip      { --callout-color: #a6d189; }
+.callout-success  { --callout-color: #a6d189; }
+.callout-question { --callout-color: #e5c890; }
+.callout-warning  { --callout-color: #ef9f76; }
+.callout-failure  { --callout-color: #ef9f76; }
+.callout-danger   { --callout-color: #ef9f76; }
+.callout-bug      { --callout-color: #ca9ee6; }
+.callout-example  { --callout-color: #ca9ee6; }
+.callout-quote    { --callout-color: var(--text-muted); }
+.callout-abstract { --callout-color: #8caaee; }
+.callout-todo     { --callout-color: var(--accent); }
+.callout-unknown  { --callout-color: var(--accent); }
+
+.callout-note .callout-icon::before     { content: '\270E'; }
+.callout-info .callout-icon::before     { content: '\24D8'; }
+.callout-tip .callout-icon::before      { content: '\2605'; }
+.callout-success .callout-icon::before  { content: '\2713'; }
+.callout-question .callout-icon::before { content: '?'; }
+.callout-warning .callout-icon::before  { content: '\26A0'; }
+.callout-failure .callout-icon::before  { content: '\2717'; }
+.callout-danger .callout-icon::before   { content: '\26A1'; }
+.callout-bug .callout-icon::before      { content: '\25CE'; }
+.callout-example .callout-icon::before  { content: '\2318'; }
+.callout-quote .callout-icon::before    { content: '\201C'; }
+.callout-abstract .callout-icon::before { content: '\2630'; }
+.callout-todo .callout-icon::before     { content: '\2610'; }
+.callout-unknown .callout-icon::before  { content: '\25CF'; }
