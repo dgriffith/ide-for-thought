@@ -126,13 +126,11 @@ function calloutCoreRule(state: StateCore): void {
       // Strip the marker-only paragraph entirely (open + inline + close).
       tokens.splice(pIdx, 3);
     } else {
-      // Keep the body of the first paragraph minus the marker line.
-      // Re-tokenize inline so emphasis/links inside the remainder still
-      // render correctly.
+      // Strip the marker prefix; the core `inline` rule (which runs
+      // after this one) will tokenize `inline.content` into children.
+      // Don't touch `inline.children` here — that rule APPENDS to the
+      // existing children, so any pre-tokenization would render twice.
       inline.content = remainder;
-      const reparsed = state.md.parseInline(remainder, state.env);
-      const children = reparsed[0]?.children ?? null;
-      inline.children = children;
     }
   }
 }
