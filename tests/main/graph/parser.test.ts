@@ -140,6 +140,37 @@ describe('tag extraction', () => {
     const result = parseMarkdown('No tags here');
     expect(result.tags).toEqual([]);
   });
+
+  describe('nested tags (#466)', () => {
+    it('extracts a 3-segment nested tag as one entry', () => {
+      const result = parseMarkdown('See #projects/minerva/ui body');
+      expect(result.tags).toContain('projects/minerva/ui');
+    });
+
+    it('strips a trailing slash', () => {
+      const result = parseMarkdown('Pending: #projects/ tag');
+      expect(result.tags).toContain('projects');
+      expect(result.tags).not.toContain('projects/');
+    });
+
+    it('rejects tags with empty segments (#a//b)', () => {
+      const result = parseMarkdown('Bad: #foo//bar tag');
+      expect(result.tags).not.toContain('foo//bar');
+      expect(result.tags).not.toContain('foo');
+      expect(result.tags).not.toContain('bar');
+    });
+
+    it('rejects tags whose segment starts with a non-letter', () => {
+      const result = parseMarkdown('Bad: #foo/1bar tag');
+      expect(result.tags).not.toContain('foo/1bar');
+      expect(result.tags).not.toContain('foo');
+    });
+
+    it('keeps a valid sibling on the same line as a malformed nested tag', () => {
+      const result = parseMarkdown('Mix #foo//bad and #good/path here');
+      expect(result.tags).toContain('good/path');
+    });
+  });
 });
 
 // ── Link extraction ─────────────────────────────────────────────────────────
