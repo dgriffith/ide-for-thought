@@ -2227,6 +2227,7 @@
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
           onOpenSource={handleOpenSource}
           onOpenExcerpt={handleOpenExcerpt}
+          onContentChange={editor.setContent}
         />
       {/if}
     {:else}
