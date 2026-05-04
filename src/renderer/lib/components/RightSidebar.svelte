@@ -1,6 +1,7 @@
 <script lang="ts">
   import OutlinePanel from './right-sidebar/OutlinePanel.svelte';
   import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
+  import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
@@ -11,7 +12,7 @@
   import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
 
   type PanelType =
-    | 'outline' | 'footnotes' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
 
   interface Props {
@@ -24,11 +25,13 @@
     onOpenQuery: (sql: string) => void;
     onOpenSource: (sourceId: string) => void;
     onOpenExcerpt: (excerptId: string) => void;
+    onContentChange?: (next: string) => void;
   }
 
   let {
     activeFilePath, content, onFileSelect, onScrollToLine, onShowPrompt,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
+    onContentChange,
   }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
@@ -92,6 +95,12 @@
     >&#x2042;</button>
     <button
       class="panel-tab"
+      class:active={activePanel === 'properties'}
+      onclick={() => activePanel = 'properties'}
+      title="Properties"
+    >&#x2261;</button>
+    <button
+      class="panel-tab"
       class:active={activePanel === 'outgoing'}
       onclick={() => activePanel = 'outgoing'}
       title="Outgoing Links"
@@ -145,6 +154,12 @@
       <OutlinePanel {content} {onScrollToLine} />
     {:else if activePanel === 'footnotes'}
       <FootnotesPanel {content} {onScrollToLine} />
+    {:else if activePanel === 'properties'}
+      {#if onContentChange}
+        <PropertiesPanel {content} {onContentChange} />
+      {:else}
+        <div class="panel-disabled">No active note.</div>
+      {/if}
     {:else if activePanel === 'outgoing'}
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} />
     {:else if activePanel === 'backlinks'}
@@ -236,5 +251,12 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .panel-disabled {
+    padding: 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
   }
 </style>
