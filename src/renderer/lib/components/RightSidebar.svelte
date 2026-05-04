@@ -75,6 +75,13 @@
   export function refresh() {
     revision++;
   }
+
+  /** Programmatically switch which tab is showing. Used by the status
+   *  bar's backlink-count click to drop the user straight into the
+   *  Backlinks panel. */
+  export function showPanel(panel: PanelType) {
+    activePanel = panel;
+  }
 </script>
 
 <aside class="right-sidebar" style:width="{width}px">

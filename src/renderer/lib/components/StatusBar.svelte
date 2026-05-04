@@ -6,12 +6,23 @@
     fontSize: number;
     theme: string;
     inspectionCount?: number;
+    /** Number of incoming wiki-links to the active note (#472). 0
+     *  hides the item entirely — keeps the bar tidy for unlinked
+     *  notes; we'll revisit if anyone wants the affirmative signal. */
+    backlinkCount?: number;
     onGotoLine: () => void;
     onCycleTheme: () => void;
     onShowInspections?: () => void;
+    /** Click handler for the backlink-count item — App reveals + focuses
+     *  the right-sidebar Backlinks panel. */
+    onShowBacklinks?: () => void;
   }
 
-  let { cursor, fontSize, theme, inspectionCount = 0, onGotoLine, onCycleTheme, onShowInspections }: Props = $props();
+  let {
+    cursor, fontSize, theme,
+    inspectionCount = 0, backlinkCount = 0,
+    onGotoLine, onCycleTheme, onShowInspections, onShowBacklinks,
+  }: Props = $props();
 </script>
 
 <div class="status-bar">
@@ -24,6 +35,15 @@
     {/if}
   </div>
   <div class="status-right">
+    {#if backlinkCount > 0}
+      <button
+        class="status-item clickable backlink-count"
+        onclick={onShowBacklinks}
+        title="Show backlinks ({backlinkCount} note{backlinkCount === 1 ? '' : 's'} link here)"
+      >
+        &#x2190; {backlinkCount}
+      </button>
+    {/if}
     {#if inspectionCount > 0}
       <button class="status-item clickable inspection-count" onclick={onShowInspections} title="Show inspections">
         &#x26A0; {inspectionCount}

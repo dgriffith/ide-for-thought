@@ -103,11 +103,41 @@
     proposal: DecomposeProposal;
   } | null>(null);
   let inspectionCount = $state(0);
+  let backlinkCount = $state(0);
 
   async function refreshInspectionCount() {
     const results = await api.graph.inspections();
     inspectionCount = (results as unknown[]).length;
   }
+
+  /**
+   * Refetch the backlink count for the active note (#472). Cheap IPC,
+   * called on tab switch and after auto-saves; not polled.
+   */
+  async function refreshBacklinkCount() {
+    const path = editor.activeFilePath;
+    if (!path) {
+      backlinkCount = 0;
+      return;
+    }
+    try {
+      const links = await api.links.backlinks(path);
+      // Guard against a tab switch racing the in-flight fetch.
+      if (editor.activeFilePath === path) {
+        backlinkCount = links.length;
+      }
+    } catch {
+      backlinkCount = 0;
+    }
+  }
+
+  $effect(() => {
+    // React to tab/file switches. Reading `editor.activeFilePath` here
+    // tracks it as a reactive dependency so this re-runs on every
+    // change without needing a manual onTabChange hook.
+    void editor.activeFilePath;
+    void refreshBacklinkCount();
+  });
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
@@ -314,6 +344,7 @@
     editor.flushAutoSave(); // cancel pending auto-save, save immediately
     sidebar?.refreshTags();
     rightSidebar?.refresh();
+    void refreshBacklinkCount();
   }
 
   async function handleSaveQuery() {
@@ -1812,6 +1843,7 @@
     editor.onAutoSaved = () => {
       sidebar?.refreshTags();
       rightSidebar?.refresh();
+      void refreshBacklinkCount();
     };
     window.addEventListener('beforeunload', () => {
       // Capture current editor state before persisting — the Editor
@@ -2167,9 +2199,14 @@
             fontSize={editorFontSize}
             theme={themeLabel}
             {inspectionCount}
+            {backlinkCount}
             onGotoLine={() => { showGotoLine = true; }}
             onCycleTheme={handleCycleTheme}
             onShowInspections={() => { rightSidebarVisible = true; }}
+            onShowBacklinks={() => {
+              rightSidebarVisible = true;
+              rightSidebar?.showPanel('backlinks');
+            }}
           />
           <ToolPanel
             bind:this={toolPanelComponent}
