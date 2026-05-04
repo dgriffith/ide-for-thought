@@ -660,6 +660,12 @@ export function registerIpcHandlers(): void {
     return graph.getExcerptSource(projectContext(rootPath), excerptId);
   });
 
+  ipcMain.handle(Channels.GRAPH_ALIAS_MAP, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return {};
+    return graph.getAliasMap(projectContext(rootPath));
+  });
+
   // Tags
   ipcMain.handle(Channels.TAGS_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);

@@ -100,6 +100,22 @@ interface GraphState {
   ontologyStatements: $rdf.Statement[];
   /** Heading snapshot per note for the rename-detection heuristic. */
   headingsPerNote: Map<string, HeadingSnapshot[]>;
+  /**
+   * Frontmatter alias name → relativePath (#469). Lower-cased keys for
+   * case-insensitive resolution. Title- and filename-stem matches win
+   * over aliases, so an alias that collides with an existing canonical
+   * name is dropped from this map by `rebuildAliasMap`.
+   */
+  aliasMap: Map<string, string>;
+  /** Per-note alias snapshot — the strings the indexer last accepted from
+   *  each note's frontmatter. Lets `indexNote` patch `aliasMap` without
+   *  re-walking every note in the project. */
+  aliasesPerNote: Map<string, string[]>;
+  /** Every relativePath the indexer has touched, used to drop alias
+   *  keys that collide with a real file's stem or basename (#469). A
+   *  superset of `aliasesPerNote.keys()` — notes without aliases still
+   *  count for canonical-name conflicts. */
+  indexedNotePaths: Set<string>;
 }
 
 const states = new Map<string, GraphState>();
@@ -115,6 +131,19 @@ function invalidate(state: GraphState): void {
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function disposeProject(ctx: ProjectContext): void {
   states.delete(ctx.rootPath);
+}
+
+/**
+ * Snapshot of the live alias map (#469). Returns alias → relativePath
+ * pairs as a plain object; the renderer uses it for wiki-link
+ * navigation and (eventually) autocomplete. Keys are lower-cased.
+ */
+export function getAliasMap(ctx: ProjectContext): Record<string, string> {
+  const state = getState(ctx);
+  if (!state) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of state.aliasMap) out[k] = v;
+  return out;
 }
 
 /**
@@ -243,13 +272,81 @@ function linkPredicate(lt: LinkType) {
 function resolveLinkTarget(state: GraphState, lt: LinkType, target: string, anchor?: string) {
   if (lt.targetKind === 'source') return sourceUri(state, target);
   if (lt.targetKind === 'excerpt') return excerptUri(state, target);
-  const base = noteUri(state, target.endsWith('.md') ? target : `${target}.md`);
+  const resolvedPath = resolveTargetByAlias(state, target);
+  const base = noteUri(state, resolvedPath.endsWith('.md') ? resolvedPath : `${resolvedPath}.md`);
   // Anchors append as an IRI fragment: headings become `#slug`, block-ids
   // stay as `#^raw-id` (we don't slugify the `^` prefix or its payload so
   // ids survive edits on the referenced block).
   if (!anchor) return base;
   const frag = anchor.startsWith('^') ? anchor : slugify(anchor);
   return $rdf.sym(`${base.value}#${frag}`);
+}
+
+/**
+ * If the wiki-link target name resolves via the alias map, return the
+ * underlying note's relativePath (without `.md`). Otherwise return
+ * `target` unchanged. Filename / title matches always win over aliases
+ * (#469); the map's `rebuildAliasMap` step drops alias entries that
+ * collide with canonical names so this lookup is safe.
+ */
+function resolveTargetByAlias(state: GraphState, target: string): string {
+  // The map keys store the alias verbatim (case-insensitive lookup
+  // happens via .toLowerCase). Targets with anchors / `.md` suffix are
+  // handled by the caller — this helper only sees the bare path part.
+  const key = target.toLowerCase();
+  const aliased = state.aliasMap.get(key);
+  if (!aliased) return target;
+  // Strip `.md` so the caller's append logic stays simple.
+  return aliased.replace(/\.md$/i, '');
+}
+
+/**
+ * Aliases that contain wiki-link metacharacters can't be expressed as
+ * `[[alias]]` and so couldn't be resolved anyway. Reject them with a
+ * one-line console warning instead of crashing or silently misindexing.
+ */
+const INVALID_ALIAS_CHAR = /[[\]|#\n]/;
+
+function isAliasNameValid(name: string): boolean {
+  if (!name) return false;
+  if (INVALID_ALIAS_CHAR.test(name)) return false;
+  if (name.length > 200) return false;
+  return true;
+}
+
+/**
+ * Recompute `state.aliasMap` from `state.aliasesPerNote`. Run after
+ * any change to the per-note snapshots — a full reindex (which clears
+ * everything first) and the incremental `indexNote` path both call this.
+ *
+ * Conflict policy: when two notes claim the same alias, the
+ * lexicographically-smaller relativePath wins. Title / filename-stem
+ * matches always win over aliases — the second loop drops alias keys
+ * that collide with a canonical note name.
+ */
+function rebuildAliasMap(state: GraphState): void {
+  const next = new Map<string, string>();
+  // Sort note paths so the conflict tiebreak is deterministic.
+  const paths = [...state.aliasesPerNote.keys()].sort();
+  for (const path of paths) {
+    const aliases = state.aliasesPerNote.get(path) ?? [];
+    for (const alias of aliases) {
+      const key = alias.toLowerCase();
+      if (next.has(key)) continue; // first writer wins (alphabetical by path)
+      next.set(key, path);
+    }
+  }
+  // Drop alias keys that collide with a canonical name (a real note's
+  // path stem or the lowercase of its basename). Iterate every
+  // indexed note, not just those with aliases — a real file at
+  // `JFK.md` should beat any other note's "JFK" alias.
+  for (const path of state.indexedNotePaths) {
+    const stem = path.replace(/\.md$/i, '').toLowerCase();
+    next.delete(stem);
+    const basename = stem.split('/').pop() ?? '';
+    if (basename) next.delete(basename);
+  }
+  state.aliasMap = next;
 }
 
 /** Strip an IRI fragment (`#…`) if present — use to find the note subject a link points at. */
@@ -498,6 +595,9 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     n3Cache: null,
     ontologyStatements: [],
     headingsPerNote: new Map(),
+    aliasMap: new Map(),
+    aliasesPerNote: new Map(),
+    indexedNotePaths: new Set(),
   };
 
   // Load persisted graph if it exists
@@ -608,6 +708,23 @@ export async function indexNote(
     const tagNode = tagUri(state, tag);
     ensureTag(state, tagNode, tag);
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
+  }
+
+  // Frontmatter aliases (#469). Track per-note so the next reindex of
+  // this same note can drop stale aliases; rebuild the resolver map
+  // so subsequent link resolution sees current state. Aliases that
+  // contain wiki-link metacharacters (`[`, `]`, `|`, `#`, `\n`) are
+  // dropped — they couldn't be expressed as `[[alias]]` anyway.
+  state.indexedNotePaths.add(relativePath);
+  const validAliases = parsed.aliases.filter(isAliasNameValid);
+  if (validAliases.length > 0) {
+    state.aliasesPerNote.set(relativePath, validAliases);
+  } else {
+    state.aliasesPerNote.delete(relativePath);
+  }
+  rebuildAliasMap(state);
+  for (const alias of validAliases) {
+    store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
   }
 
   // Wiki-links — typed predicates
@@ -1040,6 +1157,14 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
   state.store.removeMatches(undefined, undefined, undefined, subject);
   // Also remove any legacy triples with no graph
   state.store.removeMatches(subject, undefined, undefined);
+  // Drop the note's alias snapshot so its aliases stop resolving (#469).
+  // Also remove from `indexedNotePaths` so the alias map's
+  // canonical-conflict pass no longer treats this path as a real file.
+  const hadAliases = state.aliasesPerNote.delete(relativePath);
+  const wasTracked = state.indexedNotePaths.delete(relativePath);
+  if (hadAliases || wasTracked) {
+    rebuildAliasMap(state);
+  }
 }
 
 // ── Source indexing ─────────────────────────────────────────────────────────
@@ -1256,8 +1381,18 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   state.store = $rdf.graph();
   invalidate(state);
   addOntologyToStore(state);
+  state.aliasesPerNote.clear();
+  state.aliasMap.clear();
+  state.indexedNotePaths.clear();
 
   ensureProject(state);
+
+  // Two-pass build (#469): the first walk just reads frontmatter
+  // aliases so the alias map is fully populated before any link gets
+  // resolved. Otherwise notes indexed early would resolve `[[alias]]`
+  // against an empty map and write the wrong target URI.
+  await walkAndCollectAliases(rootPath, rootPath);
+  rebuildAliasMap(state);
 
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
@@ -1280,6 +1415,27 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
         const content = await fs.readFile(fullPath, 'utf-8');
         await indexNote(ctx, relativePath, content);
         count++;
+      }
+    }
+  }
+
+  async function walkAndCollectAliases(dirPath: string, root: string) {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await walkAndCollectAliases(fullPath, root);
+      } else if (isIndexable(entry.name)) {
+        const relativePath = path.relative(root, fullPath);
+        try {
+          const content = await fs.readFile(fullPath, 'utf-8');
+          const parsed = parseMarkdown(content);
+          const valid = parsed.aliases.filter(isAliasNameValid);
+          if (valid.length > 0) state!.aliasesPerNote.set(relativePath, valid);
+        } catch {
+          // Skip unreadable files; the main pass will surface the same error.
+        }
       }
     }
   }

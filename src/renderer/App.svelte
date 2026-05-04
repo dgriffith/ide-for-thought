@@ -104,6 +104,19 @@
   } | null>(null);
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
+  /** Frontmatter alias → relativePath snapshot (#469). Refreshed on
+   *  graph changes so wiki-link nav resolves new aliases without a
+   *  full project reload. */
+  let aliasMap = $state<Record<string, string>>({});
+
+  async function refreshAliasMap() {
+    if (!notebase.meta) return;
+    try {
+      aliasMap = await api.graph.aliasMap();
+    } catch {
+      aliasMap = {};
+    }
+  }
 
   async function refreshInspectionCount() {
     const results = await api.graph.inspections();
@@ -256,7 +269,7 @@
     // [[Sets, Functions]], or [[journey/raft]] open the correct file
     // regardless of how deeply nested it is.
     const flat = flattenNoteFiles(notebase.files);
-    const resolved = resolveWikiLinkTarget(pathPart, flat);
+    const resolved = resolveWikiLinkTarget(pathPart, flat, aliasMap);
     const notePath = resolved ?? (pathPart.endsWith('.md') ? pathPart : `${pathPart}.md`);
     await editor.openFile(notePath);
     // Route anchors: preview scrolls by element id; editor jumps by doc offset.
@@ -345,6 +358,7 @@
     sidebar?.refreshTags();
     rightSidebar?.refresh();
     void refreshBacklinkCount();
+    void refreshAliasMap();
   }
 
   async function handleSaveQuery() {
@@ -1844,6 +1858,7 @@
       sidebar?.refreshTags();
       rightSidebar?.refresh();
       void refreshBacklinkCount();
+      void refreshAliasMap();
     };
     window.addEventListener('beforeunload', () => {
       // Capture current editor state before persisting — the Editor
@@ -1999,6 +2014,7 @@
       sidebar?.refreshSources();
       sidebar?.refreshTables();
       await refreshSourcesCache();
+      await refreshAliasMap();
       // Load inspection count after a brief delay to let health checks finish
       setTimeout(refreshInspectionCount, 3000);
       // Refresh periodically

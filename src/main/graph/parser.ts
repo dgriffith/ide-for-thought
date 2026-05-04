@@ -28,6 +28,14 @@ export interface ParsedNote {
   frontmatter: Record<string, FrontmatterValue>;
   turtleBlocks: string[];
   tables: ParsedTable[];
+  /**
+   * Alias names from frontmatter `aliases:` (#469). Strings only — array
+   * scalars are flattened, non-strings are dropped. Aliases containing
+   * characters that would break wiki-link parsing (`[`, `]`, `|`, `#`, `\n`)
+   * are filtered out by the indexer; the parser keeps everything string-shaped
+   * so callers can introspect what the user wrote.
+   */
+  aliases: string[];
 }
 
 // [[type::target|display]] or [[type::target]] or [[target|display]] or [[target]]
@@ -50,8 +58,28 @@ export function parseMarkdown(content: string): ParsedNote {
   const links = extractLinks(stripped);
   const frontmatter = extractFrontmatter(content);
   const tables = extractTables(stripped);
+  const aliases = extractAliases(frontmatter);
 
-  return { title, tags, links, frontmatter, turtleBlocks, tables };
+  return { title, tags, links, frontmatter, turtleBlocks, tables, aliases };
+}
+
+function extractAliases(fm: Record<string, FrontmatterValue>): string[] {
+  // Accept `aliases` (canonical) and the singular `alias` for tolerance.
+  const raw = fm.aliases ?? fm.alias;
+  if (raw === undefined || raw === null) return [];
+  const out: string[] = [];
+  const visit = (v: FrontmatterValue) => {
+    if (Array.isArray(v)) {
+      for (const item of v) visit(item);
+      return;
+    }
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (trimmed) out.push(trimmed);
+    }
+  };
+  visit(raw);
+  return out;
 }
 
 function extractTurtleBlocks(content: string): string[] {

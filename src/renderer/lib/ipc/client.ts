@@ -132,6 +132,8 @@ export interface GraphApi {
     predicates: Array<{ iri: string; prefixed?: string }>;
     classes: Array<{ iri: string; prefixed?: string }>;
   }>;
+  /** Frontmatter alias → relativePath snapshot (#469). Lower-cased keys. */
+  aliasMap(): Promise<Record<string, string>>;
 }
 
 export type TablesQueryResult =

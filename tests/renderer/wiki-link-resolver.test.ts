@@ -88,4 +88,34 @@ describe('resolveWikiLinkTarget', () => {
     expect(resolveWikiLinkTarget('Sets, Functions, and the Need for Types', flat))
       .toBe('notes/topic/journey/Sets, Functions, and the Need for Types.md');
   });
+
+  describe('alias resolution (#469)', () => {
+    const aliases = { jfk: 'notes/topic/journey/Raft.md', 'jack kennedy': 'notes/topic/journey/Raft.md' };
+
+    it('resolves a frontmatter alias to its underlying note', () => {
+      expect(resolveWikiLinkTarget('JFK', flat, aliases))
+        .toBe('notes/topic/journey/Raft.md');
+    });
+
+    it('alias matching is case-insensitive', () => {
+      expect(resolveWikiLinkTarget('jack kennedy', flat, aliases))
+        .toBe('notes/topic/journey/Raft.md');
+    });
+
+    it('exact relativePath wins over a colliding alias', () => {
+      // The alias map shouldn't shadow a real note that exists at the
+      // typed path. Caller passes a map but Raft.md still beats anything.
+      expect(resolveWikiLinkTarget('notes/topic/journey/Raft', flat, aliases))
+        .toBe('notes/topic/journey/Raft.md');
+    });
+
+    it('falls through to slug matching when no alias hits', () => {
+      expect(resolveWikiLinkTarget('raft', flat, aliases))
+        .toBe('notes/topic/journey/Raft.md');
+    });
+
+    it('returns null when neither files nor aliases match', () => {
+      expect(resolveWikiLinkTarget('UnknownAlias', flat, aliases)).toBeNull();
+    });
+  });
 });

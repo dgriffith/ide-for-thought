@@ -12,9 +12,11 @@
  * Resolution priority:
  *   1. Exact relativePath match (with or without .md)
  *   2. Basename match — case-sensitive
- *   3. Slugified basename match (case-insensitive, punctuation-fuzzy)
- *   4. Slugified full stem match (handles "journey/raft" pointing at
+ *   3. Frontmatter alias (case-insensitive), if a map is provided (#469)
+ *   4. Slugified basename match (case-insensitive, punctuation-fuzzy)
+ *   5. Slugified full stem match (handles "journey/raft" pointing at
  *      "notes/topic/journey/raft.md")
+ *   6. Path-suffix slug match for unambiguous tails of nested paths
  */
 
 import type { NoteFile } from '../../shared/types';
@@ -42,10 +44,17 @@ const slug = (s: string): string =>
  * Returns the project-relative path of the matched note (with .md), or
  * null when nothing matches. Targets ending in `.md` are tried as-is
  * first, otherwise treated as a stem.
+ *
+ * `aliases` is a frontmatter alias → relativePath map (#469). Title /
+ * filename matches always win over aliases — the indexer's
+ * rebuildAliasMap already drops alias keys that collide with canonical
+ * names, so the alias check sits between basename and slug-fuzzy
+ * resolution.
  */
 export function resolveWikiLinkTarget(
   target: string,
   files: Pick<NoteFile, 'relativePath' | 'isDirectory'>[],
+  aliases?: Record<string, string>,
 ): string | null {
   const targetStem = stripMd(target);
   const targetSlug = slug(targetStem);
@@ -63,27 +72,33 @@ export function resolveWikiLinkTarget(
     if (base === targetStem) return f.relativePath;
   }
 
-  // 3. Basename slug match
+  // 3. Frontmatter alias (case-insensitive), if a map was supplied.
+  if (aliases) {
+    const hit = aliases[targetStem.toLowerCase()];
+    if (hit) return hit;
+  }
+
+  // 4. Basename slug match
   for (const f of noteFiles) {
     const base = stripMd(f.relativePath.split('/').pop() ?? '');
     if (slug(base) === targetSlug) return f.relativePath;
   }
 
-  // 4. Full-stem slug match (target like "notes/topic/raft" against the
+  // 6. Full-stem slug match (target like "notes/topic/raft" against the
   //    file's full stem slug)
   for (const f of noteFiles) {
     if (slug(stripMd(f.relativePath)) === targetSlug) return f.relativePath;
   }
 
-  // 5. Path-suffix slug match — target slug ends a file's full-stem
+  // 7. Path-suffix slug match — target slug ends a file's full-stem
   //    slug at a "-" boundary (so "journey-raft" matches "notes-topic-
   //    journey-raft" but "raft" does NOT match "notes-craft" coincidentally,
-  //    that's caught by step 3). Useful for "[[journey/raft]]"-style links
+  //    that's caught by step 4). Useful for "[[journey/raft]]"-style links
   //    where the user gave an unambiguous tail of the path.
   if (targetSlug.length > 0) {
     for (const f of noteFiles) {
       const fullSlug = slug(stripMd(f.relativePath));
-      if (fullSlug === targetSlug) continue; // already covered by step 4
+      if (fullSlug === targetSlug) continue; // already covered by step 6
       if (
         fullSlug.endsWith(`-${targetSlug}`) ||
         fullSlug.endsWith(`/${targetSlug}`)
