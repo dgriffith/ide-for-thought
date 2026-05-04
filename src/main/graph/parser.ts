@@ -104,13 +104,36 @@ function extractTitle(content: string): string | null {
   return match ? match[1].trim() : null;
 }
 
+/** Each `/`-delimited segment of a nested tag must look like a normal
+ *  tag identifier — letter, then word chars or hyphens. Empty segments
+ *  (`#a//b`) and segments starting with non-letter (`#a/1b`) are
+ *  rejected so the tree view (#466) never sprouts garbage levels. */
+const TAG_SEGMENT_RE = /^[a-zA-Z][\w-]*$/;
+
 function extractTags(content: string): string[] {
   const tags = new Set<string>();
   let match;
+  TAG_RE.lastIndex = 0;
   while ((match = TAG_RE.exec(content)) !== null) {
-    tags.add(match[1]);
+    const cleaned = normalizeNestedTag(match[1]);
+    if (cleaned) tags.add(cleaned);
   }
   return [...tags];
+}
+
+/**
+ * Strip a trailing slash and validate every `/`-delimited segment.
+ * Returns null when any segment is malformed — the indexer treats
+ * that as "this isn't actually a tag", same as a bare `#` would be.
+ */
+function normalizeNestedTag(raw: string): string | null {
+  const trimmed = raw.replace(/\/+$/, '');
+  if (!trimmed) return null;
+  const parts = trimmed.split('/');
+  for (const p of parts) {
+    if (!TAG_SEGMENT_RE.test(p)) return null;
+  }
+  return parts.join('/');
 }
 
 function extractLinks(content: string): ParsedLink[] {

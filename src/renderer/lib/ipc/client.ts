@@ -157,6 +157,8 @@ export interface TablesApi {
 export interface TagsApi {
   list(): Promise<TagInfo[]>;
   notesByTag(tag: string): Promise<TaggedNote[]>;
+  /** Notes with any tag at-or-under `prefix` (#466). */
+  notesByTagPrefix(prefix: string): Promise<TaggedNote[]>;
   sourcesByTag(tag: string): Promise<TaggedSource[]>;
   allNames(): Promise<string[]>;
 }

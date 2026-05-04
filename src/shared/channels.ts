@@ -84,6 +84,8 @@ export const Channels = {
   // Tags
   TAGS_LIST: 'tags:list',
   TAGS_NOTES_BY_TAG: 'tags:notesByTag',
+  /** Notes with any tag at-or-under a given prefix (#466). */
+  TAGS_NOTES_BY_TAG_PREFIX: 'tags:notesByTagPrefix',
   TAGS_SOURCES_BY_TAG: 'tags:sourcesByTag',
   TAGS_ALL_NAMES: 'tags:allNames',
 

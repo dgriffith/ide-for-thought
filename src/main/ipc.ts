@@ -679,6 +679,12 @@ export function registerIpcHandlers(): void {
     return graph.notesByTag(projectContext(rootPath), tag);
   });
 
+  ipcMain.handle(Channels.TAGS_NOTES_BY_TAG_PREFIX, (e, prefix: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.notesByTagPrefix(projectContext(rootPath), prefix);
+  });
+
   ipcMain.handle(Channels.TAGS_SOURCES_BY_TAG, (e, tag: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return [];

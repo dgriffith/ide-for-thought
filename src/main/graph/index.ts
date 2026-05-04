@@ -1618,6 +1618,41 @@ export function listTags(ctx: ProjectContext): TagInfo[] {
     .sort((a, b) => a.tag.localeCompare(b.tag));
 }
 
+/**
+ * Notes with any tag at-or-under `prefix` (#466). Matches the literal
+ * `prefix` and any tag that starts with `prefix/…` so clicking a
+ * parent row in the tree returns the same set the cumulative count
+ * promised. Deduped by relativePath since one note can carry multiple
+ * matching tags.
+ */
+export function notesByTagPrefix(ctx: ProjectContext, prefix: string): TaggedNote[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+
+  const seen = new Map<string, TaggedNote>();
+  const tagStmts = store.statementsMatching(undefined, MINERVA('hasTag'), undefined);
+  for (const tagStmt of tagStmts) {
+    const tagNode = tagStmt.object as $rdf.NamedNode;
+    const nameStmts = store.statementsMatching(tagNode, MINERVA('tagName'), undefined);
+    const name = nameStmts[0]?.object.value;
+    if (!name) continue;
+    if (name !== prefix && !name.startsWith(`${prefix}/`)) continue;
+    const subject = tagStmt.subject;
+    const isNote = store.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
+    if (!isNote) continue;
+    const pathStmts = store.statementsMatching(subject, MINERVA('relativePath'), undefined);
+    const relativePath = pathStmts[0]?.object.value ?? '';
+    if (!relativePath || seen.has(relativePath)) continue;
+    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
+    seen.set(relativePath, {
+      title: titleStmts[0]?.object.value ?? subject.value,
+      relativePath,
+    });
+  }
+  return [...seen.values()].sort((a, b) => a.title.localeCompare(b.title));
+}
+
 export function notesByTag(ctx: ProjectContext, tag: string): TaggedNote[] {
   const state = getState(ctx);
   if (!state) return [];
