@@ -102,6 +102,7 @@ contextBridge.exposeInMainWorld('api', {
     sourceDetail: (sourceId: string) => ipcRenderer.invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
     excerptSource: (excerptId: string) => ipcRenderer.invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
     schemaForCompletion: () => ipcRenderer.invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
+    aliasMap: () => ipcRenderer.invoke(Channels.GRAPH_ALIAS_MAP),
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),

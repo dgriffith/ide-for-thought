@@ -78,6 +78,8 @@ export const Channels = {
   GRAPH_SCHEMA_FOR_COMPLETION: 'graph:schemaForCompletion',
   GRAPH_SOURCE_DETAIL: 'graph:sourceDetail',
   GRAPH_EXCERPT_SOURCE: 'graph:excerptSource',
+  /** Frontmatter alias → relativePath map for wiki-link resolution (#469). */
+  GRAPH_ALIAS_MAP: 'graph:aliasMap',
 
   // Tags
   TAGS_LIST: 'tags:list',
