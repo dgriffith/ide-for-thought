@@ -239,3 +239,37 @@ details.callout[open] > summary.callout-title::after {
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* Footnote hover preview tooltip in the editor (#484). CodeMirror
+   tooltips mount outside the editor's scoped CSS, so the styling
+   lives here alongside the other shared markdown surfaces. */
+.cm-tooltip:has(.cm-footnote-tooltip) {
+  background: var(--bg-button);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  max-width: 360px;
+}
+.cm-footnote-tooltip {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.cm-footnote-tooltip .label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--accent);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.cm-footnote-tooltip .body {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.cm-footnote-tooltip.missing {
+  color: var(--text-muted);
+  font-style: italic;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
