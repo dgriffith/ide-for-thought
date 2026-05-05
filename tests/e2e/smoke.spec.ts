@@ -50,22 +50,10 @@ test('app launches, renderer mounts, no thrown errors', async () => {
   const mainStderr: string[] = [];
   const mainStdout: string[] = [];
 
-  // GitHub's macos-latest runner is currently macOS Sequoia on Apple
-  // Silicon. Electron 35 there has a recurring hang signature with
-  // Playwright: Debugger attaches, then `firstWindow` never fires —
-  // GPU/sandbox initialisation deadlocks without user-level seatbelt
-  // privileges that interactive sessions normally grant. The standard
-  // workaround is to launch with the flags below (#518). Locally we
-  // skip them — they suppress GPU compositing, which is fine for a
-  // boot-and-assert smoke test but unnecessary on dev machines.
-  const ciArgs = process.env.CI
-    ? ['--disable-gpu', '--no-sandbox', '--disable-software-rasterizer']
-    : [];
-
   const app = await electron.launch({
     // `args: ['.']` boots Electron against the package.json `main`
     // entry — same as `electron .` in development.
-    args: [projectRoot, ...ciArgs],
+    args: [projectRoot],
     cwd: projectRoot,
     // 60s — local boot is ~3s. The 30s default was tight enough on CI
     // that a slow runner cold-start could legitimately exceed it (#518).
