@@ -48,6 +48,10 @@ export const CONFIRM_KEYS = {
    *  machine-scoped, so the localStorage suppression mustn't fire. */
   pythonTrust: 'python-trust',
   exportComplete: 'export-complete',
+  /** Pre-merge confirmation (#464) — surfaced before "Merge note into…" runs. */
+  mergeNote: 'merge-note',
+  /** Surfaced when the merge IPC throws after the user confirmed (rare). */
+  mergeFailed: 'merge-failed',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
 } as const;
@@ -246,6 +250,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Export complete',
     description:
       'Summary dialog after an export finishes (how many files were written and to which directory).',
+  },
+  {
+    key: CONFIRM_KEYS.mergeNote,
+    title: 'Merge note into…',
+    description:
+      'Pre-flight confirmation before merging the active note into another note (#464). Lists how many incoming wiki-links will be rewritten across how many files, since this rewrites multiple files in a single operation.',
+  },
+  {
+    key: CONFIRM_KEYS.mergeFailed,
+    title: 'Merge note failed',
+    description:
+      'Shown when "Merge note into…" errors out after the user confirmed — read failure, write failure mid-rewrite, etc. Recovery is `git reset --hard HEAD`.',
   },
   {
     key: CONFIRM_KEYS.bibliographyResult,

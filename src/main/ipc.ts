@@ -7,6 +7,7 @@ import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { isIndexable } from './notebase/indexable-files';
 import { renameWithLinkRewrites } from './notebase/rename';
+import { mergeNotes, previewMergeNotes } from './notebase/merge';
 import { renameAnchor } from './notebase/rename-anchor';
 import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
 import * as gitOps from './git/index';
@@ -427,6 +428,44 @@ export function registerIpcHandlers(): void {
     }
 
     await persistIndexes(rootPath);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_MERGE_PREVIEW, async (e, sourceRelPath: string, targetRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return previewMergeNotes(rootPath, sourceRelPath, targetRelPath);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_MERGE, async (e, sourceRelPath: string, targetRelPath: string, separator?: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ctx = projectContext(rootPath);
+    const result = await mergeNotes(rootPath, sourceRelPath, targetRelPath, {
+      separator,
+      markPathHandled,
+      reindexHook: (relPath, content) => {
+        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
+      },
+      removeHook: (relPath) => search.removeNote(ctx, relPath),
+    });
+    // Broadcast: source disappeared (RENAMED with one transition signals
+    // editor tabs to drop / reroute) plus the rewritten set so other
+    // windows reload affected files.
+    for (const targetWin of windowsForProject(rootPath)) {
+      targetWin.webContents.send(Channels.NOTEBASE_RENAMED, [
+        { old: sourceRelPath, new: '' /* sentinel: deletion */ },
+      ]);
+      if (result.rewrittenPaths.length > 0) {
+        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, [
+          ...result.rewrittenPaths,
+          targetRelPath,
+        ]);
+      } else {
+        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, [targetRelPath]);
+      }
+    }
+    await persistIndexes(rootPath);
+    return result;
   });
 
   ipcMain.handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {

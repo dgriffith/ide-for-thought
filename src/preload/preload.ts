@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_DELETE_FOLDER, relativePath),
     rename: (oldRelPath: string, newRelPath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME, oldRelPath, newRelPath),
+    mergePreview: (sourceRelPath: string, targetRelPath: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_MERGE_PREVIEW, sourceRelPath, targetRelPath),
+    merge: (sourceRelPath: string, targetRelPath: string, separator?: string) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_MERGE, sourceRelPath, targetRelPath, separator),
     copy: (srcRelPath: string, destRelPath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
     searchInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),

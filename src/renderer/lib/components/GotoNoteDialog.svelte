@@ -5,9 +5,14 @@
     files: NoteFile[];
     onSelect: (relativePath: string) => void;
     onCancel: () => void;
+    /** Placeholder text inside the search input. Default "Go to note...". */
+    placeholder?: string;
+    /** Drop a single relativePath from the candidate list — used by Merge
+     *  Note (#464) so the user can't pick the source as the merge target. */
+    excludePath?: string;
   }
 
-  let { files, onSelect, onCancel }: Props = $props();
+  let { files, onSelect, onCancel, placeholder = 'Go to note...', excludePath }: Props = $props();
 
   let query = $state('');
   let selectedIndex = $state(0);
@@ -25,7 +30,7 @@
     return acc;
   }
 
-  const allNotes = flattenNotes(files);
+  const allNotes = flattenNotes(files).filter((n) => n.relativePath !== excludePath);
 
   // ── Matching logic ──────────────────────────────────────────────────────
 
@@ -160,7 +165,7 @@
       bind:value={query}
       type="text"
       class="input"
-      placeholder="Go to note..."
+      {placeholder}
     />
     {#if results.length > 0}
       <ul class="goto-results">

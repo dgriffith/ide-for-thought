@@ -18,6 +18,10 @@ export const Channels = {
   NOTEBASE_CREATE_FOLDER: 'notebase:createFolder',
   NOTEBASE_DELETE_FOLDER: 'notebase:deleteFolder',
   NOTEBASE_RENAME: 'notebase:rename',
+  /** Pre-flight count of how many files / link occurrences a merge would touch (#464). */
+  NOTEBASE_MERGE_PREVIEW: 'notebase:mergePreview',
+  /** Merge source note into target: append body, rewrite incoming links, delete source (#464). */
+  NOTEBASE_MERGE: 'notebase:merge',
   NOTEBASE_COPY: 'notebase:copy',
   NOTEBASE_SEARCH_IN_NOTES: 'notebase:searchInNotes',
   NOTEBASE_REPLACE_IN_NOTES: 'notebase:replaceInNotes',
