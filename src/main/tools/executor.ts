@@ -87,6 +87,9 @@ export function buildConversationPayload(
     firstMessage: tool.buildFirstMessage ? tool.buildFirstMessage(request.context) : '',
     ...(model ? { model } : {}),
     webEnabled: tool.web?.defaultEnabled ?? false,
+    ...(tool.requiresTools && tool.requiresTools.length > 0
+      ? { requiresTools: [...tool.requiresTools] }
+      : {}),
   };
 }
 
