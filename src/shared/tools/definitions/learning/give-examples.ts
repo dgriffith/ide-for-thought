@@ -1,11 +1,6 @@
 import { registerTool } from '../../registry';
 import type { ToolContext } from '../../types';
-
-const SYSTEM_PROMPT = `You are illustrating the claims or concepts in a note with concrete examples.
-
-Produce 3\u20135 varied examples. Prefer real-world cases. Span multiple domains when the note\u2019s claim is general enough to warrant it. Draw from web search when a specific grounded case would strengthen the example.
-
-Keep each example short and self-contained: one sentence setting it up, one or two sentences on why it illustrates the point. After the first set, iterate with the user \u2014 different domains, more extreme cases, a single example in more depth, etc.`;
+import SYSTEM_PROMPT from './give-examples.prompt.md?raw';
 
 registerTool({
   id: 'learning.give-examples',

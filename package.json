@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "build:e2e": "NODE_OPTIONS=--max-old-space-size=4096 electron-forge package",
-    "test:e2e": "pnpm build:e2e && playwright test"
+    "test:e2e": "pnpm build:e2e && playwright test",
+    "new-tool": "node scripts/new-tool.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
