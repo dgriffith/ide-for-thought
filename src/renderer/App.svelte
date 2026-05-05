@@ -2255,12 +2255,15 @@
     />
   {/if}
   {#if mergePickerSource}
-    {@const source = mergePickerSource}
     <GotoNoteDialog
       files={notebase.files}
       placeholder="Merge into note..."
-      excludePath={source}
-      onSelect={(path) => { mergePickerSource = null; void performMerge(source, path); }}
+      excludePath={mergePickerSource}
+      onSelect={(path) => {
+        const src = mergePickerSource;
+        mergePickerSource = null;
+        if (src) void performMerge(src, path);
+      }}
       onCancel={() => { mergePickerSource = null; }}
     />
   {/if}
