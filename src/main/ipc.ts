@@ -1493,7 +1493,7 @@ export function registerIpcHandlers(): void {
     pending.resolve(answer);
   });
 
-  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../shared/conversation-templates').ConversationToolKey[]) => {
+  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../shared/conversation-tools').ConversationToolKey[]) => {
     const win = winFromEvent(e);
     const rootPath = rootPathFromEvent(e);
     const controller = new AbortController();

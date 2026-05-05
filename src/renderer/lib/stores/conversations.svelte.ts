@@ -8,22 +8,16 @@ import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type {
   AskUserRequest,
   ConversationToolKey,
-  TemplateContext,
-} from '../../../shared/conversation-templates';
-import { getTemplate } from '../conversation/templates';
+} from '../../../shared/conversation-tools';
 
 /**
  * Multi-tab conversations store backing the bottom-docked tool window.
- * Distinct from `conversation.svelte.ts` (single-active-conversation
- * store used by the legacy ConversationDialog modal); the two coexist
- * during Phase 1, and the modal is removed in Phase 3 along with the
- * old store.
  */
 
 interface TabRuntime {
   id: string;
-  /** Auto-generated tab title. Set from `template.suggestedTitle(ctx)` when
-   *  the tab was opened via a template; otherwise derived from the first
+  /** Auto-generated tab title. Set when a tool seeds the tab via
+   *  `openConversationTab({ title })`; otherwise derived from the first
    *  user turn (handled at the panel layer). */
   title: string | null;
   conversation: Conversation;
@@ -34,7 +28,7 @@ interface TabRuntime {
   streaming: boolean;
   streamedChunks: string;
   /** Template-scoped tools enabled for this conversation (e.g. `ask_user`).
-   *  Resolved at openWithTemplate time and re-sent with each turn. In-memory
+   *  Resolved at tab-creation time and re-sent with each turn. In-memory
    *  only — if the user reloads the project, the tab still works but the
    *  agent loses access to template tools (an acceptable degradation since
    *  the agent can fall back to free-form prose questions). */
@@ -283,45 +277,6 @@ async function openConversationTab(opts: {
   return tab;
 }
 
-/**
- * Open a new conversation tab driven by a template. The template's
- * `buildPrompt(ctx)` text is sent as the first user turn; its
- * `requiresTools` are scoped to this conversation only.
- */
-async function openWithTemplate(templateId: string, ctx: TemplateContext): Promise<TabRuntime | null> {
-  const template = getTemplate(templateId);
-  if (!template) {
-    console.warn(`[conv] unknown template: ${templateId}`);
-    return null;
-  }
-  ensureSubscriptions();
-  const bundle: ContextBundle = ctx.notePath ? { notePath: ctx.notePath } : {};
-  const conv = await api.conversations.create(bundle);
-  const tab: TabRuntime = {
-    id: conv.id,
-    title: template.suggestedTitle?.(ctx) ?? null,
-    conversation: conv,
-    drafts: [],
-    pendingQuestion: null,
-    composer: '',
-    streaming: false,
-    streamedChunks: '',
-    extraTools: template.requiresTools ? [...template.requiresTools] : [],
-  };
-  tabs = [...tabs, tab];
-  activeTabId = tab.id;
-  show();
-  scheduleSave();
-  // Auto-send the templated prompt as the first user turn. We don't
-  // populate the composer — the user shouldn't see the prompt text in
-  // the input field; it goes straight to the wire.
-  const prompt = template.buildPrompt(ctx);
-  // Fire-and-forget — `send` sets streaming state, the panel renders
-  // accordingly. Errors logged inside send().
-  void send(prompt, ctx.notePath ?? undefined);
-  return tab;
-}
-
 async function closeTab(id: string): Promise<void> {
   const idx = tabs.findIndex((t) => t.id === id);
   if (idx === -1) return;
@@ -425,7 +380,6 @@ export function getConversationsStore() {
     setActiveTab,
     openFreeform,
     openConversationTab,
-    openWithTemplate,
     closeTab,
     send,
     answerQuestion,

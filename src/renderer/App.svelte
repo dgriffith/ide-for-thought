@@ -1431,25 +1431,21 @@
     }
   }
 
-  async function handleDecompose(relativePath: string) {
+  async function handleDecompose(_relativePath: string) {
     if (!notebase.meta) return;
-    await conversationsStore.openWithTemplate('decompose', {
-      notePath: relativePath,
-      noteTitle: noteTitleFromPath(relativePath),
-    });
+    // Both decompose and crystallize are ThinkingTools (#515), so the
+    // editor right-click menu routes through the same tool-prep flow
+    // the ToolPanel uses. The `_relativePath` arg is preserved for
+    // API symmetry with the other right-click handlers, but the tool
+    // gathers its own `fullNote` context against the active editor.
+    const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
+    await handleOpenConversationFromTool({ toolId: 'research.decompose', context: ctx });
   }
 
-  async function handleCrystallize(relativePath: string) {
+  async function handleCrystallize(_relativePath: string) {
     if (!notebase.meta) return;
-    await conversationsStore.openWithTemplate('crystallize', {
-      notePath: relativePath,
-      noteTitle: noteTitleFromPath(relativePath),
-    });
-  }
-
-  function noteTitleFromPath(relativePath: string): string {
-    const last = relativePath.split('/').pop() ?? relativePath;
-    return last.replace(/\.(md|markdown)$/i, '');
+    const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
+    await handleOpenConversationFromTool({ toolId: 'research.crystallize', context: ctx });
   }
 
 
