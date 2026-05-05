@@ -38,6 +38,7 @@
      *  hit an existing selection or not. */
     onContextMenuTarget?: (relativePath: string) => void;
     onRename: (relativePath: string) => void;
+    onMerge?: (relativePath: string) => void;
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
@@ -46,7 +47,7 @@
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -161,6 +162,7 @@
             {onRemoveTag}
             {onContextMenuTarget}
             {onRename}
+            {onMerge}
             {onCut}
             {onCopy}
             {onPaste}
@@ -224,6 +226,11 @@
       <button onclick={() => { onRename(contextMenu!.target!); contextMenu = null; }}>
         Rename
       </button>
+      {#if onMerge && !contextMenu.targetIsDir && contextMenu.target.endsWith('.md')}
+        <button onclick={() => { onMerge?.(contextMenu!.target!); contextMenu = null; }}>
+          Merge into&hellip;
+        </button>
+      {/if}
       <button onclick={() => { void navigator.clipboard.writeText(contextMenu!.target!); contextMenu = null; }}>
         Copy Path
       </button>
