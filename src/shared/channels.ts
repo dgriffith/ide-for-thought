@@ -95,6 +95,7 @@ export const Channels = {
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',
   MENU_TOGGLE_RIGHT_SIDEBAR: 'menu:toggleRightSidebar',
+  MENU_TOGGLE_CONVERSATIONS: 'menu:toggleConversations',
   MENU_CYCLE_THEME: 'menu:cycleTheme',
   MENU_FONT_INCREASE: 'menu:fontIncrease',
   MENU_FONT_DECREASE: 'menu:fontDecrease',
@@ -176,8 +177,6 @@ export const Channels = {
   REFACTOR_AUTO_LINK_INBOUND_SUGGEST: 'refactor:autoLinkInboundSuggest',
   /** Apply accepted inbound Auto-link suggestions (writes to multiple source notes). */
   REFACTOR_AUTO_LINK_INBOUND_APPLY: 'refactor:autoLinkInboundApply',
-  /** LLM-driven decomposition of a note into a parent index + children (#178). */
-  REFACTOR_DECOMPOSE_SUGGEST: 'refactor:decomposeSuggest',
 
   /** Ingest a URL (#93). Fetches, runs Readability, persists under .minerva/sources/<id>/. */
   SOURCES_INGEST_URL: 'sources:ingestUrl',
@@ -261,21 +260,26 @@ export const Channels = {
   // Conversations
   CONVERSATION_CREATE: 'conversation:create',
   CONVERSATION_APPEND: 'conversation:append',
-  CONVERSATION_RESOLVE: 'conversation:resolve',
-  CONVERSATION_ABANDON: 'conversation:abandon',
+  CONVERSATION_ARCHIVE: 'conversation:archive',
   CONVERSATION_LOAD: 'conversation:load',
   CONVERSATION_LIST: 'conversation:list',
   CONVERSATION_LIST_ACTIVE: 'conversation:listActive',
   CONVERSATION_SEND: 'conversation:send',
   CONVERSATION_STREAM: 'conversation:stream',
   CONVERSATION_CANCEL: 'conversation:cancel',
-  CONVERSATION_CRYSTALLIZE: 'conversation:crystallize',
   /** main → renderer: a propose_notes tool call produced a draft for review. Payload is ConversationDraft. */
   CONVERSATION_DRAFT: 'conversation:draft',
   /** renderer → main: user approved a draft; file the bundle as a Proposal AND auto-approve it. */
   CONVERSATION_FILE_DRAFT: 'conversation:fileDraft',
-  CONVERSATION_SLASH_COMMAND: 'conversation:slashCommand',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
+  /** Load tool-window UI state (.minerva/conversations/_ui.json). */
+  CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
+  /** Persist tool-window UI state (visibility, height, last-active tab). */
+  CONVERSATION_UI_STATE_SAVE: 'conversation:uiStateSave',
+  /** main → renderer: agent invoked the `ask_user` tool. Payload is AskUserRequest. */
+  CONVERSATION_ASK_USER: 'conversation:askUser',
+  /** renderer → main: user's reply to an ask_user prompt. Payload is { questionId, answer }. */
+  CONVERSATION_ASK_USER_REPLY: 'conversation:askUserReply',
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
   INSPECTIONS_LIST: 'inspections:list',
   INSPECTIONS_RUN: 'inspections:run',

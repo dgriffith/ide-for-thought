@@ -168,23 +168,23 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, options),
     append: (id: string, role: string, content: string) =>
       ipcRenderer.invoke(Channels.CONVERSATION_APPEND, id, role, content),
-    resolve: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_RESOLVE, id),
-    abandon: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_ABANDON, id),
+    archive: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_ARCHIVE, id),
     load: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_LOAD, id),
     list: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST),
     listActive: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST_ACTIVE),
-    send: (convId: string, userMessage: string, systemPrompt?: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt),
+    send: (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: unknown[]) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
+    loadUIState: () => ipcRenderer.invoke(Channels.CONVERSATION_UI_STATE_LOAD),
+    saveUIState: (state: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
+    onAskUser: (cb: (req: unknown) => void) => subscribeIpc(Channels.CONVERSATION_ASK_USER, cb),
+    askUserReply: (questionId: string, answer: string) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
     onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.CONVERSATION_STREAM, cb),
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
-    crystallize: (text: string, conversationId: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_CRYSTALLIZE, text, conversationId),
     onDraft: (cb: (draft: unknown) => void) => subscribeIpc(Channels.CONVERSATION_DRAFT, cb),
     fileDraft: (draft: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
     setModel: (conversationId: string, model: string | undefined) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
-    slashCommand: (convId: string, slashCmd: string, argText: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_SLASH_COMMAND, convId, slashCmd, argText),
   },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),
@@ -211,8 +211,6 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, relativePath),
     autoLinkInboundApply: (relativePath: string, accepted: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY, relativePath, accepted),
-    decomposeSuggest: (relativePath: string, hints?: unknown) =>
-      ipcRenderer.invoke(Channels.REFACTOR_DECOMPOSE_SUGGEST, relativePath, hints),
   },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
@@ -322,6 +320,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onToggleRightSidebar: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_TOGGLE_RIGHT_SIDEBAR, () => cb());
+    },
+    onToggleConversations: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_TOGGLE_CONVERSATIONS, () => cb());
     },
     onNavBack: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NAV_BACK, () => cb());

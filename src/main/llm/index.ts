@@ -9,6 +9,7 @@ import {
 import type { Citation } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
+import type { ConversationToolKey } from '../../shared/conversation-templates';
 import { formatToolCall } from './format-tool-call';
 
 export interface StreamCallbacks {
@@ -21,6 +22,13 @@ export interface StreamCallbacks {
    * propose_notes invocations with a "no UI surface" error.
    */
   onDraft?: (draft: ConversationDraft) => void;
+  /**
+   * Wired by the conversation IPC handler when a template declares the
+   * `ask_user` tool. The agent's call to `ask_user` resolves with the
+   * user's reply. Without this callback the tool reports an error and
+   * the agent must continue without the answer.
+   */
+  askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
 }
 
 export interface ChatMessage {
@@ -45,6 +53,8 @@ export interface CompleteWithToolsOptions {
   maxIterations?: number;
   /** Override the global default model for this call only. */
   model?: string;
+  /** Template-scoped tools to enable in addition to the default toolset. */
+  extraTools?: ConversationToolKey[];
 }
 
 export interface CompleteWithToolsResult {
@@ -153,6 +163,7 @@ export async function completeWithTools(
       allowedDomains: web.allowedDomains,
       blockedDomains: web.blockedDomains,
     },
+    extraTools: options.extraTools,
   });
 
   const textPieces: string[] = [];
@@ -225,6 +236,9 @@ export async function completeWithTools(
       const toolCallbacks: ToolCallbacks = {};
       if (callbacks?.onDraft) {
         toolCallbacks.onDraft = callbacks.onDraft;
+      }
+      if (callbacks?.askUser) {
+        toolCallbacks.askUser = callbacks.askUser;
       }
       const { content, isError } = await executeNotebaseTool(
         toolContext,

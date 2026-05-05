@@ -40,6 +40,25 @@ export function formatToolCall(name: string, input: unknown): string {
     }
     case 'describe_graph_schema':
       return '🧠 Inspecting graph schema';
+    case 'ask_user': {
+      const q = pickString(i, 'question');
+      return q ? `❓ Asking: **${truncate(q, MAX_SNIPPET)}**` : '❓ Asking the user a question';
+    }
+    case 'code_execution': {
+      // The Anthropic SDK's web_search_20260209 / web_fetch_20260209 tools
+      // surface as `code_execution` blocks whose `code` field contains an
+      // `await web_search({"query": "..."})` or `await web_fetch({"url":
+      // "..."})` invocation. Reach in for the relevant arg so the indicator
+      // reads like the dedicated web_search / web_fetch cases above.
+      const code = pickString(i, 'code');
+      if (!code) return '⚙️ Running code';
+      const ws = code.match(/web_search\s*\(\s*\{[^}]*['"]query['"]\s*:\s*['"]([^'"]+)['"]/);
+      if (ws) return `🔍 Searching the web for **${truncate(ws[1], MAX_SNIPPET)}**`;
+      const wf = code.match(/web_fetch\s*\(\s*\{[^}]*['"]url['"]\s*:\s*['"]([^'"]+)['"]/);
+      if (wf) return `🌐 Fetching **${truncate(wf[1], MAX_SNIPPET)}**`;
+      const head = firstNonEmptyLine(code);
+      return `⚙️ Running code: \`${truncate(head, MAX_SNIPPET)}\``;
+    }
     case 'propose_notes': {
       const notes = i.notes;
       const count = Array.isArray(notes) ? notes.length : null;

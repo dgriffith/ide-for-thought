@@ -85,6 +85,7 @@
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
     onDecompose?: () => void;
+    onCrystallize?: () => void;
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
@@ -137,6 +138,7 @@
     onAutoLink,
     onAutoLinkInbound,
     onDecompose,
+    onCrystallize,
     onFormatCurrentNote,
     getNotePaths,
     getSources,
@@ -1037,7 +1039,7 @@
       </div>
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor &#x25B8;</span>
         <div class="submenu">
@@ -1065,7 +1067,7 @@
           {#if onSplitByHeading}
             <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
           {/if}
-          {#if onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose}
+          {#if onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
             {#if onExtractSelection || onSplitHere || onSplitByHeading}
               <div class="separator"></div>
             {/if}
@@ -1080,6 +1082,9 @@
             {/if}
             {#if onDecompose}
               <button onclick={() => handleMenuAction(() => onDecompose?.())}>Decompose Note&hellip;</button>
+            {/if}
+            {#if onCrystallize}
+              <button onclick={() => handleMenuAction(() => onCrystallize?.())}>Crystallize as Components&hellip;</button>
             {/if}
           {/if}
           {#if onFormatCurrentNote}
