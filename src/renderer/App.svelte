@@ -745,18 +745,12 @@
    * latest content rather than a stale on-disk copy.
    */
   function handleMerge(sourceRelPath: string) {
-    console.log('[merge] handleMerge invoked for', sourceRelPath);
-    if (!notebase.meta) {
-      console.warn('[merge] no notebase.meta — bailing');
-      return;
-    }
+    if (!notebase.meta) return;
     editor.flushAutoSave();
     mergePickerSource = sourceRelPath;
-    console.log('[merge] mergePickerSource set; dialog should mount');
   }
 
   async function performMerge(sourceRelPath: string, targetRelPath: string) {
-    console.log('[merge] performMerge', sourceRelPath, '→', targetRelPath);
     if (sourceRelPath === targetRelPath) return;
     const sourceName = sourceRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? sourceRelPath;
     const targetName = targetRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? targetRelPath;
