@@ -333,11 +333,11 @@ export interface ConversationsApi {
     userMessage: string,
     systemPrompt?: string,
     currentNotePath?: string,
-    extraTools?: import('../../../shared/conversation-templates').ConversationToolKey[],
+    extraTools?: import('../../../shared/conversation-tools').ConversationToolKey[],
   ): Promise<Conversation>;
   loadUIState(): Promise<import('../../../shared/types').ConversationsUIState>;
   saveUIState(state: import('../../../shared/types').ConversationsUIState): Promise<void>;
-  onAskUser(cb: (req: import('../../../shared/conversation-templates').AskUserRequest) => void): void;
+  onAskUser(cb: (req: import('../../../shared/conversation-tools').AskUserRequest) => void): void;
   askUserReply(questionId: string, answer: string): Promise<void>;
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;

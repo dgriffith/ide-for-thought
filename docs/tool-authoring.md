@@ -6,10 +6,11 @@ tool uses — surfaced in the right category, rendered in the editor right-click
 menu when context allows, registered for slash-command dispatch, and (when it
 mutates the graph) routed through the trust gate.
 
-The current home for tools-with-arguments is **ThinkingTool**. The smaller
-**ConversationTemplate** registry exists only for menu-driven prompt templates
-that don't need a parameter form (decompose, crystallize). When in doubt, use
-ThinkingTool — the decision tree is at the bottom of this doc.
+**ThinkingTool** is the only tool-authoring path. (Pre-#515 there was a
+parallel `ConversationTemplate` registry for the editor right-click menu;
+decompose and crystallize have since been re-implemented as ThinkingTools,
+so that registry was removed. The right-click menu now routes through the
+same `prepareConversation` flow the ToolPanel uses.)
 
 ## Quickstart
 
@@ -146,9 +147,13 @@ types: `text`, `textarea`, `select`, `number`. Richer types
 (note-picker, multi-select, tag-picker) are tracked in #516.
 
 Parameters cover the **upfront known-decision** case. For
-**mid-conversation ambiguity**, see `ask_user` in the
-`ConversationTemplate` system (#500) — currently scoped per-template;
-ThinkingTool support is tracked in #514.
+**mid-conversation ambiguity**, declare `requiresTools: ['ask_user']`
+on the tool def. The agent gets an `ask_user` tool that pops an inline
+question card in the conversation surface; the user's reply becomes the
+tool result and the agent continues. Use it sparingly — `parameters`
+should handle most decisions because the form lives in the ToolPanel
+where the user already is. `ask_user` is for ambiguity that only
+becomes visible after the agent reads the source.
 
 ## Output modes
 
@@ -244,20 +249,20 @@ content. Examples:
 This pattern keeps the user-visible artifact (the note) in sync with
 the graph projection (the triples). No bespoke graph-triples payloads.
 
-## ConversationTemplate vs ThinkingTool
+## Where tools surface
 
-Use **ThinkingTool** by default. It supports parameters, categories,
-the ToolPanel, slash-command dispatch, all output modes, and is the
-only path that scales to the 50+ tools we're aiming at.
+Every ThinkingTool with `outputMode: 'openConversation'` shows up in
+the **ToolPanel** under its category, plus the **editor right-click
+menu** when its `context: [...]` requirements are satisfiable from
+the active editor (e.g. tools listing `selectedText` only appear
+when there's a selection). The ToolPanel renders the parameters form
+inline; the right-click menu invokes with the editor's gathered
+context and uses parameter defaults.
 
-Reach for **ConversationTemplate** only when the tool is invoked from
-a **non-ToolPanel surface** (today: the editor right-click menu) AND
-needs no parameter form. The two existing templates (decompose,
-crystallize) match this shape.
-
-The migration ticket #515 may collapse ConversationTemplate into
-ThinkingTool entirely — at which point this doc updates and the
-question goes away.
+A handful of tools also wire into the menu bar via
+`MENU_REFACTOR_DECOMPOSE`-style channels — check `src/main/menu.ts`
+if you want yours to appear there too. Most don't need a menu-bar
+entry; the ToolPanel + right-click is enough.
 
 ## Common pitfalls
 

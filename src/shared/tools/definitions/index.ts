@@ -9,6 +9,8 @@ import './research/load-bearing-claim';
 import './research/find-supporting-arguments';
 import './research/find-opposing-arguments';
 import './research/decompose-into-claims';
+import './research/decompose';
+import './research/crystallize';
 
 // Learning tools
 import './learning/summarize';

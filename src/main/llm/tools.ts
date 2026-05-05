@@ -11,7 +11,7 @@ import type {
   DraftPayload,
   ProposeNotesInput,
 } from '../../shared/conversation-drafts';
-import type { ConversationToolKey } from '../../shared/conversation-templates';
+import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { fixupBundleLinks } from '../../shared/refactor/bundle-link-fixup';
 
 export interface ToolContext {

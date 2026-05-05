@@ -119,7 +119,7 @@ export interface ThinkingToolDef {
    * decision the `parameters` form couldn't have collected upfront.
    * Mirrors the same field on `ConversationTemplate` (#514).
    */
-  requiresTools?: import('../conversation-templates').ConversationToolKey[];
+  requiresTools?: import('../conversation-tools').ConversationToolKey[];
 }
 
 /** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
@@ -162,7 +162,7 @@ export interface ConversationToolPayload {
   /** Whether the tool wants web access on. Actual effect also depends on global `LLMSettings.web.enabled`. */
   webEnabled: boolean;
   /** Template-scoped tools to enable on the resulting conversation, mirroring the tool's `requiresTools` declaration (#514). */
-  requiresTools?: import('../conversation-templates').ConversationToolKey[];
+  requiresTools?: import('../conversation-tools').ConversationToolKey[];
 }
 
 export interface WebSettings {

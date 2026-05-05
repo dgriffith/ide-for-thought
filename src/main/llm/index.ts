@@ -9,7 +9,7 @@ import {
 import type { Citation } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
-import type { ConversationToolKey } from '../../shared/conversation-templates';
+import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { formatToolCall } from './format-tool-call';
 
 export interface StreamCallbacks {
