@@ -13,7 +13,20 @@ export type ContextRequirement =
    * `claimUri` is left undefined and the tool's `buildSystemPrompt`
    * is responsible for either erroring or producing a helpful message.
    */
-  | 'claimUnderCursor';
+  | 'claimUnderCursor'
+  /**
+   * Populates `selectionStartOffset` / `selectionEndOffset` (character
+   * offsets in the active note) and `selectionStartLine` /
+   * `selectionEndLine` (1-based, inclusive). Used by tools that
+   * propose edits anchored at the original passage (#509). Independent
+   * of `selectedText` — list both when you need verbatim text plus
+   * coordinates. When the editor has no selection (cursor only), the
+   * fields stay undefined; the tool decides whether to fall back or
+   * error. Coordinates are valid against the note's content at gather
+   * time; intervening edits between gather and apply may invalidate
+   * them, and tools that round-trip should verify.
+   */
+  | 'selectionRange';
 
 export type OutputMode =
   | 'newNote'
@@ -50,6 +63,20 @@ export interface ToolContext {
   /** thought:sourceText of the claim — the verbatim passage the
    *  claim was extracted from. May be empty. */
   claimSourceText?: string;
+  /**
+   * Populated by `selectionRange`. Character offset (0-based) of the
+   * selection's start in the active note's content. Undefined when
+   * no selection exists (cursor only) or when the requirement was not
+   * listed. Pair with `selectionEndOffset` for an inclusive-start /
+   * exclusive-end range, matching CodeMirror's `state.selection.main`.
+   */
+  selectionStartOffset?: number;
+  /** Character offset (0-based, exclusive) of the selection's end. */
+  selectionEndOffset?: number;
+  /** 1-based line number of the selection's start. */
+  selectionStartLine?: number;
+  /** 1-based line number of the selection's end (inclusive). */
+  selectionEndLine?: number;
   parameterValues?: Record<string, string>;
 }
 
