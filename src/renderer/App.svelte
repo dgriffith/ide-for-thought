@@ -218,6 +218,9 @@
   let pendingSearchQuery = $state<string | null>(null);
   let showGotoLine = $state(false);
   let showGotoNote = $state(false);
+  /** When non-null, the merge-target picker is shown. Holds the source
+   *  note path; the picker filters the source out of its candidates. */
+  let mergePickerSource = $state<string | null>(null);
   let showEditSavedQueries = $state(false);
   /** When non-null, the SaveQueryDialog is open with this initial state. */
   let saveQueryRequest = $state<{
@@ -733,6 +736,52 @@
       key,
       'OK',
     );
+  }
+
+  /**
+   * Merge note (#464). Two-step: open a target picker (a filtered
+   * GotoNoteDialog), then run `performMerge` against the chosen target.
+   * Flushes any unsaved buffer for the source so the merge sees the
+   * latest content rather than a stale on-disk copy.
+   */
+  function handleMerge(sourceRelPath: string) {
+    if (!notebase.meta) return;
+    editor.flushAutoSave();
+    mergePickerSource = sourceRelPath;
+  }
+
+  async function performMerge(sourceRelPath: string, targetRelPath: string) {
+    if (sourceRelPath === targetRelPath) return;
+    const sourceName = sourceRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? sourceRelPath;
+    const targetName = targetRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? targetRelPath;
+    try {
+      const preview = await withBusy('Counting incoming links…', () =>
+        api.notebase.mergePreview(sourceRelPath, targetRelPath),
+      );
+      const linkLine = preview.linkOccurrences > 0
+        ? `${preview.linkOccurrences} link${preview.linkOccurrences === 1 ? '' : 's'} across ${preview.affectedFiles} file${preview.affectedFiles === 1 ? '' : 's'} will be updated.`
+        : 'No incoming links — only the source content will move.';
+      const ok = await showConfirm(
+        `Merge "${sourceName}" into "${targetName}"?\n\n${linkLine}\n\nThe source note's content is appended to the target; its frontmatter is dropped; the source note is then deleted.`,
+        CONFIRM_KEYS.mergeNote,
+        'Merge',
+      );
+      if (!ok) return;
+      const result = await withBusy('Merging…', () =>
+        api.notebase.merge(sourceRelPath, targetRelPath),
+      );
+      // Open the target and scroll to the merge point. The
+      // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts handle tab
+      // cleanup for the source and any open referrers.
+      await editor.openFile(result.targetPath);
+      requestAnimationFrame(() => {
+        editorComponent?.gotoLineColumn(result.mergeLine, 1);
+      });
+      await notebase.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Merge failed: ${msg}`, CONFIRM_KEYS.mergeFailed, 'OK');
+    }
   }
 
   async function handleRename(relativePath: string) {
@@ -2073,6 +2122,7 @@
                     onRename={() => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); }}
                     onMove={() => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); }}
                     onCopyFile={() => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); }}
+                    onMerge={() => { if (editor.activeFilePath) handleMerge(editor.activeFilePath); }}
                     onAutoTag={() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); }}
                     onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
@@ -2195,6 +2245,16 @@
       files={notebase.files}
       onSelect={(path) => { showGotoNote = false; void handleFileSelect(path); }}
       onCancel={() => { showGotoNote = false; }}
+    />
+  {/if}
+  {#if mergePickerSource}
+    {@const source = mergePickerSource}
+    <GotoNoteDialog
+      files={notebase.files}
+      placeholder="Merge into note..."
+      excludePath={source}
+      onSelect={(path) => { mergePickerSource = null; void performMerge(source, path); }}
+      onCancel={() => { mergePickerSource = null; }}
     />
   {/if}
   {#if showGotoLine}

@@ -27,6 +27,18 @@ export interface NotebaseApi {
   createFolder(relativePath: string): Promise<void>;
   deleteFolder(relativePath: string): Promise<void>;
   rename(oldRelPath: string, newRelPath: string): Promise<void>;
+  mergePreview(sourceRelPath: string, targetRelPath: string): Promise<{
+    linkOccurrences: number;
+    affectedFiles: number;
+  }>;
+  merge(sourceRelPath: string, targetRelPath: string, separator?: string): Promise<{
+    targetPath: string;
+    mergeOffset: number;
+    mergeLine: number;
+    rewrittenLinks: number;
+    rewrittenPaths: string[];
+    deletedSource: string;
+  }>;
   copy(srcRelPath: string, destRelPath: string): Promise<void>;
   searchInNotes(opts: SearchInNotesOptions): Promise<SearchInNotesFileResult[]>;
   replaceInNotes(opts: ReplaceInNotesOptions): Promise<ReplaceInNotesResult>;
