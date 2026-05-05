@@ -2,6 +2,7 @@ import { ipcMain, shell, dialog, BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
 import { isIndexable } from './notebase/indexable-files';
@@ -26,7 +27,6 @@ import {
   suggestLinksInbound,
   applyInboundSuggestions,
 } from './llm/auto-link';
-import { suggestDecomposition, type DecomposeHints } from './llm/decompose';
 import {
   formatNoteContent,
   formatFile as formatFileOnDisk,
@@ -88,14 +88,12 @@ import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
 import * as healthChecks from './graph/health-checks';
-import { getToolBySlashCommand } from '../shared/tools/registry';
 import '../shared/tools/definitions/index';
 import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';
 import * as approval from './llm/approval';
 import * as conversation from './llm/conversation';
-import { crystallize } from './llm/crystallize';
 import type { ContextBundle, ConversationMessage } from '../shared/types';
 
 function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
@@ -136,10 +134,20 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
 function buildConversationSystemPrompt(
   userSystem: string | undefined,
   contextBundle: ContextBundle,
+  currentNotePath?: string,
 ): string {
   const parts = [DEFAULT_CONVERSATION_SYSTEM_PROMPT];
   if (contextBundle.notePath) {
     parts.push('', `The user started this conversation from the note: ${contextBundle.notePath}`);
+  }
+  if (currentNotePath && currentNotePath !== contextBundle.notePath) {
+    // Live context — the note the user is currently looking at, which may
+    // differ from the conversation's origin. Resolves "this note" / "the
+    // current note" in the user's prompts against what they're actually
+    // viewing.
+    parts.push('', `The note currently open in the editor is: ${currentNotePath}`);
+  } else if (currentNotePath && currentNotePath === contextBundle.notePath) {
+    parts.push('', 'The user is still viewing the origin note.');
   }
   if (userSystem && userSystem.trim()) {
     parts.push('', userSystem.trim());
@@ -1046,15 +1054,6 @@ export function registerIpcHandlers(): void {
     return suggestLinksInbound(rootPath, activeRelPath);
   });
 
-  ipcMain.handle(
-    Channels.REFACTOR_DECOMPOSE_SUGGEST,
-    async (e, activeRelPath: string, hints?: DecomposeHints) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
-      return suggestDecomposition(rootPath, activeRelPath, hints ?? {});
-    },
-  );
-
   // Formatter (issue #153)
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_CONTENT,
@@ -1468,20 +1467,47 @@ export function registerIpcHandlers(): void {
     conversation.create(contextBundle, triggerNodeUri, options));
   ipcMain.handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
     conversation.appendMessage(id, role, content));
-  ipcMain.handle(Channels.CONVERSATION_RESOLVE, (_e, id: string) => conversation.resolve(id));
-  ipcMain.handle(Channels.CONVERSATION_ABANDON, (_e, id: string) => conversation.abandon(id));
+  ipcMain.handle(Channels.CONVERSATION_ARCHIVE, (_e, id: string) => conversation.archive(id));
   ipcMain.handle(Channels.CONVERSATION_LOAD, (_e, id: string) => conversation.load(id));
   ipcMain.handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
   ipcMain.handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
+  ipcMain.handle(Channels.CONVERSATION_UI_STATE_LOAD, () => conversation.loadUIState());
+  ipcMain.handle(
+    Channels.CONVERSATION_UI_STATE_SAVE,
+    (_e, state: import('../shared/types').ConversationsUIState) => conversation.saveUIState(state),
+  );
 
   // Conversation send + LLM streaming
   const convAbortControllers = new Map<number, AbortController>();
+  // Pending ask_user prompts keyed by question id. The CONVERSATION_SEND
+  // handler creates an entry when the agent calls ask_user, and the
+  // CONVERSATION_ASK_USER_REPLY handler resolves (or rejects) it. Aborting
+  // the send rejects every pending question for that window so the agent
+  // loop unwinds cleanly instead of hanging on an answered-never promise.
+  const pendingAskUser = new Map<string, { winId: number; resolve: (answer: string) => void; reject: (err: Error) => void }>();
 
-  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string) => {
+  ipcMain.handle(Channels.CONVERSATION_ASK_USER_REPLY, (_e, questionId: string, answer: string) => {
+    const pending = pendingAskUser.get(questionId);
+    if (!pending) return;
+    pendingAskUser.delete(questionId);
+    pending.resolve(answer);
+  });
+
+  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../shared/conversation-templates').ConversationToolKey[]) => {
     const win = winFromEvent(e);
     const rootPath = rootPathFromEvent(e);
     const controller = new AbortController();
     convAbortControllers.set(win.id, controller);
+    // When this send is aborted, fail any in-flight ask_user prompts so
+    // the agent's tool-call loop unwinds.
+    controller.signal.addEventListener('abort', () => {
+      for (const [qid, pending] of pendingAskUser) {
+        if (pending.winId === win.id) {
+          pendingAskUser.delete(qid);
+          pending.reject(new Error('aborted'));
+        }
+      }
+    });
 
     // Unconditional log so we can prove the current build is loaded —
     // if the user reports "no log messages" again, this is missing too.
@@ -1499,6 +1525,7 @@ export function registerIpcHandlers(): void {
       const effectiveSystem = buildConversationSystemPrompt(
         systemPrompt ?? conv.systemPrompt,
         conv.contextBundle,
+        currentNotePath,
       );
 
       if (!rootPath) {
@@ -1510,6 +1537,7 @@ export function registerIpcHandlers(): void {
         messages,
         toolContext: { rootPath, conversationId: convId },
         model: conv.model,
+        extraTools,
         callbacks: {
           onChunk: (chunk: string) => {
             if (!win.isDestroyed()) {
@@ -1520,6 +1548,23 @@ export function registerIpcHandlers(): void {
             if (!win.isDestroyed()) {
               win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
             }
+          },
+          askUser: ({ question, choices }) => {
+            const questionId = randomUUID();
+            return new Promise<string>((resolve, reject) => {
+              pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
+              if (!win.isDestroyed()) {
+                win.webContents.send(Channels.CONVERSATION_ASK_USER, {
+                  questionId,
+                  conversationId: convId,
+                  question,
+                  choices,
+                });
+              } else {
+                pendingAskUser.delete(questionId);
+                reject(new Error('window destroyed'));
+              }
+            });
           },
           signal: controller.signal,
         },
@@ -1545,19 +1590,6 @@ export function registerIpcHandlers(): void {
       controller.abort();
       convAbortControllers.delete(win.id);
     }
-  });
-
-  ipcMain.handle(Channels.CONVERSATION_CRYSTALLIZE, async (e, text: string, conversationId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
-    // Unconditional log — surfaces the "user clicked File Selection as
-    // Components" path, which produces graph-triples (NOT notes).
-    // Helps distinguish "model called propose_notes" from "user
-    // crystallized."
-    console.log(`[conv] CRYSTALLIZE: conv=${conversationId} textLen=${text.length}`);
-    const convUri = `https://minerva.dev/ontology/thought#conversation/${conversationId}`;
-    const conv = await conversation.load(conversationId);
-    return crystallize(projectContext(rootPath), text, convUri, 'llm:crystallization', conv?.model);
   });
 
   // The user clicked Approve on a propose_notes draft card. We file the
@@ -1600,49 +1632,6 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
     return conversation.setModel(convId, model);
-  });
-
-  // Slash commands in conversations
-  ipcMain.handle(Channels.CONVERSATION_SLASH_COMMAND, async (e, convId: string, slashCmd: string, argText: string) => {
-    const win = winFromEvent(e);
-    const tool = getToolBySlashCommand(slashCmd);
-    if (!tool) throw new Error(`Unknown slash command: ${slashCmd}`);
-
-    const conv = await conversation.load(convId);
-    if (!conv) throw new Error(`Conversation not found: ${convId}`);
-
-    const ctx = {
-      selectedText: argText || undefined,
-      fullNoteContent: conv.contextBundle.noteContent,
-      fullNotePath: conv.contextBundle.notePath,
-      fullNoteTitle: conv.contextBundle.triggerNode?.label,
-    };
-
-    const prompt = tool.buildPrompt(ctx);
-    await conversation.appendMessage(convId, 'user', `${slashCmd}${argText ? ' ' + argText : ''}`);
-
-    const controller = new AbortController();
-    convAbortControllers.set(win.id, controller);
-
-    try {
-      const { complete: llmComplete } = await import('./llm/index');
-      const output = await llmComplete(prompt, {
-        model: conv.model,
-        callbacks: {
-          onChunk: (chunk: string) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
-            }
-          },
-          signal: controller.signal,
-        },
-      });
-
-      await conversation.appendMessage(convId, 'assistant', output);
-      return await conversation.load(convId);
-    } finally {
-      convAbortControllers.delete(win.id);
-    }
   });
 
   ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());

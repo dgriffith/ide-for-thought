@@ -779,13 +779,9 @@ thought:active a thought:ConversationStatus ;
     rdfs:label "Active" ;
     rdfs:comment "Conversation is in progress." .
 
-thought:resolved a thought:ConversationStatus ;
-    rdfs:label "Resolved" ;
-    rdfs:comment "Conversation completed with results filed to the graph." .
-
-thought:abandonedConversation a thought:ConversationStatus ;
-    rdfs:label "Abandoned" ;
-    rdfs:comment "Conversation closed without filing results." .
+thought:archived a thought:ConversationStatus ;
+    rdfs:label "Archived" ;
+    rdfs:comment "Conversation closed; transcript filed as a thought:Source for provenance." .
 
 # ── Conversation Properties ───────────────────────────────────────────────
 
@@ -802,10 +798,10 @@ thought:startedAt a owl:DatatypeProperty ;
     rdfs:domain thought:Conversation ;
     rdfs:range xsd:dateTime .
 
-thought:resolvedAt a owl:DatatypeProperty ;
+thought:archivedAt a owl:DatatypeProperty ;
     rdfs:subPropertyOf prov:endedAtTime ;
-    rdfs:label "resolved at" ;
-    rdfs:comment "Timestamp when the conversation was resolved." ;
+    rdfs:label "archived at" ;
+    rdfs:comment "Timestamp when the conversation was archived." ;
     rdfs:domain thought:Conversation ;
     rdfs:range xsd:dateTime .
 

@@ -11,6 +11,7 @@ import type {
   DraftPayload,
   ProposeNotesInput,
 } from '../../shared/conversation-drafts';
+import type { ConversationToolKey } from '../../shared/conversation-templates';
 import { fixupBundleLinks } from '../../shared/refactor/bundle-link-fixup';
 
 export interface ToolContext {
@@ -25,12 +26,14 @@ export interface ToolContext {
 }
 
 /**
- * Side-channel callbacks the tool runner can invoke. `onDraft` is the only
- * one today and is wired by the conversation IPC handler to forward drafts
- * to the renderer via `Channels.CONVERSATION_DRAFT`.
+ * Side-channel callbacks the tool runner can invoke. Wired by the
+ * conversation IPC handler — `onDraft` forwards `propose_notes` payloads
+ * to the renderer; `askUser` round-trips a question through an inline
+ * UI prompt and resolves with the user's reply.
  */
 export interface ToolCallbacks {
   onDraft?: (draft: ConversationDraft) => void;
+  askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
 }
 
 export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
@@ -183,6 +186,49 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
 ];
 
 /**
+ * Template-scoped tools. NOT in the default toolset; templates opt in via
+ * `requiresTools: ['ask_user']` on their ConversationTemplate definition.
+ * Keeps "ask the user" from becoming a crutch in freeform conversations
+ * where there is no UI affordance to render the question.
+ */
+const ASK_USER_TOOL: Anthropic.Tool = {
+  name: 'ask_user',
+  description:
+    'Ask the user a question and wait for their reply. Use this ONLY when ' +
+    'you need a decision you cannot reasonably resolve via the other tools ' +
+    '(search, read, query) AND that materially changes what you produce. ' +
+    'Examples: "should I split by section or by topic?", "which of these two ' +
+    'interpretations should I run with?". Do NOT use this for confirmation, ' +
+    'politeness, or to summarize what you are about to do — only for ' +
+    'genuinely missing decisions. The user sees an inline prompt; their ' +
+    'reply (free text or one of the choices) becomes the tool result.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      question: {
+        type: 'string',
+        description:
+          'A short, specific question. One sentence when possible. ' +
+          'Provide only the question — no preamble, no explanation.',
+      },
+      choices: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional list of suggested answers, rendered as clickable chips. ' +
+          'The user may still answer freely. Omit when the question is genuinely open.',
+        maxItems: 8,
+      },
+    },
+    required: ['question'],
+  },
+};
+
+const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, Anthropic.Tool> = {
+  ask_user: ASK_USER_TOOL,
+};
+
+/**
  * Server-side tools run on Anthropic's infrastructure — we just declare them
  * in the request and the API executes queries/fetches and returns structured
  * citations. Version _20260209 bundles dynamic filtering (Claude filters
@@ -223,6 +269,8 @@ export interface ConversationToolOptions {
     allowedDomains?: string[];
     blockedDomains?: string[];
   };
+  /** Template-scoped tools to add on top of the default set. */
+  extraTools?: ConversationToolKey[];
 }
 
 export function buildConversationTools(
@@ -234,6 +282,15 @@ export function buildConversationTools(
       allowedDomains: opts.web.allowedDomains,
       blockedDomains: opts.web.blockedDomains,
     }));
+  }
+  if (opts.extraTools) {
+    const seen = new Set<string>();
+    for (const key of opts.extraTools) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const t = TEMPLATE_TOOL_REGISTRY[key];
+      if (t) tools.push(t);
+    }
   }
   return tools;
 }
@@ -256,6 +313,8 @@ export async function executeNotebaseTool(
         return { content: runDescribeSchema(), isError: false };
       case 'propose_notes':
         return runProposeNotes(ctx, input, callbacks);
+      case 'ask_user':
+        return runAskUser(input, callbacks);
       default:
         return { content: `Unknown tool: ${name}`, isError: true };
     }
@@ -413,6 +472,35 @@ function parseProposeNotesInput(
     payloads.push({ kind: 'note', relativePath, content });
   }
   return { note, payloads };
+}
+
+async function runAskUser(
+  input: unknown,
+  callbacks: ToolCallbacks,
+): Promise<{ content: string; isError: boolean }> {
+  if (!callbacks.askUser) {
+    return {
+      content: 'ask_user is not available in this context — the conversation surface has no UI to render the question.',
+      isError: true,
+    };
+  }
+  if (!input || typeof input !== 'object') {
+    return { content: 'ask_user input must be an object.', isError: true };
+  }
+  const obj = input as Record<string, unknown>;
+  const question = typeof obj.question === 'string' ? obj.question.trim() : '';
+  if (!question) {
+    return { content: 'ask_user requires a non-empty `question` string.', isError: true };
+  }
+  let choices: string[] | undefined;
+  if (Array.isArray(obj.choices)) {
+    const filtered = obj.choices
+      .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+      .map((c) => c.trim());
+    if (filtered.length > 0) choices = filtered;
+  }
+  const answer = await callbacks.askUser({ question, choices });
+  return { content: answer, isError: false };
 }
 
 function runDescribeSchema(): string {

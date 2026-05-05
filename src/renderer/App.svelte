@@ -30,16 +30,13 @@
   import OcrProgressDialog from './lib/components/OcrProgressDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
-  import ConversationDialog from './lib/components/ConversationDialog.svelte';
+  import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
   import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
   import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
-  import DecomposeDialog from './lib/components/DecomposeDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import CsvTable from './lib/components/CsvTable.svelte';
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
-  import type { DecomposeProposal } from '../shared/refactor/decompose';
-  import { planDecompose } from './lib/refactor/decompose-plan';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
@@ -47,7 +44,7 @@
   import { slugify } from '../shared/slug';
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
-  import { getConversationStore } from './lib/stores/conversation.svelte';
+  import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
@@ -64,7 +61,6 @@
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos } from './lib/tools/tool-registry';
-  import type { ContextBundle } from '../shared/types';
   import type { ToolContext } from '../shared/tools/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
@@ -73,11 +69,8 @@
   const editor = getEditorStore();
   const nav = getNavigationStore();
   const toolPanel = getToolPanelStore();
-  const convStore = getConversationStore();
+  const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
-  let showConversation = $state(false);
-  /** When set, the next ConversationDialog mount auto-fires this message. Cleared after each open. */
-  let pendingAutoMessage = $state<string | undefined>(undefined);
   let showSettings = $state(false);
 
   /** Pending Auto-link suggestions to review. Non-null means the AutoLinkDialog is shown. */
@@ -97,11 +90,6 @@
     suggestions: AutoLinkInboundSuggestion[];
   } | null>(null);
 
-  /** Active Decompose Note preview. Non-null = dialog is shown. */
-  let decomposeReview = $state<{
-    relativePath: string;
-    proposal: DecomposeProposal;
-  } | null>(null);
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
   /** Frontmatter alias → relativePath snapshot (#469). Refreshed on
@@ -151,6 +139,9 @@
     void editor.activeFilePath;
     void refreshBacklinkCount();
   });
+
+  // ConversationsPanel handles its own per-project init via onMount,
+  // remounting on project change via the {#key} block at the mount site.
   let viewMode = $state<ViewMode>('source');
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
@@ -1442,83 +1433,25 @@
 
   async function handleDecompose(relativePath: string) {
     if (!notebase.meta) return;
-    try {
-      const { proposal, error } = await withBusy('Proposing a decomposition\u2026', () =>
-        api.refactor.decomposeSuggest(relativePath),
-      );
-      if (!proposal) {
-        await showConfirm(
-          `The LLM returned an unusable decomposition${error ? ` (${error})` : ''}. Try again, or shorten the note first.`,
-          CONFIRM_KEYS.decomposeBadProposal,
-          'OK',
-        );
-        return;
-      }
-      decomposeReview = { relativePath, proposal };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Decompose failed: ${msg}`, CONFIRM_KEYS.decomposeFailed, 'OK');
-    }
-  }
-
-  async function handleDecomposeRegenerate() {
-    const review = decomposeReview;
-    if (!review) return;
-    try {
-      const { proposal, error } = await withBusy('Regenerating decomposition\u2026', () =>
-        api.refactor.decomposeSuggest(review.relativePath),
-      );
-      if (!proposal) {
-        await showConfirm(
-          `The LLM returned an unusable decomposition${error ? ` (${error})` : ''}. Keeping the previous proposal.`,
-          CONFIRM_KEYS.decomposeBadProposal,
-          'OK',
-        );
-        return;
-      }
-      decomposeReview = { relativePath: review.relativePath, proposal };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Decompose failed: ${msg}`, CONFIRM_KEYS.decomposeFailed, 'OK');
-    }
-  }
-
-  async function handleDecomposeApply(edited: DecomposeProposal, include: boolean[]) {
-    const review = decomposeReview;
-    if (!review) return;
-    const tab = editor.activeNoteTab;
-    if (!tab || tab.relativePath !== review.relativePath) {
-      decomposeReview = null;
-      return;
-    }
-
-    decomposeReview = null;
-    editor.flushAutoSave();
-
-    // Snapshot across the Svelte 5 reactive boundary before use — the edited
-    // proposal / include array came out of $state inside the dialog.
-    const plainProposal = $state.snapshot(edited);
-    const plainInclude = $state.snapshot(include);
-
-    const plan = planDecompose({
-      sourceRelativePath: tab.relativePath,
-      sourceContent: tab.content,
-      proposal: plainProposal,
-      include: plainInclude,
-      today: todayDateString(),
-      settings: getRefactorSettings(),
+    await conversationsStore.openWithTemplate('decompose', {
+      notePath: relativePath,
+      noteTitle: noteTitleFromPath(relativePath),
     });
-
-    if (plan.newNotes.length === 0) return;
-
-    for (const note of plan.newNotes) {
-      await api.notebase.writeFile(note.relativePath, note.content);
-    }
-    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
-    await editor.reloadTabFromDisk(tab.relativePath);
-    await notebase.refresh();
-    sidebar?.refreshTags();
   }
+
+  async function handleCrystallize(relativePath: string) {
+    if (!notebase.meta) return;
+    await conversationsStore.openWithTemplate('crystallize', {
+      notePath: relativePath,
+      noteTitle: noteTitleFromPath(relativePath),
+    });
+  }
+
+  function noteTitleFromPath(relativePath: string): string {
+    const last = relativePath.split('/').pop() ?? relativePath;
+    return last.replace(/\.(md|markdown)$/i, '');
+  }
+
 
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
@@ -1680,26 +1613,15 @@
     }
   }
 
-  async function openConversationWithMessage(_message: string) {
-    await openConversation();
-    // TODO: actually thread `_message` into the dialog input. The
-    // call site exists, the wiring through ConversationDialog
-    // doesn't yet.
+  async function openConversationWithMessage(message: string) {
+    await conversationsStore.openConversationTab({
+      notePath: editor.activeFilePath ?? undefined,
+      initialMessage: message,
+    });
   }
 
   async function openConversation() {
-    const bundle: ContextBundle = {
-      notePath: editor.activeFilePath ?? undefined,
-      noteContent: editor.content || undefined,
-      triggerNode: editor.activeFilePath ? {
-        uri: editor.activeFilePath,
-        type: 'minerva:Note',
-        label: editor.activeFileName || editor.activeFilePath,
-      } : undefined,
-    };
-    pendingAutoMessage = undefined;
-    await convStore.start(bundle);
-    showConversation = true;
+    await conversationsStore.openFreeform(editor.activeFilePath ?? undefined);
   }
 
   async function handleOpenConversationFromTool(invocation: { toolId: string; context: ToolContext }) {
@@ -1714,33 +1636,20 @@
       // explanation (e.g. find-arguments throws "right-click on a
       // claim line first" when no URI was extracted from the cursor).
       // Surface that message as a dialog rather than logging it
-      // silently to console — otherwise the user sees nothing happen
-      // when they pick a misconfigured tool.
+      // silently to console.
       const msg = err instanceof Error ? err.message : String(err);
       console.error('[tool] prepareConversation failed:', err);
       await showConfirm(msg, CONFIRM_KEYS.toolPrepareFailed, 'OK');
       return;
     }
 
-    const ctx = invocation.context;
-    const notePath = ctx.fullNotePath ?? editor.activeFilePath ?? undefined;
-    const bundle: ContextBundle = {
+    const notePath = invocation.context.fullNotePath ?? editor.activeFilePath ?? undefined;
+    await conversationsStore.openConversationTab({
       notePath,
-      noteContent: ctx.fullNoteContent ?? (editor.content || undefined),
-      triggerNode: notePath ? {
-        uri: notePath,
-        type: 'minerva:Note',
-        label: ctx.fullNoteTitle ?? editor.activeFileName ?? notePath,
-      } : undefined,
-    };
-
-    await convStore.start(bundle, undefined, {
       systemPrompt: prep.systemPrompt,
       ...(prep.model ? { model: prep.model } : {}),
+      ...(prep.firstMessage ? { initialMessage: prep.firstMessage } : {}),
     });
-
-    pendingAutoMessage = prep.firstMessage || undefined;
-    showConversation = true;
   }
 
   async function handleToolInvoke(toolId: string) {
@@ -1841,11 +1750,7 @@
     }
     if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
       e.preventDefault();
-      if (showConversation) {
-        showConversation = false;
-      } else {
-        void openConversation();
-      }
+      void openConversation();
     }
   }
 
@@ -1883,6 +1788,7 @@
     api.menu.onFontReset(() => { editorComponent?.resetFontSize(); editorFontSize = 14; });
     api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
     api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
+    api.menu.onToggleConversations(() => conversationsStore.toggle());
     api.menu.onTogglePreview(() => cycleViewMode());
     api.menu.onOpenProject(() => handleOpenThoughtbase());
     api.menu.onNewProject(() => handleNewThoughtbase());
@@ -2172,6 +2078,7 @@
                     onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
                     onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
+                    onCrystallize={() => { if (editor.activeFilePath) void handleCrystallize(editor.activeFilePath); }}
                     onFormatCurrentNote={() => handleFormat()}
                     onUploadError={(message) => {
                       // Image-upload rejection (#455). Surface via the
@@ -2229,13 +2136,6 @@
             onNoteCreated={() => { void notebase.refresh(); sidebar?.refreshTags(); }}
             onOpenConversation={handleOpenConversationFromTool}
           />
-          {#if showConversation}
-            <ConversationDialog
-              onClose={() => { showConversation = false; }}
-              onNavigate={handleNavigate}
-              initialAutoMessage={pendingAutoMessage}
-            />
-          {/if}
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
             bind:this={queryPanelComponent}
@@ -2245,13 +2145,6 @@
             onExecute={editor.executeQuery}
             onSave={handleSaveQuery}
           />
-          {#if showConversation}
-            <ConversationDialog
-              onClose={() => { showConversation = false; }}
-              onNavigate={handleNavigate}
-              initialAutoMessage={pendingAutoMessage}
-            />
-          {/if}
         {:else if editor.activeTab?.type === 'source'}
           {#key editor.activeTab.sourceId}
             <SourceDetail
@@ -2291,6 +2184,12 @@
       </div>
     {/if}
   </div>
+
+  {#if notebase.meta}
+    {#key notebase.meta.rootPath}
+      <ConversationsPanel currentNotePath={editor.activeFilePath ?? null} />
+    {/key}
+  {/if}
 
   {#if showGotoNote}
     <GotoNoteDialog
@@ -2410,14 +2309,6 @@
       activeStem={autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
       onApply={handleAutoLinkInboundApply}
       onCancel={() => { autoLinkInboundReview = null; }}
-    />
-  {/if}
-  {#if decomposeReview}
-    <DecomposeDialog
-      proposal={decomposeReview.proposal}
-      onApply={handleDecomposeApply}
-      onRegenerate={handleDecomposeRegenerate}
-      onCancel={() => { decomposeReview = null; }}
     />
   {/if}
   {#if busyLabel}

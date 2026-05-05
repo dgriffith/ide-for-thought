@@ -324,16 +324,23 @@ export interface BookmarksApi {
 export interface ConversationsApi {
   create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
-  resolve(id: string): Promise<Conversation>;
-  abandon(id: string): Promise<Conversation>;
+  archive(id: string): Promise<Conversation>;
   load(id: string): Promise<Conversation | null>;
   list(): Promise<Conversation[]>;
   listActive(): Promise<Conversation[]>;
-  send(convId: string, userMessage: string, systemPrompt?: string): Promise<Conversation>;
+  send(
+    convId: string,
+    userMessage: string,
+    systemPrompt?: string,
+    currentNotePath?: string,
+    extraTools?: import('../../../shared/conversation-templates').ConversationToolKey[],
+  ): Promise<Conversation>;
+  loadUIState(): Promise<import('../../../shared/types').ConversationsUIState>;
+  saveUIState(state: import('../../../shared/types').ConversationsUIState): Promise<void>;
+  onAskUser(cb: (req: import('../../../shared/conversation-templates').AskUserRequest) => void): void;
+  askUserReply(questionId: string, answer: string): Promise<void>;
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
-  crystallize(text: string, conversationId: string): Promise<{ turtle: string; componentCount: number }>;
-  slashCommand(convId: string, slashCmd: string, argText: string): Promise<Conversation>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
@@ -381,13 +388,6 @@ export interface RefactorApi {
     skipped: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
     touchedPaths: string[];
   }>;
-  decomposeSuggest(
-    relativePath: string,
-    hints?: { normalizeHeadings?: boolean; transcludeByDefault?: boolean },
-  ): Promise<{
-    proposal: import('../../../shared/refactor/decompose').DecomposeProposal | null;
-    error?: string;
-  }>;
 }
 
 export interface FormatterApi {
@@ -429,6 +429,7 @@ export interface MenuApi {
   onFontDecrease(cb: () => void): void;
   onFontReset(cb: () => void): void;
   onToggleRightSidebar(cb: () => void): void;
+  onToggleConversations(cb: () => void): void;
   onNavBack(cb: () => void): void;
   onNavForward(cb: () => void): void;
   onGotoLine(cb: () => void): void;

@@ -211,7 +211,20 @@ export interface PrivilegedSite {
   lastLoginAt: string | null;
 }
 
-export type ConversationStatus = 'active' | 'resolved' | 'abandoned';
+export type ConversationStatus = 'active' | 'archived';
+
+/**
+ * Tool-window UI state for the conversations panel. Persisted in
+ * `.minerva/conversations/_ui.json` so it survives relaunch but stays
+ * project-scoped (different projects can have different layouts).
+ */
+export interface ConversationsUIState {
+  visible: boolean;
+  /** Pixel height of the panel when visible. Clamped on render. */
+  height: number;
+  /** Last-active tab id; null when no tabs are open. */
+  activeTabId: string | null;
+}
 
 export interface Conversation {
   id: string;
@@ -220,7 +233,8 @@ export interface Conversation {
   messages: ConversationMessage[];
   status: ConversationStatus;
   startedAt: string;
-  resolvedAt?: string;
+  /** Set when status flips to 'archived'. */
+  archivedAt?: string;
   /**
    * Model used for LLM calls in this conversation. `undefined` means the
    * global default from LLMSettings — the conversation then tracks the

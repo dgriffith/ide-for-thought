@@ -2,7 +2,19 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
 import { projectContext, type ProjectContext } from '../project-context-types';
-import type { Conversation, ConversationMessage, ContextBundle, ConversationStatus } from '../../shared/types';
+import type {
+  Conversation,
+  ConversationMessage,
+  ContextBundle,
+  ConversationStatus,
+  ConversationsUIState,
+} from '../../shared/types';
+
+const DEFAULT_UI_STATE: ConversationsUIState = {
+  visible: false,
+  height: 320,
+  activeTabId: null,
+};
 
 const THOUGHT = 'https://minerva.dev/ontology/thought#';
 let conversationsDir: string | null = null;
@@ -27,13 +39,17 @@ export async function reindexAllConversations(): Promise<void> {
     files = await fs.readdir(conversationsDir);
   } catch { return; /* no conversations yet */ }
   for (const file of files) {
-    if (!file.endsWith('.json')) continue;
+    // Skip the `_ui.json` UI-state file (and any other underscore-prefixed
+    // sibling files we add later) so they don't get parsed as conversations
+    // — without this guard the JSON parses but lacks `contextBundle`, and
+    // writeConversationToGraph dereferences it.
+    if (!file.endsWith('.json') || file.startsWith('_')) continue;
     try {
       const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
-      const conv = JSON.parse(data) as Conversation;
+      const conv = migrateOnLoad(JSON.parse(data) as Conversation);
       writeConversationToGraph(conv);
       if (conv.status !== 'active') {
-        // Mirror the live status so resolve/abandon don't get dropped on reload.
+        // Mirror the live status so archive doesn't get dropped on reload.
         updateConversationInGraph(conv);
       }
     } catch (err) {
@@ -110,12 +126,24 @@ export async function appendMessage(
   return conv;
 }
 
-export async function resolve(id: string): Promise<Conversation> {
-  return setStatus(id, 'resolved');
-}
+/**
+ * Single terminal state. Closing a tab archives the conversation; the
+ * `thought:Source` filing is preserved (provenance is still useful even
+ * with one archive state). Idempotent — archiving an already-archived
+ * conversation no-ops past the load.
+ */
+export async function archive(id: string): Promise<Conversation> {
+  const conv = await load(id);
+  if (!conv) throw new Error(`Conversation not found: ${id}`);
+  if (conv.status === 'archived') return conv;
 
-export async function abandon(id: string): Promise<Conversation> {
-  return setStatus(id, 'abandoned');
+  conv.status = 'archived';
+  conv.archivedAt = new Date().toISOString();
+
+  await persist(conv);
+  updateConversationInGraph(conv);
+  await fileAsSource(conv);
+  return conv;
 }
 
 /**
@@ -134,22 +162,45 @@ export async function setModel(id: string, model: string | undefined): Promise<C
 export async function load(id: string): Promise<Conversation | null> {
   try {
     const data = await fs.readFile(convPath(id), 'utf-8');
-    return JSON.parse(data) as Conversation;
+    return migrateOnLoad(JSON.parse(data) as Conversation);
   } catch {
     return null;
   }
 }
 
+/**
+ * Normalize a persisted conversation document on load. Pre-#503 the status
+ * set was {active, resolved, abandoned} with `resolvedAt` capturing the
+ * resolve time. Both terminal states collapse to `archived`; we lift any
+ * `resolvedAt` into `archivedAt` so we don't lose the timestamp. In-memory
+ * only — we don't rewrite the JSON until the next `persist()` for that
+ * conversation, so this is safe to re-run.
+ */
+function migrateOnLoad(raw: Conversation & { resolvedAt?: string }): Conversation {
+  const status = raw.status as ConversationStatus | 'resolved' | 'abandoned';
+  if (status === 'resolved' || status === 'abandoned') {
+    raw.status = 'archived';
+    if (!raw.archivedAt && raw.resolvedAt) raw.archivedAt = raw.resolvedAt;
+    delete raw.resolvedAt;
+  }
+  return raw;
+}
+
 export async function listAll(): Promise<Conversation[]> {
-  const dir = ensureDir();
+  // Tolerate "no project open" — the renderer's conversations panel
+  // calls this on app mount before any project has been acquired, and
+  // the natural answer is "no conversations" rather than an error.
+  if (!conversationsDir) return [];
   try {
-    const files = await fs.readdir(dir);
+    const files = await fs.readdir(conversationsDir);
     const convs: Conversation[] = [];
     for (const file of files) {
-      if (!file.endsWith('.json')) continue;
+      // Skip the `_ui.json` UI-state file (and any other underscore-prefixed
+      // sibling files we add later) so they don't get parsed as conversations.
+      if (!file.endsWith('.json') || file.startsWith('_')) continue;
       try {
-        const data = await fs.readFile(path.join(dir, file), 'utf-8');
-        convs.push(JSON.parse(data) as Conversation);
+        const data = await fs.readFile(path.join(conversationsDir, file), 'utf-8');
+        convs.push(migrateOnLoad(JSON.parse(data) as Conversation));
       } catch { /* skip malformed */ }
     }
     convs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
@@ -164,27 +215,34 @@ export async function listActive(): Promise<Conversation[]> {
   return all.filter(c => c.status === 'active');
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Tool-window UI state ───────────────────────────────────────────────────
 
-async function setStatus(id: string, status: ConversationStatus): Promise<Conversation> {
-  const conv = await load(id);
-  if (!conv) throw new Error(`Conversation not found: ${id}`);
-
-  conv.status = status;
-  if (status === 'resolved') {
-    conv.resolvedAt = new Date().toISOString();
-  }
-
-  await persist(conv);
-  updateConversationInGraph(conv);
-
-  // On resolve, store as a thought:Source in the graph for provenance
-  if (status === 'resolved') {
-    await fileAsSource(conv);
-  }
-
-  return conv;
+function uiStatePath(): string {
+  return path.join(ensureDir(), '_ui.json');
 }
+
+export async function loadUIState(): Promise<ConversationsUIState> {
+  if (!conversationsDir) return { ...DEFAULT_UI_STATE };
+  try {
+    const raw = await fs.readFile(uiStatePath(), 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<ConversationsUIState>;
+    return {
+      visible: typeof parsed.visible === 'boolean' ? parsed.visible : DEFAULT_UI_STATE.visible,
+      height: typeof parsed.height === 'number' && parsed.height > 0 ? parsed.height : DEFAULT_UI_STATE.height,
+      activeTabId: typeof parsed.activeTabId === 'string' ? parsed.activeTabId : null,
+    };
+  } catch {
+    return { ...DEFAULT_UI_STATE };
+  }
+}
+
+export async function saveUIState(state: ConversationsUIState): Promise<void> {
+  const dir = ensureDir();
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(uiStatePath(), JSON.stringify(state, null, 2), 'utf-8');
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
 
 async function persist(conv: Conversation): Promise<void> {
   const dir = ensureDir();
@@ -208,6 +266,9 @@ function escapeTurtle(s: string): string {
 const CONVERSATION_PREDICATES = [
   'conversationStatus',
   'startedAt',
+  'archivedAt',
+  // Pre-#503 predicate; still listed so re-projecting an old graph
+  // scrubs the legacy timestamp before writing the new shape.
   'resolvedAt',
   'trigger',
   'contextNote',
@@ -251,17 +312,12 @@ function writeConversationToGraph(conv: Conversation): void {
 
 function updateConversationInGraph(conv: Conversation): void {
   const uri = convUri(conv.id);
-  const statusMap: Record<ConversationStatus, string> = {
-    active: 'active',
-    resolved: 'resolved',
-    abandoned: 'abandonedConversation',
-  };
   const turtle = `
     @prefix thought: <${THOUGHT}> .
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
-    <${uri}> thought:conversationStatus thought:${statusMap[conv.status]}
-      ${conv.resolvedAt ? `; thought:resolvedAt "${conv.resolvedAt}"^^xsd:dateTime` : ''} .
+    <${uri}> thought:conversationStatus thought:${conv.status}
+      ${conv.archivedAt ? `; thought:archivedAt "${conv.archivedAt}"^^xsd:dateTime` : ''} .
   `;
   graph.parseIntoStore(activeCtx(), turtle);
 }
