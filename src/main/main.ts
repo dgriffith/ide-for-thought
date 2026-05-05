@@ -13,15 +13,31 @@ import { shutdownAllKernels } from './compute/python-kernel';
 
 app.setName('Minerva');
 
+// Boot-trace: stderr-tagged so the e2e smoke test (#394) can recover them
+// from the captured main-process stream when launch hangs on CI (#518).
+// In normal runs these are a few lines and harmless; on a hang they tell
+// us which step never returned.
+function boot(label: string): void {
+  console.error(`[boot] ${label}`);
+}
+
+boot('main module loaded');
+
 void app.whenReady().then(() => {
+  boot('app ready');
   installCsp();
+  boot('csp installed');
   registerIpcHandlers();
+  boot('ipc handlers registered');
   registerBuiltinExecutors();
+  boot('executors registered');
   registerBuiltinExporters();
+  boot('exporters registered');
 
   const session = loadSession().filter((s) => {
     try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }
   });
+  boot(`session loaded (entries=${session.length})`);
 
   if (session.length > 0) {
     for (const state of session) {
@@ -39,6 +55,7 @@ void app.whenReady().then(() => {
     const win = createWindow();
     buildMenu(win);
   }
+  boot('window(s) created');
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

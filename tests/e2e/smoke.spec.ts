@@ -41,13 +41,51 @@ test('app launches, renderer mounts, no thrown errors', async () => {
   // catches main-process crashes mid-boot.
   const rendererErrors: Error[] = [];
   const consoleErrors: string[] = [];
+  // Buffer everything the main process writes to stderr/stdout so we have
+  // post-mortem evidence on CI when launch hangs (#518). Nothing useful
+  // gets surfaced by Playwright's own log on a launch timeout — it just
+  // says "Timeout 30000ms exceeded" — so we tap directly via stream events
+  // attached after launch. (Pre-launch output is rare; mostly Node debugger
+  // banners that we don't need.)
+  const mainStderr: string[] = [];
+  const mainStdout: string[] = [];
+
+  // GitHub's macos-latest runner is currently macOS Sequoia on Apple
+  // Silicon. Electron 35 there has a recurring hang signature with
+  // Playwright: Debugger attaches, then `firstWindow` never fires —
+  // GPU/sandbox initialisation deadlocks without user-level seatbelt
+  // privileges that interactive sessions normally grant. The standard
+  // workaround is to launch with the flags below (#518). Locally we
+  // skip them — they suppress GPU compositing, which is fine for a
+  // boot-and-assert smoke test but unnecessary on dev machines.
+  const ciArgs = process.env.CI
+    ? ['--disable-gpu', '--no-sandbox', '--disable-software-rasterizer']
+    : [];
 
   const app = await electron.launch({
     // `args: ['.']` boots Electron against the package.json `main`
     // entry — same as `electron .` in development.
-    args: [projectRoot],
+    args: [projectRoot, ...ciArgs],
     cwd: projectRoot,
-    timeout: 30_000,
+    // 60s — local boot is ~3s. The 30s default was tight enough on CI
+    // that a slow runner cold-start could legitimately exceed it (#518).
+    timeout: 60_000,
+    env: {
+      ...process.env,
+      // Tell Electron to log boot/IPC/render activity to stderr — only
+      // matters when something goes wrong (we read the buffer below);
+      // otherwise it just adds noise to a passing run.
+      ELECTRON_ENABLE_LOGGING: '1',
+    },
+  });
+
+  // Tap streams immediately after launch so we capture everything from
+  // the moment Electron starts producing output.
+  app.process().stderr?.on('data', (chunk: Buffer) => {
+    mainStderr.push(chunk.toString());
+  });
+  app.process().stdout?.on('data', (chunk: Buffer) => {
+    mainStdout.push(chunk.toString());
   });
 
   try {
@@ -69,8 +107,15 @@ test('app launches, renderer mounts, no thrown errors', async () => {
 
     // Give async effects another beat to surface late errors.
     await win.waitForTimeout(500);
+  } catch (err) {
+    // On hang/timeout, dump everything the main process said. The
+    // Playwright failure message alone ("electron.launch: Timeout") is
+    // useless for diagnosing a CI-only hang (#518).
+    if (mainStderr.length) console.error(`[smoke] main stderr:\n${mainStderr.join('')}`);
+    if (mainStdout.length) console.error(`[smoke] main stdout:\n${mainStdout.join('')}`);
+    throw err;
   } finally {
-    await app.close();
+    await app.close().catch(() => { /* already exited */ });
   }
 
   // CSP / preload warnings the project intentionally suppresses don't
