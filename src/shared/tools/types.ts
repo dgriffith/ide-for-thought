@@ -85,6 +85,14 @@ export interface ThinkingToolDef {
   web?: ToolWebHint;
   /** When true, the tool refuses to run without a non-empty `ctx.selectedText`. The editor right-click hides it, the menu-bar entry fails fast with a clear error. */
   requiresSelection?: boolean;
+  /**
+   * Template-scoped tools the agent should have access to in this
+   * conversation, on top of the default toolset. Today the only entry
+   * is `'ask_user'` — declare it when the prompt needs to collect a
+   * decision the `parameters` form couldn't have collected upfront.
+   * Mirrors the same field on `ConversationTemplate` (#514).
+   */
+  requiresTools?: import('../conversation-templates').ConversationToolKey[];
 }
 
 /** Serializable subset of ThinkingToolDef sent over IPC (no functions). */
@@ -126,6 +134,8 @@ export interface ConversationToolPayload {
   model?: string;
   /** Whether the tool wants web access on. Actual effect also depends on global `LLMSettings.web.enabled`. */
   webEnabled: boolean;
+  /** Template-scoped tools to enable on the resulting conversation, mirroring the tool's `requiresTools` declaration (#514). */
+  requiresTools?: import('../conversation-templates').ConversationToolKey[];
 }
 
 export interface WebSettings {

@@ -247,6 +247,10 @@ async function openConversationTab(opts: {
   systemPrompt?: string;
   model?: string;
   initialMessage?: string;
+  /** Template-scoped tools (e.g. `'ask_user'`) the agent should have in
+   *  scope for this conversation. Mirrors ConversationTemplate's
+   *  `requiresTools` and ThinkingTool's `requiresTools` (#514). */
+  extraTools?: ConversationToolKey[];
 }): Promise<TabRuntime> {
   ensureSubscriptions();
   const bundle: ContextBundle = opts.notePath ? { notePath: opts.notePath } : {};
@@ -267,7 +271,7 @@ async function openConversationTab(opts: {
     composer: '',
     streaming: false,
     streamedChunks: '',
-    extraTools: [],
+    extraTools: opts.extraTools ? [...opts.extraTools] : [],
   };
   tabs = [...tabs, tab];
   activeTabId = tab.id;

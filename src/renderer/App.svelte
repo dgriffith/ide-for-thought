@@ -1649,6 +1649,9 @@
       systemPrompt: prep.systemPrompt,
       ...(prep.model ? { model: prep.model } : {}),
       ...(prep.firstMessage ? { initialMessage: prep.firstMessage } : {}),
+      ...(prep.requiresTools && prep.requiresTools.length > 0
+        ? { extraTools: prep.requiresTools }
+        : {}),
     });
   }
 
