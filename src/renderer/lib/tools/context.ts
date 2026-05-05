@@ -18,6 +18,23 @@ export async function gatherContext(
     }
   }
 
+  if (requirements.includes('selectionRange') && editorView) {
+    const { from, to } = editorView.state.selection.main;
+    if (from !== to) {
+      // Match CodeMirror's selection semantics: from is inclusive, to is
+      // exclusive. Lines are 1-based to match how the editor surfaces
+      // them in the status bar / goto-line dialog.
+      ctx.selectionStartOffset = from;
+      ctx.selectionEndOffset = to;
+      ctx.selectionStartLine = editorView.state.doc.lineAt(from).number;
+      // `to` can land on a line break that belongs to the next line; pull
+      // the line at `to - 1` so a multi-line selection that ends at a
+      // newline reports the visually-last line rather than the empty line
+      // after it.
+      ctx.selectionEndLine = editorView.state.doc.lineAt(Math.max(from, to - 1)).number;
+    }
+  }
+
   if (requirements.includes('claimUnderCursor') && editorView) {
     // Mirror Editor.svelte's getClaimUriAtCursor: prefer the active
     // selection, fall back to the current line. Centralising the URI
