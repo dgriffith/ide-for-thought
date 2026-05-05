@@ -12,6 +12,13 @@ import './analysis/negspace';
 import './analysis/rhetoricize';
 import './analysis/rhyme';
 import './analysis/synthesize';
+import './analysis/referenceclass';
+import './analysis/doublecrux';
+import './analysis/goalfactor';
+import './analysis/aversionfactor';
+import './analysis/hamming';
+import './analysis/innerloop';
+import './analysis/noticing';
 
 // Research tools
 import './research/load-bearing-claim';
