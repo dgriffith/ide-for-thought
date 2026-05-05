@@ -30,6 +30,9 @@ export default tseslint.config(
       // config is low value anyway. Same for svelte.config.mjs.
       'eslint.config.mjs',
       'svelte.config.mjs',
+      // CLI scripts run by `pnpm new-tool` (#511). Plain Node ESM, not
+      // part of the TS project; lint via `node --check` if needed.
+      'scripts/**',
     ],
   },
   js.configs.recommended,

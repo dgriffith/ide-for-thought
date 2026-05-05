@@ -1,5 +1,6 @@
 import { registerTool } from '../../registry';
 import type { ToolContext } from '../../types';
+import SYSTEM_PROMPT from './quiz-me.prompt.md?raw';
 
 const DIFFICULTY_DIRECTIVES: Record<string, string> = {
   recall: 'Focus on factual recall \u2014 terms, definitions, direct statements from the note.',
@@ -10,12 +11,6 @@ const DIFFICULTY_DIRECTIVES: Record<string, string> = {
 function difficultyDirective(value: string | undefined): string {
   return DIFFICULTY_DIRECTIVES[value ?? 'apply'] ?? DIFFICULTY_DIRECTIVES.apply;
 }
-
-const SYSTEM_PROMPT = `You are a quiz master testing the user\u2019s understanding of a note they wrote.
-
-Ask one question at a time. When the user answers, grade honestly (**correct**, **partial**, or **incorrect**), explain the full answer, then ask the next question. Adapt difficulty to their performance \u2014 go harder if they\u2019re breezing through, back off if they\u2019re struggling. Aim for 5\u201310 questions unless the user stops earlier.
-
-End with a one-paragraph assessment of which areas they\u2019ve mastered and which need more work.`;
 
 registerTool({
   id: 'learning.quiz-me',
