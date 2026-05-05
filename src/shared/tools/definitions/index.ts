@@ -3,6 +3,15 @@ import './analysis/excavate';
 import './analysis/steelman';
 import './analysis/taboo';
 import './analysis/murphyjitsu';
+import './analysis/antithesize';
+import './analysis/dimensionalize';
+import './analysis/handlize';
+import './analysis/inductify';
+import './analysis/metaphorize';
+import './analysis/negspace';
+import './analysis/rhetoricize';
+import './analysis/rhyme';
+import './analysis/synthesize';
 
 // Research tools
 import './research/load-bearing-claim';
