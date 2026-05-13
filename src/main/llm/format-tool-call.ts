@@ -66,6 +66,13 @@ export function formatToolCall(name: string, input: unknown): string {
         ? `📝 Proposing ${count} note${count === 1 ? '' : 's'}`
         : '📝 Proposing notes';
     }
+    case 'propose_sources': {
+      const sources = i.sources;
+      const count = Array.isArray(sources) ? sources.length : null;
+      return count
+        ? `📚 Proposing ${count} source${count === 1 ? '' : 's'}`
+        : '📚 Proposing sources';
+    }
     default: {
       // Unknown tool — show name + a JSON snippet so the user has
       // something to recognise. Strip whitespace to keep the line tight.

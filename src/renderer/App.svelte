@@ -2163,6 +2163,9 @@
                   onAnchorResolved={() => { pendingPreviewAnchor = null; }}
                   onTaskToggle={handleTaskToggle}
                   onSaveCellOutput={handleSaveCellOutput}
+                  onToolInvoke={handleToolInvoke}
+                  onOpenConversation={openConversation}
+                  onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
                 />
               </div>
             {/if}

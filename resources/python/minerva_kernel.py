@@ -26,9 +26,21 @@ Protocol — events:
 import sys
 import json
 import io
+import os
 import time
 import ast
 import traceback
+
+# Make user .py files in the notebase importable. The main process also
+# sets PYTHONPATH to include the project root, but propagation through
+# venv launchers / matplotlib backends / wrapper scripts is finicky
+# enough that we re-do it here from $MINERVA_PROJECT_ROOT. Inserted at
+# index 1 (not 0) so the bundled `minerva` package — staged at
+# sys.path[0] via the kernel script's own directory — still wins over
+# any user-side file named `minerva.py`.
+_project_root = os.environ.get('MINERVA_PROJECT_ROOT')
+if _project_root and _project_root not in sys.path:
+    sys.path.insert(1, _project_root)
 
 namespaces = {}
 

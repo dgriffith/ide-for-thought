@@ -147,6 +147,31 @@ export async function archive(id: string): Promise<Conversation> {
 }
 
 /**
+ * Persist (or clear) the code-execution container id that the API
+ * needs echoed back on every follow-up turn whose message history
+ * still references a `server_tool_use` block. Called from the
+ * conversation IPC handler after `completeWithTools` returns. No
+ * graph projection — this is purely API-protocol state.
+ */
+export async function setContainerId(
+  id: string,
+  containerId: string | undefined,
+  expiresAt: string | undefined,
+): Promise<void> {
+  const conv = await load(id);
+  if (!conv) return;
+  if (containerId) {
+    conv.containerId = containerId;
+    if (expiresAt) conv.containerExpiresAt = expiresAt;
+    else delete conv.containerExpiresAt;
+  } else {
+    delete conv.containerId;
+    delete conv.containerExpiresAt;
+  }
+  await persist(conv);
+}
+
+/**
  * Pin a specific model to this conversation. Pass `undefined` to clear the
  * override so the conversation again tracks the global default.
  */

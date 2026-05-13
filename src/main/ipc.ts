@@ -105,7 +105,7 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
   'The user is working inside a thoughtbase: a collection of interlinked notes backed by an RDF knowledge graph.',
   '',
-  'You have read tools, web tools, and one write tool (propose_notes). Prefer the thoughtbase tools for anything inside the user\'s notes; use the web tools for facts, events, documentation, or sources outside the thoughtbase.',
+  'You have read tools, web tools, and two write tools (propose_notes, propose_sources). Prefer the thoughtbase tools for anything inside the user\'s notes; use the web tools for facts, events, documentation, or sources outside the thoughtbase.',
   '',
   'Thoughtbase read tools:',
   '- search_notes: full-text search across the thoughtbase.',
@@ -113,12 +113,21 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   '- query_graph: run a SPARQL query against the knowledge graph (minerva/thought prefixes are auto-injected).',
   '- describe_graph_schema: fetch the full ontology TTL. Call this before writing a non-trivial SPARQL query if you are unsure about class or predicate names.',
   '',
-  'Thoughtbase write tool:',
+  'Thoughtbase write tools:',
   '- propose_notes: file one or more notes for the user to review. The user sees an inline draft card with Approve/Discard. **You MUST call this tool — do NOT just describe the notes in chat and ask the user to file them, and do NOT tell them you can\'t create notes.** If you have just outlined a structure (a learning journey, a topic breakdown, a per-section explanation, a multi-claim summary), and the user wants it filed, call propose_notes with the whole bundle in one call (parent + children). The trust principle is preserved: nothing lands until the user clicks Approve.',
+  '- propose_sources: file one or more sources (papers, articles, web pages) into the user\'s Sources library. The user sees an inline draft card with Approve/Discard; on Approve, Minerva runs its full ingest pipeline (Crossref / arXiv / PubMed for identifiers; Readability for URLs) to fetch metadata and archive the source. **Prefer identifiers (DOI / arXiv id / PubMed id) over URLs** — the structured metadata is richer. Duplicates are skipped automatically. Use this when you have referenced a specific external work, when the user asks to add a citation, or when web_search surfaced sources that materially advance the conversation.',
   '',
   'Web tools:',
   '- web_search: search the web for current information, news, documentation, or external references.',
   '- web_fetch: fetch the contents of a specific URL — use this after web_search to read a promising result in full, or when the user gives you a URL directly.',
+  '',
+  'Minerva-specific markdown features (use these in note bodies whenever they materially help — and in inline reply examples if the user is asking how to use the feature):',
+  '- ```python (also ```py, ```python3) — runnable Python cell. The user clicks the ▶ gutter icon (or Cmd/Ctrl+Shift+Enter) to execute; results land in a sibling ```output``` block that the editor manages. A persistent per-note kernel preserves variables across cells in the same note. The project root is on `sys.path`, so any `.py` file in the notebase is importable — `helpers.py` at the root → `import helpers`; `python/utils.py` → `from python import utils`. Reach for `propose_notes` with a `.py` payload when reusable logic emerges (helper functions, shared loaders, plotting wrappers). Heads-up: the kernel caches imported modules, so after editing a `.py` helper the user needs to restart the kernel for changes to land in already-imported cells (Compute menu → Restart Python Kernel).',
+  '- ```sparql — runnable SPARQL query against the user\'s knowledge graph. Standard prefixes (minerva, thought, dc, rdf, rdfs, xsd, csvw, prov) are auto-injected, so write only the SELECT/ASK/CONSTRUCT body. Same run mechanism.',
+  '- ```sql — runnable SQL query (DuckDB) against tables. Markdown tables in the user\'s notes become queryable via CSVW; column headers become the schema. Same run mechanism.',
+  '- ```mermaid — rendered inline as an SVG diagram in preview (flowcharts, sequence diagrams, ER diagrams, state diagrams, etc.). Use for structural overviews where a picture beats prose.',
+  '- ```turtle — Turtle-RDF that is parsed into the note\'s named graph at save time. Use sparingly, and only for genuinely structured facts the user will want to query later (e.g. a `thought:Claim` with `thought:supports`/`thought:rebuts` links). Do NOT use it as a dumping ground for arbitrary metadata.',
+  'Do NOT pre-fill a ```output``` block — leave outputs for the user to generate by running the cell. Reach for these features when they earn their keep; a plain prose answer is often better.',
   '',
   'Usage guidance:',
   '- For questions about the user\'s notes or ideas they\'ve captured, use search_notes and read_note.',
@@ -126,8 +135,9 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   '- For current events, external facts, recent research, or things outside the thoughtbase, use web_search.',
   '- It\'s often useful to combine tools: search_notes to see what the user already has, then web_search to fill in what they don\'t. Cite your web sources.',
   '- When the user agrees to file something ("yes, file it", "file these as notes", "save this", "create the notes"), CALL propose_notes immediately — do not describe what you would file, do not ask for further confirmation. The Approve/Discard card IS the user\'s confirmation step.',
+  '- When the user agrees to add sources ("add that paper", "save this source", "ingest this", "add the citation"), CALL propose_sources immediately with the relevant identifiers/URLs. The Approve/Discard card IS the user\'s confirmation step.',
   '',
-  'When you call propose_notes, do NOT also paste the same content inline in your reply. The inline draft card is the deliverable; pasting the content too is duplicate noise.',
+  'When you call propose_notes or propose_sources, do NOT also paste the same content / URL list inline in your reply. The inline draft card is the deliverable; repeating it is duplicate noise.',
   '',
   'Answer in GitHub-flavored markdown. When you reference a note, cite its relative path so the user can open it.',
 ].join('\n');
@@ -1571,43 +1581,100 @@ export function registerIpcHandlers(): void {
         throw new Error('No thoughtbase is open — cannot send conversation message.');
       }
 
-      const result = await completeWithTools({
-        system: effectiveSystem,
-        messages,
-        toolContext: { rootPath, conversationId: convId },
-        model: conv.model,
-        extraTools,
-        callbacks: {
-          onChunk: (chunk: string) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
-            }
-          },
-          onDraft: (draft) => {
-            if (!win.isDestroyed()) {
-              win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
-            }
-          },
-          askUser: ({ question, choices }) => {
-            const questionId = randomUUID();
-            return new Promise<string>((resolve, reject) => {
-              pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
-              if (!win.isDestroyed()) {
-                win.webContents.send(Channels.CONVERSATION_ASK_USER, {
-                  questionId,
-                  conversationId: convId,
-                  question,
-                  choices,
-                });
-              } else {
-                pendingAskUser.delete(questionId);
-                reject(new Error('window destroyed'));
-              }
-            });
-          },
-          signal: controller.signal,
+      const streamCallbacks = {
+        onChunk: (chunk: string) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+          }
         },
-      });
+        onDraft: (draft: import('../shared/conversation-drafts').ConversationDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
+          }
+        },
+        onSourceDraft: (draft: import('../shared/conversation-source-drafts').ConversationSourceDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_SOURCE_DRAFT, draft);
+          }
+        },
+        askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
+          const questionId = randomUUID();
+          return new Promise<string>((resolve, reject) => {
+            pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
+            if (!win.isDestroyed()) {
+              win.webContents.send(Channels.CONVERSATION_ASK_USER, {
+                questionId,
+                conversationId: convId,
+                question,
+                choices,
+              });
+            } else {
+              pendingAskUser.delete(questionId);
+              reject(new Error('window destroyed'));
+            }
+          });
+        },
+        signal: controller.signal,
+      };
+
+      // Token the API's "container_id required" error to match against
+      // its 400 message. Hoisted so the catch can string-match without
+      // duplicating the phrase.
+      const CONTAINER_REQUIRED_MARKER = 'container_id is required';
+      // Strip assistant turns whose persisted text carries the
+      // code_execution indicator markers we emit (`_🔍 Searching` /
+      // `_🌐 Fetching` / `_⚙️ Running code`). Those messages are the
+      // only ones whose presence in history can make the API demand a
+      // container; once dropped, the API has nothing to "pend" on.
+      // Lossy (the user loses the prior tool-result text in history),
+      // but the alternative is a stuck conversation.
+      const stripCodeExecutionTurns = (msgs: typeof messages) =>
+        msgs.filter((m) => {
+          if (m.role !== 'assistant' || typeof m.content !== 'string') return true;
+          return !/_(?:🔍 Searching|🌐 Fetching|⚙️ Running code)/.test(m.content);
+        });
+
+      let result: Awaited<ReturnType<typeof completeWithTools>>;
+      try {
+        result = await completeWithTools({
+          system: effectiveSystem,
+          messages,
+          toolContext: { rootPath, conversationId: convId },
+          model: conv.model,
+          extraTools,
+          // Re-echo any prior turn's code-execution sandbox id. Required
+          // by the API whenever the persisted message history still
+          // contains a `server_tool_use` block; without it the next
+          // turn rejects with "container_id is required when there are
+          // pending tool uses generated by code execution with tools."
+          ...(conv.containerId ? { initialContainerId: conv.containerId } : {}),
+          callbacks: streamCallbacks,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes(CONTAINER_REQUIRED_MARKER)) throw err;
+        // The API rejected because the persisted container id is
+        // missing or stale and history still references code_execution.
+        // Two common causes: the conversation predates container
+        // persistence, or the container expired server-side. Drop the
+        // cached id, strip the offending assistant turns from history,
+        // and retry once. If it still fails, the original error
+        // surfaces.
+        console.warn(
+          `[conv] container_id 400 — recovering. conv=${convId} ` +
+          `cachedContainer=${conv.containerId ?? 'none'} stripping code_execution turns`,
+        );
+        await conversation.setContainerId(convId, undefined, undefined);
+        const recoveredMessages = stripCodeExecutionTurns(messages);
+        result = await completeWithTools({
+          system: effectiveSystem,
+          messages: recoveredMessages,
+          toolContext: { rootPath, conversationId: convId },
+          model: conv.model,
+          extraTools,
+          callbacks: streamCallbacks,
+        });
+      }
 
       const updated = await conversation.appendMessage(
         convId,
@@ -1615,6 +1682,18 @@ export function registerIpcHandlers(): void {
         result.text,
         { citations: result.citations },
       );
+      // Persist the (possibly updated) container id so the next turn
+      // for this conversation can echo it. We write unconditionally
+      // — even if the id is unchanged — because conversation.load /
+      // appendMessage above don't preserve fields completeWithTools
+      // can update mid-turn.
+      if (result.containerId) {
+        await conversation.setContainerId(
+          convId,
+          result.containerId,
+          result.containerExpiresAt,
+        );
+      }
       return updated;
     } finally {
       convAbortControllers.delete(win.id);
@@ -1666,6 +1745,85 @@ export function registerIpcHandlers(): void {
         proposalUri: proposal?.uri ?? null,
         applied: true,
       };
+    },
+  );
+
+  // Counterpart to CONVERSATION_FILE_DRAFT for source-ingest drafts. The
+  // user clicked Approve on a propose_sources inline card. We run the
+  // existing ingestUrl / ingestIdentifier pipelines per source — same
+  // path as the "Ingest URL…" / "Ingest Identifier…" menu items — so
+  // LLM-driven and user-driven ingestion share Readability, site
+  // handlers, Crossref/arXiv/PubMed lookup, and dedupe. Per-source
+  // errors are non-fatal: one failing entry doesn't block the rest of
+  // the bundle.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_SOURCE_DRAFT,
+    async (
+      e,
+      draft: import('../shared/conversation-source-drafts').ConversationSourceDraft,
+    ): Promise<import('../shared/conversation-source-drafts').FileSourceDraftResult> => {
+      console.log('[conv] FILE_SOURCE_DRAFT received', {
+        draftId: draft?.draftId,
+        conversationId: draft?.conversationId,
+        sourceCount: Array.isArray(draft?.sources) ? draft.sources.length : 'not-array',
+      });
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!draft || !Array.isArray(draft.sources) || draft.sources.length === 0) {
+        throw new Error(
+          `FILE_SOURCE_DRAFT: draft has no sources (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      const outcomes: import('../shared/conversation-source-drafts').SourceIngestOutcome[] = [];
+      let anyIngested = false;
+      for (const src of draft.sources) {
+        try {
+          if (src.identifier) {
+            const result = await ingestIdentifier(rootPath, src.identifier, { fetchImpl: privilegedFetch });
+            await reindexFile(rootPath, result.relativePath);
+            outcomes.push({
+              input: { identifier: src.identifier },
+              sourceId: result.sourceId,
+              title: result.title,
+              duplicate: result.duplicate,
+            });
+            anyIngested = true;
+          } else if (src.url) {
+            const result = await ingestUrl(rootPath, src.url, { fetchImpl: privilegedFetch });
+            await reindexFile(rootPath, result.relativePath);
+            outcomes.push({
+              input: { url: src.url },
+              sourceId: result.sourceId,
+              title: result.title,
+              duplicate: result.duplicate,
+            });
+            anyIngested = true;
+          } else {
+            // Should not happen — propose_sources validates this — but
+            // belt-and-suspenders so we don't crash the whole bundle on
+            // a malformed entry that slipped through the IPC boundary.
+            outcomes.push({
+              input: src,
+              error: 'Source entry has neither `identifier` nor `url`.',
+            });
+          }
+        } catch (err) {
+          console.warn(`[conv] FILE_SOURCE_DRAFT ingest failed for`, src, err);
+          outcomes.push({
+            input: src,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      if (anyIngested) {
+        await persistIndexes(rootPath);
+        const win = winFromEvent(e);
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.SOURCES_CHANGED);
+        }
+      }
+      return { outcomes };
     },
   );
 

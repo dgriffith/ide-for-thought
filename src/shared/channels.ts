@@ -275,6 +275,10 @@ export const Channels = {
   CONVERSATION_DRAFT: 'conversation:draft',
   /** renderer → main: user approved a draft; file the bundle as a Proposal AND auto-approve it. */
   CONVERSATION_FILE_DRAFT: 'conversation:fileDraft',
+  /** main → renderer: a propose_sources tool call produced a source-ingest draft for review. Payload is ConversationSourceDraft. */
+  CONVERSATION_SOURCE_DRAFT: 'conversation:sourceDraft',
+  /** renderer → main: user approved a source draft; run the ingest pipeline for each URL/identifier and return the per-source outcomes. */
+  CONVERSATION_FILE_SOURCE_DRAFT: 'conversation:fileSourceDraft',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
