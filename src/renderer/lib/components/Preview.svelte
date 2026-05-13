@@ -23,6 +23,9 @@
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import { getToolInfosByCategory } from '../tools/tool-registry';
+  import mdFootnote from 'markdown-it-footnote';
+  import { findRunnableFences, planOutputEdit, codeOf } from '../editor/output-block';
+  import type { CellResult } from '../ipc/client';
 
   interface Props {
     content: string;
@@ -63,6 +66,24 @@
     onToolInvoke?: (toolId: string) => void;
     onOpenConversation?: () => void;
     onBookmark?: () => void;
+    /**
+     * Run a python / sparql / sql code fence from the
+     * preview's inline ▶ button. Same shape as the Editor's `onRunCell`
+     * so the host can inject the same trust-gated wrapper for both.
+     * The result flows back through `onApplyCellOutputEdit` below as a
+     * full-document content replacement — preview never writes to disk
+     * directly; the host routes the edit through the editor's state so
+     * undo history, autosave, and dirty-tracking stay consistent.
+     * Without both callbacks the ▶ button is suppressed.
+     */
+    onRunCell?: (language: string, code: string, notePath: string) => Promise<CellResult>;
+    /**
+     * Called after `onRunCell` returns with a new full-document string.
+     * The host typically does `editor.setContent(newContent)` so the
+     * editor view, autosave, and undo history all see the change as a
+     * regular doc edit.
+     */
+    onApplyCellOutputEdit?: (newContent: string) => void;
   }
 
   let {
@@ -79,7 +100,22 @@
     onToolInvoke,
     onOpenConversation,
     onBookmark,
+    onRunCell,
+    onApplyCellOutputEdit,
   }: Props = $props();
+
+  // Per-fence collapse state, keyed by the fence's opening line in the
+  // source markdown. Survives doc-edit re-renders (line numbers may
+  // shift, but the user toggling collapse means "I'm done with this
+  // body for now" — re-expanding when the doc shifts is fine).
+  // In-memory only; resets on tab switch / note open.
+  const collapsedFences = $state<Set<number>>(new Set());
+  // Per-fence running state, same keying. Disables the ▶ button while
+  // a cell is in flight so a double-click can't fire two parallel
+  // executions.
+  const runningFences = $state<Set<number>>(new Set());
+
+  const RUNNABLE_LANGS = new Set(['python', 'py', 'python3', 'sparql', 'sql']);
 
   // Tool lists for the right-click menu's Learning / Analysis submenus.
   // Loaded once at mount — the registry is project-stable.
@@ -134,6 +170,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   });
   installMath(md);
   installCallouts(md);
+  // Footnotes — markdown-it-footnote renders `[^id]` as a numbered
+  // superscript anchored to a back-of-note `<section class="footnotes">`,
+  // and each footnote body links back to the ref. Both jumps fire
+  // through the existing `<a href="#id">` machinery — `handleClick`
+  // below intercepts internal anchor clicks and scrolls the matching
+  // element into view.
+  md.use(mdFootnote);
 
   // Give every heading an id derived from its text so [[note#heading]] anchor
   // navigation can target it. Slugs must match the indexer's convention.
@@ -328,21 +371,67 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const tok = tokens[idx];
     const info = tok.info.trim().toLowerCase();
+    // tok.map is the [startLine, endLine] of the fence in the
+    // SOURCE-FED-TO-md.render — 0-indexed, and that source has had
+    // the YAML frontmatter stripped (see `renderContent` above).
+    // `findRunnableFences` operates on the FULL content (frontmatter
+    // intact). Add back `env.lineOffset` (the frontmatter line count)
+    // and switch to 1-based numbering so the two helpers agree on
+    // line numbers — without this the lookup in `runFenceAt` would
+    // miss every fence in any note that has frontmatter. tok.map is
+    // null when markdown-it can't determine the position (rare;
+    // toolbar falls back to "no run button").
+    const frontmatterOffset = (env as { lineOffset?: number } | undefined)?.lineOffset ?? 0;
+    const openingLine = tok.map ? tok.map[0] + 1 + frontmatterOffset : null;
     if (info === 'output') {
       const source = findSourceFenceBefore(tokens, idx);
       return renderComputeOutput(tok.content, source);
     }
     if (info === 'mermaid') {
-      // Emit a placeholder whose textContent is the diagram source.
-      // The post-render effect lazy-loads mermaid and swaps innerHTML
-      // for rendered SVG. Using textContent (not a data attribute)
-      // sidesteps HTML attribute-value newline normalization.
       const escaped = (tok.content ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
+      // Mermaid blocks get a collapse toggle (no run — they auto-render
+      // on view) so a long diagram can be tucked away when scrolling
+      // through the rest of the note.
+      if (openingLine !== null) {
+        const isCollapsed = collapsedFences.has(openingLine);
+        return `<div class="fence-block fence-mermaid${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
+          + `<div class="fence-toolbar"><span class="fence-lang">mermaid</span>`
+          + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
+          + `</div>`
+          + `<div class="fence-body"><div class="mermaid-block" data-mermaid-pending="1">${escaped}</div></div>`
+          + `</div>\n`;
+      }
       return `<div class="mermaid-block" data-mermaid-pending="1">${escaped}</div>\n`;
     }
+
+    // Runnable fences (python / sparql / sql) get a toolbar with a ▶
+    // run button (when the host wired `onRunCell` + `onApplyCellOutputEdit`)
+    // and a collapse toggle. The default highlighted-code body is
+    // wrapped inside `.fence-body` so the toggle can hide it.
+    const isRunnable = RUNNABLE_LANGS.has(info);
+    if (isRunnable && openingLine !== null) {
+      const isCollapsed = collapsedFences.has(openingLine);
+      const isRunning = runningFences.has(openingLine);
+      const canRun = !!(onRunCell && onApplyCellOutputEdit && notePath);
+      const defaultRender = defaultFence
+        ? defaultFence(tokens, idx, options, env, self)
+        : self.renderToken(tokens, idx, options);
+      const runBtn = canRun
+        ? `<button class="fence-run-btn" data-fence-action="run" type="button" title="Run cell" ${isRunning ? 'disabled' : ''}>${isRunning ? '⋯' : '▶'}</button>`
+        : '';
+      return `<div class="fence-block fence-runnable${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}" data-fence-lang="${info}">`
+        + `<div class="fence-toolbar">`
+        + `<span class="fence-lang">${info}</span>`
+        + runBtn
+        + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
+        + `</div>`
+        + `<div class="fence-body">${defaultRender}</div>`
+        + `</div>\n`;
+    }
+
     return defaultFence
       ? defaultFence(tokens, idx, options, env, self)
       : self.renderToken(tokens, idx, options);
@@ -655,19 +744,25 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   const RENDER_DEBOUNCE_MS = 120;
   let rendered = $state(renderContent(content));
   let lastRendered = content;
+  let lastRenderedNotePath = notePath;
   let renderTimer: ReturnType<typeof setTimeout> | null = null;
 
   $effect(() => {
-    // Track content reactively; bail if nothing actually changed since
-    // the last render commit (avoids re-running for derived state that
-    // happens to share a frame).
+    // Track content + notePath reactively. notePath gates the run
+    // button on runnable code fences — without it as a dep, a Preview
+    // mounted before `editor.activeFilePath` resolves would render
+    // once with notePath=null and never regenerate the ▶ buttons,
+    // even after the path arrived. Bail when nothing meaningful
+    // changed so derived-state churn doesn't force re-renders.
     const c = content;
-    if (c === lastRendered) return;
+    const np = notePath;
+    if (c === lastRendered && np === lastRenderedNotePath) return;
 
     if (renderTimer) clearTimeout(renderTimer);
     renderTimer = setTimeout(() => {
       rendered = renderContent(c);
       lastRendered = c;
+      lastRenderedNotePath = np;
       renderTimer = null;
     }, RENDER_DEBOUNCE_MS);
 
@@ -1144,6 +1239,107 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       outputImg.classList.toggle('zoomed');
       return;
     }
+
+    // Fence toolbar — collapse toggle + run button.
+    const fenceBtn = el.closest<HTMLElement>('[data-fence-action]');
+    if (fenceBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const action = fenceBtn.getAttribute('data-fence-action');
+      const block = fenceBtn.closest<HTMLElement>('.fence-block');
+      const lineAttr = block?.getAttribute('data-fence-line');
+      const openingLine = lineAttr ? parseInt(lineAttr, 10) : NaN;
+      if (!block || Number.isNaN(openingLine)) return;
+      if (action === 'collapse') {
+        // Pure UI toggle — flip the class on the live DOM instead of
+        // forcing a markdown re-render. The collapsedFences set stays
+        // in sync so the next real re-render (e.g. after an edit)
+        // honors the current state.
+        if (collapsedFences.has(openingLine)) {
+          collapsedFences.delete(openingLine);
+          block.classList.remove('fence-collapsed');
+        } else {
+          collapsedFences.add(openingLine);
+          block.classList.add('fence-collapsed');
+        }
+        const tBtn = block.querySelector<HTMLElement>('.fence-collapse-btn');
+        if (tBtn) tBtn.textContent = collapsedFences.has(openingLine) ? '▸' : '▾';
+        return;
+      }
+      if (action === 'run') {
+        void runFenceAt(openingLine);
+        return;
+      }
+    }
+
+    // Internal anchor click (footnote ref ↔ body, heading anchor jumps,
+    // etc.). The browser's native handling would scroll instantly and
+    // also tack `#fn1` onto the URL hash — neither great for an
+    // Electron renderer where the URL is `file:` or `chrome-error:`.
+    // Intercept, smooth-scroll the matching id into view, no hash
+    // mutation.
+    const anchorEl = el.closest<HTMLAnchorElement>('a[href^="#"]');
+    if (anchorEl) {
+      const href = anchorEl.getAttribute('href') ?? '';
+      const id = href.slice(1);
+      if (id) {
+        const target = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Brief highlight so the user's eye locks onto the landing
+          // spot — especially useful for footnote bodies that may be
+          // visually adjacent to their neighbors.
+          target.classList.add('anchor-landing');
+          setTimeout(() => target.classList.remove('anchor-landing'), 1200);
+        }
+      }
+      return;
+    }
+  }
+
+  // ── Run-fence-from-preview handler ─────────────────────────────────────────
+  //
+  // Click on a ▶ run button on a python/sparql/sql code fence. We
+  // locate the fence by its opening-line number in the source
+  // markdown (markdown-it stamped it onto the fence-block wrapper),
+  // call the host's `onRunCell` (same trust-gated wrapper the editor
+  // uses), splice the resulting output fence block into
+  // the doc via the shared `planOutputEdit` helper, and hand the new
+  // full content back through `onApplyCellOutputEdit`. The host
+  // routes it through the editor's `setContent` so the edit shows up
+  // in undo history, autosave, and the dirty-state indicator just
+  // like a typed change.
+  //
+  // The whole pipeline lives in the editor side too — sharing
+  // `findRunnableFences` / `codeOf` / `planOutputEdit` from
+  // `editor/output-block.ts` means a run from preview and a run from
+  // the editor gutter produce bit-identical doc edits.
+  async function runFenceAt(openingLine: number): Promise<void> {
+    if (!onRunCell || !onApplyCellOutputEdit || !notePath) return;
+    if (runningFences.has(openingLine)) return;
+    // Locate the fence in the live content. We could trust the line
+    // number from markdown-it, but the doc may have been edited since
+    // last render — re-scanning is cheap and rules out stale-token
+    // bugs.
+    const fences = findRunnableFences(content, RUNNABLE_LANGS);
+    const fence = fences.find((f) => f.openingLine === openingLine);
+    if (!fence) {
+      console.warn(`[preview] runFenceAt: no fence at line ${openingLine}`);
+      return;
+    }
+    const code = codeOf(content, fence);
+    runningFences.add(openingLine);
+    try {
+      const result = await onRunCell(fence.language, code, notePath);
+      const edit = planOutputEdit(content, fence, result);
+      const newContent = content.slice(0, edit.from) + edit.insert + content.slice(edit.to);
+      onApplyCellOutputEdit(newContent);
+    } catch (e) {
+      console.warn('[preview] runFenceAt failed:', e);
+    } finally {
+      runningFences.delete(openingLine);
+    }
   }
 
   // ── Note context menu (read-only mirror of Editor's right-click menu) ──────
@@ -1322,7 +1518,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   let tooltipStyle = $state('');
 
   function handleMouseOver(e: MouseEvent) {
-    const el = (e.target as HTMLElement | null)?.closest<HTMLElement>('.cite-link, .quote-link');
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+    // Footnote-ref hover: markdown-it-footnote emits
+    // `<sup class="footnote-ref"><a href="#fn1">…</a></sup>` for each
+    // reference and the matching body sits at `#fn1` near the bottom
+    // of the rendered DOM. Pull the body text out (minus the trailing
+    // backref arrow) and show it in the same tooltip surface used for
+    // cite/quote hovers. Mirrors the editor's `footnotePreview` hover
+    // tooltip for parity between panes.
+    const footnoteRef = target.closest<HTMLAnchorElement>('.footnote-ref a[href^="#fn"]');
+    if (footnoteRef) {
+      const href = footnoteRef.getAttribute('href') ?? '';
+      const id = href.slice(1);
+      const body = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+      if (body) {
+        tooltipHtml = buildFootnoteTooltip(body);
+        tooltipVisible = true;
+        positionTooltip(footnoteRef);
+      }
+      return;
+    }
+    const el = target.closest<HTMLElement>('.cite-link, .quote-link');
     if (!el) return;
     const kind = el.dataset.tooltipKind;
     const payload = el.dataset.tooltipPayload;
@@ -1336,12 +1553,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   }
 
   function handleMouseOut(e: MouseEvent) {
-    const leaving = (e.target as HTMLElement | null)?.closest<HTMLElement>('.cite-link, .quote-link');
+    const target = e.target as HTMLElement | null;
+    const leaving = target?.closest<HTMLElement>('.cite-link, .quote-link, .footnote-ref');
     if (!leaving) return;
     // relatedTarget can be null when cursor leaves the window — dismiss anyway
     const to = e.relatedTarget as Node | null;
     if (to && leaving.contains(to)) return;
     tooltipVisible = false;
+  }
+
+  /**
+   * Clone the footnote-body `<li>` minus its back-arrow anchor and the
+   * surrounding `<p>` wrapper, leaving the bare body text. markdown-it-
+   * footnote always wraps the body in one or more `<p>` elements with
+   * a trailing `<a class="footnote-backref">↩</a>`; stripping the
+   * backref and reusing the cleaned innerHTML keeps the tooltip a faithful
+   * mini-render of the footnote prose (links, emphasis, code spans
+   * all preserved).
+   */
+  function buildFootnoteTooltip(body: HTMLElement): string {
+    const clone = body.cloneNode(true) as HTMLElement;
+    for (const bk of clone.querySelectorAll('.footnote-backref')) bk.remove();
+    return `<div class="tt-footnote">${clone.innerHTML.trim()}</div>`;
   }
 
   function positionTooltip(anchor: HTMLElement) {
@@ -1553,6 +1786,31 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     color: var(--text);
     white-space: pre-wrap;
     margin-bottom: 6px;
+  }
+  /* Footnote body in the hover tooltip. The cloned `<li>` content
+     contains arbitrary inline markdown (`<em>`, `<code>`, `<a>`, …);
+     scope it tight so it inherits the tooltip's compact type scale. */
+  .cite-tooltip :global(.tt-footnote) {
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .cite-tooltip :global(.tt-footnote p) {
+    margin: 0;
+  }
+  .cite-tooltip :global(.tt-footnote p + p) {
+    margin-top: 0.4em;
+  }
+  .cite-tooltip :global(.tt-footnote code) {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    background: var(--bg);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .cite-tooltip :global(.tt-footnote a) {
+    color: var(--accent);
+    text-decoration: underline;
   }
 
   .preview :global(h1) {
@@ -1996,6 +2254,118 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .csl-bibliography-entry :global(.csl-entry) {
     /* citeproc emits its own div wrapper; let it inherit our entry styles. */
     display: inline;
+  }
+
+  /* Runnable / collapsible fence wrappers. The fence renderer above
+     wraps python / sparql / sql / mermaid bodies inside
+     `.fence-block > .fence-toolbar + .fence-body`. The
+     toolbar carries a tiny ▶ run button (runnable langs only, gated
+     on the host wiring `onRunCell` + `onApplyCellOutputEdit`) and a
+     ▾/▸ collapse toggle. The body shrinks to a single-line "code
+     hidden" affordance when collapsed; the toolbar stays visible so
+     the user can re-expand. */
+  .preview :global(.fence-block) {
+    margin: 0.6em 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .preview :global(.fence-toolbar) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--bg-titlebar, var(--bg-sidebar));
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .preview :global(.fence-lang) {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-mono, monospace);
+    margin-right: auto;
+  }
+  .preview :global(.fence-run-btn),
+  .preview :global(.fence-collapse-btn) {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 0 6px;
+    height: 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+  }
+  .preview :global(.fence-run-btn:hover:not([disabled])),
+  .preview :global(.fence-collapse-btn:hover) {
+    background: var(--bg-button);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .preview :global(.fence-run-btn[disabled]) {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .preview :global(.fence-body) {
+    overflow: hidden;
+  }
+  .preview :global(.fence-body > pre) {
+    margin: 0;
+    border-radius: 0;
+    border: none;
+  }
+  .preview :global(.fence-collapsed .fence-body) {
+    display: none;
+  }
+
+  /* markdown-it-footnote output. The plugin emits a back-of-note
+     `<section class="footnotes">` with an ordered list of footnote
+     bodies, plus inline `<sup class="footnote-ref">` markers in the
+     body text and `<a class="footnote-backref">` arrows on each
+     footnote body item. Both directions of click are intercepted in
+     `handleClick` above for smooth scroll + transient highlight. */
+  .preview :global(.footnotes) {
+    margin-top: 2em;
+    padding-top: 1em;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .preview :global(.footnotes-list) {
+    padding-left: 1.4em;
+    margin: 0;
+  }
+  .preview :global(.footnote-item) {
+    margin: 0.4em 0;
+  }
+  .preview :global(.footnote-item p) {
+    margin: 0;
+    display: inline;
+  }
+  .preview :global(.footnote-ref a) {
+    text-decoration: none;
+    color: var(--accent);
+    padding: 0 2px;
+  }
+  .preview :global(.footnote-ref a:hover) { text-decoration: underline; }
+  .preview :global(.footnote-backref) {
+    text-decoration: none;
+    color: var(--accent);
+    margin-left: 4px;
+  }
+  .preview :global(.footnote-backref:hover) { text-decoration: underline; }
+  /* Anchor-landing flash — set on the target element for ~1.2s
+     after a smooth-scroll jump. Pulses the background so the user's
+     eye locks onto the destination even if the scroll was short. */
+  .preview :global(.anchor-landing) {
+    animation: anchor-landing-pulse 1.2s ease-out;
+  }
+  @keyframes anchor-landing-pulse {
+    0%   { background: var(--accent); color: var(--bg); }
+    100% { background: transparent; color: inherit; }
   }
 
   /* Note-wide right-click menu. Mirrors `.context-menu` from

@@ -2166,6 +2166,10 @@
                   onToolInvoke={handleToolInvoke}
                   onOpenConversation={openConversation}
                   onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
+                  onRunCell={(language, code, notePath) =>
+                    runCellWithTrust(language, code, notePath, { showConfirm })
+                  }
+                  onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent); }}
                 />
               </div>
             {/if}
