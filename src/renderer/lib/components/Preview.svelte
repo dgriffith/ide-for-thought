@@ -736,9 +736,37 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   // synchronously so there's no FOUC, then coalesce subsequent
   // changes to one render per ~120ms idle window.
   function renderContent(c: string): string {
+    // Turtle files are indexable + previewable but they aren't
+    // markdown — running them through markdown-it turns `@prefix`
+    // lines into stray HTML and IRI angle-brackets into wrecked
+    // tags. Emit a monospace `<pre>` with the three tightest token
+    // classes (directive / IRI / comment); the rest stays plain.
+    // hljs doesn't ship a Turtle grammar so we do this inline rather
+    // than dragging in a third-party highlighter.
+    if (notePath?.toLowerCase().endsWith('.ttl')) {
+      return renderTurtle(c);
+    }
     const stripped = stripFrontmatter(c);
     const lineOffset = countFrontmatterLines(c);
     return md.render(stripped, { lineOffset });
+  }
+
+  function renderTurtle(c: string): string {
+    // Escape HTML first so the IRI regex below can match the now-
+    // safe `&lt; … &gt;` tokens without risking double-application.
+    const escaped = c
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Order matters: comments swallow anything to end-of-line, so
+    // tag them first; then directives (which never overlap comments
+    // because directives don't start with `#`); then IRIs (which
+    // can appear inside non-comment lines).
+    const highlighted = escaped
+      .replace(/^([ \t]*#.*)$/gm, '<span class="ttl-comment">$1</span>')
+      .replace(/(@(?:prefix|base|keywords)\b)/g, '<span class="ttl-directive">$1</span>')
+      .replace(/(&lt;[^&\s]*?&gt;)/g, '<span class="ttl-iri">$1</span>');
+    return `<pre class="ttl-source">${highlighted}</pre>`;
   }
 
   const RENDER_DEBOUNCE_MS = 120;
@@ -2254,6 +2282,36 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .csl-bibliography-entry :global(.csl-entry) {
     /* citeproc emits its own div wrapper; let it inherit our entry styles. */
     display: inline;
+  }
+
+  /* Turtle (.ttl) source view. Replaces the markdown render for any
+     file whose path ends in `.ttl` — running Turtle through markdown
+     produces stray HTML from `@prefix` lines and IRI angle brackets
+     that read as broken tags. Three lightweight token classes are
+     enough to make structure scannable without resembling a full IDE
+     syntax highlighter. */
+  .preview :global(.ttl-source) {
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background: var(--bg);
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    overflow-x: auto;
+  }
+  .preview :global(.ttl-comment) {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .preview :global(.ttl-directive) {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .preview :global(.ttl-iri) {
+    color: var(--accent);
   }
 
   /* Runnable / collapsible fence wrappers. The fence renderer above
