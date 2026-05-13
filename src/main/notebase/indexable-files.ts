@@ -10,7 +10,7 @@ import path from 'node:path';
  * through sidebar listing, watcher reindex, rename/link-rewrites, and
  * the bulk index-all-notes walker.
  */
-export const INDEXABLE_EXTS: ReadonlySet<string> = new Set(['.md', '.ttl', '.csv']);
+export const INDEXABLE_EXTS: ReadonlySet<string> = new Set(['.md', '.ttl', '.csv', '.py']);
 
 export function isIndexable(relativePath: string): boolean {
   return INDEXABLE_EXTS.has(path.extname(relativePath).toLowerCase());

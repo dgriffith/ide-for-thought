@@ -22,6 +22,7 @@
   import { normalizeSqlRows } from '../editor/sql-result';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
+  import { getToolInfosByCategory } from '../tools/tool-registry';
 
   interface Props {
     content: string;
@@ -52,9 +53,38 @@
       cellCode: string;
       output: import('../../../shared/compute/types').CellOutput;
     }) => void;
+    /**
+     * Right-click-menu callbacks mirroring the read-only portion of the
+     * Editor's context menu (Learning / Analysis / Research-Decompose /
+     * Ask About This… / Bookmark / Open In…). The preview pane is
+     * read-only by design, so the menu deliberately excludes the
+     * Refactor submenu and any mutation-bearing items.
+     */
+    onToolInvoke?: (toolId: string) => void;
+    onOpenConversation?: () => void;
+    onBookmark?: () => void;
   }
 
-  let { content, notePath = null, onNavigate, onTagSelect, onOpenSource, onOpenExcerpt, pendingAnchor = null, onAnchorResolved, onTaskToggle, onSaveCellOutput }: Props = $props();
+  let {
+    content,
+    notePath = null,
+    onNavigate,
+    onTagSelect,
+    onOpenSource,
+    onOpenExcerpt,
+    pendingAnchor = null,
+    onAnchorResolved,
+    onTaskToggle,
+    onSaveCellOutput,
+    onToolInvoke,
+    onOpenConversation,
+    onBookmark,
+  }: Props = $props();
+
+  // Tool lists for the right-click menu's Learning / Analysis submenus.
+  // Loaded once at mount — the registry is project-stable.
+  const analysisTools = getToolInfosByCategory('analysis');
+  const learningTools = getToolInfosByCategory('learning');
 
   // Query result cache: query text → results (survives re-renders)
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
@@ -1116,6 +1146,74 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }
   }
 
+  // ── Note context menu (read-only mirror of Editor's right-click menu) ──────
+  //
+  // Same Learning / Analysis / Research-Decompose / Ask About This… /
+  // Bookmark / Open In… items the Editor exposes, minus the Refactor
+  // submenu and the cut/copy/paste/insert-link block that only makes
+  // sense over a CodeMirror selection. The Find-Supporting/Opposing
+  // items inside Research are intentionally omitted because they need
+  // a claim URI under the right-click position — the preview's HTML
+  // doesn't surface raw claim URIs the way the source view does, so
+  // we'd need DOM-level extraction. Decompose-into-Claims operates on
+  // the whole note, so it stays.
+
+  let noteMenu = $state<{ x: number; y: number } | null>(null);
+
+  function handlePreviewContextMenu(e: MouseEvent) {
+    // Don't fire over the compute-output overflow menu's own ⋯ button,
+    // or over the compute-output-menu popup itself. Both have their
+    // own affordances and the page-wide menu would clash visually.
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('.compute-output-menu-btn')) return;
+    if (target?.closest('.compute-output-menu')) return;
+    // Suppress when nothing actionable would land — no callbacks
+    // wired means the host doesn't want this menu (preview-only
+    // contexts like the SourceDetail preview).
+    if (!onToolInvoke && !onOpenConversation && !onBookmark && !notePath) return;
+    e.preventDefault();
+    noteMenu = { x: e.clientX, y: e.clientY };
+    const close = (ev: MouseEvent) => {
+      const t = ev.target as HTMLElement | null;
+      if (t?.closest('.note-context-menu')) return;
+      noteMenu = null;
+      window.removeEventListener('click', close);
+    };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function runMenuAction(fn: (() => void) | undefined): void {
+    if (fn) fn();
+    noteMenu = null;
+  }
+
+  function adjustNoteSubmenu(event: MouseEvent): void {
+    // Flip a submenu up/left if its default position (right of + below
+    // the parent item) would extend past the viewport. Mirrors
+    // Editor.svelte's adjustSubmenu.
+    const item = event.currentTarget as HTMLElement;
+    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
+    if (!submenu) return;
+    submenu.style.top = '';
+    submenu.style.bottom = '';
+    submenu.style.left = '';
+    submenu.style.right = '';
+    requestAnimationFrame(() => {
+      const rect = submenu.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const MARGIN = 8;
+      if (rect.bottom > vh - MARGIN) {
+        submenu.style.top = 'auto';
+        submenu.style.bottom = '-4px';
+      }
+      if (rect.right > vw - MARGIN) {
+        submenu.style.left = 'auto';
+        submenu.style.right = '100%';
+      }
+    });
+  }
+
   // ── Compute-output overflow menu state (#244) ──────────────────────────────
 
   let outputMenu = $state<{
@@ -1301,6 +1399,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   class="preview"
   bind:this={previewEl}
   onclick={handleClick}
+  oncontextmenu={handlePreviewContextMenu}
   onmouseover={handleMouseOver}
   onmouseout={handleMouseOut}
 >
@@ -1332,6 +1431,65 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     <button role="menuitem" onclick={handleCopyAsMarkdown}>Copy as markdown</button>
     {#if outputMenu.output.type === 'table'}
       <button role="menuitem" onclick={handleCopyAsCsv}>Copy as CSV</button>
+    {/if}
+  </div>
+{/if}
+
+{#if noteMenu}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="note-context-menu"
+    style:left="{noteMenu.x}px"
+    style:top="{noteMenu.y}px"
+    onmousedown={(e) => e.preventDefault()}
+  >
+    {#if onToolInvoke && learningTools.length > 0}
+      <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
+        <span class="submenu-trigger">Learning &#x25B8;</span>
+        <div class="submenu">
+          {#each learningTools as tool}
+            <button onclick={() => runMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    {#if onToolInvoke && analysisTools.length > 0}
+      <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
+        <span class="submenu-trigger">Analysis &#x25B8;</span>
+        <div class="submenu">
+          {#each analysisTools as tool}
+            <button onclick={() => runMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
+          {/each}
+        </div>
+      </div>
+    {/if}
+    {#if onToolInvoke}
+      <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
+        <span class="submenu-trigger">Research &#x25B8;</span>
+        <div class="submenu">
+          <button onclick={() => runMenuAction(() => onToolInvoke?.('research.decompose-into-claims'))}>Decompose into Claims</button>
+        </div>
+      </div>
+    {/if}
+    {#if onOpenConversation || onBookmark}
+      <div class="separator"></div>
+    {/if}
+    {#if onOpenConversation}
+      <button onclick={() => runMenuAction(onOpenConversation)}>Ask About This...</button>
+    {/if}
+    {#if onBookmark}
+      <button onclick={() => runMenuAction(onBookmark)}>Bookmark This Note</button>
+    {/if}
+    {#if notePath}
+      <div class="separator"></div>
+      <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
+        <span class="submenu-trigger">Open In &#x25B8;</span>
+        <div class="submenu">
+          <button onclick={() => { if (notePath) void api.shell.revealFile(notePath); noteMenu = null; }}>Reveal in Finder</button>
+          <button onclick={() => { if (notePath) void api.shell.openInDefault(notePath); noteMenu = null; }}>Open in Default App</button>
+          <button onclick={() => { if (notePath) void api.shell.openInTerminal(notePath); noteMenu = null; }}>Open in Terminal</button>
+        </div>
+      </div>
     {/if}
   </div>
 {/if}
@@ -1838,5 +1996,60 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .csl-bibliography-entry :global(.csl-entry) {
     /* citeproc emits its own div wrapper; let it inherit our entry styles. */
     display: inline;
+  }
+
+  /* Note-wide right-click menu. Mirrors `.context-menu` from
+     Editor.svelte but namespaced under `.note-context-menu` so the
+     two never collide if both panes are open in split view. */
+  .note-context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 160px;
+  }
+  .note-context-menu button {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .note-context-menu button:hover { background: var(--bg-button); }
+  .note-context-menu .submenu-item { position: relative; }
+  .note-context-menu .submenu-trigger {
+    display: block;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: default;
+  }
+  .note-context-menu .submenu-item:hover > .submenu-trigger {
+    background: var(--bg-button);
+  }
+  .note-context-menu .submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: -4px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 150px;
+  }
+  .note-context-menu .submenu-item:hover > .submenu { display: block; }
+  .note-context-menu .separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
   }
 </style>

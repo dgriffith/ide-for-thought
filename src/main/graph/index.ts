@@ -656,6 +656,11 @@ export async function indexNote(
     return {};
   }
 
+  if (relativePath.endsWith('.py')) {
+    indexPythonFile(state, relativePath, subject, graph);
+    return {};
+  }
+
   // Diff headings against the previous snapshot BEFORE overwriting it so we
   // can offer to rewrite `[[note#oldSlug]]` links when a single heading
   // gets renamed. Initial index (no prior snapshot) never flags a rename.
@@ -1041,6 +1046,42 @@ export function unindexAllCsvTables(ctx: ProjectContext): void {
   for (const s of subjects) {
     store.removeMatches(undefined, undefined, undefined, s);
   }
+}
+
+/**
+ * Index a standalone `.py` file. Python helpers in the notebase are
+ * importable from ```python cells (the kernel puts the project root on
+ * `sys.path`). We emit minimal metadata so the file appears in note
+ * listings, sidebar tag queries, and "everything in folder X" graph
+ * queries — no AST parsing, no symbol extraction (the kernel itself
+ * is the source of truth for what a module exposes).
+ *
+ * `minerva:PythonModule rdfs:subClassOf minerva:Note`, so existing
+ * "list every note" queries pick these up too; a more specific
+ * "list every Python module" query can use the subclass directly.
+ */
+function indexPythonFile(
+  state: GraphState,
+  relativePath: string,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+): void {
+  const { store } = state;
+
+  store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  store.add(subject, RDF('type'), MINERVA('PythonModule'), graph);
+  const title = path.basename(relativePath, '.py');
+  store.add(subject, DC('title'), $rdf.lit(title), graph);
+  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
+
+  const dir = path.dirname(relativePath);
+  if (dir && dir !== '.') {
+    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
+    ensureFolder(state, dir);
+  }
+  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
 }
 
 function indexTurtleFile(

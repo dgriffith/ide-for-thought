@@ -30,6 +30,11 @@ minerva:Tag a owl:Class ;
     rdfs:label "Tag" ;
     rdfs:comment "A topic tag used to categorize notes." .
 
+minerva:PythonModule a owl:Class ;
+    rdfs:subClassOf minerva:Note ;
+    rdfs:label "Python module" ;
+    rdfs:comment "A `.py` file in the notebase, importable from ```python cells via the kernel's sys.path (which is rooted at the project root)." .
+
 # ── Object Properties ──────────────────────────────────────────────────────
 
 minerva:containsNote a owl:ObjectProperty ;

@@ -360,6 +360,14 @@ export interface ConversationsApi {
   fileDraft(
     draft: import('../../../shared/conversation-drafts').ConversationDraft,
   ): Promise<{ proposalUri: string | null; applied: boolean }>;
+  /** Subscribe to drafts produced by the propose_sources tool. */
+  onSourceDraft(
+    cb: (draft: import('../../../shared/conversation-source-drafts').ConversationSourceDraft) => void,
+  ): void;
+  /** Run the ingest pipeline for each source in the draft and return per-source outcomes. */
+  fileSourceDraft(
+    draft: import('../../../shared/conversation-source-drafts').ConversationSourceDraft,
+  ): Promise<import('../../../shared/conversation-source-drafts').FileSourceDraftResult>;
 }
 
 export interface ProposalsApi {

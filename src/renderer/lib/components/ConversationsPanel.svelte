@@ -5,6 +5,11 @@
   import MarkdownIt from 'markdown-it';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
   import type { ConversationDraft } from '../../../shared/conversation-drafts';
+  import type {
+    ConversationSourceDraft,
+    SourceIngestOutcome,
+  } from '../../../shared/conversation-source-drafts';
+  import type { ConversationMessage } from '../../../shared/types';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the
@@ -164,8 +169,94 @@
     store.discardDraft(tabId, draftId);
   }
 
+  async function handleApproveSource(tabId: string, draft: ConversationSourceDraft) {
+    try {
+      await store.approveSourceDraft(tabId, draft);
+    } catch (e) {
+      console.error('[conv-panel] approve source failed:', e);
+    }
+  }
+
+  function handleDiscardSource(tabId: string, draftId: string) {
+    store.discardSourceDraft(tabId, draftId);
+  }
+
+  function dismissSourceResult(tabId: string, draftId: string) {
+    store.dismissSourceDraftResult(tabId, draftId);
+  }
+
+  function sourceLabel(s: { identifier?: string; url?: string }): string {
+    return s.identifier ?? s.url ?? '(unknown source)';
+  }
+
+  /** Cheap heuristic for the "doi / arxiv / pmid / url" pill — exact
+   *  normalization happens server-side at ingest time. Only used for
+   *  the badge label so a bit of imprecision is fine. */
+  function sourceKindLabel(s: { identifier?: string; url?: string }): string {
+    if (s.url) return 'url';
+    const id = s.identifier ?? '';
+    const stripped = id.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:|arxiv:|pmid:)\s*/i, '');
+    if (/^10\./.test(stripped)) return 'doi';
+    if (/^\d{4}\.\d{4,5}$|^[a-z-]+(?:\.[a-z-]+)?\/\d{7}$/i.test(stripped)) return 'arxiv';
+    if (/^\d+$/.test(stripped)) return 'pmid';
+    return 'id';
+  }
+
+  function summarizeSourceOutcomes(outcomes: SourceIngestOutcome[]): string {
+    let added = 0;
+    let dupes = 0;
+    let failed = 0;
+    for (const o of outcomes) {
+      if (o.error) failed++;
+      else if (o.duplicate) dupes++;
+      else added++;
+    }
+    const parts: string[] = [];
+    if (added) parts.push(`Filed ${added} source${added === 1 ? '' : 's'}`);
+    if (dupes) parts.push(`${dupes} already in library`);
+    if (failed) parts.push(`${failed} failed`);
+    return parts.join(' · ') || 'No sources processed';
+  }
+
   function hostOf(url: string): string {
     try { return new URL(url).host.replace(/^www\./, ''); } catch { return url; }
+  }
+
+  // ── Card anchoring helpers ───────────────────────────────────────────
+  // Each draft / sourceDraft / sourceDraftResult carries an
+  // `afterMessageIndex` captured when it arrived (the slot the streaming
+  // assistant message will occupy after end-of-send reload). To keep
+  // the visual conversation chronological, we walk messages and render
+  // each card right after the message it's anchored to. Cards whose
+  // anchor index is beyond the current message list (in-flight turn,
+  // canceled turn, etc.) render as orphans at the bottom — same
+  // position as the old "everything at panel bottom" behavior but only
+  // for the narrow window before reload lands.
+  type TabT = NonNullable<typeof store.activeTab>;
+  function draftsAt(tab: TabT, i: number) {
+    return tab.drafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function sourceDraftsAt(tab: TabT, i: number) {
+    return tab.sourceDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function sourceResultsAt(tab: TabT, i: number) {
+    return Object.entries(tab.sourceDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex === i,
+    );
+  }
+  function orphanDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.drafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function orphanSourceDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.sourceDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function orphanSourceResults(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return Object.entries(tab.sourceDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex >= max,
+    );
   }
 </script>
 
@@ -228,37 +319,154 @@
           </select>
         </div>
 
-        <div class="messages" bind:this={scrollEl}>
-          {#each tab.conversation.messages as msg}
-            {#if msg.role !== 'system'}
-              <div class="msg {msg.role}">
-                <div class="msg-role">{msg.role}</div>
-                {#if msg.role === 'assistant'}
-                  <div class="msg-content">{@html md.render(msg.content)}</div>
-                  {#if msg.citations && msg.citations.length > 0}
-                    <ol class="citations">
-                      {#each msg.citations as cite, i}
-                        <li>
-                          <button type="button" class="citation-link" onclick={() => api.shell.openExternal(cite.url)} title={cite.citedText}>
-                            <span class="citation-num">[{i + 1}]</span>
-                            <span class="citation-title">{cite.title ?? hostOf(cite.url)}</span>
-                            <span class="citation-host">{hostOf(cite.url)}</span>
-                          </button>
-                        </li>
-                      {/each}
-                    </ol>
-                  {/if}
-                {:else}
-                  <div class="msg-content">{msg.content}</div>
+        {#snippet messageBlock(msg: ConversationMessage)}
+          {#if msg.role !== 'system'}
+            <div class="msg {msg.role}">
+              <div class="msg-role">{msg.role}</div>
+              {#if msg.role === 'assistant'}
+                <div class="msg-content">{@html md.render(msg.content)}</div>
+                {#if msg.citations && msg.citations.length > 0}
+                  <ol class="citations">
+                    {#each msg.citations as cite, ci}
+                      <li>
+                        <button type="button" class="citation-link" onclick={() => api.shell.openExternal(cite.url)} title={cite.citedText}>
+                          <span class="citation-num">[{ci + 1}]</span>
+                          <span class="citation-title">{cite.title ?? hostOf(cite.url)}</span>
+                          <span class="citation-host">{hostOf(cite.url)}</span>
+                        </button>
+                      </li>
+                    {/each}
+                  </ol>
                 {/if}
-              </div>
-            {/if}
+              {:else}
+                <div class="msg-content">{msg.content}</div>
+              {/if}
+            </div>
+          {/if}
+        {/snippet}
+
+        {#snippet noteDraftCard(draft: ConversationDraft)}
+          <div class="draft-card">
+            <div class="draft-summary">
+              <strong>{draft.payloads.length} note{draft.payloads.length === 1 ? '' : 's'}</strong>
+              <span class="draft-note">{draft.note}</span>
+            </div>
+            <ul class="draft-paths">
+              {#each draft.payloads as p}
+                {@const key = draft.draftId + ':' + p.relativePath}
+                <li>
+                  <button type="button" class="draft-path-btn" onclick={() => toggleDraftPath(key)}>
+                    <span class="draft-path">{p.relativePath}</span>
+                    <span class="draft-toggle">{expandedDraftIds.has(key) ? '▾' : '▸'}</span>
+                  </button>
+                  {#if expandedDraftIds.has(key)}
+                    <pre class="draft-preview">{p.content}</pre>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+            <div class="draft-actions">
+              <button type="button" class="draft-btn primary" onclick={() => handleApprove(tab.id, draft)}>Approve &amp; file</button>
+              <button type="button" class="draft-btn" onclick={() => handleDiscard(tab.id, draft.draftId)}>Discard</button>
+            </div>
+          </div>
+        {/snippet}
+
+        {#snippet sourceDraftCardBlock(draft: ConversationSourceDraft)}
+          <div class="draft-card">
+            <div class="draft-summary">
+              <strong>📚 {draft.sources.length} source{draft.sources.length === 1 ? '' : 's'}</strong>
+              <span class="draft-note">{draft.note}</span>
+            </div>
+            <ul class="source-list">
+              {#each draft.sources as s, si (si)}
+                <li>
+                  <span class="source-kind">{sourceKindLabel(s)}</span>
+                  <span class="source-value">{sourceLabel(s)}</span>
+                </li>
+              {/each}
+            </ul>
+            <div class="draft-actions">
+              <button type="button" class="draft-btn primary" onclick={() => handleApproveSource(tab.id, draft)}>Approve &amp; ingest</button>
+              <button type="button" class="draft-btn" onclick={() => handleDiscardSource(tab.id, draft.draftId)}>Discard</button>
+            </div>
+          </div>
+        {/snippet}
+
+        {#snippet sourceResultCardBlock(draftId: string, outcomes: SourceIngestOutcome[])}
+          <div class="source-result-card">
+            <div class="source-result-summary">
+              <strong>📚 {summarizeSourceOutcomes(outcomes)}</strong>
+              <button type="button" class="source-result-dismiss" aria-label="Dismiss" onclick={() => dismissSourceResult(tab.id, draftId)}>&#x2715;</button>
+            </div>
+            <ul class="source-result-list">
+              {#each outcomes as o, oi (oi)}
+                <li class:error={!!o.error}>
+                  {#if o.error}
+                    <span class="source-result-status">⚠</span>
+                    <span class="source-value">{sourceLabel(o.input)}</span>
+                    <span class="source-result-error">{o.error}</span>
+                  {:else if o.duplicate}
+                    <span class="source-result-status">↩</span>
+                    <span class="source-value">{o.title ?? sourceLabel(o.input)}</span>
+                    <span class="source-result-note">already in library</span>
+                  {:else}
+                    <span class="source-result-status">✓</span>
+                    <span class="source-value">{o.title ?? sourceLabel(o.input)}</span>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/snippet}
+
+        <div class="messages" bind:this={scrollEl}>
+          <!-- Interleave: message → cards anchored to that message →
+               next message. Keeps a draft visually attached to the
+               assistant turn that produced it, even after the user
+               sends a follow-up that would otherwise push their new
+               message between the old assistant and its still-pending
+               card. -->
+          {#each tab.conversation.messages as msg, i}
+            {@render messageBlock(msg)}
+            {#each draftsAt(tab, i) as draft (draft.draftId)}
+              {@render noteDraftCard(draft)}
+            {/each}
+            {#each sourceDraftsAt(tab, i) as draft (draft.draftId)}
+              {@render sourceDraftCardBlock(draft)}
+            {/each}
+            {#each sourceResultsAt(tab, i) as [draftId, entry] (draftId)}
+              {@render sourceResultCardBlock(draftId, entry.outcomes)}
+            {/each}
           {/each}
 
-          {#if tab.streaming && tab.streamedChunks}
+          {#if tab.streaming}
             <div class="msg assistant streaming">
               <div class="msg-role">assistant</div>
-              <div class="msg-content">{tab.streamedChunks}</div>
+              {#if tab.streamedChunks}
+                <!-- Stream the assistant's partial text through markdown-it
+                     so tool-call indicators (`_🔍 …_`) and any markdown the
+                     model emits mid-stream render with the same styling
+                     they'll have after the conversation reloads on
+                     completion. Without this the live view shows raw
+                     underscores/asterisks and the message visibly "snaps"
+                     to formatted prose when the final turn lands. -->
+                <div class="msg-content">{@html md.render(tab.streamedChunks)}</div>
+              {/if}
+              <!-- Thinking interstitial — always rendered while the turn
+                   is in flight. Sits at the head of the streaming block
+                   before any text arrives, then tucks under the streamed
+                   text once content lands. Inter-iteration waits (model
+                   produced text in iteration 1, now blocked on a tool
+                   call before iteration 2 starts) would otherwise have
+                   zero animated feedback; keeping the dots visible
+                   throughout means the user always knows the turn is
+                   still working. -->
+              <div class="thinking-indicator" aria-label="Thinking" role="status">
+                <span class="thinking-dot"></span>
+                <span class="thinking-dot"></span>
+                <span class="thinking-dot"></span>
+              </div>
             </div>
           {/if}
 
@@ -284,37 +492,21 @@
             </div>
           {/if}
 
-          {#if tab.drafts.length > 0}
-            <div class="drafts">
-              <div class="drafts-label">Proposed by the assistant — review and approve:</div>
-              {#each tab.drafts as draft (draft.draftId)}
-                <div class="draft-card">
-                  <div class="draft-summary">
-                    <strong>{draft.payloads.length} note{draft.payloads.length === 1 ? '' : 's'}</strong>
-                    <span class="draft-note">{draft.note}</span>
-                  </div>
-                  <ul class="draft-paths">
-                    {#each draft.payloads as p}
-                      {@const key = draft.draftId + ':' + p.relativePath}
-                      <li>
-                        <button type="button" class="draft-path-btn" onclick={() => toggleDraftPath(key)}>
-                          <span class="draft-path">{p.relativePath}</span>
-                          <span class="draft-toggle">{expandedDraftIds.has(key) ? '▾' : '▸'}</span>
-                        </button>
-                        {#if expandedDraftIds.has(key)}
-                          <pre class="draft-preview">{p.content}</pre>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ul>
-                  <div class="draft-actions">
-                    <button type="button" class="draft-btn primary" onclick={() => handleApprove(tab.id, draft)}>Approve &amp; file</button>
-                    <button type="button" class="draft-btn" onclick={() => handleDiscard(tab.id, draft.draftId)}>Discard</button>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
+          <!-- Orphans: cards anchored beyond the current message list.
+               Happens during an in-flight turn (the assistant message
+               hasn't been persisted yet) or after a cancel left the
+               anchor pointing into thin air. Render at the bottom so
+               the card is still visible; the inline interleaved render
+               above will pick them up on reload. -->
+          {#each orphanDrafts(tab) as draft (draft.draftId)}
+            {@render noteDraftCard(draft)}
+          {/each}
+          {#each orphanSourceDrafts(tab) as draft (draft.draftId)}
+            {@render sourceDraftCardBlock(draft)}
+          {/each}
+          {#each orphanSourceResults(tab) as [draftId, entry] (draftId)}
+            {@render sourceResultCardBlock(draftId, entry.outcomes)}
+          {/each}
         </div>
 
         <div class="composer">
@@ -528,13 +720,35 @@
     font-family: var(--font-mono, monospace);
     font-size: 12px;
   }
-  /* User-turn and in-flight assistant streaming content are plain text
-     (we only run markdown-it on finalized assistant turns); preserve
-     newlines. Finalized assistant content is HTML; the rules above
-     handle its layout. */
-  .msg.user .msg-content,
-  .msg.streaming .msg-content { white-space: pre-wrap; }
+  /* User-turn content is plain text — preserve newlines. Streaming
+     assistant content is now markdown-rendered (same as finalized
+     assistant turns), so the rules above handle its layout. */
+  .msg.user .msg-content { white-space: pre-wrap; }
   .streaming .msg-content { opacity: 0.85; }
+
+  /* "Thinking…" interstitial — three dots that pulse out of phase so
+     the user can see the agent is in flight before the first chunk or
+     tool indicator arrives. */
+  .thinking-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 0;
+  }
+  .thinking-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.35;
+    animation: thinking-pulse 1.2s ease-in-out infinite;
+  }
+  .thinking-dot:nth-child(2) { animation-delay: 0.18s; }
+  .thinking-dot:nth-child(3) { animation-delay: 0.36s; }
+  @keyframes thinking-pulse {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+    40%          { opacity: 1;    transform: scale(1.1); }
+  }
 
   .citations {
     list-style: none;
@@ -657,6 +871,90 @@
     max-height: 280px;
   }
   .draft-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+  /* propose_sources cards. Same outer chrome as note draft cards;
+     interior shows a flat list of url/identifier pills rather than the
+     expandable preview tree (we don't fetch metadata until Approve, so
+     there's nothing to preview pre-ingest). */
+  .source-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+  .source-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 3px 6px;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+  }
+  .source-kind {
+    display: inline-block;
+    min-width: 38px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg, var(--bg-sidebar));
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .source-value {
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+
+  /* Post-Approve status card — replaces the inline draft card after
+     ingest finishes so the user can see what landed without flipping
+     to the Sources panel. */
+  .source-result-card {
+    margin-top: 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: var(--bg-button);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .source-result-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .source-result-summary strong { font-weight: 600; }
+  .source-result-dismiss {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .source-result-dismiss:hover { background: var(--bg, var(--bg-sidebar)); color: var(--text); }
+  .source-result-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .source-result-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 6px;
+    font-size: 12px;
+  }
+  .source-result-list li.error .source-value { color: var(--text-muted); }
+  .source-result-status {
+    display: inline-block;
+    width: 14px;
+    text-align: center;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .source-result-list li:not(.error) .source-result-status { color: var(--accent); }
+  .source-result-note { color: var(--text-muted); font-size: 11px; margin-left: auto; }
+  .source-result-error { color: var(--text-muted); font-size: 11px; }
   .draft-btn {
     padding: 4px 10px;
     border: 1px solid var(--border);
@@ -671,6 +969,15 @@
     background: var(--accent);
     color: var(--bg);
     border-color: var(--accent);
+  }
+  /* Primary buttons set `color: var(--bg)` for dark-text-on-accent.
+     The shared `.draft-btn:hover` rule above sets background to
+     var(--bg), which on a primary button collapses text and background
+     to the same color — invisible label. Keep the accent background on
+     hover and just dim slightly, matching `.send-btn:hover`. */
+  .draft-btn.primary:hover:not(:disabled) {
+    background: var(--accent);
+    opacity: 0.9;
   }
   .draft-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 

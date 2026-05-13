@@ -187,6 +187,10 @@ contextBridge.exposeInMainWorld('api', {
     cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
     onDraft: (cb: (draft: unknown) => void) => subscribeIpc(Channels.CONVERSATION_DRAFT, cb),
     fileDraft: (draft: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
+    onSourceDraft: (cb: (draft: unknown) => void) =>
+      subscribeIpc(Channels.CONVERSATION_SOURCE_DRAFT, cb),
+    fileSourceDraft: (draft: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_FILE_SOURCE_DRAFT, draft),
     setModel: (conversationId: string, model: string | undefined) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
   },

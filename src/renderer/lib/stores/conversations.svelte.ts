@@ -6,6 +6,10 @@ import type {
 } from '../../../shared/types';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type {
+  ConversationSourceDraft,
+  SourceIngestOutcome,
+} from '../../../shared/conversation-source-drafts';
+import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
@@ -14,6 +18,35 @@ import type {
  * Multi-tab conversations store backing the bottom-docked tool window.
  */
 
+/**
+ * Cards that arrive mid-turn (note drafts, source drafts, the
+ * post-Approve result for a source draft) need to be visually anchored
+ * to the assistant message they came from. Otherwise a follow-up user
+ * turn slots in *above* the card from the prior turn (since cards used
+ * to render at panel-bottom regardless of which turn produced them),
+ * breaking the chronological read of the conversation.
+ *
+ * `afterMessageIndex` is the index in `conversation.messages` of the
+ * assistant message the card belongs to. Captured at card-arrival time
+ * as `messages.length` — i.e. the slot where the *next* assistant
+ * message will land (the optimistic user message has already been
+ * pushed in `send()`, so length is already past it). After the
+ * end-of-send reload, the real assistant message occupies exactly that
+ * index, and the panel renders the card inline right after it.
+ *
+ * Cards whose anchor is out of range (e.g. arrived during a turn whose
+ * assistant message hasn't been persisted yet, or after a cancel) get
+ * rendered as orphans at the bottom of the message list — same visual
+ * position as the pre-anchoring behavior, just for the narrow window
+ * before reload lands.
+ */
+type AnchoredDraft = ConversationDraft & { afterMessageIndex: number };
+type AnchoredSourceDraft = ConversationSourceDraft & { afterMessageIndex: number };
+interface SourceDraftResultEntry {
+  outcomes: SourceIngestOutcome[];
+  afterMessageIndex: number;
+}
+
 interface TabRuntime {
   id: string;
   /** Auto-generated tab title. Set when a tool seeds the tab via
@@ -21,7 +54,17 @@ interface TabRuntime {
    *  user turn (handled at the panel layer). */
   title: string | null;
   conversation: Conversation;
-  drafts: ConversationDraft[];
+  drafts: AnchoredDraft[];
+  /** propose_sources drafts awaiting Approve/Discard. */
+  sourceDrafts: AnchoredSourceDraft[];
+  /** Outcomes from the most recent fileSourceDraft call per draft id —
+   *  shown in place of the card for a few seconds after Approve so the
+   *  user sees "Filed 3 sources; 1 already in library." before the
+   *  status fades. Keyed by draftId; entries are cleared when the user
+   *  dismisses. Inherits `afterMessageIndex` from the originating
+   *  draft so the result card stays anchored to the same assistant
+   *  message as the draft it replaces. */
+  sourceDraftResults: Record<string, SourceDraftResultEntry>;
   /** In-flight ask_user prompt, if the agent is waiting on a reply. */
   pendingQuestion: AskUserRequest | null;
   composer: string;
@@ -52,6 +95,7 @@ let tabs = $state<TabRuntime[]>([]);
 // per change. Debounced via a single timeout that re-arms.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let draftSubscribed = false;
+let sourceDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
 
@@ -89,9 +133,23 @@ function ensureSubscriptions(): void {
     api.conversations.onDraft((draft) => {
       const t = tabs.find((tab) => tab.id === draft.conversationId);
       if (!t) return;
-      t.drafts = [...t.drafts, draft];
+      // Anchor to the slot the streaming assistant message will land in
+      // post-reload. `messages.length` already counts the optimistic
+      // user turn `send()` pushed before awaiting the IPC, so it points
+      // at where the assistant turn will be appended.
+      const afterMessageIndex = t.conversation.messages.length;
+      t.drafts = [...t.drafts, { ...draft, afterMessageIndex }];
     });
     draftSubscribed = true;
+  }
+  if (!sourceDraftSubscribed) {
+    api.conversations.onSourceDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.sourceDrafts = [...t.sourceDrafts, { ...draft, afterMessageIndex }];
+    });
+    sourceDraftSubscribed = true;
   }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
@@ -130,6 +188,8 @@ async function init(): Promise<void> {
       title: null,
       conversation: conv,
       drafts: [],
+      sourceDrafts: [],
+      sourceDraftResults: {},
       pendingQuestion: null,
       composer: '',
       streaming: false,
@@ -212,6 +272,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     title: null,
     conversation: conv,
     drafts: [],
+    sourceDrafts: [],
+    sourceDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -261,6 +323,8 @@ async function openConversationTab(opts: {
     title: null,
     conversation: conv,
     drafts: [],
+    sourceDrafts: [],
+    sourceDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -301,6 +365,18 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   const text = content.trim();
   if (!text || tab.streaming) return;
   tab.composer = '';
+  // Echo the user's turn into the transcript immediately. The IPC call below
+  // doesn't resolve until the assistant has finished streaming, and without
+  // this echo the user sees their message vanish from the composer with
+  // nothing replacing it for up to tens of seconds — making the first turn
+  // feel like it didn't register. The end-of-send `load()` replaces this
+  // array with the canonical persisted version (which contains the same
+  // user message plus the assistant reply), so the optimistic insert is
+  // not a permanent fork of state.
+  tab.conversation.messages = [
+    ...tab.conversation.messages,
+    { role: 'user', content: text, timestamp: new Date().toISOString() },
+  ];
   tab.streaming = true;
   tab.streamedChunks = '';
   const tools = tab.extraTools.length > 0 ? [...tab.extraTools] : undefined;
@@ -358,6 +434,44 @@ function discardDraft(tabId: string, draftId: string): void {
   tab.drafts = tab.drafts.filter((d) => d.draftId !== draftId);
 }
 
+async function approveSourceDraft(
+  tabId: string,
+  draft: ConversationSourceDraft,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  // Find the anchored entry so the result card inherits the same
+  // afterMessageIndex — the visual "this happened on that turn"
+  // grouping should survive Approve → result replacement.
+  const anchored = tab.sourceDrafts.find((d) => d.draftId === draft.draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+  // Snapshot before crossing IPC — same Svelte 5 $state Proxy issue
+  // that bit propose_notes.
+  const snapshot = $state.snapshot(draft);
+  const result = await api.conversations.fileSourceDraft(snapshot);
+  // Drop the in-flight card and stash the per-source outcomes so the
+  // panel can replace the card with a brief status summary.
+  tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draft.draftId);
+  tab.sourceDraftResults = {
+    ...tab.sourceDraftResults,
+    [draft.draftId]: { outcomes: result.outcomes, afterMessageIndex },
+  };
+}
+
+function dismissSourceDraftResult(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const next = { ...tab.sourceDraftResults };
+  delete next[draftId];
+  tab.sourceDraftResults = next;
+}
+
+function discardSourceDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draftId);
+}
+
 function setComposer(value: string): void {
   const tab = activeTab();
   if (tab) tab.composer = value;
@@ -387,6 +501,9 @@ export function getConversationsStore() {
     setModel,
     approveDraft,
     discardDraft,
+    approveSourceDraft,
+    discardSourceDraft,
+    dismissSourceDraftResult,
     setComposer,
   };
 }

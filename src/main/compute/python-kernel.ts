@@ -103,10 +103,17 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       // immediately — without it, Python's buffering would hold each
       // event line until 4KB accumulated, breaking the line-protocol.
       PYTHONUNBUFFERED: '1',
-      // The bundled `minerva` package lives next to the kernel script;
-      // putting its parent on PYTHONPATH lets `import minerva` resolve
-      // without a pip install (#242).
-      PYTHONPATH: pythonResourcesRoot(),
+      // PYTHONPATH = bundled-libs ++ project-root.
+      //   1. `pythonResourcesRoot()` is where the bundled `minerva`
+      //      package lives — listed first so the user can never shadow
+      //      `import minerva` with their own `minerva.py`.
+      //   2. `rootPath` is the project's directory, so any `.py` file
+      //      the user puts in their notebase is importable from a
+      //      ```python cell (`from helpers import foo` for `helpers.py`
+      //      at the root; `from python.utils import foo` for
+      //      `python/utils.py`). Mirrors how `.csv` and `.ttl` files
+      //      are first-class in the notebase.
+      PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
       MINERVA_IPC_SOCKET: rpc.socketPath,
       MINERVA_PROJECT_ROOT: rootPath,
       // Force matplotlib's non-interactive Agg backend (#243). Without
