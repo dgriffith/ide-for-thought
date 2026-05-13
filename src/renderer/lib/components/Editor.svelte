@@ -31,6 +31,7 @@
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { computeCellsExtension } from '../editor/compute-cells';
   import { footnotePreview } from '../editor/footnote-preview';
+  import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
   import { clampMenuToViewport } from '../utils/menuClamp';
@@ -503,6 +504,7 @@
       ),
     }),
     footnotePreview(),
+    footnoteDecorations(),
     EditorView.domEventHandlers({
       // Snapshot the selection at the very start of a right-click, before
       // any built-in handling can collapse it. Then, when the click is
