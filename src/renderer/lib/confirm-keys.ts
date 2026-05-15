@@ -54,6 +54,11 @@ export const CONFIRM_KEYS = {
   mergeFailed: 'merge-failed',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
+  /** Shown when an LLM-backed action runs without an Anthropic API key
+   *  configured. The confirm button label is "Open Settings" and the
+   *  dialog hides the Don't-ask-again checkbox — silencing it would
+   *  return the user to the previous silent-fail behavior. */
+  missingApiKey: 'missing-api-key',
 } as const;
 
 export type ConfirmKey = typeof CONFIRM_KEYS[keyof typeof CONFIRM_KEYS];
@@ -274,6 +279,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Bibliography failed',
     description:
       'Shown when Insert/Update Bibliography errors out (file read failure, citeproc engine error, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.missingApiKey,
+    title: 'Anthropic API key not configured',
+    description:
+      'Shown when an LLM-backed action (conversation, auto-tag, auto-link, decompose, etc.) tries to run without an API key. The dialog hides Don’t-ask-again so the user can’t accidentally re-silence the very condition that blocks LLM features.',
   },
 ];
 

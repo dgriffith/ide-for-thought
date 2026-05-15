@@ -38,6 +38,8 @@
   import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
   import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
+  import OnboardingDialog from './lib/components/OnboardingDialog.svelte';
+  import type { OnboardingAnswers } from './lib/components/OnboardingDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
@@ -48,6 +50,8 @@
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
+  import { isMissingApiKeyError } from '../shared/llm-errors';
+  import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import {
     planExtract,
@@ -72,6 +76,15 @@
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
   let showSettings = $state(false);
+  /** Tab the SettingsDialog should land on when next opened. Cleared
+   *  on close so the next manual open returns to the default Editor
+   *  tab. Set by `handleMissingApiKey` to jump straight to the AI tab
+   *  where the API key field lives. */
+  let settingsInitialTab = $state<'ai' | undefined>(undefined);
+  /** Onboarding modal visibility. Triggered by onProjectOpened when
+   *  the thoughtbase has zero notes AND its per-project
+   *  `onboarding.dismissed` flag is false. */
+  let showOnboarding = $state(false);
 
   /** Pending Auto-link suggestions to review. Non-null means the AutoLinkDialog is shown. */
   let autoLinkReview = $state<{
@@ -138,6 +151,18 @@
     // change without needing a manual onTabChange hook.
     void editor.activeFilePath;
     void refreshBacklinkCount();
+  });
+
+  // Surface the missing-API-key dialog whenever the conversations
+  // store flags it. The store flips the flag from its send() catch
+  // block on `isMissingApiKeyError`; we read the flag here (which makes
+  // it a reactive dep), show the modal, then call dismiss so a follow-up
+  // failure can re-fire the dialog.
+  $effect(() => {
+    if (conversationsStore.needsApiKey) {
+      conversationsStore.dismissApiKeyDialog();
+      void handleMissingApiKey();
+    }
   });
 
   // ConversationsPanel handles its own per-project init via onMount,
@@ -213,6 +238,169 @@
   function handleConfirmCancel() {
     confirmDialog?.resolve(false);
     confirmDialog = null;
+  }
+
+  /**
+   * Surfaced when any LLM-backed action fails because the user hasn't
+   * configured an Anthropic API key. Replaces the previous behavior —
+   * a console.error in the conversations panel, or a generic
+   * "<feature> failed: …" confirm in auto-link/auto-tag — with an
+   * actionable dialog that opens the Settings dialog on the AI tab.
+   *
+   * Idempotent: if a dialog is already open the second call is a no-op
+   * (showConfirm replaces the in-flight dialog, but we don't want
+   * cascading prompts when several LLM actions fail in quick succession).
+   * The dialog hides Don't-ask-again so muting it can't return us to the
+   * previous silent-failure state.
+   */
+  let missingApiKeyPromptShown = false;
+  /** Convenience for try/catch blocks around LLM-backed actions: if the
+   *  caught error is a missing-API-key, show the actionable dialog and
+   *  return true so the caller can skip its generic "X failed: …"
+   *  confirm. Returns false for any other error so the caller's
+   *  existing error path runs untouched. */
+  async function maybeHandleMissingApiKey(err: unknown): Promise<boolean> {
+    if (!isMissingApiKeyError(err)) return false;
+    await handleMissingApiKey();
+    return true;
+  }
+  async function handleMissingApiKey(): Promise<void> {
+    if (missingApiKeyPromptShown) return;
+    missingApiKeyPromptShown = true;
+    try {
+      const ok = await showConfirm(
+        'This action needs an Anthropic API key, which isn’t configured yet. ' +
+          'Open Settings → AI to paste your key, or set the ANTHROPIC_API_KEY ' +
+          'environment variable before launching the app.',
+        CONFIRM_KEYS.missingApiKey,
+        'Open Settings',
+        { hideDontAskAgain: true },
+      );
+      if (ok) {
+        settingsInitialTab = 'ai';
+        showSettings = true;
+      }
+    } finally {
+      missingApiKeyPromptShown = false;
+    }
+  }
+
+  /** Build the system prompt + first message for the new-thoughtbase
+   *  onboarding journey. The prompt instructs the agent to draft an
+   *  index + linked child notes via `propose_notes` so the user gets
+   *  the same review-the-bundle UX as the decompose tool. Depth maps
+   *  to a target note count.
+   */
+  function buildOnboardingPrompts(a: OnboardingAnswers): {
+    systemPrompt: string;
+    firstMessage: string;
+  } {
+    const depthSpec = {
+      quick: { count: '3–5', label: 'a quick orientation' },
+      moderate: { count: '8–12', label: 'a moderate overview' },
+      deep: { count: '15–25', label: 'a deep-dive overview' },
+    }[a.depth];
+    const expertiseSpec = {
+      beginner: 'They are new to this topic — assume no prior vocabulary, define jargon on first use, and prefer concrete examples over abstractions.',
+      familiar: 'They have some working familiarity — skip 101 framing but explain non-obvious terms inline.',
+      expert: 'They are already deep — pitch the notes at peer level, focus on structure, debates, and frontiers rather than fundamentals.',
+    }[a.expertise];
+    const useLine = a.use ? `Intended use: ${a.use}.` : 'Intended use: not specified.';
+    const systemPrompt =
+      `You are kicking off a brand-new thoughtbase for the user. This is their first conversation in this project — the file tree is empty. Your job is to draft ${depthSpec.label} of the subject they named, filed as a single bundle of linked notes the user can review and approve.\n\n` +
+      `## Subject\n${a.subject}\n\n` +
+      `## Reader\n${expertiseSpec} ${useLine}\n\n` +
+      `## Output\nProduce ONE \`propose_notes\` call containing ${depthSpec.count} notes:\n\n` +
+      `1. An **index note** at the top level (e.g. \`${slugifyForPath(a.subject)}.md\`) that opens with a 1–3 paragraph orientation and then a bulleted list of wiki-links to each child note. The bullets should be in a sensible reading order (foundations first, then branches).\n` +
+      `2. **Child notes** in a folder named after the subject (e.g. \`${slugifyForPath(a.subject)}/<topic>.md\`). Each child stands on its own — a short framing paragraph, then sections sized for the depth level above. Cross-link freely between children where it helps; use \`[[note-name]]\` syntax.\n\n` +
+      `Children should partition the subject — overlap is fine where ideas span boundaries, but don't write the same content twice.\n\n` +
+      `## Style\n- Markdown body. Use \`#\` for the note title at the top.\n- No frontmatter unless you have a strong reason — keep the surface clean for the user's first encounter.\n- Wiki-links use \`[[note-name]]\` against the bare basename; the system resolves them.\n- Plain prose. Avoid bullet-listing everything; some paragraphs make notes feel like a tour rather than a checklist.\n\n## Process\nIf the subject is ambiguous (e.g. 'Mercury' — planet? element? messenger god?), use \`ask_user\` ONCE to disambiguate before drafting. Otherwise proceed directly. Don't ask the user to review your plan — just produce the bundle. They'll approve or reject the whole thing in the inline review card.`;
+    const firstMessage = `Build the overview as instructed.`;
+    return { systemPrompt, firstMessage };
+  }
+
+  /** Cheap slug for path placeholders in the system prompt. The agent
+   *  may override these paths; this is just a sensible default. */
+  function slugifyForPath(s: string): string {
+    return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'overview';
+  }
+
+  async function handleOnboardingAccept(answers: OnboardingAnswers, dontAskAgain: boolean) {
+    showOnboarding = false;
+    if (dontAskAgain) {
+      try { await api.notebase.setOnboardingDismissed(true); }
+      catch (e) { console.warn('[onboarding] persist dismiss failed:', e); }
+    }
+    const { systemPrompt, firstMessage } = buildOnboardingPrompts(answers);
+    await conversationsStore.openConversationTab({
+      systemPrompt,
+      initialMessage: firstMessage,
+      extraTools: ['ask_user'],
+    });
+  }
+
+  async function handleOnboardingDecline(dontAskAgain: boolean) {
+    showOnboarding = false;
+    if (dontAskAgain) {
+      try { await api.notebase.setOnboardingDismissed(true); }
+      catch (e) { console.warn('[onboarding] persist dismiss failed:', e); }
+    }
+  }
+
+  /**
+   * Check whether the just-opened thoughtbase should trigger the
+   * onboarding modal. Called from every project-open path (the
+   * `project:opened` event AND the in-window New/Open/Open-Recent
+   * handlers) — only the new-window paths fire the event, so without
+   * this helper "New Thoughtbase" in the current window silently
+   * skipped the modal.
+   *
+   * Idempotent: re-entering on a project that already has notes is a
+   * no-op, so callers don't need to guard.
+   */
+  async function maybeShowOnboarding(): Promise<void> {
+    if (countNotes(notebase.files) > 0) return;
+    try {
+      const dismissed = await api.notebase.getOnboardingDismissed();
+      if (!dismissed) showOnboarding = true;
+    } catch (e) {
+      console.warn('[onboarding] read dismiss flag failed:', e);
+    }
+  }
+
+  /**
+   * Open every note tagged `entrypoint` if the editor came up with no
+   * note tabs restored from the saved session. Query/source/saved-query
+   * tabs don't suppress — the user's intent for entrypoints is to land
+   * them on actual prose, not whatever query they were running last.
+   * The graph index may still be warming up the moment a project
+   * opens, so the tag query can return empty; we re-query if so.
+   *
+   * Idempotent: if a note tab is already open the function returns
+   * early; if the editor reopens an entrypoint already in the tab list
+   * `openFile` is a no-op tab-switch.
+   */
+  async function maybeOpenEntrypoints(): Promise<void> {
+    if (editor.tabs.some((t) => t.type === 'note')) return;
+    try {
+      const entries = await api.tags.notesByTag(ENTRYPOINT_TAG);
+      if (entries.length === 0) return;
+      // Sort by title for deterministic active-tab choice. `notesByTag`
+      // already sorts but be defensive.
+      const sorted = [...entries].sort((a, b) => a.title.localeCompare(b.title));
+      // `openFile` resolves activeIndex to the latest tab — open in
+      // order, then snap back to index 0 so the first entry is the
+      // one the user sees.
+      for (const note of sorted) {
+        await editor.openFile(note.relativePath);
+      }
+      // First-entry-active. The list above may include paths that
+      // failed to read, but `openFile` only appends when the read
+      // succeeds, so index 0 is whichever opened first.
+      if (editor.tabs.length > 0) editor.switchTab(0);
+    } catch (e) {
+      console.warn('[entrypoint] auto-open failed:', e);
+    }
   }
 
   let pendingSearchQuery = $state<string | null>(null);
@@ -837,6 +1025,7 @@
       const activeBody = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
       autoLinkReview = { relativePath, suggestions, activeBody };
     } catch (err) {
+      if (await maybeHandleMissingApiKey(err)) return;
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
     } finally {
@@ -861,6 +1050,7 @@
       }
       autoLinkInboundReview = { relativePath, suggestions };
     } catch (err) {
+      if (await maybeHandleMissingApiKey(err)) return;
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
     } finally {
@@ -1058,6 +1248,35 @@
 
     sidebar?.refreshTags();
     await reportBulkTagSummary('Remove', tag, targets.length, changed, failures);
+  }
+
+  /**
+   * Toggle the `entrypoint` tag on a single note. Adds it when absent,
+   * removes it when present — the menu prefetches the current state to
+   * label itself, but the actual decision happens here against the
+   * just-read content (the file might have been edited between the
+   * prefetch and the click). Refreshes the sidebar Tags panel so the
+   * change is visible immediately.
+   */
+  async function handleToggleEntrypoint(relativePath: string, _currentlyEntrypoint: boolean): Promise<void> {
+    if (!notebase.meta) return;
+    void _currentlyEntrypoint; // label-only; we re-check from disk
+    try {
+      const content = await api.notebase.readFile(relativePath);
+      const hasIt = extractTagsFromContent(content)
+        .some((t) => t.toLowerCase() === ENTRYPOINT_TAG);
+      if (hasIt) {
+        const { content: next, removedTags } = removeTagsFromContent(content, [ENTRYPOINT_TAG]);
+        if (removedTags.length > 0) await api.notebase.writeFile(relativePath, next);
+      } else {
+        const { content: next, addedTags } = mergeTagsIntoContent(content, [ENTRYPOINT_TAG]);
+        if (addedTags.length > 0) await api.notebase.writeFile(relativePath, next);
+      }
+      sidebar?.refreshTags();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Toggle entrypoint failed: ${msg}`, CONFIRM_KEYS.bulkTagFailed, 'OK');
+    }
   }
 
   async function reportBulkTagSummary(
@@ -1331,18 +1550,31 @@
     // "This Window" — clear the editor so stale tabs from the previous
     // thoughtbase don't survive into the new one.
     editor.clear();
-    await notebase.open();
+    const opened = await notebase.open();
+    if (opened) {
+      await maybeShowOnboarding();
+      await maybeOpenEntrypoints();
+    }
   }
 
   async function handleNewThoughtbase(): Promise<void> {
     const choice = await askOpenTarget('A thoughtbase is already open in this window. Create the new one in:');
     if (choice === 'cancel') return;
     if (choice === 'new') {
+      // New-window path emits `project:opened`, so the onProjectOpened
+      // handler in onMount fires maybeShowOnboarding there.
       await api.notebase.newProjectInNewWindow();
       return;
     }
     editor.clear();
-    await notebase.newProject();
+    // Guard on the IPC result — a cancelled directory picker leaves
+    // the previous project in place; we don't want to re-trigger the
+    // onboarding modal on a thoughtbase the user already declined.
+    const opened = await notebase.newProject();
+    if (opened) {
+      await maybeShowOnboarding();
+      await maybeOpenEntrypoints();
+    }
   }
 
   async function handleOpenRecentThoughtbase(rootPath: string): Promise<void> {
@@ -1353,7 +1585,11 @@
       return;
     }
     editor.clear();
-    await notebase.openPath(rootPath);
+    const opened = await notebase.openPath(rootPath);
+    if (opened) {
+      await maybeShowOnboarding();
+      await maybeOpenEntrypoints();
+    }
   }
 
   async function handleSaveCellOutput(payload: {
@@ -1514,6 +1750,7 @@
       // On success, the NOTEBASE_REWRITTEN listener reloads the note so the
       // user sees the new frontmatter tags appear in the editor.
     } catch (err) {
+      if (await maybeHandleMissingApiKey(err)) return;
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
     }
@@ -1718,13 +1955,14 @@
   // Refresh tags when notebase opens
   const originalOpen = notebase.open;
   notebase.open = async () => {
-    await originalOpen();
+    const result = await originalOpen();
     setTimeout(() => {
       sidebar?.refreshTags();
       sidebar?.refreshSources();
       sidebar?.refreshTables();
       void refreshSourcesCache();
     }, 100);
+    return result;
   };
 
   // Main broadcasts when the sources watcher reindexes or removes a source.
@@ -1981,8 +2219,30 @@
           editorComponent?.restorePosition(activeTab.cursorOffset!, activeTab.scrollTop);
         });
       }
+
+      // Offer the onboarding journey on empty thoughtbases. Files have
+      // already been loaded by `notebase.openPath` above, so the count
+      // is current. Helper is shared with the in-window New/Open paths.
+      await maybeShowOnboarding();
+      // Auto-open any `entrypoint`-tagged notes when restoreTabs left
+      // the editor with no note tabs. Runs after the onboarding check
+      // because an empty thoughtbase has no entrypoints anyway, but
+      // ordering doesn't matter beyond that.
+      await maybeOpenEntrypoints();
     });
   });
+
+  /** Count .md notes anywhere in the tree (recursive over folder
+   *  children). The onboarding trigger uses this to decide whether
+   *  the thoughtbase is "empty" — folders alone don't disqualify. */
+  function countNotes(files: import('../shared/types').NoteFile[]): number {
+    let n = 0;
+    for (const f of files) {
+      if (!f.isDirectory && f.name.endsWith('.md')) n++;
+      else if (f.isDirectory && f.children) n += countNotes(f.children);
+    }
+    return n;
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -2019,6 +2279,7 @@
           onPaste={handlePaste}
           onMove={handleMove}
           onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
+          onToggleEntrypoint={handleToggleEntrypoint}
           onSourceSelect={(id) => handleOpenSource(id)}
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
@@ -2192,6 +2453,7 @@
             bind:this={toolPanelComponent}
             onNoteCreated={() => { void notebase.refresh(); sidebar?.refreshTags(); }}
             onOpenConversation={handleOpenConversationFromTool}
+            onMissingApiKey={() => { void handleMissingApiKey(); }}
           />
         {:else if editor.activeTab?.type === 'query'}
           <QueryPanel
@@ -2393,7 +2655,14 @@
         queryPanelComponent?.updateTheme();
         previewComponent?.updateTheme();
       }}
-      onClose={() => { showSettings = false; }}
+      onClose={() => { showSettings = false; settingsInitialTab = undefined; }}
+      initialTab={settingsInitialTab}
+    />
+  {/if}
+  {#if showOnboarding}
+    <OnboardingDialog
+      onAccept={(answers, dontAskAgain) => { void handleOnboardingAccept(answers, dontAskAgain); }}
+      onDecline={(dontAskAgain) => { void handleOnboardingDecline(dontAskAgain); }}
     />
   {/if}
 </div>

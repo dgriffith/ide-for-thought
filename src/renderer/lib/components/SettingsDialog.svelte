@@ -41,9 +41,13 @@
     onApplyEditor: (s: EditorSettings) => void;
     onThemeChanged: () => void;
     onClose: () => void;
+    /** Tab to land on when the dialog opens. Defaults to 'editor'. The
+     *  missing-API-key flow passes 'ai' so the user lands on the key
+     *  field directly instead of hunting through tabs. */
+    initialTab?: TabId;
   }
 
-  let { onApplyEditor, onThemeChanged, onClose }: Props = $props();
+  let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
   type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'sites' | 'bibliography' | 'compute' | 'ai';
   const TABS: { id: TabId; label: string }[] = [
@@ -119,7 +123,7 @@
     [...confirmSuppression.suppressed].filter((k) => !confirmRegistryEntry(k))
   );
   let suppressedCount = $derived(confirmRows.filter((r) => r.suppressed).length);
-  let activeTab = $state<TabId>('editor');
+  let activeTab = $state<TabId>(initialTab ?? 'editor');
 
   // Editor settings
   let editor = $state<EditorSettings>(getEditorSettings());

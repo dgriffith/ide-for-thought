@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { getConversationsStore } from '../stores/conversations.svelte';
+  import { getEditorStore } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import MarkdownIt from 'markdown-it';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
@@ -32,6 +33,7 @@
   let { currentNotePath }: Props = $props();
 
   const store = getConversationsStore();
+  const editor = getEditorStore();
 
   let composerEl = $state<HTMLTextAreaElement>();
   let scrollEl = $state<HTMLDivElement>();
@@ -181,12 +183,25 @@
     store.discardSourceDraft(tabId, draftId);
   }
 
-  function dismissSourceResult(tabId: string, draftId: string) {
-    store.dismissSourceDraftResult(tabId, draftId);
-  }
-
   function sourceLabel(s: { identifier?: string; url?: string }): string {
     return s.identifier ?? s.url ?? '(unknown source)';
+  }
+
+  /** Last segment of a project-relative path — the only part the user
+   *  needs to recognize the filed note in the compact "Filed:" line.
+   *  Full path is still on the link's `title` for hover disambiguation
+   *  when two filings have the same basename. */
+  function basename(p: string): string {
+    const slash = p.lastIndexOf('/');
+    return slash >= 0 ? p.slice(slash + 1) : p;
+  }
+
+  function openFiledNote(relativePath: string) {
+    void editor.openFile(relativePath);
+  }
+
+  function openFiledSource(sourceId: string) {
+    editor.openSource(sourceId);
   }
 
   /** Cheap heuristic for the "doi / arxiv / pmid / url" pill — exact
@@ -200,22 +215,6 @@
     if (/^\d{4}\.\d{4,5}$|^[a-z-]+(?:\.[a-z-]+)?\/\d{7}$/i.test(stripped)) return 'arxiv';
     if (/^\d+$/.test(stripped)) return 'pmid';
     return 'id';
-  }
-
-  function summarizeSourceOutcomes(outcomes: SourceIngestOutcome[]): string {
-    let added = 0;
-    let dupes = 0;
-    let failed = 0;
-    for (const o of outcomes) {
-      if (o.error) failed++;
-      else if (o.duplicate) dupes++;
-      else added++;
-    }
-    const parts: string[] = [];
-    if (added) parts.push(`Filed ${added} source${added === 1 ? '' : 's'}`);
-    if (dupes) parts.push(`${dupes} already in library`);
-    if (failed) parts.push(`${failed} failed`);
-    return parts.join(' · ') || 'No sources processed';
   }
 
   function hostOf(url: string): string {
@@ -244,6 +243,11 @@
       ([, entry]) => entry.afterMessageIndex === i,
     );
   }
+  function noteResultsAt(tab: TabT, i: number) {
+    return Object.entries(tab.noteDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex === i,
+    );
+  }
   function orphanDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.drafts.filter((d) => d.afterMessageIndex >= max);
@@ -255,6 +259,12 @@
   function orphanSourceResults(tab: TabT) {
     const max = tab.conversation.messages.length;
     return Object.entries(tab.sourceDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex >= max,
+    );
+  }
+  function orphanNoteResults(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return Object.entries(tab.noteDraftResults).filter(
       ([, entry]) => entry.afterMessageIndex >= max,
     );
   }
@@ -393,30 +403,53 @@
           </div>
         {/snippet}
 
-        {#snippet sourceResultCardBlock(draftId: string, outcomes: SourceIngestOutcome[])}
-          <div class="source-result-card">
-            <div class="source-result-summary">
-              <strong>📚 {summarizeSourceOutcomes(outcomes)}</strong>
-              <button type="button" class="source-result-dismiss" aria-label="Dismiss" onclick={() => dismissSourceResult(tab.id, draftId)}>&#x2715;</button>
-            </div>
-            <ul class="source-result-list">
-              {#each outcomes as o, oi (oi)}
-                <li class:error={!!o.error}>
-                  {#if o.error}
-                    <span class="source-result-status">⚠</span>
-                    <span class="source-value">{sourceLabel(o.input)}</span>
-                    <span class="source-result-error">{o.error}</span>
-                  {:else if o.duplicate}
-                    <span class="source-result-status">↩</span>
-                    <span class="source-value">{o.title ?? sourceLabel(o.input)}</span>
-                    <span class="source-result-note">already in library</span>
-                  {:else}
-                    <span class="source-result-status">✓</span>
-                    <span class="source-value">{o.title ?? sourceLabel(o.input)}</span>
-                  {/if}
-                </li>
+        {#snippet sourceResultLine(_draftId: string, outcomes: SourceIngestOutcome[])}
+          <!-- Compact "Filed:" line that replaces the propose_sources
+               card after Approve. Each successfully filed source title
+               is a clickable link that opens the source in the editor;
+               failures are shown muted in-line so the user can see what
+               didn't land without losing the click-to-open story. The
+               line is persistent (no dismiss) — it lives in the
+               transcript so the user can scroll back later. -->
+          <div class="filed-line">
+            <span class="filed-prefix">📚 Filed:</span>
+            {#each outcomes as o, oi (oi)}
+              {#if oi > 0}<span class="filed-sep">·</span>{/if}
+              {#if o.error}
+                <span class="filed-error" title={o.error}>⚠ {sourceLabel(o.input)}</span>
+              {:else if o.sourceId}
+                <button
+                  type="button"
+                  class="filed-link"
+                  title={o.duplicate ? 'Already in library — open' : 'Open source'}
+                  onclick={() => openFiledSource(o.sourceId!)}
+                >{o.title ?? sourceLabel(o.input)}{#if o.duplicate}<span class="filed-dup"> · already in library</span>{/if}</button>
+              {:else}
+                <span class="filed-error">{sourceLabel(o.input)}</span>
+              {/if}
+            {/each}
+          </div>
+        {/snippet}
+
+        {#snippet noteResultLine(_draftId: string, filedPaths: string[])}
+          <!-- Counterpart to sourceResultLine for propose_notes. Drops
+               in where the draft card was so the user knows what filed
+               and can jump to any of the new notes with one click. -->
+          <div class="filed-line">
+            <span class="filed-prefix">📝 Filed:</span>
+            {#if filedPaths.length === 0}
+              <span class="filed-error">(no notes written)</span>
+            {:else}
+              {#each filedPaths as p, pi (p)}
+                {#if pi > 0}<span class="filed-sep">·</span>{/if}
+                <button
+                  type="button"
+                  class="filed-link"
+                  title={p}
+                  onclick={() => openFiledNote(p)}
+                >{basename(p)}</button>
               {/each}
-            </ul>
+            {/if}
           </div>
         {/snippet}
 
@@ -436,7 +469,10 @@
               {@render sourceDraftCardBlock(draft)}
             {/each}
             {#each sourceResultsAt(tab, i) as [draftId, entry] (draftId)}
-              {@render sourceResultCardBlock(draftId, entry.outcomes)}
+              {@render sourceResultLine(draftId, entry.outcomes)}
+            {/each}
+            {#each noteResultsAt(tab, i) as [draftId, entry] (draftId)}
+              {@render noteResultLine(draftId, entry.filedPaths)}
             {/each}
           {/each}
 
@@ -505,7 +541,10 @@
             {@render sourceDraftCardBlock(draft)}
           {/each}
           {#each orphanSourceResults(tab) as [draftId, entry] (draftId)}
-            {@render sourceResultCardBlock(draftId, entry.outcomes)}
+            {@render sourceResultLine(draftId, entry.outcomes)}
+          {/each}
+          {#each orphanNoteResults(tab) as [draftId, entry] (draftId)}
+            {@render noteResultLine(draftId, entry.filedPaths)}
           {/each}
         </div>
 
@@ -904,57 +943,39 @@
     overflow-wrap: anywhere;
   }
 
-  /* Post-Approve status card — replaces the inline draft card after
-     ingest finishes so the user can see what landed without flipping
-     to the Sources panel. */
-  .source-result-card {
-    margin-top: 4px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 12px;
-    background: var(--bg-button);
+  /* Post-Approve summary line — replaces the inline draft card for
+     both propose_notes and propose_sources. Single-line, no chrome,
+     clickable filenames/titles. Persistent (no dismiss) so the user
+     can scroll back later and still navigate to filed resources. */
+  .filed-line {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .source-result-summary {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text);
-  }
-  .source-result-summary strong { font-weight: 600; }
-  .source-result-dismiss {
-    margin-left: auto;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 11px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
-  }
-  .source-result-dismiss:hover { background: var(--bg, var(--bg-sidebar)); color: var(--text); }
-  .source-result-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
-  .source-result-list li {
-    display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 8px;
-    padding: 2px 6px;
+    gap: 6px;
+    padding: 6px 4px;
     font-size: 12px;
+    color: var(--text-muted);
   }
-  .source-result-list li.error .source-value { color: var(--text-muted); }
-  .source-result-status {
-    display: inline-block;
-    width: 14px;
-    text-align: center;
+  .filed-prefix {
     color: var(--text-muted);
     flex-shrink: 0;
   }
-  .source-result-list li:not(.error) .source-result-status { color: var(--accent); }
-  .source-result-note { color: var(--text-muted); font-size: 11px; margin-left: auto; }
-  .source-result-error { color: var(--text-muted); font-size: 11px; }
+  .filed-sep { color: var(--border); }
+  .filed-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  .filed-link:hover { text-decoration-color: var(--accent); }
+  .filed-dup { color: var(--text-muted); text-decoration: none; }
+  .filed-error { color: var(--text-muted); }
   .draft-btn {
     padding: 4px 10px;
     border: 1px solid var(--border);

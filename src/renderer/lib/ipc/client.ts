@@ -51,6 +51,10 @@ export interface NotebaseApi {
   renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
   renameSource(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
   renameExcerpt(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
+  /** Per-project flag toggled by the "Don't show again" control on the
+   *  new-thoughtbase onboarding modal. Default false; set on user opt-out. */
+  getOnboardingDismissed(): Promise<boolean>;
+  setOnboardingDismissed(dismissed: boolean): Promise<void>;
 }
 
 export interface SearchInNotesOptions {
@@ -359,7 +363,7 @@ export interface ConversationsApi {
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */
   fileDraft(
     draft: import('../../../shared/conversation-drafts').ConversationDraft,
-  ): Promise<{ proposalUri: string | null; applied: boolean }>;
+  ): Promise<import('../../../shared/conversation-drafts').FileDraftResult>;
   /** Subscribe to drafts produced by the propose_sources tool. */
   onSourceDraft(
     cb: (draft: import('../../../shared/conversation-source-drafts').ConversationSourceDraft) => void,

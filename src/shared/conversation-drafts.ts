@@ -45,3 +45,14 @@ export interface ProposeNotesInput {
   note: string;
   payloads: DraftPayload[];
 }
+
+/** Result returned by `CONVERSATION_FILE_DRAFT` after Approve. The renderer
+ *  uses `filedPaths` to render a compact "Filed: foo.md · bar.md" line in
+ *  place of the draft card so the user knows exactly which notes landed —
+ *  collision dedup at apply time means the path may differ from the
+ *  proposed `relativePath`, so we surface what was actually written. */
+export interface FileDraftResult {
+  proposalUri: string | null;
+  applied: boolean;
+  filedPaths: string[];
+}

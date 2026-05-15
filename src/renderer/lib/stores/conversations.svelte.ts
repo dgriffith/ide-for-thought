@@ -13,6 +13,7 @@ import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
+import { isMissingApiKeyError } from '../../../shared/llm-errors';
 
 /**
  * Multi-tab conversations store backing the bottom-docked tool window.
@@ -46,6 +47,15 @@ interface SourceDraftResultEntry {
   outcomes: SourceIngestOutcome[];
   afterMessageIndex: number;
 }
+/** Post-Approve summary for a propose_notes draft. Persists in the
+ *  conversation transcript so the user can still click through to filed
+ *  notes after scrolling past the approval. `filedPaths` is what the
+ *  approval engine actually wrote (collision-deduped), not what was
+ *  proposed. */
+interface NoteDraftResultEntry {
+  filedPaths: string[];
+  afterMessageIndex: number;
+}
 
 interface TabRuntime {
   id: string;
@@ -58,13 +68,15 @@ interface TabRuntime {
   /** propose_sources drafts awaiting Approve/Discard. */
   sourceDrafts: AnchoredSourceDraft[];
   /** Outcomes from the most recent fileSourceDraft call per draft id —
-   *  shown in place of the card for a few seconds after Approve so the
-   *  user sees "Filed 3 sources; 1 already in library." before the
-   *  status fades. Keyed by draftId; entries are cleared when the user
-   *  dismisses. Inherits `afterMessageIndex` from the originating
-   *  draft so the result card stays anchored to the same assistant
-   *  message as the draft it replaces. */
+   *  rendered as a compact "Filed:" line in place of the card. Keyed by
+   *  draftId; inherits `afterMessageIndex` from the originating draft
+   *  so the result line stays anchored to the same assistant message
+   *  as the draft it replaces. */
   sourceDraftResults: Record<string, SourceDraftResultEntry>;
+  /** Filed-paths summary per approved propose_notes draft id. Same
+   *  anchoring story as `sourceDraftResults` — the line sits where the
+   *  card used to so the user isn't left wondering what landed. */
+  noteDraftResults: Record<string, NoteDraftResultEntry>;
   /** In-flight ask_user prompt, if the agent is waiting on a reply. */
   pendingQuestion: AskUserRequest | null;
   composer: string;
@@ -90,6 +102,10 @@ let visible = $state(false);
 let height = $state(DEFAULT_HEIGHT);
 let activeTabId = $state<string | null>(null);
 let tabs = $state<TabRuntime[]>([]);
+/** One-shot flag flipped to true when a `send()` failed because no
+ *  Anthropic API key is configured. App.svelte's `$effect` reads it,
+ *  shows the missing-key dialog, then calls `dismissApiKeyDialog()`. */
+let needsApiKey = $state(false);
 // In-flight save coalescer — UI state changes a lot (every keystroke on a
 // resize, every visibility toggle) and we don't want to fan out a write
 // per change. Debounced via a single timeout that re-arms.
@@ -190,6 +206,7 @@ async function init(): Promise<void> {
       drafts: [],
       sourceDrafts: [],
       sourceDraftResults: {},
+      noteDraftResults: {},
       pendingQuestion: null,
       composer: '',
       streaming: false,
@@ -274,6 +291,7 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     drafts: [],
     sourceDrafts: [],
     sourceDraftResults: {},
+    noteDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -325,6 +343,7 @@ async function openConversationTab(opts: {
     drafts: [],
     sourceDrafts: [],
     sourceDraftResults: {},
+    noteDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -385,7 +404,16 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
     const reloaded = await api.conversations.load(tab.id);
     if (reloaded) tab.conversation = reloaded;
   } catch (e) {
-    if (!String(e).includes('abort')) {
+    if (isMissingApiKeyError(e)) {
+      // Surface as an actionable modal at the App level rather than a
+      // silent console.error — the user's optimistic message would
+      // otherwise just sit in the transcript with no explanation. Also
+      // drop that optimistic insert so the transcript isn't littered
+      // with un-replied turns after the user wires up a key.
+      tab.conversation.messages = tab.conversation.messages.slice(0, -1);
+      tab.composer = text;
+      needsApiKey = true;
+    } else if (!String(e).includes('abort')) {
       console.error('[conv] send failed:', e);
     }
   } finally {
@@ -421,11 +449,22 @@ async function cancel(): Promise<void> {
 async function approveDraft(tabId: string, draft: ConversationDraft): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
+  // Inherit the draft's anchor so the result line lands on the same
+  // assistant turn the card was attached to.
+  const anchored = tab.drafts.find((d) => d.draftId === draft.draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
   // Snapshot before crossing IPC — Svelte 5 `$state` Proxies fail
   // structured-clone otherwise (see project memory).
   const snapshot = $state.snapshot(draft);
-  await api.conversations.fileDraft(snapshot);
+  const result = await api.conversations.fileDraft(snapshot);
+  // Drop the in-flight card and replace it with a persistent "Filed:"
+  // summary keyed by the same draftId. `filedPaths` reflects the actual
+  // post-collision-dedup paths the approval engine wrote.
   tab.drafts = tab.drafts.filter((d) => d.draftId !== draft.draftId);
+  tab.noteDraftResults = {
+    ...tab.noteDraftResults,
+    [draft.draftId]: { filedPaths: result.filedPaths, afterMessageIndex },
+  };
 }
 
 function discardDraft(tabId: string, draftId: string): void {
@@ -477,6 +516,10 @@ function setComposer(value: string): void {
   if (tab) tab.composer = value;
 }
 
+function dismissApiKeyDialog(): void {
+  needsApiKey = false;
+}
+
 export function getConversationsStore() {
   return {
     get initialized() { return initialized; },
@@ -485,6 +528,8 @@ export function getConversationsStore() {
     get tabs() { return tabs; },
     get activeTabId() { return activeTabId; },
     get activeTab() { return activeTab(); },
+    get needsApiKey() { return needsApiKey; },
+    dismissApiKeyDialog,
     init,
     reset,
     show,
