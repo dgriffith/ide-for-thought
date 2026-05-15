@@ -103,7 +103,7 @@ describe('updateProposalStatus replaces, does not append (#332)', () => {
       'https://minerva.dev/ontology/thought#pending',
     ]);
 
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
     expect(await statusesFor(proposal!.uri)).toEqual([
       'https://minerva.dev/ontology/thought#approved',
     ]);

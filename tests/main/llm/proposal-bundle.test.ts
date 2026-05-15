@@ -54,7 +54,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       proposedBy: 'unit-test',
     });
     expect(proposal).not.toBeNull();
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     const r = await queryGraph(ctx, `
       PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -77,7 +77,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       proposedBy: 'unit-test',
     });
     expect(proposal).not.toBeNull();
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     const onDisk = await fsp.readFile(path.join(root, 'notes/from-bundle.md'), 'utf-8');
     expect(onDisk).toContain('From bundle');
@@ -110,7 +110,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'note + triples',
       proposedBy: 'unit-test',
     });
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     expect(fs.existsSync(path.join(root, 'notes/explanation.md'))).toBe(true);
     const r = await queryGraph(ctx, `
@@ -166,7 +166,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'collision test',
       proposedBy: 'unit-test',
     });
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     // Original file untouched.
     expect(await fsp.readFile(path.join(root, 'notes/colliding.md'), 'utf-8'))

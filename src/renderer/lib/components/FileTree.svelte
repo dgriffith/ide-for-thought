@@ -3,6 +3,8 @@
   import FileTree from './FileTree.svelte';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
+  import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 
   interface Props {
     files: NoteFile[];
@@ -44,12 +46,17 @@
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
+    /** Toggle the `entrypoint` tag on a note. The handler decides whether
+     *  to add or remove based on the note's current frontmatter; we
+     *  prefetch the current state here purely to render the right label
+     *  (Mark vs Unmark) on the menu item. */
+    onToggleEntrypoint?: (relativePath: string, currentlyEntrypoint: boolean) => void;
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop }: Props = $props();
 
-  let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean; targetIsEntrypoint?: boolean | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
   $effect(() => {
@@ -112,7 +119,31 @@
     // menu opens — actions read selection at click time, so the menu
     // and the action layer must agree on what's selected.
     if (target !== undefined) onContextMenuTarget?.(target);
-    contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath, target, targetIsDir };
+    // Open the menu immediately with `targetIsEntrypoint = null` (=
+    // unknown); the async read below upgrades the label from
+    // "Toggle Entrypoint" to "Mark/Unmark as Entrypoint" once the
+    // frontmatter has been parsed. Avoids a perceptible delay between
+    // right-click and menu appearance for the common case where the
+    // user doesn't need the entrypoint item anyway.
+    contextMenu = { x: e.clientX, y: e.clientY, dir: dirPath, target, targetIsDir, targetIsEntrypoint: null };
+    if (target && !targetIsDir && target.endsWith('.md') && onToggleEntrypoint) {
+      const t = target;
+      void (async () => {
+        try {
+          const content = await api.notebase.readFile(t);
+          const isEntry = extractTagsFromContent(content)
+            .some((tag) => tag.toLowerCase() === ENTRYPOINT_TAG);
+          // Guard against stale resolution: another right-click may have
+          // closed/replaced the menu while we awaited. Only patch when
+          // the current menu is still the one we opened.
+          if (contextMenu && contextMenu.target === t) {
+            contextMenu = { ...contextMenu, targetIsEntrypoint: isEntry };
+          }
+        } catch {
+          // Leave label as the unknown-state fallback.
+        }
+      })();
+    }
     const close = () => {
       contextMenu = null;
       window.removeEventListener('click', close);
@@ -168,6 +199,7 @@
             {onPaste}
             {onMove}
             {onBookmark}
+            {onToggleEntrypoint}
             {onExternalDrop}
           />
         {/if}
@@ -236,6 +268,11 @@
       </button>
       {#if !contextMenu.targetIsDir}
         <button onclick={() => { onBookmark?.(contextMenu!.target!); contextMenu = null; }}>Bookmark</button>
+        {#if onToggleEntrypoint && contextMenu.target?.endsWith('.md')}
+          <button onclick={() => { onToggleEntrypoint?.(contextMenu!.target!, contextMenu!.targetIsEntrypoint === true); contextMenu = null; }}>
+            {#if contextMenu.targetIsEntrypoint === true}Unmark as Entrypoint{:else if contextMenu.targetIsEntrypoint === false}Mark as Entrypoint{:else}Toggle Entrypoint{/if}
+          </button>
+        {/if}
       {/if}
       <div class="submenu-item">
         <span class="submenu-trigger">Open In &#x25B8;</span>

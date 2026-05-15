@@ -34,6 +34,11 @@ export const Channels = {
   NOTEBASE_RENAMED: 'notebase:renamed',
   /** Emitted after link-rewrites touched other notes' content. Payload is string[] (relativePaths). */
   NOTEBASE_REWRITTEN: 'notebase:rewritten',
+  /** Per-project new-thoughtbase onboarding dismissal flag. Read on
+   *  project open to decide whether to surface the onboarding modal,
+   *  written when the user clicks "Don't show again". */
+  NOTEBASE_GET_ONBOARDING_DISMISSED: 'notebase:getOnboardingDismissed',
+  NOTEBASE_SET_ONBOARDING_DISMISSED: 'notebase:setOnboardingDismissed',
   /** Emitted when indexNote detects a single-heading rename with incoming links (main → renderer). */
   NOTEBASE_HEADING_RENAME_SUGGESTED: 'notebase:headingRenameSuggested',
   /** Renderer-initiated rewrite of `[[path#oldSlug]]` → `[[path#newSlug]]`. */

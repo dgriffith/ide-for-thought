@@ -3,14 +3,21 @@
   import { handleToolOutput } from '../tools/output';
   import { api } from '../ipc/client';
   import type { ToolContext } from '../../../shared/tools/types';
+  import { isMissingApiKeyError } from '../../../shared/llm-errors';
 
   interface Props {
     onNoteCreated?: () => void;
     /** Called when the user invokes a tool whose outputMode is `openConversation`. */
     onOpenConversation?: (invocation: { toolId: string; context: ToolContext }) => void;
+    /** Called when a tool execution fails because no Anthropic API key
+     *  is configured. App-level handler shows an actionable Open
+     *  Settings dialog; without this hook the user would only see
+     *  "Anthropic API key not configured…" as the tool's failure
+     *  string with no path to fix it. */
+    onMissingApiKey?: () => void;
   }
 
-  let { onNoteCreated, onOpenConversation }: Props = $props();
+  let { onNoteCreated, onOpenConversation, onMissingApiKey }: Props = $props();
 
   const panel = getToolPanelStore();
   let paramValues = $state<Record<string, string>>({});
@@ -41,7 +48,17 @@
       panel.complete(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      panel.fail(message);
+      if (isMissingApiKeyError(err)) {
+        // Close the tool panel and let the App-level handler surface
+        // the Open-Settings dialog. The panel's inline error string
+        // still mentioned the missing key, but with no actionable
+        // path; punting up to the App keeps the user inside one
+        // canonical "configure your key" flow.
+        panel.close();
+        onMissingApiKey?.();
+      } else {
+        panel.fail(message);
+      }
     } finally {
       running = false;
     }

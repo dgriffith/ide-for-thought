@@ -27,6 +27,14 @@ export interface ProjectConfigShape {
      */
     pythonTrusted?: boolean;
   };
+  /** New-thoughtbase onboarding journey state. Per-project so the
+   *  user can disable it for an empty scratch thoughtbase without
+   *  blocking the modal on their next fresh one. */
+  onboarding?: {
+    /** User chose "Don't show again" — the modal won't reappear for
+     *  this thoughtbase even if it's reopened while still empty. */
+    dismissed?: boolean;
+  };
 }
 
 function configPath(rootPath: string): string {
@@ -74,4 +82,16 @@ export function setPythonTrust(rootPath: string, trusted: boolean): void {
   // so a future `compute.<other>` field doesn't get clobbered.
   const existing = readProjectConfig(rootPath).compute ?? {};
   patchProjectConfig(rootPath, { compute: { ...existing, pythonTrusted: trusted } });
+}
+
+/** Per-project onboarding-dismissed flag. Default false (= show modal
+ *  when the thoughtbase is empty). Once true, the modal stays
+ *  suppressed even if the user later empties the thoughtbase again. */
+export function getOnboardingDismissed(rootPath: string): boolean {
+  return readProjectConfig(rootPath).onboarding?.dismissed === true;
+}
+
+export function setOnboardingDismissed(rootPath: string, dismissed: boolean): void {
+  const existing = readProjectConfig(rootPath).onboarding ?? {};
+  patchProjectConfig(rootPath, { onboarding: { ...existing, dismissed } });
 }

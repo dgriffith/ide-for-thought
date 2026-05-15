@@ -69,6 +69,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME_SOURCE, oldId, newId),
     renameExcerpt: (oldId: string, newId: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_RENAME_EXCERPT, oldId, newId),
+    getOnboardingDismissed: () =>
+      ipcRenderer.invoke(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED),
+    setOnboardingDismissed: (dismissed: boolean) =>
+      ipcRenderer.invoke(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, dismissed),
   },
   links: {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),

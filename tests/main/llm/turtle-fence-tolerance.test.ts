@@ -96,7 +96,7 @@ describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-
     });
     expect(proposal).not.toBeNull();
     // This is the call that was throwing before the fix.
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     const r = await queryGraph(ctx, `
       PREFIX thought: <https://minerva.dev/ontology/thought#>

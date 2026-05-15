@@ -50,6 +50,8 @@ import {
   setBibliographyStyleId,
   getPythonTrust,
   setPythonTrust,
+  getOnboardingDismissed,
+  setOnboardingDismissed,
 } from './project-config';
 import { DEFAULT_STYLE } from './publish/csl/assets';
 import { buildCitationAudit } from './publish/csl/audit';
@@ -1202,6 +1204,18 @@ export function registerIpcHandlers(): void {
     setPythonTrust(rootPath, trusted === true);
   });
 
+  ipcMain.handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    return getOnboardingDismissed(rootPath);
+  });
+
+  ipcMain.handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, (e, dismissed: boolean) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    setOnboardingDismissed(rootPath, dismissed === true);
+  });
+
   ipcMain.handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
     const win = winFromEvent(e);
     const result = await dialog.showOpenDialog(win, {
@@ -1495,10 +1509,11 @@ export function registerIpcHandlers(): void {
     if (!rootPath) return null;
     return approval.getProposal(projectContext(rootPath), uri);
   });
-  ipcMain.handle(Channels.PROPOSAL_APPROVE, (e, uri: string) => {
+  ipcMain.handle(Channels.PROPOSAL_APPROVE, async (e, uri: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return false;
-    return approval.approveProposal(projectContext(rootPath), uri);
+    const result = await approval.approveProposal(projectContext(rootPath), uri);
+    return result.ok;
   });
   ipcMain.handle(Channels.PROPOSAL_REJECT, (e, uri: string) => {
     const rootPath = rootPathFromEvent(e);
@@ -1738,12 +1753,15 @@ export function registerIpcHandlers(): void {
         conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
         proposedBy: `llm:conversation:${draft.conversationId}`,
       });
+      let filedPaths: string[] = [];
       if (proposal) {
-        await approval.approveProposal(ctx, proposal.uri);
+        const result = await approval.approveProposal(ctx, proposal.uri);
+        filedPaths = result.filedPaths;
       }
       return {
         proposalUri: proposal?.uri ?? null,
         applied: true,
+        filedPaths,
       };
     },
   );

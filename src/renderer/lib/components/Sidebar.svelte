@@ -32,6 +32,9 @@
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
     onBookmark?: (relativePath: string) => void;
+    /** Toggle the `entrypoint` tag on a note. Wired by App.svelte;
+     *  passed through to FileTree for the context-menu item. */
+    onToggleEntrypoint?: (relativePath: string, currentlyEntrypoint: boolean) => void;
     onSourceSelect?: (sourceId: string) => void;
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
@@ -41,7 +44,7 @@
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -510,6 +513,7 @@
               {onPaste}
               {onMove}
               {onBookmark}
+              {onToggleEntrypoint}
               {onExternalDrop}
             />
           {/if}

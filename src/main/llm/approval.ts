@@ -200,9 +200,20 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
 /**
  * Approve a pending proposal: apply its bundle and update status.
  */
-export async function approveProposal(ctx: ProjectContext, uri: string): Promise<boolean> {
+export interface ApproveResult {
+  ok: boolean;
+  /** Project-relative paths of files written by `note` payloads in this
+   *  bundle, in apply order. Empty when the bundle had no note payloads
+   *  or when approve returned `ok: false`. Used by callers that want to
+   *  surface "filed: X.md" feedback inline (e.g. the conversation panel)
+   *  — collisions are dedup'd at apply time so the resolved path can
+   *  differ from `p.relativePath`. */
+  filedPaths: string[];
+}
+
+export async function approveProposal(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
   const proposal = await getProposal(ctx, uri);
-  if (!proposal || proposal.status !== 'pending') return false;
+  if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [] };
 
   if (proposal.payloads.length === 0) {
     // Don't quietly flip status to approved on an empty bundle — that's
@@ -218,9 +229,12 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
     proposal.payloads.map((p) => p.kind).join(', '),
   );
 
-  await applyBundle(ctx, proposal.payloads);
+  const applied = await applyBundle(ctx, proposal.payloads);
   await updateProposalStatus(ctx, uri, 'approved');
-  return true;
+  const filedPaths = applied
+    .filter((a): a is AppliedRecord & { kind: 'note' } => a.kind === 'note')
+    .map((a) => (a.rollbackData as { resolvedPath: string }).resolvedPath);
+  return { ok: true, filedPaths };
 }
 
 /**
@@ -396,7 +410,7 @@ interface AppliedRecord {
   rollbackData: unknown;
 }
 
-async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Promise<void> {
+async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Promise<AppliedRecord[]> {
   // Apply file-system payloads first, triples last. Lets a triples
   // parse failure roll back FS effects without needing an rdflib
   // snapshot.
@@ -411,6 +425,7 @@ async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Pr
       const rollbackData = await dispatchApply(ctx, p);
       applied.push({ kind: p.kind, rollbackData });
     }
+    return applied;
   } catch (err) {
     // Reverse-order rollback. Best-effort — log but don't mask the
     // original error.

@@ -8,6 +8,7 @@ import {
 } from './tools';
 import type { Citation } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
+import { MISSING_API_KEY_MARKER } from '../../shared/llm-errors';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../shared/conversation-source-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
@@ -91,8 +92,12 @@ async function getClient(): Promise<{
 }> {
   const settings = await getSettings();
   if (!settings.apiKey) {
+    // Message starts with MISSING_API_KEY_MARKER so the renderer can
+    // detect this specific failure across IPC and surface an actionable
+    // "Open Settings" dialog instead of the silent log message that was
+    // the only feedback before. See `shared/llm-errors.ts`.
     throw new Error(
-      'Anthropic API key not configured. Set it in the LLM settings or ANTHROPIC_API_KEY environment variable.',
+      `${MISSING_API_KEY_MARKER}. Set it in the LLM settings or ANTHROPIC_API_KEY environment variable.`,
     );
   }
   return {

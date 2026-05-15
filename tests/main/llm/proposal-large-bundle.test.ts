@@ -120,7 +120,7 @@ describe('large-bundle approval (the 27-note silent-failure regression)', () => 
       note: 'Distributed Consensus journey',
       proposedBy: 'unit-test',
     });
-    expect(await approveProposal(ctx, proposal!.uri)).toBe(true);
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
 
     expect(fs.existsSync(path.join(root, 'notes/journey-parent.md'))).toBe(true);
     for (let i = 1; i <= 26; i++) {
