@@ -124,6 +124,135 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
     expect(derived.ok).toBe(false);
   });
 
+  it('honours an explicit schema declared in the companion .md `csv:` block (#237)', async () => {
+    await writeCsv('events.csv', 'submitted_at,category,score\n2024-01-02,alpha,3.14\n');
+    await fsp.writeFile(
+      path.join(root, 'events.md'),
+      [
+        '---',
+        'csv:',
+        '  columns:',
+        '    submitted_at: DATE',
+        '    category: VARCHAR',
+        '    score: DOUBLE',
+        '---',
+        '# Events',
+      ].join('\n'),
+      'utf-8',
+    );
+    await registerCsv(ctx, 'events.csv');
+
+    const describe = await runQuery(ctx, `DESCRIBE events`);
+    expect(describe.ok).toBe(true);
+    if (describe.ok) {
+      const types = Object.fromEntries(
+        describe.rows.map((r) => [String(r.column_name), String(r.column_type)]),
+      );
+      expect(types.submitted_at).toBe('DATE');
+      expect(types.category).toBe('VARCHAR');
+      expect(types.score).toBe('DOUBLE');
+    }
+  });
+
+  it('falls back to a sidecar `<stem>.csv.schema.yaml` when no companion .md is present (#237)', async () => {
+    await writeCsv('events.csv', 'submitted_at,category,score\n2024-01-02,alpha,3.14\n');
+    await fsp.writeFile(
+      path.join(root, 'events.csv.schema.yaml'),
+      [
+        'columns:',
+        '  submitted_at: DATE',
+        '  category: VARCHAR',
+        '  score: DOUBLE',
+      ].join('\n'),
+      'utf-8',
+    );
+    await registerCsv(ctx, 'events.csv');
+
+    const describe = await runQuery(ctx, `DESCRIBE events`);
+    expect(describe.ok).toBe(true);
+    if (describe.ok) {
+      const types = Object.fromEntries(
+        describe.rows.map((r) => [String(r.column_name), String(r.column_type)]),
+      );
+      expect(types.submitted_at).toBe('DATE');
+      expect(types.category).toBe('VARCHAR');
+      expect(types.score).toBe('DOUBLE');
+    }
+  });
+
+  it('respects header: false from the schema (#237)', async () => {
+    await writeCsv('rows.csv', '1,alpha\n2,beta\n');
+    await fsp.writeFile(
+      path.join(root, 'rows.csv.schema.yaml'),
+      [
+        'columns:',
+        '  id: INTEGER',
+        '  name: VARCHAR',
+        'header: false',
+      ].join('\n'),
+      'utf-8',
+    );
+    await registerCsv(ctx, 'rows.csv');
+
+    const result = await runQuery(ctx, `SELECT * FROM rows ORDER BY id`);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // header: false means BOTH lines are data — auto would have
+      // consumed the first as a header.
+      expect(result.rows).toEqual([
+        { id: 1, name: 'alpha' },
+        { id: 2, name: 'beta' },
+      ]);
+    }
+  });
+
+  it('schema-less CSVs still load via auto-inference (#237 no-regression)', async () => {
+    await writeCsv('plain.csv', 'a,b\n1,2\n3,4\n');
+    await registerCsv(ctx, 'plain.csv');
+
+    const result = await runQuery(ctx, `SELECT a, b FROM plain ORDER BY a`);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // BIGINT inference is the existing auto-detect behavior; the
+      // schema branch didn't accidentally route schema-less CSVs
+      // through read_csv with empty types.
+      expect(result.rows).toEqual([{ a: 1n, b: 2n }, { a: 3n, b: 4n }]);
+    }
+  });
+
+  it('re-registers under a new schema when the sidecar is rewritten (#237)', async () => {
+    await writeCsv('events.csv', 'submitted_at,category\n2024-01-02,alpha\n');
+    // First: VARCHAR types
+    await fsp.writeFile(
+      path.join(root, 'events.csv.schema.yaml'),
+      'columns:\n  submitted_at: VARCHAR\n  category: VARCHAR\n',
+      'utf-8',
+    );
+    await registerCsv(ctx, 'events.csv');
+    let describe = await runQuery(ctx, `DESCRIBE events`);
+    if (describe.ok) {
+      const types = Object.fromEntries(
+        describe.rows.map((r) => [String(r.column_name), String(r.column_type)]),
+      );
+      expect(types.submitted_at).toBe('VARCHAR');
+    }
+
+    // Rewrite the sidecar to DATE for submitted_at, re-register.
+    await fsp.writeFile(
+      path.join(root, 'events.csv.schema.yaml'),
+      'columns:\n  submitted_at: DATE\n  category: VARCHAR\n',
+      'utf-8',
+    );
+    await registerCsv(ctx, 'events.csv');
+    describe = await runQuery(ctx, `DESCRIBE events`);
+    if (describe.ok) {
+      const types = Object.fromEntries(
+        describe.rows.map((r) => [String(r.column_name), String(r.column_type)]),
+      );
+      expect(types.submitted_at).toBe('DATE');
+    }
+  });
+
   it('unregisterCsv drops the view', async () => {
     await writeCsv('scratch.csv', 'a\n1\n');
     await registerCsv(ctx, 'scratch.csv');

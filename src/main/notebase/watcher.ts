@@ -6,6 +6,21 @@ import { Channels } from '../../shared/channels';
 
 import { INDEXABLE_EXTS } from './indexable-files';
 
+/**
+ * Paths we want to surface as watcher events even though they aren't
+ * indexable in the usual sense. Today this is just the CSV schema
+ * sidecar (#237): `<stem>.csv.schema.yaml` next to a `.csv` doesn't
+ * land in the graph, but editing it must re-register the sibling CSV
+ * so DuckDB picks up the new column types. The downstream callback
+ * in window-manager.ts handles the actual re-registration; the
+ * watcher's job is just to surface the event.
+ */
+function isWatchable(filePath: string): boolean {
+  if (INDEXABLE_EXTS.has(path.extname(filePath))) return true;
+  if (filePath.endsWith('.csv.schema.yaml')) return true;
+  return false;
+}
+
 // Callbacks may return a Promise; the watcher invokes them as
 // fire-and-forget. Typing the return as `void | Promise<void>` lets
 // callers be explicitly async without tripping no-misused-promises.
@@ -61,7 +76,7 @@ export function startWatching(
   // Callbacks may be async (interface allows void | Promise<void>); the
   // watcher invokes them as fire-and-forget. `void` makes that explicit.
   notes.on('change', (filePath) => {
-    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
+    if (isWatchable(filePath) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
       void callbacks?.onFileChanged(relative);
@@ -69,7 +84,7 @@ export function startWatching(
   });
 
   notes.on('add', (filePath) => {
-    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
+    if (isWatchable(filePath) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
       void callbacks?.onFileCreated(relative);
@@ -77,7 +92,7 @@ export function startWatching(
   });
 
   notes.on('unlink', (filePath) => {
-    if (INDEXABLE_EXTS.has(path.extname(filePath)) && !win.isDestroyed()) {
+    if (isWatchable(filePath) && !win.isDestroyed()) {
       const relative = filePath.slice(rootPath.length + 1);
       win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
       void callbacks?.onFileDeleted(relative);

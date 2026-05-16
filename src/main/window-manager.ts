@@ -166,6 +166,45 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
 
   // startWatching returns a ready-promise (#345); we don't await here
   // because the watcher works fine before its initial scan completes.
+  /**
+   * Given a watched path that might affect a CSV's registration,
+   * return the project-relative path of the CSV to re-register, or
+   * null when no sibling table needs updating (#237).
+   *
+   * Two trigger shapes:
+   *   - `<stem>.csv.schema.yaml` → re-register `<stem>.csv`.
+   *   - `<stem>.md` (companion note) → re-register `<stem>.csv` if it
+   *     exists on disk. The companion may declare `table_name:` or
+   *     a `csv:` schema block, either of which changes registration.
+   *
+   * The .csv itself is handled by the existing branch in the caller —
+   * this helper specifically covers the sibling-edit case.
+   */
+  async function siblingCsvForReregister(relativePath: string): Promise<string | null> {
+    if (relativePath.endsWith('.csv.schema.yaml')) {
+      return relativePath.slice(0, -'.schema.yaml'.length);
+    }
+    if (relativePath.toLowerCase().endsWith('.md')) {
+      const csvCandidate = relativePath.replace(/\.md$/i, '.csv');
+      try {
+        await notebaseFs.readFile(rootPath, csvCandidate);
+        return csvCandidate;
+      } catch { /* no sibling CSV — common case */ }
+    }
+    return null;
+  }
+
+  async function reregisterSibling(relativePath: string): Promise<void> {
+    const csvPath = await siblingCsvForReregister(relativePath);
+    if (!csvPath) return;
+    try {
+      await tables.registerCsv(projectCtx, csvPath);
+      if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+    } catch (err) {
+      console.warn(`[tables] sibling re-register failed for ${csvPath} (via ${relativePath}):`, err);
+    }
+  }
+
   void startWatching(rootPath, win, win.id, {
     onFileChanged: async (relativePath) => {
       if (wasHandled(relativePath)) return;
@@ -178,7 +217,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
           await tables.registerCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+      } else {
+        await reregisterSibling(relativePath);
       }
+      // Sidecar yaml schemas aren't notes — skip the graph/search pass for
+      // them. The watcher fires for them only so the registerCsv branch
+      // above can update DuckDB.
+      if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
@@ -197,7 +242,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
           await tables.registerCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
+      } else {
+        await reregisterSibling(relativePath);
       }
+      if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
@@ -214,7 +262,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
           await tables.unregisterCsv(projectCtx, relativePath);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
+      } else {
+        // Schema sidecar deleted → CSV reverts to read_csv_auto. Same
+        // helper because the sibling lookup logic is identical; the CSV
+        // re-registers without the schema.
+        await reregisterSibling(relativePath);
       }
+      if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {
         search.removeNote(projectCtx, relativePath);
         graph.removeNote(projectCtx, relativePath);
