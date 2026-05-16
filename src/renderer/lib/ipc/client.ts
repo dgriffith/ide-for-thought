@@ -150,6 +150,9 @@ export interface GraphApi {
   }>;
   /** Frontmatter alias → relativePath snapshot (#469). Lower-cased keys. */
   aliasMap(): Promise<Record<string, string>>;
+  /** Entries form of the alias map preserving original casing — used
+   *  by the wiki-link autocomplete to suggest aliases (#492). */
+  aliasEntries(): Promise<Array<{ alias: string; relativePath: string }>>;
   /** Deduped, sorted list of every frontmatter key in use across the
    *  project. Powers the Properties panel's Add-Property autocomplete (#488). */
   frontmatterKeys(): Promise<string[]>;

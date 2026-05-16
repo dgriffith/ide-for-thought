@@ -726,6 +726,12 @@ export function registerIpcHandlers(): void {
     return graph.getAliasMap(projectContext(rootPath));
   });
 
+  ipcMain.handle(Channels.GRAPH_ALIAS_ENTRIES, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.getAliasEntries(projectContext(rootPath));
+  });
+
   ipcMain.handle(Channels.GRAPH_FRONTMATTER_KEYS, (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return [];

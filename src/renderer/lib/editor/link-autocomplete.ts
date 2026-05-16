@@ -108,6 +108,27 @@ function notePathOptions(paths: string[]): Completion[] {
   });
 }
 
+/**
+ * Suggest frontmatter aliases alongside note paths (#492). The label
+ * carries the alias text in its original casing, so picking
+ * `[[jf…]] → JFK` inserts `[[JFK]]` rather than `[[jfk]]` — the user
+ * wrote the alias intentionally, the autocomplete should preserve
+ * their intent.
+ *
+ * `boost: 1` keeps aliases just below note paths in CodeMirror's
+ * default ranking when the typed prefix matches both — the user
+ * usually wants the canonical path first, with the alias as a
+ * memorable shortcut.
+ */
+export function aliasOptions(entries: readonly { alias: string; relativePath: string }[]): Completion[] {
+  return entries.map((e) => ({
+    label: e.alias,
+    detail: `→ ${normalizeTarget(e.relativePath)}`,
+    type: 'enum',
+    boost: 1,
+  }));
+}
+
 export function sourceOptions(sources: readonly SourceMetadata[]): Completion[] {
   return sources.map((s) => {
     const title = s.title ?? s.sourceId;
@@ -149,6 +170,10 @@ export interface LinkAutocompleteOptions {
   getNotePaths: () => string[];
   /** Returns the current list of indexed Sources (for `[[cite::…]]`). */
   getSources: () => readonly SourceMetadata[];
+  /** Returns the current frontmatter alias entries (#492). Optional —
+   *  the autocomplete still works without it, just without alias
+   *  suggestions. */
+  getAliases?: () => readonly { alias: string; relativePath: string }[];
   /** Fetch raw markdown for a note so we can scan its headings + block-ids. */
   readNote: (relativePath: string) => Promise<string>;
 }
@@ -188,12 +213,16 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
     if (phase.kind === 'none') return null;
 
     const paths = opts.getNotePaths();
+    const aliases = opts.getAliases?.() ?? [];
 
     if (phase.kind === 'type-or-path') {
       return {
         from: phase.innerStart,
-        options: [...linkTypeOptions(), ...notePathOptions(paths)],
-        validFor: /^[a-z0-9_\-/.: ]*$/i,
+        options: [...linkTypeOptions(), ...notePathOptions(paths), ...aliasOptions(aliases)],
+        // Loosened to include the punctuation users commonly drop into
+        // aliases (apostrophes in names, etc.). Same character class
+        // shape as before, plus the extras.
+        validFor: /^[\w\-/.:'’ ]*$/i,
       };
     }
 
@@ -213,8 +242,8 @@ export function linkCompletionSource(opts: LinkAutocompleteOptions) {
       }
       return {
         from: phase.innerStart,
-        options: notePathOptions(paths),
-        validFor: /^[a-z0-9_\-/. ]*$/i,
+        options: [...notePathOptions(paths), ...aliasOptions(aliases)],
+        validFor: /^[\w\-/.'’ ]*$/i,
       };
     }
 

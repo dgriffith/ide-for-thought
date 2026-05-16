@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { detectCompletionPhase, sourceOptions } from '../../../src/renderer/lib/editor/link-autocomplete';
+import {
+  detectCompletionPhase,
+  sourceOptions,
+  aliasOptions,
+} from '../../../src/renderer/lib/editor/link-autocomplete';
 import type { SourceMetadata } from '../../../src/shared/types';
 
 function source(partial: Partial<SourceMetadata> & { sourceId: string }): SourceMetadata {
@@ -163,5 +167,30 @@ describe('sourceOptions (#109)', () => {
   it('omits detail entirely when there is no byline and no year', () => {
     const [opt] = sourceOptions([source({ sourceId: 'plain' })]);
     expect(opt.detail).toBeUndefined();
+  });
+});
+
+describe('aliasOptions (#492)', () => {
+  it('uses the alias as the label, preserving original casing', () => {
+    const [opt] = aliasOptions([{ alias: 'JFK', relativePath: 'presidents/kennedy.md' }]);
+    expect(opt.label).toBe('JFK');
+  });
+
+  it('shows the target path in the detail with a → marker', () => {
+    const [opt] = aliasOptions([{ alias: 'JFK', relativePath: 'presidents/kennedy.md' }]);
+    expect(opt.detail).toBe('→ presidents/kennedy');
+  });
+
+  it('uses CompletionType `enum` to visually distinguish from note paths', () => {
+    const [opt] = aliasOptions([{ alias: 'JFK', relativePath: 'presidents/kennedy.md' }]);
+    expect(opt.type).toBe('enum');
+  });
+
+  it('returns one option per entry (multiple aliases for the same note are independent)', () => {
+    const opts = aliasOptions([
+      { alias: 'JFK', relativePath: 'presidents/kennedy.md' },
+      { alias: 'John F. Kennedy', relativePath: 'presidents/kennedy.md' },
+    ]);
+    expect(opts.map((o) => o.label)).toEqual(['JFK', 'John F. Kennedy']);
   });
 });
