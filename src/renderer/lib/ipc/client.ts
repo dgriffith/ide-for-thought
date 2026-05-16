@@ -372,6 +372,14 @@ export interface ConversationsApi {
   fileSourceDraft(
     draft: import('../../../shared/conversation-source-drafts').ConversationSourceDraft,
   ): Promise<import('../../../shared/conversation-source-drafts').FileSourceDraftResult>;
+  /** Subscribe to frontmatter-patch drafts produced by the set_properties tool. */
+  onPropertyDraft(
+    cb: (draft: import('../../../shared/conversation-property-drafts').ConversationPropertyDraft) => void,
+  ): void;
+  /** Apply each {path, properties} patch in an approved draft. Returns per-update outcomes. */
+  filePropertyDraft(
+    draft: import('../../../shared/conversation-property-drafts').ConversationPropertyDraft,
+  ): Promise<import('../../../shared/conversation-property-drafts').FilePropertyDraftResult>;
 }
 
 export interface ProposalsApi {

@@ -90,6 +90,7 @@ import { createExcerpt } from './sources/create-excerpt';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
+import { patchFrontmatterProperties } from '../shared/refactor/frontmatter-patch';
 import * as healthChecks from './graph/health-checks';
 import '../shared/tools/definitions/index';
 import { getSettings, saveSettings } from './llm/settings';
@@ -1612,6 +1613,11 @@ export function registerIpcHandlers(): void {
             win.webContents.send(Channels.CONVERSATION_SOURCE_DRAFT, draft);
           }
         },
+        onPropertyDraft: (draft: import('../shared/conversation-property-drafts').ConversationPropertyDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_PROPERTY_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -1841,6 +1847,92 @@ export function registerIpcHandlers(): void {
           win.webContents.send(Channels.SOURCES_CHANGED);
         }
       }
+      return { outcomes };
+    },
+  );
+
+  // Counterpart to CONVERSATION_FILE_DRAFT for set_properties bundles.
+  // Reads each note, applies its frontmatter patch via
+  // `patchFrontmatterProperties`, and writes the result back. Per-note
+  // errors are non-fatal — the rest of the bundle still applies.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_PROPERTY_DRAFT,
+    async (
+      e,
+      draft: import('../shared/conversation-property-drafts').ConversationPropertyDraft,
+    ): Promise<import('../shared/conversation-property-drafts').FilePropertyDraftResult> => {
+      console.log('[conv] FILE_PROPERTY_DRAFT received', {
+        draftId: draft?.draftId,
+        conversationId: draft?.conversationId,
+        updateCount: Array.isArray(draft?.updates) ? draft.updates.length : 'not-array',
+        // Log the actual properties keys per update — the original
+        // silent-failure bug was that this came across as an empty
+        // object on every entry, producing no writes. Surface it so a
+        // repeat of that hits a useful log line.
+        updateKeys: Array.isArray(draft?.updates)
+          ? draft.updates.map((u) => ({
+              relativePath: u?.relativePath,
+              keys: u?.properties ? Object.keys(u.properties) : null,
+            }))
+          : null,
+      });
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!draft || !Array.isArray(draft.updates) || draft.updates.length === 0) {
+        throw new Error(
+          `FILE_PROPERTY_DRAFT: draft has no updates (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      const outcomes: import('../shared/conversation-property-drafts').PropertyUpdateOutcome[] = [];
+      for (const u of draft.updates) {
+        try {
+          if (!u.properties || typeof u.properties !== 'object' || Object.keys(u.properties).length === 0) {
+            // Don't silently produce a no-op outcome — that's what hid
+            // the original cross-IPC serialization bug. Surface it as
+            // an explicit error so the user sees something on the
+            // Filed line and the log captures the bad payload.
+            outcomes.push({
+              relativePath: u.relativePath,
+              changedKeys: [],
+              deletedKeys: [],
+              error: 'properties payload arrived empty across IPC — frontmatter not written.',
+            });
+            continue;
+          }
+          const before = await notebaseFs.readFile(rootPath, u.relativePath);
+          const result = patchFrontmatterProperties(before, u.properties);
+          if (result.changedKeys.length > 0) {
+            // Route through the standard write pipeline rather than
+            // bare `notebaseFs.writeFile`. Without this the file lands
+            // on disk but the renderer's open editor + right-sidebar
+            // Properties panel don't refresh until the note is closed
+            // and reopened — the pipeline marks the watcher dedup,
+            // reindexes the graph + search, AND emits the
+            // NOTEBASE_REWRITTEN broadcast that triggers the in-place
+            // reload. Same flow auto-tag/auto-link use after their
+            // frontmatter mutations.
+            await writeAndReindex(rootPath, u.relativePath, result.content, hooks);
+          }
+          outcomes.push({
+            relativePath: u.relativePath,
+            changedKeys: result.changedKeys,
+            deletedKeys: result.deletedKeys,
+          });
+        } catch (err) {
+          console.warn(`[conv] FILE_PROPERTY_DRAFT patch failed for`, u.relativePath, err);
+          outcomes.push({
+            relativePath: u.relativePath,
+            changedKeys: [],
+            deletedKeys: [],
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      // The graph indexer watches for file changes, so reindexing
+      // happens automatically. We don't broadcast a separate event
+      // here — the file watcher's NOTEBASE_FILE_CHANGED event is
+      // what the renderer already listens for to refresh views.
       return { outcomes };
     },
   );
