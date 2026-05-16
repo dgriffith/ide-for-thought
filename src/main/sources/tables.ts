@@ -4,6 +4,7 @@ import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
+import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 
 interface TablesState {
   rootPath: string;
@@ -162,10 +163,19 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
   }
 
   const absPath = path.join(rootPath, relativePath);
+  // Look for an explicit schema declaration (#237). When present, we
+  // call `read_csv(…, columns={…})` so the user's pinned types win
+  // over DuckDB's auto-inference. When absent, fall back to
+  // `read_csv_auto(…)` — schema-less CSVs are still loaded the
+  // same way they always were.
+  const schema = await loadCsvSchema(rootPath, relativePath);
   const escapedPath = absPath.replace(/'/g, "''");
+  const readExpr = schema
+    ? buildReadCsvSql(absPath, schema)
+    : `read_csv_auto('${escapedPath}')`;
   try {
     await connection.run(
-      `CREATE OR REPLACE VIEW "${tableName}" AS SELECT * FROM read_csv_auto('${escapedPath}')`,
+      `CREATE OR REPLACE VIEW "${tableName}" AS SELECT * FROM ${readExpr}`,
     );
     pathToTable.set(relativePath, tableName);
     tableToPath.set(tableName, relativePath);
