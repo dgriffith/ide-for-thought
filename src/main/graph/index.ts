@@ -116,6 +116,13 @@ interface GraphState {
    *  superset of `aliasesPerNote.keys()` — notes without aliases still
    *  count for canonical-name conflicts. */
   indexedNotePaths: Set<string>;
+  /** Frontmatter keys present on each indexed note. Powers the
+   *  Properties panel's project-wide key autocomplete (#488) — the
+   *  graph already extracts frontmatter on every index, so capturing
+   *  the bare key list is essentially free. Kept as a string[] per
+   *  note (rather than a flat global Set) so removeNote can shrink
+   *  the union without scanning every note. */
+  frontmatterKeysPerNote: Map<string, string[]>;
 }
 
 const states = new Map<string, GraphState>();
@@ -144,6 +151,22 @@ export function getAliasMap(ctx: ProjectContext): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of state.aliasMap) out[k] = v;
   return out;
+}
+
+/**
+ * Deduped, alphabetically-sorted list of every frontmatter key
+ * currently in use across the project. Powers the Properties panel's
+ * Add-Property autocomplete (#488). Empty when the project has no
+ * graph state yet.
+ */
+export function getAllFrontmatterKeys(ctx: ProjectContext): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const seen = new Set<string>();
+  for (const keys of state.frontmatterKeysPerNote.values()) {
+    for (const k of keys) seen.add(k);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -598,6 +621,7 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     aliasMap: new Map(),
     aliasesPerNote: new Map(),
     indexedNotePaths: new Set(),
+    frontmatterKeysPerNote: new Map(),
   };
 
   // Load persisted graph if it exists
@@ -676,6 +700,13 @@ export async function indexNote(
 
   // Parse markdown
   const parsed = parseMarkdown(content);
+
+  // Snapshot frontmatter keys for the Properties panel's project-wide
+  // autocomplete (#488). Captured before the per-key indexing loop
+  // below so we record every key the user actually typed, including
+  // `title` and `tags` (skipped by the predicate-mapping path because
+  // they're already wired through other paths).
+  state.frontmatterKeysPerNote.set(relativePath, Object.keys(parsed.frontmatter));
 
   // Title
   const title = parsed.title ?? path.basename(relativePath, '.md');
@@ -1203,6 +1234,10 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
   // canonical-conflict pass no longer treats this path as a real file.
   const hadAliases = state.aliasesPerNote.delete(relativePath);
   const wasTracked = state.indexedNotePaths.delete(relativePath);
+  // Drop the deleted note's frontmatter-key snapshot so its keys stop
+  // appearing in the project-wide autocomplete (#488).
+  state.frontmatterKeysPerNote.delete(relativePath);
+  state.headingsPerNote.delete(relativePath);
   if (hadAliases || wasTracked) {
     rebuildAliasMap(state);
   }
