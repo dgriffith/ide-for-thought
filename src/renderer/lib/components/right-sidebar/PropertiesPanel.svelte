@@ -16,14 +16,22 @@
    */
 
   import YAML from 'yaml';
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { api } from '../../ipc/client';
+  import AutocompleteDropdown from './AutocompleteDropdown.svelte';
+  import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
 
   interface Props {
     content: string;
     onContentChange: (next: string) => void;
+    /** Wired by RightSidebar so a wiki-link chip can open the target
+     *  note via the same short-form resolver the editor uses for
+     *  `[[…]]` clicks (handles basenames, aliases, slug-fuzzy matches).
+     *  Optional — when absent the chip renders disabled. */
+    onNavigate?: (target: string) => void | Promise<void>;
   }
 
-  let { content, onContentChange }: Props = $props();
+  let { content, onContentChange, onNavigate }: Props = $props();
 
   type ValueShape =
     | { kind: 'string'; value: string }
@@ -31,6 +39,7 @@
     | { kind: 'boolean'; value: boolean }
     | { kind: 'date'; value: string }
     | { kind: 'string-list'; value: string[] }
+    | { kind: 'wiki-link'; target: string; display: string | null; raw: string }
     | { kind: 'yaml'; raw: string };
 
   interface Row {
@@ -111,6 +120,12 @@
     return null;
   }
 
+  /** Matches a single `[[target]]` or `[[target|display]]` (un-typed)
+   *  with no surrounding whitespace. Typed wiki-links (`type::target`)
+   *  fall through to the plain-string editor — the picker only knows
+   *  how to pick note paths. */
+  const WIKI_LINK_RE = /^\[\[([^|\]\n[]+)(?:\|([^\]\n]+))?\]\]$/;
+
   function detectShape(value: unknown): ValueShape {
     if (YAML.isScalar(value)) {
       const v = value.value;
@@ -121,6 +136,15 @@
       }
       if (typeof v === 'string') {
         if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return { kind: 'date', value: v };
+        const wl = v.match(WIKI_LINK_RE);
+        if (wl) {
+          return {
+            kind: 'wiki-link',
+            target: wl[1].trim(),
+            display: wl[2]?.trim() ?? null,
+            raw: v,
+          };
+        }
         return { kind: 'string', value: v };
       }
       // null, undefined, or an oddball scalar shape — treat as empty
@@ -275,9 +299,85 @@
   // ── Adding a new property ──────────────────────────────────────
 
   let newKey = $state('');
-  let newKeyInputEl = $state<HTMLInputElement | undefined>();
-  async function addProperty(): Promise<void> {
-    const k = newKey.trim();
+
+  // Project-wide frontmatter keys + canonical-key backfill, for the
+  // Add-Property autocomplete (#488). Fetched once on mount and
+  // refreshed when the file watcher reports any rewrite — so a
+  // freshly-added key (via `set_properties`, auto-tag, or a direct
+  // edit) shows up the next time the user opens the picker without
+  // a manual reload.
+  let projectKeys = $state<string[]>([]);
+  async function refreshProjectKeys(): Promise<void> {
+    try { projectKeys = await api.graph.frontmatterKeys(); }
+    catch { /* graph not ready yet — leave previous snapshot in place */ }
+  }
+  // Note basenames (relativePath without `.md`), for the wiki-link
+  // value picker (#489). Same refresh cadence as projectKeys.
+  let noteBasenames = $state<string[]>([]);
+  async function refreshNoteBasenames(): Promise<void> {
+    try {
+      const files = await api.notebase.listFiles();
+      const out: string[] = [];
+      const walk = (nodes: import('../../../../shared/types').NoteFile[]) => {
+        for (const n of nodes) {
+          if (n.isDirectory && n.children) walk(n.children);
+          else if (!n.isDirectory && n.relativePath.endsWith('.md')) {
+            out.push(n.relativePath.replace(/\.md$/, ''));
+          }
+        }
+      };
+      walk(files);
+      out.sort((a, b) => a.localeCompare(b));
+      noteBasenames = out;
+    } catch { /* tree not ready yet */ }
+  }
+  onMount(() => {
+    void refreshProjectKeys();
+    void refreshNoteBasenames();
+    const unsubscribeRewritten = api.notebase.onRewritten(() => {
+      void refreshProjectKeys();
+    });
+    const unsubscribeCreated = api.notebase.onFileCreated(() => {
+      void refreshNoteBasenames();
+    });
+    const unsubscribeDeleted = api.notebase.onFileDeleted(() => {
+      void refreshNoteBasenames();
+    });
+    return () => {
+      // subscribeIpc returns an unsubscribe — guarded because the
+      // preload bridge's type uses `void`-ish callbacks.
+      unsubscribeRewritten?.();
+      unsubscribeCreated?.();
+      unsubscribeDeleted?.();
+    };
+  });
+
+  /** Merged autocomplete pool for the Add-Property input:
+   *   1. Project keys (highest priority — what the user has been
+   *      using on other notes).
+   *   2. Canonical keys (well-known predicates worth suggesting even
+   *      if no note has used them yet).
+   *  Already-present keys on this note are filtered out so the
+   *  dropdown doesn't tempt the user to "re-add" something. */
+  const addPropertyOptions = $derived.by(() => {
+    const present = new Set(rows.map((r) => r.key));
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const k of projectKeys) {
+      if (present.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push(k);
+    }
+    for (const k of CANONICAL_FRONTMATTER_KEYS) {
+      if (present.has(k) || seen.has(k)) continue;
+      seen.add(k);
+      out.push(k);
+    }
+    return out;
+  });
+
+  async function addProperty(commitKey?: string): Promise<void> {
+    const k = (commitKey ?? newKey).trim();
     if (!k) return;
     if (rows.some((r) => r.key === k)) {
       // Already exists — just focus its input. Keep newKey so the
@@ -298,9 +398,57 @@
     return s.replace(/[\\"]/g, '\\$&');
   }
 
+  // ── Wiki-link value editing (#489) ──────────────────────────────
+  //
+  // When a row's value is a single `[[target]]` (optionally with a
+  // display alias), the panel renders a clickable chip. Clicking the
+  // chip opens the target via the standard onFileSelect plumbing;
+  // the ✎ button swaps the chip for an inline AutocompleteDropdown
+  // sourced from project note basenames. Editing keys are kept by
+  // row key so two wiki-link rows can be edited independently (rare
+  // but possible).
+  let editingLinkKey = $state<string | null>(null);
+  let editingLinkDraft = $state('');
+  let editingLinkDisplay = $state<string | null>(null);
+  function startEditLink(rowKey: string, target: string, display: string | null): void {
+    editingLinkKey = rowKey;
+    editingLinkDraft = target;
+    editingLinkDisplay = display;
+  }
+  function commitEditLink(value: string): void {
+    if (!editingLinkKey) return;
+    const target = value.trim();
+    if (!target) {
+      cancelEditLink();
+      return;
+    }
+    const raw = editingLinkDisplay
+      ? `[[${target}|${editingLinkDisplay}]]`
+      : `[[${target}]]`;
+    setKeyValue(editingLinkKey, raw);
+    editingLinkKey = null;
+    editingLinkDraft = '';
+    editingLinkDisplay = null;
+  }
+  function cancelEditLink(): void {
+    editingLinkKey = null;
+    editingLinkDraft = '';
+    editingLinkDisplay = null;
+  }
+  function openWikiLink(target: string): void {
+    if (!onNavigate) return;
+    void onNavigate(target);
+  }
+
   function createEmptyFrontmatter(): void {
-    if (!newKeyInputEl) return;
-    newKeyInputEl.focus();
+    // Best-effort focus on the autocomplete input rendered below.
+    // Querying by class is fragile; the autofocus prop on the
+    // dropdown handles the common path.
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLInputElement>(
+        '.properties-panel .empty .ac-input',
+      )?.focus();
+    });
   }
 </script>
 
@@ -314,13 +462,13 @@
   {:else if !hasFrontmatter && rows.length === 0}
     <div class="empty">
       <p>No frontmatter</p>
-      <input
-        type="text"
-        class="key-input"
+      <AutocompleteDropdown
+        value={newKey}
+        options={addPropertyOptions}
         placeholder="Add property…"
-        bind:value={newKey}
-        bind:this={newKeyInputEl}
-        onkeydown={(e) => { if (e.key === 'Enter') void addProperty(); }}
+        autofocus={false}
+        onInput={(v) => { newKey = v; }}
+        onCommit={(v) => { newKey = v; void addProperty(v); }}
       />
       <button class="add-btn" onclick={createEmptyFrontmatter}>+ Add property</button>
     </div>
@@ -393,6 +541,39 @@
                   }}
                 />
               </div>
+            {:else if row.shape.kind === 'wiki-link'}
+              {#if editingLinkKey === row.key}
+                <AutocompleteDropdown
+                  value={editingLinkDraft}
+                  options={noteBasenames}
+                  placeholder="Note name…"
+                  autofocus
+                  onInput={(v) => { editingLinkDraft = v; }}
+                  onCommit={commitEditLink}
+                  onCancel={cancelEditLink}
+                />
+              {:else}
+                {@const ws = row.shape}
+                <div class="wiki-chip-row">
+                  <button
+                    type="button"
+                    class="wiki-chip"
+                    title="Open {ws.target}"
+                    onclick={() => openWikiLink(ws.target)}
+                    disabled={!onNavigate}
+                  >
+                    <span class="wiki-chip-icon">🔗</span>
+                    <span class="wiki-chip-label">{ws.display ?? ws.target}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="wiki-edit-btn"
+                    title="Edit link target"
+                    aria-label="Edit link target"
+                    onclick={() => startEditLink(row.key, ws.target, ws.display)}
+                  >✎</button>
+                </div>
+              {/if}
             {:else if row.shape.kind === 'yaml'}
               <pre class="yaml">{row.shape.raw}</pre>
               <span class="hint-inline">Edit in source — structured editor doesn't cover this shape.</span>
@@ -405,13 +586,12 @@
 
     {#if hasFrontmatter || rows.length > 0}
       <div class="add-row">
-        <input
-          type="text"
-          class="key-input"
+        <AutocompleteDropdown
+          value={newKey}
+          options={addPropertyOptions}
           placeholder="Add property…"
-          bind:value={newKey}
-          bind:this={newKeyInputEl}
-          onkeydown={(e) => { if (e.key === 'Enter') void addProperty(); }}
+          onInput={(v) => { newKey = v; }}
+          onCommit={(v) => { newKey = v; void addProperty(v); }}
         />
         <button class="add-btn" onclick={() => void addProperty()} disabled={!newKey.trim()}>+</button>
       </div>
@@ -536,6 +716,62 @@
     border-style: solid;
     border-color: var(--accent);
     outline: none;
+  }
+
+  /* Wiki-link value chip + adjacent edit button (#489). Mirrors the
+     existing string-list chip styling so the panel reads as one
+     consistent surface — chip is the open-target affordance, ✎ swaps
+     to the autocomplete edit input. */
+  .wiki-chip-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+  }
+  .wiki-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-button);
+    border: 1px solid transparent;
+    color: var(--accent);
+    padding: 1px 8px 1px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wiki-chip:hover:not(:disabled) {
+    border-color: var(--accent);
+    text-decoration-color: var(--accent);
+  }
+  .wiki-chip:disabled {
+    cursor: default;
+    color: var(--text-muted);
+    text-decoration: none;
+  }
+  .wiki-chip-icon { font-size: 10px; opacity: 0.7; }
+  .wiki-chip-label { overflow: hidden; text-overflow: ellipsis; }
+  .wiki-edit-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+  }
+  .wiki-edit-btn:hover {
+    color: var(--text);
+    background: var(--bg-button);
   }
 
   .yaml {

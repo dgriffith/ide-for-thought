@@ -42,11 +42,11 @@ export interface NotebaseApi {
   copy(srcRelPath: string, destRelPath: string): Promise<void>;
   searchInNotes(opts: SearchInNotesOptions): Promise<SearchInNotesFileResult[]>;
   replaceInNotes(opts: ReplaceInNotesOptions): Promise<ReplaceInNotesResult>;
-  onFileChanged(cb: (path: string) => void): void;
-  onFileCreated(cb: (path: string) => void): void;
-  onFileDeleted(cb: (path: string) => void): void;
+  onFileChanged(cb: (path: string) => void): () => void;
+  onFileCreated(cb: (path: string) => void): () => void;
+  onFileDeleted(cb: (path: string) => void): () => void;
   onRenamed(cb: (transitions: Array<{ old: string; new: string }>) => void): void;
-  onRewritten(cb: (paths: string[]) => void): void;
+  onRewritten(cb: (paths: string[]) => void): () => void;
   onHeadingRenameSuggested(cb: (candidate: HeadingRenameCandidate) => void): void;
   renameAnchor(targetRelativePath: string, oldSlug: string, newSlug: string): Promise<{ rewrittenPaths: string[] }>;
   renameSource(oldId: string, newId: string): Promise<{ rewrittenPaths: string[] }>;
@@ -150,6 +150,9 @@ export interface GraphApi {
   }>;
   /** Frontmatter alias → relativePath snapshot (#469). Lower-cased keys. */
   aliasMap(): Promise<Record<string, string>>;
+  /** Deduped, sorted list of every frontmatter key in use across the
+   *  project. Powers the Properties panel's Add-Property autocomplete (#488). */
+  frontmatterKeys(): Promise<string[]>;
 }
 
 export type TablesQueryResult =

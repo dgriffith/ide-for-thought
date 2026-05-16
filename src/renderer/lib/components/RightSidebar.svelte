@@ -19,6 +19,11 @@
     activeFilePath: string | null;
     content: string;
     onFileSelect: (relativePath: string) => void;
+    /** Short-form wiki-link resolver — handles `[[basename]]`, aliases,
+     *  and slug-fuzzy matches. Used by the Properties panel's wiki-link
+     *  value chip (#489) so clicking opens the right note regardless of
+     *  how the target is written. */
+    onNavigate?: (target: string) => void | Promise<void>;
     onScrollToLine: (line: number) => void;
     onShowPrompt: (message: string) => Promise<string | null>;
     onOpenConversation?: (message: string) => void;
@@ -29,7 +34,7 @@
   }
 
   let {
-    activeFilePath, content, onFileSelect, onScrollToLine, onShowPrompt,
+    activeFilePath, content, onFileSelect, onNavigate, onScrollToLine, onShowPrompt,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
     onContentChange,
   }: Props = $props();
@@ -163,7 +168,7 @@
       <FootnotesPanel {content} {onScrollToLine} />
     {:else if activePanel === 'properties'}
       {#if onContentChange}
-        <PropertiesPanel {content} {onContentChange} />
+        <PropertiesPanel {content} {onContentChange} {onNavigate} />
       {:else}
         <div class="panel-disabled">No active note.</div>
       {/if}

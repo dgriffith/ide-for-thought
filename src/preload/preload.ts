@@ -6,8 +6,11 @@ import { Channels } from '../shared/channels';
  * Centralises the unavoidable cast at the IPC boundary — the main
  * process owns the wire shape, so each subscriber names what it expects.
  */
-function subscribeIpc<T>(channel: string, cb: (payload: T) => void): void {
-  ipcRenderer.on(channel, (_e, payload: unknown) => cb(payload as T));
+function subscribeIpc<T>(channel: string, cb: (payload: T) => void): () => void {
+  // Wrapper captured by reference so `off` removes the exact handler.
+  const handler = (_e: unknown, payload: unknown) => cb(payload as T);
+  ipcRenderer.on(channel, handler);
+  return () => { ipcRenderer.off(channel, handler); };
 }
 
 contextBridge.exposeInMainWorld('api', {
@@ -111,6 +114,7 @@ contextBridge.exposeInMainWorld('api', {
     excerptSource: (excerptId: string) => ipcRenderer.invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
     schemaForCompletion: () => ipcRenderer.invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
     aliasMap: () => ipcRenderer.invoke(Channels.GRAPH_ALIAS_MAP),
+    frontmatterKeys: () => ipcRenderer.invoke(Channels.GRAPH_FRONTMATTER_KEYS),
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
