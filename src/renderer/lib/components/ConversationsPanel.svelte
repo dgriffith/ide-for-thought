@@ -10,6 +10,10 @@
     ConversationSourceDraft,
     SourceIngestOutcome,
   } from '../../../shared/conversation-source-drafts';
+  import type {
+    ConversationPropertyDraft,
+    PropertyUpdateOutcome,
+  } from '../../../shared/conversation-property-drafts';
   import type { ConversationMessage } from '../../../shared/types';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
@@ -183,6 +187,29 @@
     store.discardSourceDraft(tabId, draftId);
   }
 
+  async function handleApproveProperty(tabId: string, draft: ConversationPropertyDraft) {
+    try {
+      await store.approvePropertyDraft(tabId, draft);
+    } catch (e) {
+      console.error('[conv-panel] approve property failed:', e);
+    }
+  }
+
+  function handleDiscardProperty(tabId: string, draftId: string) {
+    store.discardPropertyDraft(tabId, draftId);
+  }
+
+  /** Render a frontmatter value for inline display on the review card.
+   *  Strings render bare; everything else falls back to compact JSON
+   *  so the user can eyeball arrays/objects without scrolling. Null
+   *  is shown as a deletion marker. */
+  function formatPropertyValue(v: unknown): string {
+    if (v === null) return '⌫ deleted';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    try { return JSON.stringify(v) ?? ''; } catch { return '[unserializable]'; }
+  }
+
   function sourceLabel(s: { identifier?: string; url?: string }): string {
     return s.identifier ?? s.url ?? '(unknown source)';
   }
@@ -248,6 +275,14 @@
       ([, entry]) => entry.afterMessageIndex === i,
     );
   }
+  function propertyDraftsAt(tab: TabT, i: number) {
+    return tab.propertyDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function propertyResultsAt(tab: TabT, i: number) {
+    return Object.entries(tab.propertyDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex === i,
+    );
+  }
   function orphanDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.drafts.filter((d) => d.afterMessageIndex >= max);
@@ -265,6 +300,16 @@
   function orphanNoteResults(tab: TabT) {
     const max = tab.conversation.messages.length;
     return Object.entries(tab.noteDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex >= max,
+    );
+  }
+  function orphanPropertyDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.propertyDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function orphanPropertyResults(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return Object.entries(tab.propertyDraftResults).filter(
       ([, entry]) => entry.afterMessageIndex >= max,
     );
   }
@@ -453,6 +498,75 @@
           </div>
         {/snippet}
 
+        {#snippet propertyDraftCardBlock(draft: ConversationPropertyDraft)}
+          <!-- set_properties review card. Mirrors the source/note card
+               chrome but shows the proposed frontmatter patch per note
+               instead of a flat list. Each value renders with its key
+               so the user can eyeball the diff without clicking
+               through to the file. -->
+          <div class="draft-card">
+            <div class="draft-summary">
+              <strong>🔑 {draft.updates.length} note{draft.updates.length === 1 ? '' : 's'}</strong>
+              <span class="draft-note">{draft.note}</span>
+            </div>
+            <ul class="property-update-list">
+              {#each draft.updates as u, ui (ui)}
+                <li class="property-update">
+                  <div class="property-update-path">{u.relativePath}</div>
+                  <ul class="property-kv-list">
+                    {#each Object.entries(u.properties) as [k, v] (k)}
+                      <li class="property-kv" class:property-kv-delete={v === null}>
+                        <span class="property-key">{k}:</span>
+                        <span class="property-value">{formatPropertyValue(v)}</span>
+                      </li>
+                    {/each}
+                  </ul>
+                </li>
+              {/each}
+            </ul>
+            <div class="draft-actions">
+              <button type="button" class="draft-btn primary" onclick={() => handleApproveProperty(tab.id, draft)}>Approve &amp; apply</button>
+              <button type="button" class="draft-btn" onclick={() => handleDiscardProperty(tab.id, draft.draftId)}>Discard</button>
+            </div>
+          </div>
+        {/snippet}
+
+        {#snippet propertyResultLine(_draftId: string, outcomes: PropertyUpdateOutcome[])}
+          <!-- Compact "Updated:" line that replaces the propose-property
+               card after Approve. Each successfully-patched path is a
+               clickable link that opens the note in the editor; the
+               count of changed keys is shown in parentheses so the user
+               can confirm the patch landed without re-reading the
+               frontmatter. -->
+          <div class="filed-line">
+            <span class="filed-prefix">🔑 Updated:</span>
+            {#if outcomes.length === 0}
+              <span class="filed-error">(no notes touched)</span>
+            {:else}
+              {#each outcomes as o, oi (oi)}
+                {#if oi > 0}<span class="filed-sep">·</span>{/if}
+                {#if o.error}
+                  <span class="filed-error" title={o.error}>⚠ {basename(o.relativePath)}</span>
+                {:else if o.changedKeys.length === 0}
+                  <button
+                    type="button"
+                    class="filed-link"
+                    title="{o.relativePath} — already up to date"
+                    onclick={() => openFiledNote(o.relativePath)}
+                  >{basename(o.relativePath)}<span class="filed-dup"> · no-op</span></button>
+                {:else}
+                  <button
+                    type="button"
+                    class="filed-link"
+                    title="{o.relativePath} — {o.changedKeys.join(', ')}"
+                    onclick={() => openFiledNote(o.relativePath)}
+                  >{basename(o.relativePath)}<span class="filed-dup"> · {o.changedKeys.length} key{o.changedKeys.length === 1 ? '' : 's'}</span></button>
+                {/if}
+              {/each}
+            {/if}
+          </div>
+        {/snippet}
+
         <div class="messages" bind:this={scrollEl}>
           <!-- Interleave: message → cards anchored to that message →
                next message. Keeps a draft visually attached to the
@@ -473,6 +587,12 @@
             {/each}
             {#each noteResultsAt(tab, i) as [draftId, entry] (draftId)}
               {@render noteResultLine(draftId, entry.filedPaths)}
+            {/each}
+            {#each propertyDraftsAt(tab, i) as draft (draft.draftId)}
+              {@render propertyDraftCardBlock(draft)}
+            {/each}
+            {#each propertyResultsAt(tab, i) as [draftId, entry] (draftId)}
+              {@render propertyResultLine(draftId, entry.outcomes)}
             {/each}
           {/each}
 
@@ -545,6 +665,12 @@
           {/each}
           {#each orphanNoteResults(tab) as [draftId, entry] (draftId)}
             {@render noteResultLine(draftId, entry.filedPaths)}
+          {/each}
+          {#each orphanPropertyDrafts(tab) as draft (draft.draftId)}
+            {@render propertyDraftCardBlock(draft)}
+          {/each}
+          {#each orphanPropertyResults(tab) as [draftId, entry] (draftId)}
+            {@render propertyResultLine(draftId, entry.outcomes)}
           {/each}
         </div>
 
@@ -941,6 +1067,58 @@
   .source-value {
     color: var(--text);
     overflow-wrap: anywhere;
+  }
+
+  /* set_properties review card interior. Each per-note patch is a
+     small block with the relative path as a header and a key:value
+     list underneath. Deleted keys render dimmed with a strikethrough
+     marker so removals are visually distinct from sets. */
+  .property-update-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .property-update {
+    border-left: 2px solid var(--border);
+    padding-left: 8px;
+  }
+  .property-update-path {
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .property-kv-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .property-kv {
+    display: flex;
+    gap: 6px;
+    font-size: 12px;
+    padding: 1px 4px;
+    font-family: var(--font-mono, monospace);
+  }
+  .property-key {
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .property-value {
+    color: var(--text);
+    overflow-wrap: anywhere;
+  }
+  .property-kv-delete .property-key,
+  .property-kv-delete .property-value {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--text-muted) 60%, transparent);
   }
 
   /* Post-Approve summary line — replaces the inline draft card for

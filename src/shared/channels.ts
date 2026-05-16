@@ -284,6 +284,10 @@ export const Channels = {
   CONVERSATION_SOURCE_DRAFT: 'conversation:sourceDraft',
   /** renderer → main: user approved a source draft; run the ingest pipeline for each URL/identifier and return the per-source outcomes. */
   CONVERSATION_FILE_SOURCE_DRAFT: 'conversation:fileSourceDraft',
+  /** main → renderer: a set_properties tool call produced a frontmatter-patch draft for review. Payload is ConversationPropertyDraft. */
+  CONVERSATION_PROPERTY_DRAFT: 'conversation:propertyDraft',
+  /** renderer → main: user approved a property draft; apply each {path, properties} patch and return the per-update outcomes. */
+  CONVERSATION_FILE_PROPERTY_DRAFT: 'conversation:filePropertyDraft',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',

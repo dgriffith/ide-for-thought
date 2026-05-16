@@ -10,6 +10,10 @@ import type {
   SourceIngestOutcome,
 } from '../../../shared/conversation-source-drafts';
 import type {
+  ConversationPropertyDraft,
+  PropertyUpdateOutcome,
+} from '../../../shared/conversation-property-drafts';
+import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
@@ -43,8 +47,13 @@ import { isMissingApiKeyError } from '../../../shared/llm-errors';
  */
 type AnchoredDraft = ConversationDraft & { afterMessageIndex: number };
 type AnchoredSourceDraft = ConversationSourceDraft & { afterMessageIndex: number };
+type AnchoredPropertyDraft = ConversationPropertyDraft & { afterMessageIndex: number };
 interface SourceDraftResultEntry {
   outcomes: SourceIngestOutcome[];
+  afterMessageIndex: number;
+}
+interface PropertyDraftResultEntry {
+  outcomes: PropertyUpdateOutcome[];
   afterMessageIndex: number;
 }
 /** Post-Approve summary for a propose_notes draft. Persists in the
@@ -77,6 +86,11 @@ interface TabRuntime {
    *  anchoring story as `sourceDraftResults` — the line sits where the
    *  card used to so the user isn't left wondering what landed. */
   noteDraftResults: Record<string, NoteDraftResultEntry>;
+  /** set_properties drafts awaiting Approve/Discard. */
+  propertyDrafts: AnchoredPropertyDraft[];
+  /** Per-update outcomes after Approve on a property draft — used to
+   *  render the post-Approve "Updated:" line in place of the card. */
+  propertyDraftResults: Record<string, PropertyDraftResultEntry>;
   /** In-flight ask_user prompt, if the agent is waiting on a reply. */
   pendingQuestion: AskUserRequest | null;
   composer: string;
@@ -112,6 +126,7 @@ let needsApiKey = $state(false);
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let draftSubscribed = false;
 let sourceDraftSubscribed = false;
+let propertyDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
 
@@ -167,6 +182,15 @@ function ensureSubscriptions(): void {
     });
     sourceDraftSubscribed = true;
   }
+  if (!propertyDraftSubscribed) {
+    api.conversations.onPropertyDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.propertyDrafts = [...t.propertyDrafts, { ...draft, afterMessageIndex }];
+    });
+    propertyDraftSubscribed = true;
+  }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
       const t = tabs.find((tab) => tab.id === req.conversationId);
@@ -207,6 +231,8 @@ async function init(): Promise<void> {
       sourceDrafts: [],
       sourceDraftResults: {},
       noteDraftResults: {},
+      propertyDrafts: [],
+      propertyDraftResults: {},
       pendingQuestion: null,
       composer: '',
       streaming: false,
@@ -292,6 +318,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     sourceDrafts: [],
     sourceDraftResults: {},
     noteDraftResults: {},
+    propertyDrafts: [],
+    propertyDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -344,6 +372,8 @@ async function openConversationTab(opts: {
     sourceDrafts: [],
     sourceDraftResults: {},
     noteDraftResults: {},
+    propertyDrafts: [],
+    propertyDraftResults: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -511,6 +541,47 @@ function discardSourceDraft(tabId: string, draftId: string): void {
   tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draftId);
 }
 
+async function approvePropertyDraft(
+  tabId: string,
+  draft: ConversationPropertyDraft,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const anchored = tab.propertyDrafts.find((d) => d.draftId === draft.draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+  // Snapshot via JSON round-trip rather than `$state.snapshot` here.
+  // The propose_notes/propose_sources path uses `$state.snapshot` and
+  // works fine because its DraftPayload values are all primitives
+  // (relativePath/content/url/identifier strings). PropertyUpdate
+  // contains a nested `Record<string, unknown>` with arbitrary keys,
+  // and a reported bug — "set_properties approved but no frontmatter
+  // landed" — was traced to that inner object arriving on the main
+  // side empty after $state.snapshot → IPC structured-clone. The
+  // JSON round-trip drops any lingering Proxy wrapping unconditionally
+  // and produces a payload IPC can serialize without losing keys.
+  const plain = JSON.parse(JSON.stringify(draft)) as ConversationPropertyDraft;
+  console.log('[conv] approvePropertyDraft sending', {
+    draftId: plain.draftId,
+    updateCount: plain.updates.length,
+    propertyKeySamples: plain.updates.slice(0, 3).map((u) => ({
+      relativePath: u.relativePath,
+      keys: Object.keys(u.properties ?? {}),
+    })),
+  });
+  const result = await api.conversations.filePropertyDraft(plain);
+  tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draft.draftId);
+  tab.propertyDraftResults = {
+    ...tab.propertyDraftResults,
+    [draft.draftId]: { outcomes: result.outcomes, afterMessageIndex },
+  };
+}
+
+function discardPropertyDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draftId);
+}
+
 function setComposer(value: string): void {
   const tab = activeTab();
   if (tab) tab.composer = value;
@@ -549,6 +620,8 @@ export function getConversationsStore() {
     approveSourceDraft,
     discardSourceDraft,
     dismissSourceDraftResult,
+    approvePropertyDraft,
+    discardPropertyDraft,
     setComposer,
   };
 }
