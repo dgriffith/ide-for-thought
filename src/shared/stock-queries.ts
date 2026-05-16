@@ -252,6 +252,38 @@ SELECT ?derived ?missingSource WHERE {
 ORDER BY ?derived`,
   },
   {
+    name: 'Trust: Alias conflicts',
+    description: 'Frontmatter aliases claimed by two or more notes — the alphabetically-first path wins at resolution time, the rest are shadowed (#493).',
+    language: 'sparql',
+    query: `${PREFIXES}
+# Each row is one note that claims an alias also claimed by another
+# note. \`winner = true\` is the note the resolver actually picks
+# (alphabetically-smallest relativePath). Aliases that collide with a
+# canonical note name are filtered out — they're already dropped by
+# the indexer.
+SELECT ?alias ?note ?title ?winner WHERE {
+  {
+    SELECT ?alias WHERE {
+      ?n minerva:hasAlias ?alias .
+    }
+    GROUP BY ?alias
+    HAVING (COUNT(?n) > 1)
+  }
+  ?nUri minerva:hasAlias ?alias .
+  ?nUri minerva:relativePath ?note .
+  OPTIONAL { ?nUri dc:title ?title }
+  {
+    SELECT ?alias (MIN(?p) AS ?winnerPath) WHERE {
+      ?n2 minerva:hasAlias ?alias .
+      ?n2 minerva:relativePath ?p .
+    }
+    GROUP BY ?alias
+  }
+  BIND((?note = ?winnerPath) AS ?winner)
+}
+ORDER BY ?alias ?note`,
+  },
+  {
     name: 'Trust: Unreviewed LLM writes',
     description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
     language: 'sparql',

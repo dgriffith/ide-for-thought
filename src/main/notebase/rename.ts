@@ -219,6 +219,20 @@ export async function renameWithLinkRewrites(
       } catch (err) {
         console.error(`[minerva] Link rewrite failed for ${currentPath}:`, err instanceof Error ? err.message : err);
       }
+    } else if (referringNotes.has(oldEquivalent)) {
+      // Text didn't change but this note refers to the moved target —
+      // an alias-form link like `[[JFK]]` whose underlying alias map
+      // now points at the new URI (#494). The link text itself doesn't
+      // need a rewrite, but the graph triple it materialised at last
+      // index time still references the OLD note URI. Reindex (no
+      // write) so resolveTargetByAlias re-runs against the just-
+      // rebuilt aliasMap and emits a triple pointing at <new>.
+      try {
+        await graph.indexNote(ctx, currentPath, content);
+        reindexHook?.(currentPath, content);
+      } catch (err) {
+        console.error(`[minerva] Alias-sweep reindex failed for ${currentPath}:`, err instanceof Error ? err.message : err);
+      }
     }
   }
 
