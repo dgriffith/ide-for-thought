@@ -154,6 +154,49 @@ export function getAliasMap(ctx: ProjectContext): Record<string, string> {
 }
 
 /**
+ * Entries form of the alias map, preserving original casing (#492).
+ * `getAliasMap` lowercases everything for case-insensitive resolution;
+ * the wiki-link autocomplete needs the original casing so picking a
+ * suggested alias inserts `[[JFK]]` rather than `[[jfk]]`.
+ *
+ * Same conflict policy as `rebuildAliasMap`:
+ *   - Alphabetical-first-writer wins on alias collisions.
+ *   - Aliases that lowercase-collide with a real note's path stem or
+ *     basename are dropped.
+ */
+export interface AliasEntry {
+  alias: string;
+  relativePath: string;
+}
+export function getAliasEntries(ctx: ProjectContext): AliasEntry[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const claimed = new Set<string>(); // lowercase aliases already taken
+  // Drop any alias whose lowercase form collides with a real note's
+  // canonical name — matches rebuildAliasMap's second pass.
+  const canonicals = new Set<string>();
+  for (const path of state.indexedNotePaths) {
+    const stem = path.replace(/\.md$/i, '').toLowerCase();
+    canonicals.add(stem);
+    const basename = stem.split('/').pop() ?? '';
+    if (basename) canonicals.add(basename);
+  }
+  const out: AliasEntry[] = [];
+  const paths = [...state.aliasesPerNote.keys()].sort();
+  for (const path of paths) {
+    const aliases = state.aliasesPerNote.get(path) ?? [];
+    for (const alias of aliases) {
+      const key = alias.toLowerCase();
+      if (canonicals.has(key)) continue;
+      if (claimed.has(key)) continue;
+      claimed.add(key);
+      out.push({ alias, relativePath: path });
+    }
+  }
+  return out;
+}
+
+/**
  * Deduped, alphabetically-sorted list of every frontmatter key
  * currently in use across the project. Powers the Properties panel's
  * Add-Property autocomplete (#488). Empty when the project has no

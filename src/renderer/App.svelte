@@ -109,6 +109,10 @@
    *  graph changes so wiki-link nav resolves new aliases without a
    *  full project reload. */
   let aliasMap = $state<Record<string, string>>({});
+  /** Same data as `aliasMap` but in entries form with original casing,
+   *  so the editor's `[[…]]` autocomplete can suggest `JFK` (not
+   *  `jfk`) when the user types `[[jf` (#492). Refreshed in lockstep. */
+  let aliasEntries = $state<Array<{ alias: string; relativePath: string }>>([]);
 
   async function refreshAliasMap() {
     if (!notebase.meta) return;
@@ -116,6 +120,11 @@
       aliasMap = await api.graph.aliasMap();
     } catch {
       aliasMap = {};
+    }
+    try {
+      aliasEntries = await api.graph.aliasEntries();
+    } catch {
+      aliasEntries = [];
     }
   }
 
@@ -2377,6 +2386,7 @@
                     onOpenExcerpt={handleOpenExcerpt}
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     getSources={() => sourcesCache}
+                    getAliases={() => aliasEntries}
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}

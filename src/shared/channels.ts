@@ -89,6 +89,10 @@ export const Channels = {
   GRAPH_EXCERPT_SOURCE: 'graph:excerptSource',
   /** Frontmatter alias → relativePath map for wiki-link resolution (#469). */
   GRAPH_ALIAS_MAP: 'graph:aliasMap',
+  /** Same data as GRAPH_ALIAS_MAP but in entries form, preserving the
+   *  original casing the user wrote in frontmatter. Powers the
+   *  wiki-link autocomplete's alias surfacing (#492). */
+  GRAPH_ALIAS_ENTRIES: 'graph:aliasEntries',
   /** Project-wide frontmatter key list. Powers the Properties panel's
    *  Add-Property autocomplete (#488). */
   GRAPH_FRONTMATTER_KEYS: 'graph:frontmatterKeys',

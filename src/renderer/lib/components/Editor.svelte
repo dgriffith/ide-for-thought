@@ -93,6 +93,9 @@
     getNotePaths?: () => string[];
     /** Live list of Sources for `[[cite::…]]` autocomplete. */
     getSources?: () => readonly import('../../../shared/types').SourceMetadata[];
+    /** Live list of frontmatter alias entries so wiki-link autocomplete
+     *  can suggest aliases alongside note paths (#492). */
+    getAliases?: () => readonly { alias: string; relativePath: string }[];
     /**
      * Callback for image upload rejections — too-large, unsupported
      * MIME, etc. — so the host app can surface a toast / dialog (#455).
@@ -145,6 +148,7 @@
     onFormatCurrentNote,
     getNotePaths,
     getSources,
+    getAliases,
     initialHistory,
     onUploadError,
     onRunCell,
@@ -804,6 +808,7 @@
     const linkCompletion = linkCompletionSource({
       getNotePaths: () => getNotePaths?.() ?? [],
       getSources: () => getSources?.() ?? [],
+      getAliases: () => getAliases?.() ?? [],
       readNote: (p) => api.notebase.readFile(p),
     });
 
