@@ -131,6 +131,32 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     expect(reindexed).toContain('archive/foo.md');
     expect(reindexed).toContain('notes/overview.md');
   });
+
+  it('sweeps alias-form links so incoming [[alias]] triples re-resolve to the new path (#494)', async () => {
+    // The referring note links via an alias (not a path), so the
+    // text rewriter has nothing to change. The bug pre-#494 was that
+    // the referrer's `linksTo` triple stayed pointed at the OLD note
+    // URI until the referrer was independently re-saved. After the
+    // fix, the rename sweep reindexes alias-referring notes so their
+    // triples follow the rename.
+    writeNote(root, 'presidents/kennedy.md', '---\naliases: [JFK]\n---\n# John F. Kennedy');
+    writeNote(root, 'notes/overview.md', 'See [[JFK]] for context.');
+    await indexNote(ctx, 'presidents/kennedy.md', '---\naliases: [JFK]\n---\n# John F. Kennedy');
+    await indexNote(ctx, 'notes/overview.md', 'See [[JFK]] for context.');
+
+    // Sanity: pre-rename the overview links to the kennedy note.
+    expect(findNotesLinkingTo(ctx, 'presidents/kennedy.md')).toEqual(['notes/overview.md']);
+
+    const before = readNote(root, 'notes/overview.md');
+    await renameWithLinkRewrites(root, 'presidents/kennedy.md', 'archive/kennedy.md');
+
+    // The overview's body must not have been rewritten — the link
+    // text is still `[[JFK]]`, just resolved differently.
+    expect(readNote(root, 'notes/overview.md')).toBe(before);
+    // But the graph now reflects the new target.
+    expect(findNotesLinkingTo(ctx, 'archive/kennedy.md')).toEqual(['notes/overview.md']);
+    expect(findNotesLinkingTo(ctx, 'presidents/kennedy.md')).toEqual([]);
+  });
 });
 
 describe('renameWithLinkRewrites — folder rename (issue #136)', () => {
