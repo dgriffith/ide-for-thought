@@ -742,6 +742,43 @@ thought:conversationRef a owl:ObjectProperty ;
     rdfs:domain thought:Proposal ;
     rdfs:range thought:Conversation .
 
+# ── Compute Proposals (#245) ──────────────────────────────────────────────
+
+thought:ComputeProposal a owl:Class ;
+    rdfs:subClassOf thought:Proposal ;
+    rdfs:label "Compute Proposal" ;
+    rdfs:comment "An LLM-proposed code cell (SPARQL, SQL, or Python) for the user to review and run. Approval = clicking Run; execution flips thought:executed to true. The audit trail anchors the trust principle for the compute pillar: every LLM-originated cell execution has a matching ComputeProposal in the graph." .
+
+thought:language a owl:DatatypeProperty ;
+    rdfs:label "language" ;
+    rdfs:comment "Cell language: 'sparql', 'sql', or 'python'." ;
+    rdfs:domain thought:ComputeProposal ;
+    rdfs:range xsd:string .
+
+thought:code a owl:DatatypeProperty ;
+    rdfs:label "code" ;
+    rdfs:comment "The cell body, exactly as the LLM proposed it. If the user edited the code before running, the edited form lands in thought:executedCode instead — this property is the original proposal." ;
+    rdfs:domain thought:ComputeProposal ;
+    rdfs:range xsd:string .
+
+thought:executedCode a owl:DatatypeProperty ;
+    rdfs:label "executed code" ;
+    rdfs:comment "The code that was actually run. Equals thought:code unless the user edited the cell in the review card before clicking Run." ;
+    rdfs:domain thought:ComputeProposal ;
+    rdfs:range xsd:string .
+
+thought:executed a owl:DatatypeProperty ;
+    rdfs:label "executed" ;
+    rdfs:comment "True once the user clicked Run on this proposal. False / absent means the cell was Inserted-only or Discarded." ;
+    rdfs:domain thought:ComputeProposal ;
+    rdfs:range xsd:boolean .
+
+thought:executedAt a owl:DatatypeProperty ;
+    rdfs:label "executed at" ;
+    rdfs:comment "Timestamp when the user clicked Run." ;
+    rdfs:domain thought:ComputeProposal ;
+    rdfs:range xsd:dateTime .
+
 # ── Approval Policy ───────────────────────────────────────────────────────
 
 thought:ApprovalPolicy a owl:Class ;

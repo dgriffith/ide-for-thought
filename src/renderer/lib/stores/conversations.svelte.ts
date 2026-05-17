@@ -14,6 +14,10 @@ import type {
   PropertyUpdateOutcome,
 } from '../../../shared/conversation-property-drafts';
 import type {
+  ConversationComputeDraft,
+} from '../../../shared/conversation-compute-drafts';
+import type { CellResult } from '../../../shared/compute/types';
+import type {
   AskUserRequest,
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
@@ -65,6 +69,21 @@ interface NoteDraftResultEntry {
   filedPaths: string[];
   afterMessageIndex: number;
 }
+type AnchoredComputeDraft = ConversationComputeDraft & { afterMessageIndex: number };
+/** Per-draft state for compute proposals (#245). `result` holds the
+ *  output of the most recent Run; `insertedAt` records the destination
+ *  path when the user chose Insert into notebook. Both are optional —
+ *  a draft that hasn't been acted on yet has neither set. */
+interface ComputeDraftStateEntry {
+  /** Latest cell result after Run. Null while pending. */
+  result: CellResult | null;
+  /** True while a Run is in-flight, so the panel can show a spinner
+   *  and disable the buttons. */
+  running: boolean;
+  /** Destination path written by the most recent Insert action. */
+  insertedAt: string | null;
+  afterMessageIndex: number;
+}
 
 interface TabRuntime {
   id: string;
@@ -91,6 +110,12 @@ interface TabRuntime {
   /** Per-update outcomes after Approve on a property draft — used to
    *  render the post-Approve "Updated:" line in place of the card. */
   propertyDraftResults: Record<string, PropertyDraftResultEntry>;
+  /** propose_compute drafts awaiting Run / Insert / Discard. */
+  computeDrafts: AnchoredComputeDraft[];
+  /** Per-draft Run / Insert state. Stays alive after Run so the user
+   *  can see the cell + output in the transcript; only Discard removes
+   *  the draft entirely (which also drops the state entry). */
+  computeDraftState: Record<string, ComputeDraftStateEntry>;
   /** In-flight ask_user prompt, if the agent is waiting on a reply. */
   pendingQuestion: AskUserRequest | null;
   composer: string;
@@ -127,6 +152,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let draftSubscribed = false;
 let sourceDraftSubscribed = false;
 let propertyDraftSubscribed = false;
+let computeDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
 
@@ -191,6 +217,26 @@ function ensureSubscriptions(): void {
     });
     propertyDraftSubscribed = true;
   }
+  if (!computeDraftSubscribed) {
+    api.conversations.onComputeDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.computeDrafts = [...t.computeDrafts, { ...draft, afterMessageIndex }];
+      // Seed the state entry so the panel can render a pristine card
+      // immediately (no Run yet, no Insert yet).
+      t.computeDraftState = {
+        ...t.computeDraftState,
+        [draft.draftId]: {
+          result: null,
+          running: false,
+          insertedAt: null,
+          afterMessageIndex,
+        },
+      };
+    });
+    computeDraftSubscribed = true;
+  }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
       const t = tabs.find((tab) => tab.id === req.conversationId);
@@ -233,6 +279,8 @@ async function init(): Promise<void> {
       noteDraftResults: {},
       propertyDrafts: [],
       propertyDraftResults: {},
+      computeDrafts: [],
+      computeDraftState: {},
       pendingQuestion: null,
       composer: '',
       streaming: false,
@@ -320,6 +368,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     noteDraftResults: {},
     propertyDrafts: [],
     propertyDraftResults: {},
+    computeDrafts: [],
+    computeDraftState: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -374,6 +424,8 @@ async function openConversationTab(opts: {
     noteDraftResults: {},
     propertyDrafts: [],
     propertyDraftResults: {},
+    computeDrafts: [],
+    computeDraftState: {},
     pendingQuestion: null,
     composer: '',
     streaming: false,
@@ -582,6 +634,100 @@ function discardPropertyDraft(tabId: string, draftId: string): void {
   tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draftId);
 }
 
+async function runComputeDraft(
+  tabId: string,
+  draft: ConversationComputeDraft,
+  editedCode?: string,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const state = tab.computeDraftState[draft.draftId];
+  if (state) {
+    // Mark in-flight so the panel can render a spinner + disable buttons.
+    tab.computeDraftState = {
+      ...tab.computeDraftState,
+      [draft.draftId]: { ...state, running: true },
+    };
+  }
+  // JSON round-trip to drop any Svelte 5 $state proxy wrapping before
+  // IPC — same defense used by the property-draft path after the
+  // dynamic-key serialization bug.
+  const plain = JSON.parse(JSON.stringify({ draft, editedCode })) as {
+    draft: ConversationComputeDraft;
+    editedCode?: string;
+  };
+  try {
+    const { result } = await api.conversations.runComputeDraft(plain);
+    tab.computeDraftState = {
+      ...tab.computeDraftState,
+      [draft.draftId]: {
+        result,
+        running: false,
+        insertedAt: tab.computeDraftState[draft.draftId]?.insertedAt ?? null,
+        afterMessageIndex: tab.computeDraftState[draft.draftId]?.afterMessageIndex
+          ?? tab.conversation.messages.length,
+      },
+    };
+    // Reload the conversation so the user-role context message the
+    // main process appended shows up immediately in the transcript.
+    const reloaded = await api.conversations.load(tab.id);
+    if (reloaded) tab.conversation = reloaded;
+  } catch (e) {
+    console.error('[conv] run compute draft failed:', e);
+    tab.computeDraftState = {
+      ...tab.computeDraftState,
+      [draft.draftId]: {
+        result: { ok: false, error: e instanceof Error ? e.message : String(e) },
+        running: false,
+        insertedAt: tab.computeDraftState[draft.draftId]?.insertedAt ?? null,
+        afterMessageIndex: tab.computeDraftState[draft.draftId]?.afterMessageIndex
+          ?? tab.conversation.messages.length,
+      },
+    };
+  }
+}
+
+async function insertComputeDraft(
+  tabId: string,
+  draft: ConversationComputeDraft,
+  editedCode?: string,
+  destinationPath?: string,
+): Promise<string | null> {
+  const tab = findTab(tabId);
+  if (!tab) return null;
+  const plain = JSON.parse(JSON.stringify({ draft, editedCode, destinationPath })) as {
+    draft: ConversationComputeDraft;
+    editedCode?: string;
+    destinationPath?: string;
+  };
+  try {
+    const { destinationPath: where } = await api.conversations.insertComputeDraft(plain);
+    const prior = tab.computeDraftState[draft.draftId];
+    tab.computeDraftState = {
+      ...tab.computeDraftState,
+      [draft.draftId]: {
+        result: prior?.result ?? null,
+        running: false,
+        insertedAt: where,
+        afterMessageIndex: prior?.afterMessageIndex ?? tab.conversation.messages.length,
+      },
+    };
+    return where;
+  } catch (e) {
+    console.error('[conv] insert compute draft failed:', e);
+    return null;
+  }
+}
+
+function discardComputeDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.computeDrafts = tab.computeDrafts.filter((d) => d.draftId !== draftId);
+  const next = { ...tab.computeDraftState };
+  delete next[draftId];
+  tab.computeDraftState = next;
+}
+
 function setComposer(value: string): void {
   const tab = activeTab();
   if (tab) tab.composer = value;
@@ -622,6 +768,9 @@ export function getConversationsStore() {
     dismissSourceDraftResult,
     approvePropertyDraft,
     discardPropertyDraft,
+    runComputeDraft,
+    insertComputeDraft,
+    discardComputeDraft,
     setComposer,
   };
 }
