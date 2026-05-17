@@ -89,6 +89,31 @@ export function ensureCellId(
   return { id, newInfo: stringifyFenceInfo(withId), wasNew: true };
 }
 
+/** Whether the fence is pinned to a destination derived note (#244). */
+export function hasPinFlag(info: string): boolean {
+  const parsed = parseFenceInfo(info);
+  return parsed.attrs.pin === 'true';
+}
+
+/**
+ * Toggle the `pin` attribute on a fence info string. The pin flag
+ * tells the save pipeline to look up an existing derived note for
+ * this cell (via graph query on `derived_from_cell`) and overwrite
+ * it rather than prompt for a new destination. Pinning is sticky —
+ * once set, every subsequent save reuses the existing derived note's
+ * path until the user explicitly unpins or deletes the derived note.
+ */
+export function setPinFlag(info: string, pin: boolean): string {
+  const parsed = parseFenceInfo(info);
+  const attrs = { ...parsed.attrs };
+  if (pin) {
+    attrs.pin = 'true';
+  } else {
+    delete attrs.pin;
+  }
+  return stringifyFenceInfo({ language: parsed.language, attrs });
+}
+
 /**
  * Apply an info-string update to the opening fence line at `startOffset`
  * in a document. Returns the new doc text. Caller is responsible for

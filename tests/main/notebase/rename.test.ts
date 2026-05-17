@@ -132,6 +132,43 @@ describe('renameWithLinkRewrites — file rename (issue #136)', () => {
     expect(reindexed).toContain('notes/overview.md');
   });
 
+  it('sweeps `derived_from: [[…]]` frontmatter on rename (#244)', async () => {
+    // A "Save as note" landed a derived note whose frontmatter points
+    // back at the source via a wiki-link. Renaming the source should
+    // rewrite the derived note's `derived_from` value just like any
+    // body-level [[…]] link — but pre-fix the rename pipeline only
+    // walked LINK_TYPES predicates in findNotesLinkingTo, missing the
+    // prov:wasDerivedFrom edge frontmatter emits.
+    const sourceBody = '# Analysis\n\n```python {id=abc12345}\nprint(1)\n```\n';
+    writeNote(root, 'notes/analysis.md', sourceBody);
+    const derivedBody = [
+      '---',
+      'title: "Cell abc12345 output"',
+      'derived_from: "[[notes/analysis]]"',
+      'derived_from_cell: "abc12345"',
+      'derived_at: "2026-04-20T00:00:00Z"',
+      'tags: [derived]',
+      '---',
+      '',
+      '# Cell output',
+      '',
+      '*Derived from [[notes/analysis#cell-abc12345]] on 2026-04-20.*',
+    ].join('\n');
+    writeNote(root, 'notes/derived/analysis-abc12345.md', derivedBody);
+    await indexNote(ctx, 'notes/analysis.md', sourceBody);
+    await indexNote(ctx, 'notes/derived/analysis-abc12345.md', derivedBody);
+
+    await renameWithLinkRewrites(root, 'notes/analysis.md', 'archive/analysis.md');
+
+    const rewritten = readNote(root, 'notes/derived/analysis-abc12345.md');
+    // The frontmatter wiki-link target follows the rename:
+    expect(rewritten).toContain('derived_from: "[[archive/analysis]]"');
+    // …and so does the body backlink:
+    expect(rewritten).toContain('[[archive/analysis#cell-abc12345]]');
+    // The cell-id stays put — rename doesn't perturb the anchor itself.
+    expect(rewritten).toContain('derived_from_cell: "abc12345"');
+  });
+
   it('sweeps alias-form links so incoming [[alias]] triples re-resolve to the new path (#494)', async () => {
     // The referring note links via an alias (not a path), so the
     // text rewriter has nothing to change. The bug pre-#494 was that
