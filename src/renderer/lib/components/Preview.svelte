@@ -55,6 +55,8 @@
       cellLanguage: string;
       cellCode: string;
       output: import('../../../shared/compute/types').CellOutput;
+      /** Pin to notebook (#244) — see App.handleSaveCellOutput. */
+      pin?: boolean;
     }) => void;
     /**
      * Right-click-menu callbacks mirroring the read-only portion of the
@@ -1487,6 +1489,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     outputMenu = null;
   }
 
+  function handlePinToNotebook(): void {
+    if (!outputMenu || !onSaveCellOutput) return;
+    // Pin path skips the destination prompt — the App-side handler
+    // routes to whatever derived note already exists for this cell
+    // (or creates a default-path note on first pin). Subsequent
+    // saves of the same cell reuse the pinned destination.
+    onSaveCellOutput({
+      cellLanguage: outputMenu.source.language,
+      cellCode: outputMenu.source.code,
+      output: $state.snapshot(outputMenu.output),
+      pin: true,
+    });
+    outputMenu = null;
+  }
+
   function handleCopyAsMarkdown(): void {
     if (!outputMenu) return;
     // Render the output as markdown-table / code-block, matching the
@@ -1688,6 +1705,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   <div class="compute-output-menu" role="menu" style:left="{outputMenu.x}px" style:top="{outputMenu.y}px">
     {#if onSaveCellOutput}
       <button role="menuitem" onclick={handleSaveAsNote}>Save as note…</button>
+      <button role="menuitem" onclick={handlePinToNotebook}>Pin to notebook</button>
     {/if}
     <button role="menuitem" onclick={handleCopyAsMarkdown}>Copy as markdown</button>
     {#if outputMenu.output.type === 'table'}

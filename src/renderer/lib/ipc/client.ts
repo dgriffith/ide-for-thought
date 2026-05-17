@@ -283,6 +283,14 @@ export interface ComputeApi {
    * Save a cell's output as a first-class note with provenance frontmatter.
    * Injects a stable `{id=…}` into the source fence when the cell doesn't
    * already have one, so re-saves land on the same backlink anchor.
+   *
+   * Result discriminator:
+   *  - `status: 'written'` — file was written; result includes the
+   *    final path, cell id, whether an id was minted, and the current
+   *    pin state.
+   *  - `status: 'needs-confirm'` — destination exists with different
+   *    content; the renderer should prompt the user and re-invoke
+   *    with `forceOverwrite: true` to proceed.
    */
   saveCellOutput(input: {
     sourcePath: string;
@@ -291,7 +299,14 @@ export interface ComputeApi {
     output: import('../../../shared/compute/types').CellOutput;
     destPath?: string;
     title?: string;
-  }): Promise<{ derivedPath: string; cellId: string; injectedId: boolean }>;
+    /** Set when "Pin to notebook" was clicked (or to re-pin). */
+    pin?: boolean;
+    /** Set to true after the user confirmed the overwrite-on-diff prompt. */
+    forceOverwrite?: boolean;
+  }): Promise<
+    | { status: 'written'; derivedPath: string; cellId: string; injectedId: boolean; pinned: boolean }
+    | { status: 'needs-confirm'; derivedPath: string; cellId: string; existingContent: string; pendingContent: string }
+  >;
   /** Wipe and respawn the project's Python kernel — palette command
    *  "Compute: Restart Python Kernel". Loses every notebook's namespace. */
   restartPythonKernel(): Promise<void>;

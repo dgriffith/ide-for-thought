@@ -1605,29 +1605,67 @@
     cellLanguage: string;
     cellCode: string;
     output: import('../shared/compute/types').CellOutput;
+    /** Pin to notebook (#244). When true, the saver looks up an
+     *  existing derived note for this cell and overwrites it rather
+     *  than prompting for a new destination; sets `pin=true` on the
+     *  source cell's fence on first pin so subsequent saves reuse
+     *  the same destination automatically. */
+    pin?: boolean;
   }): Promise<void> {
     if (!notebase.meta) return;
     const sourcePath = editor.activeFilePath;
     if (!sourcePath) return;
-    const dest = await showPrompt(
-      `Save cell output as note. Path (default: notes/derived/):`,
-    );
-    if (dest === null) return; // user cancelled
-    let trimmed = dest.trim();
-    // Add `.md` if the user typed a bare path. The pipeline writes a
-    // markdown note unconditionally, so a missing extension would
-    // produce a file that `Open` doesn't recognise as a note.
-    if (trimmed.length > 0 && !/\.md$/i.test(trimmed)) {
-      trimmed += '.md';
+    // For a non-pinned "Save as note", prompt for a destination. Pin
+    // saves skip the prompt — the backend resolves the destination
+    // from the graph (existing derived note for this cell). When the
+    // cell is being pinned for the first time AND no derived note
+    // exists yet, the backend falls back to the default path.
+    let destPath: string | undefined;
+    if (!payload.pin) {
+      const dest = await showPrompt(
+        `Save cell output as note. Path (default: notes/derived/):`,
+      );
+      if (dest === null) return; // user cancelled
+      let trimmed = dest.trim();
+      // Add `.md` if the user typed a bare path. The pipeline writes a
+      // markdown note unconditionally, so a missing extension would
+      // produce a file that `Open` doesn't recognise as a note.
+      if (trimmed.length > 0 && !/\.md$/i.test(trimmed)) {
+        trimmed += '.md';
+      }
+      destPath = trimmed.length > 0 ? trimmed : undefined;
     }
     try {
-      const result = await api.compute.saveCellOutput({
+      let result = await api.compute.saveCellOutput({
         sourcePath,
         cellLanguage: payload.cellLanguage,
         cellCode: payload.cellCode,
         output: payload.output,
-        destPath: trimmed.length > 0 ? trimmed : undefined,
+        destPath,
+        pin: payload.pin,
       });
+      // Confirm-on-diff (#244): the destination exists with different
+      // content. Ask the user before overwriting; on yes, retry with
+      // `forceOverwrite: true`. The dialog is intentionally compact
+      // — a full diff view is a future polish item.
+      if (result.status === 'needs-confirm') {
+        const ok = await showConfirm(
+          `"${result.derivedPath}" already exists with different content. Overwrite it?`,
+          CONFIRM_KEYS.saveCellOutputFailed,
+          'Overwrite',
+        );
+        if (!ok) return;
+        result = await api.compute.saveCellOutput({
+          sourcePath,
+          cellLanguage: payload.cellLanguage,
+          cellCode: payload.cellCode,
+          output: payload.output,
+          destPath: result.derivedPath,
+          pin: payload.pin,
+          forceOverwrite: true,
+        });
+        if (result.status !== 'written') return;
+      }
       // Refresh the file tree so the new note is selectable, then open it.
       await notebase.refresh();
       setTimeout(() => handleFileSelect(result.derivedPath), 100);

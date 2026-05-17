@@ -91,6 +91,135 @@ describe('saveCellOutput (#244)', () => {
     ).rejects.toThrow(/could not locate/i);
   });
 
+  it('pin=true sets {pin=true} on the source fence on first save', async () => {
+    await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
+
+    const result = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'first run' },
+      pin: true,
+    });
+
+    expect(result.status).toBe('written');
+    if (result.status !== 'written') return;
+    expect(result.pinned).toBe(true);
+    const source = await fsp.readFile(path.join(root, 'analysis.md'), 'utf-8');
+    // The fence carries both {id=…} and {pin=true} (alphabetical order).
+    expect(source).toMatch(/```sparql \{id=[a-f0-9]{8}\} \{pin=true\}/);
+  });
+
+  it('pin=true on a second save routes to the existing derived note via the graph', async () => {
+    await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
+
+    // First save (no pin) writes to a default path.
+    const first = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'first' },
+    });
+    if (first.status !== 'written') throw new Error('first save needs to write');
+
+    // Index the source + derived note so the graph knows about the
+    // prov:wasDerivedFrom edge — production rides the watcher pipeline
+    // for this, but the test simulates the same reindex synchronously.
+    const sourceContent = await fsp.readFile(path.join(root, 'analysis.md'), 'utf-8');
+    await indexNote(ctx, 'analysis.md', sourceContent);
+    const derivedContent = await fsp.readFile(path.join(root, first.derivedPath), 'utf-8');
+    await indexNote(ctx, first.derivedPath, derivedContent);
+
+    // Now Pin-save with a DIFFERENT destPath. The pin lookup wins —
+    // the destPath is ignored when there's an existing derived note.
+    const second = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'first' }, // same content
+      destPath: 'notes/somewhere-else.md',
+      pin: true,
+      forceOverwrite: true, // skip the diff confirm (content is identical anyway)
+    });
+    if (second.status !== 'written') throw new Error('pin save needs to write');
+    expect(second.derivedPath).toBe(first.derivedPath);
+    expect(second.pinned).toBe(true);
+  });
+
+  it('returns needs-confirm when the destination exists with different content', async () => {
+    await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
+
+    const first = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'original output' },
+    });
+    if (first.status !== 'written') throw new Error('first save needs to write');
+
+    const second = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'CHANGED output' },
+      destPath: first.derivedPath,
+    });
+
+    expect(second.status).toBe('needs-confirm');
+    if (second.status !== 'needs-confirm') return;
+    expect(second.derivedPath).toBe(first.derivedPath);
+    expect(second.existingContent).toContain('original output');
+    expect(second.pendingContent).toContain('CHANGED output');
+    // No write happened — disk still has the original content.
+    const onDisk = await fsp.readFile(path.join(root, first.derivedPath), 'utf-8');
+    expect(onDisk).toBe(second.existingContent);
+  });
+
+  it('forceOverwrite=true skips the diff check and writes', async () => {
+    await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
+
+    const first = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'original' },
+    });
+    if (first.status !== 'written') throw new Error('first save needs to write');
+
+    const second = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'CHANGED' },
+      destPath: first.derivedPath,
+      forceOverwrite: true,
+    });
+    expect(second.status).toBe('written');
+    const onDisk = await fsp.readFile(path.join(root, first.derivedPath), 'utf-8');
+    expect(onDisk).toContain('CHANGED');
+  });
+
+  it('re-save with identical content does NOT trigger needs-confirm', async () => {
+    await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
+
+    const first = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'same' },
+    });
+    if (first.status !== 'written') throw new Error('first save needs to write');
+
+    const second = await saveCellOutput(root, {
+      sourcePath: 'analysis.md',
+      cellLanguage: 'sparql',
+      cellCode: 'SELECT ?n WHERE { ?n a minerva:Note }',
+      output: { type: 'text', value: 'same' },
+      destPath: first.derivedPath,
+    });
+    expect(second.status).toBe('written');
+  });
+
   it('graph indexes derived_from frontmatter as prov:wasDerivedFrom pointing at the source note', async () => {
     await fsp.writeFile(path.join(root, 'analysis.md'), SOURCE_NOTE, 'utf-8');
     const { derivedPath } = await saveCellOutput(root, {

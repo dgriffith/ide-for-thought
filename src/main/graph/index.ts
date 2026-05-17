@@ -1908,25 +1908,82 @@ export function outgoingLinks(ctx: ProjectContext, relativePath: string): Outgoi
  * Only note-targeted link types are considered — cite/quote links point at
  * sources/excerpts and are handled by a separate rename path.
  */
+/**
+ * Find an existing derived note whose frontmatter pins it to
+ * (`sourceRelativePath`, `cellId`). Used by the "Pin to notebook"
+ * save path (#244) — when the source cell is pinned, the saver
+ * overwrites this note rather than prompting for a new destination.
+ *
+ * Returns the derived note's relativePath, or null when no note in
+ * the graph claims that (source, cellId) pair. Ambiguous matches
+ * (more than one derived note for the same cell, e.g. after a user
+ * copy) return the lexicographically-smallest path for determinism.
+ */
+export function findDerivedNoteForCell(
+  ctx: ProjectContext,
+  sourceRelativePath: string,
+  cellId: string,
+): string | null {
+  const state = getState(ctx);
+  if (!state) return null;
+  const { store } = state;
+  const sourceSym = noteUri(state, sourceRelativePath);
+  // Notes whose prov:wasDerivedFrom points at the source. (The graph
+  // indexer materialises `derived_from: [[source]]` as this triple.)
+  const derivedStmts = store.statementsMatching(undefined, PROV('wasDerivedFrom'), sourceSym);
+  const candidates: string[] = [];
+  for (const st of derivedStmts) {
+    const cellStmts = store.statementsMatching(st.subject, THOUGHT('derivedFromCell'), undefined);
+    const cellMatch = cellStmts.some((cs) => cs.object.value === cellId);
+    if (!cellMatch) continue;
+    const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
+    const p = pathStmts[0]?.object.value;
+    if (p && p.endsWith('.md')) candidates.push(p);
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort();
+  return candidates[0];
+}
+
 export function findNotesLinkingTo(ctx: ProjectContext, targetRelativePath: string): string[] {
   const state = getState(ctx);
   if (!state) return [];
   const { store } = state;
   const targetBase = noteUri(state, targetRelativePath).value;
   const seen = new Set<string>();
+
+  // Pass 1: every triple whose object IS the target note's URI. This
+  // covers typed wiki-links (minerva:supports, etc.) AND
+  // frontmatter-emitted predicates that point at a note URI —
+  // prov:wasDerivedFrom from `derived_from: [[note]]`, thought:decomposes
+  // from `decomposes: [[note]]`, etc. (#244 acceptance criterion:
+  // renaming a source should sweep the derived note's frontmatter.)
+  // Using object-indexed lookup is cheap and picks up every
+  // user-authored note → note edge regardless of which predicate
+  // materialised it.
+  const targetSym = noteUri(state, targetRelativePath);
+  const exactStmts = store.statementsMatching(undefined, undefined, targetSym);
+  for (const st of exactStmts) {
+    const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
+    const sourcePath = pathStmts[0]?.object.value;
+    if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
+  }
+
+  // Pass 2: anchored variants `<targetUri>#heading`. These only come
+  // from typed wiki-links (frontmatter wiki-links don't carry anchors),
+  // so iterate LINK_TYPES rather than the full triple store.
   for (const lt of LINK_TYPES) {
     if (lt.targetKind && lt.targetKind !== 'note') continue;
-    // Match both `<noteUri>` and `<noteUri>#<anchor>` targets.
     const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
     for (const st of stmts) {
       const objValue = st.object.value;
-      if (objValue !== targetBase && !objValue.startsWith(`${targetBase}#`)) continue;
-      const sourceNode = st.subject;
-      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+      if (!objValue.startsWith(`${targetBase}#`)) continue;
+      const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
       const sourcePath = pathStmts[0]?.object.value;
       if (sourcePath && sourcePath.endsWith('.md')) seen.add(sourcePath);
     }
   }
+
   return [...seen];
 }
 
