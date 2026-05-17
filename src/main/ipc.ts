@@ -12,7 +12,7 @@ import { renameAnchor } from './notebase/rename-anchor';
 import { renameSource, renameExcerpt } from './notebase/rename-source-excerpt';
 import * as gitOps from './git/index';
 import * as graph from './graph/index';
-import { projectContext } from './project-context-types';
+import { projectContext, type ProjectContext } from './project-context-types';
 import { writeAndReindex } from './notebase/write-pipeline';
 import type { WritePipelineHooks } from './notebase/write-pipeline';
 import * as search from './search/index';
@@ -235,6 +235,131 @@ const hooks: WritePipelineHooks = {
   broadcastRewritten,
   broadcastHeadingRename,
 };
+
+// ── propose_compute helpers (#245) ──────────────────────────────────────────
+
+/**
+ * Serialize a CellResult into a plain-text block the LLM can read on
+ * its next turn. Tables get a small markdown rendering (capped at
+ * ~30 rows for sanity); errors get a single-line marker; images are
+ * referenced by a placeholder since the API can't see them inline
+ * here. The returned string is wrapped with `[Output of <draftId>]`
+ * delimiters so the LLM (and a human reading the transcript) can
+ * locate the section quickly.
+ */
+function formatComputeResultAsContext(
+  draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft,
+  codeRan: string,
+  result: import('../shared/compute/types').CellResult,
+): string {
+  const header = `[Output of compute proposal ${draft.draftId} — ${draft.language}]`;
+  const codeBlock = `\`\`\`${draft.language}\n${codeRan.trim()}\n\`\`\``;
+  if (!result.ok) {
+    return `${header}\n${codeBlock}\n\n**Error:** ${result.error}`;
+  }
+  const out = result.output;
+  switch (out.type) {
+    case 'text':
+      return `${header}\n${codeBlock}\n\n\`\`\`\n${out.value}\n\`\`\``;
+    case 'json':
+      return `${header}\n${codeBlock}\n\n\`\`\`json\n${JSON.stringify(out.value, null, 2)}\n\`\`\``;
+    case 'table': {
+      const ROW_CAP = 30;
+      const rows = out.rows.slice(0, ROW_CAP);
+      const head = `| ${out.columns.join(' | ')} |`;
+      const sep = `| ${out.columns.map(() => '---').join(' | ')} |`;
+      const body = rows
+        .map((r) => `| ${r.map((c) => formatTableCell(c)).join(' | ')} |`)
+        .join('\n');
+      const trailer = out.truncated || out.rows.length > ROW_CAP
+        ? `\n\n(showing ${rows.length} of ${out.totalRows ?? out.rows.length} rows)`
+        : '';
+      return `${header}\n${codeBlock}\n\n${head}\n${sep}\n${body}${trailer}`;
+    }
+    case 'image':
+      return `${header}\n${codeBlock}\n\n[image output: ${out.mime} — open the conversation panel to view]`;
+    case 'html':
+      // Pass HTML through verbatim; the LLM can read the markup but
+      // won't render it. Truncate to a sane length so a giant table
+      // doesn't blow up the next turn's context.
+      return `${header}\n${codeBlock}\n\n\`\`\`html\n${out.html.slice(0, 4000)}\n\`\`\``;
+  }
+}
+
+function formatTableCell(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  // Anything else (Date, object literal, etc.) — JSON-stringify
+  // rather than risk "[object Object]" landing in the LLM context.
+  try { return JSON.stringify(value); } catch { return ''; }
+}
+
+/**
+ * Write the ComputeProposal triples into the graph. Called from the
+ * RUN handler so every executed cell leaves an audit-trail record —
+ * the integrity stock query verifies the LLM hasn't snuck a cell
+ * past review.
+ */
+function recordComputeProposalRun(
+  ctx: ProjectContext,
+  draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft,
+  codeRan: string,
+): void {
+  const proposalUri = `https://minerva.dev/ontology/thought#proposal/${draft.draftId}`;
+  const convUri = `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`;
+  const executedAt = new Date().toISOString();
+  const turtle = `
+    @prefix thought: <https://minerva.dev/ontology/thought#> .
+    @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+    <${proposalUri}> a thought:ComputeProposal ;
+      thought:proposalStatus thought:approved ;
+      thought:proposedBy "llm:propose_compute" ;
+      thought:proposedAt "${draft.createdAt}"^^xsd:dateTime ;
+      thought:conversationRef <${convUri}> ;
+      thought:language "${escapeTurtleLiteral(draft.language)}" ;
+      thought:code "${escapeTurtleLiteral(draft.code)}" ;
+      thought:executedCode "${escapeTurtleLiteral(codeRan)}" ;
+      thought:executed "true"^^xsd:boolean ;
+      thought:executedAt "${executedAt}"^^xsd:dateTime .
+  `;
+  graph.parseIntoStore(ctx, turtle);
+}
+
+function escapeTurtleLiteral(s: string): string {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+}
+
+/**
+ * Build the markdown block for an Insert-into-notebook action. The
+ * provenance comment line is parsed by the indexer when the LLM
+ * later asks `read_note` on the destination — it sees the comment
+ * and knows which cells were LLM-proposed vs. human-written.
+ */
+function buildComputeProposalNoteBlock(
+  draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft,
+  codeToInsert: string,
+): string {
+  const provenance = [
+    `<!-- compute-proposal:`,
+    `  draft: ${draft.draftId}`,
+    `  proposed_by: llm`,
+    `  proposed_in_conversation: ${draft.conversationId}`,
+    `  proposed_at: ${draft.createdAt}`,
+    `  rationale: ${draft.rationale.replace(/-->/g, '--&gt;')}`,
+    `-->`,
+  ].join('\n');
+  const fence = '```';
+  return `${provenance}\n${fence}${draft.language}\n${codeToInsert.trim()}\n${fence}`;
+}
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.NOTEBASE_OPEN, async (e) => {
@@ -1630,6 +1755,11 @@ export function registerIpcHandlers(): void {
             win.webContents.send(Channels.CONVERSATION_PROPERTY_DRAFT, draft);
           }
         },
+        onComputeDraft: (draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_COMPUTE_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -1946,6 +2076,84 @@ export function registerIpcHandlers(): void {
       // here — the file watcher's NOTEBASE_FILE_CHANGED event is
       // what the renderer already listens for to refresh views.
       return { outcomes };
+    },
+  );
+
+  // Counterpart for propose_compute draft cells (#245). The user
+  // clicked Run; we execute via the compute registry, record the
+  // ComputeProposal in the graph with thought:executed=true, and
+  // append the result to the conversation log so the LLM's next
+  // turn sees it as user-role context.
+  ipcMain.handle(
+    Channels.CONVERSATION_RUN_COMPUTE_DRAFT,
+    async (
+      e,
+      input: import('../shared/conversation-compute-drafts').RunComputeDraftInput,
+    ): Promise<import('../shared/conversation-compute-drafts').RunComputeDraftResult> => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const { draft, editedCode } = input;
+      if (!draft || !draft.language || !draft.code) {
+        throw new Error('RUN_COMPUTE_DRAFT: draft is missing language or code.');
+      }
+      const codeToRun = editedCode ?? draft.code;
+      console.log(`[conv] RUN_COMPUTE_DRAFT lang=${draft.language} draftId=${draft.draftId}`);
+      const ctx = projectContext(rootPath);
+      const result = await runComputeCell(draft.language, codeToRun, { rootPath });
+      // Append the result to the conversation log as a user-role
+      // message so the LLM's next turn sees it as context. Format
+      // for legibility — the model parses these like any other
+      // user input.
+      const contextMessage = formatComputeResultAsContext(draft, codeToRun, result);
+      try {
+        await conversation.appendMessage(draft.conversationId, 'user', contextMessage);
+      } catch (err) {
+        console.warn('[conv] failed to append compute output to conversation:', err);
+      }
+      // Record the ComputeProposal in the graph (#245 acceptance
+      // criterion: every executed cell has a matching record).
+      try {
+        recordComputeProposalRun(ctx, draft, codeToRun);
+      } catch (err) {
+        console.warn('[conv] failed to record ComputeProposal in graph:', err);
+      }
+      return { result };
+    },
+  );
+
+  // Insert a compute-draft cell into a notebook with provenance
+  // frontmatter (#245). Default destination is
+  // `notes/inbox/conversations/<conversationId>.md`; the user can
+  // override via the destinationPath argument.
+  ipcMain.handle(
+    Channels.CONVERSATION_INSERT_COMPUTE_DRAFT,
+    async (
+      e,
+      input: import('../shared/conversation-compute-drafts').InsertComputeDraftInput,
+    ): Promise<import('../shared/conversation-compute-drafts').InsertComputeDraftResult> => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const { draft, editedCode, destinationPath } = input;
+      if (!draft || !draft.language || !draft.code) {
+        throw new Error('INSERT_COMPUTE_DRAFT: draft is missing language or code.');
+      }
+      const codeToInsert = editedCode ?? draft.code;
+      const dest = destinationPath?.trim() || `notes/inbox/conversations/${draft.conversationId}.md`;
+      // Read existing content (if any) so the cell appends rather
+      // than overwrites. Missing-file is the common case for the
+      // default destination — fall back to a fresh note.
+      let existing: string;
+      try {
+        existing = await notebaseFs.readFile(rootPath, dest);
+      } catch {
+        existing = '';
+      }
+      const block = buildComputeProposalNoteBlock(draft, codeToInsert);
+      const next = existing
+        ? `${existing.replace(/\s*$/, '')}\n\n${block}\n`
+        : `# Conversation: ${draft.conversationId}\n\n${block}\n`;
+      await writeAndReindex(rootPath, dest, next, hooks);
+      return { destinationPath: dest };
     },
   );
 

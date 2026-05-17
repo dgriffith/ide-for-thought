@@ -295,6 +295,12 @@ export const Channels = {
   CONVERSATION_PROPERTY_DRAFT: 'conversation:propertyDraft',
   /** renderer → main: user approved a property draft; apply each {path, properties} patch and return the per-update outcomes. */
   CONVERSATION_FILE_PROPERTY_DRAFT: 'conversation:filePropertyDraft',
+  /** main → renderer: a propose_compute tool call produced a code-cell draft for review (#245). Payload is ConversationComputeDraft. */
+  CONVERSATION_COMPUTE_DRAFT: 'conversation:computeDraft',
+  /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */
+  CONVERSATION_RUN_COMPUTE_DRAFT: 'conversation:runComputeDraft',
+  /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */
+  CONVERSATION_INSERT_COMPUTE_DRAFT: 'conversation:insertComputeDraft',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',

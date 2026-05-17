@@ -12,6 +12,7 @@ import { MISSING_API_KEY_MARKER } from '../../shared/llm-errors';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../shared/conversation-source-drafts';
 import type { ConversationPropertyDraft } from '../../shared/conversation-property-drafts';
+import type { ConversationComputeDraft } from '../../shared/conversation-compute-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { formatToolCall } from './format-tool-call';
 
@@ -37,6 +38,12 @@ export interface StreamCallbacks {
    * set_properties calls fail with a "no UI surface" error.
    */
   onPropertyDraft?: (draft: ConversationPropertyDraft) => void;
+  /**
+   * Counterpart to `onDraft` for the propose_compute tool (#245).
+   * Forwarded via Channels.CONVERSATION_COMPUTE_DRAFT; without it,
+   * propose_compute calls fail with a "no UI surface" error.
+   */
+  onComputeDraft?: (draft: ConversationComputeDraft) => void;
   /**
    * Wired by the conversation IPC handler when a template declares the
    * `ask_user` tool. The agent's call to `ask_user` resolves with the
@@ -336,6 +343,9 @@ export async function completeWithTools(
       }
       if (callbacks?.onPropertyDraft) {
         toolCallbacks.onPropertyDraft = callbacks.onPropertyDraft;
+      }
+      if (callbacks?.onComputeDraft) {
+        toolCallbacks.onComputeDraft = callbacks.onComputeDraft;
       }
       if (callbacks?.askUser) {
         toolCallbacks.askUser = callbacks.askUser;

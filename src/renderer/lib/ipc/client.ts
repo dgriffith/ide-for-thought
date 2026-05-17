@@ -386,6 +386,18 @@ export interface ConversationsApi {
   filePropertyDraft(
     draft: import('../../../shared/conversation-property-drafts').ConversationPropertyDraft,
   ): Promise<import('../../../shared/conversation-property-drafts').FilePropertyDraftResult>;
+  /** Subscribe to code-cell drafts produced by the propose_compute tool (#245). */
+  onComputeDraft(
+    cb: (draft: import('../../../shared/conversation-compute-drafts').ConversationComputeDraft) => void,
+  ): void;
+  /** Run a compute draft and append the output to the conversation log. */
+  runComputeDraft(
+    input: import('../../../shared/conversation-compute-drafts').RunComputeDraftInput,
+  ): Promise<import('../../../shared/conversation-compute-drafts').RunComputeDraftResult>;
+  /** File a compute draft as a notebook cell with provenance frontmatter. */
+  insertComputeDraft(
+    input: import('../../../shared/conversation-compute-drafts').InsertComputeDraftInput,
+  ): Promise<import('../../../shared/conversation-compute-drafts').InsertComputeDraftResult>;
 }
 
 export interface ProposalsApi {

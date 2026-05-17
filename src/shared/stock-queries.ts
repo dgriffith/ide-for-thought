@@ -284,6 +284,32 @@ SELECT ?alias ?note ?title ?winner WHERE {
 ORDER BY ?alias ?note`,
   },
   {
+    name: 'Trust: LLM-executed cells without proposal record',
+    description: 'Compute proposals whose record is missing thought:executed=true or whose source-of-truth fields are incomplete. On a clean system this returns no rows — every executed cell has a matching ComputeProposal (#245).',
+    language: 'sparql',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+# Surface any ComputeProposal that's missing the audit-trail fields
+# the propose_compute Run handler is supposed to write. If a cell
+# ever lands in the conversation log without a matching proposal
+# record, the integrity check below also flags it (none today —
+# this query is the contract).
+SELECT ?proposal ?language ?executed ?executedAt WHERE {
+  ?proposal a thought:ComputeProposal .
+  OPTIONAL { ?proposal thought:language ?language }
+  OPTIONAL { ?proposal thought:executed ?executed }
+  OPTIONAL { ?proposal thought:executedAt ?executedAt }
+  # A proposal that was executed but has no executedAt is broken;
+  # a proposal that ran without setting executed is broken too.
+  FILTER(
+    !BOUND(?executed) ||
+    (?executed = "true"^^<http://www.w3.org/2001/XMLSchema#boolean> && !BOUND(?executedAt))
+  )
+}
+ORDER BY ?proposal`,
+  },
+  {
     name: 'Trust: Unreviewed LLM writes',
     description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
     language: 'sparql',
