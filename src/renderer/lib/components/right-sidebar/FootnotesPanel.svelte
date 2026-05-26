@@ -106,12 +106,14 @@
               onclick={() => onScrollToLine(r.targetLine)}
             >
               <span class="label">[^{r.label}]</span>
-              <span class="body">{r.body}</span>
-              {#if r.kind === 'orphan'}
-                <span class="marker" aria-label="Unused">○</span>
-              {:else if r.kind === 'missing'}
-                <span class="marker" aria-label="Missing">?</span>
-              {/if}
+              <span class="footnote-body">
+                <span class="body">{r.body}</span>
+                {#if r.kind === 'orphan'}
+                  <span class="caption">DEFINED · NEVER USED</span>
+                {:else if r.kind === 'missing'}
+                  <span class="caption">REFERENCED · NOT DEFINED</span>
+                {/if}
+              </span>
             </button>
           </li>
         {/each}
@@ -139,55 +141,71 @@
     padding: 4px 0;
   }
 
+  /* Footnote row (§13.2) — mono badge for the label, body text
+     wrapping next to it, mono caption underneath for orphan/missing. */
   .footnote-item {
     display: flex;
-    align-items: baseline;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 8px;
     width: 100%;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: none;
     background: none;
     color: var(--text);
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
     cursor: pointer;
     text-align: left;
-    border-radius: 3px;
   }
-
   .footnote-item:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
   }
 
   .label {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
     color: var(--accent);
     flex-shrink: 0;
+    line-height: 1.4;
   }
 
+  .footnote-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
   .body {
-    color: var(--text-muted);
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
+  }
+  .caption {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
   }
 
-  .marker {
-    flex-shrink: 0;
-    font-size: 11px;
-    color: var(--text-muted);
-    width: 14px;
-    text-align: center;
+  /* Orphan: muted badge, normal caption. */
+  .footnote-item.orphan .label {
+    color: var(--text-faint);
+    background: color-mix(in oklch, var(--text) 6%, transparent);
   }
+  .footnote-item.orphan .body { color: var(--text-muted); }
 
-  .footnote-item.orphan .label,
+  /* Missing: rust badge + caption. The signal color, not red. */
   .footnote-item.missing .label {
-    color: var(--text-muted);
+    color: var(--rust);
+    background: color-mix(in oklch, var(--rust) 14%, transparent);
   }
-  .footnote-item.orphan .body,
-  .footnote-item.missing .body {
-    font-style: italic;
-  }
+  .footnote-item.missing .body { color: var(--text-muted); font-style: italic; }
+  .footnote-item.missing .caption { color: var(--rust); }
 
   .empty {
     padding: 12px;

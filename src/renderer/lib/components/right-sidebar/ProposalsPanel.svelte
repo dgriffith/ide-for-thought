@@ -256,14 +256,14 @@
           class:selected={selectedUri === p.uri}
           onclick={() => selectedUri = selectedUri === p.uri ? null : p.uri}
         >
-          <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
+          <span class="proposal-meta">
+            <span class="proposal-status status-{p.status}">{p.status}</span>
+            <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
+            <span class="proposal-by">{p.proposedBy}</span>
+          </span>
           <span class="proposal-note">{p.note}</span>
           <span class="proposal-effects" title="What approving this proposal will create">
             {p.status === 'pending' ? 'Will create' : 'Created'}: {bundleEffectsSummary(p)}
-          </span>
-          <span class="proposal-meta">
-            <span class="proposal-status status-{p.status}">{p.status}</span>
-            <span class="proposal-by">{p.proposedBy}</span>
           </span>
         </button>
 
@@ -321,28 +321,28 @@
     outline: none;
   }
 
+  /* Filter chips (§13.8) — pill row instead of bordered rectangles. */
   .status-tabs {
     display: flex;
-    gap: 2px;
-    margin-bottom: 8px;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
   }
   .status-tab {
-    flex: 1;
-    padding: 4px 6px;
+    padding: 3px 10px;
     border: 1px solid var(--border);
-    background: none;
+    background: var(--bg);
     color: var(--text-muted);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-family: var(--font-sans);
+    font-size: 11.5px;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: 999px;
   }
-  .status-tab:hover { color: var(--text); }
+  .status-tab:hover:not(.active) { color: var(--text); }
   .status-tab.active {
-    color: var(--text);
-    border-color: var(--accent);
-    background: var(--bg-button);
+    color: var(--accent);
+    border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
   }
   .empty {
     color: var(--text-muted);
@@ -357,31 +357,76 @@
     gap: 4px;
   }
 
+  /* Proposal card (§13.8) — softer shell with the status pill at the
+     top in mono-uppercase, accent-tinted for pending / sage for
+     approved / muted for rejected. */
   .proposal-item {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 6px 8px;
+    gap: 4px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
-    border-radius: 4px;
-    background: none;
+    border-radius: 6px;
+    background: var(--bg);
     cursor: pointer;
     text-align: left;
     width: 100%;
+    font-family: var(--font-sans);
   }
 
-  .proposal-item:hover { background: var(--bg-button); }
-  .proposal-item.selected { border-color: var(--accent); background: var(--bg-button); }
+  .proposal-item:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
+  .proposal-item.selected {
+    border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+    background: color-mix(in oklch, var(--accent) 8%, transparent);
+  }
 
-  .proposal-type {
-    font-size: 11px;
+  /* Pending/approved/rejected pill at the top of the card. The
+     .proposal-status class on the existing span carries the status
+     variant; we drop the type label next to it. */
+  .proposal-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+  }
+  .proposal-status {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
     font-weight: 600;
-    color: var(--accent);
+    padding: 1px 6px;
+    border-radius: 999px;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid transparent;
+  }
+  .proposal-status.status-pending {
+    color: var(--accent);
+    background: color-mix(in oklch, var(--accent) 18%, transparent);
+  }
+  .proposal-status.status-approved {
+    color: var(--sage);
+    background: color-mix(in oklch, var(--sage) 18%, transparent);
+  }
+  .proposal-status.status-rejected,
+  .proposal-status.status-expired {
+    color: var(--text-faint);
+    background: color-mix(in oklch, var(--text) 6%, transparent);
+  }
+  .proposal-type {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: lowercase;
+  }
+  .proposal-by {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
   }
 
   .proposal-note {
-    font-size: 12px;
+    font-size: 12.5px;
     color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -390,30 +435,8 @@
 
   .proposal-effects {
     font-size: 11px;
-    color: var(--accent);
-  }
-  .proposal-meta {
-    display: flex;
-    gap: 8px;
-    font-size: 10px;
     color: var(--text-muted);
   }
-  .proposal-by {
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-  .proposal-status {
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 3px;
-    border: 1px solid var(--border);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .proposal-status.status-approved { color: var(--accent); border-color: var(--accent); }
-  .proposal-status.status-pending { color: var(--text); }
-  .proposal-status.status-rejected,
-  .proposal-status.status-expired { color: var(--text-muted); }
 
   .proposal-detail {
     border: 1px solid var(--border);
@@ -504,18 +527,32 @@
     border-top: 1px solid var(--border);
   }
 
+  /* Approve = accent CTA. Reject = ghost outline (no danger styling
+     per CLAUDE.md — reject is just a normal action). */
   .action-btn {
     flex: 1;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 11px;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
     cursor: pointer;
   }
-
-  .action-btn:hover { background: var(--bg-button-hover); }
+  .action-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
   .action-btn:disabled { opacity: 0.4; cursor: default; }
-  .action-btn.approve { border-color: var(--accent); }
+  .action-btn.approve {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .action-btn.approve:hover:not(:disabled) {
+    opacity: 0.92;
+    color: var(--accent-ink);
+  }
 </style>
