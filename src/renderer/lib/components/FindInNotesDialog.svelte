@@ -12,6 +12,7 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import Icon from './Icon.svelte';
   import type {
     SearchInNotesFileResult,
     SearchInNotesMatch,
@@ -43,6 +44,7 @@
   // All files start expanded; users toggle per-file if a match list is long.
   let collapsed = $state<Set<string>>(new Set());
   let patternInput = $state<HTMLInputElement>();
+  let focused = $state(false);
 
   function matchKey(rel: string, m: SearchInNotesMatch): string {
     return `${rel}:${m.line}:${m.startCol}:${m.endCol}`;
@@ -170,70 +172,119 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-  <div class="dialog">
+  <div class="dialog" role="dialog" aria-modal="true">
+    <!-- Header: segmented mode toggle + close (§10.3) -->
     <div class="header">
-      <div class="mode-tabs">
-        <button class="mode-tab" class:active={mode === 'find'} onclick={() => mode = 'find'}>Find</button>
-        <button class="mode-tab" class:active={mode === 'replace'} onclick={() => mode = 'replace'}>Find &amp; Replace</button>
+      <div class="segmented" role="tablist" aria-label="Find mode">
+        <button
+          role="tab"
+          class="segment"
+          class:active={mode === 'find'}
+          aria-selected={mode === 'find'}
+          onclick={() => mode = 'find'}
+        >Find</button>
+        <button
+          role="tab"
+          class="segment"
+          class:active={mode === 'replace'}
+          aria-selected={mode === 'replace'}
+          onclick={() => mode = 'replace'}
+        >Find &amp; Replace</button>
       </div>
-      <button class="close-btn" onclick={onClose} title="Close (Esc)">×</button>
+      <span class="header-spacer"></span>
+      {#if results.length > 0 && !searching}
+        {@const totalMatches = results.reduce((n, r) => n + r.matches.length, 0)}
+        <span class="header-stat">
+          <strong>{totalMatches}</strong> matches · <strong>{results.length}</strong> files
+        </span>
+      {/if}
+      <button class="icon-btn" onclick={onClose} title="Close (Esc)" aria-label="Close">
+        <Icon name="close" size={12} />
+      </button>
     </div>
 
+    <!-- Inputs: pattern with inline flag buttons; replacement when in replace mode -->
     <div class="inputs">
-      <input
-        bind:this={patternInput}
-        bind:value={pattern}
-        type="text"
-        class="input"
-        placeholder="Find in notes…"
-      />
-      {#if mode === 'replace'}
+      <div class="input-shell" class:focused>
+        <Icon name="search" size={13} color="var(--text-muted)" />
         <input
-          bind:value={replacement}
+          bind:this={patternInput}
+          bind:value={pattern}
+          onfocus={() => focused = true}
+          onblur={() => focused = false}
           type="text"
           class="input"
-          placeholder="Replace with…"
+          placeholder="Find in notes…"
         />
-      {/if}
-      <div class="flags">
-        <label><input type="checkbox" bind:checked={caseSensitive} /> Aa</label>
-        <label><input type="checkbox" bind:checked={regex} /> .*</label>
+        <div class="flag-buttons" role="group" aria-label="Search flags">
+          <button
+            type="button"
+            class="flag-btn"
+            class:on={caseSensitive}
+            onclick={() => caseSensitive = !caseSensitive}
+            title="Match case"
+            aria-pressed={caseSensitive}
+          >Aa</button>
+          <button
+            type="button"
+            class="flag-btn"
+            class:on={regex}
+            onclick={() => regex = !regex}
+            title="Regular expression"
+            aria-pressed={regex}
+          >.*</button>
+        </div>
       </div>
-    </div>
-
-    <div class="status">
-      {searching ? 'Searching…' : statusMsg}
-      {#if mode === 'replace' && results.length > 0 && !searching}
-        <div class="replace-actions">
-          <button class="btn" disabled={replacing} onclick={() => doReplace(true)}>Replace Selected</button>
-          <button class="btn" disabled={replacing} onclick={() => doReplace(false)}>Replace All</button>
+      {#if mode === 'replace'}
+        <div class="input-shell">
+          <Icon name="forward" size={13} color="var(--text-muted)" />
+          <input
+            bind:value={replacement}
+            type="text"
+            class="input"
+            placeholder="Replace with…"
+          />
         </div>
       {/if}
     </div>
 
+    {#if mode === 'replace' && results.length > 0 && !searching}
+      <div class="replace-actions">
+        <button class="btn ghost" disabled={replacing} onclick={() => doReplace(true)}>Replace Selected</button>
+        <button class="btn primary" disabled={replacing} onclick={() => doReplace(false)}>Replace All</button>
+      </div>
+    {/if}
+
+    {#if searching || (statusMsg && results.length === 0)}
+      <div class="status">{searching ? 'Searching…' : statusMsg}</div>
+    {/if}
+
     <div class="results">
       {#each results as file (file.relativePath)}
+        {@const state = fileCheckState(file.relativePath, file.matches)}
+        {@const collapsedFile = collapsed.has(file.relativePath)}
         <div class="file-group">
           <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div class="file-header">
-            <span class="caret" onclick={() => toggleCollapsed(file.relativePath)}>
-              {collapsed.has(file.relativePath) ? '▸' : '▾'}
+          <div class="file-header" onclick={() => toggleCollapsed(file.relativePath)}>
+            <span class="caret">
+              <Icon name={collapsedFile ? 'chevronRight' : 'chevronDown'} size={11} color="var(--text-faint)" />
             </span>
             {#if mode === 'replace'}
-              {@const state = fileCheckState(file.relativePath, file.matches)}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
               <input
                 type="checkbox"
                 class="file-check"
                 checked={state === 'all'}
                 indeterminate={state === 'some'}
                 onchange={() => toggleFile(file.relativePath, file.matches)}
+                onclick={(e) => e.stopPropagation()}
               />
             {/if}
-            <span class="file-path" onclick={() => toggleCollapsed(file.relativePath)}>
-              {file.relativePath} <span class="file-count">({file.matches.length})</span>
-            </span>
+            <Icon name="notes" size={12} color="var(--text-faint)" />
+            <span class="file-path">{file.relativePath}</span>
+            <span class="file-count">{file.matches.length}</span>
           </div>
-          {#if !collapsed.has(file.relativePath)}
+          {#if !collapsedFile}
             <ul class="match-list">
               {#each file.matches as m}
                 {@const key = matchKey(file.relativePath, m)}
@@ -263,6 +314,13 @@
         </div>
       {/each}
     </div>
+
+    <footer class="card-footer">
+      <span class="kbd-hint">↑↓ next · ↵ open · esc close</span>
+      {#if statusMsg && results.length > 0}
+        <span class="footer-stat">{statusMsg}</span>
+      {/if}
+    </footer>
   </div>
 </div>
 
@@ -271,150 +329,302 @@
     position: fixed;
     inset: 0;
     z-index: 2000;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(20, 14, 6, 0.5);
+    backdrop-filter: blur(2px);
     display: flex;
     justify-content: center;
-    padding-top: 8vh;
+    align-items: flex-start;
+    padding: 8vh 32px 32px;
   }
   .dialog {
-    width: min(720px, 90vw);
-    max-height: 80vh;
-    background: var(--bg-sidebar);
+    width: 720px;
+    max-width: 100%;
+    max-height: calc(100vh - 64px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    color: var(--text);
+  }
+
+  /* Header: segmented mode toggle + stats + close (§10.3) */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .segmented {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: var(--bg-inset);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border-radius: 7px;
+  }
+  .segment {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 450;
+    cursor: pointer;
+  }
+  .segment:hover:not(.active) {
+    color: var(--text);
+  }
+  .segment.active {
+    background: var(--bg-elev);
+    color: var(--text);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .header-spacer { flex: 1; }
+  .header-stat {
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+  .header-stat strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .icon-btn {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .icon-btn:hover {
+    background: color-mix(in oklch, var(--text) 8%, transparent);
+    color: var(--text);
+  }
+
+  /* Inputs: search-shell with leading icon + inline flag buttons */
+  .inputs {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    overflow: hidden;
+    padding: 14px 18px 12px;
   }
-  .header {
+  .input-shell {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-  }
-  .mode-tabs { display: flex; gap: 4px; }
-  .mode-tab {
-    padding: 4px 10px;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    background: var(--bg-inset);
     border: 1px solid var(--border);
-    border-radius: 4px;
-    background: none;
-    color: var(--text-muted);
-    font-size: 12px;
-    cursor: pointer;
+    border-radius: 7px;
   }
-  .mode-tab.active { background: var(--bg-button-hover); color: var(--text); }
-  .close-btn {
-    padding: 2px 10px;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
+  .input-shell.focused {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
   }
-  .inputs { display: flex; flex-direction: column; gap: 4px; }
   .input {
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
+    flex: 1;
+    padding: 4px 0;
+    border: none;
+    background: transparent;
     color: var(--text);
-    font-size: 13px;
+    font-family: var(--font-sans);
+    font-size: 14px;
     outline: none;
   }
-  .input:focus { border-color: var(--accent); }
-  .flags {
-    display: flex;
-    gap: 12px;
-    padding: 2px 4px;
-    font-size: 12px;
-    color: var(--text-muted);
+  .flag-buttons {
+    display: inline-flex;
+    gap: 2px;
   }
-  .flags label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
-  .status {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-    color: var(--text-muted);
-    padding: 0 2px;
-  }
-  .replace-actions { display: flex; gap: 6px; }
-  .btn {
-    padding: 4px 10px;
-    border: 1px solid var(--border);
+  .flag-btn {
+    padding: 3px 7px;
+    border: 1px solid transparent;
     border-radius: 4px;
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
+    background: transparent;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .flag-btn:hover { color: var(--text); }
+  .flag-btn.on {
+    color: var(--accent);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+  }
+
+  /* Replace action bar */
+  .replace-actions {
+    display: flex;
+    gap: 6px;
+    padding: 0 18px 12px;
+    justify-content: flex-end;
+  }
+  .btn {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-family: inherit;
     font-size: 12px;
     cursor: pointer;
   }
-  .btn:hover:not(:disabled) { opacity: 0.9; }
+  .btn.ghost {
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .btn.ghost:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover:not(:disabled) { opacity: 0.92; }
   .btn:disabled { opacity: 0.4; cursor: default; }
+
+  .status {
+    padding: 0 18px 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Results — file accordion */
   .results {
     flex: 1;
     overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
+    border-top: 1px solid var(--border);
   }
-  .file-group {}
   .file-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    background: var(--bg-sidebar);
+    gap: 8px;
+    padding: 6px 18px;
+    background: var(--bg);
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    cursor: default;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    cursor: pointer;
   }
-  .caret { cursor: pointer; color: var(--text-muted); width: 12px; text-align: center; }
-  .file-path { flex: 1; color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-count { color: var(--text-muted); }
+  .file-header:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+  }
+  .caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    flex-shrink: 0;
+  }
+  .file-check {
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .file-path {
+    flex: 1;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
   .match-list { list-style: none; padding: 0; margin: 0; }
   .match {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 8px 2px 28px;
-    border-bottom: 1px solid var(--border);
+    gap: 8px;
+    padding: 3px 18px 3px 36px;
   }
-  .match:last-child { border-bottom: none; }
+  .match-check {
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
   .match-jump {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
-    padding: 2px 0;
+    padding: 3px 6px;
     border: none;
+    border-radius: 4px;
     background: none;
     color: var(--text);
-    font-size: 12px;
     cursor: pointer;
     text-align: left;
     overflow: hidden;
   }
-  .match-jump:hover { background: var(--bg-button); }
+  .match-jump:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); }
   .loc {
     flex-shrink: 0;
-    min-width: 48px;
-    color: var(--text-muted);
-    font-family: var(--font-mono, monospace);
-    font-size: 11px;
+    min-width: 52px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
   }
   .excerpt {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-family: var(--font-mono, monospace);
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
   }
-  .excerpt mark { background: var(--accent); color: var(--bg); padding: 0 1px; border-radius: 2px; }
+  .excerpt mark {
+    background: color-mix(in oklch, var(--accent) 30%, transparent);
+    color: var(--text);
+    padding: 0 2px;
+    border-radius: 2px;
+    font-weight: 600;
+  }
   .ctx { color: var(--text-muted); }
-  .arrow { color: var(--text-muted); }
-  .preview { color: var(--text); opacity: 0.8; }
+  .arrow {
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+  .preview { color: var(--accent); }
+
+  /* Footer kbd hints */
+  .card-footer {
+    display: flex;
+    align-items: center;
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+  .kbd-hint {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+  .footer-stat {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
 </style>
