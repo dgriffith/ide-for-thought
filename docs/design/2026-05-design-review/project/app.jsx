@@ -25,6 +25,11 @@ const { CurrentSaveQuery, ProposedSaveQuery,
         CurrentAutoLink, ProposedAutoLink,
         CurrentExport, ProposedExport,
         ProposedOpenTarget } = window.MinervaDialogsMisc;
+const {
+  PropertiesPanel, OutgoingPanel, BacklinksPanel, TagsRightPanel,
+  TablesRightPanel, CitationsRightPanel, BookmarksRightPanel,
+  ProposalsRightPanel, FootnotesRightPanel,
+} = window.MinervaRightPanels;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "palette": "honey",
@@ -445,6 +450,100 @@ function App() {
             kept in their own column because they're the most common
             export gotcha. Open target: the three buttons become two
             choice cards with kbd hints.
+          </DCPostIt>
+        </DCSection>
+
+        {/* ── RIGHT-SIDEBAR PANEL BODIES ─────────────────────────────── */}
+        <DCSection id="rs-panels-1" title="Right sidebar panel bodies · Note group"
+          subtitle="Outline (already shown in the Right sidebar section). Properties + Footnotes here.">
+          <DCArtboard id="rs-props-d" label="Properties · dark" width={340} height={680}>
+            <PropertiesPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-props-l" label="Properties · light" width={340} height={680}>
+            <PropertiesPanel vars={varsLight} />
+          </DCArtboard>
+          <DCArtboard id="rs-fn-d" label="Footnotes · dark" width={340} height={520}>
+            <FootnotesRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-fn-l" label="Footnotes · light" width={340} height={520}>
+            <FootnotesRightPanel vars={varsLight} />
+          </DCArtboard>
+          <DCPostIt x={20} y={-40}>
+            Properties is the most complex panel — frontmatter as a typed
+            key/value editor. Each row leads with a tiny type icon (text,
+            number, bool toggle, date, chips, wiki-link, raw-YAML).
+            Canonical keys (title/aliases/created/etc.) are dotted-chip
+            suggestions below; clicking adds the row. Bool uses the toggle
+            primitive; wiki-link values show as accent chips with a real
+            link icon. Footnotes panel keeps the same row vocabulary —
+            label badge + body excerpt + occurrence count — with a clear
+            two-color treatment for orphan (defined but never used) and
+            missing (used but never defined).
+          </DCPostIt>
+        </DCSection>
+
+        <DCSection id="rs-panels-2" title="Right sidebar panel bodies · Links group"
+          subtitle="Outgoing · Backlinks · Tags · Tables · Citations.">
+          <DCArtboard id="rs-out-d" label="Outgoing · dark" width={340} height={520}>
+            <OutgoingPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-back-d" label="Backlinks · dark" width={340} height={520}>
+            <BacklinksPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-back-l" label="Backlinks · light" width={340} height={520}>
+            <BacklinksPanel vars={varsLight} />
+          </DCArtboard>
+          <DCArtboard id="rs-tags-d" label="Tags · dark" width={340} height={680}>
+            <TagsRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-tables-d" label="Tables · dark" width={340} height={460}>
+            <TablesRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-cite-d" label="Citations · dark" width={340} height={620}>
+            <CitationsRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-cite-l" label="Citations · light" width={340} height={620}>
+            <CitationsRightPanel vars={varsLight} />
+          </DCArtboard>
+          <DCPostIt x={20} y={-40}>
+            Link panels group by link-type using the typed-link palette
+            (accent for links-to, sage for supports, rust for refutes,
+            iris for grounds). Broken links flag rust + warn glyph rather
+            than disappearing silently. Tags panel keeps the project tag
+            tree (with hierarchy via `claim/grounded`-style nesting) and
+            shows a "notes with #..." section below for the selected tag.
+            Tables shows referenced tables with row × col stats and a
+            one-click SELECT * affordance. Citations becomes an
+            editorial list: italic title in display-serif, byline in sans,
+            cite + quote counts. Excerpts render as block-quote chunks
+            attached to their source with locator + occurrence count.
+            Missing citations get rust treatment.
+          </DCPostIt>
+        </DCSection>
+
+        <DCSection id="rs-panels-3" title="Right sidebar panel bodies · Activity group"
+          subtitle="Bookmarks · Proposals. (Inspections is out of scope.)">
+          <DCArtboard id="rs-bm-d" label="Bookmarks · dark" width={340} height={520}>
+            <BookmarksRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-bm-l" label="Bookmarks · light" width={340} height={520}>
+            <BookmarksRightPanel vars={varsLight} />
+          </DCArtboard>
+          <DCArtboard id="rs-prop-d" label="Proposals · dark" width={340} height={680}>
+            <ProposalsRightPanel vars={varsDark} />
+          </DCArtboard>
+          <DCArtboard id="rs-prop-l" label="Proposals · light" width={340} height={680}>
+            <ProposalsRightPanel vars={varsLight} />
+          </DCArtboard>
+          <DCPostIt x={20} y={-40}>
+            Bookmarks is a folder tree with star glyphs and source-path
+            sub-lines, no Unicode chevrons. Proposals is the activity
+            heart — status filter chips (Pending / Approved / Rejected /
+            All) with counts, per-proposal cards that lead with a status
+            pill, the operation type in mono, the note path, and a plain-
+            English effects line ("2 notes · 1 claim"). Selecting expands
+            the card with Approve / Reject buttons. Approve is the accent
+            (per CLAUDE.md no-danger); Reject is a ghost outline button.
           </DCPostIt>
         </DCSection>
 

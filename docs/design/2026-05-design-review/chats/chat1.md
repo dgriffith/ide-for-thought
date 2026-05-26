@@ -272,3 +272,69 @@ The design review now covers all the dialogs plus a handoff spec:
 
 Drop me a note if you'd like the right-sidebar panel bodies designed next (Properties, Backlinks, Inspections, Proposals, Citations) — that's the most natural follow-up before this goes to Claude Code.
 
+## User
+
+Yeah, let's do the right-sidebar panels as well.  Ignore Inspections, that's most likely going to be completely different functionality
+
+## Assistant
+
+_[tool: local_grep]_
+
+_[tool: local_ls]_
+
+_[tool: local_grep]_
+
+_[tool: local_grep]_
+
+_[tool: local_grep]_
+
+_[tool: write_file]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: grep]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: grep]_
+
+_[tool: str_replace_edit]_
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+All nine right-sidebar panel bodies are designed (Inspections skipped per your note). Added a new top-level Section 13 to **IMPLEMENTATION.md** specifying each panel's row vocabulary so Claude Code has a concrete contract per panel.
+
+**New artboards in the canvas:**
+- **Note group** — Properties (typed-row editor with type icons + canonical-key suggestions) and Footnotes (label badge + body + orphan/missing states).
+- **Links group** — Outgoing, Backlinks (both grouped by link-type with the typed-link palette), Tags (tree + selected-tag notes), Tables (with SELECT * affordance), Citations (editorial italic source list with attached excerpts + locators).
+- **Activity group** — Bookmarks (folder tree), Proposals (status filter chips + per-card status pill, effects line, Approve/Reject inline when selected).
+
+**IMPLEMENTATION.md updates:**
+- New §13 "Right-sidebar panel bodies" — per-panel spec with row structures, type-icon mapping for Properties, link-type color reference for Outgoing/Backlinks, missing-source treatment for Citations.
+- Out-of-scope renumbered; "Right-sidebar panel bodies" entry removed; Inspections explicitly listed.
+- File map updated to include `right-panels.jsx`.
+
+Verifier is doing a spot check on the new section in the background. Once it reports back, this is ready for the Claude Code handoff — you'd point Claude Code at `IMPLEMENTATION.md` and walk it through the section order.
+
+## User
+
+Verifier agent check completed
+
+## Assistant
+
+_[tool: str_replace_edit]_
+
+_[tool: snip]_
+
+Verifier passed. Fixed the long-wiki-chip overflow on Properties so the value column clips cleanly with ellipsis instead of pushing the artboard.
+
+The full design review now sits in **Minerva Design Review.html** with the complete handoff doc at **IMPLEMENTATION.md** — that's the artifact to point Claude Code at when you're ready. Sections inside the spec are ordered from lowest-risk (tokens + fonts) to highest-risk (dialogs + onboarding), each shippable as its own PR.
+

@@ -660,19 +660,131 @@ test that each primitive is right.
 
 ---
 
-## 13. Out of scope (this round)
+## 13. Right-sidebar panel bodies
 
-- Right-sidebar **panel bodies** beyond Outline. Properties, Backlinks,
-  Inspections, Proposals, Citations, etc. all need their own design pass.
-  The chrome (group + sub-tab + header) is the contract; panel bodies
-  inherit the type/color tokens and can be polished one at a time.
-- Tree DnD ghost styling.
-- Settings AI tab — model picker design.
-- Diff view for "Edit first" in the proposal card.
+Each panel sits under the group/sub-tab chrome built in §6. They share one
+header pattern: a `font-mono` eyebrow (the sub-line), a `font-display` H1
+title, and an action cluster (count + tiny icon buttons). Each panel's
+body has its own row vocabulary.
+
+### 13.1 Properties (`PropertiesPanel.svelte`)
+
+Already the most complex panel. Tighten to:
+
+- One row per frontmatter key. 3-col grid: `[type-icon + key]` · `value-control` · `× remove`.
+- **Type icons** (12px) signal data shape: text → outline, number → tables,
+  bool → check, date → bookmark, list → tags, link → link, enum →
+  properties, raw → query. Canonical keys' icons use `var(--accent)`;
+  custom keys' icons use `var(--text-faint)`.
+- **Value controls** are type-specific:
+  - text → bare input, no border until focus.
+  - number → small input + tabular-nums.
+  - bool → Toggle primitive (§12).
+  - date → native date input, mono.
+  - list → chip row with inline "+" input.
+  - link → wiki-chip with leading `link` icon, accent-tinted bg.
+  - raw → mono code line in `bg-inset`, click to edit-in-source.
+- **Add row** at the bottom: icon + bare input + Enter to commit.
+- **Canonical suggestions**: dashed pill chips below the add row for each
+  canonical key the note hasn't set yet (`+ tags`, `+ summary`, etc.).
+  Clicking inserts that row with its default shape.
+- Wiki-chip values that don't resolve render in `var(--rust)` with a
+  warn icon — surfaces broken `based-on:` links without removing them.
+
+### 13.2 Footnotes (`FootnotesPanel.svelte`)
+
+- One row per footnote definition. Lead with a mono badge (`[^label]`),
+  body text wrapping next to it, count chip on the right.
+- **Orphan** (defined, never referenced) → muted badge + mono caption
+  `DEFINED · NEVER USED`.
+- **Missing** (referenced, no definition) → rust badge + caption
+  `REFERENCED · NOT DEFINED`.
+- Click any row → scroll the editor to its target line.
+
+### 13.3 Outgoing / Backlinks
+
+Same pattern, two different sources. Group rows by **link type**
+(`links-to`, `supports`, `refutes`, `grounds`, etc.). Each group:
+
+- Disclosure chevron + 7×7 color square (per-type color) + type label in
+  mono + per-group count on the right.
+- Group color follows the typed-link palette: accent (links-to), sage
+  (supports), rust (refutes), iris (grounds). Defined in `link-types.ts`.
+- Each row: notes icon + target title + occurrence count `×N` when > 1.
+- Broken outgoing links: rust title + warn icon. The link still renders
+  (so the user can fix the target), but the visual cue is unmissable.
+
+### 13.4 Tags (in right sidebar, per active note)
+
+- Hierarchical tree (`#claim/grounded` → child of `#claim`).
+- Each row: chevron · mono tag name · tabular-nums count. Active tag
+  gets the standard active-row treatment (2px accent rail + tint).
+- Below the tree: a `NOTES WITH #<selected-tag>` section with a count
+  and the first N notes; "…and N more" fallback at the end.
+
+### 13.5 Tables (referenced in note)
+
+- One row per table reference. Tables icon + table name in mono + 
+  `rows × cols` stat in mono-faint.
+- Right-aligned `SELECT *` accent button — replaces today's plain row
+  click. Hover state shows the full row clickable as before.
+
+### 13.6 Citations
+
+The most editorial panel — sources cited from this note.
+
+- Per source: source-glyph + italic display-serif title + sans byline
+  (author · year) + cite-count / quote-count split on the right.
+- Sources with quotes are expandable; excerpts render as block-quote
+  attached chunks indented under the source, with a 2px accent rail.
+- Each excerpt: italic display-serif text (truncated), mono locator
+  (e.g. `p. 433a` or `ch. 3`), occurrence count `×N`.
+- Missing-source rows: rust title, no quote count, byline reads
+  `N references · uncited`.
+
+### 13.7 Bookmarks
+
+- Folder tree with `folder` icon for groups and `bookmark` icon for items.
+- Each item: title + sub-line showing source path in mono-faint.
+- Header actions: `+` (new bookmark) and `+ folder`.
+- Folder context menu unchanged — rename / delete.
+
+### 13.8 Proposals (the activity heart)
+
+- **Filter chips** at the top: Pending · Approved · Rejected · All,
+  each with a count.
+- **Per-proposal card**:
+  - Top row: status pill (`PENDING` in accent, `APPROVED` in sage,
+    `REJECTED` in muted) · operation type in mono · timestamp.
+  - Note path with notes icon in mono-faint.
+  - Effects line in plain English ("2 notes · 1 claim") with `by
+    {proposer}` in mono-faint.
+  - Selected card expands to show payload list (kind · summary, each
+    expandable to a mono code preview) and Approve / Reject buttons.
+- **Approve**: accent CTA. **Reject**: ghost outline. Per CLAUDE.md
+  "no danger styling" — reject is just a normal action.
+
+### 13.9 What's out of scope here
+
+- **Inspections** — the user has signaled this panel will change
+  function meaningfully. Hold for separate spec.
+- **Diff view** for proposal payloads — beyond a mono preview line,
+  the diff between current and proposed graph state needs its own
+  design pass.
 
 ---
 
-## 14. Validation
+## 14. Out of scope (this round)
+
+- **Inspections** right-sidebar panel — different functionality coming.
+- Tree DnD ghost styling.
+- Settings AI tab — model picker design.
+- Diff view for "Edit first" in the proposal card.
+- Proposal payload diff view (current → proposed graph state).
+
+---
+
+## 15. Validation
 
 - After tokens + fonts: run `pnpm lint`, `pnpm dev`, scroll through every
   surface. Nothing should be visibly broken — just warmer and serified.
@@ -685,7 +797,7 @@ test that each primitive is right.
 
 ---
 
-## 15. File map
+## 16. File map
 
 The design-review project ships every artboard as its own JSX file —
 treat them as reference, not source-of-truth:
@@ -698,7 +810,9 @@ components/
 ├── brand.jsx             # wordmark + palette + type + icons specimens
 ├── chrome.jsx            # title, tab, status bar — current + proposed
 ├── left-sidebar.jsx
-├── right-sidebar.jsx
+├── right-sidebar.jsx     # group + sub-tab chrome
+├── right-panels.jsx      # Properties, Outgoing, Backlinks, Tags, Tables,
+│                         # Citations, Bookmarks, Proposals, Footnotes
 ├── editor.jsx
 ├── conversations.jsx
 ├── onboarding.jsx
