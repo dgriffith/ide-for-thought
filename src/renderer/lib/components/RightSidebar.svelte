@@ -17,19 +17,66 @@
     | 'outline' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
 
-  const PANEL_TABS: ReadonlyArray<{ id: PanelType; label: string; icon: IconName }> = [
-    { id: 'outline',     label: 'Outline',        icon: 'outline' },
-    { id: 'footnotes',   label: 'Footnotes',      icon: 'footnotes' },
-    { id: 'properties',  label: 'Properties',     icon: 'properties' },
-    { id: 'outgoing',    label: 'Outgoing Links', icon: 'outgoing' },
-    { id: 'backlinks',   label: 'Backlinks',      icon: 'backlinks' },
-    { id: 'tags',        label: 'Tags',           icon: 'tags' },
-    { id: 'tables',      label: 'Tables',         icon: 'tables' },
-    { id: 'citations',   label: 'Citations',      icon: 'citations' },
-    { id: 'bookmarks',   label: 'Bookmarks',      icon: 'bookmark' },
-    { id: 'inspections', label: 'Inspections',    icon: 'inspections' },
-    { id: 'proposals',   label: 'Proposals',      icon: 'proposals' },
+  type PanelGroupId = 'note' | 'links' | 'activity';
+
+  interface PanelDef {
+    id: PanelType;
+    label: string;
+    icon: IconName;
+  }
+  interface GroupDef {
+    id: PanelGroupId;
+    label: string;
+    items: ReadonlyArray<PanelDef>;
+  }
+
+  /**
+   * Eleven panels collapsed into three semantic groups per
+   * IMPLEMENTATION.md §6.1. `activePanel` is unchanged externally — the
+   * status bar's onShowBacklinks etc. still calls `showPanel(panel)`
+   * and `activeGroup` is derived from the chosen panel.
+   */
+  const GROUPS: ReadonlyArray<GroupDef> = [
+    {
+      id: 'note',
+      label: 'Note',
+      items: [
+        { id: 'outline',    label: 'Outline',    icon: 'outline' },
+        { id: 'properties', label: 'Properties', icon: 'properties' },
+        { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
+      ],
+    },
+    {
+      id: 'links',
+      label: 'Links',
+      items: [
+        { id: 'outgoing',  label: 'Outgoing',  icon: 'outgoing' },
+        { id: 'backlinks', label: 'Backlinks', icon: 'backlinks' },
+        { id: 'tags',      label: 'Tags',      icon: 'tags' },
+        { id: 'citations', label: 'Citations', icon: 'citations' },
+        { id: 'tables',    label: 'Tables',    icon: 'tables' },
+      ],
+    },
+    {
+      id: 'activity',
+      label: 'Activity',
+      items: [
+        { id: 'inspections', label: 'Inspections', icon: 'inspections' },
+        { id: 'proposals',   label: 'Proposals',   icon: 'proposals' },
+        { id: 'bookmarks',   label: 'Bookmarks',   icon: 'bookmark' },
+      ],
+    },
   ];
+
+  /** Reverse lookup: panel → its parent group. Built once at module
+   *  init so click handlers don't reduce on every render. */
+  const PANEL_TO_GROUP: ReadonlyMap<PanelType, PanelGroupId> = new Map(
+    GROUPS.flatMap((g) => g.items.map((i) => [i.id, g.id] as const)),
+  );
+
+  const PANEL_DEFS: ReadonlyMap<PanelType, PanelDef> = new Map(
+    GROUPS.flatMap((g) => g.items.map((i) => [i.id, i] as const)),
+  );
 
   interface Props {
     activeFilePath: string | null;
@@ -57,6 +104,19 @@
 
   let activePanel = $state<PanelType>('outline');
   let revision = $state(0);
+
+  /** Group is derived from the active panel — keeps `showPanel(p)` as
+   *  the single way to switch the right sidebar's state. Clicking a
+   *  group label sets `activePanel` to its first item, which flows back
+   *  into `activeGroup` through this derivation. */
+  const activeGroup = $derived(PANEL_TO_GROUP.get(activePanel) ?? 'note');
+  const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]);
+  const activePanelDef = $derived(PANEL_DEFS.get(activePanel));
+
+  function pickGroup(g: GroupDef) {
+    if (g.id === activeGroup) return;
+    activePanel = g.items[0].id;
+  }
 
   // Width is user-draggable and persists across sessions. localStorage
   // rather than a settings channel — the value is per-machine UI state,
@@ -108,16 +168,45 @@
 <aside class="right-sidebar" style:width="{width}px">
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
-  <div class="panel-tabs">
-    {#each PANEL_TABS as t (t.id)}
+  <!-- Top row: group chips -->
+  <div class="group-strip">
+    {#each GROUPS as g (g.id)}
+      {@const active = activeGroup === g.id}
       <button
-        class="panel-tab"
-        class:active={activePanel === t.id}
-        onclick={() => activePanel = t.id}
-        title={t.label}
-      ><Icon name={t.icon} size={14} /></button>
+        class="group-tab"
+        class:active
+        onclick={() => pickGroup(g)}
+        title={g.label}
+      >
+        <span class="group-label">{g.label}</span>
+      </button>
     {/each}
   </div>
+
+  <!-- Sub row: items of the active group -->
+  <div class="sub-strip">
+    {#each activeGroupDef.items as it (it.id)}
+      {@const active = activePanel === it.id}
+      <button
+        class="sub-tab"
+        class:active
+        onclick={() => activePanel = it.id}
+        title={it.label}
+      >
+        <Icon name={it.icon} size={13} color={active ? 'var(--accent)' : 'currentColor'} />
+        <span>{it.label}</span>
+      </button>
+    {/each}
+  </div>
+
+  <!-- Per-panel header (display-serif title + reserved actions slot).
+       Panel bodies inherit the type/color tokens; richer per-panel
+       headers (counts, actions) land with each body redesign in #548. -->
+  {#if activePanelDef}
+    <div class="panel-header">
+      <h2 class="panel-title">{activePanelDef.label}</h2>
+    </div>
+  {/if}
 
   <div class="panel-content">
     {#if activePanel === 'outline'}
@@ -177,42 +266,82 @@
     opacity: 0.3;
   }
 
-  .panel-tabs {
+  /* ── Group strip (Note · Links · Activity) ──────────────────────── */
+  .group-strip {
     display: flex;
     gap: 2px;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
+    padding: 10px 12px 4px;
     flex-shrink: 0;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-  /* Match the bespoke thin scrollbar used on tab bars elsewhere so the
-     row is unobtrusive when it doesn't overflow. */
-  .panel-tabs::-webkit-scrollbar {
-    height: 6px;
-  }
-  .panel-tabs::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
   }
 
-  .panel-tab {
-    flex-shrink: 0;
-    padding: 4px 10px;
+  .group-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
     border: none;
-    border-radius: 4px;
-    background: none;
+    border-radius: 7px;
+    background: transparent;
     color: var(--text-muted);
-    font-size: 14px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
     cursor: pointer;
   }
-
-  .panel-tab:hover {
-    background: var(--bg-button);
+  .group-tab:hover:not(.active) {
+    color: var(--text);
+  }
+  .group-tab.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--border);
   }
 
-  .panel-tab.active {
-    background: var(--bg-button-hover);
+  /* ── Sub strip (active group's items) ──────────────────────────── */
+  .sub-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 12px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sub-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .sub-tab:hover:not(.active) {
+    color: var(--text);
+  }
+  .sub-tab.active {
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    color: var(--accent);
+  }
+
+  /* ── Per-panel header ──────────────────────────────────────────── */
+  .panel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 12px 16px 8px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0;
     color: var(--text);
   }
 
