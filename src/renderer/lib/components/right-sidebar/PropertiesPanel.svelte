@@ -19,7 +19,31 @@
   import { onMount, tick } from 'svelte';
   import { api } from '../../ipc/client';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
+  import Icon from '../Icon.svelte';
+  import type { IconName } from '../icons/registry';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
+
+  /** Type-icon mapping per §13.1. The icon signals the value shape at
+   *  a glance so a row reads as "number" or "list" without parsing
+   *  the value-control widget. */
+  const TYPE_ICON: Record<string, IconName> = {
+    string: 'outline',
+    number: 'tables',
+    boolean: 'check',
+    date: 'bookmark',
+    'string-list': 'tags',
+    'wiki-link': 'link',
+    yaml: 'query',
+  };
+  function typeIcon(kind: string): IconName {
+    return TYPE_ICON[kind] ?? 'outline';
+  }
+
+  /** Canonical keys' icons render in accent; custom keys in text-faint. */
+  const CANONICAL_KEY_SET: ReadonlySet<string> = new Set(CANONICAL_FRONTMATTER_KEYS);
+  function isCanonical(key: string): boolean {
+    return CANONICAL_KEY_SET.has(key);
+  }
 
   interface Props {
     content: string;
@@ -475,7 +499,15 @@
   {:else}
     <div class="rows">
       {#each rows as row (row.key)}
-        <div class="row" data-row-key={row.key}>
+        {@const canonical = isCanonical(row.key)}
+        <div class="row" class:canonical data-row-key={row.key}>
+          <span class="type-icon" title={row.shape.kind}>
+            <Icon
+              name={typeIcon(row.shape.kind)}
+              size={12}
+              color={canonical ? 'var(--accent)' : 'var(--text-faint)'}
+            />
+          </span>
           <input
             class="key"
             type="text"
@@ -579,13 +611,18 @@
               <span class="hint-inline">Edit in source — structured editor doesn't cover this shape.</span>
             {/if}
           </div>
-          <button class="row-x" title="Remove property" aria-label="Remove {row.key}" onclick={() => removeKey(row.key)}>×</button>
+          <button class="row-x" title="Remove property" aria-label="Remove {row.key}" onclick={() => removeKey(row.key)}>
+            <Icon name="close" size={10} />
+          </button>
         </div>
       {/each}
     </div>
 
     {#if hasFrontmatter || rows.length > 0}
+      {@const presentKeys = new Set(rows.map((r) => r.key))}
+      {@const canonicalSuggestions = CANONICAL_FRONTMATTER_KEYS.filter((k) => !presentKeys.has(k)).slice(0, 5)}
       <div class="add-row">
+        <span class="add-icon"><Icon name="plus" size={12} color="var(--text-faint)" /></span>
         <AutocompleteDropdown
           value={newKey}
           options={addPropertyOptions}
@@ -593,8 +630,19 @@
           onInput={(v) => { newKey = v; }}
           onCommit={(v) => { newKey = v; void addProperty(v); }}
         />
-        <button class="add-btn" onclick={() => void addProperty()} disabled={!newKey.trim()}>+</button>
+        <button class="add-btn" onclick={() => void addProperty()} disabled={!newKey.trim()}>
+          <Icon name="plus" size={12} />
+        </button>
       </div>
+      {#if canonicalSuggestions.length > 0}
+        <div class="suggestions" aria-label="Canonical key suggestions">
+          {#each canonicalSuggestions as k (k)}
+            <button class="suggest-chip" onclick={() => void addProperty(k)} title="Add canonical key {k}">
+              + {k}
+            </button>
+          {/each}
+        </div>
+      {/if}
     {/if}
   {/if}
 </div>
@@ -613,29 +661,48 @@
     padding: 6px 0;
   }
 
+  /* Row layout (§13.1) — [type-icon, key, value, ×]. Type icon column
+     is 12px + a 6px gap; canonical keys get the accent rail on hover. */
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 18px;
-    gap: 6px;
+    grid-template-columns: 14px 90px 1fr 18px;
+    gap: 8px;
     align-items: center;
-    padding: 4px 8px;
+    padding: 5px 12px;
+    border-left: 2px solid transparent;
     font-size: 12px;
+  }
+  .row:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+    border-left-color: color-mix(in oklch, var(--accent) 60%, transparent);
+  }
+  .row.canonical:hover {
+    border-left-color: var(--accent);
+  }
+  .type-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .row .key {
     background: none;
     border: none;
     color: var(--text-muted);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     padding: 2px 4px;
     border-radius: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .row.canonical .key {
+    color: var(--text);
+  }
   .row .key:hover,
   .row .key:focus {
-    background: var(--bg-button);
+    background: var(--bg-inset);
     color: var(--text);
     outline: none;
   }
@@ -796,51 +863,90 @@
   .row-x {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-faint);
     cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
     padding: 0;
     visibility: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .row:hover .row-x { visibility: visible; }
   .row-x:hover { color: var(--text); }
 
   .add-row {
     display: flex;
-    gap: 4px;
-    padding: 6px 8px;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .add-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
     flex-shrink: 0;
   }
   .key-input {
     flex: 1;
-    background: var(--bg-button);
+    background: var(--bg-inset);
     border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 3px 6px;
+    border-radius: 4px;
+    padding: 4px 8px;
     color: var(--text);
+    font-family: var(--font-mono);
     font-size: 12px;
-    font-family: inherit;
   }
   .key-input:focus {
     border-color: var(--accent);
     outline: none;
   }
   .add-btn {
-    background: var(--bg-button);
-    border: none;
-    color: var(--text);
-    padding: 0 10px;
-    border-radius: 3px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
-  .add-btn:hover { background: var(--bg-button-hover); }
+  .add-btn:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
   .add-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: default;
+  }
+
+  /* Canonical-key suggestions (§13.1) — dashed pill chips below the
+     add-row that quick-add a canonical key without the user having
+     to remember its name. */
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 0 12px 10px;
+    flex-shrink: 0;
+  }
+  .suggest-chip {
+    padding: 2px 8px;
+    border: 1px dashed color-mix(in oklch, var(--accent) 40%, transparent);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    cursor: pointer;
+  }
+  .suggest-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in oklch, var(--accent) 10%, transparent);
   }
 
   .empty {
