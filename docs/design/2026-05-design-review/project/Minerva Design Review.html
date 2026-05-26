@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Minerva — Design Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;450;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,wght@0,400;0,500;1,400&family=Fraunces:ital,wght@0,400;0,500;1,400&family=Inter+Tight:wght@400;450;500;600&family=Geist:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+  body { font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+  /* Toolbar above the canvas */
+  .review-toolbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 56px;
+    z-index: 1000;
+    background: rgba(248, 245, 240, .92);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-bottom: 1px solid rgba(0,0,0,.08);
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 22px;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+  .review-toolbar .mark {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 19px; font-weight: 500; letter-spacing: -0.01em;
+    color: #2a1f12; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .review-toolbar .mark em {
+    font-style: italic; font-weight: 400; color: rgba(60,40,20,.55); font-size: 13px;
+    margin-left: 2px;
+  }
+  .review-toolbar .meta {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    color: rgba(60,40,20,.5);
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  /* Make room for toolbar */
+  body > [data-design-canvas] {
+    padding-top: 56px;
+  }
+</style>
+</head>
+<body>
+
+<div class="review-toolbar">
+  <span class="mark">
+    <svg width="22" height="22" viewBox="0 0 96 96" fill="none" stroke="#9a5a1f" stroke-width="2">
+      <path d="M8 48C18 28 32 18 48 18s30 10 40 30c-10 20-24 30-40 30S18 68 8 48z"/>
+      <circle cx="48" cy="48" r="16"/>
+      <circle cx="48" cy="48" r="6" fill="#9a5a1f" stroke="none"/>
+    </svg>
+    Minerva <em>· design review</em>
+  </span>
+  <span class="meta">current → proposed · canvas v1</span>
+</div>
+
+<!-- React + Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/tokens.jsx"></script>
+<script type="text/babel" src="components/icons.jsx"></script>
+<script type="text/babel" src="components/bits.jsx"></script>
+<script type="text/babel" src="components/brand.jsx"></script>
+<script type="text/babel" src="components/chrome.jsx"></script>
+<script type="text/babel" src="components/left-sidebar.jsx"></script>
+<script type="text/babel" src="components/right-sidebar.jsx"></script>
+<script type="text/babel" src="components/editor.jsx"></script>
+<script type="text/babel" src="components/conversations.jsx"></script>
+<script type="text/babel" src="components/onboarding.jsx"></script>
+<script type="text/babel" src="components/dialogs-common.jsx"></script>
+<script type="text/babel" src="components/dialogs-palette.jsx"></script>
+<script type="text/babel" src="components/dialogs-settings.jsx"></script>
+<script type="text/babel" src="components/dialogs-misc.jsx"></script>
+<script type="text/babel" src="components/right-panels.jsx"></script>
+
+<script type="text/babel" src="app.jsx"></script>
+
+</body>
+</html>
