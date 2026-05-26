@@ -175,16 +175,21 @@ function buildDecorations(view: EditorView): DecorationSet {
   return builder.finish();
 }
 
+/* Wiki/markdown links in the editor get a soft chip tint instead of a
+   bare underline (§8.4). Kept as an inline mark (not a widget) so the
+   caret can still navigate through the link source — the chip look
+   only changes paint, not flow. */
 const linkTheme = EditorView.theme({
   '.cm-clickable-link': {
     color: 'var(--accent)',
-    textDecoration: 'underline',
-    textDecorationColor: 'color-mix(in srgb, var(--accent) 50%, transparent)',
-    textUnderlineOffset: '2px',
+    background: 'color-mix(in oklch, var(--accent) 12%, transparent)',
+    borderRadius: '4px',
+    padding: '0 4px',
+    textDecoration: 'none',
     cursor: 'pointer',
   },
   '.cm-clickable-link:hover': {
-    textDecorationColor: 'var(--accent)',
+    background: 'color-mix(in oklch, var(--accent) 18%, transparent)',
   },
 });
 

@@ -198,6 +198,33 @@
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
   }
 
+  /** Minerva-specific gutter + active-line styling per
+   *  IMPLEMENTATION.md §8.2. Layered on top of cmTheme() so both dark
+   *  oneDark and the empty light base inherit the same tokens. */
+  function minervaEditorTheme(): Extension {
+    return EditorView.theme({
+      '.cm-gutters': {
+        backgroundColor: 'var(--bg)',
+        border: 'none',
+        color: 'var(--text-faint)',
+        fontFamily: 'var(--font-mono)',
+      },
+      '.cm-lineNumbers': { minWidth: '56px' },
+      '.cm-lineNumbers .cm-gutterElement': {
+        padding: '0 10px 0 0',
+        color: 'var(--text-faint)',
+      },
+      '.cm-activeLineGutter': {
+        backgroundColor: 'transparent',
+        color: 'var(--accent)',
+        boxShadow: 'inset -2px 0 0 var(--accent)',
+      },
+      '.cm-activeLine': {
+        backgroundColor: 'color-mix(in oklch, var(--accent) 6%, transparent)',
+      },
+    });
+  }
+
   export function updateTheme() {
     if (view) {
       view.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
@@ -470,6 +497,7 @@
     basicSetup,
     markdown({ codeLanguages: languages }),
     themeCompartment.of(cmTheme()),
+    minervaEditorTheme(),
     search({
       top: true,
       scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: 'center' }),
