@@ -416,30 +416,46 @@
   >
     <div class="resize-handle" onpointerdown={startResize} role="separator" aria-orientation="horizontal" aria-label="Resize conversations panel"></div>
 
-    <div class="header">
-      <div class="tab-strip">
-        {#each store.tabs as tab (tab.id)}
-          <div class="tab" class:active={tab.id === store.activeTabId}>
-            <button
-              type="button"
-              class="tab-label-btn"
-              onclick={() => store.setActiveTab(tab.id)}
-              title={tabTitle(tab)}
-            >{tabTitle(tab)}</button>
-            <button
-              type="button"
-              class="tab-close"
-              aria-label="Close conversation"
-              onclick={(e) => handleCloseTab(tab.id, e)}
-            ><Icon name="close" size={10} /></button>
-          </div>
-        {/each}
-        <button type="button" class="new-tab" onclick={handleNewTab} title="New conversation">+</button>
-      </div>
-      <div class="header-controls">
-        <button type="button" class="hide-btn" onclick={store.hide} title="Hide panel (does not archive any conversations)"><Icon name="close" size={11} /></button>
-      </div>
-    </div>
+    <!-- Two-pane mail-style layout (§9.1). Left list of conversations,
+         right pane shows the active conversation. -->
+    <div class="conv-body">
+      <aside class="conv-list">
+        <div class="list-header">
+          <h2 class="list-title">Conversations</h2>
+          <button type="button" class="list-new" onclick={handleNewTab} title="New conversation">
+            <Icon name="plus" size={13} />
+          </button>
+          <button type="button" class="list-hide" onclick={store.hide} title="Hide panel (does not archive any conversations)">
+            <Icon name="close" size={11} />
+          </button>
+        </div>
+        <div class="list-items">
+          {#each store.tabs as tab (tab.id)}
+            <div class="conv-item" class:active={tab.id === store.activeTabId}>
+              <button
+                type="button"
+                class="conv-item-btn"
+                onclick={() => store.setActiveTab(tab.id)}
+                title={tabTitle(tab)}
+              >
+                <span class="conv-item-title">{tabTitle(tab)}</span>
+                {#if tab.conversation.contextBundle.notePath}
+                  <span class="conv-item-note">
+                    <Icon name="notes" size={10} color="var(--text-faint)" />
+                    {tab.conversation.contextBundle.notePath}
+                  </span>
+                {/if}
+              </button>
+              <button
+                type="button"
+                class="conv-item-close"
+                aria-label="Close conversation"
+                onclick={(e) => handleCloseTab(tab.id, e)}
+              ><Icon name="close" size={10} /></button>
+            </div>
+          {/each}
+        </div>
+      </aside>
 
     {#if store.activeTab}
       {@const tab = store.activeTab}
@@ -893,20 +909,33 @@
         </div>
 
         <div class="composer">
-          <textarea
-            bind:this={composerEl}
-            value={tab.composer}
-            oninput={handleComposerInput}
-            onkeydown={handleKeydown}
-            placeholder="Type a message... (Enter to send, Shift+Enter newline)"
-            rows="2"
-            disabled={tab.streaming}
-          ></textarea>
-          {#if tab.streaming}
-            <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
-          {:else}
-            <button type="button" class="send-btn" onclick={handleSend} disabled={!tab.composer.trim()}>Send</button>
-          {/if}
+          <div class="composer-card">
+            <textarea
+              bind:this={composerEl}
+              value={tab.composer}
+              oninput={handleComposerInput}
+              onkeydown={handleKeydown}
+              placeholder="Ask about this note, or paste a question…"
+              rows="2"
+              disabled={tab.streaming}
+            ></textarea>
+            <div class="composer-footer">
+              {#if tab.conversation.contextBundle.notePath}
+                <Icon name="notes" size={12} color="var(--text-faint)" />
+                <span class="composer-context">{tab.conversation.contextBundle.notePath}</span>
+              {/if}
+              <span class="composer-spacer"></span>
+              <span class="composer-hint">⏎ send · ⇧⏎ newline</span>
+              {#if tab.streaming}
+                <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
+              {:else}
+                <button type="button" class="send-btn" onclick={handleSend} disabled={!tab.composer.trim()}>
+                  <Icon name="send" size={11} />
+                  Send
+                </button>
+              {/if}
+            </div>
+          </div>
         </div>
       </div>
     {:else}
@@ -915,6 +944,7 @@
         <button type="button" class="empty-action" onclick={handleNewTab}>Start a conversation</button>
       </div>
     {/if}
+    </div>
   </div>
 {/if}
 
@@ -946,88 +976,125 @@
     opacity: 0.5;
   }
 
-  .header {
-    display: flex;
-    align-items: stretch;
-    background: var(--bg-toolbar, var(--bg-titlebar));
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    min-height: 28px;
-  }
-  .tab-strip {
-    display: flex;
+  /* Two-pane mail-style layout (§9.1) — left list + right pane. */
+  .conv-body {
     flex: 1;
-    overflow-x: auto;
-    align-items: stretch;
-  }
-  .tab {
     display: flex;
-    align-items: stretch;
-    border-right: 1px solid var(--border);
-    max-width: 220px;
-    color: var(--text-muted);
-  }
-  .tab:hover { color: var(--text); background: var(--bg-button); }
-  .tab.active {
-    color: var(--text);
-    background: var(--bg);
-    border-bottom: 2px solid var(--accent);
-  }
-  .tab-label-btn {
-    flex: 1;
-    border: none;
-    background: none;
-    color: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 4px 6px 4px 10px;
+    min-height: 0;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: left;
   }
-  .tab-close {
+  .conv-list {
+    width: 220px;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    min-height: 0;
+  }
+  .list-header {
+    padding: 12px 14px 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .list-title {
+    flex: 1;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--text);
+  }
+  .list-new,
+  .list-hide {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 3px;
+    border-radius: 5px;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    margin-right: 4px;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 10px;
-    cursor: pointer;
-    border-radius: 2px;
   }
-  .tab-close:hover { background: var(--bg-button-hover, var(--bg-button)); color: var(--text); }
-
-  .new-tab {
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0 10px;
-    border-right: 1px solid var(--border);
+  .list-new:hover,
+  .list-hide:hover {
+    background: color-mix(in oklch, var(--text) 8%, transparent);
+    color: var(--text);
   }
-  .new-tab:hover { color: var(--text); background: var(--bg-button); }
-
-  .header-controls {
+  .list-items {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .conv-item {
     display: flex;
-    align-items: center;
-    padding: 0 6px;
+    align-items: stretch;
+    border-left: 2px solid transparent;
+    color: var(--text);
+    position: relative;
   }
-  .hide-btn {
+  .conv-item:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+  }
+  .conv-item.active {
+    border-left-color: var(--accent);
+    background: color-mix(in oklch, var(--accent) 8%, transparent);
+  }
+  .conv-item-btn {
+    flex: 1;
+    min-width: 0;
     border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 12px;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    padding: 10px 14px;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
-  .hide-btn:hover { background: var(--bg-button); color: var(--text); }
-
+  .conv-item-title {
+    font-size: 12.5px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .conv-item.active .conv-item-title {
+    font-weight: 500;
+  }
+  .conv-item-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .conv-item-close {
+    border: none;
+    background: transparent;
+    color: var(--text-faint);
+    padding: 0 8px;
+    cursor: pointer;
+    opacity: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+  .conv-item:hover .conv-item-close,
+  .conv-item.active .conv-item-close {
+    opacity: 1;
+  }
+  .conv-item-close:hover {
+    color: var(--text);
+  }
   .content {
     display: flex;
     flex-direction: column;
@@ -1213,11 +1280,14 @@
     gap: 8px;
   }
   .drafts-label { font-size: 11px; color: var(--text-muted); }
+  /* Proposal / draft card (§9.2) — accent-tinted bordered card so a
+     proposal pops out of the message stream as something the user is
+     about to decide on. Uses oklch color-mix so it tracks palette swaps. */
   .draft-card {
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    border: 1px solid color-mix(in oklch, var(--accent) 28%, transparent);
+    border-radius: 8px;
     padding: 10px 12px;
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--accent) 5%, var(--bg));
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -1543,33 +1613,72 @@
 
   .composer {
     display: flex;
-    gap: 8px;
-    padding: 8px 12px;
+    padding: 12px;
     border-top: 1px solid var(--border);
     flex-shrink: 0;
   }
-  .composer textarea {
+  /* Composer card (§9.3) — bordered card with the textarea + a
+     context-chip row + Send button (accent, with leading send icon). */
+  .composer-card {
     flex: 1;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
     background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  .composer-card:focus-within {
+    border-color: var(--accent);
+  }
+  .composer textarea {
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
     color: var(--text);
     font-size: 13px;
-    font-family: inherit;
+    font-family: var(--font-sans);
     resize: none;
+    outline: none;
+    min-height: 40px;
   }
-  .composer textarea:focus { outline: none; border-color: var(--accent); }
+  .composer-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .composer-context {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .composer-spacer {
+    flex: 1;
+  }
+  .composer-hint {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
 
   .send-btn {
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 6px;
     background: var(--accent);
-    color: var(--bg);
+    color: var(--accent-ink);
     font-size: 12px;
+    font-family: inherit;
+    font-weight: 600;
     cursor: pointer;
-    align-self: flex-end;
   }
   .send-btn:hover { opacity: 0.9; }
   .send-btn:disabled { opacity: 0.4; cursor: default; }
