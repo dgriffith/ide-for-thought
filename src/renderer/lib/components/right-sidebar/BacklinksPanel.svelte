@@ -3,6 +3,7 @@
   import { getLinkBundle } from '../../sidebar-link-bundle';
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
+  import Icon from '../Icon.svelte';
 
   interface Props {
     activeFilePath: string | null;
@@ -81,23 +82,29 @@
     {:else}
       <div class="link-count">{filtered().length} linked mention{filtered().length !== 1 ? 's' : ''}</div>
       {#each [...grouped()] as [type, typeLinks]}
+        {@const collapsed = !!collapsedGroups[type]}
         <div class="type-group">
           {#if type !== ''}
             <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-            <div class="type-header" style:color={typeLinks[0].linkColor} onclick={() => toggleGroup(type)}>
-              <span class="caret">{collapsedGroups[type] ? '▸' : '▾'}</span>
-              {typeLinks[0].linkLabel} ({typeLinks.length})
+            <div class="type-header" onclick={() => toggleGroup(type)}>
+              <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={11} color="var(--text-faint)" />
+              <span class="type-square" style:background={typeLinks[0].linkColor} aria-hidden="true"></span>
+              <span class="type-label">{typeLinks[0].linkLabel}</span>
+              <span class="type-count">{typeLinks.length}</span>
             </div>
           {/if}
-          {#if type === '' || !collapsedGroups[type]}
+          {#if type === '' || !collapsed}
             {#each typeLinks as link}
               <button
                 class="link-item"
                 onclick={() => onFileSelect(link.source)}
                 title={link.source}
               >
-                <LinkBadge label={link.linkLabel} color={link.linkColor} />
+                <Icon name="notes" size={12} color="var(--text-faint)" />
                 <span class="link-title">{link.sourceTitle}</span>
+                {#if type === ''}
+                  <LinkBadge label={link.linkLabel} color={link.linkColor} />
+                {/if}
               </button>
             {/each}
           {/if}
@@ -120,35 +127,70 @@
     padding: 4px 0;
   }
   .link-count {
-    padding: 4px 12px;
+    padding: 6px 12px 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+  }
+  .type-group { margin-bottom: 4px; }
+  /* Group header (§13.3) — chevron + 7×7 color square + mono type label
+     + tabular count on the right. */
+  .type-header {
+    padding: 5px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+  }
+  .type-header:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+  }
+  .type-square {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .type-label {
+    flex: 1;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--text-muted);
   }
-  .type-group { margin-bottom: 4px; }
-  .type-header {
-    padding: 4px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  .type-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
   }
-  .caret { font-size: 10px; color: var(--text-muted); }
   .link-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
-    padding: 3px 12px 3px 20px;
+    padding: 5px 12px 5px 30px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
     cursor: pointer;
     text-align: left;
   }
-  .link-item:hover { background: var(--bg-button); }
-  .link-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .link-item:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+    border-left-color: var(--accent);
+  }
+  .link-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .empty { padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center; }
 </style>
