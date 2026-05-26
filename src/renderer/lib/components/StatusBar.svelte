@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CursorInfo } from './Editor.svelte';
+  import Icon from './Icon.svelte';
 
   interface Props {
     cursor: CursorInfo;
@@ -41,12 +42,12 @@
         onclick={onShowBacklinks}
         title="Show backlinks ({backlinkCount} note{backlinkCount === 1 ? '' : 's'} link here)"
       >
-        &#x2190; {backlinkCount}
+        <Icon name="backlinks" size={12} /> {backlinkCount}
       </button>
     {/if}
     {#if inspectionCount > 0}
       <button class="status-item clickable inspection-count" onclick={onShowInspections} title="Show inspections">
-        &#x26A0; {inspectionCount}
+        <Icon name="warn" size={12} /> {inspectionCount}
       </button>
     {/if}
     <span class="status-item">{cursor.wordCount} words</span>
@@ -76,6 +77,9 @@
   }
 
   .status-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11px;
     color: var(--text-muted);
     white-space: nowrap;

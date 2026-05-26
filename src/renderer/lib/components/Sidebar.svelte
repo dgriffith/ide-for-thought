@@ -4,6 +4,7 @@
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
+  import Icon from './Icon.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
@@ -401,25 +402,25 @@
       class:active={activePanel === 'notes'}
       onclick={() => activePanel = 'notes'}
       title="Notes"
-    >&#x25A4;</button>
+    ><Icon name="notes" size={14} /></button>
     <button
       class="panel-tab"
       class:active={activePanel === 'sites'}
       onclick={() => activePanel = 'sites'}
       title="Sites"
-    >&#x2761;</button>
+    ><Icon name="sites" size={14} /></button>
     <button
       class="panel-tab"
       class:active={activePanel === 'tags'}
       onclick={() => activePanel = 'tags'}
       title="Tags"
-    >#</button>
+    ><Icon name="tags" size={14} /></button>
     <button
       class="panel-tab"
       class:active={activePanel === 'tables'}
       onclick={() => activePanel = 'tables'}
       title="Tables"
-    >&#x229E;</button>
+    ><Icon name="tables" size={14} /></button>
   </div>
 
   <div class="panel-content">
@@ -432,14 +433,14 @@
             onclick={expandAll}
             title="Expand all folders"
             aria-label="Expand all folders"
-          >&#x2B0C;</button>
+          ><Icon name="expandAll" size={14} /></button>
           <button
             type="button"
             class="tool-btn"
             onclick={collapseAll}
             title="Collapse all folders"
             aria-label="Collapse all folders"
-          >&#x2B0D;</button>
+          ><Icon name="collapseAll" size={14} /></button>
           <button
             type="button"
             class="tool-btn"
@@ -448,7 +449,7 @@
             title={autoReveal ? 'Auto-reveal active file: on' : 'Auto-reveal active file: off'}
             aria-label="Toggle auto-reveal active file"
             aria-pressed={autoReveal}
-          >&#x29BF;</button>
+          ><Icon name="reveal" size={14} /></button>
         </div>
         {#if selectionStore.count > 0}
           <div class="selection-badge">

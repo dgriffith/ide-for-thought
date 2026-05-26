@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
+  import Icon from './Icon.svelte';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
@@ -275,7 +276,7 @@
         {/if}
       {/if}
       <div class="submenu-item">
-        <span class="submenu-trigger">Open In &#x25B8;</span>
+        <span class="submenu-trigger">Open In <Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           <button onclick={() => { void api.shell.revealFile(contextMenu!.target); contextMenu = null; }}>Reveal in Finder</button>
           <button onclick={() => { void api.shell.openInDefault(contextMenu!.target!); contextMenu = null; }}>Open in Default App</button>
@@ -408,7 +409,10 @@
   }
 
   .submenu-trigger {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--text);

@@ -6,6 +6,7 @@
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
+  import Icon from './lib/components/Icon.svelte';
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
   import SourceDetail from './lib/components/SourceDetail.svelte';
@@ -2400,7 +2401,7 @@
               class:active={rightSidebarVisible}
               onclick={() => { rightSidebarVisible = !rightSidebarVisible; }}
               title="Toggle Right Sidebar (Cmd+Shift+B)"
-            >&#x2759;</button>
+            ><Icon name="outline" size={12} /></button>
           </div>
           <div class="editor-content" class:split={viewMode === 'split'}>
             {#if viewMode === 'source' || viewMode === 'split'}

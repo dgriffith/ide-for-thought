@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import Icon from './Icon.svelte';
   import { getConversationsStore } from '../stores/conversations.svelte';
   import { getEditorStore } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
@@ -430,13 +431,13 @@
               class="tab-close"
               aria-label="Close conversation"
               onclick={(e) => handleCloseTab(tab.id, e)}
-            >&#x2715;</button>
+            ><Icon name="close" size={10} /></button>
           </div>
         {/each}
         <button type="button" class="new-tab" onclick={handleNewTab} title="New conversation">+</button>
       </div>
       <div class="header-controls">
-        <button type="button" class="hide-btn" onclick={store.hide} title="Hide panel (does not archive any conversations)">&#x2715;</button>
+        <button type="button" class="hide-btn" onclick={store.hide} title="Hide panel (does not archive any conversations)"><Icon name="close" size={11} /></button>
       </div>
     </div>
 

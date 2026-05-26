@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
+
   interface Props {
     notebaseName: string;
     fileName: string;
@@ -19,13 +21,13 @@
       disabled={!canGoBack}
       onclick={onNavBack}
       title="Back (Cmd+[)"
-    >&#x2190;</button>
+    ><Icon name="back" size={14} /></button>
     <button
       class="nav-btn"
       disabled={!canGoForward}
       onclick={onNavForward}
       title="Forward (Cmd+])"
-    >&#x2192;</button>
+    ><Icon name="forward" size={14} /></button>
   </div>
   <span class="titlebar-text">
     {#if notebaseName}
@@ -63,7 +65,10 @@
   }
 
   .nav-btn {
-    padding: 2px 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 6px;
     border: none;
     border-radius: 3px;
     background: none;

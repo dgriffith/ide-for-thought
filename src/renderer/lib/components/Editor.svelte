@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Icon from './Icon.svelte';
   import { EditorView, keymap } from '@codemirror/view';
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
@@ -955,7 +956,7 @@
     {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Format &#x25B8;</span>
+      <span class="submenu-trigger">Format<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
         <button onclick={() => runCmd(toggleBold)}>Bold</button>
         <button onclick={() => runCmd(toggleItalic)}>Italic</button>
@@ -964,7 +965,7 @@
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Paragraph &#x25B8;</span>
+      <span class="submenu-trigger">Paragraph<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
         <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
         <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
@@ -976,7 +977,7 @@
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Insert &#x25B8;</span>
+      <span class="submenu-trigger">Insert<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
         <button onclick={() => runCmd(insertWikiLink)}>Wiki Link</button>
         <button onclick={() => runCmd(insertLink)}>URL Link</button>
@@ -999,7 +1000,7 @@
       <div class="separator"></div>
       {#if learningTools.length > 0}
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Learning &#x25B8;</span>
+          <span class="submenu-trigger">Learning<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">
             {#each learningTools.filter((t) => contextMenu!.hasSelection || !t.requiresSelection) as tool}
               <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
@@ -1009,7 +1010,7 @@
       {/if}
       {#if analysisTools.length > 0}
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Analysis &#x25B8;</span>
+          <span class="submenu-trigger">Analysis<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">
             {#each analysisTools as tool}
               <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
@@ -1020,7 +1021,7 @@
     {/if}
     {#if onToolInvoke}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
-        <span class="submenu-trigger">Research &#x25B8;</span>
+        <span class="submenu-trigger">Research<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           <!-- Decompose into Claims is a conversational tool
                (research.decompose-into-claims). Routes through the
@@ -1050,7 +1051,7 @@
     <div class="separator"></div>
     {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
-        <span class="submenu-trigger">Refactor &#x25B8;</span>
+        <span class="submenu-trigger">Refactor<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           {#if onRename}
             <button onclick={() => handleMenuAction(() => onRename?.())}>Rename&hellip;</button>
@@ -1111,7 +1112,7 @@
     <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Open In &#x25B8;</span>
+      <span class="submenu-trigger">Open In<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
         <button onclick={() => { void api.shell.revealFile(filePath); closeMenu(); }}>Reveal in Finder</button>
         <button onclick={() => { void api.shell.openInDefault(filePath); closeMenu(); }}>Open in Default App</button>
@@ -1216,7 +1217,10 @@
   }
 
   .submenu-trigger {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--text);
