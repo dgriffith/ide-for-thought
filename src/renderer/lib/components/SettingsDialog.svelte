@@ -1109,35 +1109,44 @@
     position: fixed;
     inset: 0;
     z-index: 2000;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(20, 14, 6, 0.5);
+    backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 32px;
   }
 
+  /* Adopt the §10 dialog shell: 12px radius, --bg-elev with
+     --border-strong, layered shadow with inset highlight. */
   .dialog {
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
     min-width: 560px;
     max-width: 720px;
     min-height: 420px;
-    max-height: 80vh;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    max-height: calc(100vh - 64px);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    font-family: var(--font-sans);
+    color: var(--text);
   }
 
   header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
+    padding: 18px 22px 12px;
   }
 
   header h2 {
     margin: 0;
-    font-size: 14px;
+    font-family: var(--font-display);
+    font-size: 19px;
     font-weight: 500;
+    letter-spacing: -0.005em;
     color: var(--text);
   }
 

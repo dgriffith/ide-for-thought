@@ -1,4 +1,8 @@
 <script lang="ts">
+  /**
+   * Prompt dialog refreshed per IMPLEMENTATION.md §10.1. Signature
+   * (`showPrompt(message, opts)`) is unchanged — only the rendering.
+   */
   interface Props {
     message: string;
     onConfirm: (value: string) => void;
@@ -31,27 +35,40 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog">
-    <label class="message">{message}</label>
-    <input
-      bind:this={inputEl}
-      bind:value
-      type="text"
-      class="input"
-      list={suggestions.length > 0 ? listId : undefined}
-      autocomplete="off"
-    />
-    {#if suggestions.length > 0}
-      <datalist id={listId}>
-        {#each suggestions as s}
-          <option value={s}></option>
-        {/each}
-      </datalist>
-    {/if}
-    <div class="actions">
-      <button class="btn cancel" onclick={onCancel}>Cancel</button>
-      <button class="btn confirm" disabled={!value.trim()} onclick={() => onConfirm(value.trim())}>OK</button>
+  <div class="dialog" role="dialog" aria-modal="true">
+    <header class="card-header">
+      <div class="eyebrow">Input</div>
+      <h2 class="title">{message}</h2>
+    </header>
+
+    <div class="body">
+      <input
+        bind:this={inputEl}
+        bind:value
+        type="text"
+        class="input"
+        list={suggestions.length > 0 ? listId : undefined}
+        autocomplete="off"
+      />
+      {#if suggestions.length > 0}
+        <datalist id={listId}>
+          {#each suggestions as s}
+            <option value={s}></option>
+          {/each}
+        </datalist>
+      {/if}
     </div>
+
+    <footer class="card-footer">
+      <span class="kbd-hint">esc · cancel · ↵ confirm</span>
+      <span class="footer-actions">
+        <button class="btn secondary" onclick={onCancel}>Cancel</button>
+        <button class="btn primary" disabled={!value.trim()} onclick={() => onConfirm(value.trim())}>
+          OK
+          <span class="btn-kbd">↵</span>
+        </button>
+      </span>
+    </footer>
   </div>
 </div>
 
@@ -60,80 +77,122 @@
     position: fixed;
     inset: 0;
     z-index: 2000;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(20, 14, 6, 0.5);
+    backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 32px;
   }
 
   .dialog {
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 16px;
-    min-width: 300px;
-    max-width: 400px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    width: 460px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-  }
-
-  .message {
+    font-family: var(--font-sans);
     color: var(--text);
-    font-size: 13px;
+    overflow: hidden;
   }
 
+  .card-header {
+    padding: 20px 24px 0;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+    color: var(--text);
+  }
+
+  .body {
+    padding: 14px 24px 18px;
+  }
   .input {
     width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
+    padding: 8px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--bg-inset);
     color: var(--text);
-    font-size: 13px;
+    font-family: var(--font-sans);
+    font-size: 14px;
     outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
   }
 
-  .input:focus {
-    border-color: var(--accent);
-  }
-
-  .actions {
+  .card-footer {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+  .kbd-hint {
+    margin-right: auto;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+  .footer-actions {
+    display: inline-flex;
     gap: 8px;
   }
 
   .btn {
-    padding: 5px 14px;
+    padding: 7px 14px;
     border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-family: inherit;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
-
-  .cancel {
-    background: var(--bg-button);
+  .secondary {
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .secondary:hover {
     color: var(--text);
+    border-color: var(--border-strong);
   }
-
-  .cancel:hover {
-    background: var(--bg-button-hover);
-  }
-
-  .confirm {
+  .primary {
     background: var(--accent);
-    color: var(--bg);
+    color: var(--accent-ink);
     border-color: var(--accent);
+    font-weight: 600;
   }
-
-  .confirm:hover {
-    opacity: 0.9;
+  .primary:hover:not(:disabled) {
+    opacity: 0.92;
   }
-
-  .confirm:disabled {
+  .primary:disabled {
     opacity: 0.4;
     cursor: default;
+  }
+  .btn-kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    opacity: 0.7;
   }
 </style>
