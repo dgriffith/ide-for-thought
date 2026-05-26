@@ -375,27 +375,35 @@
     position: fixed;
     inset: 0;
     z-index: 200;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(20, 14, 6, 0.5);
+    backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 32px;
   }
 
   .export-dialog {
-    background: var(--bg);
+    background: var(--bg-elev);
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
     padding: 20px 24px;
-    width: 640px;
-    max-width: 90vw;
-    max-height: 85vh;
+    width: 720px;
+    max-width: 100%;
+    max-height: calc(100vh - 64px);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    font-family: var(--font-sans);
   }
 
   h2 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.005em;
     margin: 0 0 16px;
     font-size: 16px;
     font-weight: 600;
@@ -574,13 +582,18 @@
     grid-column: 1 / -1;
     margin-top: 8px;
   }
+  /* Missing-source pill per §10.5 — rust signal color instead of accent.
+     Per CLAUDE.md "no danger styling" — rust is signal, not red. */
   .citations-section .missing-count {
-    background: var(--bg-button);
-    color: var(--accent);
+    background: color-mix(in oklch, var(--rust) 18%, transparent);
+    color: var(--rust);
+    font-family: var(--font-mono);
     font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 999px;
   }
   .citations-section .missing-list li .title {
-    color: var(--accent);
+    color: var(--rust);
   }
   .citations-section .missing-list {
     margin-bottom: 6px;
