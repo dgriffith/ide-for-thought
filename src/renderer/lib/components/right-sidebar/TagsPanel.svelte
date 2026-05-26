@@ -2,6 +2,7 @@
   import type { TagInfo, TaggedNote } from '../../../../shared/types';
   import { api } from '../../ipc/client';
   import Ribbon from './Ribbon.svelte';
+  import Icon from '../Icon.svelte';
   import {
     buildTagTree,
     flattenTagTree,
@@ -164,7 +165,7 @@
           class="row"
           class:active={activePath === row.path}
           class:in-active-note={tagsInActiveNote.has(row.path)}
-          style:padding-left="{row.depth * 14 + 6}px"
+          style:padding-left="{row.depth * 14 + 8}px"
         >
           {#if row.children.length > 0}
             <button
@@ -172,7 +173,9 @@
               class="chevron"
               onclick={() => toggle(row.path)}
               aria-label={isExpanded(row.path) ? 'Collapse' : 'Expand'}
-            >{isExpanded(row.path) ? '▾' : '▸'}</button>
+            >
+              <Icon name={isExpanded(row.path) ? 'chevronDown' : 'chevronRight'} size={11} color="var(--text-faint)" />
+            </button>
           {:else}
             <span class="chevron-spacer"></span>
           {/if}
@@ -198,11 +201,13 @@
   {#if activePath && activeNotes.length > 0}
     <div class="notes-section">
       <div class="notes-header">
-        {activeKind === 'prefix' ? 'Under' : 'Tagged'} #{activePath}
+        <span class="notes-eyebrow">{activeKind === 'prefix' ? 'NOTES UNDER' : 'NOTES WITH'} #{activePath}</span>
+        <span class="notes-count">{activeNotes.length}</span>
       </div>
       {#each activeNotes as note (note.relativePath)}
         <button class="note-item" onclick={() => onFileSelect(note.relativePath)}>
-          {note.title}
+          <Icon name="notes" size={12} color="var(--text-faint)" />
+          <span class="note-title">{note.title}</span>
         </button>
       {/each}
     </div>
@@ -223,23 +228,26 @@
     padding: 4px 0;
   }
 
+  /* Hierarchical tree row (§13.4). Chevron · mono tag name · tabular
+     count. Active row gets the 2px accent rail + tint shared with the
+     file tree. Tags present in the active note get an accent dot
+     marker before the name. */
   .row {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 8px 2px 0;
-    font-size: 12px;
-    border-radius: 3px;
+    gap: 6px;
+    padding: 3px 12px 3px 0;
+    border-left: 2px solid transparent;
   }
   .row:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
   }
   .row.active {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    border-left-color: var(--accent);
   }
   .row.in-active-note .tag-name {
     color: var(--accent);
-    font-weight: 600;
   }
 
   .chevron,
@@ -249,11 +257,11 @@
     flex-shrink: 0;
     background: none;
     border: none;
-    color: var(--text-muted);
-    font-size: 10px;
-    text-align: center;
     cursor: pointer;
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .chevron-spacer { cursor: default; }
 
@@ -262,7 +270,8 @@
     min-width: 0;
     border: none;
     background: none;
-    color: var(--accent);
+    color: var(--text);
+    font-family: var(--font-mono);
     font-size: 12px;
     cursor: pointer;
     text-align: left;
@@ -271,15 +280,19 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .row:hover .tag-name { color: var(--text); }
+  .row.active .tag-name { color: var(--accent); }
 
   .count {
     flex-shrink: 0;
-    font-size: 10px;
-    color: var(--text-muted);
-    padding-right: 2px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    padding-right: 4px;
   }
+  .row.active .count { color: var(--accent); }
 
+  /* "NOTES WITH #..." section under the tree */
   .notes-section {
     border-top: 1px solid var(--border);
     max-height: 50%;
@@ -287,23 +300,48 @@
     flex-shrink: 0;
   }
   .notes-header {
-    padding: 6px 12px;
-    font-size: 11px;
-    color: var(--text-muted);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 10px 14px 6px;
+  }
+  .notes-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+  }
+  .notes-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
   }
   .note-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
-    padding: 4px 12px;
+    padding: 5px 14px 5px 18px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
     cursor: pointer;
     text-align: left;
   }
   .note-item:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+    border-left-color: var(--accent);
+  }
+  .note-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .empty {
