@@ -8,6 +8,7 @@
    * it actually has — a sort selector without sort options would be
    * noise, same for expand/collapse on a flat list.
    */
+  import Icon from '../Icon.svelte';
 
   interface SortOption {
     id: string;
@@ -60,10 +61,10 @@
     </select>
   {/if}
   {#if onCollapseAll}
-    <button class="icon-btn" onclick={onCollapseAll} title="Collapse all">&#x2303;</button>
+    <button class="icon-btn" onclick={onCollapseAll} title="Collapse all"><Icon name="collapseAll" size={12} /></button>
   {/if}
   {#if onExpandAll}
-    <button class="icon-btn" onclick={onExpandAll} title="Expand all">&#x2304;</button>
+    <button class="icon-btn" onclick={onExpandAll} title="Expand all"><Icon name="expandAll" size={12} /></button>
   {/if}
 </div>
 

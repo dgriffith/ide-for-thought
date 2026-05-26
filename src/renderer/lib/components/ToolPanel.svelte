@@ -2,6 +2,7 @@
   import { getToolPanelStore } from '../stores/tool-panel.svelte';
   import { handleToolOutput } from '../tools/output';
   import { api } from '../ipc/client';
+  import Icon from './Icon.svelte';
   import type { ToolContext } from '../../../shared/tools/types';
   import { isMissingApiKeyError } from '../../../shared/llm-errors';
 
@@ -148,7 +149,7 @@
         <span class="tool-name">{panel.activeTool?.name ?? 'Tool'}</span>
         <span class="tool-desc">{panel.activeTool?.description ?? ''}</span>
       </div>
-      <button class="close-btn" onclick={() => { panel.close(); running = false; }}>&#x2715;</button>
+      <button class="close-btn" onclick={() => { panel.close(); running = false; }}><Icon name="close" size={11} /></button>
     </div>
 
     {#if panel.panelState === 'configure'}

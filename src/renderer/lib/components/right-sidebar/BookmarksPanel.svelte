@@ -2,6 +2,7 @@
   import { getBookmarksStore } from '../../stores/bookmarks.svelte';
   import type { BookmarkNode } from '../../../../shared/types';
   import Ribbon from './Ribbon.svelte';
+  import Icon from '../Icon.svelte';
   import { clampMenuToViewport } from '../../utils/menuClamp';
 
   interface Props {
@@ -155,7 +156,7 @@
       ondragover={handleDragOver}
       ondrop={(e) => { e.stopPropagation(); handleDrop(e, node.id); }}
     >
-      <span class="bm-icon">{expanded[node.id] ? '&#x25BE;' : '&#x25B8;'}</span>
+      <span class="bm-icon"><Icon name={expanded[node.id] ? 'chevronDown' : 'chevronRight'} size={11} /></span>
       <span class="bm-name">{node.name}</span>
     </div>
     {#if expanded[node.id] || search.trim()}
@@ -175,7 +176,7 @@
       draggable={true}
       ondragstart={(e) => handleDragStart(e, node.id)}
     >
-      <span class="bm-icon">&#x2606;</span>
+      <span class="bm-icon"><Icon name="bookmark" size={11} /></span>
       <span class="bm-name">{node.name}</span>
     </div>
   {/if}
@@ -236,6 +237,9 @@
   .bm-item:hover { background: var(--bg-button); }
 
   .bm-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 11px;
     width: 12px;
     flex-shrink: 0;

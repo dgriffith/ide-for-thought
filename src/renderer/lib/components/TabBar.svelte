@@ -2,6 +2,7 @@
   import type { Tab } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import Icon from './Icon.svelte';
 
   interface Props {
     tabs: Tab[];
@@ -60,8 +61,8 @@
       role="tab"
       tabindex="0"
     >
-      {#if tab.type === 'query'}<span class="tab-icon">&#x25B7;</span>{/if}
-      {#if tab.type === 'source'}<span class="tab-icon">&#x1F4D6;</span>{/if}
+      {#if tab.type === 'query'}<span class="tab-icon"><Icon name="query" size={12} /></span>{/if}
+      {#if tab.type === 'source'}<span class="tab-icon"><Icon name="source" size={12} /></span>{/if}
       <span class="tab-name">
         {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
         {:else if tab.type === 'query'}{tab.title}
@@ -74,7 +75,7 @@
         class="close-btn"
         onclick={(e) => { e.stopPropagation(); onClose(i); }}
         title="Close"
-      >&times;</button>
+      ><Icon name="close" size={11} /></button>
     </div>
   {/each}
 </div>
@@ -95,7 +96,7 @@
       <button onclick={() => { onSwitch(contextMenu!.index); contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
       <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onBookmark?.(t.relativePath); contextMenu = null; }}>Bookmark This Note</button>
       <div class="submenu-item">
-        <span class="submenu-trigger">Open In &#x25B8;</span>
+        <span class="submenu-trigger">Open In <Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
           <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
@@ -228,7 +229,10 @@
   }
 
   .submenu-trigger {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--text);

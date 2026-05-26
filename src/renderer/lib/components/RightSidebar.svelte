@@ -10,10 +10,26 @@
   import ProposalsPanel from './right-sidebar/ProposalsPanel.svelte';
   import TablesPanel from './right-sidebar/TablesPanel.svelte';
   import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
+  import Icon from './Icon.svelte';
+  import type { IconName } from './icons/registry';
 
   type PanelType =
     | 'outline' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
+
+  const PANEL_TABS: ReadonlyArray<{ id: PanelType; label: string; icon: IconName }> = [
+    { id: 'outline',     label: 'Outline',        icon: 'outline' },
+    { id: 'footnotes',   label: 'Footnotes',      icon: 'footnotes' },
+    { id: 'properties',  label: 'Properties',     icon: 'properties' },
+    { id: 'outgoing',    label: 'Outgoing Links', icon: 'outgoing' },
+    { id: 'backlinks',   label: 'Backlinks',      icon: 'backlinks' },
+    { id: 'tags',        label: 'Tags',           icon: 'tags' },
+    { id: 'tables',      label: 'Tables',         icon: 'tables' },
+    { id: 'citations',   label: 'Citations',      icon: 'citations' },
+    { id: 'bookmarks',   label: 'Bookmarks',      icon: 'bookmark' },
+    { id: 'inspections', label: 'Inspections',    icon: 'inspections' },
+    { id: 'proposals',   label: 'Proposals',      icon: 'proposals' },
+  ];
 
   interface Props {
     activeFilePath: string | null;
@@ -93,72 +109,14 @@
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_element_interactions -->
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
   <div class="panel-tabs">
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'outline'}
-      onclick={() => activePanel = 'outline'}
-      title="Outline"
-    >&#x2630;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'footnotes'}
-      onclick={() => activePanel = 'footnotes'}
-      title="Footnotes"
-    >&#x2042;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'properties'}
-      onclick={() => activePanel = 'properties'}
-      title="Properties"
-    >&#x2261;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'outgoing'}
-      onclick={() => activePanel = 'outgoing'}
-      title="Outgoing Links"
-    >&#x2192;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'backlinks'}
-      onclick={() => activePanel = 'backlinks'}
-      title="Backlinks"
-    >&#x2190;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'tags'}
-      onclick={() => activePanel = 'tags'}
-      title="Tags"
-    >#</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'tables'}
-      onclick={() => activePanel = 'tables'}
-      title="Tables"
-    >&#x229E;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'citations'}
-      onclick={() => activePanel = 'citations'}
-      title="Citations"
-    >&#x201C;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'bookmarks'}
-      onclick={() => activePanel = 'bookmarks'}
-      title="Bookmarks"
-    >&#x2606;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'inspections'}
-      onclick={() => activePanel = 'inspections'}
-      title="Inspections"
-    >&#x26A0;</button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'proposals'}
-      onclick={() => activePanel = 'proposals'}
-      title="Proposals"
-    >&#x2713;</button>
+    {#each PANEL_TABS as t (t.id)}
+      <button
+        class="panel-tab"
+        class:active={activePanel === t.id}
+        onclick={() => activePanel = t.id}
+        title={t.label}
+      ><Icon name={t.icon} size={14} /></button>
+    {/each}
   </div>
 
   <div class="panel-content">

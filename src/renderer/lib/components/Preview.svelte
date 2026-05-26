@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Icon from './Icon.svelte';
   import MarkdownIt from 'markdown-it';
   // The Token *value* (used below for `new Token(...)` to inject a
   // task-list checkbox) is now recovered from `inlineTok.constructor`
@@ -1724,7 +1725,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   >
     {#if onToolInvoke && learningTools.length > 0}
       <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
-        <span class="submenu-trigger">Learning &#x25B8;</span>
+        <span class="submenu-trigger">Learning<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           {#each learningTools as tool}
             <button onclick={() => runMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
@@ -1734,7 +1735,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     {/if}
     {#if onToolInvoke && analysisTools.length > 0}
       <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
-        <span class="submenu-trigger">Analysis &#x25B8;</span>
+        <span class="submenu-trigger">Analysis<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           {#each analysisTools as tool}
             <button onclick={() => runMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
@@ -1744,7 +1745,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     {/if}
     {#if onToolInvoke}
       <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
-        <span class="submenu-trigger">Research &#x25B8;</span>
+        <span class="submenu-trigger">Research<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           <button onclick={() => runMenuAction(() => onToolInvoke?.('research.decompose-into-claims'))}>Decompose into Claims</button>
         </div>
@@ -1762,7 +1763,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     {#if notePath}
       <div class="separator"></div>
       <div class="submenu-item" onmouseenter={adjustNoteSubmenu}>
-        <span class="submenu-trigger">Open In &#x25B8;</span>
+        <span class="submenu-trigger">Open In<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
           <button onclick={() => { if (notePath) void api.shell.revealFile(notePath); noteMenu = null; }}>Reveal in Finder</button>
           <button onclick={() => { if (notePath) void api.shell.openInDefault(notePath); noteMenu = null; }}>Open in Default App</button>
@@ -2471,7 +2472,10 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .note-context-menu button:hover { background: var(--bg-button); }
   .note-context-menu .submenu-item { position: relative; }
   .note-context-menu .submenu-trigger {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     padding: 6px 12px;
     font-size: 12px;
     color: var(--text);
