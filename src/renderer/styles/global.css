@@ -1,53 +1,91 @@
 :root {
-  /* Dark theme (default) */
-  --bg: #1e1e2e;
-  --bg-titlebar: #181825;
-  --bg-sidebar: #1e1e2e;
-  --bg-button: #313244;
-  --bg-button-hover: #45475a;
-  --text: #cdd6f4;
-  --text-muted: #6c7086;
-  --border: #313244;
-  --accent: #89b4fa;
-  /* Titlebar defaults — same as text for dark/light, overridden in contrast */
-  --titlebar-text: var(--text);
-  --titlebar-text-muted: var(--text-muted);
-  --titlebar-button: var(--bg-button);
+  /* ── Honey · default warm paper-on-ink palette ────────────────────── */
+  --bg:           oklch(0.205 0.012 70);
+  --bg-elev:      oklch(0.245 0.012 70);
+  --bg-elev-2:    oklch(0.285 0.014 70);
+  --bg-inset:     oklch(0.175 0.010 70);
+  --text:         oklch(0.925 0.018 85);
+  --text-muted:   oklch(0.680 0.018 80);
+  --text-faint:   oklch(0.520 0.015 75);
+  --border:       oklch(0.330 0.012 70);
+  --border-strong: oklch(0.420 0.014 70);
+  --accent:       oklch(0.790 0.115 78);
+  --accent-dim:   oklch(0.660 0.085 78);
+  --accent-ink:   oklch(0.220 0.020 70);
+  --sage:         oklch(0.700 0.058 148);
+  --rust:         oklch(0.665 0.105 38);
+  --iris:         oklch(0.700 0.080 280);
+
+  /* Backwards-compat aliases — kept until every component migrates to
+     the new tokens above. Components that haven't been touched yet
+     still resolve through these. */
+  --bg-titlebar:      var(--bg-elev);
+  --bg-sidebar:       var(--bg-elev);
+  --bg-button:        var(--bg-elev-2);
+  --bg-button-hover:  var(--border-strong);
+  --bg-tabbar:        var(--bg-elev);
+  --bg-toolbar:       var(--bg-elev);
+  --titlebar-text:        var(--text);
+  --titlebar-text-muted:  var(--text-muted);
+  --titlebar-button:      var(--bg-button);
   --titlebar-button-hover: var(--bg-button-hover);
-  --bg-tabbar: var(--bg-titlebar);
-  --bg-toolbar: var(--bg-titlebar);
+
+  /* Type — IBM Plex (Serif / Sans / Mono). Plex's regular weight reads
+     heavy at small sizes, so UI body uses weight 450. */
+  --font-display: 'IBM Plex Serif', Georgia, serif;
+  --font-sans:    'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 [data-theme="light"] {
-  --bg: #eff1f5;
-  --bg-titlebar: #e6e9ef;
-  --bg-sidebar: #eff1f5;
-  --bg-button: #ccd0da;
-  --bg-button-hover: #bcc0cc;
-  --text: #4c4f69;
-  --text-muted: #8c8fa1;
-  --border: #ccd0da;
-  --accent: #1e66f5;
+  --bg:           oklch(0.965 0.012 85);
+  --bg-elev:      oklch(0.935 0.014 85);
+  --bg-elev-2:    oklch(0.900 0.018 85);
+  --bg-inset:     oklch(0.985 0.008 85);
+  --text:         oklch(0.235 0.018 70);
+  --text-muted:   oklch(0.460 0.018 75);
+  --text-faint:   oklch(0.620 0.015 75);
+  --border:       oklch(0.870 0.018 80);
+  --border-strong: oklch(0.780 0.020 80);
+  --accent:       oklch(0.560 0.115 65);
+  --accent-dim:   oklch(0.700 0.075 70);
+  --accent-ink:   oklch(0.980 0.010 85);
+  --sage:         oklch(0.460 0.060 148);
+  --rust:         oklch(0.520 0.115 38);
+  --iris:         oklch(0.500 0.090 280);
 }
 
 [data-theme="contrast"] {
-  --bg: #ffffff;
-  --bg-titlebar: #3a3a4a;
-  --bg-sidebar: #f5f5f7;
-  --bg-button: #e8e8ec;
-  --bg-button-hover: #d8d8de;
-  --text: #1a1a2e;
-  --text-muted: #6b6b80;
-  --border: #d0d0d8;
-  --accent: #1e66f5;
-  --titlebar-text: #ffffff;
-  --titlebar-text-muted: #cdd6f4;
-  --titlebar-button: #313244;
+  --bg:            #ffffff;
+  --bg-elev:       #f5f5f7;
+  --bg-elev-2:     #ebebef;
+  --bg-inset:      #ffffff;
+  --text:          #0a0a14;
+  --text-muted:    #404050;
+  --text-faint:    #6a6a7a;
+  --border:        #c0c0cc;
+  --border-strong: #9090a0;
+  --accent:        oklch(0.500 0.150 65);
+  --accent-dim:    oklch(0.620 0.105 65);
+  --accent-ink:    #ffffff;
+  /* Contrast theme keeps its dark title bar over a light body */
+  --bg-titlebar:           #3a3a4a;
+  --titlebar-text:         #ffffff;
+  --titlebar-text-muted:   #cdd6f4;
+  --titlebar-button:       #313244;
   --titlebar-button-hover: #45475a;
-  --bg-tabbar: var(--bg-sidebar);
-  --bg-toolbar: var(--bg-sidebar);
-  --bg-code: #eaeaef;
+  --bg-tabbar:             var(--bg-elev);
+  --bg-toolbar:            var(--bg-elev);
+  --bg-code:               #eaeaef;
 }
+
+/* ── Density ─────────────────────────────────────────────────────────
+   Body-level attribute (set by appearance/density.ts). Components that
+   hardcode 12/13px paddings can migrate to these vars one by one. */
+body                          { --row: 26px; --pad: 8px;  --font-ui: 13px; }
+body[data-density="compact"]  { --row: 22px; --pad: 6px;  --font-ui: 12px; }
+body[data-density="cozy"]     { --row: 26px; --pad: 8px;  --font-ui: 13px; }
+body[data-density="comfy"]    { --row: 30px; --pad: 10px; --font-ui: 13px; }
 
 * {
   margin: 0;
@@ -56,14 +94,17 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  font-weight: 450;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
 }
 
+/* CodeMirror content defaults to Plex Mono; a user-selected font preset
+   (--content-font-family, set by appearance/settings.ts) overrides. */
 .cm-content {
-  font-family: var(--content-font-family, monospace) !important;
+  font-family: var(--content-font-family, var(--font-mono)) !important;
 }
 
 ::-webkit-scrollbar {
