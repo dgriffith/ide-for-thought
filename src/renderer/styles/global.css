@@ -154,14 +154,16 @@ body {
    blockquote primitive. Lives in global.css instead of Preview's
    scoped CSS so @html-rendered children always match — Svelte's
    :global() chain proved unreliable here. Per CLAUDE.md "no danger
-   styling": warning/failure/danger/bug use peach/mauve, not reds. */
+   styling": warning/failure/danger/bug use peach/mauve, not reds.
+   Visual tuning per IMPLEMENTATION.md §8.3 — 3px left accent rule,
+   8% accent tint, 28% accent border in oklch. */
 .callout {
   --callout-color: var(--accent);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in oklch, var(--callout-color) 28%, transparent);
   border-left: 3px solid var(--callout-color);
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--callout-color) 10%, transparent);
-  margin: 0 0 12px;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--callout-color) 8%, transparent);
+  margin: 16px 0;
   padding: 0;
   color: var(--text);
   overflow: hidden;
@@ -209,18 +211,21 @@ details.callout[open] > summary.callout-title::after {
 .callout-content > :first-child { margin-top: 0; }
 .callout-content > :last-child { margin-bottom: 0; }
 
+/* Map kinds to the design-system signal colors so palette swaps stay
+   consistent. "warning/failure/danger/bug" use --rust (a signal color,
+   not red — per CLAUDE.md). Tips/success use --sage. */
 .callout-note     { --callout-color: var(--accent); }
-.callout-info     { --callout-color: #8caaee; }
-.callout-tip      { --callout-color: #a6d189; }
-.callout-success  { --callout-color: #a6d189; }
-.callout-question { --callout-color: #e5c890; }
-.callout-warning  { --callout-color: #ef9f76; }
-.callout-failure  { --callout-color: #ef9f76; }
-.callout-danger   { --callout-color: #ef9f76; }
-.callout-bug      { --callout-color: #ca9ee6; }
-.callout-example  { --callout-color: #ca9ee6; }
+.callout-info     { --callout-color: var(--iris); }
+.callout-tip      { --callout-color: var(--sage); }
+.callout-success  { --callout-color: var(--sage); }
+.callout-question { --callout-color: var(--accent); }
+.callout-warning  { --callout-color: var(--rust); }
+.callout-failure  { --callout-color: var(--rust); }
+.callout-danger   { --callout-color: var(--rust); }
+.callout-bug      { --callout-color: var(--iris); }
+.callout-example  { --callout-color: var(--iris); }
 .callout-quote    { --callout-color: var(--text-muted); }
-.callout-abstract { --callout-color: #8caaee; }
+.callout-abstract { --callout-color: var(--iris); }
 .callout-todo     { --callout-color: var(--accent); }
 .callout-unknown  { --callout-color: var(--accent); }
 
@@ -241,16 +246,17 @@ details.callout[open] > summary.callout-title::after {
 
 /* Mermaid diagram blocks (#467). Centered SVG with subtle bordered
    panel; error renders inline so a single broken diagram can't brick
-   the doc. */
+   the doc. Per §8.6 the panel uses --bg-inset for the editorial
+   "set apart" look matched by code blocks. */
 .mermaid-block {
   display: flex;
   justify-content: center;
   align-items: center;
   margin: 0 0 12px;
-  padding: 12px;
+  padding: 16px 20px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg);
+  background: var(--bg-inset);
   overflow-x: auto;
   min-height: 40px;
 }

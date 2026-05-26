@@ -435,9 +435,16 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         + `</div>\n`;
     }
 
-    return defaultFence
+    const rendered = defaultFence
       ? defaultFence(tokens, idx, options, env, self)
       : self.renderToken(tokens, idx, options);
+    // Wrap non-runnable, non-mermaid fences in a code-block container
+    // carrying the language label (§8.5). Empty `info` (a bare ```)
+    // skips the wrapper so plain code blocks don't get a stray label.
+    if (info && info !== 'output') {
+      return `<div class="code-block" data-language="${info}">${rendered}</div>\n`;
+    }
+    return rendered;
   };
 
   /**
@@ -1860,23 +1867,45 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     text-decoration: underline;
   }
 
+  /* Heading scale per IMPLEMENTATION.md §8.1. H1/H2/H3 in the display
+     serif; H2 carries a § numeral eyebrow rendered via a CSS counter,
+     so any section markdown source (## …) shows up as "§ 01 Heading". */
+  .preview {
+    counter-reset: h2;
+  }
   .preview :global(h1) {
-    font-size: 28px;
-    font-weight: 600;
-    margin: 0 0 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    font-family: var(--font-display);
+    font-size: 30px;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 8px 0 4px;
+    padding: 0;
+    border: none;
   }
-
   .preview :global(h2) {
+    font-family: var(--font-display);
     font-size: 22px;
-    font-weight: 600;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     margin: 24px 0 12px;
+    counter-increment: h2;
   }
-
+  .preview :global(h2)::before {
+    content: '§ ' counter(h2, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
+    margin-right: 10px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
   .preview :global(h3) {
+    font-family: var(--font-display);
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 500;
+    letter-spacing: -0.005em;
     margin: 20px 0 8px;
   }
 
@@ -1904,14 +1933,22 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     text-decoration: underline;
   }
 
+  /* Wiki-link as a chip (§8.4) — accent-tinted bg, no underline, small
+     padding. Plain wiki-links only; typed-links keep their existing
+     pill-with-badge shape below. */
   .preview :global(.wiki-link) {
+    display: inline-block;
+    padding: 1px 8px;
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
     color: var(--accent);
+    border-radius: 4px;
+    font-family: var(--font-sans);
+    border: none;
     cursor: pointer;
-    border-bottom: 1px dashed var(--accent);
   }
-
   .preview :global(.wiki-link:hover) {
-    opacity: 0.8;
+    background: color-mix(in oklch, var(--accent) 18%, transparent);
+    text-decoration: none;
   }
 
   .preview :global(.typed-link) {
@@ -1950,17 +1987,19 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   }
 
   .preview :global(code) {
-    background: var(--bg-button);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 13px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    background: var(--bg-inset);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+    color: var(--text);
   }
 
   .preview :global(pre) {
-    background: var(--bg-code, var(--bg-titlebar));
-    padding: 16px;
-    border-radius: 8px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    border-radius: 6px;
     overflow-x: auto;
     margin: 0 0 16px;
   }
@@ -1968,7 +2007,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .preview :global(pre code) {
     background: none;
     padding: 0;
-    font-size: 13px;
+    font-size: 12.5px;
+    font-family: var(--font-mono);
+  }
+
+  /* Wrapper added by the fence renderer for any languaged code block —
+     surfaces the language as a small uppercase eyebrow pinned to the
+     top-right (§8.5). The bare `pre` inside keeps its borders + padding. */
+  .preview :global(.code-block) {
+    position: relative;
+  }
+  .preview :global(.code-block)::before {
+    content: attr(data-language);
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 1;
   }
 
   .preview :global(blockquote) {
@@ -1976,6 +2036,24 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     margin: 0 0 12px;
     padding: 4px 16px;
     color: var(--text-muted);
+  }
+
+  /* Math (§8.6) — inline math chips against --bg-inset; block math
+     in a bordered card matching the code-block / mermaid look. */
+  .preview :global(.katex-inline) {
+    padding: 1px 6px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .preview :global(.math-block) {
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+    text-align: center;
   }
 
   /* Callout styles live in global.css (#465) — Svelte's scoped
