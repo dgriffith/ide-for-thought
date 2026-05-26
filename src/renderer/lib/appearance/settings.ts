@@ -1,13 +1,22 @@
-export type FontFamilyPreset = 'default' | 'system' | 'serif' | 'monospace';
+import { applyDensity, getDensity } from './density';
+
+export type FontFamilyPreset =
+  | 'default'
+  | 'system'
+  | 'serif'
+  | 'monospace'
+  | 'jetbrainsMono'
+  | 'berkeleyMono'
+  | 'systemMono';
 
 interface PresetDef {
   label: string;
-  /** null means: don't set --content-font-family, let editor/preview defaults win. */
+  /** null means: don't set --content-font-family, let --font-mono win. */
   css: string | null;
 }
 
 export const FONT_FAMILY_PRESETS: Record<FontFamilyPreset, PresetDef> = {
-  default: { label: 'Default (editor: monospace, preview: system)', css: null },
+  default: { label: 'Minerva default (Plex)', css: null },
   system: {
     label: 'System Sans',
     css: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -16,6 +25,18 @@ export const FONT_FAMILY_PRESETS: Record<FontFamilyPreset, PresetDef> = {
   monospace: {
     label: 'Monospace',
     css: 'ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, monospace',
+  },
+  jetbrainsMono: {
+    label: 'JetBrains Mono',
+    css: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  berkeleyMono: {
+    label: 'Berkeley Mono',
+    css: '"Berkeley Mono", "TX-02", ui-monospace, SFMono-Regular, Menlo, monospace',
+  },
+  systemMono: {
+    label: 'System mono',
+    css: 'ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", monospace',
   },
 };
 
@@ -43,4 +64,5 @@ export function applyFontFamily(preset: FontFamilyPreset): void {
 
 export function initAppearance(): void {
   applyFontFamily(getFontFamily());
+  applyDensity(getDensity());
 }
