@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NoteFile } from '../../../shared/types';
+  import Icon from './Icon.svelte';
 
   interface Props {
     files: NoteFile[];
@@ -159,17 +160,25 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog">
-    <input
-      bind:this={inputEl}
-      bind:value={query}
-      type="text"
-      class="input"
-      {placeholder}
-    />
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Go to note">
+    <div class="input-row">
+      <Icon name="search" size={14} color="var(--text-muted)" />
+      <input
+        bind:this={inputEl}
+        bind:value={query}
+        type="text"
+        class="input"
+        {placeholder}
+      />
+      <span class="input-kbd">⌘ K</span>
+    </div>
+
     {#if results.length > 0}
       <ul class="goto-results">
         {#each results as result, i}
+          {@const folder = result.relativePath.includes('/')
+            ? result.relativePath.slice(0, result.relativePath.lastIndexOf('/'))
+            : ''}
           <li>
             <button
               class="result-item"
@@ -177,8 +186,13 @@
               onclick={() => onSelect(result.relativePath)}
               onmouseenter={() => { selectedIndex = i; }}
             >
-              <span class="result-name">{result.name}</span>
-              <span class="result-path">{result.relativePath}</span>
+              <Icon name="notes" size={13} color={i === selectedIndex ? 'var(--accent)' : 'var(--text-faint)'} />
+              <span class="result-body">
+                <span class="result-name">{result.name}</span>
+                {#if folder}
+                  <span class="result-path">{folder}</span>
+                {/if}
+              </span>
             </button>
           </li>
         {/each}
@@ -186,6 +200,16 @@
     {:else if query.trim()}
       <div class="no-results">No matching notes</div>
     {/if}
+
+    <footer class="palette-footer">
+      <span class="kbd-hint">↑↓ navigate · ↵ open · esc close</span>
+      <span class="result-count">
+        {#if results.length > 0}
+          <span class="nums">{results.length}</span>
+          {results.length === 1 ? 'note' : 'notes'}
+        {/if}
+      </span>
+    </footer>
   </div>
 </div>
 
@@ -194,78 +218,146 @@
     position: fixed;
     inset: 0;
     z-index: 2000;
+    background: rgba(20, 14, 6, 0.45);
+    backdrop-filter: blur(2px);
     display: flex;
     justify-content: center;
-    padding-top: 15vh;
+    align-items: flex-start;
+    padding: 15vh 32px 32px;
   }
 
+  /* §10.2 palette shell — wider (640px) with the §10 dialog look. */
   .dialog {
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    width: 450px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    width: 640px;
+    max-width: 100%;
     max-height: 60vh;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    font-family: var(--font-sans);
+    color: var(--text);
   }
 
-  .input {
-    width: 100%;
-    padding: 10px 12px;
-    border: none;
+  .input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    outline: none;
-    border-radius: 8px 8px 0 0;
   }
-
+  .input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    outline: none;
+    padding: 0;
+  }
   .input::placeholder {
     color: var(--text-muted);
+  }
+  .input-kbd {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-faint);
+    flex-shrink: 0;
   }
 
   .goto-results {
     list-style: none;
     overflow-y: auto;
-    padding: 4px;
+    padding: 4px 0;
     margin: 0;
+    flex: 1;
   }
 
   .result-item {
     display: flex;
-    flex-direction: column;
-    gap: 1px;
+    align-items: center;
+    gap: 10px;
     width: 100%;
-    padding: 6px 10px;
+    padding: 8px 16px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
     cursor: pointer;
     text-align: left;
-    border-radius: 4px;
   }
-
-  .result-item:hover,
   .result-item.selected {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
+    border-left-color: var(--accent);
   }
 
+  .result-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    overflow: hidden;
+  }
   .result-name {
-    font-size: 13px;
+    font-size: 13.5px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-
+  .result-item.selected .result-name {
+    font-weight: 500;
+  }
   .result-path {
+    font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
   }
 
   .no-results {
-    padding: 12px;
-    font-size: 12px;
+    padding: 24px;
+    font-size: 13px;
     color: var(--text-muted);
     text-align: center;
+    font-style: italic;
+  }
+
+  .palette-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .kbd-hint {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+  .result-count {
+    font-size: 10.5px;
+    color: var(--text-faint);
+  }
+  .nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
   }
 </style>
