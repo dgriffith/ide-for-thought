@@ -14,9 +14,11 @@
     onReveal: (relativePath: string) => void;
     onOpenConversation?: () => void;
     onBookmark?: (relativePath: string) => void;
+    /** Trailing `+` button — opens a new note at the project root. */
+    onNewTab?: () => void;
   }
 
-  let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark }: Props = $props();
+  let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; index: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -49,11 +51,12 @@
 
 <div class="tab-bar">
   {#each tabs as tab, i}
+    {@const dirty = tab.type === 'note' && tab.content !== tab.savedContent}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="tab"
       class:active={i === activeIndex}
-      class:dirty={tab.type === 'note' && tab.content !== tab.savedContent}
+      class:dirty
       onclick={() => onSwitch(i)}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
@@ -61,16 +64,24 @@
       role="tab"
       tabindex="0"
     >
-      {#if tab.type === 'query'}<span class="tab-icon"><Icon name="query" size={12} /></span>{/if}
-      {#if tab.type === 'source'}<span class="tab-icon"><Icon name="source" size={12} /></span>{/if}
+      <!-- Leading slot: dirty pip OR type icon. The pip wins when the
+           note is dirty so the visual cue can't be missed (§7.2). -->
+      <span class="tab-lead">
+        {#if dirty}
+          <span class="dirty-dot" aria-label="Unsaved changes"></span>
+        {:else if tab.type === 'query'}
+          <Icon name="query" size={13} color="var(--text-faint)" />
+        {:else if tab.type === 'source'}
+          <Icon name="source" size={13} color="var(--text-faint)" />
+        {:else}
+          <Icon name="notes" size={13} color="var(--text-faint)" />
+        {/if}
+      </span>
       <span class="tab-name">
         {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
         {:else if tab.type === 'query'}{tab.title}
         {:else}{tab.sourceId}{/if}
       </span>
-      {#if tab.type === 'note' && tab.content !== tab.savedContent}
-        <span class="dirty-dot"></span>
-      {/if}
       <button
         class="close-btn"
         onclick={(e) => { e.stopPropagation(); onClose(i); }}
@@ -78,6 +89,11 @@
       ><Icon name="close" size={11} /></button>
     </div>
   {/each}
+  {#if onNewTab}
+    <button class="new-tab-btn" onclick={onNewTab} title="New note">
+      <Icon name="plus" size={13} color="var(--text-muted)" />
+    </button>
+  {/if}
 </div>
 
 {#if contextMenu}
@@ -110,10 +126,12 @@
 <style>
   .tab-bar {
     display: flex;
+    align-items: stretch;
     background: var(--bg-tabbar);
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
     flex-shrink: 0;
+    height: 36px;
     scrollbar-width: none;
   }
 
@@ -124,20 +142,22 @@
   .tab {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 5px 8px 5px 12px;
+    gap: 8px;
+    padding: 0 8px 0 14px;
     border: none;
     border-right: 1px solid var(--border);
-    background: none;
+    background: transparent;
     color: var(--text-muted);
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 13px;
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
+    position: relative;
   }
 
   .tab:hover {
-    background: var(--bg-button);
+    color: var(--text);
   }
 
   .tab.active {
@@ -145,20 +165,36 @@
     color: var(--text);
   }
 
-  .tab-icon {
-    font-size: 10px;
+  /* Active-tab indicator: a 2px accent rail along the bottom (§7.2).
+     Rendered as a pseudo-element so it sits at -1px and overlaps the
+     1px tab-bar bottom border for a flush look. */
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  .tab-lead {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
     flex-shrink: 0;
   }
 
   .tab-name {
-    max-width: 150px;
+    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .dirty-dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: var(--accent);
     flex-shrink: 0;
@@ -168,13 +204,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     border: none;
-    border-radius: 3px;
+    border-radius: 4px;
     background: none;
-    color: var(--text-muted);
-    font-size: 14px;
+    color: var(--text-faint);
     line-height: 1;
     cursor: pointer;
     padding: 0;
@@ -183,11 +218,33 @@
 
   .tab:hover .close-btn,
   .tab.active .close-btn {
-    opacity: 1;
+    opacity: 0.8;
   }
 
   .close-btn:hover {
-    background: var(--bg-button-hover);
+    background: color-mix(in oklch, var(--text) 8%, transparent);
+    color: var(--text);
+    opacity: 1;
+  }
+
+  .new-tab-btn {
+    align-self: center;
+    margin: 0 6px 0 4px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .new-tab-btn:hover {
+    background: color-mix(in oklch, var(--text) 8%, transparent);
     color: var(--text);
   }
 

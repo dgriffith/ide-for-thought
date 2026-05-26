@@ -2298,12 +2298,14 @@
 <div class="app">
   <TitleBar
     notebaseName={notebase.meta?.name ?? ''}
-    fileName={editor.activeFileName}
+    filePath={editor.activeFilePath}
     isDirty={editor.isDirty}
     canGoBack={nav.canGoBack}
     canGoForward={nav.canGoForward}
     onNavBack={handleNavBack}
     onNavForward={handleNavForward}
+    onOpenGotoNote={() => { showGotoNote = true; }}
+    onOpenSettings={() => { showSettings = true; }}
   />
 
   <div class="main">
@@ -2370,6 +2372,7 @@
             onReveal={handleRevealInSidebar}
             onOpenConversation={openConversation}
             onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
+            onNewTab={() => handleNewNote()}
           />
         {/if}
         {#if editor.activeTab?.type === 'note' && editor.activeTab.relativePath.endsWith('.csv')}
@@ -2490,6 +2493,8 @@
             theme={themeLabel}
             {inspectionCount}
             {backlinkCount}
+            isDirty={editor.isDirty}
+            hasActiveNote={editor.activeTab?.type === 'note'}
             onGotoLine={() => { showGotoLine = true; }}
             onCycleTheme={handleCycleTheme}
             onShowInspections={() => { rightSidebarVisible = true; }}
