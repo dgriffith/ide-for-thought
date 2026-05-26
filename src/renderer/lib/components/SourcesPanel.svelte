@@ -67,13 +67,11 @@
     });
   });
 
-  function formatByline(creators: string[], year: string | null): string {
-    const who = creators.length === 0 ? ''
-      : creators.length === 1 ? creators[0]
-      : creators.length === 2 ? `${creators[0]} and ${creators[1]}`
-      : `${creators[0]} et al.`;
-    if (who && year) return `${who} · ${year}`;
-    return who || (year ?? '');
+  function formatCreators(creators: string[]): string {
+    if (creators.length === 0) return '';
+    if (creators.length === 1) return creators[0];
+    if (creators.length === 2) return `${creators[0]} and ${creators[1]}`;
+    return `${creators[0]} et al.`;
   }
 </script>
 
@@ -99,7 +97,10 @@
         >
           <div class="source-title">{s.title ?? s.sourceId}</div>
           {#if s.creators.length > 0 || s.year}
-            <div class="source-byline">{formatByline(s.creators, s.year)}</div>
+            {@const who = formatCreators(s.creators)}
+            <div class="source-byline">
+              {#if who}{who}{/if}{#if who && s.year} · {/if}{#if s.year}<span class="year">{s.year}</span>{/if}
+            </div>
           {/if}
         </button>
       {/each}
@@ -183,36 +184,53 @@
     padding-bottom: 6px;
   }
 
+  /* Editorial-row treatment (§5.5). Each source reads like a
+     bibliography entry: italic display-serif title, sans+mono byline.
+     The 2px accent rail still marks hover/active for parity with the
+     file tree. */
   .source-item {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     text-align: left;
-    padding: 4px 12px;
+    padding: 10px 16px;
     background: none;
     border: none;
-    color: var(--text);
-    font-size: 12px;
-    cursor: pointer;
+    border-top: 1px solid var(--border);
     border-left: 2px solid transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .source-list .source-item:first-child {
+    border-top: none;
   }
   .source-item:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
     border-left-color: var(--accent);
   }
 
   .source-title {
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .source-byline {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-top: 1px;
+    margin-top: 2px;
+  }
+  /* The year (and any other mono fragment in the byline) reads as a
+     citation locator — switch to the mono face for tabular feel. */
+  .source-byline :global(.year) {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 </style>

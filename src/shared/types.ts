@@ -3,6 +3,11 @@ export interface NoteFile {
   relativePath: string;
   isDirectory: boolean;
   children?: NoteFile[];
+  /** mtime in ms since epoch. Populated for files only; the renderer
+   *  formats this into the relative-time stamp shown on each file row
+   *  ("2h", "5d", "1mo"). Optional so callers/fixtures that don't have
+   *  an mtime can omit it. */
+  mtimeMs?: number;
 }
 
 export interface NotebaseMeta {

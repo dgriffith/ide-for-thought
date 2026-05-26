@@ -2,6 +2,7 @@
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
   import Icon from './Icon.svelte';
+  import { formatRelativeTime } from '../utils/format-relative-time';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
@@ -173,8 +174,11 @@
           ondragleave={handleDragLeave}
           ondrop={(e) => handleDrop(e, file.relativePath)}
         >
-          <span class="icon">{expanded[file.relativePath] ? '▾' : '▸'}</span>
-          {file.name}
+          <span class="chev">
+            <Icon name={expanded[file.relativePath] ? 'chevronDown' : 'chevronRight'} size={11} />
+          </span>
+          <Icon name={expanded[file.relativePath] ? 'folderOpen' : 'folder'} size={14} />
+          <span class="row-label">{file.name}</span>
         </button>
         {#if expanded[file.relativePath] && file.children}
           <FileTree
@@ -217,8 +221,16 @@
           draggable={true}
           ondragstart={(e) => handleDragStart(e, file.relativePath)}
         >
-          <span class="icon">📄</span>
-          {file.name.replace(/\.(md|ttl|csv)$/, '')}
+          <span class="chev"></span>
+          <Icon
+            name="notes"
+            size={13}
+            color={activeFilePath === file.relativePath ? 'var(--accent)' : 'var(--text-faint)'}
+          />
+          <span class="row-label">{file.name.replace(/\.(md|ttl|csv)$/, '')}</span>
+          {#if file.mtimeMs !== undefined}
+            <span class="mtime">{formatRelativeTime(file.mtimeMs)}</span>
+          {/if}
         </button>
       {/if}
     </li>
@@ -318,57 +330,75 @@
   .tree-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
-    padding: 4px 8px;
+    padding: 5px 12px 5px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
     font-size: 13px;
     cursor: pointer;
     text-align: left;
-    border-radius: 4px;
   }
 
   .tree-item:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
   }
 
   .tree-item.active {
-    background: var(--bg-button-hover);
-    color: var(--accent);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    border-left-color: var(--accent);
+    color: var(--text);
   }
 
   .tree-item.selected {
-    background: var(--bg-button);
-    outline: 1px solid var(--accent);
+    background: color-mix(in oklch, var(--accent) 10%, transparent);
+    outline: 1px solid color-mix(in oklch, var(--accent) 50%, transparent);
     outline-offset: -1px;
   }
   .tree-item.selected.active {
-    background: var(--bg-button-hover);
+    background: color-mix(in oklch, var(--accent) 18%, transparent);
   }
-  /* Keyboard cursor (#428): a faint left bar marks the row arrow keys
-     would move from. Distinct from `.selected` so multi-selection stays
-     legible — the cursor sits on top of the selection styling. */
-  .tree-item.kb-focused {
+  /* Keyboard cursor (#428): the active-row's accent rail doubles as
+     the kb-focus signal on the active row; on non-active rows we use a
+     thicker inset shadow on the left to mark "arrow keys move from here". */
+  .tree-item.kb-focused:not(.active) {
     box-shadow: inset 2px 0 0 var(--accent);
   }
 
   .tree-item.drop-hover {
-    background: var(--bg-button-hover);
+    background: color-mix(in oklch, var(--accent) 16%, transparent);
     outline: 1px dashed var(--accent);
     outline-offset: -1px;
   }
 
-  .icon {
-    font-size: 11px;
-    width: 14px;
+  /* Disclosure chevron — fixed-width gutter so file and folder rows
+     have aligned icon/label columns. */
+  .chev {
+    width: 11px;
     flex-shrink: 0;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
   }
 
-  .dir .icon {
-    font-size: 12px;
+  .row-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Modified-time stamp on file rows (§5.3) — right-aligned, mono. */
+  .mtime {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
   .context-menu {

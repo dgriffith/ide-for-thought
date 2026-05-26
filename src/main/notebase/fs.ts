@@ -48,10 +48,22 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
         children,
       });
     } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
+      // mtime drives the "2h / 5d / 1mo" stamp on each file row in the
+      // sidebar (§5.3 of the 2026-05 design review). One extra stat per
+      // file at listing time; for typical thoughtbase sizes this is
+      // dwarfed by the existing graph indexing.
+      let mtimeMs: number | undefined;
+      try {
+        mtimeMs = (await fs.stat(fullPath)).mtimeMs;
+      } catch {
+        // Race against deletion or a transient permission glitch — drop
+        // the stamp rather than fail the whole listing.
+      }
       files.push({
         name: entry.name,
         relativePath,
         isDirectory: false,
+        mtimeMs,
       });
     }
   }
