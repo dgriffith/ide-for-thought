@@ -1,6 +1,13 @@
 <script lang="ts">
   import type { TagInfo, TaggedNote, TaggedSource } from '../../../shared/types';
   import { api } from '../ipc/client';
+  import Chip from './ui/Chip.svelte';
+
+  /** Tags that always render in the accent variant, no matter their
+   *  count. Per IMPLEMENTATION.md §5.4 the default list is `entrypoint`
+   *  and `open-question` — the two tags Minerva treats as
+   *  navigationally significant. */
+  const ACCENT_TAGS: ReadonlySet<string> = new Set(['entrypoint', 'open-question']);
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
@@ -14,6 +21,22 @@
   let taggedNotes = $state<TaggedNote[]>([]);
   let taggedSources = $state<TaggedSource[]>([]);
   let showSources = $state(true);
+
+  /** Threshold above which a chip renders with the `big` size — top
+   *  quartile by frequency. Recomputed whenever the tag list changes. */
+  const bigThreshold = $derived.by(() => {
+    if (tags.length === 0) return Infinity;
+    const sorted = tags.map((t) => t.count).sort((a, b) => b - a);
+    const idx = Math.max(0, Math.floor(sorted.length / 4) - 1);
+    return sorted[idx];
+  });
+
+  function chipTone(tag: string): 'accent' | 'default' {
+    return ACCENT_TAGS.has(tag) ? 'accent' : 'default';
+  }
+  function chipSize(count: number): 'sm' | 'md' {
+    return count >= bigThreshold ? 'md' : 'sm';
+  }
 
   export async function refresh() {
     tags = await api.tags.list();
@@ -63,15 +86,17 @@
     <div class="empty">No tags yet</div>
   {:else}
     <div class="tag-list">
-      {#each tags as { tag, count }}
-        <button
-          class="tag-item"
-          class:active={activeTag === tag}
+      {#each tags as { tag, count } (tag)}
+        {@const active = activeTag === tag}
+        <Chip
+          tone={active ? 'accent' : chipTone(tag)}
+          size={chipSize(count)}
           onclick={() => showNotesForTag(tag)}
+          title={`#${tag} · ${count}`}
         >
           <span class="tag-name">#{tag}</span>
-          <span class="tag-count">{count}</span>
-        </button>
+          <span class="count">{count}</span>
+        </Chip>
       {/each}
     </div>
   {/if}
@@ -142,38 +167,19 @@
   .tag-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 0 8px 8px;
+    gap: 5px;
+    padding: 4px 14px 14px;
   }
 
-  .tag-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: none;
-    color: var(--text-muted);
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.15s;
+  .tag-name {
+    font-family: var(--font-sans);
   }
 
-  .tag-item:hover {
-    background: var(--bg-button);
-    color: var(--text);
-  }
-
-  .tag-item.active {
-    background: var(--accent);
-    color: var(--bg);
-    border-color: var(--accent);
-  }
-
-  .tag-count {
-    font-size: 10px;
-    opacity: 0.7;
+  .count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 10.5px;
+    color: var(--text-faint);
   }
 
   .notes-section {

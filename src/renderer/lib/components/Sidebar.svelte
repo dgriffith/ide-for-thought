@@ -13,6 +13,28 @@
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables';
 
+  /** Hybrid icon-rail definition: the active tab shows the label, the
+   *  others are icon-only. Per IMPLEMENTATION.md §5.1. */
+  const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' }> = [
+    { id: 'notes',  label: 'Notes',  icon: 'notes' },
+    { id: 'sites',  label: 'Sites',  icon: 'sites' },
+    { id: 'tags',   label: 'Tags',   icon: 'tags' },
+    { id: 'tables', label: 'Tables', icon: 'tables' },
+  ];
+
+  /** Recursively count files (not folders) in the tree — drives the
+   *  count chip in the Notes panel header. Cheap; the renderer already
+   *  recursively walks `files` in other places (selection counting). */
+  function countFiles(nodes: NoteFile[] | undefined): number {
+    if (!nodes) return 0;
+    let n = 0;
+    for (const node of nodes) {
+      if (node.isDirectory) n += countFiles(node.children);
+      else n++;
+    }
+    return n;
+  }
+
   interface Props {
     files: NoteFile[];
     /** Project name shown as the synthetic root row above the file
@@ -49,6 +71,8 @@
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
+  const notesCount = $derived(countFiles(files));
+  const activeLabel = $derived(PANELS.find((p) => p.id === activePanel)?.label ?? '');
   /** Mirrored from sidebar/settings so the toolbar toggle reflects the
    *  current state and persists changes write-through. */
   let autoReveal = $state(getSidebarSettings().autoReveal);
@@ -397,30 +421,27 @@
   <div class="resize-handle" class:dragging onmousedown={startResize}></div>
 
   <div class="panel-tabs">
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'notes'}
-      onclick={() => activePanel = 'notes'}
-      title="Notes"
-    ><Icon name="notes" size={14} /></button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'sites'}
-      onclick={() => activePanel = 'sites'}
-      title="Sites"
-    ><Icon name="sites" size={14} /></button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'tags'}
-      onclick={() => activePanel = 'tags'}
-      title="Tags"
-    ><Icon name="tags" size={14} /></button>
-    <button
-      class="panel-tab"
-      class:active={activePanel === 'tables'}
-      onclick={() => activePanel = 'tables'}
-      title="Tables"
-    ><Icon name="tables" size={14} /></button>
+    {#each PANELS as p (p.id)}
+      {@const active = activePanel === p.id}
+      <button
+        class="panel-tab"
+        class:active
+        onclick={() => activePanel = p.id}
+        title={p.label}
+      >
+        <Icon name={p.icon} size={14} color={active ? 'var(--accent)' : 'currentColor'} />
+        {#if active}<span class="panel-tab-label">{p.label}</span>{/if}
+      </button>
+    {/each}
+  </div>
+
+  <div class="panel-header">
+    <h2 class="panel-title">{activeLabel}</h2>
+    <div class="panel-actions">
+      {#if activePanel === 'notes'}
+        <span class="panel-count" title="{notesCount} notes">{notesCount}</span>
+      {/if}
+    </div>
   </div>
 
   <div class="panel-content">
@@ -486,8 +507,11 @@
               onclick={() => rootExpanded = !rootExpanded}
               title={rootName}
             >
-              <span class="icon">{rootExpanded ? '▾' : '▸'}</span>
-              {rootName}
+              <span class="chev">
+                <Icon name={rootExpanded ? 'chevronDown' : 'chevronRight'} size={11} />
+              </span>
+              <Icon name={rootExpanded ? 'folderOpen' : 'folder'} size={14} />
+              <span class="row-label">{rootName}</span>
             </button>
           {/if}
           {#if rootExpanded}
@@ -584,8 +608,7 @@
   .panel-tabs {
     display: flex;
     gap: 2px;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
+    padding: 10px 10px 4px;
     flex-shrink: 0;
     overflow-x: auto;
     scrollbar-width: thin;
@@ -600,22 +623,62 @@
 
   .panel-tab {
     flex-shrink: 0;
-    padding: 4px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
     border: none;
-    border-radius: 4px;
+    border-radius: 7px;
     background: none;
     color: var(--text-muted);
-    font-size: 14px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 450;
     cursor: pointer;
   }
 
-  .panel-tab:hover {
-    background: var(--bg-button);
+  .panel-tab:hover:not(.active) {
+    color: var(--text);
   }
 
   .panel-tab.active {
-    background: var(--bg-button-hover);
+    padding: 6px 10px;
+    background: var(--bg);
     color: var(--text);
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+
+  .panel-tab-label {
+    line-height: 1;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 10px 16px 8px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--text);
+  }
+  .panel-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-faint);
+  }
+  .panel-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
   }
 
   .panel-content {
@@ -700,26 +763,38 @@
   .tree-item.root-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
-    padding: 4px 8px;
+    padding: 5px 12px 5px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     text-align: left;
-    border-radius: 4px;
   }
   .tree-item.root-item:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
   }
-  .tree-item.root-item .icon {
-    font-size: 12px;
-    width: 14px;
+  .tree-item.root-item :global(svg) {
     flex-shrink: 0;
-    text-align: center;
+  }
+  .tree-item.root-item .chev {
+    width: 11px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-faint);
+  }
+  .tree-item.root-item .row-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .empty {
