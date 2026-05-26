@@ -156,8 +156,10 @@
       ondragover={handleDragOver}
       ondrop={(e) => { e.stopPropagation(); handleDrop(e, node.id); }}
     >
-      <span class="bm-icon"><Icon name={expanded[node.id] ? 'chevronDown' : 'chevronRight'} size={11} /></span>
+      <span class="chev"><Icon name={expanded[node.id] ? 'chevronDown' : 'chevronRight'} size={11} color="var(--text-faint)" /></span>
+      <Icon name={expanded[node.id] ? 'folderOpen' : 'folder'} size={14} color="var(--text-muted)" />
       <span class="bm-name">{node.name}</span>
+      <span class="folder-count">{node.children.length}</span>
     </div>
     {#if expanded[node.id] || search.trim()}
       {#each node.children as child}
@@ -176,8 +178,12 @@
       draggable={true}
       ondragstart={(e) => handleDragStart(e, node.id)}
     >
-      <span class="bm-icon"><Icon name="bookmark" size={11} /></span>
-      <span class="bm-name">{node.name}</span>
+      <span class="chev"></span>
+      <Icon name="bookmark" size={13} color="var(--text-faint)" />
+      <span class="bm-body">
+        <span class="bm-name">{node.name}</span>
+        <span class="bm-path">{node.relativePath}</span>
+      </span>
     </div>
   {/if}
 {/snippet}
@@ -192,22 +198,29 @@
 
   .panel-header {
     display: flex;
-    padding: 4px 8px;
+    padding: 6px 12px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
 
   .new-folder-btn {
-    padding: 2px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
     border: 1px solid var(--border);
-    border-radius: 3px;
-    background: none;
+    border-radius: 5px;
+    background: var(--bg);
     color: var(--text-muted);
-    font-size: 11px;
+    font-family: var(--font-sans);
+    font-size: 11.5px;
     cursor: pointer;
   }
 
-  .new-folder-btn:hover { background: var(--bg-button); color: var(--text); }
+  .new-folder-btn:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
 
   .empty {
     color: var(--text-muted);
@@ -225,35 +238,70 @@
   .bm-item {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 3px 8px;
+    gap: 8px;
+    padding: 5px 12px;
+    border-left: 2px solid transparent;
     cursor: pointer;
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
     color: var(--text);
-    border-radius: 3px;
-    margin: 0 4px;
+  }
+  .bm-item:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+    border-left-color: var(--accent);
   }
 
-  .bm-item:hover { background: var(--bg-button); }
-
-  .bm-icon {
+  /* Fixed-width chevron slot so folder/bookmark icons align in a column */
+  .chev {
+    width: 11px;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    width: 12px;
-    flex-shrink: 0;
-    text-align: center;
-    color: var(--text-muted);
   }
 
+  .bm-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
   .bm-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Sub-line: source path in mono-faint (§13.7). Lives in the body
+     column so it tucks under the bookmark name. */
+  .bm-path {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-  .folder .bm-name { font-weight: 500; }
+  /* Folder row: count chip on the right; folder title slightly heavier. */
+  .folder {
+    color: var(--text);
+  }
+  .folder .bm-name {
+    font-weight: 500;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .folder-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
 
   .context-menu {
     position: fixed;
