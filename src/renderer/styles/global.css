@@ -33,7 +33,7 @@
   /* Type — IBM Plex (Serif / Sans / Mono). Plex's regular weight reads
      heavy at small sizes, so UI body uses weight 450. */
   --font-display: 'IBM Plex Serif', Georgia, serif;
-  --font-sans:    'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+  --font-sans:    'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
   --font-mono:    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
