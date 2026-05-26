@@ -16,6 +16,7 @@
   import { api } from '../../ipc/client';
   import type { CitationGroup } from '../../../../shared/types';
   import Ribbon from './Ribbon.svelte';
+  import Icon from '../Icon.svelte';
 
   interface Props {
     activeFilePath: string | null;
@@ -136,7 +137,8 @@
       {#each visible as g (g.sourceId)}
         {@const isExpanded = expanded[g.sourceId] ?? false}
         {@const hasExcerpts = g.excerpts.length > 0}
-        <div class="source-row">
+        {@const missing = !g.title}
+        <div class="source-row" class:missing>
           <div class="source-line">
             <button
               class="disclose"
@@ -144,20 +146,30 @@
               onclick={() => { if (hasExcerpts) expanded = { ...expanded, [g.sourceId]: !isExpanded }; }}
               disabled={!hasExcerpts}
               aria-label={hasExcerpts ? (isExpanded ? 'Collapse excerpts' : 'Expand excerpts') : ''}
-            >{hasExcerpts ? (isExpanded ? '▾' : '▸') : ''}</button>
+            >
+              {#if hasExcerpts}
+                <Icon name={isExpanded ? 'chevronDown' : 'chevronRight'} size={11} color="var(--text-faint)" />
+              {/if}
+            </button>
+            <Icon name={missing ? 'warn' : 'source'} size={14} color={missing ? 'var(--rust)' : 'var(--text-muted)'} />
             <button
               class="source-main"
               onclick={() => onOpenSource(g.sourceId)}
               title={g.sourceId}
             >
               <div class="source-title">{g.title ?? g.sourceId}</div>
-              {#if bylineFor(g)}
+              {#if missing}
+                <div class="source-byline">{totalCount(g)} references · uncited</div>
+              {:else if bylineFor(g)}
                 <div class="source-byline">{bylineFor(g)}</div>
               {/if}
             </button>
-            <span class="count-badge" title={`${g.citeCount} cite${g.citeCount === 1 ? '' : 's'}, ${g.quoteCount} quote${g.quoteCount === 1 ? '' : 's'}`}>
-              {totalCount(g)}×
-            </span>
+            {#if !missing}
+              <span class="cite-stat" title={`${g.citeCount} cite${g.citeCount === 1 ? '' : 's'}, ${g.quoteCount} quote${g.quoteCount === 1 ? '' : 's'}`}>
+                {#if g.citeCount > 0}<span class="stat-cite">{g.citeCount}</span>{/if}
+                {#if g.quoteCount > 0}<span class="stat-quote">{g.quoteCount}″</span>{/if}
+              </span>
+            {/if}
           </div>
           {#if isExpanded && hasExcerpts}
             <ul class="excerpts">
@@ -170,16 +182,18 @@
                     title={ex.excerptId}
                   >
                     {#if ex.citedText}
-                      <span class="excerpt-text">“{truncate(ex.citedText, 80)}”</span>
+                      <span class="excerpt-text">“{truncate(ex.citedText, 100)}”</span>
                     {:else}
                       <span class="excerpt-text excerpt-id">{ex.excerptId}</span>
                     {/if}
-                    {#if locator}
-                      <span class="excerpt-locator">{locator}</span>
-                    {/if}
-                    {#if ex.quoteCount > 1}
-                      <span class="excerpt-count">×{ex.quoteCount}</span>
-                    {/if}
+                    <span class="excerpt-meta">
+                      {#if locator}
+                        <span class="excerpt-locator">{locator}</span>
+                      {/if}
+                      {#if ex.quoteCount > 1}
+                        <span class="excerpt-count">×{ex.quoteCount}</span>
+                      {/if}
+                    </span>
                   </button>
                 </li>
               {/each}
@@ -204,34 +218,39 @@
     padding: 4px 0;
   }
   .count {
-    padding: 4px 12px;
-    font-size: 11px;
-    color: var(--text-muted);
+    padding: 6px 12px 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
   }
+  /* Per source (§13.6) — source icon + (italic display-serif title +
+     sans byline stacked) + cite/quote split chip on the right. */
   .source-row {
-    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
   }
-  .source-row:last-child { border-bottom: none; }
+  .source-row:first-of-type { border-top: none; }
+
   .source-line {
     display: flex;
-    align-items: stretch;
-    gap: 4px;
-    padding: 4px 8px;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
   }
   .disclose {
     flex-shrink: 0;
-    width: 16px;
+    width: 12px;
+    height: 18px;
     border: none;
     background: none;
-    color: var(--text-muted);
-    font-size: 11px;
     cursor: pointer;
     padding: 0;
-    align-self: flex-start;
-    margin-top: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .disclose:disabled { cursor: default; visibility: hidden; }
-  .disclose.has-excerpts:hover { color: var(--text); }
+
   .source-main {
     flex: 1;
     min-width: 0;
@@ -243,75 +262,103 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
   }
   .source-main:hover .source-title { color: var(--accent); }
+  /* Editorial title — italic display-serif, the panel's signature. */
   .source-title {
-    font-size: 12px;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .source-row.missing .source-title {
+    color: var(--rust);
+    font-style: italic;
   }
   .source-byline {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .count-badge {
+  .source-byline :global(.year),
+  .source-row.missing .source-byline {
+    font-family: var(--font-mono);
+  }
+
+  /* Cite/quote split: cite count on the left, quote count with a "
+     marker on the right. Both in mono-faint. */
+  .cite-stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
     align-self: flex-start;
-    font-size: 10px;
-    padding: 1px 6px;
-    border-radius: 8px;
-    background: var(--bg-button);
-    color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
   }
+  .stat-cite { color: var(--text-muted); }
+  .stat-quote { color: var(--accent); }
+
+  /* Attached excerpts — block-quote chunks indented under the source
+     with a 2px accent rail, italic display-serif text, mono locator. */
   .excerpts {
     list-style: none;
-    margin: 0;
-    padding: 0 8px 6px 28px;
+    margin: 0 12px 10px 36px;
+    padding: 0;
+    border-left: 2px solid color-mix(in oklch, var(--accent) 40%, transparent);
   }
   .excerpts li { margin: 0; }
   .excerpt {
     display: flex;
     align-items: baseline;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
     border: none;
     background: none;
-    color: var(--text);
-    font-size: 11px;
+    color: var(--text-muted);
     cursor: pointer;
     text-align: left;
-    padding: 2px 4px;
-    border-radius: 3px;
+    padding: 4px 10px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 12.5px;
+    line-height: 1.45;
   }
-  .excerpt:hover { background: var(--bg-button); }
+  .excerpt:hover {
+    background: color-mix(in oklch, var(--accent) 6%, transparent);
+    color: var(--text);
+  }
   .excerpt-text {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text);
   }
   .excerpt-id {
-    font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-style: normal;
+    color: var(--text-faint);
   }
-  .excerpt-locator {
+  .excerpt-meta {
     flex-shrink: 0;
+    display: inline-flex;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-style: normal;
     font-size: 10px;
-    color: var(--text-muted);
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
   }
-  .excerpt-count {
-    flex-shrink: 0;
-    font-size: 10px;
-    color: var(--text-muted);
-  }
+  .excerpt-locator { color: var(--text-muted); }
   .empty {
     padding: 12px;
     font-size: 12px;
