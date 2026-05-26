@@ -5,12 +5,15 @@
    * fences). Each distinct table name becomes a clickable row that opens
    * `SELECT * FROM <name>` in a new query tab.
    *
-   * Names we couldn't match against a registered table are shown dimmed
-   * (mirrors OutgoingLinksPanel's "dead link" styling) so it's clear
-   * when a fence references a table the CSV watcher hasn't picked up.
+   * Polished per IMPLEMENTATION.md §13.5: tables icon + mono name +
+   * rows × cols stat in mono-faint + right-aligned SELECT * accent
+   * button. Hover keeps the whole row clickable so the existing
+   * one-click-to-query muscle memory still works.
    */
   import { api } from '../../ipc/client';
   import Ribbon from './Ribbon.svelte';
+  import Icon from '../Icon.svelte';
+  import type { TableInfo } from '../../ipc/client';
 
   interface Props {
     content: string;
@@ -19,14 +22,14 @@
 
   let { content, onOpenQuery }: Props = $props();
 
-  let registeredTables = $state<Set<string>>(new Set());
+  let registeredTables = $state<Map<string, TableInfo>>(new Map());
   let search = $state('');
 
   async function refreshTables() {
     try {
       const list = await api.tables.list();
-      registeredTables = new Set(list.map((t) => t.name));
-    } catch { /* tables db not ready — keep empty set */ }
+      registeredTables = new Map(list.map((t) => [t.name, t]));
+    } catch { /* tables db not ready — keep empty map */ }
   }
 
   $effect(() => { void refreshTables(); });
@@ -62,6 +65,11 @@
     const all = [...seen].sort();
     return q ? all.filter((n) => n.toLowerCase().includes(q)) : all;
   });
+
+  function handleSelectStar(e: MouseEvent, name: string) {
+    e.stopPropagation();
+    onOpenQuery(`SELECT * FROM ${name}`);
+  }
 </script>
 
 <div class="tables-panel">
@@ -76,14 +84,34 @@
     {:else}
       <div class="count">{tables().length} table{tables().length !== 1 ? 's' : ''}</div>
       {#each tables() as name}
-        {@const known = registeredTables.has(name)}
+        {@const info = registeredTables.get(name)}
+        {@const known = info !== undefined}
         <button
           class="row"
           class:dead={!known}
           onclick={() => onOpenQuery(`SELECT * FROM ${name}`)}
-          title={known ? name : `${name} (not registered)`}
+          title={known ? `${name} · ${info.rowCount} × ${info.columns.length}` : `${name} (not registered)`}
         >
-          <span class="name">{name}</span>
+          {#if known}
+            <Icon name="tables" size={14} color="var(--text-muted)" />
+          {:else}
+            <Icon name="warn" size={13} color="var(--rust)" />
+          {/if}
+          <span class="name-col">
+            <span class="name">{name}</span>
+            {#if known}
+              <span class="stat">{info.rowCount} × {info.columns.length}</span>
+            {:else}
+              <span class="stat dead-stat">not registered</span>
+            {/if}
+          </span>
+          {#if known}
+            <button
+              class="select-btn"
+              onclick={(e) => handleSelectStar(e, name)}
+              title="SELECT * FROM {name}"
+            >SELECT *</button>
+          {/if}
         </button>
       {/each}
     {/if}
@@ -103,25 +131,94 @@
     padding: 4px 0;
   }
   .count {
-    padding: 4px 12px;
-    font-size: 11px;
-    color: var(--text-muted);
+    padding: 6px 12px 4px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
   }
+
+  /* Row (§13.5) — icon + (name + stat stacked) + right-aligned SELECT *
+     accent button. The whole row stays a button so a casual click still
+     fires the query — the explicit SELECT * pill is just an affordance
+     to make the action discoverable. */
   .row {
     display: flex;
     align-items: center;
+    gap: 10px;
     width: 100%;
-    padding: 3px 12px;
+    padding: 8px 12px;
     border: none;
+    border-left: 2px solid transparent;
     background: none;
     color: var(--text);
-    font-size: 12px;
+    font-family: var(--font-sans);
     cursor: pointer;
     text-align: left;
-    font-family: var(--font-mono, monospace);
   }
-  .row:hover { background: var(--bg-button); }
-  .row.dead { opacity: 0.4; font-style: italic; }
-  .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .empty { padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center; }
+  .row:hover {
+    background: color-mix(in oklch, var(--text) 4%, transparent);
+    border-left-color: var(--accent);
+  }
+  .row.dead {
+    cursor: default;
+  }
+  .row.dead:hover {
+    border-left-color: transparent;
+  }
+
+  .name-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .name {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row.dead .name { color: var(--rust); }
+  .stat {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .dead-stat { color: var(--rust); }
+
+  /* SELECT * accent pill. Stops propagation so a click on the pill
+     doesn't double-trigger the row's onclick. */
+  .select-btn {
+    padding: 3px 8px;
+    border: 1px solid color-mix(in oklch, var(--accent) 30%, transparent);
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .row:hover .select-btn {
+    opacity: 1;
+  }
+  .select-btn:hover {
+    background: color-mix(in oklch, var(--accent) 22%, transparent);
+  }
+
+  .empty {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
 </style>
