@@ -22,6 +22,7 @@ import path from 'node:path';
 import { Buffer } from 'node:buffer';
 import { extractText, getMeta } from 'unpdf';
 import { canonicalSourceId } from './source-id';
+import { mergeMetaTtl } from './source-merge';
 
 export interface PdfIngestResult {
   sourceId: string;
@@ -54,9 +55,20 @@ export async function ingestPdf(
 
   const meta = await readPdfMeta(freshCopy(buf));
 
-  // Dedupe on the destination meta.ttl — matches the URL / identifier flows.
+  // Dedupe: existing meta.ttl → merge enriching fields from this PDF's
+  // /Info dict (#90). The bytes were content-hashed so the title + DOI
+  // should match the first ingest, but PDFs can be re-saved with edited
+  // metadata, and a DOI scraped from a later /Info dict is worth picking
+  // up if the first ingest missed it.
   try {
-    await fs.access(path.join(sourceDir, 'meta.ttl'));
+    const existingTtl = await fs.readFile(path.join(sourceDir, 'meta.ttl'), 'utf-8');
+    const { ttl: merged, added } = mergeMetaTtl(existingTtl, {
+      doi: meta.doi,
+      creators: meta.creators.length > 0 ? meta.creators : null,
+    });
+    if (added.length > 0) {
+      await fs.writeFile(path.join(sourceDir, 'meta.ttl'), merged, 'utf-8');
+    }
     return {
       sourceId,
       relativePath,
@@ -65,7 +77,10 @@ export async function ingestPdf(
       pageCount: 0,
       needsOcr: false,
     };
-  } catch { /* not found — proceed */ }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // Not found — proceed to fresh ingest.
+  }
 
   const { pages, totalPages } = await extractTextOrFail(freshCopy(buf));
   const needsOcr = pages.every((p) => p.trim().length === 0) && totalPages > 0;

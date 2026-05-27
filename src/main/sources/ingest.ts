@@ -21,6 +21,7 @@ import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import { canonicalSourceId, normalizeUrl } from './source-id';
+import { mergeMetaTtl } from './source-merge';
 import { extractStructured, structuredToArticleMetadata } from './site-handlers';
 import { buildMetaTtl as buildArticleMetaTtl } from './ingest-identifier';
 
@@ -69,18 +70,55 @@ export async function ingestUrl(
   const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
   const relativePath = `.minerva/sources/${sourceId}/meta.ttl`;
 
-  // Dedupe: if meta.ttl already exists, bail. The user can delete-and-reingest
-  // for a refresh; auto-overwriting would risk clobbering hand edits they've
-  // made to body.md since first ingest.
-  try {
-    await fs.access(path.join(sourceDir, 'meta.ttl'));
-    const existing = await readExistingTitle(sourceDir).catch(() => '');
-    return { sourceId, relativePath, duplicate: true, title: existing };
-  } catch {
-    // Not found — proceed.
-  }
-
   const extracted = extractReadableFromDoc(document, normalized);
+
+  // Dedupe: if meta.ttl already exists, MERGE new metadata into it
+  // rather than overwrite or skip (#90). body.md and other files are
+  // left untouched so the user's hand edits there survive a re-ingest.
+  try {
+    const existingTtl = await fs.readFile(path.join(sourceDir, 'meta.ttl'), 'utf-8');
+    const update: Parameters<typeof mergeMetaTtl>[1] = structured
+      ? {
+          doi: structured.doi ?? null,
+          isbn: structured.isbn ?? null,
+          uri: normalized,
+          // Structured handlers may supply richer metadata — fold it in
+          // via structuredToArticleMetadata so the field shapes line up.
+          ...(() => {
+            const m = structuredToArticleMetadata(structured, {
+              title: extracted.title,
+              byline: extracted.byline,
+              abstract: extracted.excerpt,
+              issued: extracted.publishedTime,
+              publisher: extracted.siteName,
+              uri: normalized,
+            });
+            return {
+              issued: m.issued,
+              publisher: m.publisher,
+              containerTitle: m.containerTitle,
+              abstract: m.abstract,
+              creators: m.creators,
+            };
+          })(),
+        }
+      : {
+          uri: normalized,
+          publisher: extracted.siteName,
+          abstract: extracted.excerpt,
+          issued: extracted.publishedTime,
+          creators: extracted.byline ? [extracted.byline] : null,
+        };
+    const { ttl: merged, added } = mergeMetaTtl(existingTtl, update);
+    if (added.length > 0) {
+      await fs.writeFile(path.join(sourceDir, 'meta.ttl'), merged, 'utf-8');
+    }
+    const existingTitle = await readExistingTitle(sourceDir).catch(() => '');
+    return { sourceId, relativePath, duplicate: true, title: existingTitle || extracted.title };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // Not found — proceed to fresh ingest.
+  }
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'original.html'), html, 'utf-8');

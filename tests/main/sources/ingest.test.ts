@@ -232,6 +232,58 @@ describe('ingestUrl (#93)', () => {
     expect(body).toContain('Hand-edited');
   });
 
+  it('merges missing predicates into existing meta.ttl on duplicate (#90)', async () => {
+    // First ingest: page without an og:site_name → no dc:publisher in
+    // the emitted meta.ttl. (Readability still pulls a byline and
+    // excerpt from the markup, so we test against the field we
+    // deliberately leave out.)
+    const noSiteHtml = `<!doctype html><html><head><title>Page</title>
+      <meta name="author" content="Original Author"></head><body>
+      <article><h1>Page</h1>
+      <p>A first paragraph that's long enough to satisfy Readability's content threshold for short pages.</p>
+      <p>A second paragraph for good measure so the extraction doesn't bail.</p>
+      </article></body></html>`;
+    await ingestUrl(root, 'https://example.com/page', {
+      fetchImpl: mockFetch(noSiteHtml),
+    });
+    const sourceDir = path.join(root, '.minerva', 'sources');
+    const ids = await fsp.readdir(sourceDir);
+    const metaPath = path.join(sourceDir, ids[0], 'meta.ttl');
+    const before = await fsp.readFile(metaPath, 'utf-8');
+    expect(before).not.toContain('dc:publisher');
+
+    // Re-ingest with og:site_name set — merge should add dc:publisher.
+    await ingestUrl(root, 'https://example.com/page', {
+      fetchImpl: mockFetch(samplePageHtml({
+        title: 'Page',
+        siteName: 'Example Press',
+      })),
+    });
+    const after = await fsp.readFile(metaPath, 'utf-8');
+    expect(after).toContain('dc:publisher "Example Press"');
+    // Existing title and creator preserved (creator existed before).
+    expect(after).toContain('dc:title "Page"');
+    expect(after).toContain('Original Author');
+  });
+
+  it('preserves an existing predicate when re-ingest provides a different value (#90)', async () => {
+    await ingestUrl(root, 'https://example.com/foo', {
+      fetchImpl: mockFetch(samplePageHtml({ title: 'Original', byline: 'A. First' })),
+    });
+    const sourceDir = path.join(root, '.minerva', 'sources');
+    const ids = await fsp.readdir(sourceDir);
+    const metaPath = path.join(sourceDir, ids[0], 'meta.ttl');
+
+    // Re-ingest — different byline. Merge is conservative: existing
+    // dc:creator stays; the new one is dropped.
+    await ingestUrl(root, 'https://example.com/foo', {
+      fetchImpl: mockFetch(samplePageHtml({ title: 'Original', byline: 'B. Second' })),
+    });
+    const after = await fsp.readFile(metaPath, 'utf-8');
+    expect(after).toContain('dc:creator "A. First"');
+    expect(after).not.toContain('B. Second');
+  });
+
   it('rejects a non-URL input', async () => {
     await expect(
       ingestUrl(root, 'not a url', { fetchImpl: mockFetch('') }),

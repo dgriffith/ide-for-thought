@@ -14,6 +14,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { canonicalSourceId, normalizeDoi, normalizeArxivId, normalizePubmedId } from './source-id';
+import { mergeMetaTtl } from './source-merge';
 import type { ArticleMetadata } from './api-adapters/types';
 import { fetchCrossrefMetadata } from './api-adapters/crossref';
 import { fetchArxivMetadata } from './api-adapters/arxiv';
@@ -86,9 +87,24 @@ export async function ingestIdentifier(
   const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
   const relativePath = `.minerva/sources/${sourceId}/meta.ttl`;
 
-  // Dedupe: existing meta.ttl → bail without overwriting.
+  // Dedupe: existing meta.ttl → merge new metadata into it (#90).
+  // The merge only adds predicates the existing file lacks; existing
+  // values + hand edits to body.md are preserved.
   try {
-    await fs.access(path.join(sourceDir, 'meta.ttl'));
+    const existingTtl = await fs.readFile(path.join(sourceDir, 'meta.ttl'), 'utf-8');
+    const { ttl: merged, added } = mergeMetaTtl(existingTtl, {
+      doi: metadata.doi,
+      isbn: metadata.isbn,
+      uri: metadata.uri,
+      issued: metadata.issued,
+      publisher: metadata.publisher,
+      containerTitle: metadata.containerTitle,
+      abstract: metadata.abstract,
+      creators: metadata.creators,
+    });
+    if (added.length > 0) {
+      await fs.writeFile(path.join(sourceDir, 'meta.ttl'), merged, 'utf-8');
+    }
     return {
       sourceId,
       relativePath,
@@ -98,7 +114,11 @@ export async function ingestIdentifier(
       pdfSaved: false,
       pdfError: null,
     };
-  } catch { /* not found — proceed */ }
+  } catch (err) {
+    // ENOENT is the "no existing file" path — proceed to fresh ingest.
+    // Anything else is a real read/write failure; surface it.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildMetaTtl(metadata), 'utf-8');
