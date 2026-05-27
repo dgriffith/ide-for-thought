@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import MarkdownIt from 'markdown-it';
-import { installMath } from '../../src/shared/markdown/math-plugin';
+import { installMath } from '../../src/renderer/lib/markdown/math-plugin';
 
 function md(): MarkdownIt {
   const m = new MarkdownIt({ html: true });

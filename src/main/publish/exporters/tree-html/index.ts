@@ -24,7 +24,6 @@ import { renderNoteBody, inlineImages } from '../note-html/render';
 import { wrapHtml } from '../note-html/shell';
 import { renderFootnotesSection } from '../note-html';
 import { NOTE_HTML_STYLE } from '../note-html/style';
-import { bodyHasKatex, getKatexStyle } from '../note-html/katex-css';
 import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../types';
 
 export const treeHtmlExporter: Exporter = {
@@ -54,10 +53,6 @@ export const treeHtmlExporter: Exporter = {
     // the counter bundle-wide would only confuse readers.
     const allCitedIds = new Set<string>();
     let isNoteStyle = false;
-    // Track whether any note in the bundle produced KaTeX output (#327).
-    // KaTeX CSS is folded into the shared style.css below when true so
-    // every page sees one copy instead of inlining ~300KB per page.
-    let bundleHasMath = false;
 
     const files: ExportOutput['files'] = [];
     for (const note of notes) {
@@ -70,7 +65,6 @@ export const treeHtmlExporter: Exporter = {
       const withFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
       const withRefLink = appendBundleReferenceLink(withFootnotes, note, rootNote, noteHasCites);
       const body = await inlineImages(withRefLink, note, rootPath, bundlePlan.assetPolicy);
-      if (!bundleHasMath && bodyHasKatex(body)) bundleHasMath = true;
       const rootRel = relativeToRoot(note.relativePath, rootNote);
       const html = wrapHtml({
         title: note.title,
@@ -112,15 +106,11 @@ export const treeHtmlExporter: Exporter = {
 
     // Shared stylesheet at the bundle root (#292). Appended only when
     // we actually emitted notes — empty bundles don't get a stub
-    // style.css. KaTeX CSS is folded in only when at least one note
-    // in the bundle has math (#327) so cite-only bundles stay slim.
+    // style.css.
     if (files.length > 0) {
-      const katexSection = bundleHasMath
-        ? `\n${getKatexStyle({ inlineFonts: true })}`
-        : '';
       files.push({
         path: 'style.css',
-        contents: `${NOTE_HTML_STYLE}\n${BUNDLE_NAV_STYLE}${katexSection}`,
+        contents: `${NOTE_HTML_STYLE}\n${BUNDLE_NAV_STYLE}`,
       });
     }
 
