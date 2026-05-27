@@ -687,6 +687,24 @@
     sidebar?.refreshTags();
   }
 
+  /** Zotero-style "New note about this source" (#474). Creates a note
+   *  pre-populated with `about: [[sources/<id>]]` frontmatter so it
+   *  immediately surfaces under the source's Notes section. */
+  async function handleNewAboutSourceNote(sourceId: string): Promise<string | null> {
+    if (!notebase.meta) return null;
+    const name = await showPrompt('Note name:');
+    if (!name) return null;
+    const filename = name.endsWith('.md') ? name : `${name}.md`;
+    const relativePath = filename;
+    const titleStem = name.replace(/\.md$/, '');
+    const initialContent = `---\nabout: [[sources/${sourceId}]]\n---\n\n# ${titleStem}\n\n`;
+    await api.notebase.writeFile(relativePath, initialContent);
+    await notebase.refresh();
+    await editor.openFile(relativePath);
+    sidebar?.refreshTags();
+    return relativePath;
+  }
+
   async function handleNewFolder(directory: string = '') {
     if (!notebase.meta) return;
     const name = await showPrompt('Folder name:');
@@ -2544,6 +2562,7 @@
               onNavigate={handleNavigate}
               onShowConfirm={showConfirm}
               onDeleted={handleSourceDeleted}
+              onCreateAboutNote={handleNewAboutSourceNote}
             />
           {/key}
         {:else}

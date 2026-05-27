@@ -35,6 +35,11 @@ const MAP: Record<string, FrontmatterPredicate> = {
   language: DC('language'),
   lang: DC('language'),
   subject: DC('subject'),
+  // Zotero-style child-note relation (#474): a note declares which
+  // source(s) it's *about*. Maps to dc:subject so an existing user of
+  // `subject: …` keeps the same edge; `about: …` is the friendlier
+  // researcher-facing spelling for "this note belongs to that source".
+  about: DC('subject'),
   created: DC('created'),
   modified: DC('modified'),
   issued: DC('issued'),

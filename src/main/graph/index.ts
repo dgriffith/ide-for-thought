@@ -441,11 +441,42 @@ function flattenFrontmatterStrings(value: FrontmatterValue): string[] {
 
 type FrontmatterScalarNonNull = Exclude<FrontmatterValue, null | FrontmatterValue[]>;
 
+/**
+ * Reconstitute YAML-eaten wiki-link shorthand. The user writes
+ *
+ *   about: [[sources/foo]]
+ *
+ * intending a wiki-link, but YAML's flow syntax interprets the outer
+ * `[…]` as an array literal and the inner `[…]` as a nested array,
+ * yielding `[['sources/foo']]`. The brackets the user typed are gone
+ * by the time we see the value.
+ *
+ * The narrow signature `[[<single string>]]` is unambiguous —
+ * authentic length-1 arrays of length-1 arrays of strings don't
+ * occur in normal frontmatter. Translate that one shape back into
+ * the wiki-link form a downstream consumer expects. Anything more
+ * complex (multi-element inner array, mixed types) is left alone —
+ * users who need lists should use the proper YAML list form anyway.
+ */
+function recoverYamlEatenWikiLink(value: FrontmatterValue): FrontmatterValue {
+  if (
+    Array.isArray(value)
+    && value.length === 1
+    && Array.isArray(value[0])
+    && value[0].length === 1
+    && typeof value[0][0] === 'string'
+  ) {
+    return `[[${value[0][0]}]]`;
+  }
+  return value;
+}
+
 /** Flatten nested arrays, dropping nulls. Scalars pass through in typed form. */
 function flattenFrontmatterScalars(value: FrontmatterValue): FrontmatterScalarNonNull[] {
-  if (value === null || value === undefined) return [];
-  if (Array.isArray(value)) return value.flatMap(flattenFrontmatterScalars);
-  return [value];
+  const recovered = recoverYamlEatenWikiLink(value);
+  if (recovered === null || recovered === undefined) return [];
+  if (Array.isArray(recovered)) return recovered.flatMap(flattenFrontmatterScalars);
+  return [recovered];
 }
 
 function resolveFrontmatterPredicate(key: string) {
@@ -488,6 +519,14 @@ function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | Frontmat
   const wiki = value.match(FRONTMATTER_WIKILINK_RE);
   if (wiki && projectBaseUri) {
     const target = wiki[1].trim();
+    // `[[sources/<id>]]` materialises as the actual source URI rather
+    // than a phantom note path (#474). Lets `about: [[sources/foo]]`
+    // become a real edge from this note to the foo source, queryable
+    // alongside the cite/quote backlinks the source detail collects.
+    if (target.startsWith('sources/')) {
+      const sourceId = target.slice('sources/'.length);
+      if (sourceId) return $rdf.sym(uriHelpers.sourceUri(projectBaseUri, sourceId));
+    }
     const noteRel = target.endsWith('.md') ? target : `${target}.md`;
     return $rdf.sym(uriHelpers.noteUri(projectBaseUri, noteRel));
   }
@@ -2034,7 +2073,7 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
 
 // ── Source detail queries ───────────────────────────────────────────────────
 
-import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink } from '../../shared/types';
+import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote } from '../../shared/types';
 
 export function getSourceDetail(ctx: ProjectContext, sourceId: string): SourceDetail | null {
   const state = getState(ctx);
@@ -2049,8 +2088,9 @@ export function getSourceDetail(ctx: ProjectContext, sourceId: string): SourceDe
   const metadata = collectSourceMetadata(state, sourceId, subject);
   const excerpts = collectExcerptsForSource(state, subject);
   const backlinks = collectSourceBacklinks(state, subject, excerpts);
+  const aboutNotes = collectSourceAboutNotes(state, subject);
 
-  return { metadata, excerpts, backlinks };
+  return { metadata, excerpts, backlinks, aboutNotes };
 }
 
 function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
@@ -2163,6 +2203,38 @@ function collectSourceBacklinks(
   }
 
   results.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return results;
+}
+
+/**
+ * Notes whose frontmatter declares them as *about* this source (#474).
+ * Driven by `dc:subject` edges from a Minerva note to the source URI —
+ * the frontmatter resolver materialises `about: [[sources/<id>]]` into
+ * exactly this triple. Distinct from cite/quote backlinks: this is
+ * subject-of, not reference-of.
+ */
+function collectSourceAboutNotes(state: GraphState, sourceSubject: $rdf.NamedNode): SourceAboutNote[] {
+  const { store } = state;
+  const results: SourceAboutNote[] = [];
+  const seen = new Set<string>();
+  for (const st of store.statementsMatching(undefined, DC('subject'), sourceSubject)) {
+    const subject = st.subject as $rdf.NamedNode;
+    // Only count actual notes — a future excerpt or proposal could
+    // carry dc:subject too, and the source detail's Notes section is
+    // specifically for prose commentary.
+    const isNote = store.statementsMatching(subject, RDF('type'), MINERVA('Note')).length > 0;
+    if (!isNote) continue;
+    const pathStmts = store.statementsMatching(subject, MINERVA('relativePath'), undefined);
+    const relativePath = pathStmts[0]?.object.value;
+    if (!relativePath || seen.has(relativePath)) continue;
+    seen.add(relativePath);
+    const titleStmts = store.statementsMatching(subject, DC('title'), undefined);
+    results.push({
+      relativePath,
+      title: titleStmts[0]?.object.value ?? relativePath,
+    });
+  }
+  results.sort((a, b) => a.title.localeCompare(b.title));
   return results;
 }
 

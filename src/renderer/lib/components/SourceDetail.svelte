@@ -10,9 +10,13 @@
     onNavigate: (target: string) => void;
     onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
     onDeleted?: (sourceId: string) => void;
+    /** Create a Zotero-style child note pre-populated with
+     *  `about: [[sources/<id>]]`, open it for editing, and refresh
+     *  this detail view so the new note shows under Notes (#474). */
+    onCreateAboutNote?: (sourceId: string) => Promise<string | null>;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted }: Props = $props();
+  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote }: Props = $props();
 
   async function handleDelete() {
     if (!detail) return;
@@ -191,6 +195,22 @@
   function backlinkLabel(b: SourceBacklink): string {
     return b.kind === 'cite' ? 'cites' : 'quotes';
   }
+
+  let creatingAbout = $state(false);
+  async function handleNewAboutNote(): Promise<void> {
+    if (!onCreateAboutNote || creatingAbout) return;
+    creatingAbout = true;
+    try {
+      const newPath = await onCreateAboutNote(sourceId);
+      // The host opens the new note; we just refresh the detail view
+      // so the new entry shows under Notes when the user navigates
+      // back. (If they leave a tab open we may never come back here
+      // until they switch; the explicit reload covers the common case.)
+      if (newPath) await load(sourceId);
+    } finally {
+      creatingAbout = false;
+    }
+  }
 </script>
 
 <div class="source-detail">
@@ -329,6 +349,30 @@
                   <span>{excerptLocation(excerpt)}</span>
                 {/if}
               </div>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2>Notes ({detail.aboutNotes.length})</h2>
+        {#if onCreateAboutNote}
+          <button class="section-action" disabled={creatingAbout} onclick={handleNewAboutNote}>
+            {creatingAbout ? 'Creating…' : 'New note about this source'}
+          </button>
+        {/if}
+      </div>
+      {#if detail.aboutNotes.length === 0}
+        <p class="muted">No notes about this source yet.</p>
+      {:else}
+        <ul class="about-list">
+          {#each detail.aboutNotes as note (note.relativePath)}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <li onclick={() => onNavigate(note.relativePath)}>
+              <span class="about-title">{note.title}</span>
+              <span class="about-path mono">{note.relativePath}</span>
             </li>
           {/each}
         </ul>
@@ -669,6 +713,51 @@
     font-size: 10px;
     letter-spacing: 0.3px;
     font-weight: 600;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 8px;
+  }
+  .section-header h2 { margin: 0; }
+  .section-action {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: 1px solid color-mix(in oklch, var(--accent) 40%, var(--border));
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .section-action:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--accent) 10%, transparent);
+  }
+  .section-action:disabled { cursor: default; opacity: 0.5; }
+
+  .about-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .about-list li {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .about-list li:hover { background: var(--bg-button); }
+  .about-list li:last-child { border-bottom: none; }
+  .about-title { color: var(--accent); }
+  .about-path {
+    font-size: 11px;
+    color: var(--text-faint);
   }
 
   code {
