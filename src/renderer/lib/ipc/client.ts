@@ -679,6 +679,10 @@ export interface SourcesApi {
     metadataAdded: string[];
     artifactsCopied: string[];
   }>;
+  /** Set / change / clear a source's reading-queue status (#116). */
+  setReadStatus(sourceId: string, status: import('../../../shared/types').ReadStatus | null): Promise<void>;
+  /** Set / change / clear a source's due-by date (ISO YYYY-MM-DD). */
+  setReadDueBy(sourceId: string, dueBy: string | null): Promise<void>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */

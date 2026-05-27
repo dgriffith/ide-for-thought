@@ -257,6 +257,10 @@ contextBridge.exposeInMainWorld('api', {
     delete: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_DELETE, sourceId),
     merge: (srcId: string, destId: string) =>
       ipcRenderer.invoke(Channels.SOURCES_MERGE, { srcId, destId }),
+    setReadStatus: (sourceId: string, status: 'unread' | 'reading' | 'read' | 'skipped' | null) =>
+      ipcRenderer.invoke(Channels.SOURCES_SET_READ_STATUS, { sourceId, status }),
+    setReadDueBy: (sourceId: string, dueBy: string | null) =>
+      ipcRenderer.invoke(Channels.SOURCES_SET_READ_DUE_BY, { sourceId, dueBy }),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },

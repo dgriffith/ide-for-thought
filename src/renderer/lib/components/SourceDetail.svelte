@@ -2,7 +2,14 @@
   import { api } from '../ipc/client';
   import Preview from './Preview.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
-  import type { SourceDetail, SourceExcerpt, SourceBacklink } from '../../../shared/types';
+  import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
+
+  const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
+    { value: 'unread', label: 'Unread' },
+    { value: 'reading', label: 'Reading' },
+    { value: 'read', label: 'Read' },
+    { value: 'skipped', label: 'Skipped' },
+  ];
 
   interface Props {
     sourceId: string;
@@ -196,6 +203,19 @@
     return b.kind === 'cite' ? 'cites' : 'quotes';
   }
 
+  async function handleSetReadStatus(next: ReadStatus | null): Promise<void> {
+    if (!detail) return;
+    try {
+      await api.sources.setReadStatus(sourceId, next);
+      // Optimistic refresh — the SOURCES_CHANGED broadcast will also
+      // fire but the local round trip is faster for the same-window
+      // case.
+      await load(sourceId);
+    } catch (err) {
+      console.error('[minerva] setReadStatus failed:', err);
+    }
+  }
+
   let creatingAbout = $state(false);
   async function handleNewAboutNote(): Promise<void> {
     if (!onCreateAboutNote || creatingAbout) return;
@@ -256,6 +276,25 @@
         </div>
       {/if}
       <div class="kv"><span class="k">Source id</span><span class="v mono">{detail.metadata.sourceId}</span></div>
+      <div class="kv read-status-row">
+        <span class="k">Status</span>
+        <span class="v">
+          <div class="status-buttons" role="group" aria-label="Reading status">
+            {#each READ_STATUS_OPTIONS as opt (opt.value)}
+              <button
+                class="status-btn"
+                class:active={detail.metadata.readStatus === opt.value}
+                onclick={() => handleSetReadStatus(
+                  detail!.metadata.readStatus === opt.value ? null : opt.value,
+                )}
+                title={detail.metadata.readStatus === opt.value ? 'Click again to clear' : `Mark as ${opt.label.toLowerCase()}`}
+              >
+                {opt.label}
+              </button>
+            {/each}
+          </div>
+        </span>
+      </div>
       <div class="actions">
         <button class="action-btn" onclick={handleDelete}>Delete source</button>
       </div>
@@ -482,6 +521,34 @@
     cursor: pointer;
   }
   .action-btn:hover { background: var(--bg-button-hover); }
+
+  /* Reading-queue status (#116). Segmented buttons; the active one
+     picks up the accent rail/tint shared with selected affordances
+     elsewhere. Clicking the active button clears the status. */
+  .read-status-row .v { display: flex; }
+  .status-buttons {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .status-btn {
+    padding: 3px 10px;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-right: 1px solid var(--border);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .status-btn:last-child { border-right: none; }
+  .status-btn:hover { background: color-mix(in oklch, var(--text) 4%, transparent); color: var(--text); }
+  .status-btn.active {
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    color: var(--accent);
+    font-weight: 500;
+  }
   .k {
     color: var(--text-muted);
     font-size: 13px;

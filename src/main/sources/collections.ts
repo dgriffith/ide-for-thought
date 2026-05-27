@@ -21,7 +21,9 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import type { SmartCollection, SmartCollectionPredicate } from '../../shared/types';
+import type { SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../shared/types';
+
+const READ_STATUS_VALUES: ReadonlySet<ReadStatus> = new Set(['unread', 'reading', 'read', 'skipped']);
 
 export interface Collection {
   id: string;
@@ -55,10 +57,16 @@ function emptyFile(): CollectionsFile {
  *  truly broken record vanishes from the sidebar instead of crashing. */
 function parsePredicate(value: unknown): SmartCollectionPredicate | null {
   if (!value || typeof value !== 'object') return null;
-  const v = value as { kind?: unknown; allOf?: unknown };
+  const v = value as { kind?: unknown; allOf?: unknown; status?: unknown };
   if (v.kind === 'tags') {
     const allOf = Array.isArray(v.allOf) ? v.allOf.filter((t): t is string => typeof t === 'string') : [];
     return { kind: 'tags', allOf };
+  }
+  if (v.kind === 'readStatus') {
+    const status = Array.isArray(v.status)
+      ? v.status.filter((s): s is ReadStatus => typeof s === 'string' && READ_STATUS_VALUES.has(s as ReadStatus))
+      : [];
+    return { kind: 'readStatus', status };
   }
   return null;
 }
@@ -322,33 +330,49 @@ function validatePredicate(p: SmartCollectionPredicate): void {
     }
     return;
   }
+  if (p.kind === 'readStatus') {
+    if (!Array.isArray(p.status)) throw new Error('Read-status predicate.status must be an array.');
+    for (const s of p.status) {
+      if (!READ_STATUS_VALUES.has(s)) {
+        throw new Error(`Read-status predicate.status contains invalid value: ${String(s)}`);
+      }
+    }
+    return;
+  }
   // Exhaustiveness: the type union ensures the compiler catches missing
   // branches when new predicate kinds land.
-  const _exhaustive: never = p.kind;
-  throw new Error(`Unsupported predicate kind: ${_exhaustive as string}`);
+  const _exhaustive: never = p;
+  throw new Error(`Unsupported predicate kind: ${String((_exhaustive as { kind?: string }).kind)}`);
+}
+
+export interface SmartCollectionLookups {
+  sourcesByTag: (tag: string) => ReadonlyArray<{ sourceId: string }>;
+  sourcesByReadStatus: (status: ReadStatus) => ReadonlyArray<{ sourceId: string }>;
 }
 
 /**
  * Compute the source ids that satisfy a smart-collection's predicate.
  *
- * Tags ALL-OF semantics: a source is a member iff its
- * `minerva:hasTag` edges include every tag in `allOf`. Empty `allOf`
- * matches nothing — a smart collection with no constraints is almost
- * certainly a half-edited mistake, and silently matching every
- * source would look like a bug.
+ *   tags allOf      — intersection across per-tag source sets
+ *   readStatus any  — union across per-status source sets
  *
- * Resolved against the in-memory graph via `sourcesByTag` so we get
- * the same predicate semantics the tag panel uses.
+ * Both predicate kinds treat an empty input array as "match
+ * nothing" — a no-constraint predicate is almost always a half-edit;
+ * silently matching every source would look like a bug.
+ *
+ * The lookups are injected so the resolver is a pure function
+ * (testable with stubs) and so the main process can wire them to
+ * the indexed graph.
  */
 export function resolveSmartMembers(
   predicate: SmartCollectionPredicate,
-  sourcesByTag: (tag: string) => ReadonlyArray<{ sourceId: string }>,
+  lookups: SmartCollectionLookups,
 ): Set<string> {
   if (predicate.kind === 'tags') {
     if (predicate.allOf.length === 0) return new Set();
     let acc: Set<string> | null = null;
     for (const tag of predicate.allOf) {
-      const ids = new Set(sourcesByTag(tag).map((s) => s.sourceId));
+      const ids = new Set(lookups.sourcesByTag(tag).map((s) => s.sourceId));
       if (acc === null) {
         acc = ids;
       } else {
@@ -358,6 +382,14 @@ export function resolveSmartMembers(
     }
     return acc ?? new Set();
   }
-  const _exhaustive: never = predicate.kind;
-  throw new Error(`Unsupported predicate kind: ${_exhaustive as string}`);
+  if (predicate.kind === 'readStatus') {
+    if (predicate.status.length === 0) return new Set();
+    const out = new Set<string>();
+    for (const s of predicate.status) {
+      for (const r of lookups.sourcesByReadStatus(s)) out.add(r.sourceId);
+    }
+    return out;
+  }
+  const _exhaustive: never = predicate;
+  throw new Error(`Unsupported predicate kind: ${String((_exhaustive as { kind?: string }).kind)}`);
 }

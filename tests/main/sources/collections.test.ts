@@ -250,43 +250,75 @@ describe('source collections (#470)', () => {
 });
 
 describe('resolveSmartMembers (#470 phase 2)', () => {
-  /** Stub graph: tag → source-id list. */
-  const sourcesByTag = (db: Record<string, string[]>) => (tag: string) =>
-    (db[tag] ?? []).map((sourceId) => ({ sourceId }));
+  /** Stub graph lookups. */
+  function lookups(opts: {
+    tags?: Record<string, string[]>;
+    status?: Partial<Record<'unread' | 'reading' | 'read' | 'skipped', string[]>>;
+  } = {}) {
+    return {
+      sourcesByTag: (tag: string) => (opts.tags?.[tag] ?? []).map((sourceId) => ({ sourceId })),
+      sourcesByReadStatus: (status: 'unread' | 'reading' | 'read' | 'skipped') =>
+        (opts.status?.[status] ?? []).map((sourceId) => ({ sourceId })),
+    };
+  }
 
   it('returns the intersection of sources across every tag in allOf', () => {
-    const lookup = sourcesByTag({
-      ml: ['a', 'b', 'c'],
-      review: ['b', 'c', 'd'],
-    });
-    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml', 'review'] }, lookup);
+    const ids = resolveSmartMembers(
+      { kind: 'tags', allOf: ['ml', 'review'] },
+      lookups({ tags: { ml: ['a', 'b', 'c'], review: ['b', 'c', 'd'] } }),
+    );
     expect([...ids].sort()).toEqual(['b', 'c']);
   });
 
   it('returns an empty set when allOf is empty', () => {
-    const ids = resolveSmartMembers({ kind: 'tags', allOf: [] }, sourcesByTag({}));
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: [] }, lookups());
     expect(ids.size).toBe(0);
   });
 
   it('returns an empty set when any tag has no matching sources', () => {
-    const lookup = sourcesByTag({ ml: ['a'], review: [] });
-    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml', 'review'] }, lookup);
+    const ids = resolveSmartMembers(
+      { kind: 'tags', allOf: ['ml', 'review'] },
+      lookups({ tags: { ml: ['a'], review: [] } }),
+    );
     expect(ids.size).toBe(0);
   });
 
   it('single-tag predicate returns the full set for that tag', () => {
-    const lookup = sourcesByTag({ ml: ['a', 'b'] });
-    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml'] }, lookup);
+    const ids = resolveSmartMembers(
+      { kind: 'tags', allOf: ['ml'] },
+      lookups({ tags: { ml: ['a', 'b'] } }),
+    );
     expect([...ids].sort()).toEqual(['a', 'b']);
   });
 
   it('three-tag intersection narrows progressively', () => {
-    const lookup = sourcesByTag({
-      a: ['x', 'y', 'z'],
-      b: ['x', 'z'],
-      c: ['z', 'w'],
-    });
-    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['a', 'b', 'c'] }, lookup);
+    const ids = resolveSmartMembers(
+      { kind: 'tags', allOf: ['a', 'b', 'c'] },
+      lookups({ tags: { a: ['x', 'y', 'z'], b: ['x', 'z'], c: ['z', 'w'] } }),
+    );
     expect([...ids]).toEqual(['z']);
+  });
+
+  // ── readStatus predicate (#116) ────────────────────────────────────────
+
+  it('readStatus predicate returns the union of sources across statuses', () => {
+    const ids = resolveSmartMembers(
+      { kind: 'readStatus', status: ['unread', 'reading'] },
+      lookups({ status: { unread: ['a', 'b'], reading: ['b', 'c'] } }),
+    );
+    expect([...ids].sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('readStatus predicate with a single status', () => {
+    const ids = resolveSmartMembers(
+      { kind: 'readStatus', status: ['reading'] },
+      lookups({ status: { reading: ['a', 'b'] } }),
+    );
+    expect([...ids].sort()).toEqual(['a', 'b']);
+  });
+
+  it('readStatus predicate with an empty status list returns nothing', () => {
+    const ids = resolveSmartMembers({ kind: 'readStatus', status: [] }, lookups());
+    expect(ids.size).toBe(0);
   });
 });
