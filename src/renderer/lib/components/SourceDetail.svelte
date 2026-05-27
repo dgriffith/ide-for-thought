@@ -24,9 +24,14 @@
     /** Open another source — used by the References section to
      *  navigate to a referenced source (or stub) (#106). */
     onOpenReference?: (sourceId: string) => void;
+    /** Resolve this stub source by searching CrossRef (#107). The
+     *  host runs the search, surfaces a picker if needed, and
+     *  re-loads this detail when the meta.ttl gets rewritten. */
+    onResolveStub?: (sourceId: string) => Promise<void>;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference }: Props = $props();
+  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference, onResolveStub }: Props = $props();
+  let resolving = $state(false);
 
   async function handleDelete() {
     if (!detail) return;
@@ -269,6 +274,15 @@
       <h1>{@html renderInlineWithMath(detail.metadata.title ?? sourceId)}</h1>
       {#if detail.metadata.creators.length || detail.metadata.year}
         <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
+      {/if}
+      {#if detail.metadata.stubStatus === 'unresolved' && onResolveStub}
+        <button
+          class="resolve-stub-btn"
+          disabled={resolving}
+          onclick={() => onResolveStub?.(sourceId)}
+        >
+          {resolving ? 'Resolving…' : 'Resolve to full source'}
+        </button>
       {/if}
     </header>
 
@@ -935,6 +949,20 @@
     color: color-mix(in oklch, var(--text) 75%, transparent);
   }
   header.stub .byline { color: var(--text-faint); }
+  .resolve-stub-btn {
+    margin-top: 10px;
+    padding: 5px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .resolve-stub-btn:hover:not(:disabled) { opacity: 0.92; }
+  .resolve-stub-btn:disabled { opacity: 0.55; cursor: default; }
 
   code {
     background: var(--bg-button);

@@ -78,6 +78,7 @@ import { getIngestSettings, saveIngestSettings, type IngestSettings } from './so
 import { ingestSmart } from './sources/ingest-smart';
 import { mineSourceReferences, type ParsedReference } from './sources/mine-references';
 import { createReferenceStubs } from './sources/create-reference-stubs';
+import { resolveStub, applyStubResolution } from './sources/resolve-stub';
 import type { ReadStatus } from '../shared/types';
 import type { ReadingQueueView } from './graph/index';
 import {
@@ -1337,6 +1338,22 @@ export function registerIpcHandlers(): void {
     const win = winFromEvent(e);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     return result;
+  });
+
+  ipcMain.handle(Channels.SOURCES_RESOLVE_STUB, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await resolveStub(rootPath, sourceId, { fetchImpl: privilegedFetch });
+  });
+
+  ipcMain.handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, async (e, params: { sourceId: string; doi: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ok = await applyStubResolution(rootPath, params.sourceId, params.doi, { fetchImpl: privilegedFetch });
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return { ok };
   });
 
   ipcMain.handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());

@@ -24,6 +24,8 @@
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
+  import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
+  import { RESOLVE_AUTO_THRESHOLD } from '../shared/resolve-stub';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
@@ -1840,6 +1842,78 @@
   }
 
   /**
+   * Resolve a stub source by searching CrossRef (#107). Two paths:
+   * - Top candidate's confidence ≥ `RESOLVE_AUTO_THRESHOLD` → apply
+   *   automatically, no picker. The user can still undo via git
+   *   if they disagree.
+   * - Otherwise → open the disambiguation picker with the top 3.
+   */
+  let resolveStubState = $state<{
+    sourceId: string;
+    stubTitle: string;
+    candidates: import('../shared/resolve-stub').ResolveCandidate[];
+  } | null>(null);
+
+  async function handleResolveStub(sourceId: string): Promise<void> {
+    if (!notebase.meta) return;
+    let candidates: import('../shared/resolve-stub').ResolveCandidate[];
+    try {
+      candidates = await withBusy('Searching CrossRef…', () =>
+        api.sources.resolveStub(sourceId),
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Resolve failed: ${msg}`, CONFIRM_KEYS.resolveStubFailed, 'OK');
+      return;
+    }
+    if (candidates.length === 0) {
+      await showConfirm(
+        'CrossRef returned no matches. Refine the stub’s title or authors, or ingest the DOI directly.',
+        CONFIRM_KEYS.resolveStubEmpty,
+        'OK',
+      );
+      return;
+    }
+    const top = candidates[0];
+    if (top.confidence >= RESOLVE_AUTO_THRESHOLD) {
+      await applyResolution(sourceId, top.doi, top.title);
+      return;
+    }
+    // Below threshold — let the user pick.
+    const detail = await api.graph.sourceDetail(sourceId);
+    resolveStubState = {
+      sourceId,
+      stubTitle: detail?.metadata.title ?? sourceId,
+      candidates,
+    };
+  }
+
+  async function handleResolveStubApply(doi: string): Promise<void> {
+    const state = resolveStubState;
+    resolveStubState = null;
+    if (!state) return;
+    const picked = state.candidates.find((c) => c.doi === doi);
+    await applyResolution(state.sourceId, doi, picked?.title ?? state.stubTitle);
+  }
+
+  async function applyResolution(sourceId: string, doi: string, newTitle: string): Promise<void> {
+    try {
+      await withBusy('Applying resolution…', () =>
+        api.sources.applyStubResolution(sourceId, doi),
+      );
+      await refreshSourcesCache();
+      await showConfirm(
+        `Resolved to "${newTitle}". The source's metadata now reflects the CrossRef record; the source id stays the same so existing citations keep resolving.`,
+        CONFIRM_KEYS.resolveStubApplied,
+        'OK',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Couldn’t apply resolution: ${msg}`, CONFIRM_KEYS.resolveStubFailed, 'OK');
+    }
+  }
+
+  /**
    * Click on a bare-DOI link inside the markdown preview (#473).
    * If the DOI already maps to an ingested source, open it. Otherwise
    * offer to ingest — dismissable, keyed so the user can suppress
@@ -2685,6 +2759,7 @@
               onDeleted={handleSourceDeleted}
               onCreateAboutNote={handleNewAboutSourceNote}
               onOpenReference={handleOpenSource}
+              onResolveStub={handleResolveStub}
             />
           {/key}
         {:else}
@@ -2816,6 +2891,14 @@
       refs={mineReviewState.refs}
       onApply={handleMineReferencesApply}
       onCancel={() => { mineReviewState = null; }}
+    />
+  {/if}
+  {#if resolveStubState}
+    <ResolveStubDialog
+      stubTitle={resolveStubState.stubTitle}
+      candidates={resolveStubState.candidates}
+      onApply={handleResolveStubApply}
+      onCancel={() => { resolveStubState = null; }}
     />
   {/if}
   {#if confirmDialog}
