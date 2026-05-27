@@ -40,6 +40,12 @@ export const CONFIRM_KEYS = {
   /** DOI clicked in the preview that doesn't match an existing source
    *  yet (#473). User confirms before we hit CrossRef. */
   ingestDoiFromBody: 'ingest-doi-from-body',
+  /** Reference mining produced no candidates (#106). */
+  mineReferencesEmpty: 'mine-references-empty',
+  /** Reference mining or stub-materialisation failed (#106). */
+  mineReferencesFailed: 'mine-references-failed',
+  /** Per-stub creation summary after reference-mining approval (#106). */
+  mineReferencesResult: 'mine-references-result',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
@@ -222,6 +228,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Ingest DOI from body',
     description:
       'Shown when you click a bare DOI in the preview that doesn\'t match an existing source — confirms before fetching CrossRef.',
+  },
+  {
+    key: CONFIRM_KEYS.mineReferencesEmpty,
+    title: 'Mine references: nothing parsed',
+    description:
+      'Shown when reference mining finishes with zero candidates — typically because the body.md has no References section, or the formatting is too irregular for the first-pass extractor.',
+  },
+  {
+    key: CONFIRM_KEYS.mineReferencesFailed,
+    title: 'Mine references: error',
+    description:
+      'Shown when reference mining or stub creation fails outright (network error, LLM returned non-JSON, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.mineReferencesResult,
+    title: 'Mine references: summary',
+    description:
+      'Shown after approved references are materialised, summarising how many became new stubs vs matched existing sources vs were skipped.',
   },
   {
     key: CONFIRM_KEYS.dropImportRejected,

@@ -120,6 +120,10 @@ export interface SourceMetadata {
   readStatus: ReadStatus | null;
   /** ISO date by which the user wants to have finished this. */
   readDueBy: string | null;
+  /** `thought:stubStatus` literal. `"unresolved"` indicates a source
+   *  created by reference-mining (#106) — partial metadata, no body,
+   *  resolvable later via #107. `null` for fully-ingested sources. */
+  stubStatus: string | null;
 }
 
 export interface SourceExcerpt {
@@ -164,12 +168,25 @@ export interface SourceAboutNote {
   title: string;
 }
 
+/** One outgoing reference edge (`minerva:references`) from this
+ *  source to another (typically a stub). (#106) */
+export interface SourceReference {
+  sourceId: string;
+  title: string;
+  /** When the target is a stub (`thought:stubStatus "unresolved"`),
+   *  the UI styles the row in italic / low-contrast. */
+  stubStatus: string | null;
+}
+
 export interface SourceDetail {
   metadata: SourceMetadata;
   excerpts: SourceExcerpt[];
   backlinks: SourceBacklink[];
   /** Notes whose frontmatter declares them as *about* this source. */
   aboutNotes: SourceAboutNote[];
+  /** Outgoing `minerva:references` edges — typically populated by
+   *  reference mining (#106). */
+  references: SourceReference[];
 }
 
 /** Manually-curated source collection (#470 phase 1). Sources can

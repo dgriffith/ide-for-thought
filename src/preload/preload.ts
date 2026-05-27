@@ -270,6 +270,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.INGEST_SET_SETTINGS, settings),
     ingestSmart: (rawInput: string) =>
       ipcRenderer.invoke(Channels.SOURCES_INGEST_SMART, rawInput),
+    mineReferences: (sourceId: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_MINE_REFERENCES, sourceId),
+    createReferenceStubs: (sourceId: string, refs: unknown[]) =>
+      ipcRenderer.invoke(Channels.SOURCES_CREATE_REFERENCE_STUBS, { sourceId, refs }),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },

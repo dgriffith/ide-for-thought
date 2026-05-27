@@ -76,6 +76,8 @@ import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
 import { stripUpstreamTags } from './sources/strip-upstream-tags';
 import { getIngestSettings, saveIngestSettings, type IngestSettings } from './sources/ingest-settings';
 import { ingestSmart } from './sources/ingest-smart';
+import { mineSourceReferences, type ParsedReference } from './sources/mine-references';
+import { createReferenceStubs } from './sources/create-reference-stubs';
 import type { ReadStatus } from '../shared/types';
 import type { ReadingQueueView } from './graph/index';
 import {
@@ -1319,6 +1321,22 @@ export function registerIpcHandlers(): void {
       fetchImpl: privilegedFetch,
       importUpstreamTags: ingestSettings.importUpstreamTags,
     });
+  });
+
+  ipcMain.handle(Channels.SOURCES_MINE_REFERENCES, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await mineSourceReferences(rootPath, sourceId);
+  });
+
+  ipcMain.handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, async (e, params: { sourceId: string; refs: ParsedReference[] }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createReferenceStubs(rootPath, params.sourceId, params.refs);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return result;
   });
 
   ipcMain.handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());

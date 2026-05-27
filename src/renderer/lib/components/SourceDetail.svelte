@@ -21,9 +21,12 @@
      *  `about: [[sources/<id>]]`, open it for editing, and refresh
      *  this detail view so the new note shows under Notes (#474). */
     onCreateAboutNote?: (sourceId: string) => Promise<string | null>;
+    /** Open another source — used by the References section to
+     *  navigate to a referenced source (or stub) (#106). */
+    onOpenReference?: (sourceId: string) => void;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote }: Props = $props();
+  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference }: Props = $props();
 
   async function handleDelete() {
     if (!detail) return;
@@ -259,8 +262,10 @@
       </p>
     </div>
   {:else}
-    <header>
-      <div class="subtype">{detail.metadata.subtype ?? 'Source'}</div>
+    <header class:stub={detail.metadata.stubStatus === 'unresolved'}>
+      <div class="subtype">
+        {detail.metadata.subtype ?? 'Source'}{#if detail.metadata.stubStatus === 'unresolved'} · STUB{/if}
+      </div>
       <h1>{@html renderInlineWithMath(detail.metadata.title ?? sourceId)}</h1>
       {#if detail.metadata.creators.length || detail.metadata.year}
         <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
@@ -445,6 +450,23 @@
         </ul>
       {/if}
     </section>
+
+    {#if detail.references.length > 0}
+      <section>
+        <h2>References ({detail.references.length})</h2>
+        <ul class="about-list">
+          {#each detail.references as ref (ref.sourceId)}
+            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <li onclick={() => onOpenReference?.(ref.sourceId)} class:stub-row={ref.stubStatus === 'unresolved'}>
+              <span class="about-title">{ref.title}</span>
+              {#if ref.stubStatus === 'unresolved'}
+                <span class="stub-badge">stub</span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
 
     <section>
       <h2>Referenced from ({detail.backlinks.length})</h2>
@@ -887,6 +909,32 @@
     font-size: 11px;
     color: var(--text-faint);
   }
+
+  /* Stub source from reference mining (#106): italic title, dimmed
+     for visual distinction from fully-ingested sources. */
+  .about-list li.stub-row .about-title {
+    font-family: var(--font-display);
+    font-style: italic;
+    color: color-mix(in oklch, var(--accent) 60%, var(--text-muted));
+  }
+  .stub-badge {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--text-faint);
+    background: var(--bg-button);
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Stub markers in the source-detail header: italicise the title +
+     dim the byline so it reads as "partial record" at a glance. */
+  header.stub h1 {
+    font-style: italic;
+    color: color-mix(in oklch, var(--text) 75%, transparent);
+  }
+  header.stub .byline { color: var(--text-faint); }
 
   code {
     background: var(--bg-button);
