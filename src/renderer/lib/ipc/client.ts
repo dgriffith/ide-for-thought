@@ -666,6 +666,18 @@ export interface SourcesApi {
   listAll(): Promise<import('../../../shared/types').SourceMetadata[]>;
   /** Delete a source + cascade-delete its excerpts. */
   delete(sourceId: string): Promise<{ sourceId: string; excerptsRemoved: number }>;
+  /** Merge src into dest: dest keeps its identity but gains any
+   *  metadata fields / body / artifacts src had and dest didn't. All
+   *  excerpts of src move to dest; every `[[cite::src]]` is rewritten
+   *  to `[[cite::dest]]`. Src folder is removed. (#90) */
+  merge(srcId: string, destId: string): Promise<{
+    destId: string;
+    removedId: string;
+    excerptsMoved: number;
+    notesRewritten: number;
+    metadataAdded: string[];
+    artifactsCopied: string[];
+  }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */

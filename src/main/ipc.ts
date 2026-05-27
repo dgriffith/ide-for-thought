@@ -71,6 +71,7 @@ import {
 import { renderInlineCitations, type InlineCiteRequest } from './citations/render-inline';
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
+import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
@@ -1557,6 +1558,30 @@ export function registerIpcHandlers(): void {
       win.webContents.send(Channels.EXCERPTS_CHANGED);
     }
     return result;
+  });
+
+  ipcMain.handle(Channels.SOURCES_MERGE, async (e, params: { srcId: string; destId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    try {
+      const result = await mergeSources(rootPath, params.srcId, params.destId);
+      await persistIndexes(rootPath);
+      const win = winFromEvent(e);
+      if (!win.isDestroyed()) {
+        win.webContents.send(Channels.SOURCES_CHANGED);
+        win.webContents.send(Channels.EXCERPTS_CHANGED);
+      }
+      return result;
+    } catch (err) {
+      if (err instanceof MergeSourcesError) {
+        // Carry the structured code through to the renderer so the UI
+        // can distinguish a same-source / not-found error from a real crash.
+        const wrapped = new Error(err.message);
+        (wrapped as Error & { code?: string }).code = err.code;
+        throw wrapped;
+      }
+      throw err;
+    }
   });
 
   ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {

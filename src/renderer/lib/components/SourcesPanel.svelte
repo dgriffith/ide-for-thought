@@ -2,6 +2,7 @@
   import { api } from '../ipc/client';
   import type { SourceMetadata } from '../../../shared/types';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import SourcePickerDialog from './SourcePickerDialog.svelte';
 
   interface Props {
     onSourceSelect: (sourceId: string) => void;
@@ -15,6 +16,8 @@
   let filter = $state('');
   let contextMenu = $state<{ x: number; y: number; source: SourceMetadata } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+  /** When set, the merge picker is open with this source as the src. */
+  let mergeSrc = $state<SourceMetadata | null>(null);
 
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
@@ -50,6 +53,40 @@
     await api.sources.delete(source.sourceId);
     onSourceDeleted?.(source.sourceId);
     await refresh();
+  }
+
+  function handleMergeStart(source: SourceMetadata) {
+    contextMenu = null;
+    mergeSrc = source;
+  }
+
+  async function handleMergePick(destId: string) {
+    const src = mergeSrc;
+    mergeSrc = null;
+    if (!src) return;
+    const srcLabel = src.title ?? src.sourceId;
+    const dest = sources.find((s) => s.sourceId === destId);
+    const destLabel = dest?.title ?? destId;
+    const confirmed = await onShowConfirm(
+      `Merge "${srcLabel}" into "${destLabel}"?\n\nExcerpts and citations of "${srcLabel}" will move to "${destLabel}", then "${srcLabel}" will be removed.`,
+      'merge-sources',
+      'Merge',
+    );
+    if (!confirmed) return;
+    try {
+      await api.sources.merge(src.sourceId, destId);
+      onSourceDeleted?.(src.sourceId);
+      await refresh();
+    } catch (err) {
+      console.error('[minerva] Merge sources failed:', err);
+      // No dedicated error toast yet — surface the message via the
+      // confirm dialog as an informational pop, dismissable via OK.
+      await onShowConfirm(
+        `Merge failed: ${err instanceof Error ? err.message : String(err)}`,
+        'merge-sources-error',
+        'OK',
+      );
+    }
   }
 
   export async function refresh(): Promise<void> {
@@ -117,10 +154,22 @@
       style:left="{contextMenu.x}px"
       style:top="{contextMenu.y}px"
     >
+      <button onclick={() => handleMergeStart(contextMenu!.source)}>Merge into…</button>
       <button onclick={() => handleDelete(contextMenu!.source)}>Delete Source</button>
     </div>
   {/if}
 </div>
+
+{#if mergeSrc}
+  <SourcePickerDialog
+    {sources}
+    title={`Merge "${mergeSrc.title ?? mergeSrc.sourceId}" into…`}
+    placeholder="Pick the source to keep…"
+    excludeSourceId={mergeSrc.sourceId}
+    onSelect={handleMergePick}
+    onCancel={() => { mergeSrc = null; }}
+  />
+{/if}
 
 <style>
   .context-menu {

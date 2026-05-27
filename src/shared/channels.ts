@@ -230,6 +230,9 @@ export const Channels = {
   SOURCES_LIST_ALL: 'sources:listAll',
   /** Delete a source + cascade-delete its excerpts. */
   SOURCES_DELETE: 'sources:delete',
+  /** Merge two sources: fold src's metadata into dest, move excerpts,
+   *  rewrite `[[cite::src]]`, delete src folder (#90). */
+  SOURCES_MERGE: 'sources:merge',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
   SOURCES_CHANGED: 'sources:changed',
 
