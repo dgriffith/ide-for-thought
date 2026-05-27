@@ -72,6 +72,8 @@ import { renderInlineCitations, type InlineCiteRequest } from './citations/rende
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
+import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
+import type { ReadStatus } from '../shared/types';
 import {
   loadCollections,
   createCollection,
@@ -1598,6 +1600,25 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  // ── Reading queue (#116) ──────────────────────────────────────────────────
+  ipcMain.handle(Channels.SOURCES_SET_READ_STATUS, async (e, params: { sourceId: string; status: ReadStatus | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await setSourceReadStatus(rootPath, params.sourceId, params.status);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_SET_READ_DUE_BY, async (e, params: { sourceId: string; dueBy: string | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await setSourceReadDueBy(rootPath, params.sourceId, params.dueBy);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
   // ── Collections (#470) ────────────────────────────────────────────────────
   const broadcastCollectionsChanged = (e: Electron.IpcMainInvokeEvent) => {
     const win = winFromEvent(e);
@@ -1685,7 +1706,10 @@ export function registerIpcHandlers(): void {
     // Resolve via the graph's existing source-by-tag helper. The graph
     // is the source of truth for hasTag edges (notes + sources) so we
     // get the same membership semantics the tag panel surfaces.
-    const matchingIds = resolveSmartMembers(smart.predicate, (tag) => graph.sourcesByTag(ctx, tag));
+    const matchingIds = resolveSmartMembers(smart.predicate, {
+      sourcesByTag: (tag) => graph.sourcesByTag(ctx, tag),
+      sourcesByReadStatus: (status) => graph.sourcesByReadStatus(ctx, status),
+    });
     if (matchingIds.size === 0) return [];
     const all = graph.listAllSources(ctx);
     return all.filter((s) => matchingIds.has(s.sourceId));

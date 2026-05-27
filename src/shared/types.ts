@@ -102,6 +102,10 @@ export interface TabSession {
 
 // ── Source detail ─────────────────────────────────────────────────────────
 
+/** Reading-queue status (#116). `null` = no status set (= effectively
+ *  "unread", but distinct from an explicit "unread" the user picked). */
+export type ReadStatus = 'unread' | 'reading' | 'read' | 'skipped';
+
 export interface SourceMetadata {
   sourceId: string;
   subtype: string | null;
@@ -112,6 +116,10 @@ export interface SourceMetadata {
   doi: string | null;
   uri: string | null;
   abstract: string | null;
+  /** Reading-queue status (#116). */
+  readStatus: ReadStatus | null;
+  /** ISO date by which the user wants to have finished this. */
+  readDueBy: string | null;
 }
 
 export interface SourceExcerpt {
@@ -183,7 +191,11 @@ export interface Collection {
  * predicate's storage shape. The renderer's predicate editor +
  * the main-process member resolver each branch on `kind`. */
 export type SmartCollectionPredicate =
-  | { kind: 'tags'; allOf: string[] };
+  | { kind: 'tags'; allOf: string[] }
+  /** Any of the listed statuses. Empty list matches nothing (mirrors
+   *  the `tags allOf` empty-set convention — a no-constraint
+   *  predicate is almost always a half-edit). (#116) */
+  | { kind: 'readStatus'; status: ReadStatus[] };
 
 /** Query-driven collection (#470 phase 2). Membership is computed
  *  live from the graph each time the user opens it — never

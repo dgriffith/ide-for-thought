@@ -11,8 +11,17 @@
    * dialog with a kind-picker; for now the kind is hardcoded.
    */
   import { api } from '../ipc/client';
-  import type { SmartCollection, SmartCollectionPredicate, TagInfo } from '../../../shared/types';
+  import type { SmartCollection, SmartCollectionPredicate, TagInfo, ReadStatus } from '../../../shared/types';
   import Icon from './Icon.svelte';
+
+  const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
+    { value: 'unread', label: 'Unread' },
+    { value: 'reading', label: 'Reading' },
+    { value: 'read', label: 'Read' },
+    { value: 'skipped', label: 'Skipped' },
+  ];
+
+  type PredicateKind = SmartCollectionPredicate['kind'];
 
   interface Props {
     /** When provided, the dialog opens in edit mode pre-filled with
@@ -26,10 +35,14 @@
 
   const mode = $derived<'create' | 'edit'>(editing ? 'edit' : 'create');
   let name = $state(editing?.name ?? '');
+  let kind = $state<PredicateKind>(editing?.predicate.kind ?? 'tags');
   /** Picked tags (allOf), preserved as a Set for O(1) lookup in the
    *  template. Initialised from the editing predicate when present. */
-  let selected = $state<Set<string>>(new Set(
+  let selectedTags = $state<Set<string>>(new Set(
     editing && editing.predicate.kind === 'tags' ? editing.predicate.allOf : [],
+  ));
+  let selectedStatuses = $state<Set<ReadStatus>>(new Set(
+    editing && editing.predicate.kind === 'readStatus' ? editing.predicate.status : [],
   ));
   let tagFilter = $state('');
   let saving = $state(false);
@@ -45,7 +58,7 @@
     // project vocabulary (e.g. the predicate references a tag that's
     // since been removed from every source). We still show it so the
     // user can either keep it or uncheck it deliberately.
-    for (const t of selected) {
+    for (const t of selectedTags) {
       if (!allTags.some((info) => info.tag === t)) {
         allTags = [...allTags, { tag: t, noteCount: 0, sourceCount: 0 }];
       }
@@ -58,26 +71,44 @@
     // Pinned at top: anything currently selected, so the user can
     // see their picks even after filtering.
     return [...list].sort((a, b) => {
-      const aPicked = selected.has(a.tag) ? 0 : 1;
-      const bPicked = selected.has(b.tag) ? 0 : 1;
+      const aPicked = selectedTags.has(a.tag) ? 0 : 1;
+      const bPicked = selectedTags.has(b.tag) ? 0 : 1;
       if (aPicked !== bPicked) return aPicked - bPicked;
       return a.tag.localeCompare(b.tag);
     });
   });
 
   function toggleTag(tag: string) {
-    const next = new Set(selected);
+    const next = new Set(selectedTags);
     if (next.has(tag)) next.delete(tag); else next.add(tag);
-    selected = next;
+    selectedTags = next;
   }
 
-  const canSave = $derived(name.trim().length > 0 && selected.size > 0 && !saving);
+  function toggleStatus(status: ReadStatus) {
+    const next = new Set(selectedStatuses);
+    if (next.has(status)) next.delete(status); else next.add(status);
+    selectedStatuses = next;
+  }
+
+  const canSave = $derived.by(() => {
+    if (!name.trim() || saving) return false;
+    if (kind === 'tags') return selectedTags.size > 0;
+    if (kind === 'readStatus') return selectedStatuses.size > 0;
+    return false;
+  });
+
+  function currentPredicate(): SmartCollectionPredicate {
+    if (kind === 'readStatus') {
+      return { kind: 'readStatus', status: [...selectedStatuses] };
+    }
+    return { kind: 'tags', allOf: [...selectedTags] };
+  }
 
   async function handleSave(): Promise<void> {
     if (!canSave) return;
     saving = true;
     try {
-      await onSave(name.trim(), { kind: 'tags', allOf: [...selected] });
+      await onSave(name.trim(), currentPredicate());
     } finally {
       saving = false;
     }
@@ -104,38 +135,65 @@
     </header>
 
     <section class="body">
-      <div class="rule-label">Sources tagged with <strong>all</strong> of:</div>
-      <div class="tag-filter-row">
-        <Icon name="search" size={12} color="var(--text-muted)" />
-        <input
-          type="text"
-          class="tag-filter"
-          placeholder="Filter tags…"
-          bind:value={tagFilter}
-        />
-        <span class="picked-count">{selected.size} picked</span>
+      <div class="kind-row">
+        <label class="kind-radio">
+          <input type="radio" name="predicate-kind" value="tags" checked={kind === 'tags'} onchange={() => { kind = 'tags'; }} />
+          <span>Tag predicate</span>
+        </label>
+        <label class="kind-radio">
+          <input type="radio" name="predicate-kind" value="readStatus" checked={kind === 'readStatus'} onchange={() => { kind = 'readStatus'; }} />
+          <span>Reading status</span>
+        </label>
       </div>
-      <div class="tag-list">
-        {#if visibleTags.length === 0}
-          {#if allTags.length === 0}
-            <div class="empty">No tags in project yet.</div>
+
+      {#if kind === 'tags'}
+        <div class="rule-label">Sources tagged with <strong>all</strong> of:</div>
+        <div class="tag-filter-row">
+          <Icon name="search" size={12} color="var(--text-muted)" />
+          <input
+            type="text"
+            class="tag-filter"
+            placeholder="Filter tags…"
+            bind:value={tagFilter}
+          />
+          <span class="picked-count">{selectedTags.size} picked</span>
+        </div>
+        <div class="tag-list">
+          {#if visibleTags.length === 0}
+            {#if allTags.length === 0}
+              <div class="empty">No tags in project yet.</div>
+            {:else}
+              <div class="empty">No tags match "{tagFilter}".</div>
+            {/if}
           {:else}
-            <div class="empty">No tags match "{tagFilter}".</div>
+            {#each visibleTags as t (t.tag)}
+              <label class="tag-row" class:checked={selectedTags.has(t.tag)}>
+                <input
+                  type="checkbox"
+                  checked={selectedTags.has(t.tag)}
+                  onchange={() => toggleTag(t.tag)}
+                />
+                <span class="tag-name">#{t.tag}</span>
+                <span class="tag-count">{t.sourceCount}</span>
+              </label>
+            {/each}
           {/if}
-        {:else}
-          {#each visibleTags as t (t.tag)}
-            <label class="tag-row" class:checked={selected.has(t.tag)}>
+        </div>
+      {:else}
+        <div class="rule-label">Sources with <strong>any</strong> of these statuses:</div>
+        <div class="status-list">
+          {#each READ_STATUS_OPTIONS as opt (opt.value)}
+            <label class="tag-row" class:checked={selectedStatuses.has(opt.value)}>
               <input
                 type="checkbox"
-                checked={selected.has(t.tag)}
-                onchange={() => toggleTag(t.tag)}
+                checked={selectedStatuses.has(opt.value)}
+                onchange={() => toggleStatus(opt.value)}
               />
-              <span class="tag-name">#{t.tag}</span>
-              <span class="tag-count">{t.sourceCount}</span>
+              <span class="tag-name">{opt.label}</span>
             </label>
           {/each}
-        {/if}
-      </div>
+        </div>
+      {/if}
     </section>
 
     <footer class="card-footer">
@@ -204,11 +262,31 @@
     flex: 1;
     overflow: hidden;
   }
+  .kind-row {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding-bottom: 4px;
+  }
+  .kind-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .kind-radio input { cursor: pointer; }
   .rule-label {
     font-size: 12px;
     color: var(--text-muted);
   }
   .rule-label strong { color: var(--text); font-weight: 500; }
+  .status-list {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    padding: 4px 0;
+  }
   .tag-filter-row {
     display: flex;
     align-items: center;

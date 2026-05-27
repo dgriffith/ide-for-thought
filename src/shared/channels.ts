@@ -233,6 +233,10 @@ export const Channels = {
   /** Merge two sources: fold src's metadata into dest, move excerpts,
    *  rewrite `[[cite::src]]`, delete src folder (#90). */
   SOURCES_MERGE: 'sources:merge',
+  /** Set/clear a source's reading-queue status (#116). */
+  SOURCES_SET_READ_STATUS: 'sources:setReadStatus',
+  /** Set/clear a source's due-by date (#116). */
+  SOURCES_SET_READ_DUE_BY: 'sources:setReadDueBy',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */

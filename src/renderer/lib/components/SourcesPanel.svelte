@@ -344,6 +344,11 @@
       const tags = s.predicate.allOf.map((t) => `#${t}`).join(' AND ');
       return tags || s.id;
     }
+    if (s.predicate.kind === 'readStatus') {
+      return s.predicate.status.length > 0
+        ? `Status: ${s.predicate.status.join(' or ')}`
+        : s.id;
+    }
     return s.id;
   }
 
@@ -497,6 +502,27 @@
     if (creators.length === 2) return `${creators[0]} and ${creators[1]}`;
     return `${creators[0]} et al.`;
   }
+
+  /** Single character glyph for the status indicator dot. Picked for
+   *  ASCII-safety; users learn the mapping from the title attribute. */
+  function statusGlyph(status: SourceMetadata['readStatus']): string {
+    switch (status) {
+      case 'reading': return '◐';
+      case 'read': return '●';
+      case 'unread': return '○';
+      case 'skipped': return '×';
+      default: return '';
+    }
+  }
+  function statusTitle(status: SourceMetadata['readStatus']): string {
+    switch (status) {
+      case 'reading': return 'Reading';
+      case 'read': return 'Read';
+      case 'unread': return 'Unread';
+      case 'skipped': return 'Skipped';
+      default: return '';
+    }
+  }
 </script>
 
 <div class="sources-panel">
@@ -586,7 +612,16 @@
           oncontextmenu={(e) => handleContextMenu(e, s)}
           title={s.sourceId}
         >
-          <div class="source-title">{s.title ?? s.sourceId}</div>
+          <div class="source-title">
+            {#if s.readStatus}
+              <span
+                class="status-dot status-{s.readStatus}"
+                title={statusTitle(s.readStatus)}
+                aria-label={statusTitle(s.readStatus)}
+              >{statusGlyph(s.readStatus)}</span>
+            {/if}
+            {s.title ?? s.sourceId}
+          </div>
           {#if s.creators.length > 0 || s.year}
             {@const who = formatCreators(s.creators)}
             <div class="source-byline">
@@ -895,4 +930,22 @@
     padding: 8px 14px 2px;
   }
   .smart-row { gap: 6px; }
+
+  /* Reading-queue status dot in the source list (#116). Just a small
+     inline mark in front of the title so the user can scan for "what's
+     reading right now" without leaving the panel. */
+  .status-dot {
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    margin-right: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    vertical-align: baseline;
+  }
+  .status-dot.status-reading { color: var(--accent); }
+  .status-dot.status-read { color: color-mix(in oklch, var(--text-muted) 90%, transparent); }
+  .status-dot.status-unread { color: var(--text-faint); }
+  .status-dot.status-skipped { color: var(--text-faint); }
 </style>

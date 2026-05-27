@@ -2073,7 +2073,9 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
 
 // ── Source detail queries ───────────────────────────────────────────────────
 
-import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote } from '../../shared/types';
+import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote, ReadStatus } from '../../shared/types';
+
+const READ_STATUS_VALUES: ReadonlySet<ReadStatus> = new Set(['unread', 'reading', 'read', 'skipped']);
 
 export function getSourceDetail(ctx: ProjectContext, sourceId: string): SourceDetail | null {
   const state = getState(ctx);
@@ -2120,6 +2122,10 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
   };
 
   const issued = first(DC('issued'));
+  const rawReadStatus = first(MINERVA('readStatus'));
+  const readStatus = rawReadStatus && READ_STATUS_VALUES.has(rawReadStatus as ReadStatus)
+    ? rawReadStatus as ReadStatus
+    : null;
   return {
     sourceId,
     subtype,
@@ -2130,7 +2136,32 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
     doi: first(BIBO('doi')),
     uri: first(BIBO('uri')),
     abstract: first(DC('abstract')),
+    readStatus,
+    readDueBy: first(MINERVA('readDueBy')),
   };
+}
+
+/**
+ * Sources tagged with a particular reading status (#116). Used by
+ * the smart-collection resolver and by sidebar filters that surface
+ * "Unread" / "Reading" / "Read" buckets.
+ */
+export function sourcesByReadStatus(ctx: ProjectContext, status: ReadStatus): { sourceId: string }[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+
+  const stmts = store.statementsMatching(undefined, MINERVA('readStatus'), $rdf.lit(status));
+  const out: { sourceId: string }[] = [];
+  const seen = new Set<string>();
+  for (const st of stmts) {
+    const idStmts = store.statementsMatching(st.subject, MINERVA('sourceId'), undefined);
+    const sourceId = idStmts[0]?.object.value;
+    if (!sourceId || seen.has(sourceId)) continue;
+    seen.add(sourceId);
+    out.push({ sourceId });
+  }
+  return out;
 }
 
 function collectExcerptsForSource(state: GraphState, sourceSubject: $rdf.NamedNode): SourceExcerpt[] {
