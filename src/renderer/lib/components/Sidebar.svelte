@@ -17,7 +17,7 @@
    *  others are icon-only. Per IMPLEMENTATION.md §5.1. */
   const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' }> = [
     { id: 'notes',  label: 'Notes',  icon: 'notes' },
-    { id: 'sites',  label: 'Sites',  icon: 'sites' },
+    { id: 'sites',  label: 'Sources',  icon: 'sites' },
     { id: 'tags',   label: 'Tags',   icon: 'tags' },
     { id: 'tables', label: 'Tables', icon: 'tables' },
   ];
