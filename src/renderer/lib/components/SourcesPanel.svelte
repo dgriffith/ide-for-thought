@@ -1,11 +1,25 @@
 <script lang="ts">
   import { api } from '../ipc/client';
-  import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate } from '../../../shared/types';
+  import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../../shared/types';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
   import Icon from './Icon.svelte';
+
+  type QueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
+  const QUEUE_VIEWS: { id: QueueView; label: string }[] = [
+    { id: 'unread', label: 'Unread' },
+    { id: 'reading', label: 'Reading' },
+    { id: 'dueThisWeek', label: 'Due this week' },
+    { id: 'recentlyFinished', label: 'Recently finished' },
+  ];
+  const STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
+    { value: 'unread', label: 'Mark unread' },
+    { value: 'reading', label: 'Mark reading' },
+    { value: 'read', label: 'Mark read' },
+    { value: 'skipped', label: 'Mark skipped' },
+  ];
 
   interface Props {
     onSourceSelect: (sourceId: string) => void;
@@ -26,6 +40,20 @@
   let mergeSrc = $state<SourceMetadata | null>(null);
   /** When set, the collection picker is open to add this source to one. */
   let addToCollectionFor = $state<SourceMetadata | null>(null);
+
+  /** Active queue view id, or null when no queue row is selected. The
+   *  queue rows and collection rows share the focus slot but live in
+   *  separate state vars because they resolve their members
+   *  differently (built-in vs. user-defined). */
+  let activeQueueView = $state<QueueView | null>(null);
+  /** Source ids for the active queue view, re-fetched on demand. */
+  let queueMembers = $state<Set<string> | null>(null);
+  /** Counts shown next to each queue row. Refreshed alongside the
+   *  source/collection lists so the user gets fresh numbers without
+   *  clicking. */
+  let queueCounts = $state<Record<QueueView, number>>({
+    unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0,
+  });
 
   let collections = $state<Collection[]>([]);
   let smartCollections = $state<SmartCollection[]>([]);
@@ -182,7 +210,25 @@
 
   export async function refresh(): Promise<void> {
     sources = await api.sources.listAll();
+    void refreshQueueCounts();
+    if (activeQueueView) {
+      queueMembers = new Set((await api.sources.queueMembers(activeQueueView)).map((s) => s.sourceId));
+    }
   }
+
+  async function refreshQueueCounts(): Promise<void> {
+    const entries = await Promise.all(
+      QUEUE_VIEWS.map(async (v) => [v.id, (await api.sources.queueMembers(v.id)).length] as const),
+    );
+    const next: Record<QueueView, number> = { unread: 0, reading: 0, dueThisWeek: 0, recentlyFinished: 0 };
+    for (const [id, count] of entries) next[id] = count;
+    queueCounts = next;
+  }
+
+  // Sources change → host App.svelte's sources.onChanged listener
+  // calls sidebar.refreshSources() which calls our refresh() above,
+  // and that already kicks off refreshQueueCounts(). No additional
+  // listener needed here.
 
   const activeIsSmart = $derived(
     !!activeCollectionId && smartCollections.some((s) => s.id === activeCollectionId),
@@ -212,8 +258,9 @@
 
   /** Source ids the active collection contributes. For manual: union
    *  of every member array in the subtree. For smart: the live
-   *  smartMembers set from the IPC. */
+   *  smartMembers set. For a queue view: the live queueMembers set. */
   const activeMembers = $derived.by(() => {
+    if (activeQueueView) return queueMembers;
     if (!activeCollectionId) return null;
     if (activeIsSmart) return smartMembers;
     if (!activeSubtree) return null;
@@ -297,10 +344,35 @@
 
   async function selectCollection(id: string | null) {
     activeCollectionId = id;
+    activeQueueView = null;
+    queueMembers = null;
     if (id && smartCollections.some((s) => s.id === id)) {
       smartMembers = new Set((await api.collections.smartMembers(id)).map((s) => s.sourceId));
     } else {
       smartMembers = null;
+    }
+  }
+
+  async function selectQueueView(view: QueueView) {
+    if (activeQueueView === view) {
+      // Click-to-toggle: deselecting returns to "All sources".
+      activeQueueView = null;
+      queueMembers = null;
+      return;
+    }
+    activeQueueView = view;
+    activeCollectionId = null;
+    smartMembers = null;
+    queueMembers = new Set((await api.sources.queueMembers(view)).map((s) => s.sourceId));
+  }
+
+  async function handleMarkStatus(source: SourceMetadata, status: ReadStatus | null): Promise<void> {
+    contextMenu = null;
+    try {
+      await api.sources.setReadStatus(source.sourceId, status);
+      // Host listener refreshes the panel; nothing more to do.
+    } catch (err) {
+      console.error('[minerva] Mark status failed:', err);
     }
   }
 
@@ -529,6 +601,22 @@
   {#if sources.length === 0 && collections.length === 0}
     <div class="empty">No sources yet. File → Ingest URL… to start.</div>
   {:else}
+    <div class="queue-section">
+      <div class="section-eyebrow">READING QUEUE</div>
+      {#each QUEUE_VIEWS as v (v.id)}
+        <button
+          class="coll-row queue-row"
+          class:active={activeQueueView === v.id}
+          onclick={() => selectQueueView(v.id)}
+          title={`Show ${v.label.toLowerCase()}`}
+        >
+          <span class="chevron-spacer"></span>
+          <span class="coll-name">{v.label}</span>
+          <span class="coll-count">{queueCounts[v.id]}</span>
+        </button>
+      {/each}
+    </div>
+
     <div class="collections-section">
       <div class="collections-header">
         <span class="collections-eyebrow">COLLECTIONS</span>
@@ -538,7 +626,7 @@
       </div>
       <button
         class="coll-row"
-        class:active={activeCollectionId === null}
+        class:active={activeCollectionId === null && activeQueueView === null}
         onclick={() => selectCollection(null)}
       >
         <span class="chevron-spacer"></span>
@@ -594,13 +682,15 @@
       <input
         type="text"
         class="filter-input"
-        placeholder={activeCollectionId
-          ? `Filter "${
-              collections.find((c) => c.id === activeCollectionId)?.name
-              ?? smartCollections.find((s) => s.id === activeCollectionId)?.name
-              ?? 'collection'
-            }"…`
-          : 'Filter sources…'}
+        placeholder={activeQueueView
+          ? `Filter "${QUEUE_VIEWS.find((v) => v.id === activeQueueView)?.label ?? 'queue'}"…`
+          : activeCollectionId
+            ? `Filter "${
+                collections.find((c) => c.id === activeCollectionId)?.name
+                ?? smartCollections.find((s) => s.id === activeCollectionId)?.name
+                ?? 'collection'
+              }"…`
+            : 'Filter sources…'}
         bind:value={filter}
       />
     </div>
@@ -632,7 +722,13 @@
       {/each}
       {#if visible.length === 0}
         <div class="empty">
-          {activeCollectionId ? 'This collection is empty.' : 'No matches.'}
+          {#if activeQueueView}
+            Nothing in this queue view.
+          {:else if activeCollectionId}
+            This collection is empty.
+          {:else}
+            No matches.
+          {/if}
         </div>
       {/if}
     </div>
@@ -646,9 +742,20 @@
       style:top="{contextMenu.y}px"
     >
       <button onclick={() => handleAddToCollection(contextMenu!.source)}>Add to collection…</button>
-      {#if activeCollectionId}
+      {#if activeCollectionId && !activeIsSmart}
         <button onclick={() => handleRemoveFromActiveCollection(contextMenu!.source)}>Remove from collection</button>
       {/if}
+      <div class="context-divider"></div>
+      {#each STATUS_OPTIONS as opt (opt.value)}
+        <button
+          class:current={contextMenu.source.readStatus === opt.value}
+          onclick={() => handleMarkStatus(contextMenu!.source, opt.value)}
+        >{opt.label}</button>
+      {/each}
+      {#if contextMenu.source.readStatus}
+        <button onclick={() => handleMarkStatus(contextMenu!.source, null)}>Clear status</button>
+      {/if}
+      <div class="context-divider"></div>
       <button onclick={() => handleMergeStart(contextMenu!.source)}>Merge into…</button>
       <button onclick={() => handleDelete(contextMenu!.source)}>Delete Source</button>
     </div>
@@ -948,4 +1055,34 @@
   .status-dot.status-read { color: color-mix(in oklch, var(--text-muted) 90%, transparent); }
   .status-dot.status-unread { color: var(--text-faint); }
   .status-dot.status-skipped { color: var(--text-faint); }
+
+  /* Reading-queue section sits above Collections — built-in views,
+     so no "+" button. Same row shape as the collection tree, just
+     without the chevron / context-menu affordances. */
+  .queue-section {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+  }
+  .section-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
+    padding: 10px 14px 4px;
+  }
+  .queue-row { /* re-uses .coll-row look */ }
+
+  /* Subtle separator inside the context menu. */
+  .context-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+  /* The user's current status row reads as a quiet indicator
+     ("you're already at this state") rather than an action. */
+  .context-menu button.current {
+    color: var(--accent);
+    font-weight: 500;
+  }
 </style>
