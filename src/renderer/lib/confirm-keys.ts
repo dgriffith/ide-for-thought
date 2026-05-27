@@ -46,6 +46,10 @@ export const CONFIRM_KEYS = {
   mineReferencesFailed: 'mine-references-failed',
   /** Per-stub creation summary after reference-mining approval (#106). */
   mineReferencesResult: 'mine-references-result',
+  /** Stub-resolve flow signals (#107). */
+  resolveStubEmpty: 'resolve-stub-empty',
+  resolveStubFailed: 'resolve-stub-failed',
+  resolveStubApplied: 'resolve-stub-applied',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
@@ -246,6 +250,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Mine references: summary',
     description:
       'Shown after approved references are materialised, summarising how many became new stubs vs matched existing sources vs were skipped.',
+  },
+  {
+    key: CONFIRM_KEYS.resolveStubEmpty,
+    title: 'Resolve stub: no matches',
+    description:
+      'Shown when CrossRef returned no candidates for a stub-resolve search.',
+  },
+  {
+    key: CONFIRM_KEYS.resolveStubFailed,
+    title: 'Resolve stub: error',
+    description:
+      'Shown when stub resolution or apply step fails (network error, CrossRef 5xx, invalid response, …).',
+  },
+  {
+    key: CONFIRM_KEYS.resolveStubApplied,
+    title: 'Resolve stub: applied',
+    description:
+      'Shown after the chosen DOI is applied to a stub, confirming the new title and that existing citations to the old id still resolve.',
   },
   {
     key: CONFIRM_KEYS.dropImportRejected,

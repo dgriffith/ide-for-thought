@@ -274,6 +274,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SOURCES_MINE_REFERENCES, sourceId),
     createReferenceStubs: (sourceId: string, refs: unknown[]) =>
       ipcRenderer.invoke(Channels.SOURCES_CREATE_REFERENCE_STUBS, { sourceId, refs }),
+    resolveStub: (sourceId: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_RESOLVE_STUB, sourceId),
+    applyStubResolution: (sourceId: string, doi: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_APPLY_STUB_RESOLUTION, { sourceId, doi }),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },

@@ -257,6 +257,14 @@ export const Channels = {
   /** Materialise approved reference candidates as stub Source nodes
    *  + add `minerva:references` edges from the parent (#106). */
   SOURCES_CREATE_REFERENCE_STUBS: 'sources:createReferenceStubs',
+  /** Resolve a stub source by searching CrossRef. Returns top-3
+   *  candidates with confidence; the renderer surfaces them in a
+   *  picker (or auto-applies the top one when confidence is high).
+   *  (#107) */
+  SOURCES_RESOLVE_STUB: 'sources:resolveStub',
+  /** Apply the user-picked DOI to a stub source: rewrite meta.ttl
+   *  with full CrossRef metadata + flip stubStatus to "resolved". */
+  SOURCES_APPLY_STUB_RESOLUTION: 'sources:applyStubResolution',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */

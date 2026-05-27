@@ -711,6 +711,13 @@ export interface SourcesApi {
     matchedExisting: { sourceId: string; title: string }[];
     skipped: { reason: string; raw: string }[];
   }>;
+  /** Resolve a stub source by searching CrossRef. Returns top-3
+   *  candidates ranked by confidence (#107). */
+  resolveStub(sourceId: string): Promise<import('../../../shared/resolve-stub').ResolveCandidate[]>;
+  /** Apply the user-picked DOI to a stub source. Rewrites the
+   *  meta.ttl with full CrossRef metadata and flips stubStatus to
+   *  "resolved". (#107) */
+  applyStubResolution(sourceId: string, doi: string): Promise<{ ok: boolean }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */
