@@ -1357,6 +1357,19 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
   }
 
+  // Upstream subject tags (#473). Each `minerva:upstreamTag "..."`
+  // literal becomes a real `minerva:hasTag` edge to the
+  // corresponding tag URI, mirroring the body-tag pipeline so a
+  // CrossRef-imported tag and a hand-authored body tag look the
+  // same in the tag panel.
+  for (const st of store.statementsMatching(subject, MINERVA('upstreamTag'), undefined, graph)) {
+    const name = st.object.value;
+    if (!name) continue;
+    const tagNode = tagUri(state, name);
+    ensureTag(state, tagNode, name);
+    store.add(subject, MINERVA('hasTag'), tagNode, graph);
+  }
+
   if (bodyMd) indexSourceBody(state, sourceId, bodyMd, subject, graph);
 }
 

@@ -10,6 +10,7 @@
 
 import { DOMParser } from 'linkedom';
 import type { ArticleMetadata } from './types';
+import { buildUpstreamTags } from './upstream-tags';
 
 export const ARXIV_ENDPOINT = 'https://export.arxiv.org/api/query';
 
@@ -57,6 +58,17 @@ export function parseArxivAtom(xml: string, arxivId: string): ArticleMetadata {
     ?? entry.querySelector('category');
   if (primary) category = primary.getAttribute('term') || null;
 
+  // Every <category term="..."> on the entry — primary first, then
+  // any siblings. Used by #473 to materialise per-category tags
+  // (`arxiv/cs.LG`, `arxiv/cs.AI`, …). De-duped downstream by the
+  // upstream-tags builder.
+  const categoryTerms: string[] = [];
+  if (category) categoryTerms.push(category);
+  for (const c of entry.querySelectorAll('category')) {
+    const term = c.getAttribute('term');
+    if (term && !categoryTerms.includes(term)) categoryTerms.push(term);
+  }
+
   // Find the PDF link — arXiv advertises it as rel="related" type="application/pdf".
   let pdfUrl: string | null = null;
   for (const link of entry.querySelectorAll('link')) {
@@ -94,6 +106,7 @@ export function parseArxivAtom(xml: string, arxivId: string): ArticleMetadata {
     uri,
     pdfUrl,
     category,
+    keywords: buildUpstreamTags('arxiv', categoryTerms),
   };
 }
 

@@ -211,6 +211,7 @@ export function mapBibtexEntry(entry: BibtexEntryShape): ArticleMetadata {
     uri: uri ?? null,
     pdfUrl: null,
     category: null,
+    keywords: [],
   };
 }
 

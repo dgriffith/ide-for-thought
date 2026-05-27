@@ -215,6 +215,12 @@ export function buildMetaTtl(metadata: ArticleMetadata): string {
   if (metadata.isbn) lines.push(`    bibo:isbn ${ttlString(metadata.isbn)} ;`);
   if (metadata.uri) lines.push(`    bibo:uri ${ttlString(metadata.uri)} ;`);
   if (metadata.abstract) lines.push(`    dc:abstract ${ttlString(metadata.abstract)} ;`);
+  // Upstream subject tags (#473). One literal per keyword;
+  // `indexSource` turns each into a `minerva:hasTag` edge to the
+  // corresponding tag URI so the existing tag panel surfaces them.
+  for (const keyword of metadata.keywords) {
+    lines.push(`    minerva:upstreamTag ${ttlString(keyword)} ;`);
+  }
   lines.push(`    thought:accessedAt ${ttlString(new Date().toISOString())}^^xsd:dateTime .`);
   return lines.join('\n') + '\n';
 }

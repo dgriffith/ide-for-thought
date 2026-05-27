@@ -376,6 +376,23 @@
     }
   }
 
+  async function handleCopyDoi(source: SourceMetadata, kind: 'bare' | 'url'): Promise<void> {
+    contextMenu = null;
+    if (!source.doi) return;
+    const text = kind === 'url' ? `https://doi.org/${source.doi}` : source.doi;
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { console.error('[minerva] Copy DOI failed:', err); }
+  }
+
+  async function handleStripUpstreamTags(source: SourceMetadata): Promise<void> {
+    contextMenu = null;
+    try {
+      await api.sources.stripUpstreamTags(source.sourceId);
+    } catch (err) {
+      console.error('[minerva] Strip upstream tags failed:', err);
+    }
+  }
+
   function handleCollectionContextMenu(e: MouseEvent, collection: Collection) {
     e.preventDefault();
     e.stopPropagation();
@@ -755,7 +772,13 @@
       {#if contextMenu.source.readStatus}
         <button onclick={() => handleMarkStatus(contextMenu!.source, null)}>Clear status</button>
       {/if}
+      {#if contextMenu.source.doi}
+        <div class="context-divider"></div>
+        <button onclick={() => handleCopyDoi(contextMenu!.source, 'bare')}>Copy DOI</button>
+        <button onclick={() => handleCopyDoi(contextMenu!.source, 'url')}>Copy DOI URL</button>
+      {/if}
       <div class="context-divider"></div>
+      <button onclick={() => handleStripUpstreamTags(contextMenu!.source)}>Strip upstream tags</button>
       <button onclick={() => handleMergeStart(contextMenu!.source)}>Merge into…</button>
       <button onclick={() => handleDelete(contextMenu!.source)}>Delete Source</button>
     </div>

@@ -73,6 +73,7 @@ import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest
 import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
+import { stripUpstreamTags } from './sources/strip-upstream-tags';
 import type { ReadStatus } from '../shared/types';
 import type { ReadingQueueView } from './graph/index';
 import {
@@ -1618,6 +1619,16 @@ export function registerIpcHandlers(): void {
     await persistIndexes(rootPath);
     const win = winFromEvent(e);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await stripUpstreamTags(rootPath, sourceId);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return result;
   });
 
   ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, (e, view: ReadingQueueView) => {

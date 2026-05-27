@@ -264,6 +264,7 @@ export function extractItem(store: IndexedFormula, subject: NamedNode): Extracte
     uri: urlFromIdentifier ?? uriFromSubject,
     pdfUrl: null,
     category: null,
+    keywords: [],
   };
 
   return { metadata, attachmentRelPath };

@@ -67,6 +67,7 @@ describe('buildMetaTtl (#96)', () => {
     uri: 'https://doi.org/10.1038/x',
     pdfUrl: null,
     category: null,
+    keywords: [],
   };
 
   it('emits every populated predicate and declares the subtype', () => {

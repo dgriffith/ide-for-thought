@@ -686,6 +686,9 @@ export interface SourcesApi {
   /** Resolve a built-in Reading Queue view against the live graph. */
   queueMembers(view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished'):
     Promise<import('../../../shared/types').SourceMetadata[]>;
+  /** Strip API-derived `minerva:upstreamTag` triples from a source.
+   *  Returns the count of dropped tags. */
+  stripUpstreamTags(sourceId: string): Promise<{ removed: number }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */
