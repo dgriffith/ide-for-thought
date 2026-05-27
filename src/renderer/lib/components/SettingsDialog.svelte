@@ -50,18 +50,60 @@
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
   type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'sites' | 'bibliography' | 'compute' | 'ai';
-  const TABS: { id: TabId; label: string }[] = [
-    { id: 'editor', label: 'Editor' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'behaviors', label: 'Behaviors' },
-    { id: 'refactoring', label: 'Refactoring' },
-    { id: 'formatter', label: 'Formatter' },
-    { id: 'web', label: 'Web' },
-    { id: 'sites', label: 'Sites' },
-    { id: 'bibliography', label: 'Bibliography' },
-    { id: 'compute', label: 'Compute' },
-    { id: 'ai', label: 'AI' },
+
+  /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
+   *  semantic groups. Group labels render in mono-uppercase above each
+   *  cluster in the sidebar. Sub-lines describe what each tab covers. */
+  interface TabDef {
+    id: TabId;
+    label: string;
+    sub: string;
+  }
+  interface GroupDef {
+    label: string;
+    items: ReadonlyArray<TabDef>;
+  }
+  const SETTINGS_GROUPS: ReadonlyArray<GroupDef> = [
+    {
+      label: 'Workspace',
+      items: [
+        { id: 'editor',     label: 'Editor',     sub: 'Tab size · word wrap · line numbers' },
+        { id: 'appearance', label: 'Appearance', sub: 'Theme · font · density' },
+        { id: 'behaviors',  label: 'Behaviors',  sub: 'Confirm dialogs · sidebar' },
+      ],
+    },
+    {
+      label: 'Authoring',
+      items: [
+        { id: 'refactoring',  label: 'Refactoring',  sub: 'Default destination · merge rules' },
+        { id: 'formatter',    label: 'Formatter',    sub: 'On-save rules' },
+        { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
+      ],
+    },
+    {
+      label: 'Ingest & compute',
+      items: [
+        { id: 'web',     label: 'Web',     sub: 'Default ingest rules' },
+        { id: 'sites',   label: 'Sites',   sub: 'Privileged-domain logins' },
+        { id: 'compute', label: 'Compute', sub: 'Python interpreter · trust' },
+      ],
+    },
+    {
+      label: 'AI',
+      items: [
+        { id: 'ai', label: 'AI', sub: 'Model · API key · tool prefs' },
+      ],
+    },
   ];
+
+  /** Reverse lookup: tab → its containing group label. Used for the
+   *  body-section eyebrow above each panel's content. */
+  const TAB_TO_GROUP: ReadonlyMap<TabId, string> = new Map(
+    SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, g.label] as const)),
+  );
+  const TAB_DEFS: ReadonlyMap<TabId, TabDef> = new Map(
+    SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, t] as const)),
+  );
 
   let refactor = $state<RefactorSettings>({ ...getRefactorSettings() });
   function patchRefactor(patch: Partial<RefactorSettings>): void {
@@ -450,15 +492,31 @@
     </header>
     <div class="body">
       <nav class="tabs" aria-label="Settings sections">
-        {#each TABS as tab}
-          <button
-            class="tab"
-            class:active={activeTab === tab.id}
-            onclick={() => { activeTab = tab.id; }}
-          >{tab.label}</button>
+        {#each SETTINGS_GROUPS as group}
+          <div class="tab-group">
+            <div class="tab-group-label">{group.label}</div>
+            {#each group.items as tab (tab.id)}
+              <button
+                class="tab"
+                class:active={activeTab === tab.id}
+                onclick={() => { activeTab = tab.id; }}
+              >
+                <span class="tab-label">{tab.label}</span>
+                <span class="tab-sub">{tab.sub}</span>
+              </button>
+            {/each}
+          </div>
         {/each}
       </nav>
       <section class="panel">
+        {#if TAB_DEFS.get(activeTab)}
+          {@const def = TAB_DEFS.get(activeTab)!}
+          <div class="panel-header">
+            <div class="panel-eyebrow">{TAB_TO_GROUP.get(activeTab) ?? ''}</div>
+            <h3 class="panel-title">{def.label}</h3>
+            <p class="panel-sub">{def.sub}</p>
+          </div>
+        {/if}
         {#if activeTab === 'editor'}
           <div class="field">
             <label for="tab-size">Tab size</label>
@@ -1123,8 +1181,8 @@
     background: var(--bg-elev);
     border: 1px solid var(--border-strong);
     border-radius: 12px;
-    min-width: 560px;
-    max-width: 720px;
+    min-width: 720px;
+    max-width: 880px;
     min-height: 420px;
     max-height: calc(100vh - 64px);
     box-shadow:
@@ -1157,43 +1215,109 @@
   }
 
   .tabs {
-    width: 140px;
+    width: 200px;
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    padding: 8px 0;
+    padding: 12px 0;
     background: var(--bg);
     flex-shrink: 0;
+    overflow-y: auto;
   }
 
+  /* Group cluster per §10.4 — mono-uppercase label above its tabs. */
+  .tab-group {
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 8px;
+  }
+  .tab-group + .tab-group {
+    margin-top: 4px;
+  }
+  .tab-group-label {
+    padding: 8px 16px 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Tab rows show label + sub-line */
   .tab {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
     text-align: left;
-    padding: 7px 14px;
+    padding: 7px 16px 7px 18px;
     border: none;
     background: none;
     color: var(--text);
-    font-size: 12px;
+    font-family: var(--font-sans);
     cursor: pointer;
     border-left: 2px solid transparent;
   }
-
   .tab:hover {
-    background: var(--bg-button);
+    background: color-mix(in oklch, var(--text) 4%, transparent);
   }
-
   .tab.active {
-    background: var(--bg-button-hover);
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
     border-left-color: var(--accent);
     color: var(--text);
+  }
+  .tab-label {
+    font-size: 12.5px;
+    font-weight: 450;
+  }
+  .tab.active .tab-label {
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .tab-sub {
+    font-size: 10.5px;
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .panel {
     flex: 1;
-    padding: 16px 20px;
+    padding: 20px 28px 16px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  /* Per-panel header — mono eyebrow + display-serif H1 + sub line.
+     Matches the §10 header pattern. */
+  .panel-header {
+    margin-bottom: 8px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .panel-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    color: var(--text);
+  }
+  .panel-sub {
+    margin: 4px 0 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
   }
 
   .field {
