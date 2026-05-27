@@ -2142,6 +2142,87 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
 }
 
 /**
+ * Built-in Reading Queue views (#116). Each view resolves to a set
+ * of sourceIds via a hardcoded predicate evaluated against the live
+ * graph — distinct from user-defined smart collections which can't
+ * (yet) express date-relative facets.
+ */
+export type ReadingQueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Source ids matching the given queue view. `now` is injectable for
+ * deterministic tests; production callers pass nothing and get the
+ * current wall clock.
+ *
+ *   unread           — readStatus is unset OR explicitly 'unread'
+ *   reading          — readStatus = 'reading'
+ *   dueThisWeek      — readDueBy is set AND ≤ now + 7 days (past-due included)
+ *   recentlyFinished — readStatus = 'read' AND dc:modified within last 30 days
+ */
+export function getReadingQueueSourceIds(
+  ctx: ProjectContext,
+  view: ReadingQueueView,
+  now: Date = new Date(),
+): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+
+  // Walk every source. Project sizes are O(1000), so a single pass
+  // beats running multiple statementsMatching queries.
+  const sourceStmts = store.statementsMatching(undefined, MINERVA('sourceId'), undefined);
+  const matched: string[] = [];
+  const seen = new Set<string>();
+  for (const st of sourceStmts) {
+    const subject = st.subject;
+    const sourceId = st.object.value;
+    if (!sourceId || seen.has(sourceId)) continue;
+
+    const status = store.statementsMatching(subject, MINERVA('readStatus'), undefined)[0]?.object.value ?? null;
+
+    if (view === 'unread') {
+      if (status === null || status === 'unread') {
+        seen.add(sourceId); matched.push(sourceId);
+      }
+      continue;
+    }
+    if (view === 'reading') {
+      if (status === 'reading') {
+        seen.add(sourceId); matched.push(sourceId);
+      }
+      continue;
+    }
+    if (view === 'dueThisWeek') {
+      const due = store.statementsMatching(subject, MINERVA('readDueBy'), undefined)[0]?.object.value;
+      if (!due) continue;
+      const dueMs = Date.parse(due);
+      if (Number.isNaN(dueMs)) continue;
+      if (dueMs <= now.getTime() + 7 * DAY_MS) {
+        seen.add(sourceId); matched.push(sourceId);
+      }
+      continue;
+    }
+    if (view === 'recentlyFinished') {
+      if (status !== 'read') continue;
+      const modified = store.statementsMatching(subject, DC('modified'), undefined)[0]?.object.value;
+      if (!modified) continue;
+      const mMs = Date.parse(modified);
+      if (Number.isNaN(mMs)) continue;
+      if (mMs >= now.getTime() - 30 * DAY_MS) {
+        seen.add(sourceId); matched.push(sourceId);
+      }
+      continue;
+    }
+    // Exhaustiveness — tells future contributors when they extend the union.
+    const _exhaustive: never = view;
+    throw new Error(`Unknown queue view: ${String(_exhaustive)}`);
+  }
+  return matched;
+}
+
+/**
  * Sources tagged with a particular reading status (#116). Used by
  * the smart-collection resolver and by sidebar filters that surface
  * "Unread" / "Reading" / "Read" buckets.

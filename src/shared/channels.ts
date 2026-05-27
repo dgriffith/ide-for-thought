@@ -237,6 +237,9 @@ export const Channels = {
   SOURCES_SET_READ_STATUS: 'sources:setReadStatus',
   /** Set/clear a source's due-by date (#116). */
   SOURCES_SET_READ_DUE_BY: 'sources:setReadDueBy',
+  /** Resolve a built-in Reading Queue view (unread / reading /
+   *  dueThisWeek / recentlyFinished) against the live graph (#116). */
+  SOURCES_QUEUE_MEMBERS: 'sources:queueMembers',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */

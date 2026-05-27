@@ -74,6 +74,7 @@ import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
 import type { ReadStatus } from '../shared/types';
+import type { ReadingQueueView } from './graph/index';
 import {
   loadCollections,
   createCollection,
@@ -1617,6 +1618,15 @@ export function registerIpcHandlers(): void {
     await persistIndexes(rootPath);
     const win = winFromEvent(e);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, (e, view: ReadingQueueView) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    const ctx = projectContext(rootPath);
+    const ids = new Set(graph.getReadingQueueSourceIds(ctx, view));
+    if (ids.size === 0) return [];
+    return graph.listAllSources(ctx).filter((s) => ids.has(s.sourceId));
   });
 
   // ── Collections (#470) ────────────────────────────────────────────────────

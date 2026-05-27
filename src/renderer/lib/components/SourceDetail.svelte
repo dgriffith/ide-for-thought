@@ -216,6 +216,20 @@
     }
   }
 
+  async function handleSetReadDueBy(next: string | null): Promise<void> {
+    if (!detail) return;
+    // Normalise empty string from the date input to null so the
+    // backend clears the predicate rather than refusing the empty
+    // value.
+    const value = next && next.trim() ? next.trim() : null;
+    try {
+      await api.sources.setReadDueBy(sourceId, value);
+      await load(sourceId);
+    } catch (err) {
+      console.error('[minerva] setReadDueBy failed:', err);
+    }
+  }
+
   let creatingAbout = $state(false);
   async function handleNewAboutNote(): Promise<void> {
     if (!onCreateAboutNote || creatingAbout) return;
@@ -293,6 +307,20 @@
               </button>
             {/each}
           </div>
+        </span>
+      </div>
+      <div class="kv read-due-row">
+        <span class="k">Due by</span>
+        <span class="v">
+          <input
+            type="date"
+            class="due-input"
+            value={detail.metadata.readDueBy ?? ''}
+            onchange={(e) => handleSetReadDueBy((e.target as HTMLInputElement).value)}
+          />
+          {#if detail.metadata.readDueBy}
+            <button class="due-clear" onclick={() => handleSetReadDueBy(null)} title="Clear due date">Clear</button>
+          {/if}
         </span>
       </div>
       <div class="actions">
@@ -548,6 +576,39 @@
     background: color-mix(in oklch, var(--accent) 14%, transparent);
     color: var(--accent);
     font-weight: 500;
+  }
+
+  .read-due-row .v {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .due-input {
+    padding: 3px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  .due-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .due-clear {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .due-clear:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
   }
   .k {
     color: var(--text-muted);
