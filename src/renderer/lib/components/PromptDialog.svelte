@@ -11,10 +11,13 @@
      *  browser handles filtering + keyboard nav for free. Used by the
      *  bulk Add/Remove Tag flow; harmless when omitted. */
     suggestions?: string[];
+    /** Optional pre-seeded value (e.g. Rename) — the input opens
+     *  populated with this string, fully selected. */
+    initial?: string;
   }
 
-  let { message, onConfirm, onCancel, suggestions = [] }: Props = $props();
-  let value = $state('');
+  let { message, onConfirm, onCancel, suggestions = [], initial = '' }: Props = $props();
+  let value = $state(initial);
   let inputEl = $state<HTMLInputElement>();
   // Stable id so multiple PromptDialogs (rare, but possible during
   // overlapping flows) don't collide on the datalist anchor.
@@ -30,6 +33,9 @@
 
   $effect(() => {
     inputEl?.focus();
+    // Pre-select the seeded value so the user can type to replace
+    // it but Tab/Enter to accept as-is.
+    if (initial) inputEl?.select();
   });
 </script>
 

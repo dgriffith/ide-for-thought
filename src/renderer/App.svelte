@@ -204,7 +204,7 @@
   }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
-  let promptDialog = $state<{ message: string; suggestions?: string[]; resolve: (value: string | null) => void } | null>(null);
+  let promptDialog = $state<{ message: string; suggestions?: string[]; initial?: string; resolve: (value: string | null) => void } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; hideDontAskAgain?: boolean; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
   /**
@@ -217,9 +217,18 @@
   } | null>(null);
   const confirmSuppression = getConfirmSuppressionStore();
 
-  function showPrompt(message: string, options: { suggestions?: string[] } = {}): Promise<string | null> {
+  function showPrompt(
+    message: string,
+    initialOrOptions?: string | { suggestions?: string[]; initial?: string },
+  ): Promise<string | null> {
+    // Two overloads to keep call sites readable. New callers pass
+    // (message, "current name") for Rename-style flows; existing
+    // callers can keep their {suggestions} object.
+    const opts = typeof initialOrOptions === 'string'
+      ? { initial: initialOrOptions }
+      : (initialOrOptions ?? {});
     return new Promise((resolve) => {
-      promptDialog = { message, suggestions: options.suggestions, resolve };
+      promptDialog = { message, suggestions: opts.suggestions, initial: opts.initial, resolve };
     });
   }
 
@@ -2359,6 +2368,7 @@
           onSourceSelect={(id) => handleOpenSource(id)}
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
+          onShowPrompt={showPrompt}
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
@@ -2679,6 +2689,7 @@
     <PromptDialog
       message={promptDialog.message}
       suggestions={promptDialog.suggestions ?? []}
+      initial={promptDialog.initial ?? ''}
       onConfirm={handlePromptConfirm}
       onCancel={handlePromptCancel}
     />

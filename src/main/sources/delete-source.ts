@@ -15,6 +15,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
+import { scrubSourceFromCollections } from './collections';
 
 export interface DeleteSourceResult {
   sourceId: string;
@@ -43,6 +44,10 @@ export async function deleteSource(
   try {
     await fs.rm(sourceDir, { recursive: true, force: true });
   } catch { /* already gone */ }
+
+  // Scrub from any manually-curated collections (#470) so a removed
+  // source doesn't linger as a dead membership entry.
+  await scrubSourceFromCollections(rootPath, sourceId);
 
   return { sourceId, excerptsRemoved: excerptIds.length };
 }

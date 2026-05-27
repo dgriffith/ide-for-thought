@@ -558,6 +558,7 @@ export interface IdeApi {
   refactor: RefactorApi;
   formatter: FormatterApi;
   sources: SourcesApi;
+  collections: CollectionsApi;
   sites: SitesApi;
   bibliography: BibliographyApi;
   csl: CslApi;
@@ -690,6 +691,19 @@ export interface SourcesApi {
   }): Promise<{ excerptId: string; relativePath: string; duplicate: boolean }>;
   /** Fires when an excerpt is added, updated, or removed. */
   onExcerptsChanged(cb: () => void): void;
+}
+
+/** Manually-curated source collections (#470 phase 1). */
+export interface CollectionsApi {
+  list(): Promise<import('../../../shared/types').CollectionsFile>;
+  create(args: { name: string; parent?: string | null }): Promise<import('../../../shared/types').Collection>;
+  rename(id: string, name: string): Promise<void>;
+  remove(id: string): Promise<void>;
+  addSource(collectionId: string, sourceId: string): Promise<void>;
+  removeSource(collectionId: string, sourceId: string): Promise<void>;
+  /** Fires when a collection is added, renamed, deleted, or its
+   *  membership changes. */
+  onChanged(cb: () => void): void;
 }
 
 declare global {

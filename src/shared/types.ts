@@ -164,6 +164,22 @@ export interface SourceDetail {
   aboutNotes: SourceAboutNote[];
 }
 
+/** Manually-curated source collection (#470 phase 1). Sources can
+ *  live in many collections. Smart (query-driven) collections will
+ *  be a separate type in the same file later. */
+export interface Collection {
+  id: string;
+  name: string;
+  /** Parent collection id, or null for a top-level collection. */
+  parent: string | null;
+  /** Source ids the user has put into this collection. */
+  members: string[];
+}
+
+export interface CollectionsFile {
+  collections: Collection[];
+}
+
 // ── Bookmarks ────────────────────────────────────────────────────────────
 
 export interface Bookmark {

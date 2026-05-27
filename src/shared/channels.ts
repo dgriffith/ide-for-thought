@@ -233,6 +233,18 @@ export const Channels = {
   /** Merge two sources: fold src's metadata into dest, move excerpts,
    *  rewrite `[[cite::src]]`, delete src folder (#90). */
   SOURCES_MERGE: 'sources:merge',
+
+  // Collections (#470)
+  /** Read `.minerva/collections.json` as a CollectionsFile. */
+  COLLECTIONS_LIST: 'collections:list',
+  COLLECTIONS_CREATE: 'collections:create',
+  COLLECTIONS_RENAME: 'collections:rename',
+  COLLECTIONS_DELETE: 'collections:delete',
+  COLLECTIONS_ADD_SOURCE: 'collections:addSource',
+  COLLECTIONS_REMOVE_SOURCE: 'collections:removeSource',
+  /** Broadcast from main when the collections file changes so any open
+   *  sidebar refreshes its tree. */
+  COLLECTIONS_CHANGED: 'collections:changed',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
   SOURCES_CHANGED: 'sources:changed',
 

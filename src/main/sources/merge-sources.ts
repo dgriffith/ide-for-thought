@@ -32,6 +32,7 @@ import * as notebaseFs from '../notebase/fs';
 import { rewriteTypedIdLinks } from '../notebase/link-rewriting';
 import { projectContext } from '../project-context-types';
 import { mergeMetaTtl, type SourceMetaUpdate } from './source-merge';
+import { rewriteCollectionMemberships } from './collections';
 
 export interface MergeSourcesResult {
   destId: string;
@@ -171,7 +172,11 @@ export async function mergeSources(
     }
   }
 
-  // 5. Drop src from graph + disk.
+  // 5. Move collection memberships src → dest (#470) so the dest
+  //    inherits every "Reading list" / "Lit review" the src was in.
+  await rewriteCollectionMemberships(rootPath, srcId, destId);
+
+  // 6. Drop src from graph + disk.
   graph.removeSource(ctx, srcId);
   await fs.rm(srcDir, { recursive: true, force: true });
 
