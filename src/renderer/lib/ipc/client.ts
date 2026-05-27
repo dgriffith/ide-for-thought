@@ -700,6 +700,17 @@ export interface SourcesApi {
     title: string;
     route: 'identifier' | 'url';
   }>;
+  /** Mine a source's References section via the LLM. Returns the
+   *  parsed candidates for user approval; no stubs are written until
+   *  `createReferenceStubs` is called. (#106) */
+  mineReferences(sourceId: string): Promise<import('../../../shared/mine-references').ParsedReference[]>;
+  /** Materialise approved references as stub sources + add
+   *  `minerva:references` edges from the parent (#106). */
+  createReferenceStubs(sourceId: string, refs: import('../../../shared/mine-references').ParsedReference[]): Promise<{
+    created: { sourceId: string; title: string }[];
+    matchedExisting: { sourceId: string; title: string }[];
+    skipped: { reason: string; raw: string }[];
+  }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */

@@ -23,6 +23,7 @@
   } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
+  import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
@@ -1779,6 +1780,66 @@
   }
 
   /**
+   * Right-click a source → "Mine references…" (#106). Runs the LLM
+   * mining call, opens a review dialog. User checks the candidates
+   * they want, clicks Approve → backend writes the stub files and
+   * adds `minerva:references` edges from the parent.
+   */
+  let mineReviewState = $state<{
+    parentId: string;
+    parentTitle: string;
+    refs: import('../shared/mine-references').ParsedReference[];
+  } | null>(null);
+
+  async function handleMineReferences(source: import('../shared/types').SourceMetadata): Promise<void> {
+    try {
+      const refs = await withBusy('Mining references…', () =>
+        api.sources.mineReferences(source.sourceId),
+      );
+      if (refs.length === 0) {
+        await showConfirm(
+          'No references the LLM could parse. The body.md may not have a References section, or its formatting is too irregular for first-pass extraction.',
+          CONFIRM_KEYS.mineReferencesEmpty,
+          'OK',
+        );
+        return;
+      }
+      mineReviewState = {
+        parentId: source.sourceId,
+        parentTitle: source.title ?? source.sourceId,
+        refs,
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Couldn't mine references: ${msg}`, CONFIRM_KEYS.mineReferencesFailed, 'OK');
+    }
+  }
+
+  async function handleMineReferencesApply(
+    accepted: import('../shared/mine-references').ParsedReference[],
+  ): Promise<void> {
+    const state = mineReviewState;
+    mineReviewState = null;
+    if (!state) return;
+    try {
+      const result = await withBusy('Creating stubs…', () =>
+        api.sources.createReferenceStubs(state.parentId, accepted),
+      );
+      await refreshSourcesCache();
+      const lines: string[] = [];
+      if (result.created.length > 0) lines.push(`Created ${result.created.length} new stub${result.created.length === 1 ? '' : 's'}.`);
+      if (result.matchedExisting.length > 0) lines.push(`${result.matchedExisting.length} matched existing sources.`);
+      if (result.skipped.length > 0) lines.push(`${result.skipped.length} skipped (id collision).`);
+      if (lines.length > 0) {
+        await showConfirm(lines.join(' '), CONFIRM_KEYS.mineReferencesResult, 'OK');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Couldn't create stubs: ${msg}`, CONFIRM_KEYS.mineReferencesFailed, 'OK');
+    }
+  }
+
+  /**
    * Click on a bare-DOI link inside the markdown preview (#473).
    * If the DOI already maps to an ingested source, open it. Otherwise
    * offer to ingest — dismissable, keyed so the user can suppress
@@ -2417,6 +2478,7 @@
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
           onShowPrompt={showPrompt}
+          onMineReferences={handleMineReferences}
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
@@ -2622,6 +2684,7 @@
               onShowConfirm={showConfirm}
               onDeleted={handleSourceDeleted}
               onCreateAboutNote={handleNewAboutSourceNote}
+              onOpenReference={handleOpenSource}
             />
           {/key}
         {:else}
@@ -2745,6 +2808,14 @@
       initial={promptDialog.initial ?? ''}
       onConfirm={handlePromptConfirm}
       onCancel={handlePromptCancel}
+    />
+  {/if}
+  {#if mineReviewState}
+    <MineReferencesDialog
+      parentTitle={mineReviewState.parentTitle}
+      refs={mineReviewState.refs}
+      onApply={handleMineReferencesApply}
+      onCancel={() => { mineReviewState = null; }}
     />
   {/if}
   {#if confirmDialog}

@@ -62,13 +62,14 @@
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
     onShowPrompt?: (message: string, initial?: string) => Promise<string | null>;
+    onMineReferences?: (source: import('../../../shared/types').SourceMetadata) => Promise<void>;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -575,7 +576,7 @@
       {/if}
     {:else if activePanel === 'sites'}
       {#if onSourceSelect && onShowConfirm && onShowPrompt}
-        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} {onShowPrompt} onSourceOpened={onSourceSelect} />
+        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} {onShowPrompt} {onMineReferences} onSourceOpened={onSourceSelect} />
       {/if}
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />

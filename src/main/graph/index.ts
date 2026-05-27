@@ -2086,7 +2086,7 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
 
 // ── Source detail queries ───────────────────────────────────────────────────
 
-import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote, ReadStatus } from '../../shared/types';
+import type { SourceDetail, SourceMetadata, SourceExcerpt, SourceBacklink, SourceAboutNote, SourceReference, ReadStatus } from '../../shared/types';
 
 const READ_STATUS_VALUES: ReadonlySet<ReadStatus> = new Set(['unread', 'reading', 'read', 'skipped']);
 
@@ -2104,8 +2104,35 @@ export function getSourceDetail(ctx: ProjectContext, sourceId: string): SourceDe
   const excerpts = collectExcerptsForSource(state, subject);
   const backlinks = collectSourceBacklinks(state, subject, excerpts);
   const aboutNotes = collectSourceAboutNotes(state, subject);
+  const references = collectSourceReferences(state, subject);
 
-  return { metadata, excerpts, backlinks, aboutNotes };
+  return { metadata, excerpts, backlinks, aboutNotes, references };
+}
+
+/**
+ * Outgoing `minerva:references` edges from this source (#106) —
+ * the bibliography stubs created by reference mining.
+ */
+function collectSourceReferences(state: GraphState, sourceSubject: $rdf.NamedNode): SourceReference[] {
+  const { store } = state;
+  const out: SourceReference[] = [];
+  const seen = new Set<string>();
+  for (const st of store.statementsMatching(sourceSubject, MINERVA('references'), undefined)) {
+    const targetSubject = st.object as $rdf.NamedNode;
+    const idStmts = store.statementsMatching(targetSubject, MINERVA('sourceId'), undefined);
+    const targetId = idStmts[0]?.object.value;
+    if (!targetId || seen.has(targetId)) continue;
+    seen.add(targetId);
+    const titleStmts = store.statementsMatching(targetSubject, DC('title'), undefined);
+    const stubStmts = store.statementsMatching(targetSubject, THOUGHT('stubStatus'), undefined);
+    out.push({
+      sourceId: targetId,
+      title: titleStmts[0]?.object.value ?? targetId,
+      stubStatus: stubStmts[0]?.object.value ?? null,
+    });
+  }
+  out.sort((a, b) => a.title.localeCompare(b.title));
+  return out;
 }
 
 function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
@@ -2151,6 +2178,7 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
     abstract: first(DC('abstract')),
     readStatus,
     readDueBy: first(MINERVA('readDueBy')),
+    stubStatus: first(THOUGHT('stubStatus')),
   };
 }
 

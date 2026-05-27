@@ -30,9 +30,12 @@
      *  the "+" button's smart-paste path lands the user on the new
      *  source without an extra click. (#473) */
     onSourceOpened?: (sourceId: string) => void;
+    /** Mine the source's References section into stub Source nodes
+     *  (#106). Host orchestrates the LLM call + review dialog. */
+    onMineReferences?: (source: SourceMetadata) => Promise<void>;
   }
 
-  let { onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onSourceOpened }: Props = $props();
+  let { onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onSourceOpened, onMineReferences }: Props = $props();
 
   let sources = $state<SourceMetadata[]>([]);
   let filter = $state('');
@@ -395,6 +398,12 @@
     } catch (err) {
       console.error('[minerva] Strip upstream tags failed:', err);
     }
+  }
+
+  async function handleMineReferences(source: SourceMetadata): Promise<void> {
+    contextMenu = null;
+    if (!onMineReferences) return;
+    await onMineReferences(source);
   }
 
   let adding = $state(false);
@@ -819,6 +828,9 @@
         <button onclick={() => handleCopyDoi(contextMenu!.source, 'url')}>Copy DOI URL</button>
       {/if}
       <div class="context-divider"></div>
+      {#if onMineReferences}
+        <button onclick={() => handleMineReferences(contextMenu!.source)}>Mine references…</button>
+      {/if}
       <button onclick={() => handleStripUpstreamTags(contextMenu!.source)}>Strip upstream tags</button>
       <button onclick={() => handleMergeStart(contextMenu!.source)}>Merge into…</button>
       <button onclick={() => handleDelete(contextMenu!.source)}>Delete Source</button>

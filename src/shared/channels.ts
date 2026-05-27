@@ -251,6 +251,12 @@ export const Channels = {
    *  the "+" button, detects whether it's a DOI / arXiv id / PMID /
    *  URL, and dispatches to the matching ingest path (#473). */
   SOURCES_INGEST_SMART: 'sources:ingestSmart',
+  /** Mine a source's References section via the LLM and return the
+   *  parsed candidates for user approval (#106). */
+  SOURCES_MINE_REFERENCES: 'sources:mineReferences',
+  /** Materialise approved reference candidates as stub Source nodes
+   *  + add `minerva:references` edges from the parent (#106). */
+  SOURCES_CREATE_REFERENCE_STUBS: 'sources:createReferenceStubs',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */
