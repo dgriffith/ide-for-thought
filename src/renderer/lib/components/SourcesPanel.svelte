@@ -313,6 +313,22 @@
     }
   }
 
+  /** Used by the Add-to-collection picker's inline "Create new
+   *  collection: <typed name>" affordance. Creates the collection,
+   *  refreshes the local cache so the picker can resolve labels for
+   *  it, and returns the new id so the picker can complete its
+   *  selection flow. (#470) */
+  async function handleCreateFromPicker(name: string): Promise<string> {
+    const created = await api.collections.create({ name, parent: null });
+    // The COLLECTIONS_CHANGED broadcast will fire too, but kicking
+    // off a refresh here avoids the millisecond gap where the
+    // picker might list the new collection without resolving its
+    // breadcrumb label (since labels are derived from the local
+    // `collections` snapshot).
+    await refreshCollections();
+    return created.id;
+  }
+
   async function handleRemoveFromActiveCollection(source: SourceMetadata) {
     contextMenu = null;
     if (!activeCollectionId) return;
@@ -460,6 +476,7 @@
     title={`Add "${addToCollectionFor.title ?? addToCollectionFor.sourceId}" to collection…`}
     onSelect={handleAddToCollectionPick}
     onCancel={() => { addToCollectionFor = null; }}
+    onCreate={handleCreateFromPicker}
   />
 {/if}
 
