@@ -271,6 +271,21 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.EXCERPTS_CHANGED, () => cb());
     },
   },
+  collections: {
+    list: () => ipcRenderer.invoke(Channels.COLLECTIONS_LIST),
+    create: (args: { name: string; parent?: string | null }) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_CREATE, args),
+    rename: (id: string, name: string) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_RENAME, { id, name }),
+    remove: (id: string) => ipcRenderer.invoke(Channels.COLLECTIONS_DELETE, id),
+    addSource: (collectionId: string, sourceId: string) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_ADD_SOURCE, { collectionId, sourceId }),
+    removeSource: (collectionId: string, sourceId: string) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_REMOVE_SOURCE, { collectionId, sourceId }),
+    onChanged: (cb: () => void) => {
+      ipcRenderer.on(Channels.COLLECTIONS_CHANGED, () => cb());
+    },
+  },
   formatter: {
     formatContent: (content: string, settings: unknown, relativePath?: string) =>
       ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings, relativePath),

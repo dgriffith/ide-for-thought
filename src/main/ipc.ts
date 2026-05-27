@@ -72,6 +72,14 @@ import { renderInlineCitations, type InlineCiteRequest } from './citations/rende
 import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
 import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
+import {
+  loadCollections,
+  createCollection,
+  renameCollection,
+  deleteCollection,
+  addSourceToCollection,
+  removeSourceFromCollection,
+} from './sources/collections';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
@@ -1582,6 +1590,54 @@ export function registerIpcHandlers(): void {
       }
       throw err;
     }
+  });
+
+  // ── Collections (#470) ────────────────────────────────────────────────────
+  const broadcastCollectionsChanged = (e: Electron.IpcMainInvokeEvent) => {
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.COLLECTIONS_CHANGED);
+  };
+
+  ipcMain.handle(Channels.COLLECTIONS_LIST, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { collections: [] };
+    return await loadCollections(rootPath);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_CREATE, async (e, args: { name: string; parent?: string | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createCollection(rootPath, args);
+    broadcastCollectionsChanged(e);
+    return result;
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_RENAME, async (e, args: { id: string; name: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await renameCollection(rootPath, args.id, args.name);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_DELETE, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await deleteCollection(rootPath, id);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_ADD_SOURCE, async (e, args: { collectionId: string; sourceId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await addSourceToCollection(rootPath, args.collectionId, args.sourceId);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_REMOVE_SOURCE, async (e, args: { collectionId: string; sourceId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await removeSourceFromCollection(rootPath, args.collectionId, args.sourceId);
+    broadcastCollectionsChanged(e);
   });
 
   ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {
