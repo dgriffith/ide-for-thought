@@ -26,6 +26,9 @@
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import { RESOLVE_AUTO_THRESHOLD } from '../shared/resolve-stub';
+  import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
+  import type { Command } from './lib/command-palette/types';
+  import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
@@ -447,6 +450,150 @@
   let pendingSearchQuery = $state<string | null>(null);
   let showGotoLine = $state(false);
   let showGotoNote = $state(false);
+  let showCommandPalette = $state(false);
+
+  /** Command-palette registry (#463). Re-derived whenever the host
+   *  state the commands depend on (`enabled`) changes, so the
+   *  palette never offers an action that would silently no-op.
+   *
+   *  Adding a command: append a row here. The palette and (later)
+   *  custom keybinding UI both draw from this list. The Electron
+   *  menu still lives in `src/main/menu.ts` — moving menus to read
+   *  from this registry is a separate follow-up.
+   */
+  const commands = $derived<Command[]>(buildCommandRegistry());
+
+  function buildCommandRegistry(): Command[] {
+    const hasProject = !!notebase.meta;
+    const hasNote = !!editor.activeFilePath;
+    const hasActiveNoteTab = editor.activeTab?.type === 'note';
+    const list: Command[] = [
+      // ── File ──
+      { id: 'file.newNote', title: 'New Note', category: 'File',
+        keybinding: formatAccelerator('CmdOrCtrl+N'),
+        enabled: hasProject, run: () => handleNewNote() },
+      { id: 'file.save', title: 'Save', category: 'File',
+        keybinding: formatAccelerator('CmdOrCtrl+S'),
+        enabled: hasNote, run: () => handleSave() },
+      { id: 'file.openProject', title: 'Open Thoughtbase…', category: 'File',
+        keybinding: formatAccelerator('CmdOrCtrl+O'),
+        enabled: true, run: () => handleOpenThoughtbase() },
+      { id: 'file.newProject', title: 'New Thoughtbase…', category: 'File',
+        keybinding: null, enabled: true, run: () => handleNewThoughtbase() },
+      { id: 'file.closeProject', title: 'Close Thoughtbase', category: 'File',
+        keybinding: formatAccelerator('CmdOrCtrl+Shift+W'),
+        enabled: hasProject, run: () => { notebase.close(); editor.clear(); } },
+      { id: 'file.print', title: 'Print…', category: 'File',
+        keybinding: null, enabled: hasNote, run: () => window.print() },
+      // ── Edit / search ──
+      { id: 'edit.find', title: 'Find', category: 'Edit',
+        keybinding: formatAccelerator('CmdOrCtrl+F'),
+        enabled: hasNote, run: () => editorComponent?.openFind() },
+      { id: 'edit.findReplace', title: 'Find and Replace', category: 'Edit',
+        keybinding: formatAccelerator('CmdOrCtrl+H'),
+        enabled: hasNote, run: () => editorComponent?.openFindReplace() },
+      { id: 'edit.findInNotes', title: 'Find in Notes…', category: 'Edit',
+        keybinding: formatAccelerator('CmdOrCtrl+Shift+F'),
+        enabled: hasProject, run: () => { findInNotesMode = 'find'; } },
+      { id: 'edit.replaceInNotes', title: 'Replace in Notes…', category: 'Edit',
+        keybinding: formatAccelerator('CmdOrCtrl+Shift+H'),
+        enabled: hasProject, run: () => { findInNotesMode = 'replace'; } },
+      { id: 'edit.gotoLine', title: 'Go to Line…', category: 'Edit',
+        keybinding: null, enabled: hasNote, run: () => { showGotoLine = true; } },
+      { id: 'edit.sortLines', title: 'Sort Lines', category: 'Edit',
+        keybinding: null, enabled: hasNote, run: () => editorComponent?.runSortLines() },
+      // ── View ──
+      { id: 'view.toggleSidebar', title: 'Toggle Left Sidebar', category: 'View',
+        keybinding: null, enabled: true, run: () => { sidebarVisible = !sidebarVisible; } },
+      { id: 'view.toggleRightSidebar', title: 'Toggle Right Sidebar', category: 'View',
+        keybinding: null, enabled: true, run: () => { rightSidebarVisible = !rightSidebarVisible; } },
+      { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View',
+        keybinding: null, enabled: hasNote, run: () => cycleViewMode() },
+      { id: 'view.toggleConversations', title: 'Toggle Conversations', category: 'View',
+        keybinding: null, enabled: true, run: () => conversationsStore.toggle() },
+      { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View',
+        keybinding: null, enabled: true, run: () => handleCycleTheme() },
+      { id: 'view.fontIncrease', title: 'Increase Font Size', category: 'View',
+        keybinding: null, enabled: true,
+        run: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; } },
+      { id: 'view.fontDecrease', title: 'Decrease Font Size', category: 'View',
+        keybinding: null, enabled: true,
+        run: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; } },
+      { id: 'view.fontReset', title: 'Reset Font Size', category: 'View',
+        keybinding: null, enabled: true,
+        run: () => { editorComponent?.resetFontSize(); editorFontSize = 14; } },
+      // ── Navigate ──
+      { id: 'nav.quickOpen', title: 'Go to…', category: 'Navigate',
+        keybinding: formatAccelerator('CmdOrCtrl+P'),
+        enabled: hasProject,
+        run: () => {
+          void refreshSourcesCache();
+          void refreshSavedQueriesCache();
+          showGotoNote = true;
+        } },
+      { id: 'nav.back', title: 'Navigate Back', category: 'Navigate',
+        keybinding: formatAccelerator('CmdOrCtrl+['),
+        enabled: nav.canGoBack, run: () => handleNavBack() },
+      { id: 'nav.forward', title: 'Navigate Forward', category: 'Navigate',
+        keybinding: formatAccelerator('CmdOrCtrl+]'),
+        enabled: nav.canGoForward, run: () => handleNavForward() },
+      // ── Refactor ──
+      { id: 'refactor.rename', title: 'Rename Note…', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); } },
+      { id: 'refactor.move', title: 'Move Note…', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); } },
+      { id: 'refactor.copy', title: 'Copy Note…', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); } },
+      { id: 'refactor.extract', title: 'Extract Selection to New Note', category: 'Refactor',
+        keybinding: null, enabled: hasActiveNoteTab, run: () => handleExtractSelection() },
+      { id: 'refactor.splitHere', title: 'Split Here', category: 'Refactor',
+        keybinding: null, enabled: hasActiveNoteTab, run: () => handleSplitHere() },
+      { id: 'refactor.splitByHeading', title: 'Split by Heading…', category: 'Refactor',
+        keybinding: null, enabled: hasActiveNoteTab, run: () => handleSplitByHeading() },
+      { id: 'refactor.autoTag', title: 'Auto-tag Note', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); } },
+      { id: 'refactor.autoLink', title: 'Auto-link Outbound', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); } },
+      { id: 'refactor.autoLinkInbound', title: 'Auto-link Inbound', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); } },
+      { id: 'refactor.decompose', title: 'Decompose into Claims', category: 'Refactor',
+        keybinding: null, enabled: hasNote,
+        run: () => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); } },
+      { id: 'refactor.format', title: 'Format', category: 'Refactor',
+        keybinding: null, enabled: hasNote, run: () => handleFormat() },
+      // ── Research ──
+      { id: 'research.ingestUrl', title: 'Ingest URL…', category: 'Research',
+        keybinding: formatAccelerator('CmdOrCtrl+Shift+I'),
+        enabled: hasProject, run: () => handleIngestUrl() },
+      { id: 'research.ingestIdentifier', title: 'Ingest Identifier…', category: 'Research',
+        keybinding: formatAccelerator('CmdOrCtrl+Shift+D'),
+        enabled: hasProject, run: () => handleIngestIdentifier() },
+      { id: 'research.ingestPdf', title: 'Ingest PDF…', category: 'Research',
+        keybinding: null, enabled: hasProject, run: () => handleIngestPdf() },
+      { id: 'research.importBibtex', title: 'Import BibTeX…', category: 'Research',
+        keybinding: null, enabled: hasProject, run: () => handleImportBibtex() },
+      { id: 'research.importZoteroRdf', title: 'Import Zotero RDF…', category: 'Research',
+        keybinding: null, enabled: hasProject, run: () => handleImportZoteroRdf() },
+      { id: 'research.bibliography', title: 'Insert/Update Bibliography', category: 'Research',
+        keybinding: null, enabled: hasNote, run: () => { void handleBibliography(); } },
+      // ── Query ──
+      { id: 'query.new', title: 'New Query', category: 'Query',
+        keybinding: null, enabled: hasProject, run: () => editor.openQuery() },
+      { id: 'query.editSaved', title: 'Edit Saved Queries…', category: 'Query',
+        keybinding: null, enabled: hasProject, run: () => { showEditSavedQueries = true; } },
+      // ── Settings / app ──
+      { id: 'app.settings', title: 'Settings…', category: 'App',
+        keybinding: formatAccelerator('CmdOrCtrl+,'),
+        enabled: true, run: () => { showSettings = true; } },
+    ];
+    return list;
+  }
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
   let mergePickerSource = $state<string | null>(null);
@@ -2310,6 +2457,17 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    // ⌘K (or Ctrl+K) opens the command palette (#463). ⌘⇧P is
+    // already bound to cycle view mode, so we use the Linear / VS
+    // Code convention instead of Obsidian's ⌘P (which is our quick-
+    // open).
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'k') {
+      if (notebase.meta) {
+        e.preventDefault();
+        showCommandPalette = !showCommandPalette;
+        return;
+      }
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === '[') {
       e.preventDefault();
       void handleNavBack();
@@ -2970,6 +3128,12 @@
       candidates={resolveStubState.candidates}
       onApply={handleResolveStubApply}
       onCancel={() => { resolveStubState = null; }}
+    />
+  {/if}
+  {#if showCommandPalette}
+    <CommandPaletteDialog
+      {commands}
+      onClose={() => { showCommandPalette = false; }}
     />
   {/if}
   {#if confirmDialog}
