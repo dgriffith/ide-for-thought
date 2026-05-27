@@ -38,9 +38,18 @@
      *  against whatever the user is looking at, even if it differs from
      *  the conversation's origin. */
     currentNotePath: string | null;
+    /** Host implementation of "Create note from this conversation"
+     *  (#177). Receives the conversation, the selected text (or
+     *  empty when no selection lives inside the conversation pane),
+     *  and the latest assistant message's content as a fallback. */
+    onCreateNoteFromConversation?: (args: {
+      conversation: import('../../../shared/types').Conversation;
+      selectionText: string;
+      fallbackText: string;
+    }) => Promise<void>;
   }
 
-  let { currentNotePath }: Props = $props();
+  let { currentNotePath, onCreateNoteFromConversation }: Props = $props();
 
   const store = getConversationsStore();
   const editor = getEditorStore();
@@ -63,6 +72,50 @@
       const s = await api.tools.getSettings();
       defaultModel = s.model ?? null;
     } catch { /* settings unavailable; picker still works without the label */ }
+  });
+
+  /**
+   * "Create note" from the active conversation (#177). Pulls the
+   * current selection if it sits inside the conversation pane;
+   * otherwise the host's fallback (last assistant message) wins.
+   */
+  let creatingNote = $state(false);
+  async function handleCreateNote(): Promise<void> {
+    if (!onCreateNoteFromConversation || creatingNote) return;
+    const tab = store.activeTab;
+    if (!tab || tab.conversation.messages.filter((m) => m.role === 'assistant').length === 0) return;
+    creatingNote = true;
+    try {
+      const sel = window.getSelection();
+      let selectionText = '';
+      if (sel && scrollEl && !sel.isCollapsed) {
+        // Only honour the selection when it lives inside the
+        // conversation pane — otherwise users could trigger from
+        // editor selections by accident.
+        if (scrollEl.contains(sel.anchorNode) && scrollEl.contains(sel.focusNode)) {
+          selectionText = sel.toString().trim();
+        }
+      }
+      const lastAssistant = [...tab.conversation.messages]
+        .reverse()
+        .find((m) => m.role === 'assistant');
+      const fallbackText = lastAssistant?.content ?? '';
+      await onCreateNoteFromConversation({
+        conversation: tab.conversation,
+        selectionText,
+        fallbackText,
+      });
+    } finally {
+      creatingNote = false;
+    }
+  }
+
+  /** Whether the "Create note" affordance is enabled. Requires at
+   *  least one assistant message in the active conversation. */
+  const canCreateNote = $derived.by(() => {
+    const tab = store.activeTab;
+    if (!tab) return false;
+    return tab.conversation.messages.some((m) => m.role === 'assistant');
   });
 
   async function handleModelChange(tabId: string, e: Event) {
@@ -480,6 +533,17 @@
               <option value={m.value}>{m.label}</option>
             {/each}
           </select>
+          {#if onCreateNoteFromConversation}
+            <button
+              type="button"
+              class="rail-action"
+              disabled={!canCreateNote || creatingNote}
+              onclick={handleCreateNote}
+              title="Create a new note from the selection (or last assistant message) — #177"
+            >
+              {creatingNote ? 'Creating…' : 'Create note'}
+            </button>
+          {/if}
         </div>
 
         {#snippet messageBlock(msg: ConversationMessage)}
@@ -1126,6 +1190,24 @@
     max-width: 200px;
     flex-shrink: 0;
   }
+  /* "Create note" rail button (#177). Sits next to the model picker
+     and follows the same chrome — keeps the rail visually contained. */
+  .rail-action {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 11px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .rail-action:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .rail-action:disabled { opacity: 0.45; cursor: default; }
 
   .messages {
     flex: 1;
