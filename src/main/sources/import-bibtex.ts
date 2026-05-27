@@ -22,6 +22,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseBibtex } from '@retorquere/bibtex-parser';
 import { canonicalSourceId } from './source-id';
+import { mergeMetaTtl } from './source-merge';
 import { buildMetaTtl } from './ingest-identifier';
 import type { ArticleMetadata } from './api-adapters/types';
 
@@ -104,11 +105,30 @@ export async function importBibtexContent(
       const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
       const metaPath = path.join(sourceDir, 'meta.ttl');
 
+      // Dedupe: existing meta.ttl → merge missing fields from this
+      // BibTeX entry (#90). Imports often happen in batches; a richer
+      // entry later in the batch can enrich an earlier minimal record.
       try {
-        await fs.access(metaPath);
+        const existingTtl = await fs.readFile(metaPath, 'utf-8');
+        const { ttl: merged, added } = mergeMetaTtl(existingTtl, {
+          doi: metadata.doi,
+          isbn: metadata.isbn,
+          uri: metadata.uri,
+          issued: metadata.issued,
+          publisher: metadata.publisher,
+          containerTitle: metadata.containerTitle,
+          abstract: metadata.abstract,
+          creators: metadata.creators,
+        });
+        if (added.length > 0) {
+          await fs.writeFile(metaPath, merged, 'utf-8');
+        }
         result.duplicate.push({ sourceId, title: metadata.title });
         continue;
-      } catch { /* not found — proceed */ }
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        // Not found — proceed to fresh write.
+      }
 
       await fs.mkdir(sourceDir, { recursive: true });
       await fs.writeFile(metaPath, buildMetaTtl(metadata), 'utf-8');
