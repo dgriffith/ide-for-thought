@@ -27,4 +27,14 @@ export interface ArticleMetadata {
   pdfUrl: string | null;
   /** For arXiv preprints: the subject category (`cs.AI`, `math.CO`). */
   category: string | null;
+  /**
+   * Provenance-namespaced subject tags extracted from the upstream
+   * record (#473). Each entry is already slugified and prefixed:
+   * `crossref/Computer-Science-Applications`, `arxiv/cs.LG`,
+   * `mesh/Genetics`. The ingest pipeline writes one
+   * `minerva:upstreamTag` literal per entry; the indexer turns
+   * those into `minerva:hasTag` edges on the source so they
+   * surface in the existing tag panel.
+   */
+  keywords: string[];
 }

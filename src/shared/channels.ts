@@ -240,6 +240,9 @@ export const Channels = {
   /** Resolve a built-in Reading Queue view (unread / reading /
    *  dueThisWeek / recentlyFinished) against the live graph (#116). */
   SOURCES_QUEUE_MEMBERS: 'sources:queueMembers',
+  /** Drop every API-derived `minerva:upstreamTag` from a source's
+   *  meta.ttl and re-index (#473). User-authored body tags survive. */
+  SOURCES_STRIP_UPSTREAM_TAGS: 'sources:stripUpstreamTags',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */

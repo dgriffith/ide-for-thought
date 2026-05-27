@@ -10,6 +10,7 @@
  */
 
 import type { ArticleMetadata } from './types';
+import { buildUpstreamTags } from './upstream-tags';
 
 /** Endpoint prefix; broken out for tests. */
 export const CROSSREF_ENDPOINT = 'https://api.crossref.org/works';
@@ -34,6 +35,10 @@ export interface CrossrefWork {
   abstract?: string;
   link?: Array<{ URL?: string; 'content-type'?: string; 'content-version'?: string }>;
   ISBN?: string[];
+  /** CrossRef's broad disciplinary subject taxonomy (e.g. "Computer
+   *  Science Applications"). Surfaced as `crossref/...` upstream
+   *  tags (#473). */
+  subject?: string[];
 }
 
 export async function fetchCrossrefMetadata(
@@ -92,6 +97,7 @@ export function parseCrossrefWork(work: CrossrefWork, doi: string): ArticleMetad
     uri: work.URL?.trim() || `https://doi.org/${doi}`,
     pdfUrl,
     category: null,
+    keywords: buildUpstreamTags('crossref', work.subject ?? []),
   };
 }
 

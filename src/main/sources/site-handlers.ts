@@ -308,6 +308,7 @@ export function structuredToArticleMetadata(
     uri: fallback.uri ?? null,
     pdfUrl: structured.pdfUrl ?? null,
     category: null,
+    keywords: [],
   };
 }
 

@@ -10,6 +10,7 @@
 
 import { DOMParser } from 'linkedom';
 import type { ArticleMetadata } from './types';
+import { buildUpstreamTags } from './upstream-tags';
 
 export const PUBMED_SUMMARY = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi';
 export const PUBMED_FETCH = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi';
@@ -35,8 +36,12 @@ export async function fetchPubmedMetadata(
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<ArticleMetadata> {
   const summary = await fetchSummary(pmid, fetchImpl);
-  const abstract = await fetchAbstract(pmid, fetchImpl).catch(() => null);
-  return buildMetadata(pmid, summary, abstract);
+  // One efetch call carries both the abstract and the MeSH heading
+  // list, so we fetch the XML once and pull both apart.
+  const efetchXml = await fetchEfetchXml(pmid, fetchImpl).catch(() => null);
+  const abstract = efetchXml ? parseAbstractXml(efetchXml) : null;
+  const meshTerms = efetchXml ? parseMeshTerms(efetchXml) : [];
+  return buildMetadata(pmid, summary, abstract, meshTerms);
 }
 
 async function fetchSummary(pmid: string, fetchImpl: typeof fetch): Promise<PubmedEsummary> {
@@ -46,12 +51,11 @@ async function fetchSummary(pmid: string, fetchImpl: typeof fetch): Promise<Pubm
   return await res.json() as PubmedEsummary;
 }
 
-async function fetchAbstract(pmid: string, fetchImpl: typeof fetch): Promise<string | null> {
+async function fetchEfetchXml(pmid: string, fetchImpl: typeof fetch): Promise<string | null> {
   const url = `${PUBMED_FETCH}?db=pubmed&id=${encodeURIComponent(pmid)}&retmode=xml&rettype=abstract`;
   const res = await fetchImpl(url);
   if (!res.ok) return null;
-  const xml = await res.text();
-  return parseAbstractXml(xml);
+  return await res.text();
 }
 
 /** Exposed for tests. */
@@ -70,11 +74,32 @@ export function parseAbstractXml(xml: string): string | null {
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Pull MeSH descriptor names out of an efetch XML response. PubMed
+ * surfaces a `<MeshHeadingList>` per article with one
+ * `<MeshHeading>` per term; we read the top-level `<DescriptorName>`
+ * for each and ignore qualifiers (which can pile up — a single MeSH
+ * term often carries 3+ qualifiers that aren't useful as tags).
+ *
+ * Exposed for tests.
+ */
+export function parseMeshTerms(xml: string): string[] {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml') as unknown as Document;
+  const out: string[] = [];
+  for (const heading of doc.querySelectorAll('MeshHeading')) {
+    const descriptor = heading.querySelector('DescriptorName');
+    const name = descriptor?.textContent?.trim();
+    if (name) out.push(name);
+  }
+  return out;
+}
+
 /** Exposed for tests. */
 export function buildMetadata(
   pmid: string,
   summary: PubmedEsummary,
   abstract: string | null,
+  meshTerms: string[] = [],
 ): ArticleMetadata {
   const record = summary.result?.[pmid] as {
     title?: string;
@@ -120,6 +145,7 @@ export function buildMetadata(
     uri: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
     pdfUrl: null,
     category: null,
+    keywords: buildUpstreamTags('mesh', meshTerms),
   };
 }
 
