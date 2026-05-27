@@ -38,6 +38,7 @@ export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
       checkStaleness(ctx, 30), // 30 days
       checkEvidenceGaps(ctx),
       checkContradictions(ctx),
+      checkInvalidDois(ctx),
     ]);
     const flat = results.flat();
     lastResultsByProject.set(ctx.rootPath, flat);
@@ -154,6 +155,41 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
   }
 
   return inspections;
+}
+
+/**
+ * Sources carrying a `bibo:doi` literal that doesn't match the
+ * Crossref DOI shape (#473). Shape-only check — we don't hit
+ * doi.org. Surfacing it through the inspections panel keeps the
+ * warning soft and non-blocking, per the issue's "no popup" note.
+ */
+const VALID_DOI_RE = /^10\.\d{4,9}\/[-._;/:a-zA-Z0-9()]+$/;
+
+async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
+  const results = await queryGraph(ctx, `
+    PREFIX bibo: <http://purl.org/ontology/bibo/>
+    PREFIX dc: <http://purl.org/dc/terms/>
+    PREFIX minerva: <https://minerva.dev/ontology#>
+    SELECT ?source ?sourceId ?title ?doi WHERE {
+      ?source minerva:sourceId ?sourceId .
+      ?source bibo:doi ?doi .
+      OPTIONAL { ?source dc:title ?title }
+    }
+  `);
+
+  return (results.results as Record<string, string>[]).flatMap((r, i) => {
+    if (!r.doi || VALID_DOI_RE.test(r.doi)) return [];
+    const label = r.title || r.sourceId;
+    return [{
+      id: `invalid-doi-${i}`,
+      type: 'invalid_doi',
+      severity: 'warning' as const,
+      nodeUri: r.source,
+      nodeLabel: label,
+      message: `Source "${label}" has a DOI that doesn't look right: ${r.doi}`,
+      suggestedAction: 'Open the source meta.ttl and correct the bibo:doi value.',
+    }];
+  });
 }
 
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {

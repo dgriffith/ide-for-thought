@@ -54,7 +54,7 @@
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'sites' | 'bibliography' | 'compute' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'compute' | 'ai';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -89,6 +89,7 @@
       label: 'Ingest & compute',
       items: [
         { id: 'web',     label: 'Web',     sub: 'Default ingest rules' },
+        { id: 'ingest',  label: 'Ingest',  sub: 'Identifier lookups · upstream tags' },
         { id: 'sites',   label: 'Sites',   sub: 'Privileged-domain logins' },
         { id: 'compute', label: 'Compute', sub: 'Python interpreter · trust' },
       ],
@@ -337,6 +338,8 @@
   let webEnabled = $state(true);
   let allowedDomainsText = $state('');
   let blockedDomainsText = $state('');
+  // Ingest settings — per-machine, used by identifier ingest paths (#473).
+  let importUpstreamTags = $state(true);
   let model = $state('claude-sonnet-4-6');
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
@@ -425,6 +428,12 @@
     await reloadSites();
     await loadBibliographySettings();
     await loadComputeSettings();
+    try {
+      const ingest = await api.sources.getIngestSettings();
+      importUpstreamTags = ingest.importUpstreamTags;
+    } catch (e) {
+      console.error('[settings] failed to load ingest settings:', e);
+    }
   });
 
   function setToolOverride(toolId: string, value: string) {
@@ -474,6 +483,12 @@
       await api.tools.setSettings(next);
     } catch (e) {
       console.error('[settings] failed to save LLM settings:', e);
+    }
+
+    try {
+      await api.sources.setIngestSettings({ importUpstreamTags });
+    } catch (e) {
+      console.error('[settings] failed to save ingest settings:', e);
     }
 
     onClose();
@@ -853,6 +868,22 @@
             ></textarea>
             <p class="hint">
               Ignored when an allowlist is set. The API accepts one or the other.
+            </p>
+          </div>
+
+        {:else if activeTab === 'ingest'}
+          <div class="field checkbox">
+            <label>
+              <input type="checkbox" bind:checked={importUpstreamTags} />
+              Import upstream subject tags on source ingest
+            </label>
+            <p class="hint">
+              When on, identifier ingest (DOI / arXiv id / PMID) applies the
+              subject taxonomy each API surfaces as namespaced tags on the
+              source: <code>crossref/sociology</code>,
+              <code>arxiv/cs-lg</code>, <code>mesh/genetics</code>. Use the
+              source's right-click "Strip upstream tags" to remove them
+              after the fact.
             </p>
           </div>
 

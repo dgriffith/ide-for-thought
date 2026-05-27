@@ -37,6 +37,9 @@ export const CONFIRM_KEYS = {
   ingestDuplicate: 'ingest-duplicate',
   ingestFailed: 'ingest-failed',
   ingestPdfFailed: 'ingest-pdf-failed',
+  /** DOI clicked in the preview that doesn't match an existing source
+   *  yet (#473). User confirms before we hit CrossRef. */
+  ingestDoiFromBody: 'ingest-doi-from-body',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
@@ -213,6 +216,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Ingest identifier: PDF fetch failed',
     description:
       'Shown when identifier ingest succeeds on metadata but the advertised open-access PDF cannot be fetched (paywall, 403, network error). The source lands without the PDF.',
+  },
+  {
+    key: CONFIRM_KEYS.ingestDoiFromBody,
+    title: 'Ingest DOI from body',
+    description:
+      'Shown when you click a bare DOI in the preview that doesn\'t match an existing source — confirms before fetching CrossRef.',
   },
   {
     key: CONFIRM_KEYS.dropImportRejected,

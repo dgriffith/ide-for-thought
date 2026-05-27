@@ -1778,6 +1778,37 @@
     setTimeout(() => handleOpenSource(sourceId), 150);
   }
 
+  /**
+   * Click on a bare-DOI link inside the markdown preview (#473).
+   * If the DOI already maps to an ingested source, open it. Otherwise
+   * offer to ingest — dismissable, keyed so the user can suppress
+   * the prompt project-wide once they've made up their mind.
+   */
+  async function handleDoiClick(doi: string): Promise<void> {
+    if (!notebase.meta) return;
+    // Normalise — sources store DOIs case-folded; user input might
+    // have mixed case from the rendered link text.
+    const target = doi.toLowerCase();
+    const existing = sourcesCache.find((s) => (s.doi ?? '').toLowerCase() === target);
+    if (existing) {
+      handleOpenSource(existing.sourceId);
+      return;
+    }
+    const confirmed = await showConfirm(
+      `Ingest this DOI as a new source?\n\n${doi}`,
+      CONFIRM_KEYS.ingestDoiFromBody,
+      'Ingest',
+    );
+    if (!confirmed) return;
+    try {
+      const result = await withBusy('Looking up…', () => api.sources.ingestIdentifier(doi));
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
+    }
+  }
+
   async function handleIngestIdentifier() {
     if (!notebase.meta) return;
     const raw = await showPrompt('DOI, arXiv id, or PubMed id:');
@@ -2538,6 +2569,7 @@
                   pendingAnchor={pendingPreviewAnchor}
                   onAnchorResolved={() => { pendingPreviewAnchor = null; }}
                   onTaskToggle={handleTaskToggle}
+                  onDoiClick={handleDoiClick}
                   onSaveCellOutput={handleSaveCellOutput}
                   onToolInvoke={handleToolInvoke}
                   onOpenConversation={openConversation}

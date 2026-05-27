@@ -243,6 +243,14 @@ export const Channels = {
   /** Drop every API-derived `minerva:upstreamTag` from a source's
    *  meta.ttl and re-index (#473). User-authored body tags survive. */
   SOURCES_STRIP_UPSTREAM_TAGS: 'sources:stripUpstreamTags',
+  /** Per-machine ingest preferences (#473): "Import upstream subject
+   *  tags on source ingest" and friends. */
+  INGEST_GET_SETTINGS: 'ingest:getSettings',
+  INGEST_SET_SETTINGS: 'ingest:setSettings',
+  /** Smart-route ingest: takes a raw string from a clipboard paste or
+   *  the "+" button, detects whether it's a DOI / arXiv id / PMID /
+   *  URL, and dispatches to the matching ingest path (#473). */
+  SOURCES_INGEST_SMART: 'sources:ingestSmart',
 
   // Collections (#470)
   /** Read `.minerva/collections.json` as a CollectionsFile. */

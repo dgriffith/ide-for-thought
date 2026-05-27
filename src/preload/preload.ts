@@ -265,6 +265,11 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SOURCES_QUEUE_MEMBERS, view),
     stripUpstreamTags: (sourceId: string) =>
       ipcRenderer.invoke(Channels.SOURCES_STRIP_UPSTREAM_TAGS, sourceId),
+    getIngestSettings: () => ipcRenderer.invoke(Channels.INGEST_GET_SETTINGS),
+    setIngestSettings: (settings: { importUpstreamTags: boolean }) =>
+      ipcRenderer.invoke(Channels.INGEST_SET_SETTINGS, settings),
+    ingestSmart: (rawInput: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_INGEST_SMART, rawInput),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },

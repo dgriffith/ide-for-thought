@@ -689,6 +689,17 @@ export interface SourcesApi {
   /** Strip API-derived `minerva:upstreamTag` triples from a source.
    *  Returns the count of dropped tags. */
   stripUpstreamTags(sourceId: string): Promise<{ removed: number }>;
+  /** Per-machine ingest preferences (#473). */
+  getIngestSettings(): Promise<{ importUpstreamTags: boolean }>;
+  setIngestSettings(settings: { importUpstreamTags: boolean }): Promise<void>;
+  /** Smart-route ingest: detect DOI / arXiv id / PMID / URL in
+   *  `rawInput` and dispatch to the matching ingest path (#473). */
+  ingestSmart(rawInput: string): Promise<{
+    sourceId: string;
+    duplicate: boolean;
+    title: string;
+    route: 'identifier' | 'url';
+  }>;
   /** Fires when a source is added, updated, or removed. */
   onChanged(cb: () => void): void;
   /** Create a `thought:Excerpt` from a highlighted passage. Idempotent by (sourceId, citedText). */

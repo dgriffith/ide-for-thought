@@ -43,6 +43,10 @@ export interface IdentifierIngestResult {
 
 export interface IdentifierIngestOptions {
   fetchImpl?: typeof fetch;
+  /** When false, upstream subject tags from the API are dropped
+   *  before writing the meta.ttl. Mirrors the per-machine
+   *  IngestSettings toggle (#473) — wired by the IPC handler. */
+  importUpstreamTags?: boolean;
 }
 
 /**
@@ -72,7 +76,13 @@ export async function ingestIdentifier(
   }
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
 
-  const metadata = await fetchMetadataFor(identifier, fetchImpl);
+  const fetched = await fetchMetadataFor(identifier, fetchImpl);
+  // Strip upstream tags up front if the user has the import toggle
+  // off — keeps the meta.ttl clean of `minerva:upstreamTag` lines
+  // they didn't ask for. Default is on.
+  const metadata = opts.importUpstreamTags === false
+    ? { ...fetched, keywords: [] }
+    : fetched;
 
   // Compute the canonical id from every identifier we've now got — we may
   // have started with an arXiv id and come back with a DOI cross-reference,
