@@ -148,10 +148,20 @@ export interface SourceBacklink {
   viaExcerptId?: string;
 }
 
+/** A note declared to be *about* this source via frontmatter
+ *  (`about: [[sources/<id>]]` → dc:subject). Distinct from a backlink:
+ *  the user is asserting subject-of, not just referencing. (#474) */
+export interface SourceAboutNote {
+  relativePath: string;
+  title: string;
+}
+
 export interface SourceDetail {
   metadata: SourceMetadata;
   excerpts: SourceExcerpt[];
   backlinks: SourceBacklink[];
+  /** Notes whose frontmatter declares them as *about* this source. */
+  aboutNotes: SourceAboutNote[];
 }
 
 // ── Bookmarks ────────────────────────────────────────────────────────────

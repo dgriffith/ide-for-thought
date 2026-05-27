@@ -116,6 +116,62 @@ describe('getSourceDetail', () => {
     expect(quotes[0].relativePath).toBe('c.md');
     expect(quotes[0].viaExcerptId).toBe('p42-graphs');
   });
+
+  it('lists notes that declare themselves about this source via frontmatter (#474)', async () => {
+    writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
+    await indexAllNotes(ctx);
+    await indexNote(ctx, 'reading-notes.md', '---\nabout: [[sources/smith-2023]]\n---\n\n# Reading notes\n');
+    await indexNote(ctx, 'first-pass.md', '---\nabout: [[sources/smith-2023]]\n---\n\n# First-pass thoughts\n');
+    // A note that cites but does NOT declare about: should not appear in aboutNotes.
+    await indexNote(ctx, 'tangential.md', '# Tangential\n\n[[cite::smith-2023]] is also useful.');
+
+    const detail = getSourceDetail(ctx, 'smith-2023');
+    expect(detail!.aboutNotes.map(n => n.relativePath).sort()).toEqual([
+      'first-pass.md',
+      'reading-notes.md',
+    ]);
+    expect(detail!.aboutNotes.map(n => n.title).sort()).toEqual([
+      'First-pass thoughts',
+      'Reading notes',
+    ]);
+    // Tangential note appears under backlinks (cite), not aboutNotes.
+    expect(detail!.aboutNotes.some(n => n.relativePath === 'tangential.md')).toBe(false);
+  });
+
+  it('about: [[sources/<id>]] in frontmatter materialises a real dc:subject edge to the source URI', async () => {
+    writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
+    await indexAllNotes(ctx);
+    // Unquoted shorthand — YAML's flow parser turns [[X]] into
+    // [[X]] (array-of-array). The indexer recovers the wiki-link
+    // form so the user doesn't have to remember to quote.
+    await indexNote(ctx, 'unquoted.md', '---\nabout: [[sources/smith-2023]]\n---\n\n# Reading\n');
+    // Quoted form — the canonical/explicit way.
+    await indexNote(ctx, 'quoted.md', '---\nabout: "[[sources/smith-2023]]"\n---\n\n# Reading\n');
+
+    const detail = getSourceDetail(ctx, 'smith-2023');
+    expect(detail!.aboutNotes.map(n => n.relativePath).sort()).toEqual(['quoted.md', 'unquoted.md']);
+  });
+
+  it('returns an empty aboutNotes list when no note declares aboutness', async () => {
+    writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
+    await indexAllNotes(ctx);
+
+    const detail = getSourceDetail(ctx, 'smith-2023');
+    expect(detail!.aboutNotes).toEqual([]);
+  });
+
+  it('deduplicates a note that lists multiple about: entries pointing at the same source', async () => {
+    writeSourceMeta(root, 'smith-2023', ARTICLE_TTL);
+    await indexAllNotes(ctx);
+    // YAML list with the same source twice — defensive shape; the graph
+    // already dedupes triples, but the collector must dedupe by note
+    // relativePath anyway.
+    await indexNote(ctx, 'duped.md',
+      '---\nabout:\n  - "[[sources/smith-2023]]"\n  - "[[sources/smith-2023]]"\n---\n\n# Duped\n');
+
+    const detail = getSourceDetail(ctx, 'smith-2023');
+    expect(detail!.aboutNotes.map(n => n.relativePath)).toEqual(['duped.md']);
+  });
 });
 
 describe('getExcerptSource', () => {
