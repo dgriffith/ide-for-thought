@@ -66,6 +66,10 @@
     todayDateString,
   } from './lib/refactor/extract';
   import { planSplitByHeading } from './lib/refactor/split-by-heading';
+  import {
+    planCreateFromConversation,
+    suggestConversationNoteTitle,
+  } from './lib/refactor/create-from-conversation';
   import { getRefactorSettings } from './lib/refactor/settings';
   import { getFormatSettings, loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
@@ -602,6 +606,70 @@
     const derived = deriveProposedTitle(body);
     if (derived) return derived;
     return showPrompt('New note name:');
+  }
+
+  /**
+   * "Create note" from the active conversation (#177). Body comes
+   * from the user's selection in the conversation pane if any;
+   * otherwise the most recent assistant message. The new note's
+   * frontmatter records the source note + conversation id for
+   * traceability.
+   *
+   * Lands in the same folder as the conversation's origin note
+   * (when there is one), or at the thoughtbase root for freeform
+   * conversations. Honours the Refactoring settings tab's
+   * destination + filename-prefix templates.
+   */
+  async function handleCreateNoteFromConversation(args: {
+    conversation: import('../shared/types').Conversation;
+    selectionText: string;
+    fallbackText: string;
+  }): Promise<void> {
+    if (!notebase.meta) return;
+    const body = args.selectionText.trim() || args.fallbackText.trim();
+    if (!body) {
+      await showConfirm(
+        'Nothing to create from — the conversation has no assistant text yet.',
+        CONFIRM_KEYS.createNoteFromConvEmpty,
+        'OK',
+      );
+      return;
+    }
+    const suggested = suggestConversationNoteTitle(body);
+    const title = suggested ?? await showPrompt('New note name:');
+    if (!title) return;
+
+    const sourceRelativePath = args.conversation.contextBundle.notePath ?? null;
+    const plan = planCreateFromConversation({
+      title,
+      body,
+      sourceRelativePath,
+      conversationId: args.conversation.id,
+      today: new Date().toISOString().slice(0, 10),
+      settings: getRefactorSettings(),
+    });
+
+    try {
+      // Loop on collision so the second-of-the-same-title doesn't
+      // clobber the first. Existing extract / split-here paths
+      // accept clobbers, but conversation-source notes are likely
+      // to land repeatedly off the same prompts.
+      let path = plan.newNotePath;
+      for (let attempt = 2; attempt < 20; attempt++) {
+        if (!(await api.notebase.fileExists(path))) break;
+        const dot = plan.newNotePath.lastIndexOf('.md');
+        path = dot > 0
+          ? `${plan.newNotePath.slice(0, dot)}-${attempt}.md`
+          : `${plan.newNotePath}-${attempt}`;
+      }
+      await api.notebase.writeFile(path, plan.newNoteContent);
+      await notebase.refresh();
+      await editor.openFile(path);
+      sidebar?.refreshTags();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Couldn't create note: ${msg}`, CONFIRM_KEYS.createNoteFromConvFailed, 'OK');
+    }
   }
 
   async function handleExtractSelection() {
@@ -2795,7 +2863,10 @@
 
   {#if notebase.meta}
     {#key notebase.meta.rootPath}
-      <ConversationsPanel currentNotePath={editor.activeFilePath ?? null} />
+      <ConversationsPanel
+        currentNotePath={editor.activeFilePath ?? null}
+        onCreateNoteFromConversation={handleCreateNoteFromConversation}
+      />
     {/key}
   {/if}
 

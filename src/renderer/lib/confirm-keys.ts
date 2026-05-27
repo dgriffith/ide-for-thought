@@ -50,6 +50,9 @@ export const CONFIRM_KEYS = {
   resolveStubEmpty: 'resolve-stub-empty',
   resolveStubFailed: 'resolve-stub-failed',
   resolveStubApplied: 'resolve-stub-applied',
+  /** "Create note from conversation" outcomes (#177). */
+  createNoteFromConvEmpty: 'create-note-from-conv-empty',
+  createNoteFromConvFailed: 'create-note-from-conv-failed',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
@@ -268,6 +271,18 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Resolve stub: applied',
     description:
       'Shown after the chosen DOI is applied to a stub, confirming the new title and that existing citations to the old id still resolve.',
+  },
+  {
+    key: CONFIRM_KEYS.createNoteFromConvEmpty,
+    title: 'Create note from conversation: nothing to create',
+    description:
+      'Shown when "Create note" is triggered on a conversation that has no assistant text and no selection.',
+  },
+  {
+    key: CONFIRM_KEYS.createNoteFromConvFailed,
+    title: 'Create note from conversation: error',
+    description:
+      'Shown when the file write for a conversation-derived note fails (permissions, disk full, etc).',
   },
   {
     key: CONFIRM_KEYS.dropImportRejected,
