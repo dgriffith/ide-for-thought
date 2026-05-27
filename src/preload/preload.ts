@@ -282,6 +282,15 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.COLLECTIONS_ADD_SOURCE, { collectionId, sourceId }),
     removeSource: (collectionId: string, sourceId: string) =>
       ipcRenderer.invoke(Channels.COLLECTIONS_REMOVE_SOURCE, { collectionId, sourceId }),
+    createSmart: (args: { name: string; predicate: { kind: 'tags'; allOf: string[] } }) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_CREATE_SMART, args),
+    renameSmart: (id: string, name: string) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_RENAME_SMART, { id, name }),
+    removeSmart: (id: string) => ipcRenderer.invoke(Channels.COLLECTIONS_DELETE_SMART, id),
+    updateSmartPredicate: (id: string, predicate: { kind: 'tags'; allOf: string[] }) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, { id, predicate }),
+    smartMembers: (id: string) =>
+      ipcRenderer.invoke(Channels.COLLECTIONS_SMART_MEMBERS, id),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.COLLECTIONS_CHANGED, () => cb());
     },

@@ -20,6 +20,11 @@ import {
   removeSourceFromCollection,
   scrubSourceFromCollections,
   rewriteCollectionMemberships,
+  createSmartCollection,
+  renameSmartCollection,
+  deleteSmartCollection,
+  updateSmartCollectionPredicate,
+  resolveSmartMembers,
 } from '../../../src/main/sources/collections';
 
 function mkTemp(): string {
@@ -38,7 +43,7 @@ describe('source collections (#470)', () => {
 
   it('returns an empty file when collections.json is absent', async () => {
     const data = await loadCollections(root);
-    expect(data).toEqual({ collections: [] });
+    expect(data).toEqual({ collections: [], smartCollections: [] });
   });
 
   it('creates a collection with a slug id derived from its name', async () => {
@@ -156,6 +161,71 @@ describe('source collections (#470)', () => {
     await expect(loadCollections(root)).rejects.toThrow(); // strict — better to surface than silently wipe
   });
 
+  // ─── Smart collections (#470 phase 2) ──────────────────────────────────
+
+  it('creates a smart collection with a tag-allOf predicate', async () => {
+    const sc = await createSmartCollection(root, {
+      name: 'Reading',
+      predicate: { kind: 'tags', allOf: ['ml', 'review'] },
+    });
+    expect(sc.id).toBe('reading');
+    expect(sc.name).toBe('Reading');
+    expect(sc.predicate).toEqual({ kind: 'tags', allOf: ['ml', 'review'] });
+    const data = await loadCollections(root);
+    expect(data.smartCollections).toHaveLength(1);
+  });
+
+  it('smart and manual ids share a namespace', async () => {
+    await createCollection(root, { name: 'Reading' });
+    const smart = await createSmartCollection(root, {
+      name: 'Reading',
+      predicate: { kind: 'tags', allOf: ['x'] },
+    });
+    expect(smart.id).toBe('reading-2');
+  });
+
+  it('refuses empty predicate-tag entries', async () => {
+    await expect(createSmartCollection(root, {
+      name: 'Bad',
+      predicate: { kind: 'tags', allOf: ['ok', '   '] },
+    })).rejects.toThrow(/non-empty/);
+  });
+
+  it('rename / delete / update predicate operate on the smart entry', async () => {
+    const sc = await createSmartCollection(root, {
+      name: 'Reading',
+      predicate: { kind: 'tags', allOf: ['ml'] },
+    });
+    await renameSmartCollection(root, sc.id, 'Lit review');
+    await updateSmartCollectionPredicate(root, sc.id, { kind: 'tags', allOf: ['ml', 'review'] });
+    let data = await loadCollections(root);
+    expect(data.smartCollections[0]).toMatchObject({
+      name: 'Lit review',
+      predicate: { kind: 'tags', allOf: ['ml', 'review'] },
+    });
+    await deleteSmartCollection(root, sc.id);
+    data = await loadCollections(root);
+    expect(data.smartCollections).toEqual([]);
+  });
+
+  it('drops smart entries with an unknown predicate kind on load', async () => {
+    await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
+    await fsp.writeFile(
+      path.join(root, '.minerva', 'collections.json'),
+      JSON.stringify({
+        collections: [],
+        smartCollections: [
+          { id: 'good', name: 'Good', predicate: { kind: 'tags', allOf: ['ml'] } },
+          { id: 'bad', name: 'Bad', predicate: { kind: 'aliens-from-the-future' } },
+          { id: 'no-predicate', name: 'No predicate' },
+        ],
+      }),
+      'utf-8',
+    );
+    const data = await loadCollections(root);
+    expect(data.smartCollections.map((s) => s.id)).toEqual(['good']);
+  });
+
   it('coerces partial records on load (defensive)', async () => {
     await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
     await fsp.writeFile(
@@ -176,5 +246,47 @@ describe('source collections (#470)', () => {
     expect(ids).not.toContain('');
     // members defaulted to [] when the field was the wrong type
     expect(data.collections.find((c) => c.id === 'with-string-parent')!.members).toEqual([]);
+  });
+});
+
+describe('resolveSmartMembers (#470 phase 2)', () => {
+  /** Stub graph: tag → source-id list. */
+  const sourcesByTag = (db: Record<string, string[]>) => (tag: string) =>
+    (db[tag] ?? []).map((sourceId) => ({ sourceId }));
+
+  it('returns the intersection of sources across every tag in allOf', () => {
+    const lookup = sourcesByTag({
+      ml: ['a', 'b', 'c'],
+      review: ['b', 'c', 'd'],
+    });
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml', 'review'] }, lookup);
+    expect([...ids].sort()).toEqual(['b', 'c']);
+  });
+
+  it('returns an empty set when allOf is empty', () => {
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: [] }, sourcesByTag({}));
+    expect(ids.size).toBe(0);
+  });
+
+  it('returns an empty set when any tag has no matching sources', () => {
+    const lookup = sourcesByTag({ ml: ['a'], review: [] });
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml', 'review'] }, lookup);
+    expect(ids.size).toBe(0);
+  });
+
+  it('single-tag predicate returns the full set for that tag', () => {
+    const lookup = sourcesByTag({ ml: ['a', 'b'] });
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['ml'] }, lookup);
+    expect([...ids].sort()).toEqual(['a', 'b']);
+  });
+
+  it('three-tag intersection narrows progressively', () => {
+    const lookup = sourcesByTag({
+      a: ['x', 'y', 'z'],
+      b: ['x', 'z'],
+      c: ['z', 'w'],
+    });
+    const ids = resolveSmartMembers({ kind: 'tags', allOf: ['a', 'b', 'c'] }, lookup);
+    expect([...ids]).toEqual(['z']);
   });
 });

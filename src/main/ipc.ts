@@ -79,7 +79,13 @@ import {
   deleteCollection,
   addSourceToCollection,
   removeSourceFromCollection,
+  createSmartCollection,
+  renameSmartCollection,
+  deleteSmartCollection,
+  updateSmartCollectionPredicate,
+  resolveSmartMembers,
 } from './sources/collections';
+import type { SmartCollectionPredicate } from '../shared/types';
 import { importBibtex } from './sources/import-bibtex';
 import { importZoteroRdf } from './sources/import-zotero-rdf';
 import { dropImport } from './notebase/drop-import';
@@ -1638,6 +1644,51 @@ export function registerIpcHandlers(): void {
     if (!rootPath) throw new Error('No project open');
     await removeSourceFromCollection(rootPath, args.collectionId, args.sourceId);
     broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_CREATE_SMART, async (e, args: { name: string; predicate: SmartCollectionPredicate }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createSmartCollection(rootPath, args);
+    broadcastCollectionsChanged(e);
+    return result;
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_RENAME_SMART, async (e, args: { id: string; name: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await renameSmartCollection(rootPath, args.id, args.name);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_DELETE_SMART, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await deleteSmartCollection(rootPath, id);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, async (e, args: { id: string; predicate: SmartCollectionPredicate }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await updateSmartCollectionPredicate(rootPath, args.id, args.predicate);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_SMART_MEMBERS, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    const data = await loadCollections(rootPath);
+    const smart = data.smartCollections.find((s) => s.id === id);
+    if (!smart) return [];
+    const ctx = projectContext(rootPath);
+    // Resolve via the graph's existing source-by-tag helper. The graph
+    // is the source of truth for hasTag edges (notes + sources) so we
+    // get the same membership semantics the tag panel surfaces.
+    const matchingIds = resolveSmartMembers(smart.predicate, (tag) => graph.sourcesByTag(ctx, tag));
+    if (matchingIds.size === 0) return [];
+    const all = graph.listAllSources(ctx);
+    return all.filter((s) => matchingIds.has(s.sourceId));
   });
 
   ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {

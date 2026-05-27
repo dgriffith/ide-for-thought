@@ -176,8 +176,31 @@ export interface Collection {
   members: string[];
 }
 
+/** Smart-collection predicate (#470 phase 2).
+ *
+ * Tagged union so future variants (read-status from #116, faceted
+ * filters, raw SPARQL) can join without disturbing the v1 tag
+ * predicate's storage shape. The renderer's predicate editor +
+ * the main-process member resolver each branch on `kind`. */
+export type SmartCollectionPredicate =
+  | { kind: 'tags'; allOf: string[] };
+
+/** Query-driven collection (#470 phase 2). Membership is computed
+ *  live from the graph each time the user opens it — never
+ *  persisted, so the result set tracks the underlying data as it
+ *  changes. Smart collections cannot be drag-targets; only
+ *  manual collections accept addSource. */
+export interface SmartCollection {
+  id: string;
+  name: string;
+  predicate: SmartCollectionPredicate;
+}
+
 export interface CollectionsFile {
   collections: Collection[];
+  /** Query-driven collections. Omitted when none are defined; the
+   *  loader normalises a missing field to `[]`. */
+  smartCollections?: SmartCollection[];
 }
 
 // ── Bookmarks ────────────────────────────────────────────────────────────
