@@ -11,6 +11,7 @@ Protocol — request:
   {"op": "exec", "cellId": "<uuid>", "notebookPath": "notes/x.md", "code": "..."}
   {"op": "reset", "notebookPath": "notes/x.md"}      # drop one notebook's namespace
   {"op": "reset"}                                     # drop everything
+  {"op": "invalidate", "modules": ["helpers", "python.utils"]}  # #529 — pop sys.modules
 
 Protocol — events:
   {"type": "ready"}                                   # once at startup
@@ -20,6 +21,7 @@ Protocol — events:
   {"cellId": ..., "type": "error",   "payload": {"ename","evalue","traceback"}}
   {"cellId": ..., "type": "done",    "executionTimeMs": <int>}
   {"type": "reset-ack"}
+  {"type": "invalidated", "popped": ["helpers"]}      # #529 — modules dropped from sys.modules
   {"type": "protocol-error", "message": "..."}        # malformed request
 """
 
@@ -29,6 +31,7 @@ import io
 import os
 import time
 import ast
+import importlib
 import traceback
 
 # Make user .py files in the notebase importable. The main process also
@@ -66,6 +69,38 @@ def reset_namespaces(notebook_path):
         namespaces.clear()
     else:
         namespaces.pop(notebook_path, None)
+
+
+def invalidate_modules(module_names):
+    """Drop each module name (and any submodule under it) from sys.modules
+    so the next `import` re-reads from disk (#529).
+
+    The path → module name conversion lives in TypeScript
+    (src/main/compute/python-kernel.ts); the kernel just receives a flat
+    list of dotted names. Per-notebook namespaces are NOT touched — names
+    already bound from `from helpers import X` keep their stale value
+    until the binding cell re-runs. That's the documented contract.
+
+    Returns the list of keys actually popped so the caller can surface a
+    UI hint ("Reloaded helpers — re-run cells that imported it.").
+    """
+    popped = []
+    for name in module_names:
+        if not isinstance(name, str) or not name:
+            continue
+        # Exact match + any submodule whose dotted prefix matches. We can't
+        # mutate sys.modules while iterating, so snapshot keys first.
+        prefix = name + '.'
+        for key in list(sys.modules.keys()):
+            if key == name or key.startswith(prefix):
+                sys.modules.pop(key, None)
+                popped.append(key)
+    if popped:
+        # Tell importlib the finder caches (pyc, namespace package paths,
+        # zip imports) are stale so the next `import` discovers the
+        # rewritten file rather than serving a stale entry.
+        importlib.invalidate_caches()
+    return popped
 
 
 def serialize_value(value):
@@ -414,6 +449,14 @@ def main():
         elif op == 'reset':
             reset_namespaces(req.get('notebookPath'))
             emit({'type': 'reset-ack'})
+        elif op == 'invalidate':
+            # #529 — fire-and-forget; we still emit a confirmation event
+            # so tests can observe the pop list and the renderer can show
+            # a subtle toast. An empty popped list (the module was never
+            # imported) is a no-op silently.
+            mods = req.get('modules') or []
+            popped = invalidate_modules(mods)
+            emit({'type': 'invalidated', 'popped': popped})
         else:
             emit({'type': 'protocol-error', 'message': f'Unknown op: {op}'})
 

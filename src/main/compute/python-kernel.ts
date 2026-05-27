@@ -283,6 +283,74 @@ function isMimeBundle(value: unknown): value is KernelMimeBundle {
 }
 
 /**
+ * Convert a project-relative `.py` path to the dotted module name Python
+ * uses in `sys.modules` (#529). Strips the `.py` extension and turns
+ * path separators into dots so `python/utils.py → python.utils`.
+ *
+ * Returns null for paths that don't look like a Python module:
+ *   - non-`.py` extensions
+ *   - `__init__.py` (those make a package; the package name is the
+ *     parent directory, not the file)
+ *   - paths containing segments that aren't valid Python identifiers
+ *     (e.g. `2024/notes.py` — the leading digit makes `2024` invalid
+ *     as a module name, and Python wouldn't have imported it anyway)
+ *
+ * Exported so the watcher can pre-filter before sending an invalidate
+ * request — keeps the kernel from churning on edits to `.py` files
+ * the user is unlikely to have imported as a module.
+ */
+export function pathToModuleName(relativePath: string): string | null {
+  if (!relativePath.toLowerCase().endsWith('.py')) return null;
+  // Normalise both separators since chokidar reports forward slashes on
+  // POSIX and backslashes on Windows. Strip leading `./` if present.
+  const cleaned = relativePath.replace(/\\/g, '/').replace(/^\.\//, '');
+  // __init__.py marks a package; the package's importable name is the
+  // parent directory. An invalidate on the parent dir's module name
+  // handles the package itself + every submodule.
+  const segments = cleaned.split('/');
+  const last = segments[segments.length - 1];
+  if (last === '__init__.py') {
+    segments.pop();
+  } else {
+    segments[segments.length - 1] = last.slice(0, -3); // drop `.py`
+  }
+  if (segments.length === 0) return null;
+  // Each segment must be a valid Python identifier (ASCII letter/_ start,
+  // then letters/digits/_). Reject paths that couldn't have been imported
+  // anyway so we don't pollute sys.modules churn with no-op invalidates.
+  for (const seg of segments) {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(seg)) return null;
+  }
+  return segments.join('.');
+}
+
+/**
+ * Invalidate Python modules in `rootPath`'s kernel so the next `import`
+ * re-reads from disk (#529). Fire-and-forget: if no kernel is running
+ * there's nothing to invalidate; if the kernel hasn't reached `ready`
+ * yet we silently drop (it can't have imported anything either).
+ *
+ * Module-name conversion happens here so the kernel-side handler stays
+ * simple and the path-handling logic is testable from TypeScript.
+ */
+export function invalidate(rootPath: string, relativePaths: string[]): void {
+  const state = kernels.get(rootPath);
+  if (!state || state.proc.exitCode !== null) return;
+  const modules = relativePaths
+    .map(pathToModuleName)
+    .filter((m): m is string => m !== null);
+  if (modules.length === 0) return;
+  const req = JSON.stringify({ op: 'invalidate', modules });
+  try {
+    state.proc.stdin.write(req + '\n');
+  } catch {
+    // Kernel died between the kernels.get check and the write — the
+    // exit handler will reap state; the next runPython respawns. Nothing
+    // to invalidate against the dead kernel anyway.
+  }
+}
+
+/**
  * Run a Python cell. Spawns the project's kernel on first call. A
  * crashed kernel is detected on the next call and respawned.
  */
