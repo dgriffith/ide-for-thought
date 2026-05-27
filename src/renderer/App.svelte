@@ -202,6 +202,13 @@
   async function refreshSourcesCache(): Promise<void> {
     try { sourcesCache = await api.sources.listAll(); } catch { /* ignore */ }
   }
+  /** Lazy cache of saved queries — populated when the Goto palette
+   *  opens so its Queries scope chip has live counts without paying
+   *  the IPC cost on every keystroke. */
+  let savedQueriesCache = $state<import('../shared/types').SavedQuery[]>([]);
+  async function refreshSavedQueriesCache(): Promise<void> {
+    try { savedQueriesCache = await api.queries.list(); } catch { /* ignore */ }
+  }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; suggestions?: string[]; initial?: string; resolve: (value: string | null) => void } | null>(null);
@@ -2170,7 +2177,13 @@
     api.menu.onNavBack(() => handleNavBack());
     api.menu.onNavForward(() => handleNavForward());
     api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
-    api.menu.onQuickOpen(() => { showGotoNote = true; });
+    api.menu.onQuickOpen(() => {
+      // Lazily refresh the palette's source + query backing data so
+      // its scope chip counts are fresh when the user opens it.
+      void refreshSourcesCache();
+      void refreshSavedQueriesCache();
+      showGotoNote = true;
+    });
     api.menu.onNewQuery(() => editor.openQuery());
     api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
     api.menu.onEditSavedQueries(() => { showEditSavedQueries = true; });
@@ -2339,7 +2352,11 @@
     canGoForward={nav.canGoForward}
     onNavBack={handleNavBack}
     onNavForward={handleNavForward}
-    onOpenGotoNote={() => { showGotoNote = true; }}
+    onOpenGotoNote={() => {
+      void refreshSourcesCache();
+      void refreshSavedQueriesCache();
+      showGotoNote = true;
+    }}
     onOpenSettings={() => { showSettings = true; }}
   />
 
@@ -2615,7 +2632,11 @@
   {#if showGotoNote}
     <GotoNoteDialog
       files={notebase.files}
+      sources={sourcesCache}
+      savedQueries={savedQueriesCache}
       onSelect={(path) => { showGotoNote = false; void handleFileSelect(path); }}
+      onSelectSource={(id) => { showGotoNote = false; handleOpenSource(id); }}
+      onSelectQuery={(q) => { showGotoNote = false; editor.openQuery(q.query, q.language ?? 'sparql'); }}
       onCancel={() => { showGotoNote = false; }}
     />
   {/if}

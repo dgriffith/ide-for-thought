@@ -20,6 +20,7 @@
   import { api } from '../../ipc/client';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
   import Icon from '../Icon.svelte';
+  import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
   import type { IconName } from '../icons/registry';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
 
@@ -338,22 +339,38 @@
   // Note basenames (relativePath without `.md`), for the wiki-link
   // value picker (#489). Same refresh cadence as projectKeys.
   let noteBasenames = $state<string[]>([]);
+  /** Flat note file list, retained to feed `resolveWikiLinkTarget` so
+   *  the wiki-chip can colour itself when its target is broken. */
+  let flatNotes = $state<{ relativePath: string; isDirectory: boolean }[]>([]);
+  let aliasMap = $state<Record<string, string>>({});
+
   async function refreshNoteBasenames(): Promise<void> {
     try {
       const files = await api.notebase.listFiles();
       const out: string[] = [];
+      const flat: { relativePath: string; isDirectory: boolean }[] = [];
       const walk = (nodes: import('../../../../shared/types').NoteFile[]) => {
         for (const n of nodes) {
           if (n.isDirectory && n.children) walk(n.children);
           else if (!n.isDirectory && n.relativePath.endsWith('.md')) {
             out.push(n.relativePath.replace(/\.md$/, ''));
+            flat.push({ relativePath: n.relativePath, isDirectory: false });
           }
         }
       };
       walk(files);
       out.sort((a, b) => a.localeCompare(b));
       noteBasenames = out;
+      flatNotes = flat;
     } catch { /* tree not ready yet */ }
+    try {
+      aliasMap = await api.graph.aliasMap();
+    } catch { /* not ready */ }
+  }
+
+  function wikiLinkResolves(target: string): boolean {
+    if (!target) return false;
+    return resolveWikiLinkTarget(target, flatNotes, aliasMap) !== null;
   }
   onMount(() => {
     void refreshProjectKeys();
@@ -586,15 +603,21 @@
                 />
               {:else}
                 {@const ws = row.shape}
+                {@const resolves = wikiLinkResolves(ws.target)}
                 <div class="wiki-chip-row">
                   <button
                     type="button"
                     class="wiki-chip"
-                    title="Open {ws.target}"
+                    class:broken={!resolves}
+                    title={resolves ? `Open ${ws.target}` : `No note matches "${ws.target}"`}
                     onclick={() => openWikiLink(ws.target)}
                     disabled={!onNavigate}
                   >
-                    <span class="wiki-chip-icon">🔗</span>
+                    {#if resolves}
+                      <span class="wiki-chip-icon"><Icon name="link" size={11} /></span>
+                    {:else}
+                      <span class="wiki-chip-icon"><Icon name="warn" size={11} color="var(--rust)" /></span>
+                    {/if}
                     <span class="wiki-chip-label">{ws.display ?? ws.target}</span>
                   </button>
                   <button
@@ -823,6 +846,17 @@
     cursor: default;
     color: var(--text-muted);
     text-decoration: none;
+  }
+  /* Broken wiki-link target — no matching note resolved. Rust tone
+     matches the right-sidebar Outgoing panel's dead-link treatment
+     (#548 §13.1). */
+  .wiki-chip.broken {
+    color: var(--rust);
+    text-decoration-color: color-mix(in srgb, var(--rust) 40%, transparent);
+  }
+  .wiki-chip.broken:hover:not(:disabled) {
+    border-color: var(--rust);
+    text-decoration-color: var(--rust);
   }
   .wiki-chip-icon { font-size: 10px; opacity: 0.7; }
   .wiki-chip-label { overflow: hidden; text-overflow: ellipsis; }
