@@ -14,7 +14,7 @@
   import hljs from 'highlight.js';
   import 'highlight.js/styles/github-dark.min.css';
   import 'katex/dist/katex.min.css';
-  import { installMath } from '../markdown/math-plugin';
+  import { installMath } from '../../../shared/markdown/math-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { getLinkType } from '../../../shared/link-types';

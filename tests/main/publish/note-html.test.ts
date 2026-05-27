@@ -180,6 +180,58 @@ describe('noteHtmlExporter (#248)', () => {
     expect(html).toContain('class="footnote');
     expect(html).toContain('A note.');
   });
+
+  // ── KaTeX (#327) ───────────────────────────────────────────────────
+
+  it('renders inline math via KaTeX', async () => {
+    const plan = planWithNote({
+      content: '# Math\n\nThe identity $e^{i\\pi} + 1 = 0$ is Euler.\n',
+    });
+    const output = await noteHtmlExporter.run(plan);
+    const html = String(output.files[0].contents);
+    // KaTeX wraps every formula in `class="katex"`; the inline `<span>`
+    // form is what `$…$` produces.
+    expect(html).toMatch(/<span class="katex">/);
+    // KaTeX HTML contains the literal `mord` class on character spans.
+    expect(html).toContain('mord');
+  });
+
+  it('renders block math via KaTeX', async () => {
+    const plan = planWithNote({
+      content: '# Math\n\n$$\nE = mc^2\n$$\n',
+    });
+    const output = await noteHtmlExporter.run(plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('class="math-block"');
+    expect(html).toMatch(/<span class="katex-display">|<span class="katex">/);
+  });
+
+  it('inlines KaTeX CSS + woff2 fonts as data URLs when the body contains math', async () => {
+    const plan = planWithNote({
+      content: 'Inline $x^2$ here.\n',
+    });
+    const output = await noteHtmlExporter.run(plan);
+    const html = String(output.files[0].contents);
+    // KaTeX CSS gets a second <style> block, separate from NOTE_HTML_STYLE.
+    expect(html).toMatch(/@font-face\{[^}]*font-family:KaTeX_/);
+    // Fonts are base64-data-URL'd; the source `url(fonts/X.woff2)`
+    // shape from the upstream CSS must not appear in the exported HTML.
+    expect(html).not.toMatch(/url\(fonts\/KaTeX_/);
+    expect(html).toContain('data:font/woff2;base64,');
+    // The .woff / .ttf fallbacks would 404 in a standalone file —
+    // confirm they were stripped.
+    expect(html).not.toMatch(/format\("truetype"\)/);
+  });
+
+  it('does NOT ship KaTeX CSS when the body has no math', async () => {
+    const plan = planWithNote({
+      content: '# Hello\n\nNo math at all.\n',
+    });
+    const output = await noteHtmlExporter.run(plan);
+    const html = String(output.files[0].contents);
+    expect(html).not.toMatch(/@font-face\{[^}]*font-family:KaTeX_/);
+    expect(html).not.toContain('data:font/woff2;base64,');
+  });
 });
 
 describe('noteHtmlExporter — image inlining', () => {

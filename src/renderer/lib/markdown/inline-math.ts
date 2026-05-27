@@ -15,7 +15,7 @@
  */
 
 import MarkdownIt from 'markdown-it';
-import { installMath } from './math-plugin';
+import { installMath } from '../../../shared/markdown/math-plugin';
 
 const md = new MarkdownIt({
   html: false,

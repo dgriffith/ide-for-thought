@@ -259,3 +259,60 @@ describe('tree-html consolidated bibliography (#300)', () => {
     expect(refs).toContain('Bar');
   });
 });
+
+describe('tree-html exporter — KaTeX folding (#327)', () => {
+  let root: string;
+  beforeEach(() => { root = mkTempProject(); });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  it('folds KaTeX CSS + woff2 fonts into the shared style.css when any note has math', async () => {
+    await fsp.writeFile(path.join(root, 'root.md'),
+      '# Root\n\nLinked to [[child]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'child.md'),
+      '# Child\n\nThe identity $e^{i\\pi} + 1 = 0$.\n', 'utf-8');
+
+    const plan = await resolvePlan(root, {
+      kind: 'tree',
+      relativePath: 'root.md',
+      maxDepth: 3,
+    }, { linkPolicy: 'follow-to-file' });
+    const output = await runExporter(treeHtmlExporter, plan);
+
+    const stylesheet = output.files.find((f) => f.path === 'style.css');
+    expect(stylesheet).toBeDefined();
+    const css = String(stylesheet!.contents);
+    expect(css).toMatch(/@font-face\{[^}]*font-family:KaTeX_/);
+    expect(css).toContain('data:font/woff2;base64,');
+
+    // Per-page HTML stays slim — it links to the shared sheet and
+    // must NOT also inline KaTeX CSS (would defeat the purpose).
+    const childPage = output.files.find((f) => f.path === 'child.html');
+    expect(childPage).toBeDefined();
+    const childHtml = String(childPage!.contents);
+    expect(childHtml).toMatch(/<link rel="stylesheet" href="[^"]*style\.css">/);
+    expect(childHtml).not.toContain('data:font/woff2;base64,');
+
+    // KaTeX did fire in the page body, so the actual <span class="katex">
+    // must be there.
+    expect(childHtml).toContain('<span class="katex">');
+  });
+
+  it('does NOT fold KaTeX CSS into style.css when no note has math', async () => {
+    await fsp.writeFile(path.join(root, 'root.md'),
+      '# Root\n\nLinked to [[child]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'child.md'),
+      '# Child\n\nNo math at all.\n', 'utf-8');
+
+    const plan = await resolvePlan(root, {
+      kind: 'tree',
+      relativePath: 'root.md',
+      maxDepth: 3,
+    }, { linkPolicy: 'follow-to-file' });
+    const output = await runExporter(treeHtmlExporter, plan);
+
+    const stylesheet = output.files.find((f) => f.path === 'style.css');
+    const css = String(stylesheet!.contents);
+    expect(css).not.toMatch(/@font-face\{[^}]*font-family:KaTeX_/);
+    expect(css).not.toContain('data:font/woff2;base64,');
+  });
+});
