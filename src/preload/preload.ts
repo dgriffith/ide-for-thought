@@ -255,6 +255,8 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, cb),
     listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
     delete: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_DELETE, sourceId),
+    merge: (srcId: string, destId: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_MERGE, { srcId, destId }),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },
