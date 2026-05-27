@@ -7,6 +7,7 @@ import * as graph from './graph/index';
 import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
 import * as tables from './sources/tables';
+import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
@@ -164,6 +165,26 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     }, 1000);
   };
 
+  // Coalesce `.py` edits into a single kernel-invalidate call (#529).
+  // A flurry of editor saves (autosave, formatter pass, find-replace) on
+  // the same module shouldn't fan out into a separate invalidate per
+  // write — the kernel just needs to know "these modules are stale" once
+  // the writes settle. 300ms matches the responsiveness window for
+  // re-running an importing cell while still grouping a multi-file
+  // formatter pass.
+  let pyInvalidatePaths = new Set<string>();
+  let pyInvalidateTimer: ReturnType<typeof setTimeout> | null = null;
+  const queuePyInvalidate = (relativePath: string) => {
+    pyInvalidatePaths.add(relativePath);
+    if (pyInvalidateTimer) clearTimeout(pyInvalidateTimer);
+    pyInvalidateTimer = setTimeout(() => {
+      const paths = [...pyInvalidatePaths];
+      pyInvalidatePaths = new Set();
+      pyInvalidateTimer = null;
+      invalidatePythonModules(rootPath, paths);
+    }, 300);
+  };
+
   // startWatching returns a ready-promise (#345); we don't await here
   // because the watcher works fine before its initial scan completes.
   /**
@@ -220,6 +241,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       } else {
         await reregisterSibling(relativePath);
       }
+      // #529 — editing a .py file invalidates its module in the running
+      // Python kernel so a re-run of an importing cell picks up the new
+      // definition without a manual Restart. Debounced + a no-op when
+      // no kernel is running.
+      if (relativePath.toLowerCase().endsWith('.py')) {
+        queuePyInvalidate(relativePath);
+      }
       // Sidecar yaml schemas aren't notes — skip the graph/search pass for
       // them. The watcher fires for them only so the registerCsv branch
       // above can update DuckDB.
@@ -244,6 +272,12 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       } else {
         await reregisterSibling(relativePath);
+      }
+      // A newly-added .py file with the same name as a previously-deleted
+      // one (e.g. via git checkout / restore) can land while a stale entry
+      // is still in sys.modules. Treat add the same as change for safety.
+      if (relativePath.toLowerCase().endsWith('.py')) {
+        queuePyInvalidate(relativePath);
       }
       if (relativePath.endsWith('.csv.schema.yaml')) return;
       try {

@@ -9,6 +9,9 @@
 
 import { describe, it, expect, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {
   runPython,
   stopKernel,
@@ -16,6 +19,7 @@ import {
   interruptKernel,
   shutdownAllKernels,
   activeKernels,
+  invalidate,
 } from '../../../src/main/compute/python-kernel';
 
 function pythonAvailable(): boolean {
@@ -139,6 +143,114 @@ skipIfNoPython('python kernel (#241)', () => {
     expect(r.output.type).toBe('json');
     if (r.output.type !== 'json') return;
     expect(r.output.value).toBe(4);
+  });
+
+  // ── invalidate(): auto-reload .py modules (#529) ────────────────────
+
+  it('invalidate(): editing an imported .py file picks up new value on next import', async () => {
+    // Need a real project root so the kernel's PYTHONPATH inserts a
+    // directory where we can drop a helper module. Each test gets a
+    // fresh tmpdir so the module name doesn't collide across runs.
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-py-invalidate-'));
+    const helperPath = path.join(projectRoot, 'reload_helper.py');
+    try {
+      await fs.writeFile(helperPath, 'value = "before"\n', 'utf8');
+
+      // Prime: import the helper and assert the original value lands.
+      const before = await runPython(projectRoot, 'reload.md', 'import reload_helper\nreload_helper.value');
+      expect(before.ok).toBe(true);
+      if (!before.ok || before.output.type !== 'json') return;
+      expect(before.output.value).toBe('before');
+
+      // Edit the helper. Without invalidate, sys.modules still has the
+      // stale entry — a fresh `import` is a no-op (Python returns the
+      // cached module).
+      await fs.writeFile(helperPath, 'value = "after"\n', 'utf8');
+
+      // The stale baseline: a re-import without invalidate keeps the old
+      // value. This is the bug we're fixing — we assert it explicitly so
+      // a future change to Python's import semantics doesn't silently
+      // turn this test into a no-op.
+      const stale = await runPython(projectRoot, 'reload.md', 'import reload_helper\nreload_helper.value');
+      expect(stale.ok).toBe(true);
+      if (!stale.ok || stale.output.type !== 'json') return;
+      expect(stale.output.value).toBe('before');
+
+      // The fix: invalidate the module then re-import.
+      invalidate(projectRoot, ['reload_helper.py']);
+
+      const fresh = await runPython(projectRoot, 'reload.md', 'import reload_helper\nreload_helper.value');
+      expect(fresh.ok).toBe(true);
+      if (!fresh.ok || fresh.output.type !== 'json') return;
+      expect(fresh.output.value).toBe('after');
+    } finally {
+      await stopKernel(projectRoot);
+      await fs.rm(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('invalidate(): popping a never-imported module is a silent no-op', async () => {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-py-invalidate-'));
+    try {
+      // Get the kernel running.
+      await runPython(projectRoot, 'noop.md', '1');
+      // Module doesn't exist on disk, has never been imported. invalidate
+      // should not crash the kernel.
+      invalidate(projectRoot, ['never_imported.py']);
+      const after = await runPython(projectRoot, 'noop.md', '2 + 2');
+      expect(after.ok).toBe(true);
+      if (!after.ok || after.output.type !== 'json') return;
+      expect(after.output.value).toBe(4);
+    } finally {
+      await stopKernel(projectRoot);
+      await fs.rm(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('invalidate(): no-op when no kernel is running', () => {
+    // Should not throw. The function silently returns when the project
+    // has no live kernel — the watcher fires invalidate eagerly on
+    // every .py write regardless of whether a kernel has spawned yet.
+    expect(() => invalidate('/tmp/no-kernel-for-this-root-' + Date.now(), ['x.py'])).not.toThrow();
+  });
+
+  it('invalidate(): walks submodules under a package prefix', async () => {
+    const projectRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'minerva-py-invalidate-'));
+    try {
+      // Build a package: pkg/__init__.py exposing version, pkg/sub.py.
+      const pkgDir = path.join(projectRoot, 'pkg');
+      await fs.mkdir(pkgDir, { recursive: true });
+      await fs.writeFile(path.join(pkgDir, '__init__.py'), 'from .sub import label\n', 'utf8');
+      await fs.writeFile(path.join(pkgDir, 'sub.py'), 'label = "v1"\n', 'utf8');
+
+      const before = await runPython(projectRoot, 'pkg.md', 'import pkg\npkg.label');
+      expect(before.ok).toBe(true);
+      if (!before.ok || before.output.type !== 'json') return;
+      expect(before.output.value).toBe('v1');
+
+      // Edit the submodule, then invalidate the package — the kernel
+      // should pop both `pkg` and `pkg.sub` so the next import re-walks
+      // the package's __init__.py and picks up the new submodule value.
+      //
+      // Bump the file's mtime explicitly. Python's .pyc cache uses
+      // source mtime to decide whether to reload; back-to-back rewrites
+      // in tests can land on the same second-level mtime on some
+      // filesystems, causing the cached .pyc to win and the assertion
+      // to flake. utimes with `now + 2s` guarantees a forward jump.
+      const subPath = path.join(pkgDir, 'sub.py');
+      await fs.writeFile(subPath, 'label = "v2"\n', 'utf8');
+      const future = new Date(Date.now() + 2000);
+      await fs.utimes(subPath, future, future);
+      invalidate(projectRoot, ['pkg/__init__.py']);
+
+      const after = await runPython(projectRoot, 'pkg.md', 'import pkg\npkg.label');
+      expect(after.ok).toBe(true);
+      if (!after.ok || after.output.type !== 'json') return;
+      expect(after.output.value).toBe('v2');
+    } finally {
+      await stopKernel(projectRoot);
+      await fs.rm(projectRoot, { recursive: true, force: true });
+    }
   });
 
   it('kernel crash → next cell call auto-respawns', async () => {
