@@ -1,5 +1,6 @@
-import { queryGraph } from './index';
+import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
+import { LINK_TYPES } from '../../shared/link-types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,7 @@ export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
       checkLongUnresolvedStubs(ctx, 30), // 30 days
       checkCitedUnreadSources(ctx),
       checkDuplicateSources(ctx),
+      checkBrokenLinks(ctx),
     ]);
     const flat = results.flat();
     lastResultsByProject.set(ctx.rootPath, flat);
@@ -402,6 +404,197 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
   }
 
   return inspections;
+}
+
+/**
+ * Walk every typed wiki-link triple in the graph and flag the ones
+ * whose target doesn't exist (#140). Three kinds of breakage:
+ *
+ *   - **broken_note_link** — `[[missing-note]]` or any typed link to
+ *     a note relativePath that isn't in the project.
+ *   - **broken_anchor_link** — `[[note#heading]]` where the note
+ *     exists but no heading slugifies to the fragment. (Block-id
+ *     anchors `#^id` are intentionally skipped — they don't live in
+ *     the graph; checking them would need a full body re-scan.)
+ *   - **broken_cite_quote** — `[[cite::id]]` / `[[quote::id]]` where
+ *     no source / excerpt exists with that id.
+ *
+ * Severity is `warning`: broken links are often intentional WIP
+ * stubs, not data-corruption. The inspection reports; the user
+ * fixes (no auto-fix per scope note).
+ */
+async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
+  // Build the IN-list of link predicates from the typed-link
+  // registry so adding a new link type elsewhere automatically
+  // extends the check.
+  const predicateIris = LINK_TYPES.map((lt) => {
+    const ns = lt.predicateNamespace === 'thought'
+      ? 'https://minerva.dev/ontology/thought#'
+      : 'https://minerva.dev/ontology#';
+    return `<${ns}${lt.predicate}>`;
+  });
+  const valuesClause = predicateIris.join(' ');
+
+  // Pre-fetch the valid-target sets so per-row lookups are O(1).
+  const [notesRes, sourcesRes, excerptsRes] = await Promise.all([
+    queryGraph(ctx, `
+      PREFIX minerva: <https://minerva.dev/ontology#>
+      SELECT ?path WHERE { ?n minerva:relativePath ?path . ?n a minerva:Note }
+    `),
+    queryGraph(ctx, `
+      PREFIX minerva: <https://minerva.dev/ontology#>
+      SELECT ?id WHERE { ?s minerva:sourceId ?id }
+    `),
+    queryGraph(ctx, `
+      PREFIX minerva: <https://minerva.dev/ontology#>
+      SELECT ?id WHERE { ?e minerva:excerptId ?id }
+    `),
+  ]);
+  const validNotes = new Set((notesRes.results as { path: string }[]).map((r) => r.path));
+  const validSources = new Set((sourcesRes.results as { id: string }[]).map((r) => r.id));
+  const validExcerpts = new Set((excerptsRes.results as { id: string }[]).map((r) => r.id));
+
+  // Walk every link triple — across every typed-link predicate.
+  const linksRes = await queryGraph(ctx, `
+    PREFIX minerva: <https://minerva.dev/ontology#>
+    PREFIX thought: <https://minerva.dev/ontology/thought#>
+    SELECT ?source ?sourcePath ?predicate ?target WHERE {
+      ?source minerva:relativePath ?sourcePath .
+      ?source ?predicate ?target .
+      VALUES ?predicate { ${valuesClause} }
+    }
+    LIMIT 1000
+  `);
+
+  const inspections: Inspection[] = [];
+  let counter = 0;
+  for (const row of linksRes.results as { source: string; sourcePath: string; predicate: string; target: string }[]) {
+    const classified = classifyTarget(row.target);
+    if (!classified) continue;
+    const ins = inspectionForBrokenLink(ctx, row, classified, validNotes, validSources, validExcerpts, counter);
+    if (ins) {
+      inspections.push(ins);
+      counter++;
+    }
+    if (inspections.length >= 50) break; // soft cap so we don't drown the panel
+  }
+  return inspections;
+}
+
+/** A wiki-link target IRI parsed into kind + base + optional fragment. */
+interface ClassifiedTarget {
+  kind: 'note' | 'source' | 'excerpt' | null;
+  /** The identifier portion — relativePath for notes (with `.md`),
+   *  sourceId / excerptId for the others. URL-decoded. */
+  id: string;
+  /** Fragment after `#`, decoded; null when none. */
+  anchor: string | null;
+}
+
+function classifyTarget(iri: string): ClassifiedTarget | null {
+  // Strip the fragment first so we can match against the base form.
+  const hashIdx = iri.lastIndexOf('#');
+  const base = hashIdx >= 0 ? iri.slice(0, hashIdx) : iri;
+  const anchor = hashIdx >= 0 ? decode(iri.slice(hashIdx + 1)) : null;
+
+  // Match the segment after the last `note/` / `source/` / `excerpt/`.
+  const noteIdx = base.lastIndexOf('/note/');
+  if (noteIdx >= 0) {
+    const id = decodeSegmented(base.slice(noteIdx + '/note/'.length));
+    // Note URIs in the indexer carry a `.md` suffix on the path
+    // string (e.g. `path/foo.md`); add it for matching.
+    return { kind: 'note', id: id.endsWith('.md') ? id : `${id}.md`, anchor };
+  }
+  const sourceIdx = base.lastIndexOf('/source/');
+  if (sourceIdx >= 0) {
+    return { kind: 'source', id: decode(base.slice(sourceIdx + '/source/'.length)), anchor };
+  }
+  const excerptIdx = base.lastIndexOf('/excerpt/');
+  if (excerptIdx >= 0) {
+    return { kind: 'excerpt', id: decode(base.slice(excerptIdx + '/excerpt/'.length)), anchor };
+  }
+  return null; // external URI or unknown shape — not our concern.
+}
+
+function decode(s: string): string {
+  try { return decodeURIComponent(s); }
+  catch { return s; }
+}
+
+/** Decode a `note/` path that's been segment-encoded so slashes survive. */
+function decodeSegmented(s: string): string {
+  return s.split('/').map(decode).join('/');
+}
+
+function inspectionForBrokenLink(
+  ctx: ProjectContext,
+  row: { source: string; sourcePath: string; predicate: string; target: string },
+  classified: ClassifiedTarget,
+  validNotes: Set<string>,
+  validSources: Set<string>,
+  validExcerpts: Set<string>,
+  index: number,
+): Inspection | null {
+  if (classified.kind === 'source') {
+    if (validSources.has(classified.id)) return null;
+    return {
+      id: `broken-cite-${index}`,
+      type: 'broken_cite_quote',
+      severity: 'warning',
+      nodeUri: row.source,
+      nodeLabel: row.sourcePath,
+      message: `Note "${row.sourcePath}" cites an unknown source: ${classified.id}`,
+      suggestedAction: 'Ingest the source via Ingest Identifier… or fix the `[[cite::id]]` target.',
+    };
+  }
+  if (classified.kind === 'excerpt') {
+    if (validExcerpts.has(classified.id)) return null;
+    return {
+      id: `broken-quote-${index}`,
+      type: 'broken_cite_quote',
+      severity: 'warning',
+      nodeUri: row.source,
+      nodeLabel: row.sourcePath,
+      message: `Note "${row.sourcePath}" quotes an unknown excerpt: ${classified.id}`,
+      suggestedAction: 'Create the excerpt from the source viewer, or fix the `[[quote::id]]` target.',
+    };
+  }
+  if (classified.kind === 'note') {
+    if (!validNotes.has(classified.id)) {
+      const linkText = classified.anchor
+        ? `${classified.id.replace(/\.md$/, '')}#${classified.anchor}`
+        : classified.id.replace(/\.md$/, '');
+      return {
+        id: `broken-note-${index}`,
+        type: 'broken_note_link',
+        severity: 'warning',
+        nodeUri: row.source,
+        nodeLabel: row.sourcePath,
+        message: `Note "${row.sourcePath}" links to a missing note: [[${linkText}]]`,
+        suggestedAction: 'Create the target note, fix the spelling, or remove the link.',
+      };
+    }
+    // Note exists. Check anchor when one was specified.
+    // Block-id anchors (`#^id`) intentionally skipped — they're
+    // scattered through the note body, not stored as triples.
+    if (classified.anchor && !classified.anchor.startsWith('^')) {
+      const headings = headingsFor(ctx, classified.id);
+      const found = headings.some((h) => h.slug === classified.anchor);
+      if (!found) {
+        const stem = classified.id.replace(/\.md$/, '');
+        return {
+          id: `broken-anchor-${index}`,
+          type: 'broken_anchor_link',
+          severity: 'warning',
+          nodeUri: row.source,
+          nodeLabel: row.sourcePath,
+          message: `Note "${row.sourcePath}" links to a missing heading: [[${stem}#${classified.anchor}]]`,
+          suggestedAction: 'Add the heading to the target note, fix the anchor slug, or remove the `#…` part.',
+        };
+      }
+    }
+  }
+  return null;
 }
 
 // ── Timer ──────────────────────────────────────────────────────────────────
