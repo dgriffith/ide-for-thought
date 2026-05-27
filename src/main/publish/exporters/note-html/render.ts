@@ -15,6 +15,7 @@ import MarkdownIt from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
 import { buildLinkResolverContext } from '../../link-resolver';
+import { installMath } from '../../../../shared/markdown/math-plugin';
 import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
@@ -52,6 +53,9 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
     },
   });
   md.use(footnote);
+  // `$…$` / `$$…$$` → KaTeX HTML (#327). Same plugin Preview uses so
+  // the export and the editor preview render math identically.
+  installMath(md);
   installWikiLinkRule(md, plan);
   installTagRule(md);
   installCiteStubRule(md, plan, renderer);
