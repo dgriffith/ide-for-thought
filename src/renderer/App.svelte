@@ -2450,6 +2450,21 @@
     sidebar?.refreshTables();
   });
 
+  // CSV table-name collision (#354): two CSVs would land on the
+  // same DuckDB table name; the second was skipped. Show a
+  // suppressible toast pointing at `table_name:` as the fix.
+  api.tables.onNameCollision((collision) => {
+    void showConfirm(
+      `Two CSVs would use the same DuckDB table name "${collision.tableName}":\n\n` +
+      `  • ${collision.existingPath}  (active)\n` +
+      `  • ${collision.attemptedPath}  (skipped)\n\n` +
+      `Add \`table_name: <unique-name>\` to a companion .md alongside one of them to disambiguate.`,
+      CONFIRM_KEYS.tableNameCollision,
+      'OK',
+      { hideDontAskAgain: false },
+    );
+  });
+
   function cycleViewMode() {
     if (viewMode === 'source') viewMode = 'preview';
     else if (viewMode === 'preview') viewMode = 'split';

@@ -294,6 +294,9 @@ export const Channels = {
   TABLES_LIST: 'tables:list',
   /** Broadcast from main when the set of registered DuckDB tables changes (#235). */
   TABLES_CHANGED: 'tables:changed',
+  /** Broadcast from main when a CSV register would clobber an existing
+   *  table name and got skipped (#354). Payload: \`CsvTableCollision\`. */
+  TABLES_NAME_COLLISION: 'tables:nameCollision',
 
   /** Format a single file on disk (#153). Writes through the standard index+broadcast pipeline. */
   FORMATTER_FORMAT_FILE: 'formatter:formatFile',

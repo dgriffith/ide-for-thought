@@ -147,6 +147,16 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   }
 
   ctx.rootPath = rootPath;
+  // Subscribe to CSV table-name collisions BEFORE project init so
+  // the init-time `registerAllCsvs` sweep is also covered (#354).
+  // The console.warn alone wasn't visible to users; this surfaces a
+  // toast pointing at `table_name:` as the fix. Unsub on window
+  // close to avoid leaking listeners across project reopens.
+  const unsubCollision = tables.onCsvTableCollision(rootPath, (collision) => {
+    if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_NAME_COLLISION, collision);
+  });
+  win.once('closed', () => { unsubCollision(); });
+
   const projectCtx: ProjectContext = await acquireProject(rootPath, win.id);
   addRecentProject(rootPath);
   rebuildMenu();
@@ -221,6 +231,8 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     try {
       await tables.registerCsv(projectCtx, csvPath);
       if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+      // Collisions broadcast via the per-project listener attached
+      // before acquireProject — no extra wiring here.
     } catch (err) {
       console.warn(`[tables] sibling re-register failed for ${csvPath} (via ${relativePath}):`, err);
     }

@@ -127,14 +127,69 @@ async function readCompanionOverride(rootPath: string, relativePath: string): Pr
 }
 
 /**
+ * Information surfaced when two CSVs derive the same table name and
+ * the second is skipped (#354). Callers route this to a renderer
+ * toast so the user can fix the conflict via `table_name:` in a
+ * companion .md.
+ */
+export interface CsvTableCollision {
+  /** Table name both CSVs derived. */
+  tableName: string;
+  /** Path that was registered first and won. */
+  existingPath: string;
+  /** Path that was skipped to avoid the clobber. */
+  attemptedPath: string;
+}
+
+export type RegisterCsvResult =
+  | { ok: true }
+  | { ok: false; reason: 'collision'; collision: CsvTableCollision }
+  | { ok: false; reason: 'inactive' }
+  | { ok: false; reason: 'error'; error: unknown };
+
+/**
+ * Per-project collision-listener registry (#354). Listeners are
+ * attached by window-manager so each window sees collisions for its
+ * own project, including those produced during the init-time
+ * `registerAllCsvs` sweep (when the window-manager isn't yet calling
+ * registerCsv itself).
+ */
+type CollisionListener = (c: CsvTableCollision) => void;
+const collisionListeners = new Map<string, Set<CollisionListener>>();
+
+export function onCsvTableCollision(rootPath: string, listener: CollisionListener): () => void {
+  let set = collisionListeners.get(rootPath);
+  if (!set) { set = new Set(); collisionListeners.set(rootPath, set); }
+  set.add(listener);
+  return () => {
+    const s = collisionListeners.get(rootPath);
+    if (!s) return;
+    s.delete(listener);
+    if (s.size === 0) collisionListeners.delete(rootPath);
+  };
+}
+
+function emitCollision(rootPath: string, c: CsvTableCollision): void {
+  const set = collisionListeners.get(rootPath);
+  if (!set) return;
+  for (const fn of set) {
+    try { fn(c); } catch (err) { console.error('[tables] collision listener threw:', err); }
+  }
+}
+
+/**
  * Register (or re-register) a CSV file as a DuckDB view. The view is lazy —
  * DuckDB re-reads the file on every query — so content changes don't require
  * re-registration. Re-register is called when the file is added or when the
  * companion note's `table_name:` may have changed.
+ *
+ * Returns a result indicating outcome. Callers that own a renderer
+ * window should surface `collision` results as a toast — the
+ * console.warn alone wasn't visible to users (#354).
  */
-export async function registerCsv(ctx: ProjectContext, relativePath: string): Promise<void> {
+export async function registerCsv(ctx: ProjectContext, relativePath: string): Promise<RegisterCsvResult> {
   const state = getState(ctx);
-  if (!state) return;
+  if (!state) return { ok: false, reason: 'inactive' };
   const { rootPath, connection, pathToTable, tableToPath } = state;
   const override = await readCompanionOverride(rootPath, relativePath);
   const tableName = override ?? deriveTableName(relativePath);
@@ -148,7 +203,9 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
       `'${existingPath}' and '${relativePath}'. Skipping the second. Use ` +
       `'table_name:' in a companion .md to disambiguate.`,
     );
-    return;
+    const collision = { tableName, existingPath, attemptedPath: relativePath };
+    emitCollision(rootPath, collision);
+    return { ok: false, reason: 'collision', collision };
   }
 
   // If this path was previously registered under a different name (e.g. the
@@ -183,11 +240,13 @@ export async function registerCsv(ctx: ProjectContext, relativePath: string): Pr
     // lets SPARQL consumers ask "what tables do I have?", "what columns
     // does X expose?", and reason about column datatypes.
     await indexCsvTableShape(ctx, relativePath, tableName);
+    return { ok: true };
   } catch (err) {
     console.warn(
       `[tables] Failed to register '${relativePath}' as '${tableName}': ` +
       (err instanceof Error ? err.message : String(err)),
     );
+    return { ok: false, reason: 'error', error: err };
   }
 }
 
@@ -242,16 +301,21 @@ export async function unregisterCsv(ctx: ProjectContext, relativePath: string): 
 /**
  * Scan the thoughtbase on project open and register every `.csv` file under
  * the root. Mirrors graph.indexAllNotes's walker shape.
+ *
+ * Returns the count of successfully-registered CSVs plus any
+ * collisions encountered. Callers route collisions to a renderer
+ * toast (#354).
  */
-export async function registerAllCsvs(ctx: ProjectContext): Promise<number> {
+export async function registerAllCsvs(ctx: ProjectContext): Promise<{ count: number; collisions: CsvTableCollision[] }> {
   const state = getState(ctx);
-  if (!state) return 0;
+  if (!state) return { count: 0, collisions: [] };
   const { rootPath } = state;
   // Wipe stale CSV-table triples up front so CSVs deleted while the app
   // was closed don't linger in the graph after a full rescan. Each
   // registered CSV writes its own triples as it goes.
   unindexAllCsvTables(ctx);
   let count = 0;
+  const collisions: CsvTableCollision[] = [];
   async function walk(dirPath: string) {
     let entries: import('node:fs').Dirent[];
     try {
@@ -266,13 +330,14 @@ export async function registerAllCsvs(ctx: ProjectContext): Promise<number> {
         await walk(fullPath);
       } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.csv')) {
         const rel = path.relative(rootPath, fullPath);
-        await registerCsv(ctx, rel);
-        count++;
+        const result = await registerCsv(ctx, rel);
+        if (result.ok) count++;
+        else if (result.reason === 'collision') collisions.push(result.collision);
       }
     }
   }
   await walk(rootPath);
-  return count;
+  return { count, collisions };
 }
 
 /** Every registered CSV's table name, relative path, column names, and row count. */

@@ -123,6 +123,9 @@ contextBridge.exposeInMainWorld('api', {
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.TABLES_CHANGED, () => cb());
     },
+    onNameCollision: (cb: (collision: import('../shared/types').CsvTableCollision) => void) => {
+      ipcRenderer.on(Channels.TABLES_NAME_COLLISION, (_e, collision) => cb(collision as import('../shared/types').CsvTableCollision));
+    },
   },
   tags: {
     list: () => ipcRenderer.invoke(Channels.TAGS_LIST),
