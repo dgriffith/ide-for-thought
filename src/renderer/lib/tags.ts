@@ -25,8 +25,10 @@ export interface TagTreeNode {
   segment: string;
   /** Full path from the root, e.g. `projects/minerva/ui`. */
   path: string;
-  /** Total notes with a tag at-or-under this path (sum approximation). */
-  count: number;
+  /** Notes with a tag at-or-under this path (sum approximation). */
+  noteCount: number;
+  /** Sources with a tag at-or-under this path (sum approximation). */
+  sourceCount: number;
   /** True when at least one tag in the input has exactly this path. */
   hasOwnTag: boolean;
   /** Children, sorted by segment. */
@@ -38,8 +40,8 @@ export interface TagTreeNode {
  * by segment so re-renders don't reshuffle rows.
  */
 export function buildTagTree(tags: TagInfo[]): TagTreeNode[] {
-  const root: TagTreeNode = { segment: '', path: '', count: 0, hasOwnTag: false, children: [] };
-  for (const { tag, count } of tags) {
+  const root: TagTreeNode = { segment: '', path: '', noteCount: 0, sourceCount: 0, hasOwnTag: false, children: [] };
+  for (const { tag, noteCount, sourceCount } of tags) {
     if (!tag) continue;
     const parts = tag.split('/').filter(Boolean);
     let cur = root;
@@ -49,10 +51,11 @@ export function buildTagTree(tags: TagInfo[]): TagTreeNode[] {
       acc = acc ? `${acc}/${seg}` : seg;
       let child = cur.children.find((c) => c.segment === seg);
       if (!child) {
-        child = { segment: seg, path: acc, count: 0, hasOwnTag: false, children: [] };
+        child = { segment: seg, path: acc, noteCount: 0, sourceCount: 0, hasOwnTag: false, children: [] };
         cur.children.push(child);
       }
-      child.count += count;
+      child.noteCount += noteCount;
+      child.sourceCount += sourceCount;
       if (i === parts.length - 1) child.hasOwnTag = true;
       cur = child;
     }

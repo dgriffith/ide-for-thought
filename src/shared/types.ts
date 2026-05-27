@@ -17,7 +17,10 @@ export interface NotebaseMeta {
 
 export interface TagInfo {
   tag: string;
-  count: number;
+  /** Notes carrying this tag (deduped by note). */
+  noteCount: number;
+  /** Sources carrying this tag (deduped by source). */
+  sourceCount: number;
 }
 
 export interface TaggedNote {
