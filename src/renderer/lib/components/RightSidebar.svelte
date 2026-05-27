@@ -224,7 +224,7 @@
     {:else if activePanel === 'backlinks'}
       <BacklinksPanel {activeFilePath} {revision} {onFileSelect} />
     {:else if activePanel === 'tags'}
-      <TagsPanel {content} {onFileSelect} />
+      <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}
       <TablesPanel {content} {onOpenQuery} />
     {:else if activePanel === 'citations'}

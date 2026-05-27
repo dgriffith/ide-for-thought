@@ -1723,17 +1723,28 @@ export function listTags(ctx: ProjectContext): TagInfo[] {
   if (!state) return [];
   const { store } = state;
 
-  const tagCounts = new Map<string, number>();
+  // Bucket per tag-name into note vs source counts. A subject is a
+  // source when it carries minerva:sourceId; otherwise we treat the
+  // hasTag edge as belonging to a note (this matches what notesByTag
+  // returns once the rdf:type filter has been applied).
+  const buckets = new Map<string, { noteCount: number; sourceCount: number }>();
   const stmts = store.statementsMatching(undefined, MINERVA('hasTag'), undefined);
   for (const st of stmts) {
     const tagNode = st.object;
     const nameStmts = store.statementsMatching(tagNode as $rdf.NamedNode, MINERVA('tagName'), undefined);
     const name = nameStmts[0]?.object.value ?? tagNode.value;
-    tagCounts.set(name, (tagCounts.get(name) ?? 0) + 1);
+    let bucket = buckets.get(name);
+    if (!bucket) {
+      bucket = { noteCount: 0, sourceCount: 0 };
+      buckets.set(name, bucket);
+    }
+    const isSource = store.statementsMatching(st.subject, MINERVA('sourceId'), undefined).length > 0;
+    if (isSource) bucket.sourceCount++;
+    else bucket.noteCount++;
   }
 
-  return [...tagCounts.entries()]
-    .map(([tag, count]) => ({ tag, count }))
+  return [...buckets.entries()]
+    .map(([tag, b]) => ({ tag, noteCount: b.noteCount, sourceCount: b.sourceCount }))
     .sort((a, b) => a.tag.localeCompare(b.tag));
 }
 

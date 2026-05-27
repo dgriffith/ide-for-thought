@@ -72,14 +72,27 @@ describe('Source participation in tag system (issue #118)', () => {
     expect(sources.map(s => s.sourceId)).toEqual(['smith-2023']);
   });
 
-  it('listTags counts both notes and sources that share a tag', async () => {
+  it('listTags reports note + source counts separately (#118)', async () => {
     writeSourceMeta(root, 'smith-2023', META);
     writeSourceBody(root, 'smith-2023', '# x\n\n#research');
     await indexAllNotes(ctx);
     await indexNote(ctx, 'notes/overview.md', '# Overview\n\n#research');
+    await indexNote(ctx, 'notes/second.md', '# Second\n\n#research');
 
     const info = listTags(ctx).find(t => t.tag === 'research');
-    expect(info?.count).toBe(2);
+    expect(info).toBeDefined();
+    expect(info?.noteCount).toBe(2);
+    expect(info?.sourceCount).toBe(1);
+  });
+
+  it('listTags assigns a tag carried only by sources to sourceCount and noteCount 0', async () => {
+    writeSourceMeta(root, 'smith-2023', META);
+    writeSourceBody(root, 'smith-2023', '# x\n\n#library-only');
+    await indexAllNotes(ctx);
+
+    const info = listTags(ctx).find(t => t.tag === 'library-only');
+    expect(info?.noteCount).toBe(0);
+    expect(info?.sourceCount).toBe(1);
   });
 
   it('notesByTag excludes sources (no misleading relativePath)', async () => {

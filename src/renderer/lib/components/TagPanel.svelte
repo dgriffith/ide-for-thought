@@ -22,11 +22,18 @@
   let taggedSources = $state<TaggedSource[]>([]);
   let showSources = $state(true);
 
+  /** Combined note+source count for sizing/sorting; sources can be
+   *  hidden via the toggle but the chip's prominence still reflects
+   *  the total tagged-thing count, which is the more useful signal. */
+  function totalCount(t: TagInfo): number {
+    return t.noteCount + t.sourceCount;
+  }
+
   /** Threshold above which a chip renders with the `big` size — top
    *  quartile by frequency. Recomputed whenever the tag list changes. */
   const bigThreshold = $derived.by(() => {
     if (tags.length === 0) return Infinity;
-    const sorted = tags.map((t) => t.count).sort((a, b) => b - a);
+    const sorted = tags.map(totalCount).sort((a, b) => b - a);
     const idx = Math.max(0, Math.floor(sorted.length / 4) - 1);
     return sorted[idx];
   });
@@ -86,16 +93,18 @@
     <div class="empty">No tags yet</div>
   {:else}
     <div class="tag-list">
-      {#each tags as { tag, count } (tag)}
-        {@const active = activeTag === tag}
+      {#each tags as t (t.tag)}
+        {@const active = activeTag === t.tag}
+        {@const total = t.noteCount + t.sourceCount}
+        {@const visibleCount = showSources ? total : t.noteCount}
         <Chip
-          tone={active ? 'accent' : chipTone(tag)}
-          size={chipSize(count)}
-          onclick={() => showNotesForTag(tag)}
-          title={`#${tag} · ${count}`}
+          tone={active ? 'accent' : chipTone(t.tag)}
+          size={chipSize(total)}
+          onclick={() => showNotesForTag(t.tag)}
+          title={`#${t.tag} · ${t.noteCount} note${t.noteCount === 1 ? '' : 's'}, ${t.sourceCount} source${t.sourceCount === 1 ? '' : 's'}`}
         >
-          <span class="tag-name">#{tag}</span>
-          <span class="count">{count}</span>
+          <span class="tag-name">#{t.tag}</span>
+          <span class="count">{visibleCount}</span>
         </Chip>
       {/each}
     </div>
