@@ -6,6 +6,8 @@
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
+  import BreadcrumbsBar from './lib/components/BreadcrumbsBar.svelte';
+  import { getBreadcrumbsSettings, type BreadcrumbsSettings } from './lib/breadcrumbs/settings';
   import Icon from './lib/components/Icon.svelte';
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
@@ -187,6 +189,12 @@
   let previewComponent = $state<Preview>();
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
+
+  // Breadcrumbs bar above the editor (#476). Single toggle for the
+  // heading-chain second tier — held in local state so the bar reacts
+  // immediately when the user flips it from Settings (the dialog calls
+  // setBreadcrumbsSettings, then notifies via the same patch we keep here).
+  let breadcrumbsSettings = $state<BreadcrumbsSettings>({ ...getBreadcrumbsSettings() });
   // Cache of every indexed source, refreshed on `sources:changed` and on
   // project open. Feeds the Editor's `[[cite::…]]` autocomplete so typing
   // in the editor doesn't have to await an IPC round-trip per keystroke.
@@ -2375,6 +2383,16 @@
             onNewTab={() => handleNewNote()}
           />
         {/if}
+        {#if editor.activeTab?.type === 'note'}
+          <BreadcrumbsBar
+            filePath={editor.activeFilePath}
+            content={editor.activeTab.content}
+            cursorLine={cursorInfo.line}
+            showHeadings={breadcrumbsSettings.showHeadingChain}
+            onRevealFolder={(folder) => { void sidebar?.revealFolder(folder); }}
+            onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
+          />
+        {/if}
         {#if editor.activeTab?.type === 'note' && editor.activeTab.relativePath.endsWith('.csv')}
           <CsvTable
             relativePath={editor.activeTab.relativePath}
@@ -2710,7 +2728,13 @@
         queryPanelComponent?.updateTheme();
         previewComponent?.updateTheme();
       }}
-      onClose={() => { showSettings = false; settingsInitialTab = undefined; }}
+      onClose={() => {
+        showSettings = false;
+        settingsInitialTab = undefined;
+        // Re-read breadcrumb settings — the dialog wrote through to the
+        // module cache on change, but App's reactive state needs a nudge.
+        breadcrumbsSettings = { ...getBreadcrumbsSettings() };
+      }}
       initialTab={settingsInitialTab}
     />
   {/if}

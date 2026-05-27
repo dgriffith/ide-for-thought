@@ -1,5 +1,6 @@
 <script lang="ts">
   import Ribbon from './Ribbon.svelte';
+  import { extractHeadings } from '../../markdown/headings';
 
   interface Props {
     content: string;
@@ -8,28 +9,10 @@
 
   let { content, onScrollToLine }: Props = $props();
 
-  interface Heading {
-    level: number;
-    text: string;
-    line: number;
-  }
-
   let collapsed = $state<Record<number, boolean>>({});
   let search = $state('');
 
   let headings = $derived(extractHeadings(content));
-
-  function extractHeadings(text: string): Heading[] {
-    const result: Heading[] = [];
-    const lines = text.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const match = lines[i].match(/^(#{1,6})\s+(.+)$/);
-      if (match) {
-        result.push({ level: match[1].length, text: match[2].trim(), line: i + 1 });
-      }
-    }
-    return result;
-  }
 
   function hasChildren(index: number): boolean {
     if (index >= headings.length - 1) return false;
