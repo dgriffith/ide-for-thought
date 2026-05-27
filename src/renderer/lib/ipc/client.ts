@@ -693,7 +693,7 @@ export interface SourcesApi {
   onExcerptsChanged(cb: () => void): void;
 }
 
-/** Manually-curated source collections (#470 phase 1). */
+/** Source collections (#470). */
 export interface CollectionsApi {
   list(): Promise<import('../../../shared/types').CollectionsFile>;
   create(args: { name: string; parent?: string | null }): Promise<import('../../../shared/types').Collection>;
@@ -701,8 +701,16 @@ export interface CollectionsApi {
   remove(id: string): Promise<void>;
   addSource(collectionId: string, sourceId: string): Promise<void>;
   removeSource(collectionId: string, sourceId: string): Promise<void>;
-  /** Fires when a collection is added, renamed, deleted, or its
-   *  membership changes. */
+  /** Smart-collection CRUD (#470 phase 2 — tag predicate). */
+  createSmart(args: { name: string; predicate: import('../../../shared/types').SmartCollectionPredicate }):
+    Promise<import('../../../shared/types').SmartCollection>;
+  renameSmart(id: string, name: string): Promise<void>;
+  removeSmart(id: string): Promise<void>;
+  updateSmartPredicate(id: string, predicate: import('../../../shared/types').SmartCollectionPredicate): Promise<void>;
+  /** Resolve a smart collection's members against the live graph. */
+  smartMembers(id: string): Promise<import('../../../shared/types').SourceMetadata[]>;
+  /** Fires when a collection (manual or smart) is added, renamed,
+   *  deleted, or its membership changes. */
   onChanged(cb: () => void): void;
 }
 

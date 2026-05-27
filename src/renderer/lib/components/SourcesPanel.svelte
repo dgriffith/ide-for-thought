@@ -1,9 +1,10 @@
 <script lang="ts">
   import { api } from '../ipc/client';
-  import type { SourceMetadata, Collection } from '../../../shared/types';
+  import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate } from '../../../shared/types';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
+  import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -27,8 +28,26 @@
   let addToCollectionFor = $state<SourceMetadata | null>(null);
 
   let collections = $state<Collection[]>([]);
-  /** Currently focused collection id; null = "All sources". */
+  let smartCollections = $state<SmartCollection[]>([]);
+  /** Currently focused collection id; null = "All sources". Manual and
+   *  smart ids live in the same namespace (the backend uniqueIdFor
+   *  enforces this) so a single field is enough. */
   let activeCollectionId = $state<string | null>(null);
+  /** Members of the currently focused smart collection. Re-fetched
+   *  when activeCollectionId changes to a smart entry, since
+   *  membership is derived not stored. */
+  let smartMembers = $state<Set<string> | null>(null);
+  /** Smart-collection editor dialog state. `mode === 'edit'` carries
+   *  the existing collection so the dialog seeds its inputs. */
+  let smartEditor = $state<
+    | { mode: 'create' }
+    | { mode: 'edit'; collection: SmartCollection }
+    | null
+  >(null);
+  /** + button popover menu state — used to disambiguate "new manual"
+   *  vs "new smart". */
+  let newCollectionMenu = $state<{ x: number; y: number } | null>(null);
+  let newCollectionMenuEl = $state<HTMLDivElement | undefined>();
   /** Persisted expansion state of the collection tree (per project would
    *  be nicer, but matches the convention already used by the right
    *  sidebar's tag tree). */
@@ -84,7 +103,26 @@
   async function refreshCollections(): Promise<void> {
     const data = await api.collections.list();
     collections = data.collections;
+    smartCollections = data.smartCollections ?? [];
+    // If the active smart collection still exists, refresh its
+    // membership in case the predicate changed (rename doesn't, but
+    // edit-predicate does). Cheap enough to always do.
+    if (activeCollectionId && smartCollections.some((s) => s.id === activeCollectionId)) {
+      smartMembers = new Set((await api.collections.smartMembers(activeCollectionId)).map((s) => s.sourceId));
+    } else if (activeCollectionId && !collections.some((c) => c.id === activeCollectionId)) {
+      // The active collection was deleted by an out-of-band edit.
+      activeCollectionId = null;
+      smartMembers = null;
+    }
   }
+
+  $effect(() => {
+    if (!newCollectionMenu || !newCollectionMenuEl) return;
+    const next = clampMenuToViewport(newCollectionMenu.x, newCollectionMenu.y, newCollectionMenuEl);
+    if (next.x !== newCollectionMenu.x || next.y !== newCollectionMenu.y) {
+      newCollectionMenu = { ...newCollectionMenu, ...next };
+    }
+  });
 
   function handleContextMenu(e: MouseEvent, source: SourceMetadata) {
     e.preventDefault();
@@ -146,12 +184,18 @@
     sources = await api.sources.listAll();
   }
 
-  /** Collection ids in the active subtree (the focused collection and
-   *  every descendant). Selecting a parent collection shows everything
-   *  filed under it — matches what users expect from Zotero's "include
-   *  child collections" default. */
+  const activeIsSmart = $derived(
+    !!activeCollectionId && smartCollections.some((s) => s.id === activeCollectionId),
+  );
+
+  /** Collection ids in the active subtree (the focused manual
+   *  collection and every descendant). Selecting a parent shows
+   *  everything filed under it — matches what users expect from
+   *  Zotero's "include child collections" default. Returns null
+   *  when nothing is focused, or when the focused entry is a smart
+   *  collection (which has no subtree). */
   const activeSubtree = $derived.by(() => {
-    if (!activeCollectionId) return null;
+    if (!activeCollectionId || activeIsSmart) return null;
     const out = new Set<string>([activeCollectionId]);
     let added = true;
     while (added) {
@@ -166,8 +210,12 @@
     return out;
   });
 
-  /** Source ids in the active subtree (union of all member arrays). */
+  /** Source ids the active collection contributes. For manual: union
+   *  of every member array in the subtree. For smart: the live
+   *  smartMembers set from the IPC. */
   const activeMembers = $derived.by(() => {
+    if (!activeCollectionId) return null;
+    if (activeIsSmart) return smartMembers;
     if (!activeSubtree) return null;
     const out = new Set<string>();
     for (const c of collections) {
@@ -247,8 +295,13 @@
     persistExpanded();
   }
 
-  function selectCollection(id: string | null) {
+  async function selectCollection(id: string | null) {
     activeCollectionId = id;
+    if (id && smartCollections.some((s) => s.id === id)) {
+      smartMembers = new Set((await api.collections.smartMembers(id)).map((s) => s.sourceId));
+    } else {
+      smartMembers = null;
+    }
   }
 
   function handleCollectionContextMenu(e: MouseEvent, collection: Collection) {
@@ -257,6 +310,41 @@
     collectionMenu = { x: e.clientX, y: e.clientY, collection };
     const close = () => { collectionMenu = null; window.removeEventListener('click', close); };
     setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  let smartMenu = $state<{ x: number; y: number; smart: SmartCollection } | null>(null);
+  let smartMenuEl = $state<HTMLDivElement | undefined>();
+  $effect(() => {
+    if (!smartMenu || !smartMenuEl) return;
+    const next = clampMenuToViewport(smartMenu.x, smartMenu.y, smartMenuEl);
+    if (next.x !== smartMenu.x || next.y !== smartMenu.y) {
+      smartMenu = { ...smartMenu, ...next };
+    }
+  });
+
+  function handleSmartContextMenu(e: MouseEvent, smart: SmartCollection) {
+    e.preventDefault();
+    e.stopPropagation();
+    smartMenu = { x: e.clientX, y: e.clientY, smart };
+    const close = () => { smartMenu = null; window.removeEventListener('click', close); };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function openNewCollectionMenu(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    newCollectionMenu = { x: rect.right, y: rect.bottom + 2 };
+    const close = () => { newCollectionMenu = null; window.removeEventListener('click', close); };
+    setTimeout(() => window.addEventListener('click', close), 0);
+  }
+
+  function smartHoverHint(s: SmartCollection): string {
+    if (s.predicate.kind === 'tags') {
+      const tags = s.predicate.allOf.map((t) => `#${t}`).join(' AND ');
+      return tags || s.id;
+    }
+    return s.id;
   }
 
   async function handleNewCollection(parent: string | null = null): Promise<void> {
@@ -294,6 +382,70 @@
       await api.collections.remove(c.id);
     } catch (err) {
       console.error('[minerva] Delete collection failed:', err);
+    }
+  }
+
+  function handleNewSmartCollection(): void {
+    newCollectionMenu = null;
+    smartEditor = { mode: 'create' };
+  }
+
+  function handleEditSmart(smart: SmartCollection): void {
+    smartMenu = null;
+    smartEditor = { mode: 'edit', collection: smart };
+  }
+
+  async function handleRenameSmart(smart: SmartCollection): Promise<void> {
+    smartMenu = null;
+    const name = await onShowPrompt('Rename smart collection:', smart.name);
+    if (!name || name === smart.name) return;
+    try {
+      await api.collections.renameSmart(smart.id, name);
+    } catch (err) {
+      console.error('[minerva] Rename smart collection failed:', err);
+    }
+  }
+
+  async function handleDeleteSmart(smart: SmartCollection): Promise<void> {
+    smartMenu = null;
+    const confirmed = await onShowConfirm(
+      `Delete smart collection "${smart.name}"? Its result set is derived, so no sources are removed.`,
+      'delete-smart-collection',
+      'Delete',
+    );
+    if (!confirmed) return;
+    if (activeCollectionId === smart.id) {
+      activeCollectionId = null;
+      smartMembers = null;
+    }
+    try {
+      await api.collections.removeSmart(smart.id);
+    } catch (err) {
+      console.error('[minerva] Delete smart collection failed:', err);
+    }
+  }
+
+  async function handleSmartEditorSave(name: string, predicate: SmartCollectionPredicate): Promise<void> {
+    const editor = smartEditor;
+    smartEditor = null;
+    if (!editor) return;
+    try {
+      if (editor.mode === 'create') {
+        const created = await api.collections.createSmart({ name, predicate });
+        // Auto-focus the new collection so the user sees what they
+        // just made (mirrors the create-from-picker UX).
+        await selectCollection(created.id);
+      } else {
+        const c = editor.collection;
+        if (name !== c.name) await api.collections.renameSmart(c.id, name);
+        await api.collections.updateSmartPredicate(c.id, predicate);
+        // Re-fetch members if this is the active one.
+        if (activeCollectionId === c.id) {
+          smartMembers = new Set((await api.collections.smartMembers(c.id)).map((s) => s.sourceId));
+        }
+      }
+    } catch (err) {
+      console.error('[minerva] Save smart collection failed:', err);
     }
   }
 
@@ -354,7 +506,7 @@
     <div class="collections-section">
       <div class="collections-header">
         <span class="collections-eyebrow">COLLECTIONS</span>
-        <button class="new-coll" onclick={() => handleNewCollection(null)} title="New collection">
+        <button class="new-coll" onclick={openNewCollectionMenu} title="New collection…">
           <Icon name="plus" size={11} color="var(--text-muted)" />
         </button>
       </div>
@@ -393,6 +545,23 @@
           <span class="coll-count">{counts.get(row.collection.id) ?? 0}</span>
         </button>
       {/each}
+
+      {#if smartCollections.length > 0}
+        <div class="smart-divider">SMART</div>
+        {#each smartCollections as s (s.id)}
+          <button
+            class="coll-row smart-row"
+            class:active={activeCollectionId === s.id}
+            onclick={() => selectCollection(s.id)}
+            oncontextmenu={(e) => handleSmartContextMenu(e, s)}
+            title={smartHoverHint(s)}
+          >
+            <span class="chevron-spacer"></span>
+            <Icon name="search" size={11} color={activeCollectionId === s.id ? 'var(--accent)' : 'var(--text-faint)'} />
+            <span class="coll-name">{s.name}</span>
+          </button>
+        {/each}
+      {/if}
     </div>
 
     <div class="filter-row">
@@ -400,7 +569,11 @@
         type="text"
         class="filter-input"
         placeholder={activeCollectionId
-          ? `Filter "${collections.find((c) => c.id === activeCollectionId)?.name ?? 'collection'}"…`
+          ? `Filter "${
+              collections.find((c) => c.id === activeCollectionId)?.name
+              ?? smartCollections.find((s) => s.id === activeCollectionId)?.name
+              ?? 'collection'
+            }"…`
           : 'Filter sources…'}
         bind:value={filter}
       />
@@ -457,6 +630,29 @@
       <button onclick={() => handleDeleteCollection(collectionMenu!.collection)}>Delete</button>
     </div>
   {/if}
+  {#if smartMenu}
+    <div
+      class="context-menu"
+      bind:this={smartMenuEl}
+      style:left="{smartMenu.x}px"
+      style:top="{smartMenu.y}px"
+    >
+      <button onclick={() => handleEditSmart(smartMenu!.smart)}>Edit query…</button>
+      <button onclick={() => handleRenameSmart(smartMenu!.smart)}>Rename…</button>
+      <button onclick={() => handleDeleteSmart(smartMenu!.smart)}>Delete</button>
+    </div>
+  {/if}
+  {#if newCollectionMenu}
+    <div
+      class="context-menu"
+      bind:this={newCollectionMenuEl}
+      style:left="{newCollectionMenu.x}px"
+      style:top="{newCollectionMenu.y}px"
+    >
+      <button onclick={() => { newCollectionMenu = null; void handleNewCollection(null); }}>New collection…</button>
+      <button onclick={handleNewSmartCollection}>New smart collection…</button>
+    </div>
+  {/if}
 </div>
 
 {#if mergeSrc}
@@ -477,6 +673,14 @@
     onSelect={handleAddToCollectionPick}
     onCancel={() => { addToCollectionFor = null; }}
     onCreate={handleCreateFromPicker}
+  />
+{/if}
+
+{#if smartEditor}
+  <SmartCollectionEditorDialog
+    editing={smartEditor.mode === 'edit' ? smartEditor.collection : undefined}
+    onSave={handleSmartEditorSave}
+    onCancel={() => { smartEditor = null; }}
   />
 {/if}
 
@@ -679,4 +883,16 @@
     flex-shrink: 0;
   }
   .coll-row.active .coll-count { color: var(--accent); }
+
+  /* SMART subsection — kept visually subordinate so the manual tree
+     stays the primary affordance. Small uppercase divider, no count
+     badge (the row's hover tooltip carries the predicate). */
+  .smart-divider {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-faint);
+    letter-spacing: 0.08em;
+    padding: 8px 14px 2px;
+  }
+  .smart-row { gap: 6px; }
 </style>

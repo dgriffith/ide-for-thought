@@ -245,6 +245,14 @@ export const Channels = {
   /** Broadcast from main when the collections file changes so any open
    *  sidebar refreshes its tree. */
   COLLECTIONS_CHANGED: 'collections:changed',
+  /** Smart-collection CRUD (#470 phase 2). */
+  COLLECTIONS_CREATE_SMART: 'collections:createSmart',
+  COLLECTIONS_RENAME_SMART: 'collections:renameSmart',
+  COLLECTIONS_DELETE_SMART: 'collections:deleteSmart',
+  COLLECTIONS_UPDATE_SMART_PREDICATE: 'collections:updateSmartPredicate',
+  /** Resolve a smart collection's members against the live graph.
+   *  Returns the matching SourceMetadata[] sorted by title. */
+  COLLECTIONS_SMART_MEMBERS: 'collections:smartMembers',
   /** Broadcast from main when a source is added/updated/removed so panels refresh. */
   SOURCES_CHANGED: 'sources:changed',
 
