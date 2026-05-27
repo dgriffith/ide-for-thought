@@ -26,9 +26,13 @@
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
     onShowPrompt: (message: string, initial?: string) => Promise<string | null>;
+    /** Open a freshly-ingested source in a tab. Wired by the host so
+     *  the "+" button's smart-paste path lands the user on the new
+     *  source without an extra click. (#473) */
+    onSourceOpened?: (sourceId: string) => void;
   }
 
-  let { onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt }: Props = $props();
+  let { onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onSourceOpened }: Props = $props();
 
   let sources = $state<SourceMetadata[]>([]);
   let filter = $state('');
@@ -393,6 +397,33 @@
     }
   }
 
+  let adding = $state(false);
+  async function handleAddSource(): Promise<void> {
+    if (adding) return;
+    const raw = await onShowPrompt('URL, DOI, arXiv id, or PubMed id:');
+    if (!raw) return;
+    const input = raw.trim();
+    if (!input) return;
+    adding = true;
+    try {
+      const result = await api.sources.ingestSmart(input);
+      await refresh();
+      onSourceOpened?.(result.sourceId);
+      if (result.duplicate) {
+        void onShowConfirm(
+          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
+          'ingest-duplicate',
+          'OK',
+        );
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      void onShowConfirm(`Ingest failed: ${msg}`, 'ingest-failed', 'OK');
+    } finally {
+      adding = false;
+    }
+  }
+
   function handleCollectionContextMenu(e: MouseEvent, collection: Collection) {
     e.preventDefault();
     e.stopPropagation();
@@ -710,6 +741,16 @@
             : 'Filter sources…'}
         bind:value={filter}
       />
+      <button
+        type="button"
+        class="add-source-btn"
+        disabled={adding}
+        onclick={handleAddSource}
+        title="Add source from URL, DOI, arXiv id, or PubMed id"
+        aria-label="Add source"
+      >
+        <Icon name="plus" size={11} color="var(--text-muted)" />
+      </button>
     </div>
     <div class="source-list">
       {#each visible as s (s.sourceId)}
@@ -888,10 +929,34 @@
 
   .filter-row {
     padding: 8px 8px 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
+  .add-source-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .add-source-btn:hover:not(:disabled) {
+    background: var(--bg-button);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+  .add-source-btn:disabled { opacity: 0.5; cursor: default; }
 
   .filter-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 4px 8px;
     background: var(--bg);
     color: var(--text);

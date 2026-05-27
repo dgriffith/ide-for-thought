@@ -74,6 +74,8 @@ import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
 import { stripUpstreamTags } from './sources/strip-upstream-tags';
+import { getIngestSettings, saveIngestSettings, type IngestSettings } from './sources/ingest-settings';
+import { ingestSmart } from './sources/ingest-smart';
 import type { ReadStatus } from '../shared/types';
 import type { ReadingQueueView } from './graph/index';
 import {
@@ -1302,8 +1304,27 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    return await ingestIdentifier(rootPath, identifier, { fetchImpl: privilegedFetch });
+    const ingestSettings = await getIngestSettings();
+    return await ingestIdentifier(rootPath, identifier, {
+      fetchImpl: privilegedFetch,
+      importUpstreamTags: ingestSettings.importUpstreamTags,
+    });
   });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_SMART, async (e, rawInput: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ingestSettings = await getIngestSettings();
+    return await ingestSmart(rootPath, rawInput, {
+      fetchImpl: privilegedFetch,
+      importUpstreamTags: ingestSettings.importUpstreamTags,
+    });
+  });
+
+  ipcMain.handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());
+  ipcMain.handle(Channels.INGEST_SET_SETTINGS, (_e, settings: IngestSettings) =>
+    saveIngestSettings(settings),
+  );
 
   ipcMain.handle(Channels.FILES_DROP_IMPORT, async (e, targetFolder: string, localPaths: string[]) => {
     const rootPath = rootPathFromEvent(e);

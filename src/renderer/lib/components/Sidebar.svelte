@@ -575,7 +575,7 @@
       {/if}
     {:else if activePanel === 'sites'}
       {#if onSourceSelect && onShowConfirm && onShowPrompt}
-        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} {onShowPrompt} />
+        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} {onShowPrompt} onSourceOpened={onSourceSelect} />
       {/if}
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />

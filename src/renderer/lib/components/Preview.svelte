@@ -15,6 +15,7 @@
   import 'highlight.js/styles/github-dark.min.css';
   import 'katex/dist/katex.min.css';
   import { installMath } from '../../../shared/markdown/math-plugin';
+  import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { getLinkType } from '../../../shared/link-types';
@@ -87,6 +88,13 @@
      * regular doc edit.
      */
     onApplyCellOutputEdit?: (newContent: string) => void;
+    /**
+     * Click on a bare-DOI link the DOI plugin rendered (#473).
+     * The host decides what to do: open the matching source if it
+     * exists, otherwise offer to ingest. Without the callback,
+     * DOI links open externally like any other link.
+     */
+    onDoiClick?: (doi: string) => void;
   }
 
   let {
@@ -105,6 +113,7 @@
     onBookmark,
     onRunCell,
     onApplyCellOutputEdit,
+    onDoiClick,
   }: Props = $props();
 
   // Per-fence collapse state, keyed by the fence's opening line in the
@@ -173,6 +182,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   });
   installMath(md);
   installCallouts(md);
+  installDoiAutolink(md);
   // Footnotes — markdown-it-footnote renders `[^id]` as a numbered
   // superscript anchored to a back-of-note `<section class="footnotes">`,
   // and each footnote body links back to the ref. Both jumps fire
@@ -1308,6 +1318,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         void runFenceAt(openingLine);
         return;
       }
+    }
+
+    // DOI link click — the doi-plugin auto-linker rendered this. The
+    // host decides between "open existing source" and "offer to
+    // ingest" based on whether the DOI matches a known source. (#473)
+    const doiAnchor = el.closest<HTMLAnchorElement>('a[href^="https://doi.org/"]');
+    if (doiAnchor && onDoiClick) {
+      e.preventDefault();
+      const href = doiAnchor.getAttribute('href') ?? '';
+      const doi = href.replace(/^https:\/\/doi\.org\//, '');
+      if (doi) onDoiClick(doi);
+      return;
     }
 
     // Internal anchor click (footnote ref ↔ body, heading anchor jumps,
