@@ -232,6 +232,18 @@ export interface CollectionsFile {
   smartCollections?: SmartCollection[];
 }
 
+/** Broadcast payload when two CSVs derive the same DuckDB table
+ *  name and the second is skipped (#354). The renderer surfaces
+ *  this as a suppressible toast pointing at `table_name:` in a
+ *  companion .md as the fix. */
+export interface CsvTableCollision {
+  tableName: string;
+  /** Path that was registered first and won. */
+  existingPath: string;
+  /** Path that was skipped to avoid the clobber. */
+  attemptedPath: string;
+}
+
 // ── Bookmarks ────────────────────────────────────────────────────────────
 
 export interface Bookmark {

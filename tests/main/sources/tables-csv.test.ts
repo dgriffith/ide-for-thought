@@ -12,6 +12,8 @@ import {
   registerAllCsvs,
   listTables,
   deriveTableName,
+  onCsvTableCollision,
+  type CsvTableCollision,
 } from '../../../src/main/sources/tables';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
@@ -278,6 +280,47 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
     expect(b).toEqual({ name: 'nested_b', relativePath: 'nested/b.csv', columns: ['p', 'q', 'r'], rowCount: 1 });
   });
 
+  it('returns a structured collision result when two CSVs derive the same table name (#354)', async () => {
+    // `foo/bar.csv` and `foo_bar.csv` both slug to `foo_bar`.
+    await writeCsv('foo/bar.csv', 'n\n1\n');
+    await writeCsv('foo_bar.csv', 'n\n2\n');
+    const first = await registerCsv(ctx, 'foo/bar.csv');
+    expect(first.ok).toBe(true);
+    const second = await registerCsv(ctx, 'foo_bar.csv');
+    expect(second.ok).toBe(false);
+    if (!second.ok) {
+      expect(second.reason).toBe('collision');
+      if (second.reason === 'collision') {
+        expect(second.collision.existingPath).toBe('foo/bar.csv');
+        expect(second.collision.attemptedPath).toBe('foo_bar.csv');
+        expect(second.collision.tableName).toBe('foo_bar');
+      }
+    }
+  });
+
+  it('fires onCsvTableCollision listeners with the project rootPath (#354)', async () => {
+    const seen: CsvTableCollision[] = [];
+    const off = onCsvTableCollision(root, (c) => { seen.push(c); });
+    await writeCsv('foo/bar.csv', 'n\n1\n');
+    await writeCsv('foo_bar.csv', 'n\n2\n');
+    await registerCsv(ctx, 'foo/bar.csv');
+    await registerCsv(ctx, 'foo_bar.csv');
+    off();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ existingPath: 'foo/bar.csv', attemptedPath: 'foo_bar.csv' });
+  });
+
+  it('aggregates collisions in registerAllCsvs return value (#354)', async () => {
+    await writeCsv('foo/bar.csv', 'n\n1\n');
+    await writeCsv('foo_bar.csv', 'n\n2\n');
+    await writeCsv('clean.csv', 'n\n3\n');
+    const { count, collisions } = await registerAllCsvs(ctx);
+    // Two distinct table names landed (foo_bar from one of them, clean).
+    expect(count).toBe(2);
+    expect(collisions).toHaveLength(1);
+    expect(collisions[0].tableName).toBe('foo_bar');
+  });
+
   it('registerAllCsvs picks up existing CSVs on project open', async () => {
     await writeCsv('top.csv', 'n\n1\n2\n');
     await writeCsv('sub/mid.csv', 'm\nx\n');
@@ -285,8 +328,9 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
     // Hidden dir — should be skipped.
     await writeCsv('.minerva/secret.csv', 'x\n1\n');
 
-    const count = await registerAllCsvs(ctx);
+    const { count, collisions } = await registerAllCsvs(ctx);
     expect(count).toBe(3);
+    expect(collisions).toEqual([]);
 
     const tables = await listTables(ctx);
     expect(tables.map((t) => t.name).sort()).toEqual(['sub_deep_bottom', 'sub_mid', 'top']);

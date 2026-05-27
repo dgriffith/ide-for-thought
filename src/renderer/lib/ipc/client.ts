@@ -174,6 +174,10 @@ export interface TablesApi {
   list(): Promise<TableInfo[]>;
   /** Fires when a CSV is registered/unregistered or the initial scan completes. */
   onChanged(cb: () => void): void;
+  /** Fires when two CSVs derive the same DuckDB table name and the
+   *  second was skipped (#354). Renderer surfaces a suppressible
+   *  toast pointing at `table_name:` as the fix. */
+  onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): void;
 }
 
 export interface TagsApi {

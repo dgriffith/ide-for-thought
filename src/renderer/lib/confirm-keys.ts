@@ -53,6 +53,10 @@ export const CONFIRM_KEYS = {
   /** "Create note from conversation" outcomes (#177). */
   createNoteFromConvEmpty: 'create-note-from-conv-empty',
   createNoteFromConvFailed: 'create-note-from-conv-failed',
+  /** Two CSVs derived the same DuckDB table name; the second was
+   *  skipped (#354). The user can fix by adding `table_name:` to a
+   *  companion .md. */
+  tableNameCollision: 'table-name-collision',
   dropImportRejected: 'drop-import-rejected',
   bibtexImportComplete: 'bibtex-import-complete',
   zoteroRdfImportComplete: 'zotero-rdf-import-complete',
@@ -283,6 +287,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Create note from conversation: error',
     description:
       'Shown when the file write for a conversation-derived note fails (permissions, disk full, etc).',
+  },
+  {
+    key: CONFIRM_KEYS.tableNameCollision,
+    title: 'CSV: table name collision',
+    description:
+      'Shown when two CSVs derive the same DuckDB table name and the second is skipped. Add a `table_name:` line to a companion .md to disambiguate.',
   },
   {
     key: CONFIRM_KEYS.dropImportRejected,
