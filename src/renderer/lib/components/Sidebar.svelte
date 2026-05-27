@@ -166,6 +166,30 @@
   }
 
   /**
+   * Imperative reveal for a folder path — switches to the Notes panel,
+   * expands the folder and every ancestor, scrolls it into view. Used
+   * by the BreadcrumbsBar above the editor (#476) when the user
+   * clicks a folder segment.
+   */
+  export async function revealFolder(folderPath: string): Promise<void> {
+    if (!folderPath) return;
+    activePanel = 'notes';
+    if (rootName && !rootExpanded) rootExpanded = true;
+    // Expand every prefix path (including the folder itself).
+    const parts = folderPath.split('/').filter(Boolean);
+    const patch: Record<string, boolean> = {};
+    let acc = '';
+    for (const part of parts) {
+      acc = acc ? `${acc}/${part}` : part;
+      if (!expanded[acc]) patch[acc] = true;
+    }
+    if (Object.keys(patch).length > 0) {
+      expanded = { ...expanded, ...patch };
+    }
+    await scrollPathIntoView(folderPath);
+  }
+
+  /**
    * Look up a node by its relative path. Linear walk; the tree is
    * small enough (typical thoughtbase < 5k notes) that the `Map`
    * variant in `sidebar-tree-utils` would be over-engineering for

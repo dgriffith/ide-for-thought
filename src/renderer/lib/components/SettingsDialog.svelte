@@ -24,6 +24,11 @@
     type SidebarSettings,
   } from '../sidebar/settings';
   import {
+    getBreadcrumbsSettings,
+    setBreadcrumbsSettings,
+    type BreadcrumbsSettings,
+  } from '../breadcrumbs/settings';
+  import {
     getFormatSettings,
     setFormatSettings,
   } from '../formatter/settings';
@@ -115,6 +120,12 @@
   function patchSidebar(patch: Partial<SidebarSettings>): void {
     sidebar = { ...sidebar, ...patch };
     setSidebarSettings(patch);
+  }
+
+  let breadcrumbs = $state<BreadcrumbsSettings>({ ...getBreadcrumbsSettings() });
+  function patchBreadcrumbs(patch: Partial<BreadcrumbsSettings>): void {
+    breadcrumbs = { ...breadcrumbs, ...patch };
+    setBreadcrumbsSettings(patch);
   }
 
   // Formatter settings (#154). Mirror the persisted map into local state so
@@ -594,6 +605,21 @@
               When the active editor changes, scroll the matching row into view in the
               Notes panel and expand its parent folders. Never collapses anything you've
               already opened.
+            </p>
+          </div>
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={breadcrumbs.showHeadingChain}
+                onchange={(e) => patchBreadcrumbs({ showHeadingChain: e.currentTarget.checked })}
+              />
+              Show heading chain in breadcrumbs
+            </label>
+            <p class="hint">
+              Append the current section's heading chain to the breadcrumbs bar above
+              the editor when the cursor sits inside a section. Updates as the cursor
+              moves between sections.
             </p>
           </div>
           <div class="field">
