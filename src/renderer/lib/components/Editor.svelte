@@ -23,7 +23,7 @@
   } from '../editor/image-upload';
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
-    toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
+    toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
     toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
     insertWikiLink, insertTypedLinks,
@@ -992,6 +992,7 @@
         <button onclick={() => runCmd(toggleItalic)}>Italic</button>
         <button onclick={() => runCmd(toggleCode)}>Code</button>
         <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
+        <button onclick={() => runCmd(toggleHighlight)}>Highlight</button>
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
