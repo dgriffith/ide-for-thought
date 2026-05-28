@@ -16,6 +16,7 @@
   import 'katex/dist/katex.min.css';
   import { installMath } from '../../../shared/markdown/math-plugin';
   import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
+  import { installHighlight } from '../../../shared/markdown/highlight-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { getLinkType } from '../../../shared/link-types';
@@ -183,6 +184,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   installMath(md);
   installCallouts(md);
   installDoiAutolink(md);
+  installHighlight(md);
   // Footnotes — markdown-it-footnote renders `[^id]` as a numbered
   // superscript anchored to a back-of-note `<section class="footnotes">`,
   // and each footnote body links back to the ref. Both jumps fire

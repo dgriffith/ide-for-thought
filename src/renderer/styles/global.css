@@ -16,6 +16,15 @@
   --rust:         oklch(0.665 0.105 38);
   --iris:         oklch(0.700 0.080 280);
 
+  /* Highlight palette (#468) — `==color:text==` tint backgrounds.
+     Chroma is high enough to read as colored over the dark paper, the
+     `color-mix` in the rule mutes it to "highlighter pen" intensity. */
+  --hl-yellow:    oklch(0.835 0.165 92);
+  --hl-green:     oklch(0.795 0.150 148);
+  --hl-blue:      oklch(0.755 0.135 245);
+  --hl-pink:      oklch(0.795 0.135 350);
+  --hl-orange:    oklch(0.775 0.150 50);
+
   /* Backwards-compat aliases — kept until every component migrates to
      the new tokens above. Components that haven't been touched yet
      still resolve through these. */
@@ -53,6 +62,13 @@
   --sage:         oklch(0.460 0.060 148);
   --rust:         oklch(0.520 0.115 38);
   --iris:         oklch(0.500 0.090 280);
+
+  /* Highlight palette (#468) — darker chroma to read on light paper. */
+  --hl-yellow:    oklch(0.720 0.170 90);
+  --hl-green:     oklch(0.620 0.155 148);
+  --hl-blue:      oklch(0.580 0.150 245);
+  --hl-pink:      oklch(0.640 0.150 350);
+  --hl-orange:    oklch(0.660 0.165 50);
 }
 
 [data-theme="contrast"] {
@@ -77,6 +93,13 @@
   --bg-tabbar:             var(--bg-elev);
   --bg-toolbar:            var(--bg-elev);
   --bg-code:               #eaeaef;
+
+  /* Highlight palette (#468) — AA-passable colors over the white body. */
+  --hl-yellow:    oklch(0.700 0.180 90);
+  --hl-green:     oklch(0.560 0.165 148);
+  --hl-blue:      oklch(0.520 0.165 245);
+  --hl-pink:      oklch(0.600 0.165 350);
+  --hl-orange:    oklch(0.640 0.180 50);
 }
 
 /* ── Density ─────────────────────────────────────────────────────────
@@ -243,6 +266,24 @@ details.callout[open] > summary.callout-title::after {
 .callout-abstract .callout-icon::before { content: '\2630'; }
 .callout-todo .callout-icon::before     { content: '\2610'; }
 .callout-unknown .callout-icon::before  { content: '\25CF'; }
+
+/* Highlights (#468). `==text==` and `==color:text==` from the markdown-it
+   plugin render here as `<mark class="hl hl-{color}?">`. Lives in
+   global.css (not Preview's scoped CSS) so @html-rendered children
+   match — same reason as callouts above. Tint percentages mirror the
+   CodeMirror theme in highlight-decorations.ts so source mode and
+   preview mode look the same intensity. */
+mark.hl {
+  background: color-mix(in oklch, var(--accent) 22%, transparent);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+mark.hl-yellow { background: color-mix(in oklch, var(--hl-yellow) 30%, transparent); }
+mark.hl-green  { background: color-mix(in oklch, var(--hl-green)  30%, transparent); }
+mark.hl-blue   { background: color-mix(in oklch, var(--hl-blue)   30%, transparent); }
+mark.hl-pink   { background: color-mix(in oklch, var(--hl-pink)   30%, transparent); }
+mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transparent); }
 
 /* Mermaid diagram blocks (#467). Centered SVG with subtle bordered
    panel; error renders inline so a single broken diagram can't brick
