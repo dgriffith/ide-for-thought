@@ -30,7 +30,10 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
   { id: 'editor.toggleItalic', label: 'Italic', defaultKey: 'Mod-i', command: toggleItalic },
   { id: 'editor.toggleCode', label: 'Code', defaultKey: 'Mod-e', command: toggleCode },
   { id: 'editor.toggleStrikethrough', label: 'Strikethrough', defaultKey: 'Mod-Shift-x', command: toggleStrikethrough },
-  { id: 'editor.toggleHighlight', label: 'Highlight (cycle color)', defaultKey: 'Mod-Shift-h', command: toggleHighlight },
+  // `Mod-Shift-h` would collide with the menu's "Replace in Notes…"
+  // accelerator (matches VS Code's Replace-in-Files). Y → yellow, the
+  // default highlight color, gives the shortcut a mnemonic anchor.
+  { id: 'editor.toggleHighlight', label: 'Highlight (cycle color)', defaultKey: 'Mod-Shift-y', command: toggleHighlight },
 
   // Paragraph
   { id: 'editor.toggleH1', label: 'Heading 1', defaultKey: '', command: toggleH1 },
