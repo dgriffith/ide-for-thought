@@ -44,6 +44,12 @@
         { id: 'outline',    label: 'Outline',    icon: 'outline' },
         { id: 'properties', label: 'Properties', icon: 'properties' },
         { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
+        // Tags and Tables describe what's *inside* the active note's
+        // content, not how it connects to other notes — they sit
+        // alongside Outline / Properties under Note rather than
+        // sharing space with Outgoing / Backlinks under Links.
+        { id: 'tags',       label: 'Tags',       icon: 'tags' },
+        { id: 'tables',     label: 'Tables',     icon: 'tables' },
       ],
     },
     {
@@ -52,9 +58,8 @@
       items: [
         { id: 'outgoing',  label: 'Outgoing',  icon: 'outgoing' },
         { id: 'backlinks', label: 'Backlinks', icon: 'backlinks' },
-        { id: 'tags',      label: 'Tags',      icon: 'tags' },
         { id: 'citations', label: 'Citations', icon: 'citations' },
-        { id: 'tables',    label: 'Tables',    icon: 'tables' },
+        { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
       ],
     },
     {
@@ -63,7 +68,6 @@
       items: [
         { id: 'inspections', label: 'Inspections', icon: 'inspections' },
         { id: 'proposals',   label: 'Proposals',   icon: 'proposals' },
-        { id: 'bookmarks',   label: 'Bookmarks',   icon: 'bookmark' },
       ],
     },
   ];
