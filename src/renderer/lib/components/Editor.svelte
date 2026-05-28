@@ -9,7 +9,7 @@
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
   import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
-  import { indentUnit, foldEffect, unfoldEffect, foldedRanges } from '@codemirror/language';
+  import { indentUnit, foldEffect, unfoldEffect, foldedRanges, foldService } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
@@ -502,6 +502,26 @@
   const extensions = [
     basicSetup,
     markdown({ codeLanguages: languages }),
+    // Pin the frontmatter fold's gutter arrow to line 1 by claiming the
+    // foldable range there ourselves. Without this, the markdown
+    // language's syntactic fold detection picks line 2 for the YAML
+    // body, so toggling the fold makes the arrow jump between lines —
+    // and a click-to-collapse from the expanded state leaves line 1 of
+    // the YAML visible.
+    foldService.of((state, lineStart) => {
+      if (lineStart !== 0) return null;
+      const doc = state.doc;
+      if (doc.lines < 2) return null;
+      const first = doc.line(1);
+      if (first.text.trim() !== '---') return null;
+      for (let i = 2; i <= doc.lines; i++) {
+        const line = doc.line(i);
+        if (line.text.trim() === '---') {
+          return { from: first.to, to: line.to };
+        }
+      }
+      return null;
+    }),
     themeCompartment.of(cmTheme()),
     minervaEditorTheme(),
     search({
