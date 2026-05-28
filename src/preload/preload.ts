@@ -83,6 +83,8 @@ contextBridge.exposeInMainWorld('api', {
     bundle: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BUNDLE, relativePath),
     citationsForNote: (relativePath: string, content?: string) =>
       ipcRenderer.invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
+    externalInbound: (paths: string[]) =>
+      ipcRenderer.invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
   },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),

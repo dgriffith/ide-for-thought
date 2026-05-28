@@ -1921,7 +1921,7 @@ export function allTags(ctx: ProjectContext): string[] {
 
 // ── Link queries ────────────────────────────────────────────────────────────
 
-import type { OutgoingLink, Backlink } from '../../shared/types';
+import type { OutgoingLink, Backlink, SafeDeleteBlocker } from '../../shared/types';
 import { LINK_TYPES } from '../../shared/link-types';
 
 export function outgoingLinks(ctx: ProjectContext, relativePath: string): OutgoingLink[] {
@@ -2082,6 +2082,112 @@ export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[]
   }
 
   return results;
+}
+
+/**
+ * Safe-delete pre-flight (#429). Given the set of notes about to be
+ * deleted, return every inbound edge whose source is *not* itself in
+ * the set — i.e. the edges that would become broken links if the
+ * delete proceeded. Records are deduped per (target, source) and
+ * carry a count + a representative typed link-label when available.
+ *
+ * Selection-internal edges (where source ∈ paths) are filtered out so
+ * the "closed loop" case (A↔B both in the set) proceeds silently.
+ * Self-statements about the target node (its own type / title / path
+ * triples) are ignored — they aren't *inbound from another note*.
+ *
+ * Non-.md paths and unknown paths are skipped without error.
+ */
+export function findExternalInboundLinks(
+  ctx: ProjectContext,
+  paths: string[],
+): SafeDeleteBlocker[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  const { store } = state;
+
+  const targetSet = new Set(paths.filter((p) => p.endsWith('.md')));
+  if (targetSet.size === 0) return [];
+
+  // Build (path → noteUri) once and a reverse map (uriValue → path) so
+  // pass-A (anchored typed links) can identify which target a given
+  // object IRI points at without re-walking the set per statement.
+  const targetUris = new Map<string, $rdf.NamedNode>();
+  const uriToPath = new Map<string, string>();
+  for (const p of targetSet) {
+    const u = noteUri(state, p);
+    targetUris.set(p, u);
+    uriToPath.set(u.value, p);
+  }
+
+  // Predicate IRIs we consider "typed" — used both to label rows and
+  // to skip those predicates in the untyped sweep below (since we'll
+  // have already counted them with a richer label).
+  const typedPredByIri = new Map<string, LinkType>();
+  for (const lt of LINK_TYPES) {
+    if (lt.targetKind && lt.targetKind !== 'note') continue;
+    typedPredByIri.set(linkPredicate(lt).value, lt);
+  }
+
+  type Row = SafeDeleteBlocker;
+  const byKey = new Map<string, Row>();
+  const ensureRow = (target: string, sourceNode: $rdf.NamedNode): Row | null => {
+    const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+    const sourcePath = pathStmts[0]?.object.value;
+    if (!sourcePath || !sourcePath.endsWith('.md')) return null;
+    if (targetSet.has(sourcePath)) return null;
+    const key = `${target} ${sourcePath}`;
+    let row = byKey.get(key);
+    if (!row) {
+      const titleStmts = store.statementsMatching(sourceNode, DC('title'), undefined);
+      row = {
+        target,
+        source: sourcePath,
+        sourceTitle: titleStmts[0]?.object.value ?? sourcePath,
+        linkLabel: null,
+        linkCount: 0,
+      };
+      byKey.set(key, row);
+    }
+    return row;
+  };
+
+  // Pass A — typed link predicates. Match both exact target IRI and
+  // anchored variants (`#heading`). This pass owns the linkLabel.
+  for (const lt of LINK_TYPES) {
+    if (lt.targetKind && lt.targetKind !== 'note') continue;
+    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
+    for (const st of stmts) {
+      const objValue = st.object.value;
+      const hashIdx = objValue.indexOf('#');
+      const baseValue = hashIdx === -1 ? objValue : objValue.slice(0, hashIdx);
+      const target = uriToPath.get(baseValue);
+      if (!target) continue;
+      const row = ensureRow(target, st.subject as $rdf.NamedNode);
+      if (!row) continue;
+      row.linkCount += 1;
+      if (!row.linkLabel) row.linkLabel = lt.label;
+    }
+  }
+
+  // Pass B — untyped sweep. Catches frontmatter wiki-links that
+  // materialise as `prov:wasDerivedFrom`, `thought:decomposes`, plain
+  // `[[…]]` → `minerva:linksTo`, etc. Skip predicates already covered
+  // by pass A so we don't double-count, and skip self-statements.
+  for (const [target, targetSym] of targetUris) {
+    for (const st of store.statementsMatching(undefined, undefined, targetSym)) {
+      if (typedPredByIri.has(st.predicate.value)) continue;
+      if (st.subject.equals(targetSym)) continue;
+      const row = ensureRow(target, st.subject as $rdf.NamedNode);
+      if (!row) continue;
+      row.linkCount += 1;
+    }
+  }
+
+  // Order for stable display: by target, then source.
+  return [...byKey.values()].sort((a, b) =>
+    a.target.localeCompare(b.target) || a.source.localeCompare(b.source),
+  );
 }
 
 // ── Source detail queries ───────────────────────────────────────────────────

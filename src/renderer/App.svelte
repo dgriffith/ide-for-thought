@@ -25,6 +25,8 @@
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
+  import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
+  import type { SafeDeleteBlocker } from '../shared/types';
   import { RESOLVE_AUTO_THRESHOLD } from '../shared/resolve-stub';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
@@ -955,6 +957,14 @@
    * (relativePath, isDirectory) args are kept for the legacy callback
    * signature but ignored when a selection exists.
    *
+   * Safe by default (#429): before the standard confirm, expand the
+   * selection to its set of .md descendants and query the graph for
+   * inbound links from notes outside that set. If any exist, show
+   * the blocker dialog instead — the user can Cancel, Open the first
+   * reference to fix it, or Delete anyway. The "Delete anyway" path
+   * skips the second confirm; the blocker dialog already established
+   * intent.
+   *
    * Best-effort across all targets: failures are collected and
    * reported in one summary dialog rather than aborting the batch.
    * `closeTabsForDeletedPath` runs per successful target so a folder
@@ -969,28 +979,68 @@
       : [{ relativePath, isDirectory }];
     if (targets.length === 0) return;
 
-    const noun = (() => {
-      if (targets.length === 1) return targets[0].isDirectory ? 'folder' : 'note';
-      const allDirs = targets.every((t) => t.isDirectory);
-      const allFiles = targets.every((t) => !t.isDirectory);
-      if (allDirs) return 'folders';
-      if (allFiles) return 'notes';
-      return 'items';
-    })();
+    // Build the .md set S that the pre-flight reference check needs.
+    // expandSelectionToNoteFiles takes whatever paths the user picked
+    // (folders or files) and yields the .md leaves underneath.
+    const inputPaths = new Set(targets.map((t) => t.relativePath));
+    const mdSet = expandSelectionToNoteFiles(inputPaths, notebase.files);
 
-    let message: string;
-    if (targets.length === 1) {
-      const name = targets[0].relativePath.split('/').pop();
-      message = `Delete ${noun} "${name}"?`;
-    } else {
-      const sample = targets.slice(0, 3).map((t) => t.relativePath).join(', ');
-      const more = targets.length > 3 ? ', …' : '';
-      message = `Delete ${targets.length} ${noun} (${sample}${more})?`;
+    let blockers: SafeDeleteBlocker[] = [];
+    if (mdSet.length > 0) {
+      try {
+        blockers = await api.links.externalInbound(mdSet);
+      } catch {
+        // Graph unreachable or transient: fail open (preserve old
+        // behaviour rather than block deletes on an indexing hiccup).
+        blockers = [];
+      }
     }
 
-    const confirmed = await showConfirm(message, CONFIRM_KEYS.delete, 'Delete');
-    if (!confirmed) return;
+    if (blockers.length > 0) {
+      safeDeleteDialogState = {
+        selectionCount: targets.length,
+        targets: mdSet,
+        blockers,
+        proceed: () => executeDeletes(targets),
+      };
+      return;
+    }
 
+    const noun = describeDeleteNoun(targets);
+    const confirmed = await showConfirm(
+      describeDeleteMessage(targets, noun),
+      CONFIRM_KEYS.delete,
+      'Delete',
+    );
+    if (!confirmed) return;
+    await executeDeletes(targets);
+  }
+
+  function describeDeleteNoun(targets: Array<{ isDirectory: boolean }>): string {
+    if (targets.length === 1) return targets[0].isDirectory ? 'folder' : 'note';
+    const allDirs = targets.every((t) => t.isDirectory);
+    const allFiles = targets.every((t) => !t.isDirectory);
+    if (allDirs) return 'folders';
+    if (allFiles) return 'notes';
+    return 'items';
+  }
+
+  function describeDeleteMessage(
+    targets: Array<{ relativePath: string; isDirectory: boolean }>,
+    noun: string,
+  ): string {
+    if (targets.length === 1) {
+      const name = targets[0].relativePath.split('/').pop();
+      return `Delete ${noun} "${name}"?`;
+    }
+    const sample = targets.slice(0, 3).map((t) => t.relativePath).join(', ');
+    const more = targets.length > 3 ? ', …' : '';
+    return `Delete ${targets.length} ${noun} (${sample}${more})?`;
+  }
+
+  async function executeDeletes(
+    targets: Array<{ relativePath: string; isDirectory: boolean }>,
+  ): Promise<void> {
     const failures: Array<{ path: string; error: string }> = [];
     for (const t of targets) {
       try {
@@ -1021,6 +1071,44 @@
         'OK',
       );
     }
+  }
+
+  /**
+   * Open the first linking note from the safe-delete blocker dialog
+   * and jump to the link site. We scan the source's content for the
+   * first `[[…<basename>…]]` occurrence — typed and untyped wiki-link
+   * forms both start with `[[`, and the target basename is enough to
+   * disambiguate within a single source. On no match we still open
+   * the note (offset 0) so the user lands somewhere useful.
+   */
+  async function openFirstReferenceFromSafeDelete(source: string, target: string): Promise<void> {
+    safeDeleteDialogState = null;
+    await editor.openFile(source);
+    try {
+      const content = await api.notebase.readFile(source);
+      const basename = target.replace(/\.md$/, '').split('/').pop() ?? '';
+      // Match `[[…basename]]`, `[[…basename|alias]]`, `[[…basename#anchor]]`
+      // — anchor allowed since #140's broken-link inspection considers anchor
+      // links as references too.
+      const escaped = basename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`\\[\\[[^\\]]*${escaped}[^\\]]*\\]\\]`);
+      const m = re.exec(content);
+      const offset = m?.index ?? 0;
+      const { line, col } = offsetToLineCol(content, offset);
+      requestAnimationFrame(() => editorComponent?.gotoLineColumn(line, col + 1));
+    } catch {
+      // File may have been deleted/moved between the dialog popping
+      // and the click — opening alone is enough.
+    }
+  }
+
+  function offsetToLineCol(text: string, offset: number): { line: number; col: number } {
+    let line = 1;
+    let col = 0;
+    for (let i = 0; i < offset && i < text.length; i++) {
+      if (text[i] === '\n') { line++; col = 0; } else { col++; }
+    }
+    return { line, col };
   }
 
   // ── Sidebar clipboard ──────────────────────────────────────────────────
@@ -2067,6 +2155,20 @@
     sourceId: string;
     stubTitle: string;
     candidates: import('../shared/resolve-stub').ResolveCandidate[];
+  } | null>(null);
+
+  /**
+   * Safe-delete blocker dialog state (#429). `proceed` is the
+   * "Delete anyway" closure — calling it runs the existing batch
+   * delete against the same `targets` snapshot the dialog was
+   * computed from. Cleared when the user picks any of the three
+   * exits or the dialog is dismissed.
+   */
+  let safeDeleteDialogState = $state<{
+    selectionCount: number;
+    targets: string[];
+    blockers: SafeDeleteBlocker[];
+    proceed: () => Promise<void>;
   } | null>(null);
 
   async function handleResolveStub(sourceId: string): Promise<void> {
@@ -3143,6 +3245,22 @@
       candidates={resolveStubState.candidates}
       onApply={handleResolveStubApply}
       onCancel={() => { resolveStubState = null; }}
+    />
+  {/if}
+  {#if safeDeleteDialogState}
+    {@const st = safeDeleteDialogState}
+    <SafeDeleteBlockerDialog
+      selectionCount={st.selectionCount}
+      targets={st.targets}
+      blockers={st.blockers}
+      onCancel={() => { safeDeleteDialogState = null; }}
+      onDeleteAnyway={async () => {
+        safeDeleteDialogState = null;
+        await st.proceed();
+      }}
+      onOpenFirstReference={(source, target) => {
+        void openFirstReferenceFromSafeDelete(source, target);
+      }}
     />
   {/if}
   {#if showCommandPalette}

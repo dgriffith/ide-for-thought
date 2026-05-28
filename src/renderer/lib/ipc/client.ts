@@ -111,6 +111,10 @@ export interface LinksApi {
     relativePath: string,
     content?: string,
   ): Promise<import('../../../shared/types').CitationGroup[]>;
+  /** Safe-delete pre-flight (#429): inbound edges from outside `paths`. */
+  externalInbound(
+    paths: string[],
+  ): Promise<import('../../../shared/types').SafeDeleteBlocker[]>;
 }
 
 export interface QueriesApi {

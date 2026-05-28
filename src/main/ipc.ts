@@ -761,6 +761,12 @@ export function registerIpcHandlers(): void {
     },
   );
 
+  ipcMain.handle(Channels.LINKS_EXTERNAL_INBOUND, (e, paths: string[]) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.findExternalInboundLinks(projectContext(rootPath), paths);
+  });
+
   // Saved queries
   ipcMain.handle(Channels.QUERIES_LIST, (e) => {
     const rootPath = rootPathFromEvent(e);
