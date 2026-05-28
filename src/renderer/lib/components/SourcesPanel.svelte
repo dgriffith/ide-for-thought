@@ -419,6 +419,22 @@
     }
   }
 
+  /** Set/clear the reading-queue due date from the context menu.
+   *  Doesn't close the menu — the user might want to clear with the
+   *  adjacent button right after picking a date. */
+  async function handleSetDueBy(source: SourceMetadata, dueBy: string | null): Promise<void> {
+    const value = dueBy && dueBy.trim() ? dueBy.trim() : null;
+    try {
+      await api.sources.setReadDueBy(source.sourceId, value);
+      // Patch the in-memory record so the menu reflects the change
+      // immediately (the host's refresh round-trip happens after).
+      source.readDueBy = value;
+      contextMenu = contextMenu ? { ...contextMenu, source: { ...contextMenu.source, readDueBy: value } } : null;
+    } catch (err) {
+      console.error('[minerva] Set due date failed:', err);
+    }
+  }
+
   async function handleCopyDoi(source: SourceMetadata, kind: 'bare' | 'url'): Promise<void> {
     contextMenu = null;
     if (!source.doi) return;
@@ -668,6 +684,34 @@
     return `${creators[0]} et al.`;
   }
 
+  /** Compact stamp for the source row's due-by indicator. Shows
+   *  "Jun 15" within the current year, "Jun 15 2027" otherwise. The
+   *  caller adds the leading "due " word so it can be re-styled
+   *  independently. */
+  function formatDueStamp(iso: string): string {
+    const d = new Date(`${iso}T00:00:00`);
+    if (isNaN(d.getTime())) return iso;
+    const now = new Date();
+    const sameYear = d.getFullYear() === now.getFullYear();
+    const opts: Intl.DateTimeFormatOptions = sameYear
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' };
+    return new Intl.DateTimeFormat(undefined, opts).format(d);
+  }
+
+  /** True when the due-by date is strictly before today (local time).
+   *  We highlight overdue items in the list so the user can spot them
+   *  without opening detail. Per CLAUDE.md no-danger-styling: overdue
+   *  uses --rust (a signal color, not red). */
+  function isOverdue(iso: string | null): boolean {
+    if (!iso) return false;
+    const d = new Date(`${iso}T00:00:00`);
+    if (isNaN(d.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d.getTime() < today.getTime();
+  }
+
   /** Single character glyph for the status indicator dot. Picked for
    *  ASCII-safety; users learn the mapping from the title attribute. */
   function statusGlyph(status: SourceMetadata['readStatus']): string {
@@ -825,10 +869,16 @@
             {/if}
             {s.title ?? s.sourceId}
           </div>
-          {#if s.creators.length > 0 || s.year}
+          {#if s.creators.length > 0 || s.year || s.readDueBy}
             {@const who = formatCreators(s.creators)}
             <div class="source-byline">
               {#if who}{who}{/if}{#if who && s.year} · {/if}{#if s.year}<span class="year">{s.year}</span>{/if}
+              {#if s.readDueBy}
+                {#if who || s.year} · {/if}
+                <span class="due-stamp" class:overdue={isOverdue(s.readDueBy)} title="Reading due {s.readDueBy}">
+                  due {formatDueStamp(s.readDueBy)}
+                </span>
+              {/if}
             </div>
           {/if}
         </button>
@@ -873,10 +923,29 @@
             >{opt.label}</button>
           {/each}
           {#if contextMenu.source.readStatus}
-            <div class="submenu-separator"></div>
             <button onclick={() => handleMarkStatus(contextMenu!.source, null)}>Clear status</button>
           {/if}
         </div>
+      </div>
+      <!-- Due-by date input lives at the top level (not inside the
+           hover-driven submenu) so the native date-picker overlay can
+           open without the parent menu closing on mouseleave. -->
+      <div class="due-row">
+        <label class="due-label" for="due-input-{contextMenu.source.sourceId}">Due by</label>
+        <input
+          id="due-input-{contextMenu.source.sourceId}"
+          type="date"
+          class="due-input"
+          value={contextMenu.source.readDueBy ?? ''}
+          onchange={(e) => handleSetDueBy(contextMenu!.source, (e.target as HTMLInputElement).value)}
+        />
+        {#if contextMenu.source.readDueBy}
+          <button
+            class="due-clear"
+            onclick={() => handleSetDueBy(contextMenu!.source, null)}
+            title="Clear due date"
+          >Clear</button>
+        {/if}
       </div>
       {#if contextMenu.source.doi}
         <div class="context-divider"></div>
@@ -1303,5 +1372,56 @@
     height: 1px;
     background: var(--border);
     margin: 4px 0;
+  }
+
+  /* Due-by row in the source context menu — keeps the native date
+     picker accessible because the row sits at the menu's top level
+     (not inside a hover-driven submenu that would dismiss on
+     mouseleave when the picker pops open). */
+  .due-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .due-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  .due-input {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 11.5px;
+    color: var(--text);
+  }
+  .due-input:focus { outline: none; border-color: var(--accent); }
+  .due-clear {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    width: auto !important;
+  }
+  .due-clear:hover { color: var(--text); }
+
+  /* Compact "due Jun 15" stamp on the source row byline. Overdue
+     items shift to --rust (signal color, not red — per CLAUDE.md). */
+  .due-stamp {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+  }
+  .due-stamp.overdue {
+    color: var(--rust);
   }
 </style>
