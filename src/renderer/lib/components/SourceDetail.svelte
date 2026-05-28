@@ -3,6 +3,7 @@
   import Preview from './Preview.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
+  import { displaySourceTitle } from '../../../shared/source-display';
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
     { value: 'unread', label: 'Unread' },
@@ -35,7 +36,7 @@
 
   async function handleDelete() {
     if (!detail) return;
-    const label = detail.metadata.title ?? sourceId;
+    const label = displaySourceTitle(detail.metadata);
     const confirmed = await onShowConfirm(
       `Delete source "${label}"? Any excerpts from this source will also be removed.`,
       'delete-source',
@@ -271,7 +272,7 @@
       <div class="subtype">
         {detail.metadata.subtype ?? 'Source'}{#if detail.metadata.stubStatus === 'unresolved'} · STUB{/if}
       </div>
-      <h1>{@html renderInlineWithMath(detail.metadata.title ?? sourceId)}</h1>
+      <h1>{@html renderInlineWithMath(displaySourceTitle(detail.metadata))}</h1>
       {#if detail.metadata.creators.length || detail.metadata.year}
         <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
       {/if}

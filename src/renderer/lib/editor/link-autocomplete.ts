@@ -1,6 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { LINK_TYPES } from '../../../shared/link-types';
 import type { SourceMetadata } from '../../../shared/types';
+import { displaySourceTitle } from '../../../shared/source-display';
 import { extractAnchors } from './note-anchors';
 
 // ── Phase detection (pure) ─────────────────────────────────────────────────
@@ -131,7 +132,7 @@ export function aliasOptions(entries: readonly { alias: string; relativePath: st
 
 export function sourceOptions(sources: readonly SourceMetadata[]): Completion[] {
   return sources.map((s) => {
-    const title = s.title ?? s.sourceId;
+    const title = displaySourceTitle(s);
     const creators = s.creators.length > 0
       ? (s.creators.length === 1 ? s.creators[0]
         : s.creators.length === 2 ? `${s.creators[0]} and ${s.creators[1]}`

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SourceMetadata } from '../../../shared/types';
+  import { displaySourceTitle } from '../../../shared/source-display';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -29,7 +30,7 @@
     const q = query.trim().toLowerCase();
     if (!q) return candidates;
     return candidates.filter((s) => {
-      const title = (s.title ?? s.sourceId).toLowerCase();
+      const title = displaySourceTitle(s).toLowerCase();
       const byline = s.creators.join(' ').toLowerCase();
       const year = s.year ?? '';
       return title.includes(q) || byline.includes(q) || year.includes(q) || s.sourceId.toLowerCase().includes(q);
@@ -96,7 +97,7 @@
             >
               <Icon name="sites" size={13} color={i === selectedIndex ? 'var(--accent)' : 'var(--text-faint)'} />
               <span class="result-body">
-                <span class="result-title">{s.title ?? s.sourceId}</span>
+                <span class="result-title">{displaySourceTitle(s)}</span>
                 {#if who || s.year}
                   <span class="result-byline">
                     {#if who}{who}{/if}{#if who && s.year} · {/if}{#if s.year}<span class="year">{s.year}</span>{/if}
