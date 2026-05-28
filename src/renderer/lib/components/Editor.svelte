@@ -218,10 +218,15 @@
       '.cm-activeLineGutter': {
         backgroundColor: 'transparent',
         color: 'var(--accent)',
-        boxShadow: 'inset -2px 0 0 var(--accent)',
       },
+      // Bar marks the boundary between gutters and content. Painting it
+      // on the content row (rather than the gutter's right edge) means a
+      // single line regardless of how many gutter columns are stacked —
+      // the compute gutter would otherwise paint its own bar on fence
+      // lines, doubling up.
       '.cm-activeLine': {
         backgroundColor: 'color-mix(in oklch, var(--accent) 6%, transparent)',
+        boxShadow: 'inset 2px 0 0 var(--accent)',
       },
     });
   }

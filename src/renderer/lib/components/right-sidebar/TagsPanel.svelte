@@ -11,8 +11,12 @@
   } from '../../tags';
 
   interface Props {
-    /** Active note's content. Tags from this note are highlighted in
-     *  the tree but the panel shows project-wide tags now (#466). */
+    /** Active note's content. The panel shows only this note's tags
+     *  plus their hierarchical ancestors — the left-sidebar Tags panel
+     *  covers the project-wide view, so duplicating it here adds no
+     *  signal. Ancestors of a tag (e.g. `#foo` for a note tagged
+     *  `#foo/bar/baz`) appear even if no other note uses them; unrelated
+     *  siblings (e.g. `#foo/baz`) do not. */
     content: string;
     onFileSelect: (relativePath: string) => void;
     /** Selecting a source from the tagged-things list opens it in the
@@ -89,10 +93,7 @@
     allTags = await api.tags.list();
   }
 
-  const tree = $derived<TagTreeNode[]>(buildTagTree(allTags));
-
-  /** Tags present in the active note — used to give those rows a
-   *  subtle highlight without filtering the project-wide tree. */
+  /** Tags written literally in the active note (no ancestors yet). */
   const ACTIVE_TAG_RE = /(?:^|\s)#([a-zA-Z][\w/-]*)/g;
   const CODE_RE = /```[\s\S]*?```|`[^`\n]+`/g;
   const tagsInActiveNote = $derived.by<Set<string>>(() => {
@@ -106,6 +107,16 @@
     }
     return found;
   });
+
+  /** Project-wide TagInfo rows for the tags this note actually uses.
+   *  `buildTagTree` will synthesize ancestor nodes from each tag's
+   *  path segments — so `#foo/bar/baz` produces `foo` and `foo/bar`
+   *  in the tree even when no project tag matches them literally. */
+  const tagsForActiveNote = $derived<TagInfo[]>(
+    allTags.filter((t) => tagsInActiveNote.has(t.tag)),
+  );
+
+  const tree = $derived<TagTreeNode[]>(buildTagTree(tagsForActiveNote));
 
   /**
    * Visible nodes after applying the search filter. A subtree-level
@@ -215,8 +226,8 @@
       <span>sources</span>
     </button>
   </div>
-  {#if allTags.length === 0}
-    <div class="empty">No tags in project</div>
+  {#if tagsForActiveNote.length === 0}
+    <div class="empty">No tags in this note</div>
   {:else if visibleRows.length === 0}
     <div class="empty">No matches</div>
   {:else}
