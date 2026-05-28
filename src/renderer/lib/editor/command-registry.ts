@@ -1,7 +1,7 @@
 import type { Command } from '@codemirror/view';
 import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection } from './commands';
 import {
-  toggleBold, toggleItalic, toggleCode, toggleStrikethrough,
+  toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
   toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
   insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage, insertWikiLink,
 } from './formatting';
@@ -30,6 +30,7 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
   { id: 'editor.toggleItalic', label: 'Italic', defaultKey: 'Mod-i', command: toggleItalic },
   { id: 'editor.toggleCode', label: 'Code', defaultKey: 'Mod-e', command: toggleCode },
   { id: 'editor.toggleStrikethrough', label: 'Strikethrough', defaultKey: 'Mod-Shift-x', command: toggleStrikethrough },
+  { id: 'editor.toggleHighlight', label: 'Highlight (cycle color)', defaultKey: 'Mod-Shift-h', command: toggleHighlight },
 
   // Paragraph
   { id: 'editor.toggleH1', label: 'Heading 1', defaultKey: '', command: toggleH1 },
