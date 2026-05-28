@@ -3121,7 +3121,6 @@
           onFileSelect={handleFileSelect}
           onNavigate={handleNavigate}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
-          onShowPrompt={showPrompt}
           onOpenConversation={(msg) => { void openConversationWithMessage(msg); }}
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
           onOpenSource={handleOpenSource}

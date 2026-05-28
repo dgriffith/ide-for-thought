@@ -92,7 +92,6 @@
      *  how the target is written. */
     onNavigate?: (target: string) => void | Promise<void>;
     onScrollToLine: (line: number) => void;
-    onShowPrompt: (message: string) => Promise<string | null>;
     onOpenConversation?: (message: string) => void;
     onOpenQuery: (sql: string) => void;
     onOpenSource: (sourceId: string) => void;
@@ -101,7 +100,7 @@
   }
 
   let {
-    activeFilePath, content, onFileSelect, onNavigate, onScrollToLine, onShowPrompt,
+    activeFilePath, content, onFileSelect, onNavigate, onScrollToLine,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
     onContentChange,
   }: Props = $props();
@@ -234,7 +233,7 @@
     {:else if activePanel === 'citations'}
       <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
-      <BookmarksPanel {onFileSelect} {onShowPrompt} />
+      <BookmarksPanel {activeFilePath} {onFileSelect} />
     {:else if activePanel === 'inspections'}
       <InspectionsPanel {revision} {onOpenConversation} />
     {:else if activePanel === 'proposals'}
