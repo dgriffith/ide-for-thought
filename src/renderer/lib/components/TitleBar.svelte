@@ -14,8 +14,9 @@
     canGoForward: boolean;
     onNavBack: () => void;
     onNavForward: () => void;
-    /** Opens the cmd-K Goto Note palette. Triggered by the search
-     *  affordance in the right cluster. */
+    /** Opens the Quick Open palette — fuzzy match across notes,
+     *  sources, and saved queries. Bound to Cmd+P (matches the
+     *  Navigate › Quick Open menu entry). */
     onOpenGotoNote: () => void;
     /** Opens Settings. Triggered by the cog button at the far right. */
     onOpenSettings: () => void;
@@ -76,10 +77,10 @@
   </div>
 
   <div class="right-cluster">
-    <button class="search-box" onclick={onOpenGotoNote} title="Goto Note (Cmd+K)">
+    <button class="search-box" onclick={onOpenGotoNote} title="Quick Open (Cmd+P) — fuzzy-match notes, sources, queries">
       <Icon name="search" size={13} color="var(--text-muted)" />
-      <span class="search-placeholder">Find…</span>
-      <span class="search-kbd">⌘ K</span>
+      <span class="search-placeholder">Quick Open…</span>
+      <span class="search-kbd">⌘ P</span>
     </button>
     <button class="icon-btn" onclick={onOpenSettings} title="Settings">
       <Icon name="settings" size={15} color="var(--text-muted)" />
