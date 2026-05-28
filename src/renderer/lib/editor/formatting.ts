@@ -1,5 +1,10 @@
 import { EditorView } from '@codemirror/view';
 import { LINK_TYPES, type LinkType } from '../../../shared/link-types';
+import {
+  HIGHLIGHT_PALETTE,
+  scanHighlights,
+  type HighlightColor,
+} from '../../../shared/markdown/highlight-plugin';
 import { EditorSelection } from '@codemirror/state';
 import type { Command } from '@codemirror/view';
 
@@ -62,6 +67,126 @@ export const toggleBold: Command = makeInlineToggle('**');
 export const toggleItalic: Command = makeInlineToggle('*');
 export const toggleCode: Command = makeInlineToggle('`');
 export const toggleStrikethrough: Command = makeInlineToggle('~~');
+
+// ── Highlight cycle (#468) ─────────────────────────────────────────────────
+
+/**
+ * Result of `computeToggleHighlight`. Exposed for unit testing; the
+ * Command wrapper turns this into a CodeMirror dispatch.
+ */
+export interface HighlightToggleResult {
+  /** Document range to replace. */
+  from: number;
+  to: number;
+  /** Replacement text. */
+  insert: string;
+  /** Where the body of the new (or unwrapped) text starts/ends. The
+   *  Command selects this so a follow-up press cycles the same body. */
+  selFrom: number;
+  selTo: number;
+}
+
+/**
+ * Next color in the cycle. `yellow → green → blue → pink → orange →
+ * null (unwrap)`. The uncolored `==text==` form also unwraps —
+ * the user explicitly typed "no color" so we don't override it with
+ * yellow on a press.
+ */
+function nextHighlightColor(current: HighlightColor | null): HighlightColor | null {
+  if (current === null) return null;
+  const idx = HIGHLIGHT_PALETTE.indexOf(current);
+  if (idx < 0 || idx === HIGHLIGHT_PALETTE.length - 1) return null;
+  return HIGHLIGHT_PALETTE[idx + 1];
+}
+
+/**
+ * Pure computation for the ⌘⇧H shortcut. Given a line of text + the
+ * editor selection within that line, returns the dispatch to apply
+ * (or null if the keystroke should fall through — multi-line
+ * selections, etc.).
+ *
+ * Cases:
+ *   - Selection is fully inside an existing highlight → re-wrap with
+ *     the next color, or unwrap when at the end of the cycle.
+ *   - Selection is outside any highlight → wrap with `==yellow:body==`.
+ *   - Empty selection outside any highlight → insert `==yellow:==` and
+ *     park the cursor between `:` and the closing `==` so the user can
+ *     start typing into a fresh highlight (matches the empty-Bold
+ *     convention in this codebase).
+ *
+ * The post-change selection is always the body text, so repeating the
+ * shortcut keeps cycling the same content.
+ */
+export function computeToggleHighlight(
+  lineText: string,
+  lineFrom: number,
+  selFrom: number,
+  selTo: number,
+): HighlightToggleResult | null {
+  const matches = scanHighlights(lineText, lineFrom);
+  const containing = matches.find((m) => m.from <= selFrom && selTo <= m.to);
+
+  if (containing) {
+    const prefixLen = containing.color ? `==${containing.color}:`.length : 2;
+    const bodyStart = containing.from + prefixLen;
+    const bodyEnd = containing.to - 2;
+    const body = lineText.slice(bodyStart - lineFrom, bodyEnd - lineFrom);
+    const next = nextHighlightColor(containing.color);
+    if (next === null) {
+      // Unwrap — selection lands on the now-plain body.
+      return {
+        from: containing.from,
+        to: containing.to,
+        insert: body,
+        selFrom: containing.from,
+        selTo: containing.from + body.length,
+      };
+    }
+    const newPrefix = `==${next}:`;
+    const insert = `${newPrefix}${body}==`;
+    return {
+      from: containing.from,
+      to: containing.to,
+      insert,
+      selFrom: containing.from + newPrefix.length,
+      selTo: containing.from + newPrefix.length + body.length,
+    };
+  }
+
+  // Not inside a highlight: wrap with the default color.
+  const body = lineText.slice(selFrom - lineFrom, selTo - lineFrom);
+  const newPrefix = '==yellow:';
+  const insert = `${newPrefix}${body}==`;
+  return {
+    from: selFrom,
+    to: selTo,
+    insert,
+    selFrom: selFrom + newPrefix.length,
+    selTo: selFrom + newPrefix.length + body.length,
+  };
+}
+
+/**
+ * ⌘⇧H — wrap selection with `==yellow:…==` on first press, cycle
+ * through the palette on repeats (yellow → green → blue → pink →
+ * orange → unwrap). The post-change selection is always the body
+ * text, so successive presses cycle the same content.
+ */
+export const toggleHighlight: Command = (view: EditorView) => {
+  const { state } = view;
+  const sel = state.selection.main;
+  // Highlights are inline-only — bail on multi-line selections rather
+  // than producing broken syntax that spans newlines.
+  const startLine = state.doc.lineAt(sel.from);
+  if (sel.to > startLine.to) return false;
+  const result = computeToggleHighlight(startLine.text, startLine.from, sel.from, sel.to);
+  if (!result) return false;
+  view.dispatch({
+    changes: { from: result.from, to: result.to, insert: result.insert },
+    selection: EditorSelection.range(result.selFrom, result.selTo),
+  });
+  return true;
+};
 
 // ── Paragraph styles (toggle line prefix) ──────────────────────────────────
 
