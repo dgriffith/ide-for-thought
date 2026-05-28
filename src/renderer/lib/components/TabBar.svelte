@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { Tab } from '../stores/editor.svelte';
+  import type { SourceMetadata } from '../../../shared/types';
+  import { displaySourceTitle } from '../../../shared/source-display';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import Icon from './Icon.svelte';
@@ -7,6 +9,10 @@
   interface Props {
     tabs: Tab[];
     activeIndex: number;
+    /** Project's full source list. Used to resolve a human-readable
+     *  label for source tabs (the canonical id like `url-abc123` is
+     *  filesystem-only and must never reach the user). */
+    sources?: SourceMetadata[];
     onSwitch: (index: number) => void;
     onClose: (index: number) => void;
     onCloseOthers: (index: number) => void;
@@ -18,7 +24,23 @@
     onNewTab?: () => void;
   }
 
-  let { tabs, activeIndex, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab }: Props = $props();
+  let { tabs, activeIndex, sources, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab }: Props = $props();
+
+  /** Map sourceId → metadata for label lookups. Rebuilds whenever the
+   *  parent's `sources` array changes. */
+  const sourcesById = $derived(() => {
+    const m = new Map<string, SourceMetadata>();
+    for (const s of sources ?? []) m.set(s.sourceId, s);
+    return m;
+  });
+
+  /** Best-effort display label for a source tab. When the metadata
+   *  hasn't loaded yet, fall back to "Source" (still better than the
+   *  raw canonical id). */
+  function sourceTabLabel(sourceId: string): string {
+    const meta = sourcesById().get(sourceId);
+    return meta ? displaySourceTitle(meta) : 'Source';
+  }
 
   let contextMenu = $state<{ x: number; y: number; index: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -60,7 +82,7 @@
       onclick={() => onSwitch(i)}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
-      title={tab.type === 'note' ? tab.relativePath : tab.type === 'query' ? tab.title : `Source: ${tab.sourceId}`}
+      title={tab.type === 'note' ? tab.relativePath : tab.type === 'query' ? tab.title : `Source: ${sourceTabLabel(tab.sourceId)}`}
       role="tab"
       tabindex="0"
     >
@@ -80,7 +102,7 @@
       <span class="tab-name">
         {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
         {:else if tab.type === 'query'}{tab.title}
-        {:else}{tab.sourceId}{/if}
+        {:else}{sourceTabLabel(tab.sourceId)}{/if}
       </span>
       <button
         class="close-btn"

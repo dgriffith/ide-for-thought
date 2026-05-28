@@ -27,6 +27,7 @@
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
   import type { SafeDeleteBlocker } from '../shared/types';
+  import { displaySourceTitle } from '../shared/source-display';
   import { RESOLVE_AUTO_THRESHOLD } from '../shared/resolve-stub';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
@@ -2200,7 +2201,7 @@
     const detail = await api.graph.sourceDetail(sourceId);
     resolveStubState = {
       sourceId,
-      stubTitle: detail?.metadata.title ?? sourceId,
+      stubTitle: detail ? displaySourceTitle(detail.metadata) : sourceId,
       candidates,
     };
   }
@@ -2928,6 +2929,7 @@
           <TabBar
             tabs={editor.tabs}
             activeIndex={editor.activeIndex}
+            sources={sourcesCache}
             onSwitch={handleSwitchTab}
             onClose={editor.closeTab}
             onCloseOthers={editor.closeOthers}

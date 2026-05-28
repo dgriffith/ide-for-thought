@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../ipc/client';
   import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../../shared/types';
+  import { displaySourceTitle } from '../../../shared/source-display';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
@@ -205,7 +206,7 @@
 
   async function handleDelete(source: SourceMetadata) {
     contextMenu = null;
-    const label = source.title ?? source.sourceId;
+    const label = displaySourceTitle(source);
     const confirmed = await onShowConfirm(
       `Delete source "${label}"? Any excerpts from this source will also be removed.`,
       'delete-source',
@@ -347,7 +348,7 @@
     const q = filter.trim().toLowerCase();
     if (!q) return base;
     return base.filter((s) => {
-      const title = (s.title ?? s.sourceId).toLowerCase();
+      const title = displaySourceTitle(s).toLowerCase();
       const byline = s.creators.join(' ').toLowerCase();
       const year = s.year ?? '';
       return title.includes(q) || byline.includes(q) || year.includes(q) || s.sourceId.includes(q);
@@ -881,7 +882,7 @@
                 aria-label={statusTitle(s.readStatus)}
               >{statusGlyph(s.readStatus)}</span>
             {/if}
-            {s.title ?? s.sourceId}
+            {displaySourceTitle(s)}
           </div>
           {#if s.creators.length > 0 || s.year || s.readDueBy}
             {@const who = formatCreators(s.creators)}
@@ -1041,7 +1042,7 @@
     <div class="due-dialog" role="dialog" aria-modal="true" aria-label="Reading due date">
       <header class="due-dialog-header">
         <div class="due-dialog-eyebrow">READING DUE DATE</div>
-        <h2 class="due-dialog-title">{m.source.title ?? m.source.sourceId}</h2>
+        <h2 class="due-dialog-title">{displaySourceTitle(m.source)}</h2>
       </header>
       <div class="due-dialog-body">
         <!-- svelte-ignore a11y_autofocus -->

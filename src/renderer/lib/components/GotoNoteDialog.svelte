@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { NoteFile, SourceMetadata, SavedQuery } from '../../../shared/types';
+  import { displaySourceTitle } from '../../../shared/source-display';
   import Icon from './Icon.svelte';
   import type { IconName } from './icons/registry';
   import { formatRelativeTime } from '../utils/format-relative-time';
@@ -141,7 +142,7 @@
     const mkNote = (n: { name: string; relativePath: string; mtimeMs?: number }, score: number): NoteItem =>
       ({ kind: 'note', name: n.name, relativePath: n.relativePath, mtimeMs: n.mtimeMs, score });
     const mkSource = (s: SourceMetadata, score: number): SourceItem =>
-      ({ kind: 'source', name: s.title ?? s.sourceId, sourceId: s.sourceId, byline: formatByline(s), score });
+      ({ kind: 'source', name: displaySourceTitle(s), sourceId: s.sourceId, byline: formatByline(s), score });
     const mkQuery = (qy: SavedQuery, score: number): QueryItem =>
       ({ kind: 'query', name: qy.name, query: qy, score });
 
@@ -156,7 +157,7 @@
 
     const sourceItems: SourceItem[] = (scope === 'all' || scope === 'sources')
       ? allSources.flatMap((s) => {
-        const name = s.title ?? s.sourceId;
+        const name = displaySourceTitle(s);
         if (!q) return [mkSource(s, 0)];
         if (regex) return regex.test(name) || regex.test(s.sourceId) ? [mkSource(s, 1)] : [];
         const score = scoreMatch(name, formatByline(s) ?? s.sourceId, q);
