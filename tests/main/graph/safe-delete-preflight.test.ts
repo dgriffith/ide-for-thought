@@ -30,7 +30,7 @@ describe('safe-delete pre-flight (#429)', () => {
 
   it('returns no blockers when nothing links into the selection', async () => {
     await indexNote(ctx, 'orphan.md', '# Orphan\n\nNo one cites me.\n');
-    const blockers = await findExternalInboundLinks(ctx, ['orphan.md']);
+    const blockers = findExternalInboundLinks(ctx, ['orphan.md']);
     expect(blockers).toEqual([]);
   });
 
@@ -39,7 +39,7 @@ describe('safe-delete pre-flight (#429)', () => {
   it('flags an external note that wiki-links into the selection', async () => {
     await indexNote(ctx, 'target.md', '# Target\n');
     await indexNote(ctx, 'other.md', '# Other\n\nSee [[target]] for context.\n');
-    const blockers = await findExternalInboundLinks(ctx, ['target.md']);
+    const blockers = findExternalInboundLinks(ctx, ['target.md']);
     expect(blockers).toHaveLength(1);
     expect(blockers[0].target).toBe('target.md');
     expect(blockers[0].source).toBe('other.md');
@@ -50,7 +50,7 @@ describe('safe-delete pre-flight (#429)', () => {
   it('captures the typed link-label when the inbound edge is typed', async () => {
     await indexNote(ctx, 'target.md', '# Target\n');
     await indexNote(ctx, 'other.md', '# Other\n\n[[supports::target]]\n');
-    const blockers = await findExternalInboundLinks(ctx, ['target.md']);
+    const blockers = findExternalInboundLinks(ctx, ['target.md']);
     expect(blockers).toHaveLength(1);
     expect(blockers[0].linkLabel).toBe('Supports');
   });
@@ -60,7 +60,7 @@ describe('safe-delete pre-flight (#429)', () => {
   it('does not block when two notes only link to each other (closed loop)', async () => {
     await indexNote(ctx, 'a.md', '# A\n\nSee [[b]].\n');
     await indexNote(ctx, 'b.md', '# B\n\nSee [[a]].\n');
-    const blockers = await findExternalInboundLinks(ctx, ['a.md', 'b.md']);
+    const blockers = findExternalInboundLinks(ctx, ['a.md', 'b.md']);
     expect(blockers).toEqual([]);
   });
 
@@ -68,7 +68,7 @@ describe('safe-delete pre-flight (#429)', () => {
     await indexNote(ctx, 'a.md', '# A\n\nSee [[b]].\n');
     await indexNote(ctx, 'b.md', '# B\n\nNo outgoing.\n');
     await indexNote(ctx, 'outside.md', '# Outside\n\nSee [[a]].\n');
-    const blockers = await findExternalInboundLinks(ctx, ['a.md', 'b.md']);
+    const blockers = findExternalInboundLinks(ctx, ['a.md', 'b.md']);
     expect(blockers).toHaveLength(1);
     expect(blockers[0].source).toBe('outside.md');
     expect(blockers[0].target).toBe('a.md');
@@ -79,7 +79,7 @@ describe('safe-delete pre-flight (#429)', () => {
   it('treats internal-only references inside a folder bundle as safe', async () => {
     await indexNote(ctx, 'topic/intro.md', '# Intro\n\nSee [[topic/details|details]].\n');
     await indexNote(ctx, 'topic/details.md', '# Details\n\nSee [[topic/intro]].\n');
-    const blockers = await findExternalInboundLinks(ctx, [
+    const blockers = findExternalInboundLinks(ctx, [
       'topic/intro.md',
       'topic/details.md',
     ]);
@@ -90,7 +90,7 @@ describe('safe-delete pre-flight (#429)', () => {
     await indexNote(ctx, 'topic/intro.md', '# Intro\n');
     await indexNote(ctx, 'topic/details.md', '# Details\n');
     await indexNote(ctx, 'outside.md', '# Outside\n\nSee [[topic/details]].\n');
-    const blockers = await findExternalInboundLinks(ctx, [
+    const blockers = findExternalInboundLinks(ctx, [
       'topic/intro.md',
       'topic/details.md',
     ]);
@@ -108,7 +108,7 @@ describe('safe-delete pre-flight (#429)', () => {
       'other.md',
       '# Other\n\n[[target]] and again [[supports::target]] and once more [[target]].\n',
     );
-    const blockers = await findExternalInboundLinks(ctx, ['target.md']);
+    const blockers = findExternalInboundLinks(ctx, ['target.md']);
     expect(blockers).toHaveLength(1);
     expect(blockers[0].linkCount).toBeGreaterThanOrEqual(2);
     // A typed predicate landed in pass A so the label should be preserved
@@ -123,7 +123,7 @@ describe('safe-delete pre-flight (#429)', () => {
   it('flags anchored wiki-links (`[[target#heading]]`) as inbound references too', async () => {
     await indexNote(ctx, 'target.md', '# Target\n\n## Section\n');
     await indexNote(ctx, 'other.md', '# Other\n\n[[supports::target#section]]\n');
-    const blockers = await findExternalInboundLinks(ctx, ['target.md']);
+    const blockers = findExternalInboundLinks(ctx, ['target.md']);
     expect(blockers).toHaveLength(1);
     expect(blockers[0].source).toBe('other.md');
   });
@@ -134,14 +134,14 @@ describe('safe-delete pre-flight (#429)', () => {
     await indexNote(ctx, 'target.md', '# Target\n');
     await indexNote(ctx, 'other.md', '# Other\n\n[[target]]\n');
     // Pass a non-.md path alongside — it should be ignored, not throw.
-    const blockers = await findExternalInboundLinks(ctx, ['target.md', 'pics/diagram.png']);
+    const blockers = findExternalInboundLinks(ctx, ['target.md', 'pics/diagram.png']);
     expect(blockers).toHaveLength(1);
   });
 
   it('returns empty when called with no paths', async () => {
     await indexNote(ctx, 'target.md', '# Target\n');
     await indexNote(ctx, 'other.md', '# Other\n\n[[target]]\n');
-    expect(await findExternalInboundLinks(ctx, [])).toEqual([]);
+    expect(findExternalInboundLinks(ctx, [])).toEqual([]);
   });
 
   // ─── order ──────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ describe('safe-delete pre-flight (#429)', () => {
     await indexNote(ctx, 'a.md', '# A\n');
     await indexNote(ctx, 'z.md', '# Z\n\n[[a]] [[b]]\n');
     await indexNote(ctx, 'x.md', '# X\n\n[[a]]\n');
-    const blockers = await findExternalInboundLinks(ctx, ['a.md', 'b.md']);
+    const blockers = findExternalInboundLinks(ctx, ['a.md', 'b.md']);
     // Expect a.md rows before b.md rows; within a.md, x then z.
     expect(blockers.map((b) => `${b.target} ← ${b.source}`)).toEqual([
       'a.md ← x.md',
