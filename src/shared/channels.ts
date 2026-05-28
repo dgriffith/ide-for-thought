@@ -61,6 +61,9 @@ export const Channels = {
    * deduplicates triples.
    */
   LINKS_CITATIONS_FOR_NOTE: 'links:citationsForNote',
+  /** Safe-delete pre-flight (#429): given a set of .md paths slated
+   *  for deletion, return every inbound edge from outside that set. */
+  LINKS_EXTERNAL_INBOUND: 'links:externalInbound',
 
   // Saved queries
   QUERIES_LIST: 'queries:list',

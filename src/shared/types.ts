@@ -244,6 +244,23 @@ export interface CsvTableCollision {
   attemptedPath: string;
 }
 
+/** One inbound edge from outside the delete set into a note slated
+ *  for deletion (#429 Safe Delete). The renderer groups rows by
+ *  `target` to render the blocker dialog. */
+export interface SafeDeleteBlocker {
+  /** Note in the deletion set that has an external inbound edge. */
+  target: string;
+  /** Note outside the set that links into `target`. */
+  source: string;
+  /** Title of the linking note, falling back to its path. */
+  sourceTitle: string;
+  /** Human label for the most-specific link type that linked source →
+   *  target. `null` when only an untyped/frontmatter predicate hit. */
+  linkLabel: string | null;
+  /** Total inbound edges from source → target, across predicates. */
+  linkCount: number;
+}
+
 // ── Bookmarks ────────────────────────────────────────────────────────────
 
 export interface Bookmark {
