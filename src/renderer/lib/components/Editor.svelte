@@ -36,7 +36,7 @@
   import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
-  import { clampMenuToViewport } from '../utils/menuClamp';
+  import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import { extractClaimUri } from '../../../shared/refactor/find-arguments';
 
   export interface CursorInfo {
@@ -467,34 +467,8 @@
     closeMenu();
   }
 
-  // Flip a submenu up/left if its default position (right of + below the parent
-  // item) would extend past the viewport. Called on submenu-item hover.
   function adjustSubmenu(event: MouseEvent) {
-    const item = event.currentTarget as HTMLElement;
-    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
-    if (!submenu) return;
-
-    // Reset any prior inline overrides so we measure the default CSS position.
-    submenu.style.top = '';
-    submenu.style.bottom = '';
-    submenu.style.left = '';
-    submenu.style.right = '';
-
-    requestAnimationFrame(() => {
-      const rect = submenu.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-      const MARGIN = 8;
-
-      if (rect.bottom > vh - MARGIN) {
-        submenu.style.top = 'auto';
-        submenu.style.bottom = '-4px';
-      }
-      if (rect.right > vw - MARGIN) {
-        submenu.style.left = 'auto';
-        submenu.style.right = '100%';
-      }
-    });
+    clampSubmenu(event.currentTarget as HTMLElement);
   }
 
   const initSettings = getEditorSettings();

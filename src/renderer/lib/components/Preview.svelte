@@ -23,6 +23,7 @@
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
   import { normalizeSqlRows } from '../editor/sql-result';
+  import { clampSubmenu } from '../utils/menuClamp';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import { getToolInfosByCategory } from '../tools/tool-registry';
@@ -1446,30 +1447,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   }
 
   function adjustNoteSubmenu(event: MouseEvent): void {
-    // Flip a submenu up/left if its default position (right of + below
-    // the parent item) would extend past the viewport. Mirrors
-    // Editor.svelte's adjustSubmenu.
-    const item = event.currentTarget as HTMLElement;
-    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
-    if (!submenu) return;
-    submenu.style.top = '';
-    submenu.style.bottom = '';
-    submenu.style.left = '';
-    submenu.style.right = '';
-    requestAnimationFrame(() => {
-      const rect = submenu.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-      const MARGIN = 8;
-      if (rect.bottom > vh - MARGIN) {
-        submenu.style.top = 'auto';
-        submenu.style.bottom = '-4px';
-      }
-      if (rect.right > vw - MARGIN) {
-        submenu.style.left = 'auto';
-        submenu.style.right = '100%';
-      }
-    });
+    clampSubmenu(event.currentTarget as HTMLElement);
   }
 
   // ── Compute-output overflow menu state (#244) ──────────────────────────────

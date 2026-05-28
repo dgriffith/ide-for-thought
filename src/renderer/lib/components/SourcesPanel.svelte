@@ -2,7 +2,7 @@
   import { api } from '../ipc/client';
   import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
-  import { clampMenuToViewport } from '../utils/menuClamp';
+  import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
@@ -125,24 +125,8 @@
     try { localStorage.setItem(QUEUE_EXPANDED_KEY, String(queueExpanded)); } catch { /* ok */ }
   }
 
-  /** Reposition a submenu so it doesn't clip the viewport — same
-   *  helper Editor.svelte uses for its right-click submenus. */
   function adjustSubmenu(event: MouseEvent) {
-    const item = event.currentTarget as HTMLElement;
-    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
-    if (!submenu) return;
-    submenu.style.top = '';
-    submenu.style.bottom = '';
-    submenu.style.left = '';
-    submenu.style.right = '';
-    requestAnimationFrame(() => {
-      const rect = submenu.getBoundingClientRect();
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-      const MARGIN = 8;
-      if (rect.bottom > vh - MARGIN) { submenu.style.top = 'auto'; submenu.style.bottom = '-4px'; }
-      if (rect.right  > vw - MARGIN) { submenu.style.left = 'auto'; submenu.style.right = '100%'; }
-    });
+    clampSubmenu(event.currentTarget as HTMLElement);
   }
 
   $effect(() => {
