@@ -38,22 +38,6 @@
   let activeNotes = $state<TaggedNote[]>([]);
   let activeSources = $state<TaggedSource[]>([]);
   let search = $state('');
-  /** Whether sources contribute to per-row counts and show up in the
-   *  detail pane below the notes list. Persisted across sessions so
-   *  researcher / note-taker users keep their preferred view. */
-  const SHOW_SOURCES_KEY = 'minerva.tagsPanel.showSources';
-  let showSources = $state<boolean>(loadShowSources());
-
-  function loadShowSources(): boolean {
-    try {
-      const raw = localStorage.getItem(SHOW_SOURCES_KEY);
-      if (raw === 'false') return false;
-    } catch { /* fall through */ }
-    return true;
-  }
-  function persistShowSources(): void {
-    try { localStorage.setItem(SHOW_SOURCES_KEY, showSources ? 'true' : 'false'); } catch { /* ok */ }
-  }
 
   // Expand state — persisted per-project would be nicer, but the panel
   // re-renders the same set of tags within a session and `localStorage`
@@ -207,11 +191,6 @@
     activeNotes = notes;
     activeSources = [...sourcesSeen.values()].sort((a, b) => a.title.localeCompare(b.title));
   }
-
-  function toggleShowSources(): void {
-    showSources = !showSources;
-    persistShowSources();
-  }
 </script>
 
 <div class="tags-panel">
@@ -220,18 +199,6 @@
     onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find tag…"
   />
-  <div class="filter-row">
-    <button
-      type="button"
-      class="show-sources-toggle"
-      class:on={showSources}
-      onclick={toggleShowSources}
-      title={showSources ? 'Hide sources from this panel' : 'Show sources in this panel'}
-    >
-      <span class="dot" aria-hidden="true"></span>
-      <span>sources</span>
-    </button>
-  </div>
   {#if tagsForActiveNote.length === 0}
     <div class="empty">No tags in this note</div>
   {:else if visibleRows.length === 0}
@@ -270,11 +237,8 @@
           >
             #{row.segment}{#if !row.hasOwnTag && row.children.length > 0}/{/if}
           </button>
-          <span class="count" title={showSources
-            ? `${row.noteCount} notes · ${row.sourceCount} sources`
-            : `${row.noteCount} notes`}
-          >
-            {#if showSources && row.sourceCount > 0}
+          <span class="count" title={`${row.noteCount} notes · ${row.sourceCount} sources`}>
+            {#if row.sourceCount > 0}
               <span class="count-n">{row.noteCount}</span>
               <span class="count-sep">·</span>
               <span class="count-s">{row.sourceCount}</span>
@@ -287,11 +251,11 @@
     </div>
   {/if}
 
-  {#if activePath && (activeNotes.length > 0 || (showSources && activeSources.length > 0))}
+  {#if activePath && (activeNotes.length > 0 || activeSources.length > 0)}
     <div class="notes-section">
       <div class="notes-header">
         <span class="notes-eyebrow">{activeKind === 'prefix' ? 'TAGGED UNDER' : 'TAGGED'} #{activePath}</span>
-        <span class="notes-count">{activeNotes.length + (showSources ? activeSources.length : 0)}</span>
+        <span class="notes-count">{activeNotes.length + activeSources.length}</span>
       </div>
       {#each activeNotes as note (note.relativePath)}
         <button class="note-item" onclick={() => onFileSelect(note.relativePath)}>
@@ -299,14 +263,12 @@
           <span class="note-title">{note.title}</span>
         </button>
       {/each}
-      {#if showSources}
-        {#each activeSources as source (source.sourceId)}
-          <button class="note-item" onclick={() => onSourceSelect?.(source.sourceId)} title={`Source: ${source.sourceId}`}>
-            <Icon name="sites" size={12} color="var(--text-faint)" />
-            <span class="note-title">{source.title}</span>
-          </button>
-        {/each}
-      {/if}
+      {#each activeSources as source (source.sourceId)}
+        <button class="note-item" onclick={() => onSourceSelect?.(source.sourceId)} title={`Source: ${source.sourceId}`}>
+          <Icon name="sites" size={12} color="var(--text-faint)" />
+          <span class="note-title">{source.title}</span>
+        </button>
+      {/each}
     </div>
   {/if}
 </div>
@@ -399,40 +361,6 @@
   .count-s { color: var(--text-muted); }
   .row.active .count-sep,
   .row.active .count-s { color: var(--accent); }
-
-  .filter-row {
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .show-sources-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text-muted);
-    font-family: var(--font-sans);
-    font-size: 11px;
-    cursor: pointer;
-  }
-  .show-sources-toggle:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
-  .show-sources-toggle .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--text-faint);
-    flex-shrink: 0;
-  }
-  .show-sources-toggle.on {
-    color: var(--text);
-    border-color: color-mix(in oklch, var(--accent) 40%, var(--border));
-  }
-  .show-sources-toggle.on .dot { background: var(--accent); }
 
   /* "NOTES WITH #..." section under the tree */
   .notes-section {
