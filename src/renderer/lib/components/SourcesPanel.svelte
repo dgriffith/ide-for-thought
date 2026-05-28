@@ -419,20 +419,34 @@
     }
   }
 
-  /** Set/clear the reading-queue due date from the context menu.
-   *  Doesn't close the menu — the user might want to clear with the
-   *  adjacent button right after picking a date. */
+  /** Set/clear the reading-queue due date. Closes the due-date modal
+   *  on completion; the host's broadcast listener refreshes the panel
+   *  so the row stamp updates without us needing to patch in place. */
   async function handleSetDueBy(source: SourceMetadata, dueBy: string | null): Promise<void> {
     const value = dueBy && dueBy.trim() ? dueBy.trim() : null;
     try {
       await api.sources.setReadDueBy(source.sourceId, value);
-      // Patch the in-memory record so the menu reflects the change
-      // immediately (the host's refresh round-trip happens after).
+      // Patch the in-memory record so the byline stamp updates even
+      // if the host's refresh listener hasn't fired yet.
       source.readDueBy = value;
-      contextMenu = contextMenu ? { ...contextMenu, source: { ...contextMenu.source, readDueBy: value } } : null;
+      dueDateModal = null;
     } catch (err) {
       console.error('[minerva] Set due date failed:', err);
     }
+  }
+
+  /** Small modal that pops out of the context menu's "Set due date"
+   *  item. Owns its own dismissal (Escape, overlay click, Save/Clear)
+   *  so the native date-picker overlay doesn't trip the context menu's
+   *  window-level click dismisser. */
+  let dueDateModal = $state<{ source: SourceMetadata; draft: string } | null>(null);
+  function openDueDateModal(source: SourceMetadata): void {
+    contextMenu = null;
+    dueDateModal = { source, draft: source.readDueBy ?? '' };
+  }
+  function handleDueDateModalKey(e: KeyboardEvent): void {
+    if (e.key === 'Escape') dueDateModal = null;
+    if (e.key === 'Enter' && dueDateModal) void handleSetDueBy(dueDateModal.source, dueDateModal.draft);
   }
 
   async function handleCopyDoi(source: SourceMetadata, kind: 'bare' | 'url'): Promise<void> {
@@ -927,26 +941,15 @@
           {/if}
         </div>
       </div>
-      <!-- Due-by date input lives at the top level (not inside the
-           hover-driven submenu) so the native date-picker overlay can
-           open without the parent menu closing on mouseleave. -->
-      <div class="due-row">
-        <label class="due-label" for="due-input-{contextMenu.source.sourceId}">Due by</label>
-        <input
-          id="due-input-{contextMenu.source.sourceId}"
-          type="date"
-          class="due-input"
-          value={contextMenu.source.readDueBy ?? ''}
-          onchange={(e) => handleSetDueBy(contextMenu!.source, (e.target as HTMLInputElement).value)}
-        />
-        {#if contextMenu.source.readDueBy}
-          <button
-            class="due-clear"
-            onclick={() => handleSetDueBy(contextMenu!.source, null)}
-            title="Clear due date"
-          >Clear</button>
-        {/if}
-      </div>
+      <!-- The context menu's window-click dismissal closes any
+           inline date input the moment the native picker pops up
+           (the picker overlay sits outside the menu DOM). Surfacing
+           the picker via a small modal sidesteps that — the modal
+           captures its own focus and dismisses on Escape / overlay
+           click only. -->
+      <button onclick={() => openDueDateModal(contextMenu!.source)}>
+        Set due date{contextMenu.source.readDueBy ? ` (${formatDueStamp(contextMenu.source.readDueBy)})` : '…'}
+      </button>
       {#if contextMenu.source.doi}
         <div class="context-divider"></div>
         <button onclick={() => handleCopyDoi(contextMenu!.source, 'bare')}>Copy DOI</button>
@@ -1025,6 +1028,42 @@
     onSave={handleSmartEditorSave}
     onCancel={() => { smartEditor = null; }}
   />
+{/if}
+
+{#if dueDateModal}
+  {@const m = dueDateModal}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="due-overlay"
+    onkeydown={handleDueDateModalKey}
+    onmousedown={(e) => { if (e.target === e.currentTarget) dueDateModal = null; }}
+  >
+    <div class="due-dialog" role="dialog" aria-modal="true" aria-label="Reading due date">
+      <header class="due-dialog-header">
+        <div class="due-dialog-eyebrow">READING DUE DATE</div>
+        <h2 class="due-dialog-title">{m.source.title ?? m.source.sourceId}</h2>
+      </header>
+      <div class="due-dialog-body">
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          type="date"
+          class="due-dialog-input"
+          bind:value={m.draft}
+          autofocus
+        />
+      </div>
+      <footer class="due-dialog-footer">
+        <span class="due-dialog-kbd">esc · cancel · ↵ save</span>
+        <span class="due-dialog-actions">
+          {#if m.source.readDueBy}
+            <button class="due-dialog-btn ghost" onclick={() => handleSetDueBy(m.source, null)}>Clear</button>
+          {/if}
+          <button class="due-dialog-btn ghost" onclick={() => { dueDateModal = null; }}>Cancel</button>
+          <button class="due-dialog-btn primary" onclick={() => handleSetDueBy(m.source, m.draft)}>Save</button>
+        </span>
+      </footer>
+    </div>
+  </div>
 {/if}
 
 <style>
@@ -1374,45 +1413,103 @@
     margin: 4px 0;
   }
 
-  /* Due-by row in the source context menu — keeps the native date
-     picker accessible because the row sits at the menu's top level
-     (not inside a hover-driven submenu that would dismiss on
-     mouseleave when the picker pops open). */
-  .due-row {
+  /* Reading-due-date modal — popped out of the context-menu "Set due
+     date" item. Owns its own dismissal (Escape / overlay click /
+     Cancel / Save) so the native date picker can open without the
+     context menu's window-level click dismisser tearing the dialog
+     down. */
+  .due-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(20, 14, 6, 0.5);
+    backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 12px;
+    justify-content: center;
+    padding: 32px;
+  }
+  .due-dialog {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    width: 380px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-sans);
     color: var(--text);
+    overflow: hidden;
   }
-  .due-label {
-    color: var(--text-muted);
-    font-size: 11px;
-    flex-shrink: 0;
-  }
-  .due-input {
-    flex: 1;
-    min-width: 0;
-    padding: 2px 4px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    font-family: inherit;
-    font-size: 11.5px;
-    color: var(--text);
-  }
-  .due-input:focus { outline: none; border-color: var(--accent); }
-  .due-clear {
-    background: none;
-    border: none;
+  .due-dialog-header { padding: 20px 24px 0; }
+  .due-dialog-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
     color: var(--text-faint);
-    font-size: 11px;
-    cursor: pointer;
-    padding: 2px 6px;
-    width: auto !important;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
   }
-  .due-clear:hover { color: var(--text); }
+  .due-dialog-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .due-dialog-body { padding: 14px 24px 18px; }
+  .due-dialog-input {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .due-dialog-input:focus { outline: none; border-color: var(--accent); }
+  .due-dialog-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+  .due-dialog-kbd {
+    margin-right: auto;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+  }
+  .due-dialog-actions { display: inline-flex; gap: 8px; }
+  .due-dialog-btn {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .due-dialog-btn.ghost {
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .due-dialog-btn.ghost:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .due-dialog-btn.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .due-dialog-btn.primary:hover { opacity: 0.92; }
 
   /* Compact "due Jun 15" stamp on the source row byline. Overdue
      items shift to --rust (signal color, not red — per CLAUDE.md). */
