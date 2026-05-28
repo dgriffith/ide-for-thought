@@ -30,6 +30,7 @@
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
+  import { highlightDecorations } from '../editor/highlight-decorations';
   import { computeCellsExtension } from '../editor/compute-cells';
   import { footnotePreview } from '../editor/footnote-preview';
   import { footnoteDecorations } from '../editor/footnote-decorations';
@@ -538,6 +539,7 @@
     }),
     footnotePreview(),
     footnoteDecorations(),
+    highlightDecorations(),
     EditorView.domEventHandlers({
       // Snapshot the selection at the very start of a right-click, before
       // any built-in handling can collapse it. Then, when the click is
