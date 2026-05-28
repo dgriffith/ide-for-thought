@@ -108,6 +108,42 @@
     try { localStorage.setItem(COLL_EXPAND_KEY, JSON.stringify(expandedCollections)); } catch { /* ok */ }
   }
 
+  /** Reading-queue section collapsed-state. Default is expanded; the
+   *  section now sits below Collections and is the user's preference
+   *  to fold out of the way once collections become the primary view. */
+  const QUEUE_EXPANDED_KEY = 'minerva.sources.queueExpanded';
+  let queueExpanded = $state<boolean>(loadQueueExpanded());
+  function loadQueueExpanded(): boolean {
+    try {
+      const raw = localStorage.getItem(QUEUE_EXPANDED_KEY);
+      return raw === null ? true : raw === 'true';
+    } catch { return true; }
+  }
+  function toggleQueueExpanded(): void {
+    queueExpanded = !queueExpanded;
+    try { localStorage.setItem(QUEUE_EXPANDED_KEY, String(queueExpanded)); } catch { /* ok */ }
+  }
+
+  /** Reposition a submenu so it doesn't clip the viewport — same
+   *  helper Editor.svelte uses for its right-click submenus. */
+  function adjustSubmenu(event: MouseEvent) {
+    const item = event.currentTarget as HTMLElement;
+    const submenu = item.querySelector<HTMLElement>(':scope > .submenu');
+    if (!submenu) return;
+    submenu.style.top = '';
+    submenu.style.bottom = '';
+    submenu.style.left = '';
+    submenu.style.right = '';
+    requestAnimationFrame(() => {
+      const rect = submenu.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+      const MARGIN = 8;
+      if (rect.bottom > vh - MARGIN) { submenu.style.top = 'auto'; submenu.style.bottom = '-4px'; }
+      if (rect.right  > vw - MARGIN) { submenu.style.left = 'auto'; submenu.style.right = '100%'; }
+    });
+  }
+
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
     const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
@@ -658,22 +694,6 @@
   {#if sources.length === 0 && collections.length === 0}
     <div class="empty">No sources yet. File → Ingest URL… to start.</div>
   {:else}
-    <div class="queue-section">
-      <div class="section-eyebrow">READING QUEUE</div>
-      {#each QUEUE_VIEWS as v (v.id)}
-        <button
-          class="coll-row queue-row"
-          class:active={activeQueueView === v.id}
-          onclick={() => selectQueueView(v.id)}
-          title={`Show ${v.label.toLowerCase()}`}
-        >
-          <span class="chevron-spacer"></span>
-          <span class="coll-name">{v.label}</span>
-          <span class="coll-count">{queueCounts[v.id]}</span>
-        </button>
-      {/each}
-    </div>
-
     <div class="collections-section">
       <div class="collections-header">
         <span class="collections-eyebrow">COLLECTIONS</span>
@@ -730,6 +750,32 @@
             <span class="chevron-spacer"></span>
             <Icon name="search" size={11} color={activeCollectionId === s.id ? 'var(--accent)' : 'var(--text-faint)'} />
             <span class="coll-name">{s.name}</span>
+          </button>
+        {/each}
+      {/if}
+    </div>
+
+    <div class="queue-section">
+      <button
+        class="queue-header"
+        onclick={toggleQueueExpanded}
+        aria-expanded={queueExpanded}
+        title={queueExpanded ? 'Collapse reading queue' : 'Expand reading queue'}
+      >
+        <Icon name={queueExpanded ? 'chevronDown' : 'chevronRight'} size={11} color="var(--text-faint)" />
+        <span class="section-eyebrow queue-eyebrow">READING QUEUE</span>
+      </button>
+      {#if queueExpanded}
+        {#each QUEUE_VIEWS as v (v.id)}
+          <button
+            class="coll-row queue-row"
+            class:active={activeQueueView === v.id}
+            onclick={() => selectQueueView(v.id)}
+            title={`Show ${v.label.toLowerCase()}`}
+          >
+            <span class="chevron-spacer"></span>
+            <span class="coll-name">{v.label}</span>
+            <span class="coll-count">{queueCounts[v.id]}</span>
           </button>
         {/each}
       {/if}
@@ -813,15 +859,25 @@
         <button onclick={() => handleRemoveFromActiveCollection(contextMenu!.source)}>Remove from collection</button>
       {/if}
       <div class="context-divider"></div>
-      {#each STATUS_OPTIONS as opt (opt.value)}
-        <button
-          class:current={contextMenu.source.readStatus === opt.value}
-          onclick={() => handleMarkStatus(contextMenu!.source, opt.value)}
-        >{opt.label}</button>
-      {/each}
-      {#if contextMenu.source.readStatus}
-        <button onclick={() => handleMarkStatus(contextMenu!.source, null)}>Clear status</button>
-      {/if}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="submenu-item" role="menuitem" tabindex="-1" onmouseenter={adjustSubmenu}>
+        <span class="submenu-trigger">
+          Mark as…
+          <Icon name="chevronRight" size={10} />
+        </span>
+        <div class="submenu">
+          {#each STATUS_OPTIONS as opt (opt.value)}
+            <button
+              class:current={contextMenu.source.readStatus === opt.value}
+              onclick={() => handleMarkStatus(contextMenu!.source, opt.value)}
+            >{opt.label}</button>
+          {/each}
+          {#if contextMenu.source.readStatus}
+            <div class="submenu-separator"></div>
+            <button onclick={() => handleMarkStatus(contextMenu!.source, null)}>Clear status</button>
+          {/if}
+        </div>
+      </div>
       {#if contextMenu.source.doi}
         <div class="context-divider"></div>
         <button onclick={() => handleCopyDoi(contextMenu!.source, 'bare')}>Copy DOI</button>
@@ -1156,9 +1212,10 @@
   .status-dot.status-unread { color: var(--text-faint); }
   .status-dot.status-skipped { color: var(--text-faint); }
 
-  /* Reading-queue section sits above Collections — built-in views,
-     so no "+" button. Same row shape as the collection tree, just
-     without the chevron / context-menu affordances. */
+  /* Reading-queue section sits BELOW Collections now, with a
+     collapsible header so users who never touch the queue can fold
+     it away. Same row shape as the collection tree; no "+" button
+     because the views are built-in. */
   .queue-section {
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
@@ -1170,6 +1227,27 @@
     color: var(--text-faint);
     letter-spacing: 0.06em;
     padding: 10px 14px 4px;
+  }
+  .queue-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 10px 14px 4px 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+  }
+  .queue-header:hover .queue-eyebrow {
+    color: var(--text-muted);
+  }
+  .queue-eyebrow {
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    letter-spacing: 0.06em;
   }
   .queue-row { /* re-uses .coll-row look */ }
 
@@ -1184,5 +1262,46 @@
   .context-menu button.current {
     color: var(--accent);
     font-weight: 500;
+  }
+
+  /* Cascading submenu — matches Editor.svelte's right-click pattern.
+     Mark as… nests its four status options + Clear status under one
+     menu entry so the top level stays scannable. */
+  .submenu-item {
+    position: relative;
+  }
+  .submenu-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: default;
+  }
+  .submenu-item:hover > .submenu-trigger {
+    background: var(--bg-button);
+  }
+  .submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: -4px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 150px;
+    z-index: 1001;
+  }
+  .submenu-item:hover > .submenu {
+    display: block;
+  }
+  .submenu-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
   }
 </style>
