@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TagInfo, TaggedNote, TaggedSource } from '../../../../shared/types';
   import { api } from '../../ipc/client';
+  import { extractTagsFromContent } from '../../../../shared/refactor/auto-tag';
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
   import {
@@ -93,17 +94,22 @@
     allTags = await api.tags.list();
   }
 
-  /** Tags written literally in the active note (no ancestors yet). */
+  /** Tags written literally in the active note — both body `#hashtag`
+   *  syntax and YAML frontmatter `tags:` lists. Many notes carry tags
+   *  only in frontmatter, so missing those left the panel blank. */
   const ACTIVE_TAG_RE = /(?:^|\s)#([a-zA-Z][\w/-]*)/g;
   const CODE_RE = /```[\s\S]*?```|`[^`\n]+`/g;
   const tagsInActiveNote = $derived.by<Set<string>>(() => {
-    const stripped = content.replace(CODE_RE, '');
     const found = new Set<string>();
+    const stripped = content.replace(CODE_RE, '');
     ACTIVE_TAG_RE.lastIndex = 0;
     let m;
     while ((m = ACTIVE_TAG_RE.exec(stripped)) !== null) {
       const cleaned = m[1].replace(/\/+$/, '');
       if (cleaned) found.add(cleaned);
+    }
+    for (const t of extractTagsFromContent(content)) {
+      if (t) found.add(t);
     }
     return found;
   });
