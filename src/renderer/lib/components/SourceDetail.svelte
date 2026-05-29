@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { api } from '../ipc/client';
   import Preview from './Preview.svelte';
+  import ExcerptDensityGutter from './ExcerptDensityGutter.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
@@ -59,6 +61,21 @@
   }: Props = $props();
   let resolving = $state(false);
   let appendFlashId = $state<string | null>(null);
+
+  // Element refs + bump-on-change revision for the density gutter (#102).
+  let scrollerEl = $state<HTMLDivElement>();
+  let bodyViewEl = $state<HTMLDivElement>();
+  let gutterRevision = $state(0);
+  // Re-index excerpt positions when bodyContent or the excerpt set
+  // changes. The write to gutterRevision is wrapped in `untrack` so
+  // the increment doesn't re-trigger this same effect — without it,
+  // reading + writing gutterRevision spins forever, blocking the
+  // event loop and locking the UI on any tab containing this detail.
+  $effect(() => {
+    void bodyContent;
+    void detail?.excerpts.length;
+    untrack(() => { gutterRevision++; });
+  });
 
   /** True when `.minerva/sources/<id>/original.pdf` exists, so the
    *  "Open original PDF" button can show (#100). Resolved on mount;
@@ -305,7 +322,7 @@
   }
 </script>
 
-<div class="source-detail">
+<div class="source-detail" bind:this={scrollerEl}>
   {#if loading}
     <p class="muted">Loading…</p>
   {:else if !detail}
@@ -433,8 +450,20 @@
           </div>
         {:else if bodyContent !== null}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="body-view" oncontextmenu={handleBodyContextMenu}>
+          <div
+            class="body-view"
+            bind:this={bodyViewEl}
+            oncontextmenu={handleBodyContextMenu}
+          >
             <Preview content={bodyContent} onNavigate={onNavigate} />
+            {#if detail && detail.excerpts.length > 0}
+              <ExcerptDensityGutter
+                host={bodyViewEl ?? null}
+                scroller={scrollerEl ?? null}
+                excerpts={detail.excerpts}
+                revision={gutterRevision}
+              />
+            {/if}
           </div>
           {#if recentExcerpt}
             <div class="excerpt-banner" class:duplicate={recentExcerpt.duplicate}>
@@ -768,6 +797,9 @@
      * the source panel's existing padding. */
     margin-left: -48px;
     margin-right: -48px;
+    /* `position: relative` so the density gutter (#102) can absolute-
+     *  position its tick marks against the body's full content height. */
+    position: relative;
   }
   .body-view :global(.preview) {
     padding: 0 48px;
