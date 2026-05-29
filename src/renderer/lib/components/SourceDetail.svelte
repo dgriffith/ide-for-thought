@@ -33,10 +33,32 @@
      *  may also remember the preference per source so the next
      *  open of this source routes to the PDF directly. */
     onOpenPdf?: (sourceId: string) => void;
+    /** Create a new note from an excerpt (#101). Host runs the
+     *  showPrompt for the title, writes the file to the configured
+     *  folder, and opens it. */
+    onCreateNoteFromExcerpt?: (
+      sourceId: string,
+      excerpt: import('../../../shared/types').SourceExcerpt,
+    ) => Promise<string | null>;
+    /** Append the excerpt to the active note tab (#101). Host
+     *  no-ops if there is no active note tab. Boolean tells the
+     *  caller whether the append succeeded so the UI can flash a
+     *  toast. */
+    onAppendExcerptToCurrent?: (
+      excerpt: import('../../../shared/types').SourceExcerpt,
+    ) => boolean;
+    /** Whether the host currently has an active note tab — used to
+     *  enable / disable the Append button. */
+    canAppendToCurrent?: boolean;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf }: Props = $props();
+  let {
+    sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted,
+    onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
+    onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
+  }: Props = $props();
   let resolving = $state(false);
+  let appendFlashId = $state<string | null>(null);
 
   /** True when `.minerva/sources/<id>/original.pdf` exists, so the
    *  "Open original PDF" button can show (#100). Resolved on mount;
@@ -191,6 +213,20 @@
   api.sources.onExcerptsChanged(() => {
     if (loadedId === sourceId) void load(sourceId);
   });
+
+  async function createNoteFromExcerpt(excerpt: SourceExcerpt): Promise<void> {
+    if (!onCreateNoteFromExcerpt) return;
+    await onCreateNoteFromExcerpt(sourceId, excerpt);
+  }
+
+  function appendExcerptToCurrent(excerpt: SourceExcerpt): void {
+    if (!onAppendExcerptToCurrent) return;
+    const ok = onAppendExcerptToCurrent(excerpt);
+    if (ok) {
+      appendFlashId = excerpt.excerptId;
+      setTimeout(() => { if (appendFlashId === excerpt.excerptId) appendFlashId = null; }, 1500);
+    }
+  }
 
   // After render, if a specific excerpt was highlighted, scroll it into view.
   $effect(() => {
@@ -451,6 +487,25 @@
                   <span class="sep">·</span>
                   <span>{excerptLocation(excerpt)}</span>
                 {/if}
+                <span class="excerpt-actions">
+                  {#if onCreateNoteFromExcerpt}
+                    <button
+                      class="excerpt-action"
+                      onclick={() => { void createNoteFromExcerpt(excerpt); }}
+                      title="Create a new note seeded with this quote"
+                    >New note</button>
+                  {/if}
+                  {#if onAppendExcerptToCurrent}
+                    <button
+                      class="excerpt-action"
+                      disabled={!canAppendToCurrent}
+                      onclick={() => appendExcerptToCurrent(excerpt)}
+                      title={canAppendToCurrent ? 'Append this quote to the active note' : 'No active note tab'}
+                    >
+                      {appendFlashId === excerpt.excerptId ? 'Appended ✓' : 'Append to current'}
+                    </button>
+                  {/if}
+                </span>
               </div>
             </li>
           {/each}
@@ -861,9 +916,36 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
   }
 
   .sep { opacity: 0.5; }
+
+  /* Push the per-excerpt action buttons to the end so the id +
+     location stay left-aligned while the actions cluster right. */
+  .excerpt-actions {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 4px;
+  }
+  .excerpt-action {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .excerpt-action:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .excerpt-action:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
 
   .backlink-list li {
     padding: 8px 10px;

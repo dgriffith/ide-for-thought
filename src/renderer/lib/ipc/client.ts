@@ -670,6 +670,10 @@ export interface SourcesApi {
   /** True iff `.minerva/sources/<id>/original.pdf` exists. Used by the
    *  source detail UI to decide whether to show the PDF affordance. */
   hasPdf(sourceId: string): Promise<boolean>;
+  /** Per-project default folder for excerpt-derived notes (#101).
+   *  Returns '' = project root. */
+  getExcerptNoteFolder(): Promise<string>;
+  setExcerptNoteFolder(folder: string): Promise<void>;
   /** Hand per-page OCR'd text back to main; it writes body.md + stamps meta.ttl (#95). */
   finishPdfOcr(sourceId: string, pages: string[]): Promise<void>;
   /** Open a .bib picker and bulk-import every entry (#98). Returns null if cancelled. */

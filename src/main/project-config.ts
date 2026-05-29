@@ -35,6 +35,12 @@ export interface ProjectConfigShape {
      *  this thoughtbase even if it's reopened while still empty. */
     dismissed?: boolean;
   };
+  /** Excerpt → Note flow defaults (#101). */
+  excerpt?: {
+    /** Project-relative folder where "New note from excerpt" lands.
+     *  Empty string means the project root. */
+    noteFolder?: string;
+  };
 }
 
 function configPath(rootPath: string): string {
@@ -94,4 +100,23 @@ export function getOnboardingDismissed(rootPath: string): boolean {
 export function setOnboardingDismissed(rootPath: string, dismissed: boolean): void {
   const existing = readProjectConfig(rootPath).onboarding ?? {};
   patchProjectConfig(rootPath, { onboarding: { ...existing, dismissed } });
+}
+
+/** Project-relative folder where "New note from excerpt" lands
+ *  (#101). Returns '' when unset, which the renderer treats as
+ *  "project root". */
+export function getExcerptNoteFolder(rootPath: string): string {
+  return readProjectConfig(rootPath).excerpt?.noteFolder ?? '';
+}
+
+export function setExcerptNoteFolder(rootPath: string, folder: string): void {
+  // Normalise: strip leading/trailing slashes and collapse `\` → `/`
+  // so the on-disk config is consistent regardless of how the user
+  // typed it in the settings field.
+  const cleaned = folder
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '')
+    .trim();
+  const existing = readProjectConfig(rootPath).excerpt ?? {};
+  patchProjectConfig(rootPath, { excerpt: { ...existing, noteFolder: cleaned } });
 }

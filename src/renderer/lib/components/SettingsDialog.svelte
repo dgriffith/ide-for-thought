@@ -54,7 +54,7 @@
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'compute' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'excerpts' | 'compute' | 'ai';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -83,6 +83,7 @@
         { id: 'refactoring',  label: 'Refactoring',  sub: 'Default destination · merge rules' },
         { id: 'formatter',    label: 'Formatter',    sub: 'On-save rules' },
         { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
+        { id: 'excerpts',     label: 'Excerpt notes', sub: 'Default destination folder' },
       ],
     },
     {
@@ -251,6 +252,26 @@
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleString();
+  }
+
+  // Excerpt → Note default folder (#101). Empty string = project root.
+  let excerptNoteFolder = $state('');
+
+  async function loadExcerptSettings(): Promise<void> {
+    try {
+      excerptNoteFolder = await api.sources.getExcerptNoteFolder();
+    } catch (e) {
+      console.error('[settings] failed to load excerpt settings:', e);
+    }
+  }
+
+  async function commitExcerptNoteFolder(next: string): Promise<void> {
+    excerptNoteFolder = next;
+    try {
+      await api.sources.setExcerptNoteFolder(next);
+    } catch (e) {
+      console.error('[settings] failed to save excerpt folder:', e);
+    }
   }
 
   // Bibliography style (per-project, persisted in .minerva/config.json).
@@ -427,6 +448,7 @@
     }
     await reloadSites();
     await loadBibliographySettings();
+    await loadExcerptSettings();
     await loadComputeSettings();
     try {
       const ingest = await api.sources.getIngestSettings();
@@ -1032,6 +1054,23 @@
           {#if cslImportError}
             <div class="csl-error">{cslImportError}</div>
           {/if}
+
+        {:else if activeTab === 'excerpts'}
+          <div class="field">
+            <label for="excerpt-note-folder">Default destination folder</label>
+            <input
+              id="excerpt-note-folder"
+              type="text"
+              placeholder="(project root)"
+              value={excerptNoteFolder}
+              onchange={(e) => { void commitExcerptNoteFolder(e.currentTarget.value); }}
+            />
+            <p class="hint">
+              Project-relative folder where "New note from excerpt" lands. Empty
+              means the project root. The folder is created on first write.
+              Stored per-project in <code>.minerva/config.json</code>.
+            </p>
+          </div>
 
         {:else if activeTab === 'compute'}
           <div class="field">
