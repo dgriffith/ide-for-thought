@@ -82,7 +82,13 @@
       onclick={() => onSwitch(i)}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
-      title={tab.type === 'note' ? tab.relativePath : tab.type === 'query' ? tab.title : `Source: ${sourceTabLabel(tab.sourceId)}`}
+      title={tab.type === 'note'
+        ? tab.relativePath
+        : tab.type === 'query'
+          ? tab.title
+          : tab.type === 'pdf'
+            ? `PDF: ${sourceTabLabel(tab.sourceId)}`
+            : `Source: ${sourceTabLabel(tab.sourceId)}`}
       role="tab"
       tabindex="0"
     >
@@ -95,6 +101,8 @@
           <Icon name="query" size={13} color="var(--text-faint)" />
         {:else if tab.type === 'source'}
           <Icon name="source" size={13} color="var(--text-faint)" />
+        {:else if tab.type === 'pdf'}
+          <Icon name="source" size={13} color="var(--text-faint)" />
         {:else}
           <Icon name="notes" size={13} color="var(--text-faint)" />
         {/if}
@@ -102,6 +110,7 @@
       <span class="tab-name">
         {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
         {:else if tab.type === 'query'}{tab.title}
+        {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
         {:else}{sourceTabLabel(tab.sourceId)}{/if}
       </span>
       <button

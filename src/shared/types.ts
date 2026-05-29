@@ -93,7 +93,14 @@ export interface SavedSourceTab {
   highlightExcerptId?: string;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab;
+export interface SavedPdfTab {
+  type: 'pdf';
+  sourceId: string;
+  /** Last-viewed page (1-based), restored on tab reload. */
+  page?: number;
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab;
 
 export interface TabSession {
   activeIndex: number;

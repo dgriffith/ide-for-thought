@@ -28,6 +28,8 @@
   import SnippetPickerDialog from './lib/components/SnippetPickerDialog.svelte';
   import { substituteTemplate } from '../shared/templates';
   import type { TemplateInfo } from './lib/ipc/client';
+  import PdfViewer from './lib/components/PdfViewer.svelte';
+  import { getPreferredSourceView, setPreferredSourceView } from './lib/source-view-preference';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -715,8 +717,41 @@
 
   function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
     recordCurrentPosition();
+    // If the user last viewed this source as a PDF (and the file is
+    // still there), route them back to the PDF tab rather than the
+    // extracted-text detail. An explicit excerpt highlight wins —
+    // jumping to an excerpt is a markdown-view affordance until the
+    // PDF viewer's highlight click-to-navigate is wired up. (#100)
+    if (!highlightExcerptId && getPreferredSourceView(sourceId) === 'pdf') {
+      void api.sources.hasPdf(sourceId).then((ok) => {
+        if (ok) {
+          editor.openPdf(sourceId);
+          nav.record({ type: 'source', sourceId });
+        } else {
+          editor.openSource(sourceId);
+          nav.record({ type: 'source', sourceId });
+        }
+      });
+      return;
+    }
     editor.openSource(sourceId, { highlightExcerptId });
     nav.record({ type: 'source', sourceId, highlightExcerptId });
+  }
+
+  /** Open the PDF view for a source; remember the choice so the next
+   *  click on this source from the sidebar / search / quick-open
+   *  routes here directly. */
+  function handleOpenPdf(sourceId: string) {
+    recordCurrentPosition();
+    setPreferredSourceView(sourceId, 'pdf');
+    editor.openPdf(sourceId);
+    nav.record({ type: 'source', sourceId });
+  }
+
+  /** Switch back to the extracted-markdown view from a PDF tab. */
+  function handleShowMarkdownFromPdf(sourceId: string) {
+    setPreferredSourceView(sourceId, 'markdown');
+    editor.openSource(sourceId);
   }
 
   async function handleOpenExcerpt(excerptId: string) {
@@ -3220,6 +3255,15 @@
               onCreateAboutNote={handleNewAboutSourceNote}
               onOpenReference={handleOpenSource}
               onResolveStub={handleResolveStub}
+              onOpenPdf={handleOpenPdf}
+            />
+          {/key}
+        {:else if editor.activeTab?.type === 'pdf'}
+          {#key editor.activeTab.sourceId}
+            <PdfViewer
+              sourceId={editor.activeTab.sourceId}
+              initialPage={editor.activeTab.page}
+              onShowMarkdown={handleShowMarkdownFromPdf}
             />
           {/key}
         {:else}

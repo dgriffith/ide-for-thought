@@ -1632,6 +1632,17 @@ export function registerIpcHandlers(): void {
     return await readOriginalPdf(rootPath, sourceId);
   });
 
+  ipcMain.handle(Channels.SOURCES_HAS_PDF, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    try {
+      await fs.stat(path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf'));
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
   // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
   // back the per-page text. We rewrite body.md + stamp meta.ttl with
   // extractionMethod "ocr" (#95).
