@@ -30,6 +30,7 @@
   import type { TemplateInfo } from './lib/ipc/client';
   import PdfViewer from './lib/components/PdfViewer.svelte';
   import { getPreferredSourceView, setPreferredSourceView } from './lib/source-view-preference';
+  import { buildExcerptNoteContent, buildExcerptAppendBlock } from '../shared/excerpt-note';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -94,6 +95,16 @@
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
+  /** Last note tab the user was on. Used by the SourceDetail "Append
+   *  to current note" action (#101) — when the user is viewing a
+   *  source-detail tab the active tab IS the source, so "current"
+   *  means the previously-active note tab. Tracked here rather than
+   *  in the editor store because nothing else cares about it. */
+  let lastNotePath = $state<string | null>(null);
+  $effect(() => {
+    const t = editor.activeNoteTab;
+    if (t) lastNotePath = t.relativePath;
+  });
   const nav = getNavigationStore();
   const toolPanel = getToolPanelStore();
   const conversationsStore = getConversationsStore();
@@ -1088,6 +1099,72 @@
     await editor.openFile(relativePath);
     sidebar?.refreshTags();
     return relativePath;
+  }
+
+  /** Create a new note seeded from an excerpt (#101). Prompts for
+   *  the title with a sensible default ("Note on <displayTitle>"),
+   *  builds the markdown via `buildExcerptNoteContent`, writes to
+   *  the configured excerpt-note folder (project-config), and
+   *  opens the result. Returns the new note's relative path so
+   *  callers can highlight or further-navigate. */
+  async function handleCreateNoteFromExcerpt(
+    sourceId: string,
+    excerpt: import('../shared/types').SourceExcerpt,
+  ): Promise<string | null> {
+    if (!notebase.meta) return null;
+    const detail = await api.graph.sourceDetail(sourceId);
+    const built = buildExcerptNoteContent({
+      sourceId,
+      excerpt,
+      source: detail?.metadata,
+    });
+    const name = await showPrompt('Note name:', built.suggestedTitle);
+    if (!name) return null;
+    const folder = await api.sources.getExcerptNoteFolder();
+    const stem = name.replace(/\.md$/, '');
+    const filename = `${stem}.md`;
+    const relativePath = folder ? `${folder}/${filename}` : filename;
+    // Re-build with the user's chosen title so the H1 matches.
+    const finalContent = buildExcerptNoteContent({
+      sourceId,
+      excerpt,
+      source: detail?.metadata,
+      titleOverride: stem,
+    }).content;
+    await api.notebase.writeFile(relativePath, finalContent);
+    await notebase.refresh();
+    await editor.openFile(relativePath);
+    sidebar?.refreshTags();
+    return relativePath;
+  }
+
+  /** Append an excerpt's quote (with a [[quote::id]] link) to the
+   *  user's "current" note (#101). When the user is on the
+   *  source-detail tab, "current" is the most-recent note tab —
+   *  tracked via `lastNotePath`. Returns true when the append
+   *  happened so the SourceDetail can flash a brief "Appended ✓"
+   *  affordance. */
+  function handleAppendExcerptToCurrent(
+    excerpt: import('../shared/types').SourceExcerpt,
+  ): boolean {
+    const block = buildExcerptAppendBlock(excerpt);
+    const active = editor.activeNoteTab;
+    if (active) {
+      editor.setContent(active.content + block);
+      return true;
+    }
+    if (!lastNotePath) return false;
+    const idx = editor.tabs.findIndex(
+      (t) => t.type === 'note' && t.relativePath === lastNotePath,
+    );
+    if (idx === -1) return false;
+    editor.switchTab(idx);
+    // setContent operates on the active tab — switchTab already
+    // flipped activeIndex so this targets the right buffer.
+    const target = editor.tabs[idx];
+    if (target.type !== 'note') return false;
+    editor.setContent(target.content + block);
+    return true;
   }
 
   async function handleNewFolder(directory: string = '') {
@@ -3256,6 +3333,9 @@
               onOpenReference={handleOpenSource}
               onResolveStub={handleResolveStub}
               onOpenPdf={handleOpenPdf}
+              onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
+              onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
+              canAppendToCurrent={lastNotePath !== null}
             />
           {/key}
         {:else if editor.activeTab?.type === 'pdf'}

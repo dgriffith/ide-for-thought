@@ -53,6 +53,8 @@ import {
   setPythonTrust,
   getOnboardingDismissed,
   setOnboardingDismissed,
+  getExcerptNoteFolder,
+  setExcerptNoteFolder,
 } from './project-config';
 import { DEFAULT_STYLE } from './publish/csl/assets';
 import { buildCitationAudit } from './publish/csl/audit';
@@ -1641,6 +1643,18 @@ export function registerIpcHandlers(): void {
     } catch {
       return false;
     }
+  });
+
+  // Excerpt → Note flow defaults (#101).
+  ipcMain.handle(Channels.EXCERPT_GET_NOTE_FOLDER, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return '';
+    return getExcerptNoteFolder(rootPath);
+  });
+  ipcMain.handle(Channels.EXCERPT_SET_NOTE_FOLDER, (e, folder: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    setExcerptNoteFolder(rootPath, folder);
   });
 
   // Finalise a scanned-PDF ingest: the renderer has run OCR and hands

@@ -257,6 +257,9 @@ contextBridge.exposeInMainWorld('api', {
     ingestPdf: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_PDF),
     readPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_READ_PDF, sourceId),
     hasPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_HAS_PDF, sourceId),
+    getExcerptNoteFolder: () => ipcRenderer.invoke(Channels.EXCERPT_GET_NOTE_FOLDER),
+    setExcerptNoteFolder: (folder: string) =>
+      ipcRenderer.invoke(Channels.EXCERPT_SET_NOTE_FOLDER, folder),
     finishPdfOcr: (sourceId: string, pages: string[]) =>
       ipcRenderer.invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
     importBibtex: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_BIBTEX),

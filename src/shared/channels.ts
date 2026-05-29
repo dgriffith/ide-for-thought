@@ -218,6 +218,10 @@ export const Channels = {
    *  show the "Open original PDF" button. Returns true iff
    *  `.minerva/sources/<id>/original.pdf` exists. */
   SOURCES_HAS_PDF: 'sources:hasPdf',
+  /** Per-project default folder where "New note from excerpt"
+   *  lands (#101). Empty string = project root. */
+  EXCERPT_GET_NOTE_FOLDER: 'excerpt:getNoteFolder',
+  EXCERPT_SET_NOTE_FOLDER: 'excerpt:setNoteFolder',
   /** Renderer returns OCR'd per-page text; main writes body.md + stamps meta.ttl (#95). */
   SOURCES_FINISH_PDF_OCR: 'sources:finishPdfOcr',
   /** Bulk import from a .bib file (#98). Main opens a picker and parses via @retorquere/bibtex-parser. */
