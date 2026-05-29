@@ -78,6 +78,19 @@ describe('substituteTemplate (#475)', () => {
     expect(r.content).toBe('A  B');
   });
 
+  it('substitutes {{selection}} with the supplied text', async () => {
+    const r = await substituteTemplate(
+      '> [!note]\n> {{selection}}\n',
+      { title: '', now: FIXED, selection: 'The quick brown fox' },
+    );
+    expect(r.content).toBe('> [!note]\n> The quick brown fox\n');
+  });
+
+  it('substitutes {{selection}} with empty when none supplied', async () => {
+    const r = await substituteTemplate('[{{selection}}]', { title: '', now: FIXED });
+    expect(r.content).toBe('[]');
+  });
+
   it('falls back to a labelled placeholder when no prompt resolver is supplied', async () => {
     const r = await substituteTemplate('{{prompt:Topic}}', { title: '', now: FIXED });
     expect(r.content).toBe('{{Topic}}');

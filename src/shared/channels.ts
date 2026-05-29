@@ -118,6 +118,7 @@ export const Channels = {
   // Menu → renderer events (main sends, renderer listens)
   MENU_NEW_NOTE: 'menu:newNote',
   MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
+  MENU_INSERT_TEMPLATE: 'menu:insertTemplate',
   MENU_SAVE: 'menu:save',
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',

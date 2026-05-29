@@ -297,6 +297,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           accelerator: 'CmdOrCtrl+Shift+U',
           click: () => send(Channels.MENU_TOGGLE_CASE),
         }),
+        gate({
+          label: 'Insert Template…',
+          click: () => send(Channels.MENU_INSERT_TEMPLATE),
+        }),
         { type: 'separator' },
         gate({
           label: 'Extend Selection',
