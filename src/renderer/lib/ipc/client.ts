@@ -193,6 +193,20 @@ export interface TagsApi {
   allNames(): Promise<string[]>;
 }
 
+export interface TemplateInfo {
+  /** Template name without the `.md` extension — what the user sees. */
+  name: string;
+  /** Filename on disk (`<name>.md`). */
+  filename: string;
+}
+
+export interface TemplatesApi {
+  list(): Promise<TemplateInfo[]>;
+  /** Returns the template body, or `null` if not found. */
+  get(filename: string): Promise<string | null>;
+  saveAs(name: string, content: string): Promise<TemplateInfo>;
+}
+
 export interface ExportApi {
   csv(csv: string): Promise<void>;
 }
@@ -494,6 +508,7 @@ export interface ToolsApi {
 export interface MenuApi {
   onNewNote(cb: () => void): void;
   onSave(cb: () => void): void;
+  onSaveAsTemplate(cb: () => void): void;
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
@@ -553,6 +568,7 @@ export interface IdeApi {
   graph: GraphApi;
   tables: TablesApi;
   tags: TagsApi;
+  templates: TemplatesApi;
   export: ExportApi;
   files: FilesApi;
   compute: ComputeApi;

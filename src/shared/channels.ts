@@ -108,8 +108,16 @@ export const Channels = {
   TAGS_SOURCES_BY_TAG: 'tags:sourcesByTag',
   TAGS_ALL_NAMES: 'tags:allNames',
 
+  // Templates (#475) — per-project markdown templates under
+  // `.minerva/templates/`. Listing, reading, and saving go through
+  // these channels; substitution is pure and lives in shared/.
+  TEMPLATES_LIST: 'templates:list',
+  TEMPLATES_GET: 'templates:get',
+  TEMPLATES_SAVE_AS: 'templates:saveAs',
+
   // Menu → renderer events (main sends, renderer listens)
   MENU_NEW_NOTE: 'menu:newNote',
+  MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
   MENU_SAVE: 'menu:save',
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',

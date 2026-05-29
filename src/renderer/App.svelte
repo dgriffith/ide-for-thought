@@ -23,6 +23,9 @@
   } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import PromptDialog from './lib/components/PromptDialog.svelte';
+  import NewNoteDialog from './lib/components/NewNoteDialog.svelte';
+  import type { NoteExt, NewNoteResult } from './lib/components/new-note-dialog-types';
+  import { substituteTemplate } from '../shared/templates';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -225,6 +228,10 @@
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
   let promptDialog = $state<{ message: string; suggestions?: string[]; initial?: string; resolve: (value: string | null) => void } | null>(null);
+  let newNoteDialog = $state<{
+    initialExt: NoteExt;
+    resolve: (value: NewNoteResult | null) => void;
+  } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; hideDontAskAgain?: boolean; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
   /**
@@ -249,6 +256,14 @@
       : (initialOrOptions ?? {});
     return new Promise((resolve) => {
       promptDialog = { message, suggestions: opts.suggestions, initial: opts.initial, resolve };
+    });
+  }
+
+  function showNewNoteDialog(
+    initialExt: NoteExt = '.md',
+  ): Promise<NewNoteResult | null> {
+    return new Promise((resolve) => {
+      newNoteDialog = { initialExt, resolve };
     });
   }
 
@@ -488,6 +503,9 @@
         enabled: hasProject, run: () => { notebase.close(); editor.clear(); } },
       { id: 'file.print', title: 'Print…', category: 'File',
         keybinding: null, enabled: hasNote, run: () => window.print() },
+      { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File',
+        keybinding: null, enabled: hasActiveNoteTab,
+        run: () => { void handleSaveAsTemplate(); } },
       // ── Edit / search ──
       { id: 'edit.find', title: 'Find', category: 'Edit',
         keybinding: formatAccelerator('CmdOrCtrl+F'),
@@ -914,14 +932,68 @@
 
   async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
-    const name = await showPrompt('Note name:');
-    if (!name) return;
-    const filename = name.endsWith('.md') ? name : `${name}.md`;
+    const result = await showNewNoteDialog();
+    if (!result) return;
+    const filename = `${result.name}${result.ext}`;
     const relativePath = directory ? `${directory}/${filename}` : filename;
-    await api.notebase.createFile(relativePath);
+
+    // Apply a template if one was chosen — substitution runs in the
+    // renderer with `showPrompt` as the interactive resolver so a
+    // `{{prompt:Label}}` template can pause for input. A null prompt
+    // return cancels: the file isn't written and the flow ends.
+    let initialContent = '';
+    let caretOffset: number | null = null;
+    if (result.templateFilename) {
+      const body = await api.templates.get(result.templateFilename);
+      if (body !== null) {
+        const sub = await substituteTemplate(body, {
+          title: result.name,
+          prompt: (label: string) => showPrompt(`${label}:`),
+        });
+        if (sub.cancelled) return;
+        initialContent = sub.content;
+        caretOffset = sub.cursorOffset;
+      }
+    }
+
+    if (initialContent) {
+      await api.notebase.writeFile(relativePath, initialContent);
+    } else {
+      await api.notebase.createFile(relativePath);
+    }
     await notebase.refresh();
     await editor.openFile(relativePath);
+    if (caretOffset !== null) {
+      // Wait one frame so the editor has mounted the file before we
+      // restore the position — restorePosition is a no-op against an
+      // empty doc otherwise. Capture in a const so TS keeps the
+      // narrowing past the closure boundary.
+      const offset = caretOffset;
+      requestAnimationFrame(() => editorComponent?.restorePosition(offset, 0));
+    }
     sidebar?.refreshTags();
+  }
+
+  /** Save the active note's body as a template under
+   *  `.minerva/templates/<name>.md` (#475). The body is copied
+   *  verbatim — placeholders the user typed (`{{title}}` etc.) live
+   *  in the source and get resolved when the template is *used*.
+   *  Existing template files at the same name are overwritten;
+   *  showPrompt is light-weight enough that the user can just retype
+   *  if they meant a different name. */
+  async function handleSaveAsTemplate(): Promise<void> {
+    if (!notebase.meta) return;
+    const tab = editor.activeTab;
+    if (!tab || tab.type !== 'note') return;
+    const suggested = (tab.relativePath.split('/').pop() ?? '')
+      .replace(/\.(md|ttl|csv|py)$/i, '');
+    const name = await showPrompt('Template name:', suggested);
+    if (!name) return;
+    try {
+      await api.templates.saveAs(name, tab.content);
+    } catch (err) {
+      console.error('[templates] saveAs failed', err);
+    }
   }
 
   /** Zotero-style "New note about this source" (#474). Creates a note
@@ -2668,6 +2740,7 @@
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
+    api.menu.onSaveAsTemplate(() => { void handleSaveAsTemplate(); });
     api.menu.onCycleTheme(() => handleCycleTheme());
     api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
@@ -3230,6 +3303,13 @@
       initial={promptDialog.initial ?? ''}
       onConfirm={handlePromptConfirm}
       onCancel={handlePromptCancel}
+    />
+  {/if}
+  {#if newNoteDialog}
+    <NewNoteDialog
+      initialExt={newNoteDialog.initialExt}
+      onConfirm={(value) => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(value); }}
+      onCancel={() => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(null); }}
     />
   {/if}
   {#if mineReviewState}

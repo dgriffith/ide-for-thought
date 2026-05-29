@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { Channels } from '../shared/channels';
 import * as notebaseFs from './notebase/fs';
+import * as templates from './notebase/templates';
 import { isIndexable } from './notebase/indexable-files';
 import { renameWithLinkRewrites } from './notebase/rename';
 import { mergeNotes, previewMergeNotes } from './notebase/merge';
@@ -922,6 +923,29 @@ export function registerIpcHandlers(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return [];
     return graph.allTags(projectContext(rootPath));
+  });
+
+  // Templates (#475)
+  ipcMain.handle(Channels.TEMPLATES_LIST, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return templates.listTemplates(rootPath);
+  });
+
+  ipcMain.handle(Channels.TEMPLATES_GET, async (e, filename: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return null;
+    try {
+      return await templates.readTemplate(rootPath, filename);
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(Channels.TEMPLATES_SAVE_AS, async (e, name: string, content: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await templates.saveTemplate(rootPath, name, content);
   });
 
   // Export

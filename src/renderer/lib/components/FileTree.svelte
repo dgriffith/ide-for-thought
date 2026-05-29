@@ -7,6 +7,24 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
   import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
+  import type { IconName } from './icons/registry';
+
+  /** Pick the row icon by extension so the sidebar can disambiguate
+   *  note types at a glance. `.md` stays on the default page icon;
+   *  `.csv`/`.ttl`/`.py` get their own. Unknown extensions fall back
+   *  to `notes` rather than introducing a generic-file icon — the
+   *  notebase is curated, so anything else is almost certainly a
+   *  markdown variant the user wants to read as a note. */
+  function iconForFile(name: string): IconName {
+    const dot = name.lastIndexOf('.');
+    const ext = dot >= 0 ? name.slice(dot).toLowerCase() : '';
+    switch (ext) {
+      case '.csv': return 'tables';
+      case '.ttl': return 'graph';
+      case '.py':  return 'code';
+      default:     return 'notes';
+    }
+  }
 
   interface Props {
     files: NoteFile[];
@@ -223,11 +241,11 @@
         >
           <span class="chev"></span>
           <Icon
-            name="notes"
+            name={iconForFile(file.name)}
             size={13}
             color={activeFilePath === file.relativePath ? 'var(--accent)' : 'var(--text-faint)'}
           />
-          <span class="row-label">{file.name.replace(/\.(md|ttl|csv)$/, '')}</span>
+          <span class="row-label">{file.name.replace(/\.(md|ttl|csv|py)$/, '')}</span>
           {#if file.mtimeMs !== undefined}
             <span class="mtime">{formatRelativeTime(file.mtimeMs)}</span>
           {/if}
@@ -261,7 +279,7 @@
       <div class="separator"></div>
     {/if}
     <button onclick={() => { onNewNote(contextMenu!.dir); contextMenu = null; }}>
-      New Note Here
+      New Note
     </button>
     <button onclick={() => { onNewFolder(contextMenu!.dir); contextMenu = null; }}>
       New Folder
