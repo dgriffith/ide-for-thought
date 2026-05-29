@@ -128,6 +128,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           accelerator: 'CmdOrCtrl+S',
           click: () => send(Channels.MENU_SAVE),
         }),
+        gate({
+          label: 'Save as Template…',
+          click: () => send(Channels.MENU_SAVE_AS_TEMPLATE),
+        }),
         { type: 'separator' },
 
         // Ingest / Import — bringing external things in.

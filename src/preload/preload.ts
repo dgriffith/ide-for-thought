@@ -136,6 +136,12 @@ contextBridge.exposeInMainWorld('api', {
     sourcesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_SOURCES_BY_TAG, tag),
     allNames: () => ipcRenderer.invoke(Channels.TAGS_ALL_NAMES),
   },
+  templates: {
+    list: () => ipcRenderer.invoke(Channels.TEMPLATES_LIST),
+    get: (filename: string) => ipcRenderer.invoke(Channels.TEMPLATES_GET, filename),
+    saveAs: (name: string, content: string) =>
+      ipcRenderer.invoke(Channels.TEMPLATES_SAVE_AS, name, content),
+  },
   export: {
     csv: (csv: string) => ipcRenderer.invoke(Channels.EXPORT_CSV, csv),
   },
@@ -375,6 +381,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onSave: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE, () => cb());
+    },
+    onSaveAsTemplate: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SAVE_AS_TEMPLATE, () => cb());
     },
     onToggleSidebar: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_TOGGLE_SIDEBAR, () => cb());

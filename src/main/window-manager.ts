@@ -6,6 +6,7 @@ import { markPathHandled as markPathHandledImpl, wasHandled } from './notebase/p
 import * as graph from './graph/index';
 import * as search from './search/index';
 import * as notebaseFs from './notebase/fs';
+import * as templates from './notebase/templates';
 import * as tables from './sources/tables';
 import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import { addRecentProject } from './recent-projects';
@@ -158,6 +159,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   win.once('closed', () => { unsubCollision(); });
 
   const projectCtx: ProjectContext = await acquireProject(rootPath, win.id);
+  // Seed `.minerva/templates/` if absent (#475). Idempotent — existing
+  // projects pick up the stock set the first time they're opened
+  // after this lands; user-curated folders are left untouched.
+  try {
+    await templates.ensureSeeded(rootPath);
+  } catch (err) {
+    console.warn('[window-manager] template seed failed', err);
+  }
   addRecentProject(rootPath);
   rebuildMenu();
 

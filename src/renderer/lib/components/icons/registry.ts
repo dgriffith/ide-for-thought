@@ -112,6 +112,20 @@ export const ICONS = {
     '<path d="m4.5 4.5 1.5 1.5M10 10l1.5 1.5M11.5 4.5 10 6M6 10l-1.5 1.5"/>',
   send: '<path d="M2.5 8 13.5 3 11 13.5 7.5 9.5z"/>',
 
+  // ── Note types (sidebar + New Note picker) ───────────────────────
+  // `notes` (page-with-fold) is the markdown default; `tables` (grid)
+  // already covers CSV. These add the missing two so the FileTree can
+  // disambiguate at a glance.
+  graph:
+    '<circle cx="4" cy="4.5" r="1.4"/>' +
+    '<circle cx="12" cy="4.5" r="1.4"/>' +
+    '<circle cx="8" cy="12" r="1.4"/>' +
+    '<path d="M5.4 4.5h5.2M5 5.8 7.3 10.7M11 5.8 8.7 10.7"/>',
+  code:
+    '<path d="M5.5 5.5 3 8l2.5 2.5"/>' +
+    '<path d="M10.5 5.5 13 8l-2.5 2.5"/>' +
+    '<path d="M9.5 4.5 6.5 11.5"/>',
+
   // ── Brand ─────────────────────────────────────────────────────────
   minervaMark:
     '<circle cx="8" cy="8" r="6"/>' +
