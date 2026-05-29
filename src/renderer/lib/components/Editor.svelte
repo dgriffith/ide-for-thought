@@ -747,6 +747,38 @@
     return { from: main.from, to: main.to };
   }
 
+  /** Selected text (empty string if no selection). Used by the
+   *  snippet flow (#475) so a `{{selection}}` placeholder picks up
+   *  whatever the user had highlighted at the trigger moment. */
+  export function getSelectedText(): string {
+    if (!view) return '';
+    const main = view.state.selection.main;
+    if (main.from === main.to) return '';
+    return view.state.doc.sliceString(main.from, main.to);
+  }
+
+  /**
+   * Replace the current selection (or insert at the caret if there
+   * is no selection) with `text`. If `caretWithin` is non-null, the
+   * cursor lands at that offset inside the inserted text — used by
+   * the snippet flow to honour a `{{cursor}}` marker. Returns true
+   * if an edit was applied.
+   */
+  export function insertText(text: string, caretWithin: number | null = null): boolean {
+    if (!view) return false;
+    const main = view.state.selection.main;
+    const insertPos = main.from;
+    const finalCaret = caretWithin !== null
+      ? insertPos + caretWithin
+      : insertPos + text.length;
+    view.dispatch({
+      changes: { from: main.from, to: main.to, insert: text },
+      selection: { anchor: finalCaret },
+    });
+    view.focus();
+    return true;
+  }
+
   /**
    * Resolve a thought:Claim URI from the active selection, then the
    * line under the cursor. Returns null when nothing matches. Used by
@@ -774,16 +806,6 @@
     view.dispatch({
       selection: { anchor: clamped },
       effects: EditorView.scrollIntoView(clamped, { y: 'center' }),
-    });
-    view.focus();
-  }
-
-  export function insertText(text: string) {
-    if (!view) return;
-    const pos = view.state.selection.main.head;
-    view.dispatch({
-      changes: { from: pos, insert: text },
-      selection: { anchor: pos + text.length },
     });
     view.focus();
   }

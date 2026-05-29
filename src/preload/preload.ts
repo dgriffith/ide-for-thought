@@ -385,6 +385,9 @@ contextBridge.exposeInMainWorld('api', {
     onSaveAsTemplate: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE_AS_TEMPLATE, () => cb());
     },
+    onInsertTemplate: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INSERT_TEMPLATE, () => cb());
+    },
     onToggleSidebar: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_TOGGLE_SIDEBAR, () => cb());
     },

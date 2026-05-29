@@ -39,6 +39,10 @@ export interface SubstitutionContext {
   title: string;
   /** Used for `{{date}}` / `{{time}}` substitution. Defaults to `new Date()`. */
   now?: Date;
+  /** Currently-selected text in the host editor, substituted for
+   *  `{{selection}}`. Only meaningful in the snippet-insertion flow
+   *  (#475). Empty string when nothing is selected. */
+  selection?: string;
   /** Resolver for `{{prompt:Label}}`. Returns `null` if the user cancels;
    *  the engine then aborts substitution and returns `cancelled: true`. */
   prompt?: (label: string) => Promise<string | null>;
@@ -156,6 +160,7 @@ async function resolvePlaceholder(
   now: Date,
 ): Promise<PlaceholderResolution> {
   if (expr === 'title') return { kind: 'text', text: ctx.title };
+  if (expr === 'selection') return { kind: 'text', text: ctx.selection ?? '' };
   if (expr === 'cursor') return { kind: 'cursor' };
   if (expr === 'date') return { kind: 'text', text: formatDateTime('YYYY-MM-DD', now) };
   if (expr === 'time') return { kind: 'text', text: formatDateTime('HH:mm', now) };

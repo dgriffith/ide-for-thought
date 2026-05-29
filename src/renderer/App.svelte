@@ -25,7 +25,9 @@
   import PromptDialog from './lib/components/PromptDialog.svelte';
   import NewNoteDialog from './lib/components/NewNoteDialog.svelte';
   import type { NoteExt, NewNoteResult } from './lib/components/new-note-dialog-types';
+  import SnippetPickerDialog from './lib/components/SnippetPickerDialog.svelte';
   import { substituteTemplate } from '../shared/templates';
+  import type { TemplateInfo } from './lib/ipc/client';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -231,6 +233,10 @@
   let newNoteDialog = $state<{
     initialExt: NoteExt;
     resolve: (value: NewNoteResult | null) => void;
+  } | null>(null);
+  let snippetPicker = $state<{
+    templates: TemplateInfo[];
+    resolve: (value: TemplateInfo | null) => void;
   } | null>(null);
   let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; hideDontAskAgain?: boolean; resolve: (value: boolean) => void } | null>(null);
   let exportDialogFor = $state<string | null>(null);
@@ -506,6 +512,9 @@
       { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File',
         keybinding: null, enabled: hasActiveNoteTab,
         run: () => { void handleSaveAsTemplate(); } },
+      { id: 'edit.insertTemplate', title: 'Insert Template…', category: 'Edit',
+        keybinding: null, enabled: hasActiveNoteTab,
+        run: () => { void handleInsertTemplate(); } },
       // ── Edit / search ──
       { id: 'edit.find', title: 'Find', category: 'Edit',
         keybinding: formatAccelerator('CmdOrCtrl+F'),
@@ -972,6 +981,38 @@
       requestAnimationFrame(() => editorComponent?.restorePosition(offset, 0));
     }
     sidebar?.refreshTags();
+  }
+
+  /** Show the snippet picker (#475). Resolves with the chosen
+   *  template or `null` when the user cancels. */
+  function showSnippetPicker(templates: TemplateInfo[]): Promise<TemplateInfo | null> {
+    return new Promise((resolve) => { snippetPicker = { templates, resolve }; });
+  }
+
+  /** Insert a template's substituted body at the editor caret
+   *  (replacing the current selection if any). `{{selection}}`
+   *  picks up the selected text; `{{cursor}}` becomes the post-
+   *  insert caret position; `{{prompt:Label}}` pauses for input
+   *  via the existing showPrompt dialog. (#475) */
+  async function handleInsertTemplate(): Promise<void> {
+    if (!notebase.meta) return;
+    if (editor.activeTab?.type !== 'note') return;
+    const list = await api.templates.list();
+    if (list.length === 0) return;
+    const picked = await showSnippetPicker(list);
+    if (!picked) return;
+    const body = await api.templates.get(picked.filename);
+    if (body === null) return;
+    const selection = editorComponent?.getSelectedText() ?? '';
+    const titleFromPath = (editor.activeFilePath?.split('/').pop() ?? '')
+      .replace(/\.(md|ttl|csv|py)$/i, '');
+    const sub = await substituteTemplate(body, {
+      title: titleFromPath,
+      selection,
+      prompt: (label: string) => showPrompt(`${label}:`),
+    });
+    if (sub.cancelled) return;
+    editorComponent?.insertText(sub.content, sub.cursorOffset);
   }
 
   /** Save the active note's body as a template under
@@ -2741,6 +2782,7 @@
     api.menu.onNewNote(() => handleNewNote());
     api.menu.onSave(() => handleSave());
     api.menu.onSaveAsTemplate(() => { void handleSaveAsTemplate(); });
+    api.menu.onInsertTemplate(() => { void handleInsertTemplate(); });
     api.menu.onCycleTheme(() => handleCycleTheme());
     api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
@@ -3310,6 +3352,13 @@
       initialExt={newNoteDialog.initialExt}
       onConfirm={(value) => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(value); }}
       onCancel={() => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(null); }}
+    />
+  {/if}
+  {#if snippetPicker}
+    <SnippetPickerDialog
+      templates={snippetPicker.templates}
+      onPick={(t) => { const r = snippetPicker!.resolve; snippetPicker = null; r(t); }}
+      onCancel={() => { const r = snippetPicker!.resolve; snippetPicker = null; r(null); }}
     />
   {/if}
   {#if mineReviewState}

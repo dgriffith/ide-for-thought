@@ -509,6 +509,7 @@ export interface MenuApi {
   onNewNote(cb: () => void): void;
   onSave(cb: () => void): void;
   onSaveAsTemplate(cb: () => void): void;
+  onInsertTemplate(cb: () => void): void;
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
