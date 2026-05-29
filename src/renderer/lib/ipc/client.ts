@@ -667,6 +667,9 @@ export interface SourcesApi {
   } | null>;
   /** Read raw bytes of a persisted source's original.pdf (#95). */
   readPdf(sourceId: string): Promise<Uint8Array>;
+  /** True iff `.minerva/sources/<id>/original.pdf` exists. Used by the
+   *  source detail UI to decide whether to show the PDF affordance. */
+  hasPdf(sourceId: string): Promise<boolean>;
   /** Hand per-page OCR'd text back to main; it writes body.md + stamps meta.ttl (#95). */
   finishPdfOcr(sourceId: string, pages: string[]): Promise<void>;
   /** Open a .bib picker and bulk-import every entry (#98). Returns null if cancelled. */

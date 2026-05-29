@@ -29,10 +29,23 @@
      *  host runs the search, surfaces a picker if needed, and
      *  re-loads this detail when the meta.ttl gets rewritten. */
     onResolveStub?: (sourceId: string) => Promise<void>;
+    /** Open the source's `original.pdf` in a PDF tab (#100). Host
+     *  may also remember the preference per source so the next
+     *  open of this source routes to the PDF directly. */
+    onOpenPdf?: (sourceId: string) => void;
   }
 
-  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference, onResolveStub }: Props = $props();
+  let { sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted, onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf }: Props = $props();
   let resolving = $state(false);
+
+  /** True when `.minerva/sources/<id>/original.pdf` exists, so the
+   *  "Open original PDF" button can show (#100). Resolved on mount;
+   *  re-resolved when the active source changes. */
+  let hasPdf = $state(false);
+
+  $effect(() => {
+    void api.sources.hasPdf(sourceId).then((r) => { hasPdf = r; });
+  });
 
   async function handleDelete() {
     if (!detail) return;
@@ -344,6 +357,9 @@
         </span>
       </div>
       <div class="actions">
+        {#if hasPdf && onOpenPdf}
+          <button class="action-btn" onclick={() => onOpenPdf(sourceId)}>Open original PDF</button>
+        {/if}
         <button class="action-btn" onclick={handleDelete}>Delete source</button>
       </div>
     </section>

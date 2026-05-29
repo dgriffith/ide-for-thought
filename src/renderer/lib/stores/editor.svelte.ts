@@ -44,13 +44,22 @@ export interface SourceTab {
   highlightExcerptId?: string;
 }
 
-export type Tab = NoteTab | QueryTab | SourceTab;
+export interface PdfTab {
+  type: 'pdf';
+  sourceId: string;
+  /** 1-based current page; viewer updates this on navigation so
+   *  reopening the tab restores the user's place. */
+  page: number;
+}
+
+export type Tab = NoteTab | QueryTab | SourceTab | PdfTab;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function isNote(tab: Tab): tab is NoteTab { return tab.type === 'note'; }
 function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
 function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
+function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
 
 let queryCounter = 0;
 
@@ -102,6 +111,36 @@ export function getEditorStore() {
     };
     tabs.push(tab);
     activeIndex = tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  function openPdf(sourceId: string, opts?: { page?: number }) {
+    const existing = tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
+    if (existing !== -1) {
+      const existingTab = tabs[existing] as PdfTab;
+      if (opts?.page) existingTab.page = opts.page;
+      activeIndex = existing;
+      schedulePersistTabs();
+      return;
+    }
+    const tab: PdfTab = {
+      type: 'pdf',
+      sourceId,
+      page: opts?.page ?? 1,
+    };
+    tabs.push(tab);
+    activeIndex = tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /** Update the persisted current page on the active PDF tab so the
+   *  next reload of this source's PDF restores where the user was. */
+  function setPdfPage(sourceId: string, page: number) {
+    const idx = tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
+    if (idx === -1) return;
+    const tab = tabs[idx] as PdfTab;
+    if (tab.page === page) return;
+    tab.page = page;
     schedulePersistTabs();
   }
 
@@ -238,6 +277,8 @@ export function getEditorStore() {
         return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
       } else if (isQuery(t)) {
         return { type: 'query', title: t.title, query: t.query, language: t.language };
+      } else if (isPdf(t)) {
+        return { type: 'pdf', sourceId: t.sourceId, page: t.page };
       } else {
         return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
       }
@@ -283,6 +324,12 @@ export function getEditorStore() {
           executionTime: null,
         };
         tabs.push(tab);
+      } else if (saved.type === 'pdf') {
+        tabs.push({
+          type: 'pdf',
+          sourceId: saved.sourceId,
+          page: saved.page ?? 1,
+        });
       } else {
         tabs.push({
           type: 'source',
@@ -479,6 +526,8 @@ export function getEditorStore() {
     get hasAnyDirty() { return tabs.some((t) => isNote(t) && t.content !== t.savedContent); },
     openFile,
     openSource,
+    openPdf,
+    setPdfPage,
     save,
     isPathDirty,
     closeTabsForDeletedPath,

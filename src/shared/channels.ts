@@ -214,6 +214,10 @@ export const Channels = {
   SOURCES_INGEST_PDF: 'sources:ingestPdf',
   /** Read raw PDF bytes of a persisted source, used by the OCR worker (#95). */
   SOURCES_READ_PDF: 'sources:readPdf',
+  /** Cheap check used by the source detail UI to decide whether to
+   *  show the "Open original PDF" button. Returns true iff
+   *  `.minerva/sources/<id>/original.pdf` exists. */
+  SOURCES_HAS_PDF: 'sources:hasPdf',
   /** Renderer returns OCR'd per-page text; main writes body.md + stamps meta.ttl (#95). */
   SOURCES_FINISH_PDF_OCR: 'sources:finishPdfOcr',
   /** Bulk import from a .bib file (#98). Main opens a picker and parses via @retorquere/bibtex-parser. */
