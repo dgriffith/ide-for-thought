@@ -13,6 +13,7 @@
   import { highlightWhitespace } from '@codemirror/view';
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
+  import { acceptCompletionEatTail, completionKeymapNoEnter } from '../editor/accept-completion-eat-tail';
   import { historyField } from '@codemirror/commands';
   import { api } from '../ipc/client';
   import {
@@ -833,6 +834,13 @@
       // when no completion panel is open, so Tab-for-indent still works
       // everywhere else.
       { key: 'Tab', run: acceptCompletion },
+      // Enter accepts the active completion and eats the half-typed word tail
+      // (#206) — only word chars, so `[[No|te]]` → `[[Notebook]]` keeps its
+      // brackets. Returns false with no popup open, so Enter stays a newline /
+      // list-continuation. completionKeymapNoEnter restores arrow-nav and
+      // Escape that defaultKeymap:false (below) removes.
+      { key: 'Enter', run: acceptCompletionEatTail },
+      ...completionKeymapNoEnter,
       ...resolved.map(({ key: k, command: run }) => ({ key: k, run })),
     ]));
 
@@ -868,6 +876,9 @@
       override: [tagCompletion, linkCompletion],
       activateOnTyping: true,
       closeOnBlur: true,
+      // Our Enter binding (acceptCompletionEatTail) owns accept-on-Enter; the
+      // built-in one would win the tie otherwise (#206).
+      defaultKeymap: false,
     });
 
     const allExtensions = [...extensions, appKeymap, updateListener, completion];
