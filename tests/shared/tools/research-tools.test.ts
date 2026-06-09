@@ -1,24 +1,27 @@
 /**
- * Coverage for the research-category tool definitions (#413 onwards).
- *
- * Mirrors the learning-tools.test.ts pattern: the registry shape +
- * the buildSystemPrompt / buildFirstMessage threading, since those are
- * the only functions consumers touch directly.
+ * Coverage for the research skills (migrated from .ts tools to stock skill
+ * files in #627). Exercises the compiled stock skills end-to-end.
  */
 
-import { describe, it, expect } from 'vitest';
-import '../../../src/shared/tools/definitions/index';
-import { getTool, getToolInfosByCategory } from '../../../src/shared/tools/registry';
+import { describe, it, expect, beforeAll } from 'vitest';
+import path from 'node:path';
+import { loadSkillCatalog } from '../../../src/main/skills/loader';
+import { compileSkill } from '../../../src/main/skills/compile';
 import { buildConversationPayload } from '../../../src/main/tools/executor';
+import type { ThinkingToolDef } from '../../../src/shared/tools/types';
 
-describe('research.load-bearing-claim (#413)', () => {
-  it('is registered under the research category', () => {
-    const ids = getToolInfosByCategory('research').map((t) => t.id);
-    expect(ids).toContain('research.load-bearing-claim');
-  });
+let defs: Map<string, ThinkingToolDef>;
 
-  it('is conversational + web-on by default', () => {
-    const tool = getTool('research.load-bearing-claim')!;
+beforeAll(async () => {
+  const cat = await loadSkillCatalog(path.join(__dirname, '__no_user_skills__'));
+  expect(cat.errors).toEqual([]);
+  defs = new Map(cat.skills.map((s) => [s.id, compileSkill(s)]));
+});
+
+describe('research.load-bearing-claim (#413, migrated #627)', () => {
+  it('is a research skill, conversational + web-on by default', () => {
+    const tool = defs.get('research.load-bearing-claim')!;
+    expect(tool.category).toBe('research');
     expect(tool.outputMode).toBe('openConversation');
     expect(tool.web?.defaultEnabled).toBe(true);
     expect(tool.preferredModel).toMatch(/^claude-(sonnet|opus|haiku)-/);
@@ -27,17 +30,12 @@ describe('research.load-bearing-claim (#413)', () => {
   });
 
   it('does NOT require selection — running on the whole note is a valid use', () => {
-    // Selecting the whole paragraph and "do the analysis on the whole
-    // note" should both work; gating on selection would force the user
-    // to ⌘A every time.
-    const tool = getTool('research.load-bearing-claim')!;
-    expect(tool.requiresSelection).toBeFalsy();
+    expect(defs.get('research.load-bearing-claim')!.requiresSelection).toBeFalsy();
   });
 
   it('threads the source path into the system prompt without the .md suffix', () => {
-    const tool = getTool('research.load-bearing-claim')!;
     const payload = buildConversationPayload(
-      tool,
+      defs.get('research.load-bearing-claim')!,
       {},
       {
         context: {
@@ -47,64 +45,57 @@ describe('research.load-bearing-claim (#413)', () => {
         },
       },
     );
-    // Pin both forms in the prompt: the full file path (so the model
-    // knows where the passage came from) and the stem in
-    // backtick-fences (the literal target the model should use in the
-    // wiki-link). The regex catches the stem as a balanced
-    // `code-fenced` token without the .md suffix.
     expect(payload.systemPrompt).toContain('notes/standup-2026-04-26.md');
     expect(payload.systemPrompt).toMatch(/`notes\/standup-2026-04-26`/);
   });
 
-  it('teaches the model the typed-wiki-link convention so structure flows through indexing', () => {
-    const tool = getTool('research.load-bearing-claim')!;
-    const sys = tool.buildSystemPrompt!({});
-    // The triple `thought:loadBearingFor` is materialised from this
-    // exact link form via the LINK_TYPES registry. If the prompt
-    // drifts to a different shape (e.g. plain `[[…]]`), the structural
-    // fact disappears from the graph silently — pin it here.
+  it('teaches the typed-wiki-link convention so structure flows through indexing', () => {
+    const sys = defs.get('research.load-bearing-claim')!.buildSystemPrompt!({});
     expect(sys).toContain('[[load-bearing-for::');
-    expect(sys).toContain('load-bearing-for:'); // frontmatter key
+    expect(sys).toContain('load-bearing-for:');
     expect(sys).toMatch(/anti-flattery/i);
     expect(sys).toContain('propose_notes');
     expect(sys).toMatch(/runners-up/i);
   });
 
   it('falls back gracefully when the passage was not pulled from a saved note', () => {
-    const tool = getTool('research.load-bearing-claim')!;
-    const sys = tool.buildSystemPrompt!({});
-    // Without a source path, telling the model to write a wiki-link
-    // pointing nowhere would produce an unresolvable link. The prompt
-    // explicitly drops the frontmatter + inline link in that case.
+    const sys = defs.get('research.load-bearing-claim')!.buildSystemPrompt!({});
     expect(sys).toMatch(/skip the/i);
     expect(sys).toMatch(/load-bearing-for/);
   });
 
   it('builds a first message that includes the passage and a source label', () => {
-    const tool = getTool('research.load-bearing-claim')!;
     const payload = buildConversationPayload(
-      tool,
+      defs.get('research.load-bearing-claim')!,
       {},
-      {
-        context: {
-          selectedText: 'A then B then therefore C.',
-          fullNoteTitle: 'argument',
-        },
-      },
+      { context: { selectedText: 'A then B then therefore C.', fullNoteContent: 'full note body', fullNoteTitle: 'argument' } },
     );
     expect(payload.firstMessage).toContain('A then B then therefore C.');
     expect(payload.firstMessage).toMatch(/Selection from: argument/);
   });
 
-  it('handles the no-passage edge by asking the model to operate on the current passage', () => {
-    const tool = getTool('research.load-bearing-claim')!;
-    const payload = buildConversationPayload(
-      tool,
-      {},
-      { context: {} },
-    );
-    // Empty context shouldn't error — the user could have invoked the
-    // tool without a note open. The first message stays generic.
+  it('handles the no-passage edge by operating on the current passage', () => {
+    const payload = buildConversationPayload(defs.get('research.load-bearing-claim')!, {}, { context: {} });
     expect(payload.firstMessage).toContain('Find the load-bearing claim');
+  });
+});
+
+describe('research skills present', () => {
+  it('all six load with the expected ids', () => {
+    for (const id of [
+      'research.crystallize',
+      'research.decompose',
+      'research.decompose-into-claims',
+      'research.find-supporting-arguments',
+      'research.find-opposing-arguments',
+      'research.load-bearing-claim',
+    ]) {
+      expect(defs.get(id), id).toBeDefined();
+      expect(defs.get(id)!.category).toBe('research');
+    }
+  });
+
+  it('decompose carries the ask_user opt-in tool', () => {
+    expect(defs.get('research.decompose')!.requiresTools).toEqual(['ask_user']);
   });
 });

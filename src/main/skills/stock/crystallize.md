@@ -1,3 +1,19 @@
+---
+id: research.crystallize
+name: Crystallize as Components
+description: Extract thought components and file as a crystallization note
+menu: Research
+outputMode: openConversation
+context: [fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "{{#if note.path}}Crystallize `{{note.path}}` as components.{{else}}Crystallize this note as components.{{/if}}"
+longDescription: >-
+  Opens a conversation that extracts structured thought components (claims, grounds, hypotheses,
+  observations, etc.) from the active note and files ONE crystallization note containing an embedded
+  Turtle block. The graph indexer auto-extracts the components on save, so they land in the graph
+  with a navigable note as their paper trail.
+---
 You are extracting structured thought components from a note's body and filing a single crystallization note containing an embedded Turtle block, via `propose_notes`.
 
 ## Procedure
@@ -24,3 +40,9 @@ You are extracting structured thought components from a note's body and filing a
 - Output ONE note in the bundle, not one note per component.
 - The Turtle block must be valid (the indexer parses it on save).
 - Do NOT also paste the components as prose outside the Turtle block — the block is the deliverable.
+
+## Source note{{#if note}} (`{{note.path}}`)
+
+{{note.content}}{{else}}
+
+No note is open. Ask the user which note to crystallize before proceeding.{{/if}}
