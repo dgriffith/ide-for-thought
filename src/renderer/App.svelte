@@ -89,6 +89,7 @@
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos, registerSkillInfos } from './lib/tools/tool-registry';
+  import { applyMenuConfig } from '../shared/skills/menu-config';
   import type { ToolContext } from '../shared/tools/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
@@ -2875,7 +2876,9 @@
     void (async () => {
       try {
         const cat = await api.skills.list();
-        registerSkillInfos(cat.skills);
+        // Apply the per-machine menu config (#630): only enabled skills, in
+        // their effective menu and configured order, reach the palette / slash.
+        registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
       } catch (err) {
         console.warn('[skills] failed to load skill list:', err);
       }

@@ -357,6 +357,7 @@ contextBridge.exposeInMainWorld('api', {
     import: () => ipcRenderer.invoke(Channels.SKILLS_IMPORT),
     remove: (id: string) => ipcRenderer.invoke(Channels.SKILLS_REMOVE, id),
     revealFolder: () => ipcRenderer.invoke(Channels.SKILLS_REVEAL),
+    setMenuConfig: (config: unknown) => ipcRenderer.invoke(Channels.SKILLS_MENU_CONFIG_SET, config),
   },
   sites: {
     list: () => ipcRenderer.invoke(Channels.SITES_LIST),

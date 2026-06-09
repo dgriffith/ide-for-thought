@@ -9,6 +9,8 @@ import { registerTool, unregisterTool } from '../../shared/tools/registry';
 import { compileSkill } from './compile';
 import { getSkillCatalog, reloadSkillCatalog } from './loader';
 import type { SkillCatalog } from '../../shared/skills/types';
+import { applyMenuConfig } from '../../shared/skills/menu-config';
+import { getMenuConfig, loadMenuConfig } from './menu-config-store';
 
 const registeredSkillIds = new Set<string>();
 
@@ -17,7 +19,11 @@ function applyCatalog(catalog: SkillCatalog): void {
   // the fresh set. Safe to run repeatedly.
   for (const id of registeredSkillIds) unregisterTool(id);
   registeredSkillIds.clear();
-  for (const skill of catalog.skills) {
+  // Honor the per-machine menu config: disabled skills are skipped entirely
+  // (off the menu, palette and slash), menu overrides change their category,
+  // and the configured order becomes the registration order.
+  const live = applyMenuConfig(catalog.skills, getMenuConfig());
+  for (const skill of live) {
     registerTool(compileSkill(skill));
     registeredSkillIds.add(skill.id);
   }
@@ -31,9 +37,16 @@ function applyCatalog(catalog: SkillCatalog): void {
 /** Load (cached) and register skills. Call once during app startup, before
  *  menus are built. */
 export async function registerSkillsAtStartup(): Promise<SkillCatalog> {
+  await loadMenuConfig();
   const catalog = await getSkillCatalog();
   applyCatalog(catalog);
   return catalog;
+}
+
+/** Re-apply the current catalog with the current (already-loaded) menu config.
+ *  Call after the config changes so the registry and menus reflect it. */
+export function reapplyMenuConfig(catalog: SkillCatalog): void {
+  applyCatalog(catalog);
 }
 
 /** Re-scan skill files and re-sync the registry. Returns the fresh catalog so

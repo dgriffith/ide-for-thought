@@ -65,7 +65,14 @@ function normalizeParameters(raw: unknown, errors: string[]): ToolParameter[] {
     if (obj.placeholder !== undefined) param.placeholder = asString(obj.placeholder);
     // `default` (friendly) or `defaultValue`
     const dflt = obj.default ?? obj.defaultValue;
-    if (dflt !== undefined) param.defaultValue = String(dflt);
+    if (dflt !== undefined) {
+      param.defaultValue =
+        typeof dflt === 'string'
+          ? dflt
+          : typeof dflt === 'number' || typeof dflt === 'boolean'
+            ? String(dflt)
+            : JSON.stringify(dflt);
+    }
     if (obj.required !== undefined) param.required = Boolean(obj.required);
     if (type === 'select') {
       const opts = obj.options;
@@ -109,7 +116,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
 
   let fm: Record<string, unknown>;
   try {
-    const parsed = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]);
     if (typeof parsed !== 'object' || parsed === null) {
       return { errors: ['frontmatter is not a YAML mapping'], label: fallbackLabel };
     }

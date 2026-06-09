@@ -512,6 +512,10 @@ export interface SkillsApi {
   import(): Promise<{ id: string; name: string } | null>;
   remove(id: string): Promise<void>;
   revealFolder(): Promise<void>;
+  /** Persist the per-machine menu config; returns the normalized config. */
+  setMenuConfig(
+    config: import('../../../shared/skills/menu-config').MenuConfig,
+  ): Promise<import('../../../shared/skills/menu-config').MenuConfig>;
 }
 
 export interface MenuApi {
