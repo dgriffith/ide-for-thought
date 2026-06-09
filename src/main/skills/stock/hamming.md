@@ -1,3 +1,19 @@
+---
+id: analysis.hamming
+name: Hamming Question
+description: Surface the most-important problem you are not working on
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-opus-4-7
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, apply the Hamming question."
+longDescription: >-
+  Applies Richard Hamming's question — what are the most important problems in your field, and
+  why aren't you working on them? — to the source. Output is the highest-leverage problem the
+  source either ignores or under-prioritises, plus the reasons it might be getting avoided.
+  Useful for portfolio-style decisions and yearly reviews.
+---
 
 # hamming
 
@@ -87,3 +103,12 @@ For each gap, choose one:
 
 See [examples.md](examples.md) for worked examples.
 See [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

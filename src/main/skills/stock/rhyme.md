@@ -1,3 +1,18 @@
+---
+id: analysis.rhyme
+name: Rhyme
+description: Fast structural-similarity recognition — what does this echo?
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: true
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the rhymes."
+longDescription: >-
+  Surfaces structural rhymes — past situations, historical patterns, or analogues whose shape
+  resembles the source. Pairs with Metaphorize: rhyme is recognition, metaphorize is mapping.
+  Reach for this when you want quick "this looks like…" matches before committing to a full analogy.
+---
 
 # Rhyme
 
@@ -348,3 +363,12 @@ Related concepts:
 - Analogical reasoning (Hofstadter)
 - Pattern matching in expertise (Klein)
 - Structural similarity (Gentner)
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

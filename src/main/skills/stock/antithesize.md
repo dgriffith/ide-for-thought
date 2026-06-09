@@ -1,3 +1,31 @@
+---
+id: analysis.antithesize
+name: Antithesize
+description: Generate a standalone opposition — a complete rival worldview
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-opus-4-7
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, generate the antithesis."
+longDescription: >-
+  Produces an antithesis that stands on its own — comprehensible without reading the original
+  thesis. Not refutation; an alternative complete worldview. Pairs with Steelman (which strengthens
+  the original) and Synthesize (which compresses thesis + antithesis into a unified frame). Use a
+  higher intensity to push the opposition further from the original.
+parameters:
+  - id: intensity
+    label: Intensity
+    type: select
+    default: "standard. Strong opposition, fair fight. The opposition should be load-bearing and complete, not tactical jabs."
+    options:
+      - label: "Gentle — civil disagreement, shared frame"
+        value: "gentle. Stay within a shared analytic frame — disagree civilly, not destructively. The author would still recognise the disagreement as fair."
+      - label: "Standard — strong opposition, fair fight"
+        value: "standard. Strong opposition, fair fight. The opposition should be load-bearing and complete, not tactical jabs."
+      - label: "Adversarial — push to the far edge of plausibility"
+        value: "adversarial. Push the opposition to the far edge of plausibility. The author should find this view alien but not strawmanned. Identity-attacking moves are fine if they cut at real assumptions."
+---
 
 ## tl;dr
 
@@ -621,3 +649,14 @@ antithesis is PROSOCIAL DISAGREEMENT. you're helping thesis-holder by:
 done well, thesis-holder should say "that's a strong counter, i need to think about it" not "you're attacking me."
 
 the goal isn't to WIN—it's to find TRUTH via collision of complete worldviews.
+
+Contract: {{param.intensity}}
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

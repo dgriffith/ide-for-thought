@@ -1,3 +1,19 @@
+---
+id: analysis.referenceclass
+name: Reference Class
+description: Forecast via base rates from the right outside view
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: true
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the reference class."
+longDescription: >-
+  Forces an outside view: pick a reference class of similar past situations, surface their base
+  rate, then check whether the current case has any features that should move the estimate off
+  that rate. Reach for this when an estimate or prediction is in the air and "this time is
+  different" thinking is doing more work than the inside view warrants.
+---
 
 # referenceclass
 
@@ -72,3 +88,12 @@ Start from the base rate. Apply adjustments. The final estimate should be closer
 
 See [examples.md](examples.md) for worked examples.
 See [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

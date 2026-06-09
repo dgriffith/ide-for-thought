@@ -1,3 +1,19 @@
+---
+id: analysis.noticing
+name: Noticing
+description: Surface the felt sense the prose isn't saying out loud
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, name what is being noticed."
+longDescription: >-
+  Reads the source for the things the writer is sensing but not yet articulating — confusion,
+  disagreement, hesitation, excitement, surprise. Output names each noticed felt sense, points
+  at the textual evidence for it, and asks one or two questions that would make the noticed
+  thing legible. Useful when prose feels like it's circling something it can't quite say.
+---
 
 # noticing
 
@@ -86,3 +102,12 @@ Either investigate now (using the appropriate skill — innerloop for prediction
 
 See [examples.md](examples.md) for worked examples.
 See [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

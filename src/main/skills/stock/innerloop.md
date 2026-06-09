@@ -1,3 +1,19 @@
+---
+id: analysis.innerloop
+name: Inner Loop
+description: Sim the plan from the inside — what would actually happen?
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, sim the inner loop."
+longDescription: >-
+  Mentally simulates a plan or scenario from the inside, step by step, surfacing the friction
+  points the outside view tends to gloss. Output is a step-by-step inner monologue plus the moments
+  where the simulation predicts a stumble and the user would course-correct in practice.
+  Complements murphyjitsu (failure-mode listing) — innerloop is "play it forward".
+---
 
 # innerloop
 
@@ -72,3 +88,12 @@ Either update your prediction to match the simulator (if the simulator's track r
 
 See [examples.md](examples.md) for worked examples.
 See [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

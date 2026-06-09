@@ -1,3 +1,19 @@
+---
+id: analysis.aversionfactor
+name: Aversion Factor
+description: Decompose a stated objection into the underlying aversions
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, aversion-factor the underlying objection."
+longDescription: >-
+  Inverse of goal-factor: takes a stated objection or hesitation and walks it down to the actual
+  aversions driving it. Output names the aversion crisply, identifies which actions would actually
+  address it (vs. accommodate it), and flags when a stated reason is doing motivated cover for a
+  different felt sense.
+---
 
 Apply aversionfactor to: $ARGUMENTS
 
@@ -108,3 +124,12 @@ Now that the real aversion is visible:
 See [examples](examples.md) for worked demonstrations.
 
 See [reference](reference.md) for aversion taxonomy, quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

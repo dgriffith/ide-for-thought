@@ -1,3 +1,19 @@
+---
+id: analysis.inductify
+name: Inductify
+description: Cross-example pattern extraction — what underlies these cases?
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, extract the inductive pattern."
+longDescription: >-
+  Given several cases, examples, or anecdotes, extracts the unifying pattern behind them. Output is
+  a stated regularity plus the cases it covers and the cases that resist it — calibrated, not
+  sweeping. Reach for this when you have a pile of "kinda similar" things and need to name what
+  actually links them.
+---
 
 # inductify
 
@@ -179,3 +195,12 @@ Cluster patterns into pattern families where they share a latent factor (e.g., "
 
 inductify = structured induction + mechanistic grounding + negative-space awareness + calibrated scope. Its job is not to generate pretty generalizations; it's to extract robust, falsifiable structure from messy particulars and make clear where you're extrapolating vs guessing.
 
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}
