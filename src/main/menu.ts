@@ -457,57 +457,18 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // Tools for Thought — dynamic menus from tool registry. Order picked
-    // deliberately so the menu reads top-down as a workflow: Refactor (the
-    // structural moves), then Learning (read+understand), then Research
-    // (write+propose), then Analysis (cross-cutting).
-    ...['learning' as const]
+    // Tools for Thought — dynamic menus from the tool registry (skills are
+    // compiled into it at startup). Order picked deliberately so the menu
+    // reads top-down as a workflow: Refactor (the structural moves, above),
+    // then Learning (read+understand), Research (write+propose), Analysis
+    // (cross-cutting). Each category's items come straight from the registry —
+    // since #627, Research is data-driven like the others (it used to be a
+    // hardcoded block that listed only 4 of the 6 research tools).
+    ...(['learning', 'research', 'analysis'] as const)
       .filter((id) => getToolsByCategory(id).length > 0)
       .map((id) => ({
         label: CATEGORIES.find((c) => c.id === id)!.label,
         submenu: getToolsByCategory(id).map(tool => gate({
-          label: tool.name,
-          toolTip: tool.description,
-          click: () => send(Channels.TOOL_INVOKE, tool.id),
-        })),
-      })),
-
-    // Research — LLM-powered tools that produce approval-gated proposals (#408 et al).
-    {
-      label: 'Research',
-      submenu: [
-        gate({
-          label: 'Decompose into Claims',
-          toolTip: 'Open a conversation that decomposes the selection (or the whole note) into individual claims, each as its own thought:Claim note. The model proposes a parent + per-claim bundle for review.',
-          click: () => send(Channels.TOOL_INVOKE, 'research.decompose-into-claims'),
-        }),
-        { type: 'separator' },
-        gate({
-          label: 'Find Supporting Arguments',
-          toolTip: 'For the Claim under the cursor, open a conversation that surfaces the strongest cases in favour of it (web-grounded). The model proposes a note for review.',
-          click: () => send(Channels.TOOL_INVOKE, 'research.find-supporting-arguments'),
-        }),
-        gate({
-          label: 'Find Opposing Arguments',
-          toolTip: 'For the Claim under the cursor, open a conversation that surfaces the strongest cases against it (web-grounded). The model proposes a note for review.',
-          click: () => send(Channels.TOOL_INVOKE, 'research.find-opposing-arguments'),
-        }),
-        { type: 'separator' },
-        gate({
-          label: 'Find Load-Bearing Claim',
-          toolTip: 'Open a conversation that identifies the single claim in the selection (or the whole note) whose falsity would collapse the rest of the argument, plus 2-3 runners-up. The model proposes a note for review.',
-          click: () => send(Channels.TOOL_INVOKE, 'research.load-bearing-claim'),
-        }),
-      ],
-    },
-
-    // Remaining Tools-for-Thought categories (analysis + any ThinkingTool
-    // category that isn't already surfaced above).
-    ...CATEGORIES
-      .filter(cat => cat.id !== 'learning' && cat.id !== 'research' && getToolsByCategory(cat.id).length > 0)
-      .map(cat => ({
-        label: cat.label,
-        submenu: getToolsByCategory(cat.id).map(tool => gate({
           label: tool.name,
           toolTip: tool.description,
           click: () => send(Channels.TOOL_INVOKE, tool.id),

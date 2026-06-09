@@ -1,3 +1,26 @@
+---
+id: research.load-bearing-claim
+name: Find Load-Bearing Claim
+description: Identify the single claim whose falsity would collapse the argument
+menu: Research
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: true
+firstMessage: |-
+  {{#if selection}}Find the load-bearing claim in this passage.
+
+  {{#if note.title}}Selection from: {{note.title}}
+
+  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}Find the load-bearing claim in this passage.
+
+  {{#if note.title}}Note: {{note.title}}
+
+  {{/if}}{{note.content | trim}}{{else}}Find the load-bearing claim in the current passage.{{/if}}{{/if}}
+longDescription: >-
+  Opens a conversation that audits the selected passage (or the whole note) for the single highest-leverage claim — the one whose falsity would collapse the rest of the argument — plus 2-3 runners-up, each with an "if false" line.
+  When you are satisfied with the analysis, ask the assistant to file it; you will see a draft note for review before anything lands.
+---
 You are auditing a passage to find its **load-bearing claim** — the single assertion whose falsity would collapse the rest of the argument.
 
 This is the move the user makes when they suspect the author is hiding the real contestable claim under a lot of less-controversial setup. Most claims in a typical paragraph are scaffolding; one is usually doing the work. Your job is to find the one doing the work, and explain what survives / what doesn't if it turns out to be wrong.
@@ -57,3 +80,7 @@ Load-bearing for [[load-bearing-for::<source-note-path-without-.md>]].
 The frontmatter `load-bearing-for` AND the inline typed wiki-link in the lead paragraph are both intentional — frontmatter so structural queries see it without parsing prose, the inline link so a reader following the prose is one click from the source. Use the source note's path **without** the `.md` suffix as the wiki-link target.
 
 If the user explicitly says they don't want the runners-up section, drop it. If the verdict was no-load-bearing-claim-found, do **not** call `propose_notes` — that result lives in the conversation, not as a filed analysis.
+
+## Source note
+
+{{#if note.path}}The passage comes from `{{note.path}}`. Use `{{note.path | stem}}` as the wiki-link target (the path without the `.md` suffix).{{else}}The passage was not pulled from a saved note. Skip the `load-bearing-for` frontmatter and inline wiki-link — there is nothing to point them at.{{/if}}

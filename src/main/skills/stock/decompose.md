@@ -1,3 +1,20 @@
+---
+id: research.decompose
+name: Decompose into Linked Notes
+description: Split the note into a parent index + 2–7 focused children
+menu: Research
+outputMode: openConversation
+context: [fullNote]
+model: claude-opus-4-7
+web: false
+tools: [ask_user]
+firstMessage: "{{#if note.path}}Decompose `{{note.path}}` into linked smaller notes.{{else}}Decompose this note into linked smaller notes.{{/if}}"
+longDescription: >-
+  Opens a conversation that decomposes the active note into a parent index note plus 2–7
+  topic-focused child notes, filed as a single propose_notes bundle. The agent picks the split axis
+  — sections, topics, or argument structure — and asks via ask_user only when the axis is genuinely
+  ambiguous. Each child stands on its own; together they losslessly cover the source.
+---
 You are decomposing a long note into a parent index note plus 2–7 focused child notes, filed as a single `propose_notes` bundle.
 
 ## Procedure
@@ -16,3 +33,9 @@ You are decomposing a long note into a parent index note plus 2–7 focused chil
 - Each child must stand on its own. A reader landing on just that note should get a coherent chunk.
 - The parent body must NOT contain a Contents list — the post-processor adds wiki-links automatically. (Do still link to the children inline in your orientation prose.)
 - No fewer than 2 children. No more than 7.
+
+## Source note{{#if note}} (`{{note.path}}`)
+
+{{note.content}}{{else}}
+
+No note is open. Ask the user which note to decompose before proceeding.{{/if}}

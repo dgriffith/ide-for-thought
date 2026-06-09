@@ -66,6 +66,9 @@ const FILTERS: Record<string, Filter> = {
   trim: (s) => s.trim(),
   upper: (s) => s.toUpperCase(),
   lower: (s) => s.toLowerCase(),
+  // Drop a trailing `.md` — turns a note path into its wiki-link target,
+  // mirroring the research builders' `path.replace(/\.md$/i, '')`.
+  stem: (s) => s.replace(/\.md$/i, ''),
 };
 
 export const KNOWN_FILTERS: readonly string[] = Object.keys(FILTERS);

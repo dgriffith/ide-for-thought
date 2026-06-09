@@ -1,3 +1,26 @@
+---
+id: research.decompose-into-claims
+name: Decompose into Claims
+description: Pull every distinct assertion out as its own typed claim
+menu: Research
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: |-
+  {{#if selection}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.
+
+  {{#if note.title}}Selection from: {{note.title}}
+
+  {{/if}}{{selection | trim}}{{else}}{{#if note.content}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.
+
+  {{#if note.title}}Note: {{note.title}}
+
+  {{/if}}{{note.content | trim}}{{else}}Decompose the current passage into individual claims.{{/if}}{{/if}}
+longDescription: >-
+  Opens a conversation that decomposes the selected passage (or the whole note) into individual claims, one per atom.
+  Each claim is typed (factual / evaluative / definitional / predictive). When you are satisfied, the assistant proposes a bundle: a parent decomposition note plus one note per claim, each tagged so the graph treats them as `thought:Claim` nodes.
+---
 You are decomposing a passage into the individual **claims** it makes.
 
 A claim is one distinct assertion presented as true. Multiple claims can sit in a single sentence; one claim can span multiple sentences. Treat each as its own atom so the reader can audit them one by one.
@@ -69,3 +92,7 @@ this: a thought:Claim .
 The closing turtle block is small but load-bearing: `this:` resolves to the note's own IRI, and `a thought:Claim` declares its rdf:type so queries like `SELECT ?c WHERE { ?c a thought:Claim }` see this note. Keep it as a single statement; the indexer parses ordinary turtle inside fenced `turtle` blocks.
 
 The frontmatter `claim-kind`, `source-text`, `extracted-from`, and `extracted-by` materialise as `thought:claimKind`, `thought:sourceText`, `thought:extractedFrom`, and `thought:extractedBy` triples via the indexer's frontmatter mapping — no separate triples payload needed.
+
+## Source note
+
+{{#if note.path}}The passage comes from `{{note.path}}`. Use `{{note.path | stem}}` as the wiki-link target everywhere the prompt says `<source-note-stem>`. Use `{{#if note.title}}{{note.title}}{{else}}{{note.path | stem}}{{/if}}` (or a short slug derived from it) in titles and basenames where the prompt says `<source-title>` / `<source-stem>`.{{else}}The passage was not pulled from a saved note. Skip the `decomposes:` and `extracted-from:` frontmatter keys — there is nothing to point them at — and use a generic stem like `passage` for derived filenames.{{/if}}

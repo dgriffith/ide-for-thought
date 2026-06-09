@@ -20,13 +20,5 @@ import './analysis/hamming';
 import './analysis/innerloop';
 import './analysis/noticing';
 
-// Research tools
-import './research/load-bearing-claim';
-import './research/find-supporting-arguments';
-import './research/find-opposing-arguments';
-import './research/decompose-into-claims';
-import './research/decompose';
-import './research/crystallize';
-
-// Learning tools migrated to stock skill files (#626) — see
-// src/main/skills/stock/*.md, loaded by the skill loader.
+// Learning (#626) and Research (#627) tools migrated to stock skill files —
+// see src/main/skills/stock/*.md, loaded by the skill loader.

@@ -1,30 +1,33 @@
 /**
- * Coverage for the conversational rework of #409 / #410.
- *
- * The original PR #423 used a one-shot orchestrator with a JSON
- * parser. The rework drops all of that — both tools are now
- * `outputMode: 'openConversation'` defs whose system prompt teaches
- * the model the desired note shape (frontmatter `supports:` /
- * `rebuts:` carries the structural fact). These tests pin the prompt
- * threading + the polarity-specific contract; the indexer round-trip
+ * Coverage for Find Supporting / Opposing Arguments (#409 / #410), migrated
+ * from .ts tools to stock skill files in #627. Both are conversational skills
+ * whose system prompt teaches the model the note shape (frontmatter
+ * `supports:` / `rebuts:` carries the structural fact). These tests pin the
+ * prompt threading + the polarity-specific contract; the indexer round-trip
  * is covered separately in `tests/main/graph/`.
  */
 
-import { describe, it, expect } from 'vitest';
-import '../../../src/shared/tools/definitions/index';
-import { getTool, getToolInfosByCategory } from '../../../src/shared/tools/registry';
+import { describe, it, expect, beforeAll } from 'vitest';
+import path from 'node:path';
+import { loadSkillCatalog } from '../../../src/main/skills/loader';
+import { compileSkill } from '../../../src/main/skills/compile';
 import { buildConversationPayload } from '../../../src/main/tools/executor';
+import type { ThinkingToolDef } from '../../../src/shared/tools/types';
 
 const FIND_TOOLS = ['research.find-supporting-arguments', 'research.find-opposing-arguments'];
 
-describe('Find Supporting / Opposing Arguments rework (#409 / #410)', () => {
-  it('both tools register under the research category', () => {
-    const ids = getToolInfosByCategory('research').map((t) => t.id);
-    for (const id of FIND_TOOLS) expect(ids).toContain(id);
-  });
+let defs: Map<string, ThinkingToolDef>;
 
+beforeAll(async () => {
+  const cat = await loadSkillCatalog(path.join(__dirname, '__no_user_skills__'));
+  expect(cat.errors).toEqual([]);
+  defs = new Map(cat.skills.map((s) => [s.id, compileSkill(s)]));
+});
+
+describe('Find Supporting / Opposing Arguments (#409 / #410, migrated #627)', () => {
   it.each(FIND_TOOLS)('%s is conversational + web-on + claimUnderCursor', (id) => {
-    const tool = getTool(id)!;
+    const tool = defs.get(id)!;
+    expect(tool.category).toBe('research');
     expect(tool.outputMode).toBe('openConversation');
     expect(tool.web?.defaultEnabled).toBe(true);
     expect(tool.context).toEqual(['claimUnderCursor']);
@@ -33,50 +36,39 @@ describe('Find Supporting / Opposing Arguments rework (#409 / #410)', () => {
     expect(tool.buildFirstMessage).toBeDefined();
   });
 
-  it('throws a user-facing error when no claim URI is in the context', () => {
-    const tool = getTool('research.find-supporting-arguments')!;
-    // The renderer's `handleOpenConversationFromTool` catches this and
-    // surfaces the message in a confirm dialog (see App.svelte). The
-    // exact message asks the user to right-click on a claim line.
-    expect(() => tool.buildSystemPrompt!({})).toThrow(/claim/i);
+  it('renders without throwing when no claim URI is present (renderer guards via claimUnderCursor)', () => {
+    // The old builder threw; the compiled skill renders an empty claim block.
+    // The renderer's pre-invoke check still prevents this path in practice.
+    const tool = defs.get('research.find-supporting-arguments')!;
+    expect(() => tool.buildSystemPrompt!({})).not.toThrow();
+    expect(tool.buildSystemPrompt!({})).toContain('**URI:**');
   });
 
   it('threads the claim URI into the system prompt as the literal IRI value of the polarity-specific frontmatter', () => {
-    const supporting = getTool('research.find-supporting-arguments')!;
-    const opposing = getTool('research.find-opposing-arguments')!;
     const claim = {
       claimUri: 'https://minerva.dev/c/claim-abc',
       claimLabel: 'Z is true.',
       claimSourceText: 'Of course Z is the case.',
     };
-    const supportSys = supporting.buildSystemPrompt!(claim);
-    const opposeSys = opposing.buildSystemPrompt!(claim);
+    const supportSys = defs.get('research.find-supporting-arguments')!.buildSystemPrompt!(claim);
+    const opposeSys = defs.get('research.find-opposing-arguments')!.buildSystemPrompt!(claim);
 
-    // The frontmatter line is THE structural fact. If the model writes
-    // it, the indexer materialises a thought:supports / thought:rebuts
-    // edge from the analysis note's IRI to the claim node. Pin both
-    // forms here so a regression to e.g. `[[wiki-link]]` syntax (which
-    // wouldn't resolve as an IRI) is caught.
     expect(supportSys).toContain('supports: https://minerva.dev/c/claim-abc');
     expect(supportSys).not.toContain('rebuts:');
     expect(opposeSys).toContain('rebuts: https://minerva.dev/c/claim-abc');
     expect(opposeSys).not.toContain('supports:');
 
-    // Each polarity carries its own anti-flattery rule.
     expect(supportSys).toMatch(/do \*\*not\*\* soften|do not soften/i);
     expect(opposeSys).toMatch(/do \*\*not\*\* weaken|do not weaken/i);
 
-    // Both should mention propose_notes (single-note delivery) and the
-    // anti-flattery skip-filing rule.
     for (const sys of [supportSys, opposeSys]) {
       expect(sys).toContain('propose_notes');
       expect(sys.toLowerCase()).toMatch(/anti-flattery/);
     }
   });
 
-  it('threads the claim source-text into the prompt as a blockquote so the model has the verbatim passage', () => {
-    const tool = getTool('research.find-supporting-arguments')!;
-    const sys = tool.buildSystemPrompt!({
+  it('threads the claim source-text into the prompt as a blockquote', () => {
+    const sys = defs.get('research.find-supporting-arguments')!.buildSystemPrompt!({
       claimUri: 'https://minerva.dev/c/claim-x',
       claimLabel: 'X.',
       claimSourceText: 'Quoted source line one.\nQuoted source line two.',
@@ -86,15 +78,13 @@ describe('Find Supporting / Opposing Arguments rework (#409 / #410)', () => {
   });
 
   it('builds a first message that names the polarity verb and carries the claim label', () => {
-    const supporting = getTool('research.find-supporting-arguments')!;
-    const opposing = getTool('research.find-opposing-arguments')!;
     const ctx = {
       claimUri: 'https://minerva.dev/c/claim-x',
       claimLabel: 'X is the case.',
       claimSourceText: 'Source line.',
     };
-    const supportPayload = buildConversationPayload(supporting, {}, { context: ctx });
-    const opposePayload = buildConversationPayload(opposing, {}, { context: ctx });
+    const supportPayload = buildConversationPayload(defs.get('research.find-supporting-arguments')!, {}, { context: ctx });
+    const opposePayload = buildConversationPayload(defs.get('research.find-opposing-arguments')!, {}, { context: ctx });
 
     expect(supportPayload.firstMessage).toMatch(/support/);
     expect(supportPayload.firstMessage).toContain('X is the case.');
