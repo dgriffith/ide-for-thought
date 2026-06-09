@@ -1,3 +1,30 @@
+---
+id: analysis.dimensionalize
+name: Dimensionalize
+description: Reduce a decision to 3-7 measurable dimensions
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, extract the dimensions."
+longDescription: >-
+  Pulls the load-bearing dimensions out of a fuzzy decision or comparison: 3-7 axes you could
+  actually measure or rank along. Each dimension comes with what it would mean to score "high" or
+  "low" and which existing arguments engage it. Reach for this before evaluating options head-to-head.
+parameters:
+  - id: target_count
+    label: Target dimension count
+    type: select
+    default: "5"
+    options:
+      - label: "Tight — 3 dimensions"
+        value: "3"
+      - label: "Standard — 5 dimensions"
+        value: "5"
+      - label: "Generous — 7 dimensions"
+        value: "7"
+---
 
 # Dimensionalize
 
@@ -276,3 +303,14 @@ https://jordanmrubin.substack.com/p/use-ai-to-dimensionalize
 
 Canonical definitions:
 https://github.com/jordanrubin/FUTURE_TOKENS/blob/main/dimensionalize.md
+
+Target dimension count: aim for ~{{param.target_count}}; deviate only if the source genuinely demands more or fewer.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

@@ -48,9 +48,6 @@ describe('registerSkillInfos', () => {
     expect(ids).toContain('learning.s2');
     expect(ids).not.toContain('analysis.s1');
 
-    // Hardcoded tools are never touched by skill sync.
-    expect(ids).toContain('planning.steelman');
-
     // Clear skills.
     registerSkillInfos([]);
     expect(getAllToolInfos().some((t) => t.id === 'learning.s2')).toBe(false);

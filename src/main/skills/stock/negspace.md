@@ -1,3 +1,18 @@
+---
+id: analysis.negspace
+name: Negspace
+description: Detect what is conspicuously absent
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the negative space."
+longDescription: >-
+  Reads the source for negative space — the considerations, counterarguments, stakeholders, time
+  horizons, or trade-offs that any honest treatment would address but that the text quietly skips.
+  The output is a list of conspicuous absences, ranked by how much they would matter if surfaced.
+---
 
 ## tl;dr
 
@@ -298,3 +313,12 @@ negspace = **read the shadow, not the text**.
 humans parse explicit sentences; models can also parse **statistical absences** — where the author "should" have gone but chose not to.  
 the unsaid is often the most informative part of the message — and classifying *why* it's unsaid (vulnerability, upside, bedrock, blind spot, optionality) makes those shadows even more actionable.
 
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

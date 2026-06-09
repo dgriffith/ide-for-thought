@@ -97,14 +97,12 @@ describe('compiled skill through the conversation payload builder', () => {
   });
 });
 
-describe('registry round-trip (coexistence with hardcoded tools)', () => {
-  it('registers a compiled skill so getTool finds it', () => {
+describe('registry round-trip', () => {
+  it('registers a compiled skill so getTool finds it, and unregister removes it', () => {
     const def = compileSkill(skill({ id: 'learning.roundtrip', body: 'b' }));
     registerTool(def);
     try {
       expect(getTool('learning.roundtrip')).toBe(def);
-      // A hardcoded tool registered via static import is still present.
-      expect(getTool('planning.steelman')).toBeDefined();
     } finally {
       unregisterTool('learning.roundtrip');
     }

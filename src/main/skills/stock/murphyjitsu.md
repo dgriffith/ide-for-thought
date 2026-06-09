@@ -1,3 +1,22 @@
+---
+id: planning.murphyjitsu
+name: Murphyjitsu
+description: Pre-mortem failure analysis for plans and decisions
+menu: Analysis
+outputMode: newNote
+outputNotePrefix: murphyjitsu
+slashCommand: /murphyjitsu
+context: [selectedText, fullNote]
+longDescription: >-
+  Treats failure as historical fact and works backward to generate concrete failure narratives.
+  By inverting time — "It's six months from now. Total failure." — your brain's inner simulator
+  bypasses optimism bias and reveals genuine vulnerabilities.
+parameters:
+  - id: plan
+    label: Plan to analyze (leave blank to use the note content)
+    type: textarea
+    placeholder: Describe the plan, project, or decision you want to stress-test...
+---
 You are performing a Murphyjitsu analysis — a pre-mortem failure simulation technique. Your brain already knows this plan will fail. This is the extraction protocol.
 
 ## The Process
@@ -33,3 +52,9 @@ You are performing a Murphyjitsu analysis — a pre-mortem failure simulation te
 - **Execution-only focus**: Wrong assumptions can derail a perfectly executed plan
 - **Mitigation theater**: "Try harder" isn't a mitigation — specify actions and checkpoints
 - **Residual denial**: Pretending all risks disappear signals self-deception
+
+## {{#if param.plan}}Plan Description{{else}}{{#if selection}}Selected Text{{else}}Note{{/if}}{{/if}}
+
+{{#if param.plan}}{{param.plan | trim}}{{else}}{{#if selection}}{{selection}}{{else}}{{note.content}}{{/if}}{{/if}}
+
+Respond in markdown. Use a table for the failure modes with columns: Failure Mode | Category | Surprise Rating | Key Mitigation. Follow with detailed mitigation plans and a Residual Risks section.

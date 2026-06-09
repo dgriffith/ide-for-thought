@@ -1,3 +1,42 @@
+---
+id: analysis.synthesize
+name: Synthesize
+description: Compress thesis + antithesis into a unified frame
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-opus-4-7
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, synthesize."
+longDescription: >-
+  Given a thesis and an antithesis, produces a synthesis: a unified frame that preserves the
+  load-bearing insight from each side while resolving the apparent contradiction. The output's
+  depth scales with the depth setting — quick gives a one-paragraph compression; deep walks
+  through the dialectical move stage by stage. Pairs with Antithesize.
+parameters:
+  - id: depth
+    label: Synthesis depth
+    type: select
+    default: medium
+    options:
+      - label: "Quick — one-paragraph compression"
+        value: quick
+      - label: "Medium — staged dialectical move"
+        value: medium
+      - label: "Deep — full multi-section synthesis"
+        value: deep
+  - id: audience
+    label: Audience
+    type: select
+    default: general
+    options:
+      - label: "Novice — accessible framing"
+        value: novice
+      - label: "General — informed reader"
+        value: general
+      - label: "Expert — technical, precise"
+        value: expert
+---
 
 # Synthesis
 
@@ -822,3 +861,15 @@ Canonical examples:
 - API design (interface compression)
 - Peace treaties (political compression)
 
+
+Output tier: {{param.depth}}.
+Audience: {{param.audience}}.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

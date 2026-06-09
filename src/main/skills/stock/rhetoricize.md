@@ -1,3 +1,18 @@
+---
+id: analysis.rhetoricize
+name: Rhetoricize
+description: Map the rhetorical "spin-space" — where could the argument pivot?
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, map the rhetorical spin-space."
+longDescription: >-
+  Diagnoses the fulcrum points in an argument: words and framings doing rhetorical work, places
+  where a small reframe would flip the conclusion, the spectrum of plausible spins from the same
+  underlying facts. Useful when you suspect a piece is doing more persuasive than analytic work.
+---
 ## tl;dr
 
 rhetoricize answers: "how much of this argument lands because of framing and word-choice, not facts?"
@@ -312,3 +327,12 @@ most persuasion is just gradient descent on "what vibe makes this feel inevitabl
 
 satire exists bc sometimes the cleanest way to see the boundary is to tap it with a clown hammer.
 
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

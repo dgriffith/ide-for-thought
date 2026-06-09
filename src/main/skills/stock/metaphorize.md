@@ -1,3 +1,19 @@
+---
+id: analysis.metaphorize
+name: Metaphorize
+description: High-coverage source→target domain mapping
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, build the metaphor."
+longDescription: >-
+  Builds a structured metaphor: maps elements of the source domain (the thing you understand) onto
+  a target domain (the thing you're trying to understand) and reports both what the metaphor
+  illuminates and where it breaks down. Pairs with Rhyme: rhyme is "what does this look like?",
+  metaphorize is "what would it look like through this lens?".
+---
 
 # Metaphorization
 
@@ -559,3 +575,12 @@ Related concepts:
 - Analogical reasoning (Hofstadter)
 - Dimensional analysis (Buckingham π theorem)
 - Queueing theory (Kendall notation)
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

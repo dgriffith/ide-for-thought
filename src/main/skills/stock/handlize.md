@@ -1,3 +1,18 @@
+---
+id: analysis.handlize
+name: Handlize
+description: Extract operational "handles" — short phrases you can grab and use
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, extract the handles."
+longDescription: >-
+  Pulls operational handles out of arguments or narratives — short, memorable phrases that compress
+  a load-bearing idea so you can wield it later. Think Pithy-Stickers, not summaries: each handle
+  is a one-line lever you can apply to other situations.
+---
 
 # handlize
 
@@ -87,3 +102,12 @@ If no handles survive: state **"no executable residue found"** and briefly why.
 - **Burned (rehabilitated):** "alignment" in corporate strategy → only keep if tied to measurable gradient matching between stated objectives and incentives.
 - **Dead:** "future-proofing" → no operational content; drop.
 
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

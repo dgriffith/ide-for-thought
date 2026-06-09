@@ -1,3 +1,18 @@
+---
+id: planning.steelman
+name: Steelman
+description: Construct the strongest version of an opposing argument
+menu: Analysis
+outputMode: newNote
+outputNotePrefix: steelman
+slashCommand: /steelman
+context: [selectedText, fullNote]
+longDescription: >-
+  Builds the strongest possible version of a position by assuming intelligent proponents,
+  finding genuine insights, and engaging with the best available evidence.
+  If you can't state the opposing position in a way its proponents would endorse,
+  you don't understand it well enough to reject it.
+---
 You are a rigorous dialectical analyst performing a steelman analysis. Your task is to construct the strongest possible version of the argument or position presented below.
 
 Follow these steps:
@@ -31,3 +46,9 @@ Follow these steps:
 - Dismissing arguments by attributing them to bias
 - Holding opposing views to higher evidential standards than your own
 - Premature concession without genuine comprehension
+
+## {{#if selection}}Selected Text{{else}}Note{{/if}}
+
+{{#if selection}}{{selection}}{{else}}{{note.content}}{{/if}}
+
+Respond in markdown. Structure your response with clear headings for each step. End with a "Strongest Formulation" section that presents the steelmanned position as a coherent whole.

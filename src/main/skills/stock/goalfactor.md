@@ -1,3 +1,19 @@
+---
+id: analysis.goalfactor
+name: Goal Factor
+description: Decompose a goal into the underlying needs it serves
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-sonnet-4-6
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, goal-factor the underlying needs."
+longDescription: >-
+  Walks a stated goal down to the needs it actually serves — separating the surface action from
+  the felt sense of why it matters. Surfaces alternative actions that would meet the same needs
+  and helps you notice when a goal is doing more than one job at once. Useful when motivation
+  feels misaligned with the stated objective.
+---
 
 Apply goalfactor to: $ARGUMENTS
 
@@ -96,3 +112,12 @@ Compare paths: which has the best ratio of terminal goal satisfaction to cost? D
 See [examples](examples.md) for worked demonstrations.
 
 See [reference](reference.md) for quality criteria, anti-patterns, and integration points.
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}

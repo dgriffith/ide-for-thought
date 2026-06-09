@@ -1,3 +1,19 @@
+---
+id: analysis.doublecrux
+name: Double Crux
+description: Find the shared crux that would resolve a disagreement
+menu: Analysis
+outputMode: openConversation
+context: [selectedText, fullNote]
+model: claude-opus-4-7
+web: false
+firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the double crux."
+longDescription: >-
+  Walks two positions back to a shared crux: the proposition both sides would update on if shown
+  evidence about. Output is the crux statement plus what evidence would move each side and which
+  cruxes are empirical vs definitional vs values-based. Reach for this when a disagreement is
+  going in circles and you suspect the parties are arguing past each other.
+---
 
 Apply doublecrux to: $ARGUMENTS
 
@@ -97,3 +113,12 @@ Either:
 
 - For worked examples, see [examples.md](examples.md)
 - For quality criteria, anti-patterns, and integration points, see [reference.md](reference.md)
+{{#if selection}}
+
+## Selection
+
+{{selection | trim}}{{else}}{{#if note.content}}
+
+## Note{{#if note.title}} — {{note.title}}{{/if}}
+
+{{note.content | trim}}{{/if}}{{/if}}
