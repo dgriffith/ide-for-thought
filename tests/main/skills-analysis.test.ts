@@ -8,7 +8,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import path from 'node:path';
 import { loadSkillCatalog } from '../../src/main/skills/loader';
 import { compileSkill } from '../../src/main/skills/compile';
-import { buildConversationPayload } from '../../src/main/tools/executor';
 import type { ThinkingToolDef } from '../../src/shared/tools/types';
 import type { SkillDef } from '../../src/shared/skills/types';
 

@@ -355,6 +355,8 @@ export const Channels = {
   SKILLS_REMOVE: 'skills:remove',
   /** Reveal the user skills folder (~/.minerva/skills/) in the OS file manager. */
   SKILLS_REVEAL: 'skills:reveal',
+  /** Persist the per-machine menu config (enabled / menu override / order). */
+  SKILLS_MENU_CONFIG_SET: 'skills:menuConfig:set',
 
   // Proposals
   PROPOSAL_LIST: 'proposal:list',

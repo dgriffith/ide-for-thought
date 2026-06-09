@@ -14,6 +14,7 @@ import type {
   ToolCategory,
   ToolParameter,
 } from '../tools/types';
+import type { MenuConfig } from './menu-config';
 
 export type SkillMenu = 'Learning' | 'Research' | 'Analysis';
 
@@ -97,6 +98,8 @@ export interface SkillCatalog {
 export interface SkillCatalogInfo {
   skills: SkillInfo[];
   errors: SkillLoadError[];
+  /** The per-machine menu config (#630) the renderer applies + edits. */
+  config: MenuConfig;
 }
 
 export function toSkillInfo(s: SkillDef): SkillInfo {

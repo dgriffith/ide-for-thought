@@ -42,6 +42,15 @@
   import { getAllToolInfos, registerSkillInfos } from '../tools/tool-registry';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import type { SkillInfo, SkillMenu, SkillLoadError } from '../../../shared/skills/types';
+  import {
+    applyMenuConfig,
+    effectiveMenu,
+    isSkillEnabled,
+    skillsForMenu as orderedSkillsForMenu,
+    emptyMenuConfig,
+    type MenuConfig,
+  } from '../../../shared/skills/menu-config';
+  import { SKILL_MENUS } from '../../../shared/skills/types';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -337,14 +346,69 @@
     }
   }
 
-  // ---- Skills (#629) ----
-  let skillCatalog = $state<{ skills: SkillInfo[]; errors: SkillLoadError[] }>({ skills: [], errors: [] });
+  // ---- Skills (#629, menu config #630) ----
+  let skillCatalog = $state<{ skills: SkillInfo[]; errors: SkillLoadError[]; config: MenuConfig }>({
+    skills: [],
+    errors: [],
+    config: emptyMenuConfig(),
+  });
   let skillsBusy = $state(false);
   let skillsError = $state<string | null>(null);
-  const SKILL_MENU_ORDER: readonly SkillMenu[] = ['Learning', 'Research', 'Analysis'];
+  const SKILL_MENU_ORDER: readonly SkillMenu[] = SKILL_MENUS;
 
+  /** Skills shown under a menu in Settings — includes disabled ones (you need
+   *  to see a skill to turn it back on), in configured order, effective menu. */
   function skillsForMenu(menu: SkillMenu): SkillInfo[] {
-    return skillCatalog.skills.filter((s) => s.menu === menu);
+    return orderedSkillsForMenu(skillCatalog.skills, skillCatalog.config, menu, true);
+  }
+
+  function skillEnabled(s: SkillInfo): boolean {
+    return isSkillEnabled(s.id, skillCatalog.config);
+  }
+
+  /** Re-sync the renderer registry (palette / slash) from a config + persist it
+   *  to main (which rebuilds the native menu). Optimistic: the UI updates first. */
+  async function commitConfig(next: MenuConfig): Promise<void> {
+    skillsError = null;
+    skillCatalog = { ...skillCatalog, config: next };
+    registerSkillInfos(applyMenuConfig(skillCatalog.skills, next));
+    try {
+      const saved = await api.skills.setMenuConfig($state.snapshot(next));
+      skillCatalog = { ...skillCatalog, config: saved };
+      registerSkillInfos(applyMenuConfig(skillCatalog.skills, saved));
+    } catch (e) {
+      skillsError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  function toggleSkillEnabled(s: SkillInfo): void {
+    const cfg = skillCatalog.config;
+    void commitConfig({
+      skills: {
+        ...cfg.skills,
+        [s.id]: { enabled: !skillEnabled(s), menu: effectiveMenu(s, cfg) },
+      },
+      order: cfg.order,
+    });
+  }
+
+  function reassignSkill(s: SkillInfo, menu: SkillMenu): void {
+    const cfg = skillCatalog.config;
+    if (effectiveMenu(s, cfg) === menu) return;
+    void commitConfig({
+      skills: { ...cfg.skills, [s.id]: { enabled: skillEnabled(s), menu } },
+      order: cfg.order,
+    });
+  }
+
+  function moveSkill(s: SkillInfo, menu: SkillMenu, dir: -1 | 1): void {
+    const ids = skillsForMenu(menu).map((x) => x.id);
+    const i = ids.indexOf(s.id);
+    const j = i + dir;
+    if (i === -1 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    const cfg = skillCatalog.config;
+    void commitConfig({ skills: cfg.skills, order: { ...cfg.order, [menu]: ids } });
   }
 
   /** Refresh the catalog and re-sync the renderer registry so the command
@@ -353,7 +417,7 @@
     try {
       const cat = await api.skills.list();
       skillCatalog = cat;
-      registerSkillInfos(cat.skills);
+      registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
     } catch (e) {
       console.error('[settings] failed to load skills:', e);
     }
@@ -391,7 +455,7 @@
     try {
       const cat = await api.skills.reload();
       skillCatalog = cat;
-      registerSkillInfos(cat.skills);
+      registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
     } catch (e) {
       skillsError = e instanceof Error ? e.message : String(e);
     } finally {
@@ -1166,6 +1230,12 @@
             </div>
           {/if}
 
+          <p class="hint">
+            Turn skills off, move them between menus, or reorder them — per
+            machine. Changes apply to the menu bar, command palette, and slash
+            commands immediately.
+          </p>
+
           {#each SKILL_MENU_ORDER as menu (menu)}
             {@const items = skillsForMenu(menu)}
             <div class="field">
@@ -1174,16 +1244,47 @@
                 <p class="hint empty">No skills in this menu.</p>
               {:else}
                 <ul class="skill-list">
-                  {#each items as s (s.id)}
-                    <li>
+                  {#each items as s, i (s.id)}
+                    <li class:disabled={!skillEnabled(s)}>
                       <div class="skill-row">
+                        <input
+                          type="checkbox"
+                          class="skill-toggle"
+                          checked={skillEnabled(s)}
+                          title={skillEnabled(s) ? 'Enabled — click to hide' : 'Hidden — click to enable'}
+                          onchange={() => toggleSkillEnabled(s)}
+                        />
                         <span class="skill-name">{s.name}</span>
                         <span class="skill-src" class:user={s.source === 'user'}>{s.source}</span>
-                        {#if s.source === 'user'}
-                          <button class="link-btn" onclick={() => { void removeSkill(s.id); }} disabled={skillsBusy}>
-                            Remove
-                          </button>
-                        {/if}
+                        <div class="skill-controls">
+                          <button
+                            class="reorder-btn"
+                            title="Move up"
+                            disabled={i === 0}
+                            onclick={() => moveSkill(s, menu, -1)}
+                          >↑</button>
+                          <button
+                            class="reorder-btn"
+                            title="Move down"
+                            disabled={i === items.length - 1}
+                            onclick={() => moveSkill(s, menu, 1)}
+                          >↓</button>
+                          <select
+                            class="skill-menu-select"
+                            title="Move to menu"
+                            value={menu}
+                            onchange={(e) => reassignSkill(s, e.currentTarget.value as SkillMenu)}
+                          >
+                            {#each SKILL_MENU_ORDER as m (m)}
+                              <option value={m}>{m}</option>
+                            {/each}
+                          </select>
+                          {#if s.source === 'user'}
+                            <button class="link-btn" onclick={() => { void removeSkill(s.id); }} disabled={skillsBusy}>
+                              Remove
+                            </button>
+                          {/if}
+                        </div>
                       </div>
                       <span class="skill-desc">{s.description}</span>
                     </li>
@@ -1865,8 +1966,50 @@
   }
   .skill-row {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
+  }
+  .skill-list li.disabled .skill-name,
+  .skill-list li.disabled .skill-desc {
+    opacity: 0.45;
+  }
+  .skill-toggle {
+    flex: none;
+    margin: 0;
+    cursor: pointer;
+  }
+  .skill-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .reorder-btn {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .reorder-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  .reorder-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .skill-menu-select {
+    font-size: 12px;
+    padding: 2px 4px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
   }
   .skill-name {
     font-weight: 600;
@@ -1882,9 +2025,6 @@
   .skill-src.user {
     color: var(--accent);
     opacity: 1;
-  }
-  .skill-row .link-btn {
-    margin-left: auto;
   }
   .skill-desc {
     font-size: 12px;
