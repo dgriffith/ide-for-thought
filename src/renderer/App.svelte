@@ -88,7 +88,7 @@
   import { getFormatSettings, loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { gatherContext } from './lib/tools/context';
-  import { getAllToolInfos } from './lib/tools/tool-registry';
+  import { getAllToolInfos, registerSkillInfos } from './lib/tools/tool-registry';
   import type { ToolContext } from '../shared/tools/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
@@ -2868,6 +2868,18 @@
   onMount(() => {
     initTheme();
     initAppearance();
+
+    // Pull skill metadata loaded by main (#625) into the renderer registry so
+    // the tool panel / command palette / slash commands see skills alongside
+    // hardcoded tools. Fire-and-forget — skills enrich the menus when ready.
+    void (async () => {
+      try {
+        const cat = await api.skills.list();
+        registerSkillInfos(cat.skills);
+      } catch (err) {
+        console.warn('[skills] failed to load skill list:', err);
+      }
+    })();
 
     // Auto-save
     editor.onAutoSaved = () => {

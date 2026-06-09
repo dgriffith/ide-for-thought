@@ -22,7 +22,8 @@ import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool, prepareConversationTool } from './tools/executor';
-import { getSkillCatalog, reloadSkillCatalog } from './skills/loader';
+import { getSkillCatalog } from './skills/loader';
+import { reloadAndRegisterSkills } from './skills/register';
 import { toSkillInfo, type SkillCatalogInfo } from '../shared/skills/types';
 import { runAutoTag } from './llm/auto-tag';
 import {
@@ -1263,7 +1264,10 @@ export function registerIpcHandlers(): void {
     return { skills: cat.skills.map(toSkillInfo), errors: cat.errors };
   });
   ipcMain.handle(Channels.SKILLS_RELOAD, async (): Promise<SkillCatalogInfo> => {
-    const cat = await reloadSkillCatalog();
+    // Re-scan files, re-sync the registry, and rebuild the menu so newly
+    // added/removed skills appear without a restart.
+    const cat = await reloadAndRegisterSkills();
+    rebuildMenu();
     return { skills: cat.skills.map(toSkillInfo), errors: cat.errors };
   });
 
