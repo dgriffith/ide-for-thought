@@ -75,6 +75,27 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   contexts.set(win.id, { rootPath: null, graphStore: null });
   installNavigationGuards(win.webContents);
 
+  // Re-announce the open project to the renderer on every page load. The
+  // initial open is driven elsewhere (session restore in main.ts, or the
+  // open/new IPC handlers), but a renderer reload — e.g. the Vite HMR client
+  // forcing a full reload when its websocket reconnects after the laptop wakes
+  // from sleep — resets the renderer's in-memory notebase store to the empty
+  // "Open Thoughtbase" view. The project the window still holds in `contexts`
+  // would otherwise be stranded in main with no way back into the UI short of
+  // reopening by hand. Registered before any did-finish-load handler in
+  // main.ts, so on the very first load this no-ops (rootPath still null) and
+  // the session-restore handler does the real open; on later reloads it
+  // rehydrates. Idempotent — no-op until a project is open.
+  win.webContents.on('did-finish-load', () => {
+    const ctx = contexts.get(win.id);
+    if (ctx?.rootPath && !win.isDestroyed()) {
+      win.webContents.send('project:opened', {
+        rootPath: ctx.rootPath,
+        name: path.basename(ctx.rootPath),
+      });
+    }
+  });
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     void win.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
