@@ -21,6 +21,7 @@
   import { formatSql } from '../../../shared/sql-format';
   import { autocompletion, acceptCompletion } from '@codemirror/autocomplete';
   import { createSparqlCompletionSource, type SparqlSchema } from '../editor/sparql-autocomplete';
+  import { acceptCompletionEatTail, completionKeymapNoEnter } from '../editor/accept-completion-eat-tail';
 
   function toCsv(columns: string[], rows: Record<string, string>[]): string {
     const escape = (s: string) => {
@@ -156,10 +157,14 @@
   }
 
   function completionFor(lang: QueryLanguage): Extension {
+    // `defaultKeymap: false` drops the built-in completion keybindings so our
+    // own Enter (accept + eat tail, #206) owns that key — the default Enter
+    // won the precedence tie otherwise. Nav/Escape are re-added via
+    // `completionKeymapNoEnter` in the keymap block below.
     // lang-sql bundles its own completion source via the `schema` option;
     // we only need to override for SPARQL.
-    if (lang === 'sql') return autocompletion();
-    return autocompletion({ override: [createSparqlCompletionSource(() => schema)] });
+    if (lang === 'sql') return autocompletion({ defaultKeymap: false });
+    return autocompletion({ defaultKeymap: false, override: [createSparqlCompletionSource(() => schema)] });
   }
 
   function isDark(): boolean {
@@ -247,6 +252,12 @@
           { key: 'Mod-s', run: () => { if (!isEmpty) onSave(); return true; } },
           { key: 'Shift-Alt-f', run: () => { if (isEmpty) return true; return reformat(); } },
           { key: 'Tab', run: acceptCompletion },
+          // Enter accepts the active completion and eats the half-typed word
+          // tail (#206); returns false with no popup open so Enter is a
+          // newline as usual. completionKeymapNoEnter restores arrow-nav and
+          // Escape that defaultKeymap:false removed.
+          { key: 'Enter', run: acceptCompletionEatTail },
+          ...completionKeymapNoEnter,
         ])),
         keymap.of([
           indentWithTab,
