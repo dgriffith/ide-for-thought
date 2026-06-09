@@ -49,7 +49,7 @@ describe('registerSkillInfos', () => {
     expect(ids).not.toContain('analysis.s1');
 
     // Hardcoded tools are never touched by skill sync.
-    expect(ids).toContain('learning.summarize');
+    expect(ids).toContain('planning.steelman');
 
     // Clear skills.
     registerSkillInfos([]);

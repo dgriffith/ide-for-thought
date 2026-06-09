@@ -104,7 +104,7 @@ describe('registry round-trip (coexistence with hardcoded tools)', () => {
     try {
       expect(getTool('learning.roundtrip')).toBe(def);
       // A hardcoded tool registered via static import is still present.
-      expect(getTool('learning.summarize')).toBeDefined();
+      expect(getTool('planning.steelman')).toBeDefined();
     } finally {
       unregisterTool('learning.roundtrip');
     }
