@@ -354,6 +354,9 @@ contextBridge.exposeInMainWorld('api', {
   skills: {
     list: () => ipcRenderer.invoke(Channels.SKILLS_LIST),
     reload: () => ipcRenderer.invoke(Channels.SKILLS_RELOAD),
+    import: () => ipcRenderer.invoke(Channels.SKILLS_IMPORT),
+    remove: (id: string) => ipcRenderer.invoke(Channels.SKILLS_REMOVE, id),
+    revealFolder: () => ipcRenderer.invoke(Channels.SKILLS_REVEAL),
   },
   sites: {
     list: () => ipcRenderer.invoke(Channels.SITES_LIST),

@@ -24,6 +24,7 @@ import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, m
 import { executeTool, prepareConversationTool } from './tools/executor';
 import { getSkillCatalog } from './skills/loader';
 import { reloadAndRegisterSkills } from './skills/register';
+import { pickAndImportSkill, removeUserSkill, revealSkillsFolder, type ImportedSkill } from './skills/manage';
 import { toSkillInfo, type SkillCatalogInfo } from '../shared/skills/types';
 import { runAutoTag } from './llm/auto-tag';
 import {
@@ -1269,6 +1270,23 @@ export function registerIpcHandlers(): void {
     const cat = await reloadAndRegisterSkills();
     rebuildMenu();
     return { skills: cat.skills.map(toSkillInfo), errors: cat.errors };
+  });
+  ipcMain.handle(Channels.SKILLS_IMPORT, async (e): Promise<ImportedSkill | null> => {
+    const win = winFromEvent(e);
+    const imported = await pickAndImportSkill(win);
+    if (imported) {
+      await reloadAndRegisterSkills();
+      rebuildMenu();
+    }
+    return imported;
+  });
+  ipcMain.handle(Channels.SKILLS_REMOVE, async (_e, id: string): Promise<void> => {
+    await removeUserSkill(id);
+    await reloadAndRegisterSkills();
+    rebuildMenu();
+  });
+  ipcMain.handle(Channels.SKILLS_REVEAL, async (): Promise<void> => {
+    await revealSkillsFolder();
   });
 
   ipcMain.handle(Channels.REFACTOR_AUTO_TAG, async (e, relativePath: string) => {

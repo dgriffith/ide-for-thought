@@ -39,8 +39,9 @@
   import '../../../shared/formatter/rules/index';
   import type { FormatSettings } from '../../../shared/formatter/engine';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
-  import { getAllToolInfos } from '../tools/tool-registry';
+  import { getAllToolInfos, registerSkillInfos } from '../tools/tool-registry';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
+  import type { SkillInfo, SkillMenu, SkillLoadError } from '../../../shared/skills/types';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -54,7 +55,7 @@
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'excerpts' | 'compute' | 'ai';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'excerpts' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -99,6 +100,7 @@
       label: 'AI',
       items: [
         { id: 'ai', label: 'AI', sub: 'Model · API key · tool prefs' },
+        { id: 'skills', label: 'Skills', sub: 'Conversation skills · import' },
       ],
     },
   ];
@@ -335,6 +337,76 @@
     }
   }
 
+  // ---- Skills (#629) ----
+  let skillCatalog = $state<{ skills: SkillInfo[]; errors: SkillLoadError[] }>({ skills: [], errors: [] });
+  let skillsBusy = $state(false);
+  let skillsError = $state<string | null>(null);
+  const SKILL_MENU_ORDER: readonly SkillMenu[] = ['Learning', 'Research', 'Analysis'];
+
+  function skillsForMenu(menu: SkillMenu): SkillInfo[] {
+    return skillCatalog.skills.filter((s) => s.menu === menu);
+  }
+
+  /** Refresh the catalog and re-sync the renderer registry so the command
+   *  palette / slash commands track imports & removals too. */
+  async function loadSkills(): Promise<void> {
+    try {
+      const cat = await api.skills.list();
+      skillCatalog = cat;
+      registerSkillInfos(cat.skills);
+    } catch (e) {
+      console.error('[settings] failed to load skills:', e);
+    }
+  }
+
+  async function importSkill(): Promise<void> {
+    skillsError = null;
+    skillsBusy = true;
+    try {
+      const res = await api.skills.import();
+      if (res) await loadSkills();
+    } catch (e) {
+      skillsError = e instanceof Error ? e.message : String(e);
+    } finally {
+      skillsBusy = false;
+    }
+  }
+
+  async function removeSkill(id: string): Promise<void> {
+    skillsError = null;
+    skillsBusy = true;
+    try {
+      await api.skills.remove(id);
+      await loadSkills();
+    } catch (e) {
+      skillsError = e instanceof Error ? e.message : String(e);
+    } finally {
+      skillsBusy = false;
+    }
+  }
+
+  async function reloadSkills(): Promise<void> {
+    skillsError = null;
+    skillsBusy = true;
+    try {
+      const cat = await api.skills.reload();
+      skillCatalog = cat;
+      registerSkillInfos(cat.skills);
+    } catch (e) {
+      skillsError = e instanceof Error ? e.message : String(e);
+    } finally {
+      skillsBusy = false;
+    }
+  }
+
+  async function revealSkills(): Promise<void> {
+    try {
+      await api.skills.revealFolder();
+    } catch (e) {
+      skillsError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
   async function removeUserStyle(id: string): Promise<void> {
     cslImportError = null;
     try {
@@ -450,6 +522,7 @@
     await loadBibliographySettings();
     await loadExcerptSettings();
     await loadComputeSettings();
+    await loadSkills();
     try {
       const ingest = await api.sources.getIngestSettings();
       importUpstreamTags = ingest.importUpstreamTags;
@@ -1054,6 +1127,71 @@
           {#if cslImportError}
             <div class="csl-error">{cslImportError}</div>
           {/if}
+
+        {:else if activeTab === 'skills'}
+          <div class="field">
+            <label>Skills</label>
+            <p class="hint">
+              Skills are markdown files that drive the Learning, Research, and
+              Analysis menus. Built-in skills ship with Minerva; your own live in
+              <code>~/.minerva/skills/</code> and apply across every thoughtbase.
+              A skill is a single <code>.md</code> file (or a folder with a
+              <code>SKILL.md</code>) — YAML frontmatter plus a prompt body.
+            </p>
+            <div class="skill-actions">
+              <button class="action-btn" onclick={() => { void importSkill(); }} disabled={skillsBusy}>
+                Import skill…
+              </button>
+              <button class="action-btn" onclick={() => { void revealSkills(); }}>
+                Reveal skills folder
+              </button>
+              <button class="action-btn" onclick={() => { void reloadSkills(); }} disabled={skillsBusy}>
+                Reload
+              </button>
+            </div>
+          </div>
+
+          {#if skillsError}
+            <div class="csl-error">{skillsError}</div>
+          {/if}
+
+          {#if skillCatalog.errors.length > 0}
+            <div class="field">
+              <label>Skills that failed to load</label>
+              <ul class="skill-errs">
+                {#each skillCatalog.errors as err (err.filePath + err.message)}
+                  <li><span class="skill-err-label">{err.label}</span> — {err.message}</li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+
+          {#each SKILL_MENU_ORDER as menu (menu)}
+            {@const items = skillsForMenu(menu)}
+            <div class="field">
+              <label>{menu}</label>
+              {#if items.length === 0}
+                <p class="hint empty">No skills in this menu.</p>
+              {:else}
+                <ul class="skill-list">
+                  {#each items as s (s.id)}
+                    <li>
+                      <div class="skill-row">
+                        <span class="skill-name">{s.name}</span>
+                        <span class="skill-src" class:user={s.source === 'user'}>{s.source}</span>
+                        {#if s.source === 'user'}
+                          <button class="link-btn" onclick={() => { void removeSkill(s.id); }} disabled={skillsBusy}>
+                            Remove
+                          </button>
+                        {/if}
+                      </div>
+                      <span class="skill-desc">{s.description}</span>
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
+          {/each}
 
         {:else if activeTab === 'excerpts'}
           <div class="field">
@@ -1700,6 +1838,71 @@
     font-size: 12px;
     font-family: var(--font-mono, ui-monospace, monospace);
     white-space: pre-wrap;
+  }
+
+  /* Skills panel (#629). */
+  .skill-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .skill-list {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .skill-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    background: var(--bg-button);
+    border-radius: 4px;
+  }
+  .skill-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .skill-name {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .skill-src {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted, var(--text));
+    opacity: 0.6;
+  }
+  .skill-src.user {
+    color: var(--accent);
+    opacity: 1;
+  }
+  .skill-row .link-btn {
+    margin-left: auto;
+  }
+  .skill-desc {
+    font-size: 12px;
+    color: var(--text-muted, var(--text));
+    opacity: 0.8;
+  }
+  .skill-errs {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+    font-size: 12px;
+  }
+  .skill-errs li {
+    padding: 4px 0;
+    color: var(--text);
+  }
+  .skill-err-label {
+    font-weight: 600;
   }
 
   /* Compute panel — Python interpreter row + probe status (#374). */

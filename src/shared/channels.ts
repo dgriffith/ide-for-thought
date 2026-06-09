@@ -349,6 +349,12 @@ export const Channels = {
   SKILLS_LIST: 'skills:list',
   /** Re-scan stock + user skill files and return the refreshed catalog. */
   SKILLS_RELOAD: 'skills:reload',
+  /** Pick a .md file or skill folder and import it into ~/.minerva/skills/. */
+  SKILLS_IMPORT: 'skills:import',
+  /** Delete a user skill by id. */
+  SKILLS_REMOVE: 'skills:remove',
+  /** Reveal the user skills folder (~/.minerva/skills/) in the OS file manager. */
+  SKILLS_REVEAL: 'skills:reveal',
 
   // Proposals
   PROPOSAL_LIST: 'proposal:list',
