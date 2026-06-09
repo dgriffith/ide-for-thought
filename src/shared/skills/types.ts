@@ -11,12 +11,22 @@
 import type {
   ContextRequirement,
   OutputMode,
+  ToolCategory,
   ToolParameter,
 } from '../tools/types';
 
 export type SkillMenu = 'Learning' | 'Research' | 'Analysis';
 
 export const SKILL_MENUS: readonly SkillMenu[] = ['Learning', 'Research', 'Analysis'];
+
+/** Skill `menu:` (display-cased) ↔ the registry's lowercase ToolCategory. */
+export function menuToCategory(menu: SkillMenu): ToolCategory {
+  return menu.toLowerCase() as ToolCategory;
+}
+
+export function categoryToMenu(category: ToolCategory): SkillMenu {
+  return (category.charAt(0).toUpperCase() + category.slice(1)) as SkillMenu;
+}
 
 /** Where a skill was loaded from. User skills can only add, never shadow stock. */
 export type SkillSource = 'stock' | 'user';

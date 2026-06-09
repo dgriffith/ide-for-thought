@@ -10,6 +10,7 @@ import { registerBuiltinExporters } from './publish';
 import { installCsp } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
+import { registerSkillsAtStartup } from './skills/register';
 
 app.setName('Minerva');
 
@@ -23,7 +24,7 @@ function boot(label: string): void {
 
 boot('main module loaded');
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   boot('app ready');
   installCsp();
   boot('csp installed');
@@ -33,6 +34,13 @@ void app.whenReady().then(() => {
   boot('executors registered');
   registerBuiltinExporters();
   boot('exporters registered');
+
+  // Load + register skill files (#625) before any menu is built, so the
+  // dynamic Learning/Analysis menus include them on first paint. Failure to
+  // load a skill is isolated per-file inside the loader; a total failure here
+  // shouldn't block startup.
+  await registerSkillsAtStartup().catch((err) => console.warn('[skills] startup load failed:', err));
+  boot('skills registered');
 
   const session = loadSession().filter((s) => {
     try { return fs.statSync(s.rootPath).isDirectory(); } catch { return false; }

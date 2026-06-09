@@ -6,6 +6,11 @@ export function registerTool(tool: ThinkingToolDef): void {
   tools.set(tool.id, tool);
 }
 
+/** Remove a registered tool. Used to re-sync compiled skills on reload (#625). */
+export function unregisterTool(id: string): void {
+  tools.delete(id);
+}
+
 export function getTool(id: string): ThinkingToolDef | undefined {
   return tools.get(id);
 }
