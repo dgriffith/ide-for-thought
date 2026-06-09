@@ -508,6 +508,10 @@ export interface ToolsApi {
 export interface SkillsApi {
   list(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
   reload(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
+  /** Pick a .md file or skill folder and import it. Returns null on cancel. */
+  import(): Promise<{ id: string; name: string } | null>;
+  remove(id: string): Promise<void>;
+  revealFolder(): Promise<void>;
 }
 
 export interface MenuApi {
