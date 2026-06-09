@@ -351,6 +351,10 @@ contextBridge.exposeInMainWorld('api', {
     setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
+  skills: {
+    list: () => ipcRenderer.invoke(Channels.SKILLS_LIST),
+    reload: () => ipcRenderer.invoke(Channels.SKILLS_RELOAD),
+  },
   sites: {
     list: () => ipcRenderer.invoke(Channels.SITES_LIST),
     add: (domain: string, label?: string) =>

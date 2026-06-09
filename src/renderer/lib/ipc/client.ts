@@ -505,6 +505,11 @@ export interface ToolsApi {
   onInvoke(cb: (toolId: string) => void): void;
 }
 
+export interface SkillsApi {
+  list(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
+  reload(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
+}
+
 export interface MenuApi {
   onNewNote(cb: () => void): void;
   onSave(cb: () => void): void;
@@ -580,6 +585,7 @@ export interface IdeApi {
   proposals: ProposalsApi;
   tabs: TabsApi;
   tools: ToolsApi;
+  skills: SkillsApi;
   refactor: RefactorApi;
   formatter: FormatterApi;
   sources: SourcesApi;
