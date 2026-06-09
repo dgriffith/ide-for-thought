@@ -274,3 +274,42 @@ export function renderTemplateDiagnostic(
 export function renderTemplate(template: string, ctx: SkillRenderContext): string {
   return renderTemplateDiagnostic(template, ctx).text;
 }
+
+const KNOWN_VAR_PATHS = new Set([
+  'selection', 'note', 'note.content', 'note.title', 'note.path',
+  'claim', 'claim.uri', 'claim.label', 'claim.sourceText',
+]);
+
+function isKnownPath(path: string): boolean {
+  if (KNOWN_VAR_PATHS.has(path)) return true;
+  return path.startsWith('param.') && path.length > 'param.'.length;
+}
+
+/**
+ * Context-independent validation for skill authoring (#624). Checks block
+ * balance and that every variable path and filter is known — catching typos
+ * like `{{note.body}}` or `{{x | blockqote}}` that lenient rendering would
+ * silently swallow. Returns a list of human-readable problems (empty = valid).
+ */
+export function validateTemplate(template: string): string[] {
+  const errors: string[] = [];
+  let tokens: Token[];
+  try {
+    tokens = tokenize(template);
+    parse(tokens); // structural check (balanced #if/else//if)
+  } catch (e) {
+    errors.push((e as Error).message);
+    return errors;
+  }
+  for (const tk of tokens) {
+    if (tk.t === 'var') {
+      if (!isKnownPath(tk.path)) errors.push(`unknown variable "${tk.path}"`);
+      for (const f of tk.filters) {
+        if (!FILTERS[f]) errors.push(`unknown filter "${f}"`);
+      }
+    } else if (tk.t === 'if') {
+      if (!isKnownPath(tk.path)) errors.push(`unknown condition "${tk.path}"`);
+    }
+  }
+  return errors;
+}

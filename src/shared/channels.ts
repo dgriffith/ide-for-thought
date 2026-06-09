@@ -344,6 +344,12 @@ export const Channels = {
   /** Prepare the system prompt + first message + model for a conversational tool. */
   TOOL_PREPARE_CONVERSATION: 'tool:prepareConversation',
 
+  // Skills (markdown skill files — #622)
+  /** List the loaded skill catalog (metadata + load errors). */
+  SKILLS_LIST: 'skills:list',
+  /** Re-scan stock + user skill files and return the refreshed catalog. */
+  SKILLS_RELOAD: 'skills:reload',
+
   // Proposals
   PROPOSAL_LIST: 'proposal:list',
   PROPOSAL_DETAIL: 'proposal:detail',

@@ -22,6 +22,8 @@ import { clearRecentProjects } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, getRootPath, markPathHandled, windowsForProject } from './window-manager';
 import { executeTool, prepareConversationTool } from './tools/executor';
+import { getSkillCatalog, reloadSkillCatalog } from './skills/loader';
+import { toSkillInfo, type SkillCatalogInfo } from '../shared/skills/types';
 import { runAutoTag } from './llm/auto-tag';
 import {
   suggestLinksTo,
@@ -1253,6 +1255,17 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(Channels.TOOL_PREPARE_CONVERSATION, (_e, request: ToolExecutionRequest) =>
     prepareConversationTool(request));
+
+  // Skills (#622). Returns serializable metadata only — prompt bodies stay in
+  // main and are rendered at prepare/execute time (Phase 3).
+  ipcMain.handle(Channels.SKILLS_LIST, async (): Promise<SkillCatalogInfo> => {
+    const cat = await getSkillCatalog();
+    return { skills: cat.skills.map(toSkillInfo), errors: cat.errors };
+  });
+  ipcMain.handle(Channels.SKILLS_RELOAD, async (): Promise<SkillCatalogInfo> => {
+    const cat = await reloadSkillCatalog();
+    return { skills: cat.skills.map(toSkillInfo), errors: cat.errors };
+  });
 
   ipcMain.handle(Channels.REFACTOR_AUTO_TAG, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
