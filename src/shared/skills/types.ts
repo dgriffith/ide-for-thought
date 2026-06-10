@@ -42,6 +42,8 @@ export interface SkillDef {
   description: string;
   longDescription: string;
   menu: SkillMenu;
+  /** Optional thematic sub-group within the menu (#525). Omit for a flat menu. */
+  group?: string;
   outputMode: OutputMode;
   context: ContextRequirement[];
   parameters: ToolParameter[];
@@ -70,6 +72,7 @@ export interface SkillInfo {
   description: string;
   longDescription: string;
   menu: SkillMenu;
+  group?: string;
   outputMode: OutputMode;
   context: ContextRequirement[];
   parameters: ToolParameter[];
@@ -109,6 +112,7 @@ export function toSkillInfo(s: SkillDef): SkillInfo {
     description: s.description,
     longDescription: s.longDescription,
     menu: s.menu,
+    group: s.group,
     outputMode: s.outputMode,
     context: s.context,
     parameters: s.parameters,

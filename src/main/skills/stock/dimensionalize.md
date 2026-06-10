@@ -3,6 +3,7 @@ id: analysis.dimensionalize
 name: Dimensionalize
 description: Reduce a decision to 3-7 measurable dimensions
 menu: Analysis
+group: Semantic
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

@@ -3,6 +3,7 @@ id: analysis.negspace
 name: Negspace
 description: Detect what is conspicuously absent
 menu: Analysis
+group: Pattern
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

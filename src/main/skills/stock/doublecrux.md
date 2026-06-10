@@ -3,6 +3,7 @@ id: analysis.doublecrux
 name: Double Crux
 description: Find the shared crux that would resolve a disagreement
 menu: Analysis
+group: Disagreement
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-opus-4-7

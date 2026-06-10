@@ -3,6 +3,7 @@ id: analysis.antithesize
 name: Antithesize
 description: Generate a standalone opposition — a complete rival worldview
 menu: Analysis
+group: Generation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-opus-4-7

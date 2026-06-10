@@ -3,6 +3,7 @@ id: analysis.synthesize
 name: Synthesize
 description: Compress thesis + antithesis into a unified frame
 menu: Analysis
+group: Generation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-opus-4-7

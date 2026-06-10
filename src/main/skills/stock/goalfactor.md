@@ -3,6 +3,7 @@ id: analysis.goalfactor
 name: Goal Factor
 description: Decompose a goal into the underlying needs it serves
 menu: Analysis
+group: Motivation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

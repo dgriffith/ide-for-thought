@@ -12,6 +12,7 @@ import { listSavedQueries } from './saved-queries';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
+import { groupToolsByGroup, hasNamedGroups } from '../shared/tools/grouping';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -465,14 +466,29 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
     // hardcoded block that listed only 4 of the 6 research tools).
     ...(['learning', 'research', 'analysis'] as const)
       .filter((id) => getToolsByCategory(id).length > 0)
-      .map((id) => ({
-        label: CATEGORIES.find((c) => c.id === id)!.label,
-        submenu: getToolsByCategory(id).map(tool => gate({
+      .map((id) => {
+        const tools = getToolsByCategory(id);
+        const mkItem = (tool: typeof tools[number]) => gate({
           label: tool.name,
           toolTip: tool.description,
           click: () => send(Channels.TOOL_INVOKE, tool.id),
-        })),
-      })),
+        });
+        // Thematic sub-grouping (#525): when any tool in the category declares
+        // a `group`, render one nested submenu per group (ungrouped → General,
+        // last). Otherwise stay flat — current behavior for ungrouped
+        // categories (Learning, Research).
+        const groups = groupToolsByGroup(tools);
+        const submenu: Electron.MenuItemConstructorOptions[] = hasNamedGroups(groups)
+          ? groups.map((g) => ({
+              label: g.label ?? 'General',
+              submenu: g.tools.map(mkItem),
+            }))
+          : tools.map(mkItem);
+        return {
+          label: CATEGORIES.find((c) => c.id === id)!.label,
+          submenu,
+        };
+      }),
 
     // Query
     {

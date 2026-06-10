@@ -155,6 +155,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
   const model = asString(fm.model);
   const requiresSelection = Boolean(fm.requiresSelection);
   const outputNotePrefix = asString(fm.outputNotePrefix);
+  const group = asString(fm.group);
   const firstMessage = asString(fm.firstMessage) ?? '';
   const longDescription = asString(fm.longDescription) ?? description ?? '';
 
@@ -178,6 +179,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
     description: description!,
     longDescription,
     menu: menuRaw as SkillMenu,
+    group,
     outputMode: outputModeRaw as OutputMode,
     context,
     parameters,

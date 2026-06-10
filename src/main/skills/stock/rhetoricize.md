@@ -3,6 +3,7 @@ id: analysis.rhetoricize
 name: Rhetoricize
 description: Map the rhetorical "spin-space" — where could the argument pivot?
 menu: Analysis
+group: Diagnostic
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

@@ -3,6 +3,7 @@ id: planning.steelman
 name: Steelman
 description: Construct the strongest version of an opposing argument
 menu: Analysis
+group: Disagreement
 outputMode: newNote
 outputNotePrefix: steelman
 slashCommand: /steelman

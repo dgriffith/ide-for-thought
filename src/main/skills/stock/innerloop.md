@@ -3,6 +3,7 @@ id: analysis.innerloop
 name: Inner Loop
 description: Sim the plan from the inside — what would actually happen?
 menu: Analysis
+group: Motivation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

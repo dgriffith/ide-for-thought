@@ -3,6 +3,7 @@ id: analysis.hamming
 name: Hamming Question
 description: Surface the most-important problem you are not working on
 menu: Analysis
+group: Planning
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-opus-4-7

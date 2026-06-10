@@ -3,6 +3,7 @@ id: analysis.referenceclass
 name: Reference Class
 description: Forecast via base rates from the right outside view
 menu: Analysis
+group: Planning
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6
