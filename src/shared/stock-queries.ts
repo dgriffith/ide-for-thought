@@ -11,6 +11,7 @@ const PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX dc: <http://purl.org/dc/terms/>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX thought: <https://minerva.dev/ontology/thought#>
 `;
 
 export const STOCK_QUERIES: StockQuery[] = [
@@ -122,8 +123,6 @@ ORDER BY ?title`,
     description: 'All typed links from each note (supports, rebuts, expands, etc.)',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
 SELECT ?sourceTitle ?linkType ?targetTitle WHERE {
   ?source rdf:type minerva:Note .
   ?source dc:title ?sourceTitle .
@@ -140,8 +139,6 @@ ORDER BY ?sourceTitle ?linkType`,
     description: 'All typed links pointing to each note (who supports/rebuts/expands this note)',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-
 SELECT ?targetTitle ?linkType ?sourceTitle WHERE {
   ?source rdf:type minerva:Note .
   ?source dc:title ?sourceTitle .
@@ -158,8 +155,6 @@ ORDER BY ?targetTitle ?linkType`,
     description: 'Every indexed Source with its title, first author, and year',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?sourceId ?title ?creator ?year WHERE {
   ?src minerva:sourceId ?sourceId .
   OPTIONAL { ?src dc:title ?title }
@@ -173,8 +168,6 @@ ORDER BY ?sourceId`,
     description: 'Sources ranked by the number of distinct notes citing or quoting them',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {
   ?src minerva:sourceId ?sourceId .
   OPTIONAL { ?src dc:title ?title }
@@ -193,8 +186,6 @@ ORDER BY DESC(?citations)`,
     description: 'Sources that cross a citation threshold (edit MIN_COUNT)',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 # Edit MIN_COUNT to change the threshold.
 SELECT ?sourceId ?title (COUNT(DISTINCT ?note) AS ?citations) WHERE {
   ?src minerva:sourceId ?sourceId .
@@ -215,8 +206,6 @@ ORDER BY DESC(?citations)`,
     description: 'Sources ranked by the number of linked Excerpts',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?sourceId ?title (COUNT(?excerpt) AS ?excerptCount) WHERE {
   ?src minerva:sourceId ?sourceId .
   OPTIONAL { ?src dc:title ?title }
@@ -230,8 +219,6 @@ ORDER BY DESC(?excerptCount)`,
     description: 'Sources that are missing a title, an author, or both (stub records)',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?sourceId ?title ?creator WHERE {
   ?src minerva:sourceId ?sourceId .
   OPTIONAL { ?src dc:title ?title }
@@ -245,8 +232,6 @@ ORDER BY ?sourceId`,
     description: 'All proposals awaiting human review',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?proposal ?note ?operationType ?proposedBy ?proposedAt WHERE {
   ?proposal rdf:type thought:Proposal .
   ?proposal thought:proposalStatus thought:pending .
@@ -262,8 +247,6 @@ ORDER BY ?proposedAt`,
     description: 'All recorded conversations with their status and trigger',
     language: 'sparql',
     query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
 SELECT ?conversation ?status ?startedAt ?triggerTitle WHERE {
   ?conversation rdf:type thought:Conversation .
   ?conversation thought:conversationStatus ?statusNode .
