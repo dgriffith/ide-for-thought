@@ -459,8 +459,18 @@ async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<u
       }
       return { resolvedPath: finalPath };
     }
+    case 'excerpt': {
+      // #104: file a thought:Excerpt node so claim-extraction can anchor its
+      // evidence. Mirrors the `note` case — write the .ttl then index directly
+      // (rather than waiting on the chokidar watcher) so the graph reflects it
+      // immediately for the claim notes' `[[quote::id]]` edges in the same bundle.
+      const relativePath = `.minerva/excerpts/${p.excerptId}.ttl`;
+      await notebaseFs.createFile(ctx.rootPath, relativePath);
+      await notebaseFs.writeFile(ctx.rootPath, relativePath, p.excerptTtl);
+      graph.indexExcerpt(ctx, p.excerptId, p.excerptTtl);
+      return { excerptPath: relativePath };
+    }
     case 'source':
-    case 'excerpt':
     case 'saved-query':
       throw new Error(
         `Approval payload kind "${p.kind}" not yet wired (#418 ships graph-triples + note; later kinds land as needed).`,
@@ -482,8 +492,15 @@ async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<
       graph.removeNote(ctx, data.resolvedPath);
       return;
     }
+    case 'excerpt': {
+      const data = a.rollbackData as { excerptPath: string };
+      try { await notebaseFs.deleteFile(ctx.rootPath, data.excerptPath); }
+      catch { /* file may already be gone */ }
+      // No graph.removeExcerpt today; rollback is best-effort and a reindex
+      // reconciles any drift (same posture as the triples-last convention).
+      return;
+    }
     case 'source':
-    case 'excerpt':
     case 'saved-query':
       // Never reached today — apply throws before recording an
       // applied entry for these kinds.

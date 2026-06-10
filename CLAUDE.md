@@ -102,6 +102,9 @@ no longer a `definitions/` tool registry; do not add one.
   `sourceBody` context (`{{source.*}}`). Source skills write back via the
   approval-gated `propose_source_properties` tool → `meta.ttl` upsert
   (`sources/source-meta-write.ts`). Worked example: `propose-source-summary.md`.
+  Claim mining (#104): `propose_claims` files `thought:Claim` notes + anchored
+  `thought:Excerpt` nodes (the approval engine's `excerpt` payload kind is now
+  wired) via `extract-key-claims.md`.
 - Authoring reference: `docs/authoring-skills.md`. To change a stock skill,
   disable it and author your own — don't edit bundled files.
 

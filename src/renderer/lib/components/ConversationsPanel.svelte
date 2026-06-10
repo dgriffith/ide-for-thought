@@ -20,6 +20,10 @@
     SourcePropertyOutcome,
   } from '../../../shared/conversation-source-property-drafts';
   import type {
+    ConversationClaimsDraft,
+    ClaimsOutcome,
+  } from '../../../shared/conversation-claims-drafts';
+  import type {
     ConversationComputeDraft,
   } from '../../../shared/conversation-compute-drafts';
   import type { CellOutput } from '../../../shared/compute/types';
@@ -322,6 +326,18 @@
     store.discardSourcePropertyDraft(tabId, draftId);
   }
 
+  async function handleApproveClaims(tabId: string, draft: ConversationClaimsDraft) {
+    try {
+      await store.approveClaimsDraft(tabId, draft);
+    } catch (e) {
+      console.error('[conv-panel] approve claims failed:', e);
+    }
+  }
+
+  function handleDiscardClaims(tabId: string, draftId: string) {
+    store.discardClaimsDraft(tabId, draftId);
+  }
+
   // ── propose_compute card state (#245) ─────────────────────────────
   //
   // Per-draft editor buffer (when the user clicks Edit) and a flag for
@@ -493,6 +509,14 @@
       ([, entry]) => entry.afterMessageIndex === i,
     );
   }
+  function claimsDraftsAt(tab: TabT, i: number) {
+    return tab.claimsDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function claimsResultsAt(tab: TabT, i: number) {
+    return Object.entries(tab.claimsDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex === i,
+    );
+  }
   function computeDraftsAt(tab: TabT, i: number) {
     return tab.computeDrafts.filter((d) => d.afterMessageIndex === i);
   }
@@ -533,6 +557,16 @@
   function orphanSourcePropertyResults(tab: TabT) {
     const max = tab.conversation.messages.length;
     return Object.entries(tab.sourcePropertyDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex >= max,
+    );
+  }
+  function orphanClaimsDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.claimsDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function orphanClaimsResults(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return Object.entries(tab.claimsDraftResults).filter(
       ([, entry]) => entry.afterMessageIndex >= max,
     );
   }
@@ -842,6 +876,50 @@
           </div>
         {/snippet}
 
+        {#snippet claimsDraftCardBlock(draft: ConversationClaimsDraft)}
+          <!-- propose_claims review card (#104). Each claim shows its kind,
+               confidence, and the supporting quote; Approve files claim notes +
+               excerpt nodes through the approval engine. -->
+          <div class="draft-card">
+            <div class="draft-summary">
+              <strong>🧩 {draft.claims.length} claim{draft.claims.length === 1 ? '' : 's'}</strong>
+              <span class="draft-note">{draft.note}</span>
+            </div>
+            <ul class="claims-list">
+              {#each draft.claims as c, ci (ci)}
+                <li class="claim-item">
+                  <div class="claim-head">
+                    <span class="claim-kind">{c.kind}</span>
+                    <span class="claim-conf">conf {c.confidence.toFixed(2)}</span>
+                    {#if !c.quoteFound}<span class="claim-approx" title="Quote wasn't a verbatim substring of the body — excerpt files without a character anchor">approx</span>{/if}
+                  </div>
+                  <div class="claim-text">{c.text}</div>
+                  <div class="claim-quote">{c.quote}</div>
+                </li>
+              {/each}
+            </ul>
+            <div class="draft-actions">
+              <button type="button" class="draft-btn primary" onclick={() => handleApproveClaims(tab.id, draft)}>Approve &amp; file</button>
+              <button type="button" class="draft-btn" onclick={() => handleDiscardClaims(tab.id, draft.draftId)}>Discard</button>
+            </div>
+          </div>
+        {/snippet}
+
+        {#snippet claimsResultLine(_draftId: string, outcome: ClaimsOutcome)}
+          <div class="filed-line">
+            <span class="filed-prefix">🧩 Filed:</span>
+            {#if outcome.error}
+              <span class="filed-error" title={outcome.error}>⚠ {outcome.sourceId}</span>
+            {:else}
+              {#each outcome.claimPaths as p, pi (p)}
+                {#if pi > 0}<span class="filed-sep">·</span>{/if}
+                <button type="button" class="filed-link" title={p} onclick={() => openFiledNote(p)}>{basename(p)}</button>
+              {/each}
+              <span class="filed-dup"> · {outcome.excerptIds.length} excerpt{outcome.excerptIds.length === 1 ? '' : 's'}</span>
+            {/if}
+          </div>
+        {/snippet}
+
         {#snippet computeOutputBlock(output: CellOutput)}
           {#if output.type === 'text'}
             <pre class="compute-output-text">{output.value}</pre>
@@ -1031,6 +1109,12 @@
             {#each sourcePropertyResultsAt(tab, i) as [draftId, entry] (draftId)}
               {@render sourcePropertyResultLine(draftId, entry.outcome)}
             {/each}
+            {#each claimsDraftsAt(tab, i) as draft (draft.draftId)}
+              {@render claimsDraftCardBlock(draft)}
+            {/each}
+            {#each claimsResultsAt(tab, i) as [draftId, entry] (draftId)}
+              {@render claimsResultLine(draftId, entry.outcome)}
+            {/each}
             {#each computeDraftsAt(tab, i) as draft (draft.draftId)}
               {@render computeDraftCardBlock(draft)}
             {/each}
@@ -1117,6 +1201,12 @@
           {/each}
           {#each orphanSourcePropertyResults(tab) as [draftId, entry] (draftId)}
             {@render sourcePropertyResultLine(draftId, entry.outcome)}
+          {/each}
+          {#each orphanClaimsDrafts(tab) as draft (draft.draftId)}
+            {@render claimsDraftCardBlock(draft)}
+          {/each}
+          {#each orphanClaimsResults(tab) as [draftId, entry] (draftId)}
+            {@render claimsResultLine(draftId, entry.outcome)}
           {/each}
           {#each orphanComputeDrafts(tab) as draft (draft.draftId)}
             {@render computeDraftCardBlock(draft)}
@@ -1645,6 +1735,47 @@
     font-size: 12px;
     line-height: 1.5;
     color: var(--text);
+    white-space: pre-wrap;
+  }
+  /* propose_claims card (#104). */
+  .claims-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .claim-item {
+    border-left: 2px solid var(--border);
+    padding-left: 8px;
+  }
+  .claim-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+  .claim-kind {
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+  .claim-conf { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .claim-approx {
+    color: var(--bg);
+    background: var(--text-muted);
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+  .claim-text { font-size: 13px; color: var(--text); }
+  .claim-quote {
+    font-size: 11px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--border);
+    padding-left: 6px;
+    margin-top: 2px;
     white-space: pre-wrap;
   }
   .property-kv-list {

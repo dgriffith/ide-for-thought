@@ -23,6 +23,11 @@ export interface CreateExcerptParams {
   page?: number | null;
   pageRange?: string | null;
   locationText?: string | null;
+  /** Optional 0-based character offsets of the cited text within the source's
+   *  extracted body.md (#104). When supplied, emitted as thought:charStart /
+   *  thought:charEnd so the excerpt is anchored, not just quote-matched. */
+  charStart?: number | null;
+  charEnd?: number | null;
 }
 
 export interface CreateExcerptResult {
@@ -40,7 +45,7 @@ export async function createExcerpt(
   if (!cited) throw new Error('Empty selection; nothing to excerpt.');
   if (!params.sourceId) throw new Error('Missing sourceId.');
 
-  const excerptId = `${params.sourceId}-${shortHash(cited)}`;
+  const excerptId = excerptIdFor(params.sourceId, cited);
   const relativePath = `.minerva/excerpts/${excerptId}.ttl`;
   const absPath = path.join(rootPath, relativePath);
 
@@ -73,8 +78,19 @@ export function buildExcerptTtl(params: CreateExcerptParams): string {
   if (params.locationText) {
     lines.push(`    thought:locationText ${ttlString(params.locationText)} ;`);
   }
+  if (params.charStart != null && params.charEnd != null) {
+    lines.push(`    thought:charStart ${params.charStart} ;`);
+    lines.push(`    thought:charEnd ${params.charEnd} ;`);
+  }
   lines.push(`    prov:generatedAtTime ${ttlString(new Date().toISOString())}^^xsd:dateTime .`);
   return lines.join('\n') + '\n';
+}
+
+/** Deterministic excerpt id for a (source, citedText) pair. Exposed so callers
+ *  that need the id before/without writing the file (e.g. the claim-extraction
+ *  draft, #104) compute the same id `createExcerpt` would. */
+export function excerptIdFor(sourceId: string, citedText: string): string {
+  return `${sourceId}-${shortHash(citedText.trim())}`;
 }
 
 function ttlString(s: string): string {

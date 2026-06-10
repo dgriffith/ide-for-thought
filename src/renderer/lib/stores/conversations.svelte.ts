@@ -20,6 +20,10 @@ import type {
   ConversationSourcePropertyDraft,
   SourcePropertyOutcome,
 } from '../../../shared/conversation-source-property-drafts';
+import type {
+  ConversationClaimsDraft,
+  ClaimsOutcome,
+} from '../../../shared/conversation-claims-drafts';
 import type { CellResult } from '../../../shared/compute/types';
 import type {
   AskUserRequest,
@@ -57,6 +61,7 @@ type AnchoredDraft = ConversationDraft & { afterMessageIndex: number };
 type AnchoredSourceDraft = ConversationSourceDraft & { afterMessageIndex: number };
 type AnchoredPropertyDraft = ConversationPropertyDraft & { afterMessageIndex: number };
 type AnchoredSourcePropertyDraft = ConversationSourcePropertyDraft & { afterMessageIndex: number };
+type AnchoredClaimsDraft = ConversationClaimsDraft & { afterMessageIndex: number };
 interface SourceDraftResultEntry {
   outcomes: SourceIngestOutcome[];
   afterMessageIndex: number;
@@ -67,6 +72,10 @@ interface PropertyDraftResultEntry {
 }
 interface SourcePropertyDraftResultEntry {
   outcome: SourcePropertyOutcome;
+  afterMessageIndex: number;
+}
+interface ClaimsDraftResultEntry {
+  outcome: ClaimsOutcome;
   afterMessageIndex: number;
 }
 /** Post-Approve summary for a propose_notes draft. Persists in the
@@ -124,6 +133,11 @@ interface TabRuntime {
   /** Per-draft outcome after Approve on a source-property draft — renders
    *  the post-Approve "Updated:" line in place of the card. */
   sourcePropertyDraftResults: Record<string, SourcePropertyDraftResultEntry>;
+  /** propose_claims drafts awaiting Approve/Discard (#104). */
+  claimsDrafts: AnchoredClaimsDraft[];
+  /** Per-draft outcome after Approve on a claims draft — renders the
+   *  post-Approve "Filed:" line in place of the card. */
+  claimsDraftResults: Record<string, ClaimsDraftResultEntry>;
   /** propose_compute drafts awaiting Run / Insert / Discard. */
   computeDrafts: AnchoredComputeDraft[];
   /** Per-draft Run / Insert state. Stays alive after Run so the user
@@ -167,6 +181,7 @@ let draftSubscribed = false;
 let sourceDraftSubscribed = false;
 let propertyDraftSubscribed = false;
 let sourcePropertyDraftSubscribed = false;
+let claimsDraftSubscribed = false;
 let computeDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
@@ -241,6 +256,15 @@ function ensureSubscriptions(): void {
     });
     sourcePropertyDraftSubscribed = true;
   }
+  if (!claimsDraftSubscribed) {
+    api.conversations.onClaimsDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.claimsDrafts = [...t.claimsDrafts, { ...draft, afterMessageIndex }];
+    });
+    claimsDraftSubscribed = true;
+  }
   if (!computeDraftSubscribed) {
     api.conversations.onComputeDraft((draft) => {
       const t = tabs.find((tab) => tab.id === draft.conversationId);
@@ -305,6 +329,8 @@ async function init(): Promise<void> {
       propertyDraftResults: {},
       sourcePropertyDrafts: [],
       sourcePropertyDraftResults: {},
+      claimsDrafts: [],
+      claimsDraftResults: {},
       computeDrafts: [],
       computeDraftState: {},
       pendingQuestion: null,
@@ -396,6 +422,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     propertyDraftResults: {},
     sourcePropertyDrafts: [],
     sourcePropertyDraftResults: {},
+    claimsDrafts: [],
+    claimsDraftResults: {},
     computeDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
@@ -454,6 +482,8 @@ async function openConversationTab(opts: {
     propertyDraftResults: {},
     sourcePropertyDrafts: [],
     sourcePropertyDraftResults: {},
+    claimsDrafts: [],
+    claimsDraftResults: {},
     computeDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
@@ -689,6 +719,31 @@ function discardSourcePropertyDraft(tabId: string, draftId: string): void {
   tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draftId);
 }
 
+async function approveClaimsDraft(
+  tabId: string,
+  draft: ConversationClaimsDraft,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const anchored = tab.claimsDrafts.find((d) => d.draftId === draft.draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+  // JSON round-trip to shed any $state Proxy before IPC structured-clone —
+  // the claims array is nested, so this is the safe snapshot (#104).
+  const plain = JSON.parse(JSON.stringify(draft)) as ConversationClaimsDraft;
+  const result = await api.conversations.fileClaimsDraft(plain);
+  tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draft.draftId);
+  tab.claimsDraftResults = {
+    ...tab.claimsDraftResults,
+    [draft.draftId]: { outcome: result.outcome, afterMessageIndex },
+  };
+}
+
+function discardClaimsDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draftId);
+}
+
 async function runComputeDraft(
   tabId: string,
   draft: ConversationComputeDraft,
@@ -825,6 +880,8 @@ export function getConversationsStore() {
     discardPropertyDraft,
     approveSourcePropertyDraft,
     discardSourcePropertyDraft,
+    approveClaimsDraft,
+    discardClaimsDraft,
     runComputeDraft,
     insertComputeDraft,
     discardComputeDraft,

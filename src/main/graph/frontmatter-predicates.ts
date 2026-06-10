@@ -83,6 +83,11 @@ const MAP: Record<string, FrontmatterPredicate> = {
   // Parent decomposition note → source note. Lets queries surface
   // every decomposition the user has filed for a given passage.
   decomposes: THOUGHT('decomposes'),
+  // Per-claim confidence (#104). A claim note's `confidence: 0.0–1.0`
+  // materialises as thought:confidenceValue. The predicate already exists
+  // in the ontology (xsd:decimal).
+  confidence: THOUGHT('confidenceValue'),
+  confidenceValue: THOUGHT('confidenceValue'),
 
   // prov:* (provenance — #244 derived notes)
   derived_from: PROV('wasDerivedFrom'),

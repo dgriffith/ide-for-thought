@@ -188,11 +188,17 @@ menu (and is kept out of the note menus + editor right-click). Pair it with
 - `{{#if source}}` / `{{#if source.body}}` — branch when no source / no body.
 
 To write back to a source through the approval engine, a conversational
-source skill calls `propose_source_properties` with the `sourceId` plus a
-proposed `abstract` (`dc:abstract`) and/or `tldr` (`thought:tldr`). Like every
-LLM write, it's a *proposal*: the user approves an inline card before anything
-lands on the source's metadata. The stock **Propose Summary**
-(`research.propose-source-summary`) is the worked example.
+source skill calls one of the source-filing tools — each emits a reviewable
+card and writes nothing until the user approves:
+
+- `propose_source_properties` — a proposed `abstract` (`dc:abstract`) and/or
+  `tldr` (`thought:tldr`) on the source. Worked example: **Propose Summary**
+  (`research.propose-source-summary`).
+- `propose_claims` — key claims mined from the body, each `{ text, kind, quote,
+  confidence }`. On approval each becomes a `thought:Claim` note citing a
+  `thought:Excerpt` anchored into `body.md` (the evidence edge), with its
+  confidence. Worked example: **Extract Key Claims**
+  (`research.extract-key-claims`).
 
 ## Parameters
 
