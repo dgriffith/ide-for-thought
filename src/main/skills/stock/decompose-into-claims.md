@@ -3,6 +3,7 @@ id: research.decompose-into-claims
 name: Decompose into Claims
 description: Pull every distinct assertion out as its own typed claim
 menu: Research
+group: Decomposition
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

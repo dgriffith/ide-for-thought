@@ -3,6 +3,7 @@ id: research.crystallize
 name: Crystallize as Components
 description: Extract thought components and file as a crystallization note
 menu: Research
+group: Decomposition
 outputMode: openConversation
 context: [fullNote]
 model: claude-sonnet-4-6
