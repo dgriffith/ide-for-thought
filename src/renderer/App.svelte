@@ -59,7 +59,15 @@
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
-  import { slugify } from '../shared/slug';
+  import {
+    slugifyForPath,
+    findAnchorOffset,
+    offsetToLineCol,
+    flattenNotePaths,
+    countNotes,
+    describeDeleteNoun,
+    describeDeleteMessage,
+  } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
@@ -324,11 +332,6 @@
     return { systemPrompt, firstMessage };
   }
 
-  /** Cheap slug for path placeholders in the system prompt. The agent
-   *  may override these paths; this is just a sensible default. */
-  function slugifyForPath(s: string): string {
-    return s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'overview';
-  }
 
   async function handleOnboardingAccept(answers: OnboardingAnswers, dontAskAgain: boolean) {
     showOnboarding = false;
@@ -541,22 +544,6 @@
    * Locate a heading (by slug) or block-id inside raw markdown and return
    * the character offset of its line. Shared between source and split modes.
    */
-  function findAnchorOffset(text: string, anchor: string): number | null {
-    const isBlockId = anchor.startsWith('^');
-    const lines = text.split('\n');
-    let offset = 0;
-    for (const line of lines) {
-      if (isBlockId) {
-        if (line.trimEnd().endsWith(anchor)) return offset;
-      } else {
-        const m = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-        if (m && slugify(m[2]) === anchor) return offset;
-      }
-      offset += line.length + 1;
-    }
-    return null;
-  }
-
   function handleSourceDeleted(sourceId: string) {
     // Close every tab bound to this source — the detail view AND any PDF
     // viewer — so the user isn't left staring at a ghost viewer that then
@@ -610,18 +597,6 @@
   }
 
   /** Flatten the sidebar file tree to a list of indexable relative paths. */
-  function flattenNotePaths(files: import('../shared/types').NoteFile[]): string[] {
-    const out: string[] = [];
-    const walk = (xs: import('../shared/types').NoteFile[]) => {
-      for (const f of xs) {
-        if (f.isDirectory) walk(f.children ?? []);
-        else if (/\.(md|ttl|csv)$/.test(f.relativePath)) out.push(f.relativePath);
-      }
-    };
-    walk(files);
-    return out;
-  }
-
   function handleTagSelect(tag: string) {
     sidebar?.refreshTags();
     setTimeout(() => sidebar?.selectTag(tag), 50);
@@ -1077,27 +1052,6 @@
     await executeDeletes(targets);
   }
 
-  function describeDeleteNoun(targets: Array<{ isDirectory: boolean }>): string {
-    if (targets.length === 1) return targets[0].isDirectory ? 'folder' : 'note';
-    const allDirs = targets.every((t) => t.isDirectory);
-    const allFiles = targets.every((t) => !t.isDirectory);
-    if (allDirs) return 'folders';
-    if (allFiles) return 'notes';
-    return 'items';
-  }
-
-  function describeDeleteMessage(
-    targets: Array<{ relativePath: string; isDirectory: boolean }>,
-    noun: string,
-  ): string {
-    if (targets.length === 1) {
-      const name = targets[0].relativePath.split('/').pop();
-      return `Delete ${noun} "${name}"?`;
-    }
-    const sample = targets.slice(0, 3).map((t) => t.relativePath).join(', ');
-    const more = targets.length > 3 ? ', …' : '';
-    return `Delete ${targets.length} ${noun} (${sample}${more})?`;
-  }
 
   async function executeDeletes(
     targets: Array<{ relativePath: string; isDirectory: boolean }>,
@@ -1161,15 +1115,6 @@
       // File may have been deleted/moved between the dialog popping
       // and the click — opening alone is enough.
     }
-  }
-
-  function offsetToLineCol(text: string, offset: number): { line: number; col: number } {
-    let line = 1;
-    let col = 0;
-    for (let i = 0; i < offset && i < text.length; i++) {
-      if (text[i] === '\n') { line++; col = 0; } else { col++; }
-    }
-    return { line, col };
   }
 
   // ── Sidebar clipboard ──────────────────────────────────────────────────
@@ -2870,14 +2815,6 @@
   /** Count .md notes anywhere in the tree (recursive over folder
    *  children). The onboarding trigger uses this to decide whether
    *  the thoughtbase is "empty" — folders alone don't disqualify. */
-  function countNotes(files: import('../shared/types').NoteFile[]): number {
-    let n = 0;
-    for (const f of files) {
-      if (!f.isDirectory && f.name.endsWith('.md')) n++;
-      else if (f.isDirectory && f.children) n += countNotes(f.children);
-    }
-    return n;
-  }
 </script>
 
 <svelte:window onkeydown={(e) => handleKeydown(e, keymapDeps)} />

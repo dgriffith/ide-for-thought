@@ -1,0 +1,104 @@
+/**
+ * Pure text / note-tree helpers extracted from App.svelte (#670).
+ */
+import { describe, it, expect } from 'vitest';
+import {
+  slugifyForPath,
+  findAnchorOffset,
+  offsetToLineCol,
+  flattenNotePaths,
+  countNotes,
+  describeDeleteNoun,
+  describeDeleteMessage,
+} from '../../../src/renderer/lib/app/text-helpers';
+import type { NoteFile } from '../../../src/shared/types';
+
+function dir(name: string, children: NoteFile[]): NoteFile {
+  return { name, relativePath: name, isDirectory: true, children };
+}
+function file(relativePath: string): NoteFile {
+  const name = relativePath.split('/').pop()!;
+  return { name, relativePath, isDirectory: false };
+}
+
+describe('slugifyForPath', () => {
+  it('lowercases, dashes runs of non-alphanumerics, trims dashes', () => {
+    expect(slugifyForPath('Hello, World!')).toBe('hello-world');
+    expect(slugifyForPath('  Spaced  Out  ')).toBe('spaced-out');
+  });
+  it('caps length at 40 chars', () => {
+    expect(slugifyForPath('a'.repeat(60)).length).toBe(40);
+  });
+  it('falls back to "overview" when nothing survives', () => {
+    expect(slugifyForPath('!!!')).toBe('overview');
+    expect(slugifyForPath('')).toBe('overview');
+  });
+});
+
+describe('findAnchorOffset', () => {
+  it('finds a heading by slug and returns its byte offset', () => {
+    const text = '# Intro\n\n## My Section\n\nbody';
+    const off = findAnchorOffset(text, 'my-section');
+    expect(off).toBe(text.indexOf('## My Section'));
+  });
+  it('finds a trailing block id', () => {
+    const text = 'a paragraph ^abc123\nnext';
+    expect(findAnchorOffset(text, '^abc123')).toBe(0);
+  });
+  it('returns null when the anchor is absent', () => {
+    expect(findAnchorOffset('# Intro\nbody', 'missing')).toBeNull();
+  });
+});
+
+describe('offsetToLineCol', () => {
+  it('maps offsets to 1-based line / 0-based col', () => {
+    const text = 'abc\nde\nf';
+    expect(offsetToLineCol(text, 0)).toEqual({ line: 1, col: 0 });
+    expect(offsetToLineCol(text, 2)).toEqual({ line: 1, col: 2 });
+    expect(offsetToLineCol(text, 4)).toEqual({ line: 2, col: 0 });
+    expect(offsetToLineCol(text, 7)).toEqual({ line: 3, col: 0 });
+  });
+});
+
+describe('flattenNotePaths', () => {
+  it('collects md/ttl/csv leaves recursively, skipping other files', () => {
+    const tree = [
+      file('a.md'),
+      file('ignore.png'),
+      dir('sub', [file('sub/b.ttl'), file('sub/c.csv'), file('sub/d.txt')]),
+    ];
+    expect(flattenNotePaths(tree)).toEqual(['a.md', 'sub/b.ttl', 'sub/c.csv']);
+  });
+});
+
+describe('countNotes', () => {
+  it('counts .md files recursively, not folders or other files', () => {
+    const tree = [
+      file('a.md'),
+      file('b.csv'),
+      dir('sub', [file('sub/c.md'), dir('deep', [file('sub/deep/e.md')])]),
+    ];
+    expect(countNotes(tree)).toBe(3);
+  });
+});
+
+describe('describeDeleteNoun', () => {
+  it('singular/plural by target makeup', () => {
+    expect(describeDeleteNoun([{ isDirectory: false }])).toBe('note');
+    expect(describeDeleteNoun([{ isDirectory: true }])).toBe('folder');
+    expect(describeDeleteNoun([{ isDirectory: false }, { isDirectory: false }])).toBe('notes');
+    expect(describeDeleteNoun([{ isDirectory: true }, { isDirectory: true }])).toBe('folders');
+    expect(describeDeleteNoun([{ isDirectory: true }, { isDirectory: false }])).toBe('items');
+  });
+});
+
+describe('describeDeleteMessage', () => {
+  it('names a single target', () => {
+    expect(describeDeleteMessage([{ relativePath: 'a/b.md', isDirectory: false }], 'note'))
+      .toBe('Delete note "b.md"?');
+  });
+  it('summarizes multiple with a sample and overflow', () => {
+    const targets = ['a.md', 'b.md', 'c.md', 'd.md'].map((p) => ({ relativePath: p, isDirectory: false }));
+    expect(describeDeleteMessage(targets, 'notes')).toBe('Delete 4 notes (a.md, b.md, c.md, …)?');
+  });
+});
