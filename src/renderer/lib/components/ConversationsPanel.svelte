@@ -16,6 +16,10 @@
     PropertyUpdateOutcome,
   } from '../../../shared/conversation-property-drafts';
   import type {
+    ConversationSourcePropertyDraft,
+    SourcePropertyOutcome,
+  } from '../../../shared/conversation-source-property-drafts';
+  import type {
     ConversationComputeDraft,
   } from '../../../shared/conversation-compute-drafts';
   import type { CellOutput } from '../../../shared/compute/types';
@@ -306,6 +310,18 @@
     store.discardPropertyDraft(tabId, draftId);
   }
 
+  async function handleApproveSourceProperty(tabId: string, draft: ConversationSourcePropertyDraft) {
+    try {
+      await store.approveSourcePropertyDraft(tabId, draft);
+    } catch (e) {
+      console.error('[conv-panel] approve source property failed:', e);
+    }
+  }
+
+  function handleDiscardSourceProperty(tabId: string, draftId: string) {
+    store.discardSourcePropertyDraft(tabId, draftId);
+  }
+
   // ── propose_compute card state (#245) ─────────────────────────────
   //
   // Per-draft editor buffer (when the user clicks Edit) and a flag for
@@ -469,6 +485,14 @@
       ([, entry]) => entry.afterMessageIndex === i,
     );
   }
+  function sourcePropertyDraftsAt(tab: TabT, i: number) {
+    return tab.sourcePropertyDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function sourcePropertyResultsAt(tab: TabT, i: number) {
+    return Object.entries(tab.sourcePropertyDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex === i,
+    );
+  }
   function computeDraftsAt(tab: TabT, i: number) {
     return tab.computeDrafts.filter((d) => d.afterMessageIndex === i);
   }
@@ -499,6 +523,16 @@
   function orphanPropertyResults(tab: TabT) {
     const max = tab.conversation.messages.length;
     return Object.entries(tab.propertyDraftResults).filter(
+      ([, entry]) => entry.afterMessageIndex >= max,
+    );
+  }
+  function orphanSourcePropertyDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.sourcePropertyDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function orphanSourcePropertyResults(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return Object.entries(tab.sourcePropertyDraftResults).filter(
       ([, entry]) => entry.afterMessageIndex >= max,
     );
   }
@@ -766,6 +800,48 @@
           </div>
         {/snippet}
 
+        {#snippet sourcePropertyDraftCardBlock(draft: ConversationSourcePropertyDraft)}
+          <!-- propose_source_properties review card (#103). Shows the proposed
+               abstract / TL;DR for one source; Approve upserts dc:abstract /
+               thought:tldr into its meta.ttl. -->
+          <div class="draft-card">
+            <div class="draft-summary">
+              <strong>📄 Source summary</strong>
+              <span class="draft-note">{draft.note}</span>
+            </div>
+            <div class="property-update-path">{draft.sourceId}</div>
+            {#if draft.abstract}
+              <div class="source-prop-block">
+                <div class="source-prop-label">Abstract</div>
+                <div class="source-prop-text">{draft.abstract}</div>
+              </div>
+            {/if}
+            {#if draft.tldr}
+              <div class="source-prop-block">
+                <div class="source-prop-label">TL;DR</div>
+                <div class="source-prop-text">{draft.tldr}</div>
+              </div>
+            {/if}
+            <div class="draft-actions">
+              <button type="button" class="draft-btn primary" onclick={() => handleApproveSourceProperty(tab.id, draft)}>Approve &amp; apply</button>
+              <button type="button" class="draft-btn" onclick={() => handleDiscardSourceProperty(tab.id, draft.draftId)}>Discard</button>
+            </div>
+          </div>
+        {/snippet}
+
+        {#snippet sourcePropertyResultLine(_draftId: string, outcome: SourcePropertyOutcome)}
+          <div class="filed-line">
+            <span class="filed-prefix">📄 Updated:</span>
+            {#if outcome.error}
+              <span class="filed-error" title={outcome.error}>⚠ {outcome.sourceId}</span>
+            {:else if outcome.changedPredicates.length === 0}
+              <span class="filed-error">{outcome.sourceId} · no change</span>
+            {:else}
+              <span class="filed-link" title={outcome.sourceId}>{outcome.sourceId} · {outcome.changedPredicates.join(', ')}</span>
+            {/if}
+          </div>
+        {/snippet}
+
         {#snippet computeOutputBlock(output: CellOutput)}
           {#if output.type === 'text'}
             <pre class="compute-output-text">{output.value}</pre>
@@ -949,6 +1025,12 @@
             {#each propertyResultsAt(tab, i) as [draftId, entry] (draftId)}
               {@render propertyResultLine(draftId, entry.outcomes)}
             {/each}
+            {#each sourcePropertyDraftsAt(tab, i) as draft (draft.draftId)}
+              {@render sourcePropertyDraftCardBlock(draft)}
+            {/each}
+            {#each sourcePropertyResultsAt(tab, i) as [draftId, entry] (draftId)}
+              {@render sourcePropertyResultLine(draftId, entry.outcome)}
+            {/each}
             {#each computeDraftsAt(tab, i) as draft (draft.draftId)}
               {@render computeDraftCardBlock(draft)}
             {/each}
@@ -1029,6 +1111,12 @@
           {/each}
           {#each orphanPropertyResults(tab) as [draftId, entry] (draftId)}
             {@render propertyResultLine(draftId, entry.outcomes)}
+          {/each}
+          {#each orphanSourcePropertyDrafts(tab) as draft (draft.draftId)}
+            {@render sourcePropertyDraftCardBlock(draft)}
+          {/each}
+          {#each orphanSourcePropertyResults(tab) as [draftId, entry] (draftId)}
+            {@render sourcePropertyResultLine(draftId, entry.outcome)}
           {/each}
           {#each orphanComputeDrafts(tab) as draft (draft.draftId)}
             {@render computeDraftCardBlock(draft)}
@@ -1539,6 +1627,25 @@
     font-size: 12px;
     color: var(--text-muted);
     margin-bottom: 2px;
+  }
+  /* propose_source_properties card (#103). */
+  .source-prop-block {
+    margin: 6px 0;
+    border-left: 2px solid var(--border);
+    padding-left: 8px;
+  }
+  .source-prop-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .source-prop-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre-wrap;
   }
   .property-kv-list {
     list-style: none;

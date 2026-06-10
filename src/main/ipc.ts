@@ -82,6 +82,7 @@ import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest
 import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
+import { setSourceProperties, ttlString } from './sources/source-meta-write';
 import { stripUpstreamTags } from './sources/strip-upstream-tags';
 import { getIngestSettings, saveIngestSettings, type IngestSettings } from './sources/ingest-settings';
 import { ingestSmart } from './sources/ingest-smart';
@@ -2088,6 +2089,11 @@ export function registerIpcHandlers(): void {
             win.webContents.send(Channels.CONVERSATION_PROPERTY_DRAFT, draft);
           }
         },
+        onSourcePropertyDraft: (draft: import('../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, draft);
+          }
+        },
         onComputeDraft: (draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft) => {
           if (!win.isDestroyed()) {
             win.webContents.send(Channels.CONVERSATION_COMPUTE_DRAFT, draft);
@@ -2409,6 +2415,56 @@ export function registerIpcHandlers(): void {
       // here — the file watcher's NOTEBASE_FILE_CHANGED event is
       // what the renderer already listens for to refresh views.
       return { outcomes };
+    },
+  );
+
+  // Counterpart to CONVERSATION_FILE_PROPERTY_DRAFT for source summaries
+  // (#103). Upserts the proposed dc:abstract / thought:tldr into the source's
+  // meta.ttl and reindexes — the single human-confirm gate for an
+  // LLM-originated source-metadata write.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT,
+    async (
+      e,
+      draft: import('../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft,
+    ): Promise<import('../shared/conversation-source-property-drafts').FileSourcePropertyDraftResult> => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const sourceId = draft?.sourceId;
+      if (!sourceId) {
+        throw new Error(
+          `FILE_SOURCE_PROPERTY_DRAFT: draft has no sourceId (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      // Mirror the note handler's defensive check: a payload that arrived
+      // with neither field (e.g. a serialization slip) should surface, not
+      // silently no-op.
+      if (!draft.abstract && !draft.tldr) {
+        return {
+          outcome: {
+            sourceId,
+            changedPredicates: [],
+            error: 'neither abstract nor tldr arrived across IPC — nothing written.',
+          },
+        };
+      }
+      try {
+        const updates: { predicate: string; value: string }[] = [];
+        if (draft.abstract) updates.push({ predicate: 'dc:abstract', value: ttlString(draft.abstract) });
+        if (draft.tldr) updates.push({ predicate: 'thought:tldr', value: ttlString(draft.tldr) });
+        const changedPredicates = await setSourceProperties(rootPath, sourceId, updates);
+        return { outcome: { sourceId, changedPredicates } };
+      } catch (err) {
+        console.warn('[conv] FILE_SOURCE_PROPERTY_DRAFT failed for', sourceId, err);
+        return {
+          outcome: {
+            sourceId,
+            changedPredicates: [],
+            error: err instanceof Error ? err.message : String(err),
+          },
+        };
+      }
     },
   );
 

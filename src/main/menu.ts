@@ -13,6 +13,7 @@ import { restartKernel as restartPythonKernel, interruptKernel as interruptPytho
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import { groupToolsByGroup, hasNamedGroups } from '../shared/tools/grouping';
+import { isSourceScoped } from '../shared/tools/types';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -465,9 +466,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
     // since #627, Research is data-driven like the others (it used to be a
     // hardcoded block that listed only 4 of the 6 research tools).
     ...(['learning', 'research', 'analysis'] as const)
-      .filter((id) => getToolsByCategory(id).length > 0)
+      // Source-scoped tools (#103) live in the Source viewer, not these menus.
+      .filter((id) => getToolsByCategory(id).some((t) => !isSourceScoped(t)))
       .map((id) => {
-        const tools = getToolsByCategory(id);
+        const tools = getToolsByCategory(id).filter((t) => !isSourceScoped(t));
         const mkItem = (tool: typeof tools[number]) => gate({
           label: tool.name,
           toolTip: tool.description,

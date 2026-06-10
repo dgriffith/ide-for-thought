@@ -67,6 +67,7 @@ describe('Source metadata predicates', () => {
     { ns: SCHEMA, local: 'inContainer', label: 'in container' },
     { ns: THOUGHT, local: 'accessedAt', label: 'accessed at' },
     { ns: THOUGHT, local: 'archivedAt', label: 'archived at' },
+    { ns: THOUGHT, local: 'tldr', label: 'TL;DR' }, // #103
   ];
 
   for (const { ns, local, label: _label } of predicates) {

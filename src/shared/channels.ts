@@ -387,6 +387,10 @@ export const Channels = {
   CONVERSATION_PROPERTY_DRAFT: 'conversation:propertyDraft',
   /** renderer → main: user approved a property draft; apply each {path, properties} patch and return the per-update outcomes. */
   CONVERSATION_FILE_PROPERTY_DRAFT: 'conversation:filePropertyDraft',
+  /** main → renderer: a propose_source_properties tool call produced a source-meta draft for review (#103). Payload is ConversationSourcePropertyDraft. */
+  CONVERSATION_SOURCE_PROPERTY_DRAFT: 'conversation:sourcePropertyDraft',
+  /** renderer → main: user approved a source-property draft; upsert dc:abstract / thought:tldr into the source's meta.ttl and reindex. */
+  CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT: 'conversation:fileSourcePropertyDraft',
   /** main → renderer: a propose_compute tool call produced a code-cell draft for review (#245). Payload is ConversationComputeDraft. */
   CONVERSATION_COMPUTE_DRAFT: 'conversation:computeDraft',
   /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */

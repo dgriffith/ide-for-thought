@@ -16,6 +16,10 @@ import type {
 import type {
   ConversationComputeDraft,
 } from '../../../shared/conversation-compute-drafts';
+import type {
+  ConversationSourcePropertyDraft,
+  SourcePropertyOutcome,
+} from '../../../shared/conversation-source-property-drafts';
 import type { CellResult } from '../../../shared/compute/types';
 import type {
   AskUserRequest,
@@ -52,12 +56,17 @@ import { isMissingApiKeyError } from '../../../shared/llm-errors';
 type AnchoredDraft = ConversationDraft & { afterMessageIndex: number };
 type AnchoredSourceDraft = ConversationSourceDraft & { afterMessageIndex: number };
 type AnchoredPropertyDraft = ConversationPropertyDraft & { afterMessageIndex: number };
+type AnchoredSourcePropertyDraft = ConversationSourcePropertyDraft & { afterMessageIndex: number };
 interface SourceDraftResultEntry {
   outcomes: SourceIngestOutcome[];
   afterMessageIndex: number;
 }
 interface PropertyDraftResultEntry {
   outcomes: PropertyUpdateOutcome[];
+  afterMessageIndex: number;
+}
+interface SourcePropertyDraftResultEntry {
+  outcome: SourcePropertyOutcome;
   afterMessageIndex: number;
 }
 /** Post-Approve summary for a propose_notes draft. Persists in the
@@ -110,6 +119,11 @@ interface TabRuntime {
   /** Per-update outcomes after Approve on a property draft — used to
    *  render the post-Approve "Updated:" line in place of the card. */
   propertyDraftResults: Record<string, PropertyDraftResultEntry>;
+  /** propose_source_properties drafts awaiting Approve/Discard (#103). */
+  sourcePropertyDrafts: AnchoredSourcePropertyDraft[];
+  /** Per-draft outcome after Approve on a source-property draft — renders
+   *  the post-Approve "Updated:" line in place of the card. */
+  sourcePropertyDraftResults: Record<string, SourcePropertyDraftResultEntry>;
   /** propose_compute drafts awaiting Run / Insert / Discard. */
   computeDrafts: AnchoredComputeDraft[];
   /** Per-draft Run / Insert state. Stays alive after Run so the user
@@ -152,6 +166,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let draftSubscribed = false;
 let sourceDraftSubscribed = false;
 let propertyDraftSubscribed = false;
+let sourcePropertyDraftSubscribed = false;
 let computeDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
@@ -217,6 +232,15 @@ function ensureSubscriptions(): void {
     });
     propertyDraftSubscribed = true;
   }
+  if (!sourcePropertyDraftSubscribed) {
+    api.conversations.onSourcePropertyDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.sourcePropertyDrafts = [...t.sourcePropertyDrafts, { ...draft, afterMessageIndex }];
+    });
+    sourcePropertyDraftSubscribed = true;
+  }
   if (!computeDraftSubscribed) {
     api.conversations.onComputeDraft((draft) => {
       const t = tabs.find((tab) => tab.id === draft.conversationId);
@@ -279,6 +303,8 @@ async function init(): Promise<void> {
       noteDraftResults: {},
       propertyDrafts: [],
       propertyDraftResults: {},
+      sourcePropertyDrafts: [],
+      sourcePropertyDraftResults: {},
       computeDrafts: [],
       computeDraftState: {},
       pendingQuestion: null,
@@ -368,6 +394,8 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     noteDraftResults: {},
     propertyDrafts: [],
     propertyDraftResults: {},
+    sourcePropertyDrafts: [],
+    sourcePropertyDraftResults: {},
     computeDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
@@ -424,6 +452,8 @@ async function openConversationTab(opts: {
     noteDraftResults: {},
     propertyDrafts: [],
     propertyDraftResults: {},
+    sourcePropertyDrafts: [],
+    sourcePropertyDraftResults: {},
     computeDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
@@ -634,6 +664,31 @@ function discardPropertyDraft(tabId: string, draftId: string): void {
   tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draftId);
 }
 
+async function approveSourcePropertyDraft(
+  tabId: string,
+  draft: ConversationSourcePropertyDraft,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const anchored = tab.sourcePropertyDrafts.find((d) => d.draftId === draft.draftId);
+  const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
+  // JSON round-trip to shed any $state Proxy before IPC structured-clone —
+  // same defensive snapshot the property-draft path uses (#103).
+  const plain = JSON.parse(JSON.stringify(draft)) as ConversationSourcePropertyDraft;
+  const result = await api.conversations.fileSourcePropertyDraft(plain);
+  tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draft.draftId);
+  tab.sourcePropertyDraftResults = {
+    ...tab.sourcePropertyDraftResults,
+    [draft.draftId]: { outcome: result.outcome, afterMessageIndex },
+  };
+}
+
+function discardSourcePropertyDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draftId);
+}
+
 async function runComputeDraft(
   tabId: string,
   draft: ConversationComputeDraft,
@@ -768,6 +823,8 @@ export function getConversationsStore() {
     dismissSourceDraftResult,
     approvePropertyDraft,
     discardPropertyDraft,
+    approveSourcePropertyDraft,
+    discardSourcePropertyDraft,
     runComputeDraft,
     insertComputeDraft,
     discardComputeDraft,

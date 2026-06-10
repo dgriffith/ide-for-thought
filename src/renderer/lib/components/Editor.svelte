@@ -48,6 +48,7 @@
   }
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
+  import { isSourceScoped } from '../../../shared/tools/types';
 
   interface Props {
     filePath: string;
@@ -157,8 +158,10 @@
     onRunCell,
   }: Props = $props();
 
-  const analysisTools = getToolInfosByCategory('analysis');
-  const learningTools = getToolInfosByCategory('learning');
+  // Source-scoped tools (#103) belong to the Source viewer, never the note
+  // editor's right-click menu.
+  const analysisTools = getToolInfosByCategory('analysis').filter((t) => !isSourceScoped(t));
+  const learningTools = getToolInfosByCategory('learning').filter((t) => !isSourceScoped(t));
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;

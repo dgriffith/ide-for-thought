@@ -18,6 +18,7 @@ export function skillInfoToToolDef(info: SkillInfo): ThinkingToolDef {
     name: info.name,
     category: menuToCategory(info.menu),
     group: info.group,
+    scope: info.scope,
     description: info.description,
     longDescription: info.longDescription,
     context: info.context,

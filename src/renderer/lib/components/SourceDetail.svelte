@@ -5,6 +5,10 @@
   import ExcerptDensityGutter from './ExcerptDensityGutter.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
+  import type { ThinkingToolInfo } from '../../../shared/tools/types';
+  import { isSourceScoped } from '../../../shared/tools/types';
+  import { groupToolsByGroup } from '../../../shared/tools/grouping';
+  import { getAllToolInfos } from '../tools/tool-registry';
   import { displaySourceTitle } from '../../../shared/source-display';
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
@@ -52,15 +56,36 @@
     /** Whether the host currently has an active note tab — used to
      *  enable / disable the Append button. */
     canAppendToCurrent?: boolean;
+    /** Invoke a source-scoped tool (#103) on this source. The host runs
+     *  the same gather-context → tool-panel / conversation flow used by
+     *  the note menus; since this source is the active tab, gatherContext
+     *  picks up its body/metadata. */
+    onInvokeTool?: (toolId: string) => void;
   }
 
   let {
     sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted,
     onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
     onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
+    onInvokeTool,
   }: Props = $props();
   let resolving = $state(false);
   let appendFlashId = $state<string | null>(null);
+
+  // Source-scoped tools (#103) for the header "Tools" menu. Skills register
+  // into the renderer registry during app startup, before any source tab is
+  // opened, so reading the registry here is reliable; the list is grouped by
+  // the skill's optional `group:` for the same thematic submenus the note
+  // menus use (#525).
+  let toolMenuOpen = $state(false);
+  const sourceToolGroups = groupToolsByGroup(
+    getAllToolInfos().filter((t) => isSourceScoped(t)),
+  );
+  const hasSourceTools = sourceToolGroups.some((g) => g.tools.length > 0);
+  function invokeTool(tool: ThinkingToolInfo) {
+    toolMenuOpen = false;
+    onInvokeTool?.(tool.id);
+  }
 
   // Element refs + bump-on-change revision for the density gutter (#102).
   let scrollerEl = $state<HTMLDivElement>();
@@ -335,6 +360,26 @@
     </div>
   {:else}
     <header class:stub={detail.metadata.stubStatus === 'unresolved'}>
+      {#if onInvokeTool && hasSourceTools}
+        <div class="tools-menu">
+          <button class="tools-btn" onclick={() => (toolMenuOpen = !toolMenuOpen)} aria-haspopup="menu" aria-expanded={toolMenuOpen}>
+            Tools <span class="caret">▾</span>
+          </button>
+          {#if toolMenuOpen}
+            <button type="button" class="tools-backdrop" aria-label="Close menu" onclick={() => (toolMenuOpen = false)}></button>
+            <div class="tools-dropdown" role="menu">
+              {#each sourceToolGroups as group, gi (group.label ?? gi)}
+                {#if group.label}<div class="tools-group-label">{group.label}</div>{/if}
+                {#each group.tools as tool (tool.id)}
+                  <button type="button" class="tools-item" role="menuitem" title={tool.description} onclick={() => invokeTool(tool)}>
+                    {tool.name}
+                  </button>
+                {/each}
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
       <div class="subtype">
         {detail.metadata.subtype ?? 'Source'}{#if detail.metadata.stubStatus === 'unresolved'} · STUB{/if}
       </div>
@@ -621,7 +666,67 @@
 
   header {
     margin-bottom: 20px;
+    position: relative;
   }
+
+  /* Source-scoped tools menu (#103) — top-right of the header. */
+  .tools-menu {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+  .tools-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .tools-btn:hover { background: var(--bg-button-hover); }
+  .tools-btn .caret { color: var(--text-muted); margin-left: 2px; }
+  .tools-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    border: none;
+    background: transparent;
+    cursor: default;
+  }
+  .tools-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 11;
+    min-width: 200px;
+    padding: 4px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .tools-group-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 6px 8px 2px;
+  }
+  .tools-item {
+    text-align: left;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .tools-item:hover { background: var(--bg-button); }
 
   .subtype {
     display: inline-block;

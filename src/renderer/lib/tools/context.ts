@@ -138,5 +138,38 @@ export async function gatherContext(
     }
   }
 
+  // Source-scoped context (#103). Read from the active Source viewer tab,
+  // independent of the note editor. `sourceMetadata` fills id/title/metadata;
+  // `sourceBody` additionally reads the extracted body.md (a file read, so it's
+  // gated separately to avoid paying for it when only metadata is wanted).
+  const needsSourceMeta = requirements.includes('sourceMetadata');
+  const needsSourceBody = requirements.includes('sourceBody');
+  if (needsSourceMeta || needsSourceBody) {
+    const sourceTab = editor.activeSourceTab;
+    if (sourceTab) {
+      ctx.sourceId = sourceTab.sourceId;
+      if (needsSourceMeta) {
+        try {
+          const detail = await api.graph.sourceDetail(sourceTab.sourceId);
+          if (detail) {
+            ctx.sourceMetadata = detail.metadata;
+            ctx.sourceTitle = detail.metadata.title ?? '';
+          }
+        } catch {
+          // Graph not initialised / unknown source — leave metadata empty.
+        }
+      }
+      if (needsSourceBody) {
+        try {
+          ctx.sourceBody = await api.notebase.readFile(
+            `.minerva/sources/${sourceTab.sourceId}/body.md`,
+          );
+        } catch {
+          // No body.md (stub, or not yet extracted) — leave body empty.
+        }
+      }
+    }
+  }
+
   return ctx;
 }

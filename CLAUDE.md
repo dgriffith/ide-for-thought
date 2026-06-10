@@ -96,6 +96,12 @@ no longer a `definitions/` tool registry; do not add one.
 - **Grouping** (#525): a skill's optional `group:` field renders thematic
   nested submenus within a menu (pure logic in `src/shared/tools/grouping.ts`;
   applied in `menu.ts`). A menu stays flat until one of its skills sets a group.
+- **Source scope** (#103): `scope: source` routes a skill to the Source
+  viewer's Tools menu (excluded from the note menus + editor right-click via
+  `isSourceScoped` in `shared/tools/types.ts`) and feeds it `sourceMetadata` /
+  `sourceBody` context (`{{source.*}}`). Source skills write back via the
+  approval-gated `propose_source_properties` tool → `meta.ttl` upsert
+  (`sources/source-meta-write.ts`). Worked example: `propose-source-summary.md`.
 - Authoring reference: `docs/authoring-skills.md`. To change a stock skill,
   disable it and author your own — don't edit bundled files.
 

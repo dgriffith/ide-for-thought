@@ -3351,6 +3351,7 @@
               onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
               onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
               canAppendToCurrent={lastNotePath !== null}
+              onInvokeTool={handleToolInvoke}
             />
           {/key}
         {:else if editor.activeTab?.type === 'pdf'}

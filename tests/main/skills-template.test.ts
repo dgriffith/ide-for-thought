@@ -102,9 +102,9 @@ describe('renderTemplateDiagnostic', () => {
 });
 
 describe('toRenderContext', () => {
-  it('maps ToolContext, nulling absent note/claim', () => {
+  it('maps ToolContext, nulling absent note/claim/source', () => {
     const tc: ToolContext = { selectedText: 's', parameterValues: { a: '1' } };
-    expect(toRenderContext(tc)).toEqual({ selection: 's', note: null, claim: null, param: { a: '1' } });
+    expect(toRenderContext(tc)).toEqual({ selection: 's', note: null, claim: null, source: null, param: { a: '1' } });
   });
 
   it('builds note/claim slots when present', () => {
@@ -115,6 +115,11 @@ describe('toRenderContext', () => {
     const r = toRenderContext(tc);
     expect(r.note).toEqual({ content: 'C', title: 'T', path: 'p.md' });
     expect(r.claim).toEqual({ uri: 'urn:1', label: 'L', sourceText: 'src' });
+  });
+
+  it('builds the source slot when present (#103)', () => {
+    const tc: ToolContext = { sourceId: 's-1', sourceTitle: 'T', sourceBody: 'B' };
+    expect(toRenderContext(tc).source).toEqual({ id: 's-1', title: 'T', body: 'B' });
   });
 });
 

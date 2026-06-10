@@ -221,6 +221,12 @@ dc:abstract a owl:DatatypeProperty ;
     rdfs:domain thought:Source ;
     rdfs:range xsd:string .
 
+thought:tldr a owl:DatatypeProperty ;
+    rdfs:label "TL;DR" ;
+    rdfs:comment "A one-paragraph plain-language summary of a source, distinct from its formal abstract. Typically LLM-proposed and human-approved (#103)." ;
+    rdfs:domain thought:Source ;
+    rdfs:range xsd:string .
+
 bibo:doi a owl:DatatypeProperty ;
     rdfs:label "DOI" ;
     rdfs:comment "Digital Object Identifier. Stored as the bare identifier (no 'doi:' prefix, no URL)." ;

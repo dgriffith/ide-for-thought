@@ -423,6 +423,14 @@ export interface ConversationsApi {
   filePropertyDraft(
     draft: import('../../../shared/conversation-property-drafts').ConversationPropertyDraft,
   ): Promise<import('../../../shared/conversation-property-drafts').FilePropertyDraftResult>;
+  /** Subscribe to source-summary drafts produced by propose_source_properties (#103). */
+  onSourcePropertyDraft(
+    cb: (draft: import('../../../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft) => void,
+  ): void;
+  /** Apply an approved source-summary draft (upsert dc:abstract / thought:tldr + reindex). */
+  fileSourcePropertyDraft(
+    draft: import('../../../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft,
+  ): Promise<import('../../../shared/conversation-source-property-drafts').FileSourcePropertyDraftResult>;
   /** Subscribe to code-cell drafts produced by the propose_compute tool (#245). */
   onComputeDraft(
     cb: (draft: import('../../../shared/conversation-compute-drafts').ConversationComputeDraft) => void,

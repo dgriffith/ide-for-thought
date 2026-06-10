@@ -45,6 +45,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
     def.buildFirstMessage = (ctx) => render(skill.firstMessage, ctx);
   }
   if (skill.group) def.group = skill.group;
+  if (skill.scope && skill.scope !== 'note') def.scope = skill.scope;
   if (skill.model) def.preferredModel = skill.model;
   if (skill.slashCommand) def.slashCommand = skill.slashCommand;
   if (skill.outputNotePrefix) def.outputNotePrefix = skill.outputNotePrefix;

@@ -13,6 +13,7 @@ import type {
   OutputMode,
   ToolCategory,
   ToolParameter,
+  ToolScope,
 } from '../tools/types';
 import type { MenuConfig } from './menu-config';
 
@@ -44,6 +45,9 @@ export interface SkillDef {
   menu: SkillMenu;
   /** Optional thematic sub-group within the menu (#525). Omit for a flat menu. */
   group?: string;
+  /** Invocation surface + subject (#103). `source` skills live in the Source
+   *  viewer and get source context; absent/`note` is the default. */
+  scope: ToolScope;
   outputMode: OutputMode;
   context: ContextRequirement[];
   parameters: ToolParameter[];
@@ -73,6 +77,7 @@ export interface SkillInfo {
   longDescription: string;
   menu: SkillMenu;
   group?: string;
+  scope: ToolScope;
   outputMode: OutputMode;
   context: ContextRequirement[];
   parameters: ToolParameter[];
@@ -113,6 +118,7 @@ export function toSkillInfo(s: SkillDef): SkillInfo {
     longDescription: s.longDescription,
     menu: s.menu,
     group: s.group,
+    scope: s.scope,
     outputMode: s.outputMode,
     context: s.context,
     parameters: s.parameters,
