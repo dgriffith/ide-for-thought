@@ -26,7 +26,17 @@ export type ContextRequirement =
    * time; intervening edits between gather and apply may invalidate
    * them, and tools that round-trip should verify.
    */
-  | 'selectionRange';
+  | 'selectionRange'
+  /**
+   * Source-scoped context (#103). Populated from the active Source viewer
+   * tab, not the note editor. `sourceMetadata` fills `sourceId` /
+   * `sourceTitle` / `sourceMetadata`; `sourceBody` additionally reads the
+   * source's extracted `body.md`. A skill that lists either is treated as
+   * source-scoped (see `scope`) and surfaces in the Source viewer rather
+   * than the note menus. Undefined when no source tab is active.
+   */
+  | 'sourceMetadata'
+  | 'sourceBody';
 
 export type OutputMode =
   | 'newNote'
@@ -85,6 +95,17 @@ export interface ToolContext {
   /** 1-based line number of the selection's end (inclusive). */
   selectionEndLine?: number;
   parameterValues?: Record<string, string>;
+  /** Populated by `sourceMetadata`/`sourceBody` (#103). Id of the source in
+   *  the active Source viewer tab. Undefined when no source tab is active. */
+  sourceId?: string;
+  /** thought:title of the active source. */
+  sourceTitle?: string;
+  /** The source's extracted `body.md` text. Populated only by `sourceBody`
+   *  (it's a file read); `sourceMetadata` alone leaves it undefined. */
+  sourceBody?: string;
+  /** Full source metadata (title, creators, year, doi, abstract, …) for the
+   *  active source. Populated by `sourceMetadata`. */
+  sourceMetadata?: import('../types').SourceMetadata;
 }
 
 export interface ToolWebHint {
@@ -92,10 +113,21 @@ export interface ToolWebHint {
   defaultEnabled: boolean;
 }
 
+/**
+ * Where a tool is invoked from and what it operates on (#103). `note`
+ * (default) tools surface in the Learning/Research/Analysis menus + the editor
+ * right-click and act on the active note. `source` tools surface in the Source
+ * viewer's actions menu and receive the active source's body/metadata; they are
+ * kept out of the note surfaces. Absent = `note`.
+ */
+export type ToolScope = 'note' | 'source';
+
 export interface ThinkingToolDef {
   id: string;
   name: string;
   category: ToolCategory;
+  /** Invocation surface + subject (#103). Absent = `note`. */
+  scope?: ToolScope;
   /**
    * Optional thematic sub-grouping within a category (#525). When any tool in
    * a category declares a group, the menu renders one nested submenu per group
@@ -141,6 +173,8 @@ export interface ThinkingToolInfo {
   id: string;
   name: string;
   category: ToolCategory;
+  /** Invocation surface + subject (#103). Absent = `note`. See ThinkingToolDef.scope. */
+  scope?: ToolScope;
   /** Thematic sub-group within the category (#525). See ThinkingToolDef.group. */
   group?: string;
   description: string;
@@ -197,6 +231,13 @@ export interface LLMSettings {
    *   request.modelOverride ?? toolModelOverrides[id] ?? tool.preferredModel ?? model
    */
   toolModelOverrides?: Record<string, string>;
+}
+
+/** Source-scoped tools (#103) live in the Source viewer; everything else is
+ *  note-scoped. Applied identically by the menu, the editor right-click, the
+ *  command palette, and the Source viewer's actions list. */
+export function isSourceScoped(tool: { scope?: ToolScope }): boolean {
+  return tool.scope === 'source';
 }
 
 export const DEFAULT_WEB_SETTINGS: WebSettings = {

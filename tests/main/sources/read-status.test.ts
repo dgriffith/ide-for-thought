@@ -11,9 +11,9 @@ import os from 'node:os';
 import {
   setSourceReadStatus,
   setSourceReadDueBy,
-  upsertSingleValuedPredicate,
   isReadStatus,
 } from '../../../src/main/sources/read-status';
+import { upsertSingleValuedPredicate } from '../../../src/main/sources/source-meta-write';
 import {
   initGraph,
   indexSource,

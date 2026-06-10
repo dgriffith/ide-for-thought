@@ -83,6 +83,7 @@ palette, and the editor right-click menu (because it requests `fullNote`).
 | `id` | string | slug of `name` | Stable identifier used in logs, model overrides, and menu config. **Set it explicitly and never change it once shared** — overrides are pinned by id. Stock ids look like `analysis.steelman`; yours can be anything not already taken. |
 | `longDescription` | string | `description` | 1–3 sentences; the expanded card view. Tell the user what to expect. |
 | `group` | string | — | Thematic sub-group within the menu. When any skill in a menu sets a `group`, that menu renders one nested submenu per group (ungrouped skills fall into **General**, last). Free-form; matched exactly. See [Grouping](#grouping). |
+| `scope` | `note` \| `source` | `note` | Where the skill is invoked and what it operates on. `note` (default) surfaces in the menus + editor right-click and acts on the active note. `source` surfaces in the **Source viewer's Tools menu** and receives the active source's body/metadata. See [Source-scoped skills](#source-scoped-skills). |
 | `context` | string list | `[]` | What to gather before running. See [Context](#context). |
 | `parameters` | list | `[]` | Upfront form fields. See [Parameters](#parameters). |
 | `tools` | string list | default set | Conversation tools to advertise. Currently only `ask_user` is honored as an extra. |
@@ -167,10 +168,31 @@ List what to gather; the matching fields are populated before the body renders.
 | `taggedNotes` | (tag cohort, internal) | Considering notes sharing tags. |
 | `claimUnderCursor` | `{{claim.*}}` | Operating on the `thought:Claim` at the cursor. |
 | `selectionRange` | (offsets, planned) | Edits anchored to the original passage. |
+| `sourceMetadata` | `{{source.id}}`, `{{source.title}}` | Source-scoped skills — id + title of the active source. |
+| `sourceBody` | `{{source.body}}` | Source-scoped skills — the source's extracted `body.md` text. |
 
 Requirements are advisory — your template decides what to do when a field is
 empty. To **hard-require** a selection instead, set `requiresSelection: true`
 (the skill hides without one). To **adapt**, branch with `{{#if note}}`.
+
+## Source-scoped skills
+
+Set `scope: source` to make a skill operate on a **Source** (an ingested
+reference) instead of a note. It then appears in the Source viewer's **Tools**
+menu (and is kept out of the note menus + editor right-click). Pair it with
+`sourceMetadata` / `sourceBody` context to read the active source:
+
+- `{{source.id}}` — the source id (pass it through to source-writing tools).
+- `{{source.title}}` — its title.
+- `{{source.body}}` — its extracted body text (when `sourceBody` is listed).
+- `{{#if source}}` / `{{#if source.body}}` — branch when no source / no body.
+
+To write back to a source through the approval engine, a conversational
+source skill calls `propose_source_properties` with the `sourceId` plus a
+proposed `abstract` (`dc:abstract`) and/or `tldr` (`thought:tldr`). Like every
+LLM write, it's a *proposal*: the user approves an inline card before anything
+lands on the source's metadata. The stock **Propose Summary**
+(`research.propose-source-summary`) is the worked example.
 
 ## Parameters
 

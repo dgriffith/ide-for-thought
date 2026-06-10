@@ -19,7 +19,9 @@ const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
 
 const CONTEXT_REQUIREMENTS: readonly ContextRequirement[] = [
   'selectedText', 'fullNote', 'relatedNotes', 'taggedNotes', 'claimUnderCursor', 'selectionRange',
+  'sourceMetadata', 'sourceBody',
 ];
+const SCOPES = ['note', 'source'] as const;
 const OUTPUT_MODES: readonly OutputMode[] = [
   'newNote', 'appendToNote', 'replaceSelection', 'insertAtCursor', 'multipleNotes', 'openConversation',
 ];
@@ -156,6 +158,12 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
   const requiresSelection = Boolean(fm.requiresSelection);
   const outputNotePrefix = asString(fm.outputNotePrefix);
   const group = asString(fm.group);
+
+  const scopeRaw = asString(fm.scope);
+  if (scopeRaw !== undefined && !(SCOPES as readonly string[]).includes(scopeRaw)) {
+    errors.push(`\`scope\` must be one of ${SCOPES.join(', ')} (got "${scopeRaw}")`);
+  }
+  const scope = (scopeRaw as SkillDef['scope']) ?? 'note';
   const firstMessage = asString(fm.firstMessage) ?? '';
   const longDescription = asString(fm.longDescription) ?? description ?? '';
 
@@ -180,6 +188,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
     longDescription,
     menu: menuRaw as SkillMenu,
     group,
+    scope,
     outputMode: outputModeRaw as OutputMode,
     context,
     parameters,

@@ -215,6 +215,10 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.CONVERSATION_PROPERTY_DRAFT, cb),
     filePropertyDraft: (draft: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_FILE_PROPERTY_DRAFT, draft),
+    onSourcePropertyDraft: (cb: (draft: unknown) => void) =>
+      subscribeIpc(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, cb),
+    fileSourcePropertyDraft: (draft: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT, draft),
     onComputeDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
     runComputeDraft: (input: unknown) =>

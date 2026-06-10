@@ -31,6 +31,8 @@ export interface SkillRenderContext {
   selection: string;
   note: { content: string; title: string; path: string } | null;
   claim: { uri: string; label: string; sourceText: string } | null;
+  /** Active Source viewer tab (#103). Null when no source is in context. */
+  source: { id: string; title: string; body: string } | null;
   param: Record<string, string>;
 }
 
@@ -49,6 +51,13 @@ export function toRenderContext(tc: ToolContext): SkillRenderContext {
           uri: tc.claimUri,
           label: tc.claimLabel ?? '',
           sourceText: tc.claimSourceText ?? '',
+        }
+      : null,
+    source: tc.sourceId
+      ? {
+          id: tc.sourceId,
+          title: tc.sourceTitle ?? '',
+          body: tc.sourceBody ?? '',
         }
       : null,
     param: tc.parameterValues ?? {},
@@ -203,6 +212,13 @@ function resolve(path: string, ctx: SkillRenderContext): string | object | null 
     if (k === 'uri' || k === 'label' || k === 'sourceText') return ctx.claim[k];
     return undefined;
   }
+  if (path === 'source') return ctx.source;
+  if (path.startsWith('source.')) {
+    const k = path.slice(7);
+    if (!ctx.source) return '';
+    if (k === 'id' || k === 'title' || k === 'body') return ctx.source[k];
+    return undefined;
+  }
   if (path.startsWith('param.')) {
     const k = path.slice(6);
     return ctx.param[k] ?? '';
@@ -281,6 +297,7 @@ export function renderTemplate(template: string, ctx: SkillRenderContext): strin
 const KNOWN_VAR_PATHS = new Set([
   'selection', 'note', 'note.content', 'note.title', 'note.path',
   'claim', 'claim.uri', 'claim.label', 'claim.sourceText',
+  'source', 'source.id', 'source.title', 'source.body',
 ]);
 
 function isKnownPath(path: string): boolean {
