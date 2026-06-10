@@ -29,7 +29,10 @@
   import type { CellOutput } from '../../../shared/compute/types';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import type { ConversationMessage, Citation } from '../../../shared/types';
+  import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import { insertCitationMarker, noteBasename } from '../conversations/cite-from-conversation';
+  import { getSlashCommands } from '../tools/tool-registry';
+  import { slashQueryFromComposer, filterSlashCommands } from '../conversations/slash-commands';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the
@@ -56,9 +59,13 @@
       selectionText: string;
       fallbackText: string;
     }) => Promise<void>;
+    /** Invoke a skill by id from the composer's `/` launcher (#648). Wired to
+     *  the host's standard tool-invoke path so a slash-command runs exactly
+     *  like picking the skill from the menu. */
+    onInvokeSkill?: (toolId: string) => void;
   }
 
-  let { currentNotePath, onCreateNoteFromConversation }: Props = $props();
+  let { currentNotePath, onCreateNoteFromConversation, onInvokeSkill }: Props = $props();
 
   const store = getConversationsStore();
   const editor = getEditorStore();
@@ -214,7 +221,54 @@
     await store.send(text, currentNotePath ?? undefined);
   }
 
+  // ── Slash-command launcher (#648) ───────────────────────────────────────
+  // Typing a single leading `/token` in the composer opens a filtered menu of
+  // skills that declared a slashCommand; selecting one invokes it exactly like
+  // the menu entry (host's onInvokeSkill → handleToolInvoke). The skill list is
+  // a snapshot of the registry (populated at startup, before the panel mounts).
+  let slashOpen = $state(false);
+  let slashIndex = $state(0);
+  let slashItems = $state<ThinkingToolInfo[]>([]);
+
+  function refreshSlash(text: string) {
+    const q = slashQueryFromComposer(text);
+    if (q === null) { slashOpen = false; return; }
+    // Read the registry lazily — skills register at app startup, which may race
+    // this panel's mount; reading on open guarantees the populated list.
+    slashItems = filterSlashCommands(getSlashCommands(), q);
+    slashIndex = 0;
+    slashOpen = slashItems.length > 0;
+  }
+
+  function selectSlash(tool: ThinkingToolInfo) {
+    slashOpen = false;
+    store.setComposer('');
+    onInvokeSkill?.(tool.id);
+  }
+
   function handleKeydown(e: KeyboardEvent) {
+    if (slashOpen && slashItems.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        slashIndex = (slashIndex + 1) % slashItems.length;
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        slashIndex = (slashIndex - 1 + slashItems.length) % slashItems.length;
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        selectSlash(slashItems[slashIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        slashOpen = false;
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void handleSend();
@@ -222,7 +276,9 @@
   }
 
   function handleComposerInput(e: Event) {
-    store.setComposer((e.currentTarget as HTMLTextAreaElement).value);
+    const value = (e.currentTarget as HTMLTextAreaElement).value;
+    store.setComposer(value);
+    refreshSlash(value);
   }
 
   // Resize: track pointer between mousedown on the handle and mouseup
@@ -1215,12 +1271,31 @@
 
         <div class="composer">
           <div class="composer-card">
+            {#if slashOpen}
+              <div class="slash-menu" role="listbox">
+                {#each slashItems as item, si (item.id)}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={si === slashIndex}
+                    class="slash-item"
+                    class:active={si === slashIndex}
+                    onmousedown={(e) => { e.preventDefault(); selectSlash(item); }}
+                    onmouseenter={() => (slashIndex = si)}
+                  >
+                    <span class="slash-cmd">{item.slashCommand}</span>
+                    <span class="slash-name">{item.name}</span>
+                    <span class="slash-desc">{item.description}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
             <textarea
               bind:this={composerEl}
               value={tab.composer}
               oninput={handleComposerInput}
               onkeydown={handleKeydown}
-              placeholder="Ask about this note, or paste a question…"
+              placeholder="Ask about this note, or type / for skills…"
               rows="2"
               disabled={tab.streaming}
             ></textarea>
@@ -2025,9 +2100,61 @@
     border-radius: 8px;
     display: flex;
     flex-direction: column;
+    position: relative;
   }
   .composer-card:focus-within {
     border-color: var(--accent);
+  }
+
+  /* Slash-command launcher (#648) — floats above the composer. */
+  .slash-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    z-index: 12;
+  }
+  .slash-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "cmd name" "cmd desc";
+    column-gap: 8px;
+    align-items: baseline;
+    text-align: left;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 5px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .slash-item.active { background: var(--bg-button); }
+  .slash-cmd {
+    grid-area: cmd;
+    align-self: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .slash-name { grid-area: name; font-size: 13px; }
+  .slash-desc {
+    grid-area: desc;
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .composer textarea {
     padding: 10px 12px;
