@@ -15,18 +15,14 @@
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
-  import { expandSelectionToNoteFiles } from './lib/sidebar-tree-utils';
-  import {
-    mergeTagsIntoContent,
-    removeTagsFromContent,
-    extractTagsFromContent,
-  } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
   import { getClipboardStore } from './lib/stores/clipboard.svelte';
   import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
+  import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { createSourceOps, type SourceOpsCtx } from './lib/app/source-ops';
+  import { createRefactorOps, type RefactorOpsCtx } from './lib/app/refactor-ops.svelte';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
   import { substituteTemplate } from '../shared/templates';
@@ -54,8 +50,6 @@
   import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import CsvTable from './lib/components/CsvTable.svelte';
-  import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
-  import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import OnboardingDialog from './lib/components/OnboardingDialog.svelte';
   import type { OnboardingAnswers } from './lib/components/OnboardingDialog.svelte';
@@ -77,18 +71,11 @@
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import {
-    planExtract,
-    planSplitHere,
-    deriveProposedTitle,
-    todayDateString,
-  } from './lib/refactor/extract';
-  import { planSplitByHeading } from './lib/refactor/split-by-heading';
-  import {
     planCreateFromConversation,
     suggestConversationNoteTitle,
   } from './lib/refactor/create-from-conversation';
   import { getRefactorSettings } from './lib/refactor/settings';
-  import { getFormatSettings, loadFormatSettings } from './lib/formatter/settings';
+  import { loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { gatherContext } from './lib/tools/context';
   import { getAllToolInfos, registerSkillInfos } from './lib/tools/tool-registry';
@@ -101,6 +88,7 @@
   const editor = getEditorStore();
   const busy = getBusyStore();
   const sourceFlow = getSourceFlowStore();
+  const refactorFlow = getRefactorFlowStore();
   const clipboard = getClipboardStore();
   /** Last note tab the user was on. Used by the SourceDetail "Append
    *  to current note" action (#101) — when the user is viewing a
@@ -126,21 +114,6 @@
    *  the thoughtbase has zero notes AND its per-project
    *  `onboarding.dismissed` flag is false. */
   let showOnboarding = $state(false);
-
-  /** Pending Auto-link suggestions to review. Non-null means the AutoLinkDialog is shown. */
-  let autoLinkReview = $state<{
-    relativePath: string;
-    suggestions: AutoLinkSuggestion[];
-    activeBody: string;
-  } | null>(null);
-  /** Whether the Auto-link suggest request is currently in flight. Keeps the menu from re-triggering. */
-  let autoLinkBusy = $state(false);
-
-  /** Pending Auto-link inbound suggestions to review. Non-null = dialog is shown. */
-  let autoLinkInboundReview = $state<{
-    relativePath: string;
-    suggestions: AutoLinkInboundSuggestion[];
-  } | null>(null);
 
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
@@ -637,12 +610,6 @@
 
   // ── Note refactoring: extract / split ──────────────────────────────────
 
-  async function resolveTitle(body: string): Promise<string | null> {
-    const derived = deriveProposedTitle(body);
-    if (derived) return derived;
-    return showPrompt('New note name:');
-  }
-
   /**
    * "Create note" from the active conversation (#177). Body comes
    * from the user's selection in the conversation pane if any;
@@ -705,96 +672,6 @@
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Couldn't create note: ${msg}`, CONFIRM_KEYS.createNoteFromConvFailed, 'OK');
     }
-  }
-
-  async function handleExtractSelection() {
-    if (!notebase.meta) return;
-    const tab = editor.activeNoteTab;
-    if (!tab) return;
-    const selection = editorComponent?.getSelectionRange();
-    if (!selection) return;
-    const selectedText = tab.content.slice(selection.from, selection.to);
-    const title = await resolveTitle(selectedText);
-    if (!title) return;
-
-    editor.flushAutoSave();
-    const plan = planExtract({
-      sourceRelativePath: tab.relativePath,
-      sourceContent: tab.content,
-      selection,
-      title,
-      today: todayDateString(),
-      settings: getRefactorSettings(),
-    });
-
-    await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
-    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
-    // The active tab still holds the pre-extract content in memory; reload
-    // it from disk so the user sees the wiki-link and so the next auto-save
-    // doesn't overwrite our rewrite.
-    await editor.reloadTabFromDisk(tab.relativePath);
-    await notebase.refresh();
-    await editor.openFile(plan.newNotePath);
-    sidebar?.refreshTags();
-  }
-
-  async function handleSplitByHeading() {
-    if (!notebase.meta) return;
-    const tab = editor.activeNoteTab;
-    if (!tab) return;
-
-    const answer = await showPrompt('Heading level to split on (1, 2, or 3):');
-    if (!answer) return;
-    const level = parseInt(answer.trim(), 10);
-    if (level !== 1 && level !== 2 && level !== 3) return;
-
-    editor.flushAutoSave();
-    const plan = planSplitByHeading({
-      sourceRelativePath: tab.relativePath,
-      sourceContent: tab.content,
-      level: level,
-      today: todayDateString(),
-      settings: getRefactorSettings(),
-    });
-
-    if (plan.newNotes.length === 0) return;
-
-    for (const note of plan.newNotes) {
-      await api.notebase.writeFile(note.relativePath, note.content);
-    }
-    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
-    await editor.reloadTabFromDisk(tab.relativePath);
-    await notebase.refresh();
-    sidebar?.refreshTags();
-  }
-
-  async function handleSplitHere() {
-    if (!notebase.meta) return;
-    const tab = editor.activeNoteTab;
-    if (!tab) return;
-    const cursor = editorComponent?.getOffset() ?? 0;
-    if (cursor >= tab.content.length) return;
-
-    const tail = tab.content.slice(cursor);
-    const title = await resolveTitle(tail);
-    if (!title) return;
-
-    editor.flushAutoSave();
-    const plan = planSplitHere({
-      sourceRelativePath: tab.relativePath,
-      sourceContent: tab.content,
-      cursor,
-      title,
-      today: todayDateString(),
-      settings: getRefactorSettings(),
-    });
-
-    await api.notebase.writeFile(plan.newNotePath, plan.newNoteContent);
-    await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
-    await editor.reloadTabFromDisk(tab.relativePath);
-    await notebase.refresh();
-    await editor.openFile(plan.newNotePath);
-    sidebar?.refreshTags();
   }
 
   /** Show the snippet picker (#475). Resolves with the chosen
@@ -930,407 +807,6 @@
     if (target.type !== 'note') return false;
     editor.setContent(target.content + block);
     return true;
-  }
-
-  async function handleAutoLink(relativePath: string) {
-    if (!notebase.meta || autoLinkBusy) return;
-    autoLinkBusy = true;
-    try {
-      const { suggestions } = await busy.withBusy('Auto-linking\u2026', () =>
-        api.refactor.autoLinkSuggest(relativePath),
-      );
-      if (suggestions.length === 0) {
-        await showConfirm(
-          'Auto-link found no link candidates in this note.',
-          CONFIRM_KEYS.autoLinkNoSuggestions,
-          'OK',
-        );
-        return;
-      }
-      // Snapshot the current body (sans frontmatter) for context snippets in the dialog.
-      const raw = await api.notebase.readFile(relativePath);
-      const activeBody = raw.replace(/^---\n[\s\S]*?\n---\n?/, '');
-      autoLinkReview = { relativePath, suggestions, activeBody };
-    } catch (err) {
-      if (await maybeHandleMissingApiKey(err)) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
-    } finally {
-      autoLinkBusy = false;
-    }
-  }
-
-  async function handleAutoLinkInbound(relativePath: string) {
-    if (!notebase.meta || autoLinkBusy) return;
-    autoLinkBusy = true;
-    try {
-      const { suggestions } = await busy.withBusy('Scanning other notes\u2026', () =>
-        api.refactor.autoLinkInboundSuggest(relativePath),
-      );
-      if (suggestions.length === 0) {
-        await showConfirm(
-          'Auto-link inbound found no places in other notes where a link here would fit.',
-          CONFIRM_KEYS.autoLinkNoSuggestions,
-          'OK',
-        );
-        return;
-      }
-      autoLinkInboundReview = { relativePath, suggestions };
-    } catch (err) {
-      if (await maybeHandleMissingApiKey(err)) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
-    } finally {
-      autoLinkBusy = false;
-    }
-  }
-
-  async function handleAutoLinkInboundApply(accepted: AutoLinkInboundSuggestion[]) {
-    const review = autoLinkInboundReview;
-    if (!review) return;
-    autoLinkInboundReview = null;
-    try {
-      const plain = $state.snapshot(accepted);
-      const { applied, skipped } = await busy.withBusy('Applying inbound links\u2026', () =>
-        api.refactor.autoLinkInboundApply(review.relativePath, plain),
-      );
-      if (applied.length === 0 && skipped.length > 0) {
-        await showConfirm(
-          `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in one or more source notes. Try again.`,
-          CONFIRM_KEYS.autoLinkFailed,
-          'OK',
-        );
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
-    }
-  }
-
-  async function handleAutoLinkApply(accepted: AutoLinkSuggestion[]) {
-    const review = autoLinkReview;
-    if (!review) return;
-    autoLinkReview = null;
-    try {
-      // Snapshot the suggestions before IPC — they came out of $state, which
-      // wraps them in Svelte 5 proxies that structured-clone can't serialize.
-      const plain = $state.snapshot(accepted);
-      const { applied, skipped } = await busy.withBusy('Applying links\u2026', () =>
-        api.refactor.autoLinkApply(review.relativePath, plain),
-      );
-      if (applied.length === 0 && skipped.length > 0) {
-        await showConfirm(
-          `Auto-link couldn\u2019t apply any suggestions \u2014 the anchor text changed in the note. Try again.`,
-          CONFIRM_KEYS.autoLinkFailed,
-          'OK',
-        );
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Auto-link failed: ${msg}`, CONFIRM_KEYS.autoLinkFailed, 'OK');
-    }
-  }
-
-  /**
-   * Resolve the sidebar selection to the list of .md files a bulk-tag
-   * operation should touch. Returns null when nothing applies — the
-   * caller surfaces the "no .md files" dialog.
-   */
-  function bulkTagTargets(fallbackPath?: string, fallbackIsDir?: boolean): string[] | null {
-    const sel = sidebar?.getSelectionPaths() ?? [];
-    if (sel.length > 0) {
-      return expandSelectionToNoteFiles(new Set(sel), notebase.files);
-    }
-    if (fallbackPath && !fallbackIsDir && fallbackPath.endsWith('.md')) {
-      return [fallbackPath];
-    }
-    if (fallbackPath && fallbackIsDir) {
-      return expandSelectionToNoteFiles(new Set([fallbackPath]), notebase.files);
-    }
-    return null;
-  }
-
-  /**
-   * Bulk Add Tag. Prompts for a tag name (autocompleted from the
-   * thoughtbase vocabulary) and appends it to every .md in the
-   * selection. Per-note: noop if the tag is already present
-   * (mergeTagsIntoContent handles that). Per-batch: failures are
-   * collected into a summary instead of aborting.
-   */
-  async function handleAddTag(targetPath?: string, targetIsDir?: boolean) {
-    if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir);
-    if (targets === null || targets.length === 0) {
-      await showConfirm(
-        'The selection contains no .md files to tag.',
-        CONFIRM_KEYS.bulkTagNoSelection,
-        'OK',
-      );
-      return;
-    }
-
-    let vocab: string[];
-    try {
-      vocab = (await api.tags.list()).map((t) => t.tag);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Add Tag failed: ${msg}`, CONFIRM_KEYS.bulkTagFailed, 'OK');
-      return;
-    }
-
-    const raw = await showPrompt(
-      `Add tag to ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
-      { suggestions: vocab },
-    );
-    if (!raw) return;
-    const tag = raw.trim().toLowerCase();
-    if (!tag) return;
-
-    let changed = 0;
-    const failures: Array<{ path: string; error: string }> = [];
-    for (const path of targets) {
-      try {
-        const content = await api.notebase.readFile(path);
-        const { content: next, addedTags } = mergeTagsIntoContent(content, [tag]);
-        if (addedTags.length > 0) {
-          await api.notebase.writeFile(path, next);
-          changed++;
-        }
-      } catch (err) {
-        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    sidebar?.refreshTags();
-    await reportBulkTagSummary('Add', tag, targets.length, changed, failures);
-  }
-
-  /**
-   * Bulk Remove Tag. Prompts with the union of tags actually present
-   * on the selected .md files (so the autocomplete only offers
-   * tags it can plausibly remove). Per-note removal is
-   * case-insensitive.
-   */
-  async function handleRemoveTag(targetPath?: string, targetIsDir?: boolean) {
-    if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir);
-    if (targets === null || targets.length === 0) {
-      await showConfirm(
-        'The selection contains no .md files to tag.',
-        CONFIRM_KEYS.bulkTagNoSelection,
-        'OK',
-      );
-      return;
-    }
-
-    // Build the union of tags across the selection. We need the
-    // file contents anyway for the writes that follow, but the
-    // prompt has to come first — so do a read pass up-front.
-    const tagSet = new Set<string>();
-    const readFailures: Array<{ path: string; error: string }> = [];
-    const cache = new Map<string, string>();
-    for (const path of targets) {
-      try {
-        const content = await api.notebase.readFile(path);
-        cache.set(path, content);
-        for (const t of extractTagsFromContent(content)) tagSet.add(t);
-      } catch (err) {
-        readFailures.push({ path, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-    if (tagSet.size === 0) {
-      await showConfirm(
-        'None of the selected notes have tags to remove.',
-        CONFIRM_KEYS.bulkTagNoTagsOnSelection,
-        'OK',
-      );
-      return;
-    }
-    const suggestions = [...tagSet].sort();
-    const raw = await showPrompt(
-      `Remove tag from ${targets.length} note${targets.length === 1 ? '' : 's'}:`,
-      { suggestions },
-    );
-    if (!raw) return;
-    const tag = raw.trim().toLowerCase();
-    if (!tag) return;
-
-    let changed = 0;
-    const failures: Array<{ path: string; error: string }> = [...readFailures];
-    for (const path of targets) {
-      // Skip files that already errored on read — we don't have
-      // content to operate on and re-reading would just re-fail.
-      if (!cache.has(path)) continue;
-      try {
-        const content = cache.get(path)!;
-        const { content: next, removedTags } = removeTagsFromContent(content, [tag]);
-        if (removedTags.length > 0) {
-          await api.notebase.writeFile(path, next);
-          changed++;
-        }
-      } catch (err) {
-        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    sidebar?.refreshTags();
-    await reportBulkTagSummary('Remove', tag, targets.length, changed, failures);
-  }
-
-  /**
-   * Toggle the `entrypoint` tag on a single note. Adds it when absent,
-   * removes it when present — the menu prefetches the current state to
-   * label itself, but the actual decision happens here against the
-   * just-read content (the file might have been edited between the
-   * prefetch and the click). Refreshes the sidebar Tags panel so the
-   * change is visible immediately.
-   */
-  async function handleToggleEntrypoint(relativePath: string, _currentlyEntrypoint: boolean): Promise<void> {
-    if (!notebase.meta) return;
-    void _currentlyEntrypoint; // label-only; we re-check from disk
-    try {
-      const content = await api.notebase.readFile(relativePath);
-      const hasIt = extractTagsFromContent(content)
-        .some((t) => t.toLowerCase() === ENTRYPOINT_TAG);
-      if (hasIt) {
-        const { content: next, removedTags } = removeTagsFromContent(content, [ENTRYPOINT_TAG]);
-        if (removedTags.length > 0) await api.notebase.writeFile(relativePath, next);
-      } else {
-        const { content: next, addedTags } = mergeTagsIntoContent(content, [ENTRYPOINT_TAG]);
-        if (addedTags.length > 0) await api.notebase.writeFile(relativePath, next);
-      }
-      sidebar?.refreshTags();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Toggle entrypoint failed: ${msg}`, CONFIRM_KEYS.bulkTagFailed, 'OK');
-    }
-  }
-
-  async function reportBulkTagSummary(
-    op: 'Add' | 'Remove',
-    tag: string,
-    total: number,
-    changed: number,
-    failures: Array<{ path: string; error: string }>,
-  ): Promise<void> {
-    const verb = op === 'Add' ? 'tagged' : 'untagged';
-    let msg = `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`;
-    if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
-    }
-    await showConfirm(msg, CONFIRM_KEYS.bulkTagComplete, 'OK');
-  }
-
-  /**
-   * Selection-driven Format. Resolves "what to format" in priority:
-   *
-   *   1. Sidebar selection \u2014 every .md under any selected file or
-   *      folder (recursing into folders).
-   *   2. Active note tab \u2014 fallback when nothing is selected.
-   *
-   * Multi-file format runs through the bulk formatFolder API on every
-   * unique containing folder of the selection. Single-file selection
-   * (or active-tab fallback) uses formatContent so the in-memory
-   * editor buffer is updated instead of dirty-on-disk drift.
-   */
-  async function handleFormat() {
-    if (!notebase.meta) return;
-    const settings = getFormatSettings();
-
-    const selectionPaths = sidebar?.getSelectionPaths() ?? [];
-    if (selectionPaths.length > 0) {
-      const targets = expandSelectionToNoteFiles(new Set(selectionPaths), notebase.files);
-      if (targets.length === 0) {
-        await showConfirm(
-          'The selection contains no .md files to format.',
-          CONFIRM_KEYS.formatFailed,
-          'OK',
-        );
-        return;
-      }
-      try {
-        let totalChanged = 0;
-        let totalScanned = 0;
-        await busy.withBusy(`Formatting ${targets.length} note${targets.length === 1 ? '' : 's'}\u2026`, async () => {
-          for (const path of targets) {
-            const result = await api.formatter.formatFile(path, settings);
-            totalScanned++;
-            if (result.changed) totalChanged++;
-          }
-        });
-        await showConfirm(
-          `Formatting complete. Changed ${totalChanged} of ${totalScanned} file${totalScanned === 1 ? '' : 's'}.`,
-          CONFIRM_KEYS.formatComplete,
-          'OK',
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
-      }
-      return;
-    }
-
-    // Fallback: active note tab.
-    const tab = editor.activeNoteTab;
-    if (!tab) {
-      await showConfirm(
-        'Open a note (or select notes/folders in the left sidebar) to format.',
-        CONFIRM_KEYS.formatFailed,
-        'OK',
-      );
-      return;
-    }
-    try {
-      const result = await busy.withBusy('Formatting\u2026', () =>
-        api.formatter.formatContent(tab.content, settings, tab.relativePath),
-      );
-      if (result !== tab.content) {
-        editor.setContent(result);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Formatting failed: ${msg}`, CONFIRM_KEYS.formatFailed, 'OK');
-    }
-  }
-
-  async function handleBibliography() {
-    if (!notebase.meta) return;
-    const tab = editor.activeNoteTab;
-    if (!tab) {
-      await showConfirm(
-        'Open a note to insert/update its bibliography.',
-        CONFIRM_KEYS.bibliographyFailed,
-        'OK',
-      );
-      return;
-    }
-    try {
-      // Save any unsaved buffer first — the generator reads from disk so
-      // citations the user just typed wouldn't otherwise be picked up.
-      if (tab.content !== tab.savedContent) await editor.save();
-      const result = await busy.withBusy('Generating bibliography…', () =>
-        api.bibliography.generate(tab.relativePath),
-      );
-      const lines: string[] = [];
-      if (result.entriesCount === 0 && !result.changed) {
-        lines.push('No citations found in this note.');
-      } else if (result.entriesCount === 0 && result.changed) {
-        lines.push('Removed References section (no remaining citations).');
-      } else {
-        lines.push(
-          `${result.entriesCount} ${result.entriesCount === 1 ? 'entry' : 'entries'} written using ${result.styleId}.`,
-        );
-      }
-      if (result.missingIds.length > 0) {
-        lines.push(`Couldn't resolve: ${result.missingIds.join(', ')}.`);
-      }
-      await showConfirm(lines.join(' '), CONFIRM_KEYS.bibliographyResult, 'OK');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Bibliography failed: ${msg}`, CONFIRM_KEYS.bibliographyFailed, 'OK');
-    }
   }
 
   /**
@@ -1522,6 +998,24 @@
     handleImportBibtex, handleImportZoteroRdf, handleExternalDrop,
   } = createSourceOps(sourceOpsCtx);
 
+  // Refactor-ops handler cluster (#670): note extract / split, the two Auto-link
+  // review flows, bulk tag add / remove, entrypoint toggle, selection-driven
+  // Format, bibliography, and Auto-tag. Lives in ./lib/app/refactor-ops.svelte.ts;
+  // in-flight Auto-link review state lives in the refactor-flow store.
+  // Destructured into the same names so every call site reads unchanged. The
+  // missing-API-key flow stays in App — refactor-ops reaches it via a ctx getter.
+  const refactorOpsCtx: RefactorOpsCtx = {
+    getSidebar: () => sidebar,
+    getEditorComponent: () => editorComponent,
+    maybeHandleMissingApiKey: (err) => maybeHandleMissingApiKey(err),
+  };
+  const {
+    handleExtractSelection, handleSplitByHeading, handleSplitHere,
+    handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
+    handleAddTag, handleRemoveTag, handleToggleEntrypoint,
+    handleFormat, handleBibliography, handleAutoTag,
+  } = createRefactorOps(refactorOpsCtx);
+
   async function handleDecompose(_relativePath: string) {
     if (!notebase.meta) return;
     // Both decompose and crystallize are ThinkingTools (#515), so the
@@ -1537,29 +1031,6 @@
     if (!notebase.meta) return;
     const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
     await handleOpenConversationFromTool({ toolId: 'research.crystallize', context: ctx });
-  }
-
-
-  async function handleAutoTag(relativePath: string) {
-    if (!notebase.meta) return;
-    try {
-      const result = await busy.withBusy('Auto-tagging\u2026', () =>
-        api.refactor.autoTag(relativePath),
-      );
-      if (result.added.length === 0) {
-        await showConfirm(
-          'No new tags suggested. The note may be too short, too generic, or already well tagged.',
-          CONFIRM_KEYS.autoTagNoSuggestions,
-          'OK',
-        );
-      }
-      // On success, the NOTEBASE_REWRITTEN listener reloads the note so the
-      // user sees the new frontmatter tags appear in the editor.
-    } catch (err) {
-      if (await maybeHandleMissingApiKey(err)) return;
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
-    }
   }
 
   function recordCurrentPosition() {
@@ -2422,20 +1893,20 @@
       }}
     />
   {/if}
-  {#if autoLinkReview}
+  {#if refactorFlow.autoLinkReview}
     <AutoLinkDialog
-      suggestions={autoLinkReview.suggestions}
-      activeNoteBody={autoLinkReview.activeBody}
+      suggestions={refactorFlow.autoLinkReview.suggestions}
+      activeNoteBody={refactorFlow.autoLinkReview.activeBody}
       onApply={handleAutoLinkApply}
-      onCancel={() => { autoLinkReview = null; }}
+      onCancel={() => refactorFlow.setAutoLinkReview(null)}
     />
   {/if}
-  {#if autoLinkInboundReview}
+  {#if refactorFlow.autoLinkInboundReview}
     <AutoLinkInboundDialog
-      suggestions={autoLinkInboundReview.suggestions}
-      activeStem={autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
+      suggestions={refactorFlow.autoLinkInboundReview.suggestions}
+      activeStem={refactorFlow.autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
       onApply={handleAutoLinkInboundApply}
-      onCancel={() => { autoLinkInboundReview = null; }}
+      onCancel={() => refactorFlow.setAutoLinkInboundReview(null)}
     />
   {/if}
   {#if busy.label}
