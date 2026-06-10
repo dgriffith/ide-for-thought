@@ -552,6 +552,49 @@ thought:connects a owl:ObjectProperty ;
     rdfs:domain thought:Component ;
     rdfs:range thought:Component .
 
+# ── Verification & Currency (research verification cluster, #414–#417) ──────
+# Annotations filed (via the approval engine) by the Check Facts, Find Primary
+# Sources, Date/Scope Check, and Translate the Magnitude research skills. They
+# attach to the thought:Claim that was audited. Stored as literals so a claim
+# carries its latest verdict inline; re-running a tool supersedes the prior
+# value. Pair thought:asOfDate with a status to drive periodic decay sweeps.
+
+thought:verificationStatus a owl:DatatypeProperty ;
+    rdfs:label "verification status" ;
+    rdfs:comment "Result of a web fact-check of this claim, filed by the Check Facts skill: \"corroborated\" (independent sources agree), \"contested\" (credible sources disagree), or \"unverifiable\" (could not confirm either way). \"unverifiable\" is a first-class result, not a failure." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:string .
+
+thought:currencyStatus a owl:DatatypeProperty ;
+    rdfs:label "currency status" ;
+    rdfs:comment "Result of a date/scope audit of this claim, filed by the Date/Scope Check skill: \"current\" (still true as stated), \"scope-shifted\" (true only under conditions the stated form omits), \"decayed\" (was true, no longer), or \"misstated\" (never held in the form stated)." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:string .
+
+thought:asOfDate a owl:DatatypeProperty ;
+    rdfs:label "as-of date" ;
+    rdfs:comment "The date a currency/verification check was performed. Load-bearing for decay sweeps: a claim whose most recent as-of date is far in the past is a candidate for re-checking." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:date .
+
+thought:hasPrimarySource a owl:DatatypeProperty ;
+    rdfs:label "has primary source" ;
+    rdfs:comment "The actual primary source behind this claim (full citation or URL), traced past its citation chain by the Find Primary Sources skill. A literal so it can record a citation even before the source is ingested as a thought:Source node." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:string .
+
+thought:hasGroundedMagnitude a owl:DatatypeProperty ;
+    rdfs:label "has grounded magnitude" ;
+    rdfs:comment "A quantitative claim's magnitude re-grounded against its base rate, normalisation, and baseline by the Translate the Magnitude skill — the absolute numbers behind a relative or headline framing." ;
+    rdfs:domain thought:Claim ;
+    rdfs:range xsd:string .
+
+thought:verifiedBy a owl:DatatypeProperty ;
+    rdfs:label "verified by" ;
+    rdfs:comment "Provenance for a verification annotation: the agent/tool that produced it, e.g. \"llm:check-facts\". Distinguishes machine verdicts from human-entered ones." ;
+    rdfs:domain thought:Component ;
+    rdfs:range xsd:string .
+
 # ── Grounding (linking back to source text) ───────────────────────────────
 
 thought:groundedIn a owl:ObjectProperty ;

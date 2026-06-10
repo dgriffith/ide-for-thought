@@ -235,6 +235,41 @@ SELECT ?sourceId ?title ?creator WHERE {
 ORDER BY ?sourceId`,
   },
   {
+    name: 'Claims: due for a currency re-check (decay sweep)',
+    description: 'Claims whose last currency/fact check predates a cutoff date — the periodic "is my knowledge still current?" sweep. Edit the cutoff for your decay window.',
+    language: 'sparql',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# Edit the cutoff date for your decay window (e.g. five years ago).
+SELECT ?label ?currency ?asOf WHERE {
+  ?claim a thought:Claim .
+  ?claim thought:asOfDate ?asOf .
+  OPTIONAL { ?claim thought:label ?label }
+  OPTIONAL { ?claim thought:currencyStatus ?currency }
+  FILTER(?asOf < "2021-06-01"^^xsd:date)
+}
+ORDER BY ?asOf`,
+  },
+  {
+    name: 'Claims: verification verdicts',
+    description: 'Every claim carrying a fact-check or currency verdict (corroborated / contested / unverifiable / decayed / scope-shifted / misstated) — scan for the contested and unverifiable ones.',
+    language: 'sparql',
+    query: `${PREFIXES}
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+
+SELECT ?label ?verification ?currency ?asOf WHERE {
+  ?claim a thought:Claim .
+  OPTIONAL { ?claim thought:label ?label }
+  OPTIONAL { ?claim thought:verificationStatus ?verification }
+  OPTIONAL { ?claim thought:currencyStatus ?currency }
+  OPTIONAL { ?claim thought:asOfDate ?asOf }
+  FILTER(BOUND(?verification) || BOUND(?currency))
+}
+ORDER BY ?verification ?currency`,
+  },
+  {
     name: 'Compute: derived notes missing their source (#244)',
     description: 'Notes saved via "Save cell output as note" whose source notebook no longer exists — surfaces breakage from a delete/rename that didn\'t fix up the derived note\'s provenance.',
     language: 'sparql',
