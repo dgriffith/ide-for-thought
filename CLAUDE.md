@@ -73,6 +73,29 @@ To add a new main-process operation:
 - Includes epistemic defects: fallacies, biases, rhetorical moves, structural problems
 - Proposals and conversations aligned with W3C PROV-O provenance model
 
+### Tools for Thought (Skills)
+
+The Learning / Research / Analysis menus are populated by **skills** — markdown
+files (YAML frontmatter + a template body), not hardcoded `.ts` tools. There is
+no longer a `definitions/` tool registry; do not add one.
+
+- **Stock skills** live in `src/main/skills/stock/*.md` (bundled at build time
+  via `import.meta.glob`). **User skills** live in `~/.minerva/skills/` (bare
+  `.md` or a folder with `SKILL.md`), loaded at runtime; user skills are
+  additive — they can't shadow stock.
+- Pipeline (all in `src/main/skills/`): `parse.ts` → `loader.ts` (catalog) →
+  `compile.ts` (→ `ThinkingToolDef`) → `register.ts` (into `shared/tools/registry.ts`).
+  `template.ts` is the non-executing prompt language (`{{var}}`, `{{x | filter}}`,
+  `{{#if}}…{{else}}…{{/if}}`), rendered in main at prepare/execute time.
+- The renderer never sees prompt bodies — it gets serializable `SkillInfo` via
+  `api.skills.list()` and registers it into its own copy of the registry.
+- **Menu config** (`~/.minerva/menu-config.json`, per machine): enable/disable,
+  reassign among the three menus, and order. Pure logic in
+  `src/shared/skills/menu-config.ts` (`applyMenuConfig`) is applied identically
+  by the native menu, the renderer registry, and the Settings → Skills UI.
+- Authoring reference: `docs/authoring-skills.md`. To change a stock skill,
+  disable it and author your own — don't edit bundled files.
+
 ## LLM Integration Principles
 
 ### The Trust Principle
