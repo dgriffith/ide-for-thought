@@ -23,11 +23,11 @@
   import { createSourceOps, type SourceOpsCtx } from './lib/app/source-ops';
   import { createNavView, type NavViewCtx } from './lib/app/nav-view';
   import { createRefactorOps, type RefactorOpsCtx } from './lib/app/refactor-ops.svelte';
+  import { createTemplateOps, type TemplateOpsCtx } from './lib/app/template-ops';
+  import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
-  import { substituteTemplate } from '../shared/templates';
   import PdfViewer from './lib/components/PdfViewer.svelte';
-  import { buildExcerptNoteContent, buildExcerptAppendBlock } from '../shared/excerpt-note';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -68,17 +68,10 @@
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
-  import {
-    planCreateFromConversation,
-    suggestConversationNoteTitle,
-  } from './lib/refactor/create-from-conversation';
-  import { getRefactorSettings } from './lib/refactor/settings';
   import { loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
-  import { gatherContext } from './lib/tools/context';
-  import { getAllToolInfos, registerSkillInfos } from './lib/tools/tool-registry';
+  import { registerSkillInfos } from './lib/tools/tool-registry';
   import { applyMenuConfig } from '../shared/skills/menu-config';
-  import type { ToolContext } from '../shared/tools/types';
 
   type ViewMode = 'source' | 'preview' | 'split';
 
@@ -222,7 +215,7 @@
   // live in the dialog store (#670); destructure the imperative `show*` helpers
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
-  const { showPrompt, showConfirm, showSnippetPicker } = dialogs;
+  const { showPrompt, showConfirm } = dialogs;
   let exportDialogFor = $state<string | null>(null);
 
   /**
@@ -505,207 +498,6 @@
     tab.title = result.name;
   }
 
-  // ── Note refactoring: extract / split ──────────────────────────────────
-
-  /**
-   * "Create note" from the active conversation (#177). Body comes
-   * from the user's selection in the conversation pane if any;
-   * otherwise the most recent assistant message. The new note's
-   * frontmatter records the source note + conversation id for
-   * traceability.
-   *
-   * Lands in the same folder as the conversation's origin note
-   * (when there is one), or at the thoughtbase root for freeform
-   * conversations. Honours the Refactoring settings tab's
-   * destination + filename-prefix templates.
-   */
-  async function handleCreateNoteFromConversation(args: {
-    conversation: import('../shared/types').Conversation;
-    selectionText: string;
-    fallbackText: string;
-  }): Promise<void> {
-    if (!notebase.meta) return;
-    const body = args.selectionText.trim() || args.fallbackText.trim();
-    if (!body) {
-      await showConfirm(
-        'Nothing to create from — the conversation has no assistant text yet.',
-        CONFIRM_KEYS.createNoteFromConvEmpty,
-        'OK',
-      );
-      return;
-    }
-    const suggested = suggestConversationNoteTitle(body);
-    const title = suggested ?? await showPrompt('New note name:');
-    if (!title) return;
-
-    const sourceRelativePath = args.conversation.contextBundle.notePath ?? null;
-    const plan = planCreateFromConversation({
-      title,
-      body,
-      sourceRelativePath,
-      conversationId: args.conversation.id,
-      today: new Date().toISOString().slice(0, 10),
-      settings: getRefactorSettings(),
-    });
-
-    try {
-      // Loop on collision so the second-of-the-same-title doesn't
-      // clobber the first. Existing extract / split-here paths
-      // accept clobbers, but conversation-source notes are likely
-      // to land repeatedly off the same prompts.
-      let path = plan.newNotePath;
-      for (let attempt = 2; attempt < 20; attempt++) {
-        if (!(await api.notebase.fileExists(path))) break;
-        const dot = plan.newNotePath.lastIndexOf('.md');
-        path = dot > 0
-          ? `${plan.newNotePath.slice(0, dot)}-${attempt}.md`
-          : `${plan.newNotePath}-${attempt}`;
-      }
-      await api.notebase.writeFile(path, plan.newNoteContent);
-      await notebase.refresh();
-      await editor.openFile(path);
-      sidebar?.refreshTags();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Couldn't create note: ${msg}`, CONFIRM_KEYS.createNoteFromConvFailed, 'OK');
-    }
-  }
-
-  /** Show the snippet picker (#475). Resolves with the chosen
-   *  template or `null` when the user cancels. */
-
-  /** Insert a template's substituted body at the editor caret
-   *  (replacing the current selection if any). `{{selection}}`
-   *  picks up the selected text; `{{cursor}}` becomes the post-
-   *  insert caret position; `{{prompt:Label}}` pauses for input
-   *  via the existing showPrompt dialog. (#475) */
-  async function handleInsertTemplate(): Promise<void> {
-    if (!notebase.meta) return;
-    if (editor.activeTab?.type !== 'note') return;
-    const list = await api.templates.list();
-    if (list.length === 0) return;
-    const picked = await showSnippetPicker(list);
-    if (!picked) return;
-    const body = await api.templates.get(picked.filename);
-    if (body === null) return;
-    const selection = editorComponent?.getSelectedText() ?? '';
-    const titleFromPath = (editor.activeFilePath?.split('/').pop() ?? '')
-      .replace(/\.(md|ttl|csv|py)$/i, '');
-    const sub = await substituteTemplate(body, {
-      title: titleFromPath,
-      selection,
-      prompt: (label: string) => showPrompt(`${label}:`),
-    });
-    if (sub.cancelled) return;
-    editorComponent?.insertText(sub.content, sub.cursorOffset);
-  }
-
-  /** Save the active note's body as a template under
-   *  `.minerva/templates/<name>.md` (#475). The body is copied
-   *  verbatim — placeholders the user typed (`{{title}}` etc.) live
-   *  in the source and get resolved when the template is *used*.
-   *  Existing template files at the same name are overwritten;
-   *  showPrompt is light-weight enough that the user can just retype
-   *  if they meant a different name. */
-  async function handleSaveAsTemplate(): Promise<void> {
-    if (!notebase.meta) return;
-    const tab = editor.activeTab;
-    if (!tab || tab.type !== 'note') return;
-    const suggested = (tab.relativePath.split('/').pop() ?? '')
-      .replace(/\.(md|ttl|csv|py)$/i, '');
-    const name = await showPrompt('Template name:', suggested);
-    if (!name) return;
-    try {
-      await api.templates.saveAs(name, tab.content);
-    } catch (err) {
-      console.error('[templates] saveAs failed', err);
-    }
-  }
-
-  /** Zotero-style "New note about this source" (#474). Creates a note
-   *  pre-populated with `about: [[sources/<id>]]` frontmatter so it
-   *  immediately surfaces under the source's Notes section. */
-  async function handleNewAboutSourceNote(sourceId: string): Promise<string | null> {
-    if (!notebase.meta) return null;
-    const name = await showPrompt('Note name:');
-    if (!name) return null;
-    const filename = name.endsWith('.md') ? name : `${name}.md`;
-    const relativePath = filename;
-    const titleStem = name.replace(/\.md$/, '');
-    const initialContent = `---\nabout: [[sources/${sourceId}]]\n---\n\n# ${titleStem}\n\n`;
-    await api.notebase.writeFile(relativePath, initialContent);
-    await notebase.refresh();
-    await editor.openFile(relativePath);
-    sidebar?.refreshTags();
-    return relativePath;
-  }
-
-  /** Create a new note seeded from an excerpt (#101). Prompts for
-   *  the title with a sensible default ("Note on <displayTitle>"),
-   *  builds the markdown via `buildExcerptNoteContent`, writes to
-   *  the configured excerpt-note folder (project-config), and
-   *  opens the result. Returns the new note's relative path so
-   *  callers can highlight or further-navigate. */
-  async function handleCreateNoteFromExcerpt(
-    sourceId: string,
-    excerpt: import('../shared/types').SourceExcerpt,
-  ): Promise<string | null> {
-    if (!notebase.meta) return null;
-    const detail = await api.graph.sourceDetail(sourceId);
-    const built = buildExcerptNoteContent({
-      sourceId,
-      excerpt,
-      source: detail?.metadata,
-    });
-    const name = await showPrompt('Note name:', built.suggestedTitle);
-    if (!name) return null;
-    const folder = await api.sources.getExcerptNoteFolder();
-    const stem = name.replace(/\.md$/, '');
-    const filename = `${stem}.md`;
-    const relativePath = folder ? `${folder}/${filename}` : filename;
-    // Re-build with the user's chosen title so the H1 matches.
-    const finalContent = buildExcerptNoteContent({
-      sourceId,
-      excerpt,
-      source: detail?.metadata,
-      titleOverride: stem,
-    }).content;
-    await api.notebase.writeFile(relativePath, finalContent);
-    await notebase.refresh();
-    await editor.openFile(relativePath);
-    sidebar?.refreshTags();
-    return relativePath;
-  }
-
-  /** Append an excerpt's quote (with a [[quote::id]] link) to the
-   *  user's "current" note (#101). When the user is on the
-   *  source-detail tab, "current" is the most-recent note tab —
-   *  tracked via `lastNotePath`. Returns true when the append
-   *  happened so the SourceDetail can flash a brief "Appended ✓"
-   *  affordance. */
-  function handleAppendExcerptToCurrent(
-    excerpt: import('../shared/types').SourceExcerpt,
-  ): boolean {
-    const block = buildExcerptAppendBlock(excerpt);
-    const active = editor.activeNoteTab;
-    if (active) {
-      editor.setContent(active.content + block);
-      return true;
-    }
-    if (!lastNotePath) return false;
-    const idx = editor.tabs.findIndex(
-      (t) => t.type === 'note' && t.relativePath === lastNotePath,
-    );
-    if (idx === -1) return false;
-    editor.switchTab(idx);
-    // setContent operates on the active tab — switchTab already
-    // flipped activeIndex so this targets the right buffer.
-    const target = editor.tabs[idx];
-    if (target.type !== 'note') return false;
-    editor.setContent(target.content + block);
-    return true;
-  }
-
   /**
    * Three-way prompt ("This Window" / "New Window" / "Cancel") wrapped
    * in a promise. Returns 'this' without prompting when no thoughtbase
@@ -772,79 +564,6 @@
     }
   }
 
-  async function handleSaveCellOutput(payload: {
-    cellLanguage: string;
-    cellCode: string;
-    output: import('../shared/compute/types').CellOutput;
-    /** Pin to notebook (#244). When true, the saver looks up an
-     *  existing derived note for this cell and overwrites it rather
-     *  than prompting for a new destination; sets `pin=true` on the
-     *  source cell's fence on first pin so subsequent saves reuse
-     *  the same destination automatically. */
-    pin?: boolean;
-  }): Promise<void> {
-    if (!notebase.meta) return;
-    const sourcePath = editor.activeFilePath;
-    if (!sourcePath) return;
-    // For a non-pinned "Save as note", prompt for a destination. Pin
-    // saves skip the prompt — the backend resolves the destination
-    // from the graph (existing derived note for this cell). When the
-    // cell is being pinned for the first time AND no derived note
-    // exists yet, the backend falls back to the default path.
-    let destPath: string | undefined;
-    if (!payload.pin) {
-      const dest = await showPrompt(
-        `Save cell output as note. Path (default: notes/derived/):`,
-      );
-      if (dest === null) return; // user cancelled
-      let trimmed = dest.trim();
-      // Add `.md` if the user typed a bare path. The pipeline writes a
-      // markdown note unconditionally, so a missing extension would
-      // produce a file that `Open` doesn't recognise as a note.
-      if (trimmed.length > 0 && !/\.md$/i.test(trimmed)) {
-        trimmed += '.md';
-      }
-      destPath = trimmed.length > 0 ? trimmed : undefined;
-    }
-    try {
-      let result = await api.compute.saveCellOutput({
-        sourcePath,
-        cellLanguage: payload.cellLanguage,
-        cellCode: payload.cellCode,
-        output: payload.output,
-        destPath,
-        pin: payload.pin,
-      });
-      // Confirm-on-diff (#244): the destination exists with different
-      // content. Ask the user before overwriting; on yes, retry with
-      // `forceOverwrite: true`. The dialog is intentionally compact
-      // — a full diff view is a future polish item.
-      if (result.status === 'needs-confirm') {
-        const ok = await showConfirm(
-          `"${result.derivedPath}" already exists with different content. Overwrite it?`,
-          CONFIRM_KEYS.saveCellOutputFailed,
-          'Overwrite',
-        );
-        if (!ok) return;
-        result = await api.compute.saveCellOutput({
-          sourcePath,
-          cellLanguage: payload.cellLanguage,
-          cellCode: payload.cellCode,
-          output: payload.output,
-          destPath: result.derivedPath,
-          pin: payload.pin,
-          forceOverwrite: true,
-        });
-        if (result.status !== 'written') return;
-      }
-      // Refresh the file tree so the new note is selectable, then open it.
-      await notebase.refresh();
-      setTimeout(() => handleFileSelect(result.derivedPath), 100);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Save cell output failed: ${msg}`, CONFIRM_KEYS.saveCellOutputFailed, 'OK');
-    }
-  }
   /**
    * Safe-delete blocker dialog state (#429). `proceed` is the
    * "Delete anyway" closure — calling it runs the existing batch
@@ -932,22 +651,35 @@
     handleFormat, handleBibliography, handleAutoTag,
   } = createRefactorOps(refactorOpsCtx);
 
-  async function handleDecompose(_relativePath: string) {
-    if (!notebase.meta) return;
-    // Both decompose and crystallize are ThinkingTools (#515), so the
-    // editor right-click menu routes through the same tool-prep flow
-    // the ToolPanel uses. The `_relativePath` arg is preserved for
-    // API symmetry with the other right-click handlers, but the tool
-    // gathers its own `fullNote` context against the active editor.
-    const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
-    await handleOpenConversationFromTool({ toolId: 'research.decompose', context: ctx });
-  }
+  // Template / note-creation handler cluster (#670): new-note-from-conversation
+  // (#177), Insert / Save-as Template (#475), new-note-about-source (#474), and
+  // the excerpt → note / append flows (#101). Lives in ./lib/app/template-ops.ts;
+  // no feature-state store. Destructured into the same names so every call site
+  // reads unchanged. Reads the sidebar / editor component and lastNotePath via ctx.
+  const {
+    handleCreateNoteFromConversation, handleInsertTemplate, handleSaveAsTemplate,
+    handleNewAboutSourceNote, handleCreateNoteFromExcerpt, handleAppendExcerptToCurrent,
+  } = createTemplateOps({
+    getSidebar: () => sidebar,
+    getEditorComponent: () => editorComponent,
+    getLastNotePath: () => lastNotePath,
+  } satisfies TemplateOpsCtx);
 
-  async function handleCrystallize(_relativePath: string) {
-    if (!notebase.meta) return;
-    const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
-    await handleOpenConversationFromTool({ toolId: 'research.crystallize', context: ctx });
-  }
+  // Conversation / tool-invocation handler cluster (#670): save-cell-output
+  // (#244), decompose / crystallize (#515), the freeform / message / from-tool
+  // conversation openers, and generic tool invocation. Lives in
+  // ./lib/app/conversation-ops.ts. Placed after createNavView so handleFileSelect
+  // is in scope for the openFileSelect getter; reaches the editor view + tool-
+  // panel component via ctx. The conversationsStore / toolPanel store handles
+  // stay in App (onMount streaming still uses them).
+  const {
+    handleSaveCellOutput, handleDecompose, handleCrystallize,
+    openConversation, openConversationWithMessage, handleOpenConversationFromTool, handleToolInvoke,
+  } = createConversationOps({
+    getEditorView: () => editorComponent?.getView(),
+    getToolPanelComponent: () => toolPanelComponent,
+    openFileSelect: (p) => { void handleFileSelect(p); },
+  } satisfies ConversationOpsCtx);
 
   function handleCycleTheme() {
     themeLabel = cycleTheme();
@@ -975,59 +707,6 @@
       nav.record({ type: 'query', tabId: targetTab.id });
     } else {
       editor.switchTab(index);
-    }
-  }
-
-  async function openConversationWithMessage(message: string) {
-    await conversationsStore.openConversationTab({
-      notePath: editor.activeFilePath ?? undefined,
-      initialMessage: message,
-    });
-  }
-
-  async function openConversation() {
-    await conversationsStore.openFreeform(editor.activeFilePath ?? undefined);
-  }
-
-  async function handleOpenConversationFromTool(invocation: { toolId: string; context: ToolContext }) {
-    let prep;
-    try {
-      prep = await api.tools.prepareConversation({
-        toolId: invocation.toolId,
-        context: invocation.context,
-      });
-    } catch (err) {
-      // The tool's `buildSystemPrompt` may throw with a user-facing
-      // explanation (e.g. find-arguments throws "right-click on a
-      // claim line first" when no URI was extracted from the cursor).
-      // Surface that message as a dialog rather than logging it
-      // silently to console.
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[tool] prepareConversation failed:', err);
-      await showConfirm(msg, CONFIRM_KEYS.toolPrepareFailed, 'OK');
-      return;
-    }
-
-    const notePath = invocation.context.fullNotePath ?? editor.activeFilePath ?? undefined;
-    await conversationsStore.openConversationTab({
-      notePath,
-      systemPrompt: prep.systemPrompt,
-      ...(prep.model ? { model: prep.model } : {}),
-      ...(prep.firstMessage ? { initialMessage: prep.firstMessage } : {}),
-      ...(prep.requiresTools && prep.requiresTools.length > 0
-        ? { extraTools: prep.requiresTools }
-        : {}),
-    });
-  }
-
-  async function handleToolInvoke(toolId: string) {
-    const allTools = getAllToolInfos();
-    const toolInfo = allTools.find(t => t.id === toolId);
-    if (!toolInfo) return;
-    const ctx = await gatherContext(toolInfo.context, editorComponent?.getView());
-    toolPanel.open(toolInfo, ctx);
-    if (!toolInfo.parameters || toolInfo.parameters.length === 0) {
-      requestAnimationFrame(() => toolPanelComponent?.startExecution());
     }
   }
 
