@@ -1738,20 +1738,36 @@ export function schemaForCompletion(ctx: ProjectContext): GraphSchema {
   };
 }
 
-export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{ results: unknown[]; error?: string }> {
+export async function queryGraph(
+  ctx: ProjectContext,
+  sparql: string,
+): Promise<{ results: unknown[]; columns: string[]; error?: string }> {
   const state = getState(ctx);
-  if (!state || !engine) return { results: [] };
+  if (!state || !engine) return { results: [], columns: [] };
   const { store } = state;
 
   try {
     if (!state.n3Cache) state.n3Cache = buildN3Store(store);
     const n3Store = state.n3Cache;
     const prefixed = injectSparqlPrefixes(sparql);
-    const bindingsStream = await engine.queryBindings(prefixed, {
-      sources: [n3Store],
-    });
-    const bindings = await bindingsStream.toArray();
 
+    // Use the full query() API (not queryBindings) so we can read the result
+    // metadata: the SELECT projection — in order, including variables that end
+    // up unbound in every row. Deriving columns from the bindings alone would
+    // silently drop an always-unbound column.
+    const result = await engine.query(prefixed, { sources: [n3Store] });
+    if (result.resultType !== 'bindings') {
+      return { results: [], columns: [] };
+    }
+    const metadata = await result.metadata();
+    // Comunica's runtime shape for `variables` has drifted from its types: some
+    // versions expose `RDF.Variable[]` (the element IS the variable), others
+    // `{ variable: RDF.Variable }[]`. Handle both so the column list is robust.
+    const vars = metadata.variables as unknown as Array<{ value?: string; variable?: { value: string } }>;
+    let columns = vars.map((v) => v.variable?.value ?? v.value ?? '').filter(Boolean);
+
+    const bindingsStream = await result.execute();
+    const bindings = await bindingsStream.toArray();
     const results = bindings.map((binding) => {
       const obj: Record<string, string> = {};
       for (const [variable, term] of binding) {
@@ -1760,9 +1776,16 @@ export async function queryGraph(ctx: ProjectContext, sparql: string): Promise<{
       return obj;
     });
 
-    return { results };
+    if (columns.length === 0) {
+      // Fallback (e.g. metadata unavailable): union of keys across all rows.
+      const seen = new Set<string>();
+      for (const row of results) for (const k of Object.keys(row)) seen.add(k);
+      columns = [...seen];
+    }
+
+    return { results, columns };
   } catch (e) {
-    return { results: [], error: String(e) };
+    return { results: [], columns: [], error: String(e) };
   }
 }
 

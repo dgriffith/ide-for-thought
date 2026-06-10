@@ -418,12 +418,12 @@ export function getEditorStore() {
         tab.executionTime = Math.round(performance.now() - start);
         if (response.error) {
           tab.error = response.error;
-        } else if (response.results.length > 0) {
-          tab.columns = Object.keys(response.results[0] as Record<string, string>);
-          tab.results = response.results as Record<string, string>[];
         } else {
-          tab.columns = [];
-          tab.results = [];
+          // Columns come from the SELECT projection (via the query engine's
+          // metadata), so a variable that's unbound in every row still shows
+          // as an (empty) column rather than vanishing.
+          tab.columns = response.columns;
+          tab.results = response.results as Record<string, string>[];
         }
       }
     } catch (e) {
