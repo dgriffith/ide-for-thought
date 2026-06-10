@@ -14,7 +14,6 @@
   import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
-  import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
   import { getClipboardStore } from './lib/stores/clipboard.svelte';
@@ -22,12 +21,12 @@
   import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import { createSourceOps, type SourceOpsCtx } from './lib/app/source-ops';
+  import { createNavView, type NavViewCtx } from './lib/app/nav-view';
   import { createRefactorOps, type RefactorOpsCtx } from './lib/app/refactor-ops.svelte';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
   import { substituteTemplate } from '../shared/templates';
   import PdfViewer from './lib/components/PdfViewer.svelte';
-  import { getPreferredSourceView, setPreferredSourceView } from './lib/source-view-preference';
   import { buildExcerptNoteContent, buildExcerptAppendBlock } from '../shared/excerpt-note';
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
@@ -58,7 +57,6 @@
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
   import {
     slugifyForPath,
-    findAnchorOffset,
     flattenNotePaths,
     countNotes,
   } from './lib/app/text-helpers';
@@ -465,108 +463,7 @@
   } | null>(null);
   let findInNotesMode = $state<'find' | 'replace' | null>(null);
 
-  async function handleFileSelect(relativePath: string, searchQuery?: string) {
-    recordCurrentPosition();
-    const existingTab = editor.tabs.find((t) => t.type === 'note' && t.relativePath === relativePath) as import('./lib/stores/editor.svelte').NoteTab | undefined;
-    const savedOffset = existingTab?.cursorOffset;
-    const savedScroll = existingTab?.scrollTop;
-    pendingSearchQuery = searchQuery ?? null;
-    await editor.openFile(relativePath);
-    if (!searchQuery && savedOffset != null) {
-      await tick();
-      requestAnimationFrame(() => {
-        editorComponent?.restorePosition(savedOffset, savedScroll);
-      });
-      nav.record({ type: 'note', relativePath, offset: savedOffset });
-    } else {
-      nav.record({ type: 'note', relativePath, offset: 0 });
-    }
-  }
-
   let pendingPreviewAnchor = $state<string | null>(null);
-
-  async function handleNavigate(target: string) {
-    recordCurrentPosition();
-    const hashIdx = target.indexOf('#');
-    const pathPart = hashIdx >= 0 ? target.slice(0, hashIdx) : target;
-    const anchor = hashIdx >= 0 ? target.slice(hashIdx + 1) : null;
-    // Resolve against the actual note tree before falling back to a
-    // naive `${target}.md`. Lets short-form wiki-links like [[raft]],
-    // [[Sets, Functions]], or [[journey/raft]] open the correct file
-    // regardless of how deeply nested it is.
-    const flat = flattenNoteFiles(notebase.files);
-    const resolved = resolveWikiLinkTarget(pathPart, flat, aliasMap);
-    const notePath = resolved ?? (pathPart.endsWith('.md') ? pathPart : `${pathPart}.md`);
-    await editor.openFile(notePath);
-    // Route anchors: preview scrolls by element id; editor jumps by doc offset.
-    if (anchor) {
-      pendingPreviewAnchor = anchor;
-      if (viewMode === 'source' || viewMode === 'split') {
-        const content = editor.content;
-        const offset = findAnchorOffset(content, anchor);
-        if (offset !== null) {
-          requestAnimationFrame(() => editorComponent?.gotoOffset(offset));
-        }
-      }
-    }
-    nav.record({ type: 'note', relativePath: notePath, offset: 0 });
-  }
-
-  /**
-   * Locate a heading (by slug) or block-id inside raw markdown and return
-   * the character offset of its line. Shared between source and split modes.
-   */
-  function handleSourceDeleted(sourceId: string) {
-    // Close every tab bound to this source — the detail view AND any PDF
-    // viewer — so the user isn't left staring at a ghost viewer that then
-    // fails to load the deleted original.pdf.
-    editor.closeTabsForSource(sourceId);
-  }
-
-  function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
-    recordCurrentPosition();
-    // If the user last viewed this source as a PDF (and the file is
-    // still there), route them back to the PDF tab rather than the
-    // extracted-text detail. An explicit excerpt highlight wins —
-    // jumping to an excerpt is a markdown-view affordance until the
-    // PDF viewer's highlight click-to-navigate is wired up. (#100)
-    if (!highlightExcerptId && getPreferredSourceView(sourceId) === 'pdf') {
-      void api.sources.hasPdf(sourceId).then((ok) => {
-        if (ok) {
-          editor.openPdf(sourceId);
-          nav.record({ type: 'source', sourceId });
-        } else {
-          editor.openSource(sourceId);
-          nav.record({ type: 'source', sourceId });
-        }
-      });
-      return;
-    }
-    editor.openSource(sourceId, { highlightExcerptId });
-    nav.record({ type: 'source', sourceId, highlightExcerptId });
-  }
-
-  /** Open the PDF view for a source; remember the choice so the next
-   *  click on this source from the sidebar / search / quick-open
-   *  routes here directly. */
-  function handleOpenPdf(sourceId: string) {
-    recordCurrentPosition();
-    setPreferredSourceView(sourceId, 'pdf');
-    editor.openPdf(sourceId);
-    nav.record({ type: 'source', sourceId });
-  }
-
-  /** Switch back to the extracted-markdown view from a PDF tab. */
-  function handleShowMarkdownFromPdf(sourceId: string) {
-    setPreferredSourceView(sourceId, 'markdown');
-    editor.openSource(sourceId);
-  }
-
-  async function handleOpenExcerpt(excerptId: string) {
-    const result = await api.graph.excerptSource(excerptId);
-    if (!result) return;
-    handleOpenSource(result.sourceId, excerptId);
-  }
 
   /** Flatten the sidebar file tree to a list of indexable relative paths. */
   function handleTagSelect(tag: string) {
@@ -979,6 +876,25 @@
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
 
+  // Nav-ops + source-view-ops handler cluster (#670): position history
+  // (back/forward), file / wiki-link navigation, and the source *view* handlers
+  // (open source / PDF / excerpt, show-markdown, source-deleted). Lives in
+  // ./lib/app/nav-view.ts; no feature-state store. Destructured into the same
+  // names so every call site reads unchanged. Placed before createSourceOps so
+  // handleOpenSource is in scope for the sourceOpsCtx.openSource getter. The
+  // module reads / writes pending search + preview anchor, view mode, and the
+  // alias map via ctx — those `$state` decls stay in App.
+  const {
+    recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate,
+    handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
+  } = createNavView({
+    getEditorComponent: () => editorComponent,
+    setPendingSearchQuery: (s) => { pendingSearchQuery = s; },
+    setPendingPreviewAnchor: (s) => { pendingPreviewAnchor = s; },
+    getViewMode: () => viewMode,
+    getAliasMap: () => aliasMap,
+  } satisfies NavViewCtx);
+
   // Source-ops handler cluster (#670): source ingest (URL / file / identifier /
   // external drop / DOI-click), OCR (#95), reference mining (#106), stub
   // resolution (#107). Lives in ./lib/app/source-ops.ts; in-flight feature-dialog
@@ -1031,49 +947,6 @@
     if (!notebase.meta) return;
     const ctx = await gatherContext(['fullNote'], editorComponent?.getView());
     await handleOpenConversationFromTool({ toolId: 'research.crystallize', context: ctx });
-  }
-
-  function recordCurrentPosition() {
-    const activeTab = editor.activeTab;
-    if (!activeTab) return;
-    if (activeTab.type === 'note' && editor.activeFilePath) {
-      nav.record({ type: 'note', relativePath: editor.activeFilePath, offset: editorComponent?.getOffset() ?? 0 });
-    } else if (activeTab.type === 'query') {
-      nav.record({ type: 'query', tabId: activeTab.id });
-    }
-  }
-
-  async function navigateToPosition(pos: import('./lib/stores/navigation.svelte').NavPosition) {
-    if (pos.type === 'note') {
-      await editor.openFile(pos.relativePath);
-      requestAnimationFrame(() => {
-        editorComponent?.gotoOffset(pos.offset);
-        nav.doneNavigating();
-      });
-    } else if (pos.type === 'source') {
-      editor.openSource(pos.sourceId, { highlightExcerptId: pos.highlightExcerptId });
-      nav.doneNavigating();
-    } else {
-      const idx = editor.tabs.findIndex((t) => t.type === 'query' && t.id === pos.tabId);
-      if (idx >= 0) {
-        editor.switchTab(idx);
-      }
-      nav.doneNavigating();
-    }
-  }
-
-  async function handleNavBack() {
-    recordCurrentPosition();
-    const pos = nav.goBack();
-    if (!pos) return;
-    await navigateToPosition(pos);
-  }
-
-  async function handleNavForward() {
-    recordCurrentPosition();
-    const pos = nav.goForward();
-    if (!pos) return;
-    await navigateToPosition(pos);
   }
 
   function handleCycleTheme() {
