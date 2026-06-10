@@ -89,6 +89,13 @@ export interface ThinkingToolDef {
   id: string;
   name: string;
   category: ToolCategory;
+  /**
+   * Optional thematic sub-grouping within a category (#525). When any tool in
+   * a category declares a group, the menu renders one nested submenu per group
+   * (ungrouped tools fall into a "General" bucket, last). Free-form string;
+   * matched case-sensitively. Omit for a flat category.
+   */
+  group?: string;
   description: string;
   longDescription: string;
   context: ContextRequirement[];
@@ -127,6 +134,8 @@ export interface ThinkingToolInfo {
   id: string;
   name: string;
   category: ToolCategory;
+  /** Thematic sub-group within the category (#525). See ThinkingToolDef.group. */
+  group?: string;
   description: string;
   longDescription: string;
   context: ContextRequirement[];

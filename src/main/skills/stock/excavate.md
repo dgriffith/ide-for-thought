@@ -3,6 +3,7 @@ id: analysis.excavate
 name: Excavate
 description: Surface hidden assumptions underlying arguments
 menu: Analysis
+group: Diagnostic
 outputMode: newNote
 outputNotePrefix: excavate
 slashCommand: /excavate

@@ -3,6 +3,7 @@ id: planning.murphyjitsu
 name: Murphyjitsu
 description: Pre-mortem failure analysis for plans and decisions
 menu: Analysis
+group: Planning
 outputMode: newNote
 outputNotePrefix: murphyjitsu
 slashCommand: /murphyjitsu

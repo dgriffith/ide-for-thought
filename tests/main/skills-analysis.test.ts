@@ -41,6 +41,16 @@ describe('Analysis skills load + classify', () => {
     }
   });
 
+  it('every Analysis skill declares a thematic group (#525) that survives compile', () => {
+    const GROUPS = new Set(['Disagreement', 'Planning', 'Motivation', 'Semantic', 'Generation', 'Pattern', 'Diagnostic']);
+    for (const id of [...CONVERSATION, ...ONESHOT]) {
+      const s = skills.get(id)!;
+      expect(s.group, id).toBeDefined();
+      expect(GROUPS.has(s.group!), `${id} → ${s.group}`).toBe(true);
+      expect(compileSkill(s).group).toBe(s.group);
+    }
+  });
+
   it.each(CONVERSATION)('%s is a conversation skill with source threading + first message', (id) => {
     const def = defs.get(id)!;
     expect(def.outputMode).toBe('openConversation');

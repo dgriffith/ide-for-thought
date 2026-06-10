@@ -3,6 +3,7 @@ id: analysis.handlize
 name: Handlize
 description: Extract operational "handles" — short phrases you can grab and use
 menu: Analysis
+group: Semantic
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

@@ -3,6 +3,7 @@ id: analysis.aversionfactor
 name: Aversion Factor
 description: Decompose a stated objection into the underlying aversions
 menu: Analysis
+group: Motivation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

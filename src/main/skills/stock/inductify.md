@@ -3,6 +3,7 @@ id: analysis.inductify
 name: Inductify
 description: Cross-example pattern extraction — what underlies these cases?
 menu: Analysis
+group: Pattern
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

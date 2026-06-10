@@ -82,6 +82,7 @@ palette, and the editor right-click menu (because it requests `fullNote`).
 |---|---|---|---|
 | `id` | string | slug of `name` | Stable identifier used in logs, model overrides, and menu config. **Set it explicitly and never change it once shared** — overrides are pinned by id. Stock ids look like `analysis.steelman`; yours can be anything not already taken. |
 | `longDescription` | string | `description` | 1–3 sentences; the expanded card view. Tell the user what to expect. |
+| `group` | string | — | Thematic sub-group within the menu. When any skill in a menu sets a `group`, that menu renders one nested submenu per group (ungrouped skills fall into **General**, last). Free-form; matched exactly. See [Grouping](#grouping). |
 | `context` | string list | `[]` | What to gather before running. See [Context](#context). |
 | `parameters` | list | `[]` | Upfront form fields. See [Parameters](#parameters). |
 | `tools` | string list | default set | Conversation tools to advertise. Currently only `ask_user` is honored as an extra. |
@@ -238,6 +239,22 @@ Other built-in tools the agent may use freely: `describe_graph_schema` (call it
 before referencing thought-ontology types), the read-only `search_notes` /
 `read_note` / `query_graph`, and `web_search` / `web_fetch` (set `web: true` to
 default them on).
+
+<a name="grouping"></a>
+## Grouping (thematic sub-menus)
+
+A menu with many skills gets hard to scan (the stock **Analysis** menu has 20).
+Give related skills the same `group:` and the menu renders them as nested
+submenus — e.g. `Analysis ▸ Planning ▸ Murphyjitsu`. The stock Analysis skills
+are grouped Disagreement / Planning / Motivation / Semantic / Generation /
+Pattern / Diagnostic.
+
+- Grouping kicks in only when **at least one** skill in a menu has a `group`;
+  otherwise the menu stays a flat list (Learning and Research ship ungrouped).
+- Skills **without** a group in a grouped menu collect under **General**, last.
+- Groups appear in the order their first skill appears — which follows the
+  [menu config](#menu-config) order, so you can influence it by reordering.
+- Grouping affects the menu bar. The editor/preview right-click menus stay flat.
 
 <a name="menu-config"></a>
 ## Menu config (per machine)

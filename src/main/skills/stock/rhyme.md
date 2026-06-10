@@ -3,6 +3,7 @@ id: analysis.rhyme
 name: Rhyme
 description: Fast structural-similarity recognition — what does this echo?
 menu: Analysis
+group: Pattern
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

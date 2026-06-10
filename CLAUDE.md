@@ -93,6 +93,9 @@ no longer a `definitions/` tool registry; do not add one.
   reassign among the three menus, and order. Pure logic in
   `src/shared/skills/menu-config.ts` (`applyMenuConfig`) is applied identically
   by the native menu, the renderer registry, and the Settings → Skills UI.
+- **Grouping** (#525): a skill's optional `group:` field renders thematic
+  nested submenus within a menu (pure logic in `src/shared/tools/grouping.ts`;
+  applied in `menu.ts`). A menu stays flat until one of its skills sets a group.
 - Authoring reference: `docs/authoring-skills.md`. To change a stock skill,
   disable it and author your own — don't edit bundled files.
 

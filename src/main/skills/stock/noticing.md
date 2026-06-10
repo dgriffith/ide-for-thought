@@ -3,6 +3,7 @@ id: analysis.noticing
 name: Noticing
 description: Surface the felt sense the prose isn't saying out loud
 menu: Analysis
+group: Pattern
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

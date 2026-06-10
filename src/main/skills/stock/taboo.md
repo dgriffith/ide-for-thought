@@ -3,6 +3,7 @@ id: planning.taboo
 name: Taboo
 description: Semantic decomposition by banning a contested term
 menu: Analysis
+group: Semantic
 outputMode: newNote
 outputNotePrefix: taboo
 slashCommand: /taboo

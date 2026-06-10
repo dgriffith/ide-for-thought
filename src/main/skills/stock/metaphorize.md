@@ -3,6 +3,7 @@ id: analysis.metaphorize
 name: Metaphorize
 description: High-coverage source→target domain mapping
 menu: Analysis
+group: Generation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6

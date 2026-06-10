@@ -44,6 +44,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
     def.buildSystemPrompt = (ctx) => render(skill.body, ctx);
     def.buildFirstMessage = (ctx) => render(skill.firstMessage, ctx);
   }
+  if (skill.group) def.group = skill.group;
   if (skill.model) def.preferredModel = skill.model;
   if (skill.slashCommand) def.slashCommand = skill.slashCommand;
   if (skill.outputNotePrefix) def.outputNotePrefix = skill.outputNotePrefix;
