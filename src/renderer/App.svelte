@@ -22,12 +22,9 @@
     extractTagsFromContent,
   } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
-  import PromptDialog from './lib/components/PromptDialog.svelte';
-  import NewNoteDialog from './lib/components/NewNoteDialog.svelte';
-  import type { NoteExt, NewNoteResult } from './lib/components/new-note-dialog-types';
-  import SnippetPickerDialog from './lib/components/SnippetPickerDialog.svelte';
+  import DialogHost from './lib/components/DialogHost.svelte';
+  import { getDialogStore } from './lib/stores/dialogs.svelte';
   import { substituteTemplate } from '../shared/templates';
-  import type { TemplateInfo } from './lib/ipc/client';
   import PdfViewer from './lib/components/PdfViewer.svelte';
   import { getPreferredSourceView, setPreferredSourceView } from './lib/source-view-preference';
   import { buildExcerptNoteContent, buildExcerptAppendBlock } from '../shared/excerpt-note';
@@ -39,10 +36,8 @@
   import { RESOLVE_AUTO_THRESHOLD } from '../shared/resolve-stub';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
-  import { formatAccelerator } from './lib/command-palette/format-accelerator';
-  import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
+  import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
   import ExportDialog from './lib/components/ExportDialog.svelte';
-  import OpenTargetDialog from './lib/components/OpenTargetDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
@@ -68,7 +63,6 @@
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
-  import { getConfirmSuppressionStore } from './lib/stores/confirm-suppression.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
@@ -243,84 +237,12 @@
   }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
-  let promptDialog = $state<{ message: string; suggestions?: string[]; initial?: string; resolve: (value: string | null) => void } | null>(null);
-  let newNoteDialog = $state<{
-    initialExt: NoteExt;
-    resolve: (value: NewNoteResult | null) => void;
-  } | null>(null);
-  let snippetPicker = $state<{
-    templates: TemplateInfo[];
-    resolve: (value: TemplateInfo | null) => void;
-  } | null>(null);
-  let confirmDialog = $state<{ message: string; confirmLabel: string; key: string; hideDontAskAgain?: boolean; resolve: (value: boolean) => void } | null>(null);
+  // Generic modal dialogs (prompt / confirm / new-note / snippet / open-target)
+  // live in the dialog store (#670); destructure the imperative `show*` helpers
+  // so the many call sites read unchanged. <DialogHost> renders the state.
+  const dialogs = getDialogStore();
+  const { showPrompt, showConfirm, showNewNoteDialog, showSnippetPicker } = dialogs;
   let exportDialogFor = $state<string | null>(null);
-  /**
-   * Three-way prompt for opening / creating a thoughtbase when the
-   * current window already holds one. `null` means no dialog open.
-   */
-  let openTargetDialog = $state<{
-    message: string;
-    resolve: (choice: 'this' | 'new' | 'cancel') => void;
-  } | null>(null);
-  const confirmSuppression = getConfirmSuppressionStore();
-
-  function showPrompt(
-    message: string,
-    initialOrOptions?: string | { suggestions?: string[]; initial?: string },
-  ): Promise<string | null> {
-    // Two overloads to keep call sites readable. New callers pass
-    // (message, "current name") for Rename-style flows; existing
-    // callers can keep their {suggestions} object.
-    const opts = typeof initialOrOptions === 'string'
-      ? { initial: initialOrOptions }
-      : (initialOrOptions ?? {});
-    return new Promise((resolve) => {
-      promptDialog = { message, suggestions: opts.suggestions, initial: opts.initial, resolve };
-    });
-  }
-
-  function showNewNoteDialog(
-    initialExt: NoteExt = '.md',
-  ): Promise<NewNoteResult | null> {
-    return new Promise((resolve) => {
-      newNoteDialog = { initialExt, resolve };
-    });
-  }
-
-  function showConfirm(
-    message: string,
-    key: string,
-    confirmLabel = 'OK',
-    options: { hideDontAskAgain?: boolean } = {},
-  ): Promise<boolean> {
-    if (confirmSuppression.isSuppressed(key)) return Promise.resolve(true);
-    return new Promise((resolve) => {
-      confirmDialog = { message, confirmLabel, key, hideDontAskAgain: options.hideDontAskAgain, resolve };
-    });
-  }
-
-  function handlePromptConfirm(value: string) {
-    promptDialog?.resolve(value);
-    promptDialog = null;
-  }
-
-  function handlePromptCancel() {
-    promptDialog?.resolve(null);
-    promptDialog = null;
-  }
-
-  function handleConfirmOk(dontAskAgain: boolean) {
-    if (dontAskAgain && confirmDialog) {
-      confirmSuppression.suppress(confirmDialog.key);
-    }
-    confirmDialog?.resolve(true);
-    confirmDialog = null;
-  }
-
-  function handleConfirmCancel() {
-    confirmDialog?.resolve(false);
-    confirmDialog = null;
-  }
 
   /**
    * Surfaced when any LLM-backed action fails because the user hasn't
@@ -499,145 +421,59 @@
    *  menu still lives in `src/main/menu.ts` — moving menus to read
    *  from this registry is a separate follow-up.
    */
-  const commands = $derived<Command[]>(buildCommandRegistry());
-
-  function buildCommandRegistry(): Command[] {
-    const hasProject = !!notebase.meta;
-    const hasNote = !!editor.activeFilePath;
-    const hasActiveNoteTab = editor.activeTab?.type === 'note';
-    const list: Command[] = [
-      // ── File ──
-      { id: 'file.newNote', title: 'New Note', category: 'File',
-        keybinding: formatAccelerator('CmdOrCtrl+N'),
-        enabled: hasProject, run: () => handleNewNote() },
-      { id: 'file.save', title: 'Save', category: 'File',
-        keybinding: formatAccelerator('CmdOrCtrl+S'),
-        enabled: hasNote, run: () => handleSave() },
-      { id: 'file.openProject', title: 'Open Thoughtbase…', category: 'File',
-        keybinding: formatAccelerator('CmdOrCtrl+O'),
-        enabled: true, run: () => handleOpenThoughtbase() },
-      { id: 'file.newProject', title: 'New Thoughtbase…', category: 'File',
-        keybinding: null, enabled: true, run: () => handleNewThoughtbase() },
-      { id: 'file.closeProject', title: 'Close Thoughtbase', category: 'File',
-        keybinding: formatAccelerator('CmdOrCtrl+Shift+W'),
-        enabled: hasProject, run: () => { notebase.close(); editor.clear(); } },
-      { id: 'file.print', title: 'Print…', category: 'File',
-        keybinding: null, enabled: hasNote, run: () => window.print() },
-      { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File',
-        keybinding: null, enabled: hasActiveNoteTab,
-        run: () => { void handleSaveAsTemplate(); } },
-      { id: 'edit.insertTemplate', title: 'Insert Template…', category: 'Edit',
-        keybinding: null, enabled: hasActiveNoteTab,
-        run: () => { void handleInsertTemplate(); } },
-      // ── Edit / search ──
-      { id: 'edit.find', title: 'Find', category: 'Edit',
-        keybinding: formatAccelerator('CmdOrCtrl+F'),
-        enabled: hasNote, run: () => editorComponent?.openFind() },
-      { id: 'edit.findReplace', title: 'Find and Replace', category: 'Edit',
-        keybinding: formatAccelerator('CmdOrCtrl+H'),
-        enabled: hasNote, run: () => editorComponent?.openFindReplace() },
-      { id: 'edit.findInNotes', title: 'Find in Notes…', category: 'Edit',
-        keybinding: formatAccelerator('CmdOrCtrl+Shift+F'),
-        enabled: hasProject, run: () => { findInNotesMode = 'find'; } },
-      { id: 'edit.replaceInNotes', title: 'Replace in Notes…', category: 'Edit',
-        keybinding: formatAccelerator('CmdOrCtrl+Shift+H'),
-        enabled: hasProject, run: () => { findInNotesMode = 'replace'; } },
-      { id: 'edit.gotoLine', title: 'Go to Line…', category: 'Edit',
-        keybinding: null, enabled: hasNote, run: () => { showGotoLine = true; } },
-      { id: 'edit.sortLines', title: 'Sort Lines', category: 'Edit',
-        keybinding: null, enabled: hasNote, run: () => editorComponent?.runSortLines() },
-      // ── View ──
-      { id: 'view.toggleSidebar', title: 'Toggle Left Sidebar', category: 'View',
-        keybinding: null, enabled: true, run: () => { sidebarVisible = !sidebarVisible; } },
-      { id: 'view.toggleRightSidebar', title: 'Toggle Right Sidebar', category: 'View',
-        keybinding: null, enabled: true, run: () => { rightSidebarVisible = !rightSidebarVisible; } },
-      { id: 'view.togglePreview', title: 'Toggle Preview Mode', category: 'View',
-        keybinding: null, enabled: hasNote, run: () => cycleViewMode() },
-      { id: 'view.toggleConversations', title: 'Toggle Conversations', category: 'View',
-        keybinding: null, enabled: true, run: () => conversationsStore.toggle() },
-      { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View',
-        keybinding: null, enabled: true, run: () => handleCycleTheme() },
-      { id: 'view.fontIncrease', title: 'Increase Font Size', category: 'View',
-        keybinding: null, enabled: true,
-        run: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; } },
-      { id: 'view.fontDecrease', title: 'Decrease Font Size', category: 'View',
-        keybinding: null, enabled: true,
-        run: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; } },
-      { id: 'view.fontReset', title: 'Reset Font Size', category: 'View',
-        keybinding: null, enabled: true,
-        run: () => { editorComponent?.resetFontSize(); editorFontSize = 14; } },
-      // ── Navigate ──
-      { id: 'nav.quickOpen', title: 'Go to…', category: 'Navigate',
-        keybinding: formatAccelerator('CmdOrCtrl+P'),
-        enabled: hasProject,
-        run: () => {
-          void refreshSourcesCache();
-          void refreshSavedQueriesCache();
-          showGotoNote = true;
-        } },
-      { id: 'nav.back', title: 'Navigate Back', category: 'Navigate',
-        keybinding: formatAccelerator('CmdOrCtrl+['),
-        enabled: nav.canGoBack, run: () => handleNavBack() },
-      { id: 'nav.forward', title: 'Navigate Forward', category: 'Navigate',
-        keybinding: formatAccelerator('CmdOrCtrl+]'),
-        enabled: nav.canGoForward, run: () => handleNavForward() },
-      // ── Refactor ──
-      { id: 'refactor.rename', title: 'Rename Note…', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); } },
-      { id: 'refactor.move', title: 'Move Note…', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); } },
-      { id: 'refactor.copy', title: 'Copy Note…', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); } },
-      { id: 'refactor.extract', title: 'Extract Selection to New Note', category: 'Refactor',
-        keybinding: null, enabled: hasActiveNoteTab, run: () => handleExtractSelection() },
-      { id: 'refactor.splitHere', title: 'Split Here', category: 'Refactor',
-        keybinding: null, enabled: hasActiveNoteTab, run: () => handleSplitHere() },
-      { id: 'refactor.splitByHeading', title: 'Split by Heading…', category: 'Refactor',
-        keybinding: null, enabled: hasActiveNoteTab, run: () => handleSplitByHeading() },
-      { id: 'refactor.autoTag', title: 'Auto-tag Note', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); } },
-      { id: 'refactor.autoLink', title: 'Auto-link Outbound', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); } },
-      { id: 'refactor.autoLinkInbound', title: 'Auto-link Inbound', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); } },
-      { id: 'refactor.decompose', title: 'Decompose into Claims', category: 'Refactor',
-        keybinding: null, enabled: hasNote,
-        run: () => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); } },
-      { id: 'refactor.format', title: 'Format', category: 'Refactor',
-        keybinding: null, enabled: hasNote, run: () => handleFormat() },
-      // ── Research ──
-      { id: 'research.ingestUrl', title: 'Ingest URL as Source…', category: 'Research',
-        keybinding: formatAccelerator('CmdOrCtrl+Shift+I'),
-        enabled: hasProject, run: () => handleIngestUrlAsSource() },
-      { id: 'research.ingestIdentifier', title: 'Ingest Identifier…', category: 'Research',
-        keybinding: formatAccelerator('CmdOrCtrl+Shift+D'),
-        enabled: hasProject, run: () => handleIngestIdentifier() },
-      { id: 'research.ingestFile', title: 'Ingest File as Source…', category: 'Research',
-        keybinding: null, enabled: hasProject, run: () => handleIngestFileAsSource() },
-      { id: 'research.importBibtex', title: 'Import BibTeX…', category: 'Research',
-        keybinding: null, enabled: hasProject, run: () => handleImportBibtex() },
-      { id: 'research.importZoteroRdf', title: 'Import Zotero RDF…', category: 'Research',
-        keybinding: null, enabled: hasProject, run: () => handleImportZoteroRdf() },
-      { id: 'research.bibliography', title: 'Insert/Update Bibliography', category: 'Research',
-        keybinding: null, enabled: hasNote, run: () => { void handleBibliography(); } },
-      // ── Query ──
-      { id: 'query.new', title: 'New Query', category: 'Query',
-        keybinding: null, enabled: hasProject, run: () => editor.openQuery() },
-      { id: 'query.editSaved', title: 'Edit Saved Queries…', category: 'Query',
-        keybinding: null, enabled: hasProject, run: () => { showEditSavedQueries = true; } },
-      // ── Settings / app ──
-      { id: 'app.settings', title: 'Settings…', category: 'App',
-        keybinding: formatAccelerator('CmdOrCtrl+,'),
-        enabled: true, run: () => { showSettings = true; } },
-    ];
-    return list;
-  }
+  const commandDeps: CommandDeps = {
+    hasProject: () => !!notebase.meta,
+    hasNote: () => !!editor.activeFilePath,
+    hasActiveNoteTab: () => editor.activeTab?.type === 'note',
+    canGoBack: () => nav.canGoBack,
+    canGoForward: () => nav.canGoForward,
+    newNote: () => { void handleNewNote(); },
+    save: () => { void handleSave(); },
+    openProject: () => { void handleOpenThoughtbase(); },
+    newProject: () => { void handleNewThoughtbase(); },
+    closeProject: () => { notebase.close(); editor.clear(); },
+    print: () => window.print(),
+    saveAsTemplate: () => { void handleSaveAsTemplate(); },
+    insertTemplate: () => { void handleInsertTemplate(); },
+    find: () => editorComponent?.openFind(),
+    findReplace: () => editorComponent?.openFindReplace(),
+    findInNotes: () => { findInNotesMode = 'find'; },
+    replaceInNotes: () => { findInNotesMode = 'replace'; },
+    gotoLine: () => { showGotoLine = true; },
+    sortLines: () => editorComponent?.runSortLines(),
+    toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
+    toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
+    togglePreview: () => cycleViewMode(),
+    toggleConversations: () => conversationsStore.toggle(),
+    cycleTheme: () => handleCycleTheme(),
+    fontIncrease: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
+    fontDecrease: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
+    fontReset: () => { editorComponent?.resetFontSize(); editorFontSize = 14; },
+    quickOpen: () => { void refreshSourcesCache(); void refreshSavedQueriesCache(); showGotoNote = true; },
+    navBack: () => { void handleNavBack(); },
+    navForward: () => { void handleNavForward(); },
+    renameActive: () => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); },
+    moveActive: () => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); },
+    copyActive: () => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); },
+    extractSelection: () => { void handleExtractSelection(); },
+    splitHere: () => { void handleSplitHere(); },
+    splitByHeading: () => { void handleSplitByHeading(); },
+    autoTagActive: () => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); },
+    autoLinkActive: () => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); },
+    autoLinkInboundActive: () => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); },
+    decomposeActive: () => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); },
+    format: () => { void handleFormat(); },
+    ingestUrl: () => { void handleIngestUrlAsSource(); },
+    ingestIdentifier: () => { void handleIngestIdentifier(); },
+    ingestFile: () => { void handleIngestFileAsSource(); },
+    importBibtex: () => { void handleImportBibtex(); },
+    importZoteroRdf: () => { void handleImportZoteroRdf(); },
+    bibliography: () => { void handleBibliography(); },
+    newQuery: () => editor.openQuery(),
+    editSavedQueries: () => { showEditSavedQueries = true; },
+    openSettings: () => { showSettings = true; },
+  };
+  const commands = $derived<Command[]>(buildCommandRegistry(commandDeps));
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
   let mergePickerSource = $state<string | null>(null);
@@ -1032,9 +868,6 @@
 
   /** Show the snippet picker (#475). Resolves with the chosen
    *  template or `null` when the user cancels. */
-  function showSnippetPicker(templates: TemplateInfo[]): Promise<TemplateInfo | null> {
-    return new Promise((resolve) => { snippetPicker = { templates, resolve }; });
-  }
 
   /** Insert a template's substituted body at the editor caret
    *  (replacing the current selection if any). `{{selection}}`
@@ -2140,10 +1973,11 @@
    * a blank entry screen.
    */
   function askOpenTarget(message: string): Promise<'this' | 'new' | 'cancel'> {
+    // App-level shortcut: with no project open there's nothing to open "in a
+    // new window vs this one", so skip the prompt. The dialog primitive lives
+    // in the dialog store (#670).
     if (!notebase.meta) return Promise.resolve('this');
-    return new Promise((resolve) => {
-      openTargetDialog = { message, resolve };
-    });
+    return dialogs.askOpenTarget(message);
   }
 
   async function handleOpenThoughtbase(): Promise<void> {
@@ -3477,29 +3311,7 @@
       onClose={() => { findInNotesMode = null; }}
     />
   {/if}
-  {#if promptDialog}
-    <PromptDialog
-      message={promptDialog.message}
-      suggestions={promptDialog.suggestions ?? []}
-      initial={promptDialog.initial ?? ''}
-      onConfirm={handlePromptConfirm}
-      onCancel={handlePromptCancel}
-    />
-  {/if}
-  {#if newNoteDialog}
-    <NewNoteDialog
-      initialExt={newNoteDialog.initialExt}
-      onConfirm={(value) => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(value); }}
-      onCancel={() => { const r = newNoteDialog!.resolve; newNoteDialog = null; r(null); }}
-    />
-  {/if}
-  {#if snippetPicker}
-    <SnippetPickerDialog
-      templates={snippetPicker.templates}
-      onPick={(t) => { const r = snippetPicker!.resolve; snippetPicker = null; r(t); }}
-      onCancel={() => { const r = snippetPicker!.resolve; snippetPicker = null; r(null); }}
-    />
-  {/if}
+  <DialogHost />
   {#if mineReviewState}
     <MineReferencesDialog
       parentTitle={mineReviewState.parentTitle}
@@ -3536,23 +3348,6 @@
     <CommandPaletteDialog
       {commands}
       onClose={() => { showCommandPalette = false; }}
-    />
-  {/if}
-  {#if confirmDialog}
-    <ConfirmDialog
-      message={confirmDialog.message}
-      confirmLabel={confirmDialog.confirmLabel}
-      hideDontAskAgain={confirmDialog.hideDontAskAgain}
-      onConfirm={handleConfirmOk}
-      onCancel={handleConfirmCancel}
-    />
-  {/if}
-  {#if openTargetDialog}
-    <OpenTargetDialog
-      message={openTargetDialog.message}
-      onThisWindow={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('this'); }}
-      onNewWindow={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('new'); }}
-      onCancel={() => { const r = openTargetDialog!.resolve; openTargetDialog = null; r('cancel'); }}
     />
   {/if}
   {#if exportDialogFor}
