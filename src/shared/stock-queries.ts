@@ -31,41 +31,47 @@ ORDER BY ?title ?tag`,
     name: 'Backlinks to note',
     description: 'Notes that link to a specific note (edit the target path)',
     language: 'sparql',
+    // `rdfs:subPropertyOf*` matches the generic minerva:linksTo AND every typed
+    // link (references / supports / rebuts / …) declared a sub-property of it,
+    // so typed links count as backlinks. The `*` (zero-or-more) also catches a
+    // bare minerva:linksTo edge and any future sub-sub-property.
     query: `${PREFIXES}
 # Edit the target note path below
-SELECT ?title ?path WHERE {
+SELECT DISTINCT ?title ?path WHERE {
   ?source rdf:type minerva:Note .
   ?source dc:title ?title .
   ?source minerva:relativePath ?path .
-  ?source minerva:linksTo ?target .
+  ?source ?linkPred ?target .
+  ?linkPred rdfs:subPropertyOf* minerva:linksTo .
   ?target minerva:relativePath "YOUR_NOTE.md" .
 }
 ORDER BY ?title`,
   },
   {
     name: 'Orphan notes',
-    description: 'Notes with no incoming or outgoing wiki-links',
+    description: 'Notes with no incoming or outgoing wiki-links (typed links included)',
     language: 'sparql',
     query: `${PREFIXES}
 SELECT ?title ?path WHERE {
   ?note rdf:type minerva:Note .
   ?note dc:title ?title .
   ?note minerva:relativePath ?path .
-  FILTER NOT EXISTS { ?note minerva:linksTo ?any }
-  FILTER NOT EXISTS { ?other minerva:linksTo ?note }
+  FILTER NOT EXISTS { ?note ?outPred ?any . ?outPred rdfs:subPropertyOf* minerva:linksTo . }
+  FILTER NOT EXISTS { ?other ?inPred ?note . ?inPred rdfs:subPropertyOf* minerva:linksTo . }
 }
 ORDER BY ?title`,
   },
   {
     name: 'Most-linked notes',
-    description: 'Notes ranked by number of incoming links',
+    description: 'Notes ranked by number of incoming links (typed links included)',
     language: 'sparql',
     query: `${PREFIXES}
-SELECT ?title ?path (COUNT(?source) AS ?incomingLinks) WHERE {
+SELECT ?title ?path (COUNT(DISTINCT ?source) AS ?incomingLinks) WHERE {
   ?note rdf:type minerva:Note .
   ?note dc:title ?title .
   ?note minerva:relativePath ?path .
-  ?source minerva:linksTo ?note .
+  ?source ?linkPred ?note .
+  ?linkPred rdfs:subPropertyOf* minerva:linksTo .
 }
 GROUP BY ?note ?title ?path
 ORDER BY DESC(?incomingLinks)`,

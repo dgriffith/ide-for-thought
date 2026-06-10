@@ -129,7 +129,7 @@ minerva:relatedTo a owl:ObjectProperty ;
     rdfs:range minerva:Note .
 
 minerva:hasTag a owl:ObjectProperty ;
-    rdfs:label "has tag" ;
+    rdfs:label "has tag" ;x
     rdfs:comment "Associates a note with a topic tag." ;
     rdfs:domain minerva:Note ;
     rdfs:range minerva:Tag .
