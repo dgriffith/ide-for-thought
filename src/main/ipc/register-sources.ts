@@ -1,0 +1,400 @@
+import { ipcMain, dialog } from 'electron';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { Channels } from '../../shared/channels';
+import * as graph from '../graph/index';
+import { projectContext } from '../project-context-types';
+import { privilegedFetch } from '../privileged-sites';
+import { ingestUrl } from '../sources/ingest';
+import { ingestIdentifier } from '../sources/ingest-identifier';
+import { finishPdfOcrIngest, readOriginalPdf } from '../sources/ingest-pdf';
+import { ingestFile } from '../sources/ingest-file';
+import { deleteSource } from '../sources/delete-source';
+import { mergeSources, MergeSourcesError } from '../sources/merge-sources';
+import { setSourceReadStatus, setSourceReadDueBy } from '../sources/read-status';
+import { stripUpstreamTags } from '../sources/strip-upstream-tags';
+import { getIngestSettings, saveIngestSettings, type IngestSettings } from '../sources/ingest-settings';
+import { ingestSmart } from '../sources/ingest-smart';
+import { mineSourceReferences, type ParsedReference } from '../sources/mine-references';
+import { createReferenceStubs } from '../sources/create-reference-stubs';
+import { resolveStub, applyStubResolution } from '../sources/resolve-stub';
+import type { ReadStatus } from '../../shared/types';
+import type { ReadingQueueView } from '../graph/index';
+import {
+  loadCollections,
+  createCollection,
+  renameCollection,
+  deleteCollection,
+  addSourceToCollection,
+  removeSourceFromCollection,
+  createSmartCollection,
+  renameSmartCollection,
+  deleteSmartCollection,
+  updateSmartCollectionPredicate,
+  resolveSmartMembers,
+} from '../sources/collections';
+import type { SmartCollectionPredicate } from '../../shared/types';
+import { importBibtex } from '../sources/import-bibtex';
+import { importZoteroRdf } from '../sources/import-zotero-rdf';
+import { getExcerptNoteFolder, setExcerptNoteFolder } from '../project-config';
+import { createExcerpt } from '../sources/create-excerpt';
+import { rootPathFromEvent, winFromEvent, reindexFile, persistIndexes } from './helpers';
+
+export function registerSources(): void {
+  ipcMain.handle(Channels.SOURCES_INGEST_URL, async (e, url: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await ingestUrl(rootPath, url, { fetchImpl: privilegedFetch });
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ingestSettings = await getIngestSettings();
+    return await ingestIdentifier(rootPath, identifier, {
+      fetchImpl: privilegedFetch,
+      importUpstreamTags: ingestSettings.importUpstreamTags,
+    });
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_SMART, async (e, rawInput: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ingestSettings = await getIngestSettings();
+    return await ingestSmart(rootPath, rawInput, {
+      fetchImpl: privilegedFetch,
+      importUpstreamTags: ingestSettings.importUpstreamTags,
+    });
+  });
+
+  ipcMain.handle(Channels.SOURCES_MINE_REFERENCES, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await mineSourceReferences(rootPath, sourceId);
+  });
+
+  ipcMain.handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, async (e, params: { sourceId: string; refs: ParsedReference[] }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createReferenceStubs(rootPath, params.sourceId, params.refs);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return result;
+  });
+
+  ipcMain.handle(Channels.SOURCES_RESOLVE_STUB, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await resolveStub(rootPath, sourceId, { fetchImpl: privilegedFetch });
+  });
+
+  ipcMain.handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, async (e, params: { sourceId: string; doi: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const ok = await applyStubResolution(rootPath, params.sourceId, params.doi, { fetchImpl: privilegedFetch });
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return { ok };
+  });
+
+  ipcMain.handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());
+  ipcMain.handle(Channels.INGEST_SET_SETTINGS, (_e, settings: IngestSettings) =>
+    saveIngestSettings(settings),
+  );
+
+  ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'BibTeX', extensions: ['bib', 'bibtex'] }],
+      title: 'Import BibTeX',
+      buttonLabel: 'Import',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return await importBibtex(rootPath, result.filePaths[0], {
+      onProgress: (progress) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
+        }
+      },
+    });
+  });
+
+  ipcMain.handle(Channels.SOURCES_IMPORT_ZOTERO_RDF, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [{ name: 'Zotero RDF', extensions: ['rdf', 'xml'] }],
+      title: 'Import Zotero RDF',
+      buttonLabel: 'Import',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return await importZoteroRdf(rootPath, result.filePaths[0], {
+      onProgress: (progress) => {
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, progress);
+        }
+      },
+    });
+  });
+
+  ipcMain.handle(Channels.SOURCES_INGEST_FILE, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const win = winFromEvent(e);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Documents', extensions: ['pdf', 'html', 'htm', 'md', 'markdown', 'txt', 'text'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      title: 'Ingest File as Source',
+      buttonLabel: 'Ingest',
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const ingested = await ingestFile(rootPath, result.filePaths[0]);
+    // Re-index the new source so it shows up in the sidebar + graph.
+    await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
+    await persistIndexes(rootPath);
+    return ingested;
+  });
+
+  // Read the raw PDF bytes of a previously-persisted source, for the
+  // renderer-side OCR worker (#95).
+  ipcMain.handle(Channels.SOURCES_READ_PDF, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await readOriginalPdf(rootPath, sourceId);
+  });
+
+  ipcMain.handle(Channels.SOURCES_HAS_PDF, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return false;
+    try {
+      await fs.stat(path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf'));
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  // Excerpt → Note flow defaults (#101).
+  ipcMain.handle(Channels.EXCERPT_GET_NOTE_FOLDER, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return '';
+    return getExcerptNoteFolder(rootPath);
+  });
+  ipcMain.handle(Channels.EXCERPT_SET_NOTE_FOLDER, (e, folder: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    setExcerptNoteFolder(rootPath, folder);
+  });
+
+  // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
+  // back the per-page text. We rewrite body.md + stamp meta.ttl with
+  // extractionMethod "ocr" (#95).
+  ipcMain.handle(Channels.SOURCES_FINISH_PDF_OCR, async (e, sourceId: string, pages: string[]) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await finishPdfOcrIngest(rootPath, sourceId, pages);
+    await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_LIST_ALL, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    return graph.listAllSources(projectContext(rootPath));
+  });
+
+  ipcMain.handle(Channels.SOURCES_DELETE, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await deleteSource(rootPath, sourceId);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) {
+      win.webContents.send(Channels.SOURCES_CHANGED);
+      win.webContents.send(Channels.EXCERPTS_CHANGED);
+    }
+    return result;
+  });
+
+  ipcMain.handle(Channels.SOURCES_MERGE, async (e, params: { srcId: string; destId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    try {
+      const result = await mergeSources(rootPath, params.srcId, params.destId);
+      await persistIndexes(rootPath);
+      const win = winFromEvent(e);
+      if (!win.isDestroyed()) {
+        win.webContents.send(Channels.SOURCES_CHANGED);
+        win.webContents.send(Channels.EXCERPTS_CHANGED);
+      }
+      return result;
+    } catch (err) {
+      if (err instanceof MergeSourcesError) {
+        // Carry the structured code through to the renderer so the UI
+        // can distinguish a same-source / not-found error from a real crash.
+        const wrapped = new Error(err.message);
+        (wrapped as Error & { code?: string }).code = err.code;
+        throw wrapped;
+      }
+      throw err;
+    }
+  });
+
+  // ── Reading queue (#116) ──────────────────────────────────────────────────
+  ipcMain.handle(Channels.SOURCES_SET_READ_STATUS, async (e, params: { sourceId: string; status: ReadStatus | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await setSourceReadStatus(rootPath, params.sourceId, params.status);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_SET_READ_DUE_BY, async (e, params: { sourceId: string; dueBy: string | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await setSourceReadDueBy(rootPath, params.sourceId, params.dueBy);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, async (e, sourceId: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await stripUpstreamTags(rootPath, sourceId);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    return result;
+  });
+
+  ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, (e, view: ReadingQueueView) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    const ctx = projectContext(rootPath);
+    const ids = new Set(graph.getReadingQueueSourceIds(ctx, view));
+    if (ids.size === 0) return [];
+    return graph.listAllSources(ctx).filter((s) => ids.has(s.sourceId));
+  });
+
+  // ── Collections (#470) ────────────────────────────────────────────────────
+  const broadcastCollectionsChanged = (e: Electron.IpcMainInvokeEvent) => {
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.COLLECTIONS_CHANGED);
+  };
+
+  ipcMain.handle(Channels.COLLECTIONS_LIST, async (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { collections: [] };
+    return await loadCollections(rootPath);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_CREATE, async (e, args: { name: string; parent?: string | null }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createCollection(rootPath, args);
+    broadcastCollectionsChanged(e);
+    return result;
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_RENAME, async (e, args: { id: string; name: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await renameCollection(rootPath, args.id, args.name);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_DELETE, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await deleteCollection(rootPath, id);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_ADD_SOURCE, async (e, args: { collectionId: string; sourceId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await addSourceToCollection(rootPath, args.collectionId, args.sourceId);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_REMOVE_SOURCE, async (e, args: { collectionId: string; sourceId: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await removeSourceFromCollection(rootPath, args.collectionId, args.sourceId);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_CREATE_SMART, async (e, args: { name: string; predicate: SmartCollectionPredicate }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const result = await createSmartCollection(rootPath, args);
+    broadcastCollectionsChanged(e);
+    return result;
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_RENAME_SMART, async (e, args: { id: string; name: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await renameSmartCollection(rootPath, args.id, args.name);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_DELETE_SMART, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await deleteSmartCollection(rootPath, id);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, async (e, args: { id: string; predicate: SmartCollectionPredicate }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await updateSmartCollectionPredicate(rootPath, args.id, args.predicate);
+    broadcastCollectionsChanged(e);
+  });
+
+  ipcMain.handle(Channels.COLLECTIONS_SMART_MEMBERS, async (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return [];
+    const data = await loadCollections(rootPath);
+    const smart = data.smartCollections.find((s) => s.id === id);
+    if (!smart) return [];
+    const ctx = projectContext(rootPath);
+    // Resolve via the graph's existing source-by-tag helper. The graph
+    // is the source of truth for hasTag edges (notes + sources) so we
+    // get the same membership semantics the tag panel surfaces.
+    const matchingIds = resolveSmartMembers(smart.predicate, {
+      sourcesByTag: (tag) => graph.sourcesByTag(ctx, tag),
+      sourcesByReadStatus: (status) => graph.sourcesByReadStatus(ctx, status),
+    });
+    if (matchingIds.size === 0) return [];
+    const all = graph.listAllSources(ctx);
+    return all.filter((s) => matchingIds.has(s.sourceId));
+  });
+
+  ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {
+    sourceId: string;
+    citedText: string;
+    page?: number | null;
+    pageRange?: string | null;
+    locationText?: string | null;
+  }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return await createExcerpt(rootPath, params);
+  });
+}

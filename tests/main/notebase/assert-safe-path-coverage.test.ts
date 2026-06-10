@@ -69,15 +69,21 @@ describe('every notebaseFs mutation rejects a traversal-style path (#397)', () =
 });
 
 describe('IPC handlers route path args through a known-safe sink (#397)', () => {
-  // Static check: read ipc.ts source, locate each path-taking IPC
-  // handler block, and assert its body contains a call to a
-  // known-safe sink. A new handler that goes straight to fs.promises
-  // (skipping notebaseFs / writeAndReindex / renameWithLinkRewrites
-  // / drop-import) fails this check.
-  const ipcSource = fs.readFileSync(
-    path.join(__dirname, '../../../src/main/ipc.ts'),
-    'utf-8',
-  );
+  // Static check: read the IPC registrar sources, locate each
+  // path-taking IPC handler block, and assert its body contains a call
+  // to a known-safe sink. A new handler that goes straight to
+  // fs.promises (skipping notebaseFs / writeAndReindex /
+  // renameWithLinkRewrites / drop-import) fails this check.
+  //
+  // The handlers were decomposed out of the god-module ipc.ts into
+  // per-domain `src/main/ipc/register-*.ts` files (#669), so we
+  // concatenate every registrar source here.
+  const ipcDir = path.join(__dirname, '../../../src/main/ipc');
+  const ipcSource = fs
+    .readdirSync(ipcDir)
+    .filter((f) => f.endsWith('.ts'))
+    .map((f) => fs.readFileSync(path.join(ipcDir, f), 'utf-8'))
+    .join('\n');
 
   // Each entry: a Channel constant whose handler must call one of
   // the sinks below. The right-hand list is the ALLOWLIST — at
