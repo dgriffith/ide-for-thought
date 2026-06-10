@@ -39,7 +39,14 @@ export type OutputMode =
 export interface ToolParameter {
   id: string;
   label: string;
-  type: 'text' | 'textarea' | 'select' | 'number';
+  /**
+   * Input kind. `note` (#516) is a fuzzy note-picker that resolves to a
+   * relativePath; the renderer additionally reads the picked note and exposes
+   * its body + title to the prompt as the companion template vars
+   * `{{param.<id>.content}}` and `{{param.<id>.title}}` — so a skill can
+   * operate on a second note, not just the active one.
+   */
+  type: 'text' | 'textarea' | 'select' | 'number' | 'note';
   placeholder?: string;
   options?: { label: string; value: string }[];
   defaultValue?: string;
