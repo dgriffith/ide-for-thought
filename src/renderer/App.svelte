@@ -721,10 +721,10 @@
   }
 
   function handleSourceDeleted(sourceId: string) {
-    // Close any open tab for this source so the user isn't staring at
-    // a ghost viewer after delete.
-    const idx = editor.tabs.findIndex((t) => t.type === 'source' && t.sourceId === sourceId);
-    if (idx !== -1) editor.closeTab(idx);
+    // Close every tab bound to this source — the detail view AND any PDF
+    // viewer — so the user isn't left staring at a ghost viewer that then
+    // fails to load the deleted original.pdf.
+    editor.closeTabsForSource(sourceId);
   }
 
   function handleOpenSource(sourceId: string, highlightExcerptId?: string) {
