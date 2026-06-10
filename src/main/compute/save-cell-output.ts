@@ -15,7 +15,7 @@ import {
   findRunnableFences,
   codeOf,
   type FenceRange,
-} from '../../renderer/lib/editor/output-block';
+} from '../../shared/compute/fences';
 import {
   ensureCellId,
   rewriteFenceInfo,
