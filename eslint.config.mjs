@@ -135,6 +135,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
+      // vitest spy assertions (`expect(deps.fn).toHaveBeenCalled()`)
+      // necessarily reference mock functions unbound; there's no real
+      // `this`-binding hazard with vi.fn() mocks, so the rule is noise here.
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
   {

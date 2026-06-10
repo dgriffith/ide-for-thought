@@ -37,6 +37,7 @@
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
+  import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
@@ -2632,71 +2633,25 @@
     else viewMode = 'source';
   }
 
-  function handleKeydown(e: KeyboardEvent) {
-    // ⌘K (or Ctrl+K) opens the command palette (#463). ⌘⇧P is
-    // already bound to cycle view mode, so we use the Linear / VS
-    // Code convention instead of Obsidian's ⌘P (which is our quick-
-    // open).
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === 'k') {
-      if (notebase.meta) {
-        e.preventDefault();
-        showCommandPalette = !showCommandPalette;
-        return;
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === '[') {
-      e.preventDefault();
-      void handleNavBack();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === ']') {
-      e.preventDefault();
-      void handleNavForward();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'p') {
-      e.preventDefault();
-      cycleViewMode();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'b') {
-      e.preventDefault();
-      rightSidebarVisible = !rightSidebarVisible;
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 't') {
-      e.preventDefault();
-      handleCycleTheme();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-      e.preventDefault();
-      void handleNewNote();
-    }
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'w') {
-      if (editor.activeIndex >= 0) {
-        e.preventDefault();
-        editor.closeTab(editor.activeIndex);
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'p') {
-      if (notebase.meta) {
-        e.preventDefault();
-        showGotoNote = !showGotoNote;
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'g') {
-      if (editor.activeTab) {
-        e.preventDefault();
-        showGotoLine = true;
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'q') {
-      if (notebase.meta) {
-        e.preventDefault();
-        editor.openQuery();
-      }
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
-      e.preventDefault();
-      void openConversation();
-    }
-  }
+  // Global keyboard shortcuts live in lib/keymap/handle-keydown.ts (#670);
+  // this object injects the state predicates + actions they dispatch to.
+  const keymapDeps: KeymapDeps = {
+    hasProject: () => !!notebase.meta,
+    hasActiveTab: () => !!editor.activeTab,
+    hasActiveIndex: () => editor.activeIndex >= 0,
+    toggleCommandPalette: () => { showCommandPalette = !showCommandPalette; },
+    navBack: () => { void handleNavBack(); },
+    navForward: () => { void handleNavForward(); },
+    cyclePreview: () => cycleViewMode(),
+    toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
+    cycleTheme: () => handleCycleTheme(),
+    newNote: () => { void handleNewNote(); },
+    closeActiveTab: () => { editor.closeTab(editor.activeIndex); },
+    toggleQuickOpen: () => { showGotoNote = !showGotoNote; },
+    openGotoLine: () => { showGotoLine = true; },
+    newQuery: () => editor.openQuery(),
+    openConversation: () => { void openConversation(); },
+  };
 
   onMount(() => {
     initTheme();
@@ -2925,7 +2880,7 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={(e) => handleKeydown(e, keymapDeps)} />
 
 <div class="app">
   <TitleBar
