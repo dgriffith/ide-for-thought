@@ -14,6 +14,7 @@ import type { ConversationSourceDraft } from '../../shared/conversation-source-d
 import type { ConversationPropertyDraft } from '../../shared/conversation-property-drafts';
 import type { ConversationComputeDraft } from '../../shared/conversation-compute-drafts';
 import type { ConversationSourcePropertyDraft } from '../../shared/conversation-source-property-drafts';
+import type { ConversationClaimsDraft } from '../../shared/conversation-claims-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { formatToolCall } from './format-tool-call';
 
@@ -45,6 +46,12 @@ export interface StreamCallbacks {
    * without it, the tool fails with a "no UI surface" error.
    */
   onSourcePropertyDraft?: (draft: ConversationSourcePropertyDraft) => void;
+  /**
+   * Counterpart to `onDraft` for the propose_claims tool (#104). Forwarded via
+   * Channels.CONVERSATION_CLAIMS_DRAFT; without it the tool fails with a "no UI
+   * surface" error.
+   */
+  onClaimsDraft?: (draft: ConversationClaimsDraft) => void;
   /**
    * Counterpart to `onDraft` for the propose_compute tool (#245).
    * Forwarded via Channels.CONVERSATION_COMPUTE_DRAFT; without it,
@@ -353,6 +360,9 @@ export async function completeWithTools(
       }
       if (callbacks?.onSourcePropertyDraft) {
         toolCallbacks.onSourcePropertyDraft = callbacks.onSourcePropertyDraft;
+      }
+      if (callbacks?.onClaimsDraft) {
+        toolCallbacks.onClaimsDraft = callbacks.onClaimsDraft;
       }
       if (callbacks?.onComputeDraft) {
         toolCallbacks.onComputeDraft = callbacks.onComputeDraft;

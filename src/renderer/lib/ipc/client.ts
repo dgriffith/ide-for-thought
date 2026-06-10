@@ -431,6 +431,14 @@ export interface ConversationsApi {
   fileSourcePropertyDraft(
     draft: import('../../../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft,
   ): Promise<import('../../../shared/conversation-source-property-drafts').FileSourcePropertyDraftResult>;
+  /** Subscribe to key-claim drafts produced by the propose_claims tool (#104). */
+  onClaimsDraft(
+    cb: (draft: import('../../../shared/conversation-claims-drafts').ConversationClaimsDraft) => void,
+  ): void;
+  /** Apply an approved claims draft (file claim notes + excerpt nodes via approval). */
+  fileClaimsDraft(
+    draft: import('../../../shared/conversation-claims-drafts').ConversationClaimsDraft,
+  ): Promise<import('../../../shared/conversation-claims-drafts').FileClaimsDraftResult>;
   /** Subscribe to code-cell drafts produced by the propose_compute tool (#245). */
   onComputeDraft(
     cb: (draft: import('../../../shared/conversation-compute-drafts').ConversationComputeDraft) => void,

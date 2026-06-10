@@ -391,6 +391,10 @@ export const Channels = {
   CONVERSATION_SOURCE_PROPERTY_DRAFT: 'conversation:sourcePropertyDraft',
   /** renderer → main: user approved a source-property draft; upsert dc:abstract / thought:tldr into the source's meta.ttl and reindex. */
   CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT: 'conversation:fileSourcePropertyDraft',
+  /** main → renderer: a propose_claims tool call produced a key-claims draft for review (#104). Payload is ConversationClaimsDraft. */
+  CONVERSATION_CLAIMS_DRAFT: 'conversation:claimsDraft',
+  /** renderer → main: user approved a claims draft; file claim notes + excerpt nodes through the approval engine. */
+  CONVERSATION_FILE_CLAIMS_DRAFT: 'conversation:fileClaimsDraft',
   /** main → renderer: a propose_compute tool call produced a code-cell draft for review (#245). Payload is ConversationComputeDraft. */
   CONVERSATION_COMPUTE_DRAFT: 'conversation:computeDraft',
   /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */

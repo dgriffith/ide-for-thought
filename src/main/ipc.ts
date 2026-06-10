@@ -120,7 +120,8 @@ import {
 } from './compute/python-settings';
 import { saveCellOutput, type SaveCellOutputInput } from './compute/save-cell-output';
 import * as publish from './publish';
-import { createExcerpt } from './sources/create-excerpt';
+import { createExcerpt, buildExcerptTtl } from './sources/create-excerpt';
+import { slugify } from '../shared/slug';
 import type { FormatSettings } from '../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
@@ -205,6 +206,39 @@ function buildConversationSystemPrompt(
 function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null {
   const win = winFromEvent(e);
   return getRootPath(win.id);
+}
+
+/** Build a thought:Claim note from an extracted claim (#104). Mirrors the
+ *  child-note shape of the Decompose-into-Claims skill: claim metadata in
+ *  frontmatter (materialised as thought:* by the indexer), a blockquote of the
+ *  supporting passage, a `[[quote::id]]` edge to the excerpt, and a turtle
+ *  block declaring rdf:type. */
+function buildClaimNoteContent(
+  claim: import('../shared/conversation-claims-drafts').DraftClaim,
+  sourceId: string,
+): string {
+  const y = (s: string): string => JSON.stringify(s); // valid double-quoted YAML scalar
+  return [
+    '---',
+    `title: ${y(claim.text)}`,
+    `claim-kind: ${claim.kind}`,
+    `source-text: ${y(claim.quote)}`,
+    `confidence: ${claim.confidence}`,
+    `extracted-from: "[[sources/${sourceId}]]"`,
+    'extracted-by: llm:extract-key-claims',
+    '---',
+    '',
+    `# ${claim.text}`,
+    '',
+    ...claim.quote.split(/\r?\n/).map((l) => `> ${l}`),
+    '',
+    `[[quote::${claim.excerptId}]]`,
+    '',
+    '```turtle',
+    'this: a thought:Claim .',
+    '```',
+    '',
+  ].join('\n');
 }
 
 async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
@@ -2094,6 +2128,11 @@ export function registerIpcHandlers(): void {
             win.webContents.send(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, draft);
           }
         },
+        onClaimsDraft: (draft: import('../shared/conversation-claims-drafts').ConversationClaimsDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_CLAIMS_DRAFT, draft);
+          }
+        },
         onComputeDraft: (draft: import('../shared/conversation-compute-drafts').ConversationComputeDraft) => {
           if (!win.isDestroyed()) {
             win.webContents.send(Channels.CONVERSATION_COMPUTE_DRAFT, draft);
@@ -2250,6 +2289,84 @@ export function registerIpcHandlers(): void {
         applied: true,
         filedPaths,
       };
+    },
+  );
+
+  // Counterpart to CONVERSATION_FILE_DRAFT for the propose_claims tool (#104).
+  // Files, through the approval engine, one bundle per source: a thought:Excerpt
+  // node per supporting quote (anchored by char offsets) + a thought:Claim note
+  // per claim that quotes its excerpt and carries its confidence. Excerpt
+  // payloads go first so the node exists before the note's quotes edge resolves.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_CLAIMS_DRAFT,
+    async (
+      e,
+      draft: import('../shared/conversation-claims-drafts').ConversationClaimsDraft,
+    ): Promise<import('../shared/conversation-claims-drafts').FileClaimsDraftResult> => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      const sourceId = draft?.sourceId;
+      if (!sourceId || !Array.isArray(draft.claims) || draft.claims.length === 0) {
+        throw new Error(
+          `FILE_CLAIMS_DRAFT: draft has no sourceId/claims (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      const ctx = projectContext(rootPath);
+      try {
+        const payloads: import('./llm/approval').ProposalPayload[] = [];
+        const seenExcerpts = new Set<string>();
+        const claimPaths: string[] = [];
+        const excerptIds: string[] = [];
+
+        draft.claims.forEach((claim, i) => {
+          // Excerpt payload (dedupe — two claims may share a quote).
+          if (!seenExcerpts.has(claim.excerptId)) {
+            seenExcerpts.add(claim.excerptId);
+            excerptIds.push(claim.excerptId);
+            payloads.push({
+              kind: 'excerpt',
+              excerptId: claim.excerptId,
+              excerptTtl: buildExcerptTtl({
+                sourceId,
+                citedText: claim.quote,
+                charStart: claim.charStart ?? null,
+                charEnd: claim.charEnd ?? null,
+              }),
+            });
+          }
+          // Claim note payload.
+          const slug = slugify(claim.text).slice(0, 48) || 'claim';
+          const relativePath = `notes/claims/${sourceId}-${i + 1}-${slug}.md`;
+          claimPaths.push(relativePath);
+          payloads.push({
+            kind: 'note',
+            relativePath,
+            content: buildClaimNoteContent(claim, sourceId),
+          });
+        });
+
+        const proposal = await approval.proposeWrite(ctx, {
+          operationType: 'component_creation',
+          payloads,
+          note: draft.note,
+          conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+          proposedBy: `llm:conversation:${draft.conversationId}`,
+        });
+        if (proposal) await approval.approveProposal(ctx, proposal.uri);
+
+        return { outcome: { sourceId, claimPaths, excerptIds } };
+      } catch (err) {
+        console.warn('[conv] FILE_CLAIMS_DRAFT failed for', sourceId, err);
+        return {
+          outcome: {
+            sourceId,
+            claimPaths: [],
+            excerptIds: [],
+            error: err instanceof Error ? err.message : String(err),
+          },
+        };
+      }
     },
   );
 

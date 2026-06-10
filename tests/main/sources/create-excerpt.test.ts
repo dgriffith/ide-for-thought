@@ -39,6 +39,18 @@ describe('buildExcerptTtl (#224)', () => {
     expect(ttl).not.toContain('thought:page');
     expect(ttl).not.toContain('thought:pageRange');
     expect(ttl).not.toContain('thought:locationText');
+    expect(ttl).not.toContain('thought:charStart');
+  });
+
+  it('emits charStart/charEnd when both offsets are supplied (#104)', () => {
+    const ttl = buildExcerptTtl({ sourceId: 's', citedText: 'x', charStart: 10, charEnd: 11 });
+    expect(ttl).toContain('thought:charStart 10');
+    expect(ttl).toContain('thought:charEnd 11');
+  });
+
+  it('omits char offsets unless both are present', () => {
+    const ttl = buildExcerptTtl({ sourceId: 's', citedText: 'x', charStart: 10, charEnd: null });
+    expect(ttl).not.toContain('thought:charStart');
   });
 
   it('escapes quotes and backslashes in the cited text', () => {
