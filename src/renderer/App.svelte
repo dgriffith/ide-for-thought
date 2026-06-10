@@ -3397,6 +3397,7 @@
       <ConversationsPanel
         currentNotePath={editor.activeFilePath ?? null}
         onCreateNoteFromConversation={handleCreateNoteFromConversation}
+        onInvokeSkill={(id) => { void handleToolInvoke(id); }}
       />
     {/key}
   {/if}
