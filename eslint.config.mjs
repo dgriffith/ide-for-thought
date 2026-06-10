@@ -175,4 +175,45 @@ export default tseslint.config(
       // selectively as the project standardizes on rules we want.
     },
   },
+  // ── Layer-boundary enforcement (#668) ──────────────────────────────────
+  // The four-layer topology (pure `shared`, `main`, `preload`, `renderer`)
+  // was previously maintained by convention alone — and one main→renderer
+  // import had already slipped through. These rules freeze it. The
+  // type-aware `no-restricted-imports` also catches `import type` crossings,
+  // which the base rule misses. In-repo cross-layer imports are always
+  // relative (`../main/…`, `../../renderer/…`); external packages are bare
+  // specifiers, so the path globs don't catch them.
+  {
+    files: ['src/shared/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/main/**', '**/renderer/**', '**/preload/**', 'node:*'],
+          message: 'src/shared must stay pure — no imports from main, renderer, preload, or Node builtins (#668).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/main/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/renderer/**'],
+          message: 'main must not import renderer code — move shared logic to src/shared (#668).',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/renderer/**/*.ts', 'src/renderer/**/*.svelte'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/main/**'],
+          message: 'renderer must not import main-process code — go through the IPC bridge (#668).',
+        }],
+      }],
+    },
+  },
 );

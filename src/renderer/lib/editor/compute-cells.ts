@@ -17,12 +17,12 @@
 import { EditorView, keymap, gutter, GutterMarker } from '@codemirror/view';
 import { StateEffect, StateField, Prec } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
+import { planOutputEdit } from './output-block';
 import {
   findRunnableFences,
-  planOutputEdit,
   codeOf,
   type FenceRange,
-} from './output-block';
+} from '../../../shared/compute/fences';
 import type { CellResult } from '../ipc/client';
 
 // ── Running state ──────────────────────────────────────────────────────────

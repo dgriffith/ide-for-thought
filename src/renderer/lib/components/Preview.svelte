@@ -28,7 +28,8 @@
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import { getToolInfosByCategory } from '../tools/tool-registry';
   import mdFootnote from 'markdown-it-footnote';
-  import { findRunnableFences, planOutputEdit, codeOf } from '../editor/output-block';
+  import { planOutputEdit } from '../editor/output-block';
+  import { findRunnableFences, codeOf } from '../../../shared/compute/fences';
   import type { CellResult } from '../ipc/client';
 
   interface Props {
