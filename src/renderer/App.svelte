@@ -612,14 +612,14 @@
       { id: 'refactor.format', title: 'Format', category: 'Refactor',
         keybinding: null, enabled: hasNote, run: () => handleFormat() },
       // ── Research ──
-      { id: 'research.ingestUrl', title: 'Ingest URL…', category: 'Research',
+      { id: 'research.ingestUrl', title: 'Ingest URL as Source…', category: 'Research',
         keybinding: formatAccelerator('CmdOrCtrl+Shift+I'),
-        enabled: hasProject, run: () => handleIngestUrl() },
+        enabled: hasProject, run: () => handleIngestUrlAsSource() },
       { id: 'research.ingestIdentifier', title: 'Ingest Identifier…', category: 'Research',
         keybinding: formatAccelerator('CmdOrCtrl+Shift+D'),
         enabled: hasProject, run: () => handleIngestIdentifier() },
-      { id: 'research.ingestPdf', title: 'Ingest PDF…', category: 'Research',
-        keybinding: null, enabled: hasProject, run: () => handleIngestPdf() },
+      { id: 'research.ingestFile', title: 'Ingest File as Source…', category: 'Research',
+        keybinding: null, enabled: hasProject, run: () => handleIngestFileAsSource() },
       { id: 'research.importBibtex', title: 'Import BibTeX…', category: 'Research',
         keybinding: null, enabled: hasProject, run: () => handleImportBibtex() },
       { id: 'research.importZoteroRdf', title: 'Import Zotero RDF…', category: 'Research',
@@ -1991,25 +1991,46 @@
     }
   }
 
-  async function handleIngestUrl() {
+  /**
+   * Shared completion for "Ingest URL/File as Source". A URL or file can resolve
+   * to a web page, a PDF (possibly needing OCR), or a text doc — branch on the
+   * result the same way regardless of where it came from.
+   */
+  async function handleIngestedSourceResult(
+    result: { sourceId: string; title: string; duplicate: boolean; needsOcr?: boolean; pageCount?: number },
+  ) {
+    if (result.duplicate) {
+      setTimeout(() => handleOpenSource(result.sourceId), 150);
+      await showConfirm(
+        `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
+        CONFIRM_KEYS.ingestDuplicate,
+        'OK',
+      );
+      return;
+    }
+    if (result.needsOcr) {
+      // Scanned PDF (from a file or a URL) — meta.ttl + original.pdf are
+      // persisted but body.md is empty until OCR runs (#95). Defer opening the
+      // tab until OCR finishes / is skipped so the user isn't staring at a blank body.
+      ocrSession = { sourceId: result.sourceId, title: result.title, pageCount: result.pageCount ?? 0 };
+      ocrPdfBytes = await api.sources.readPdf(result.sourceId);
+      return;
+    }
+    // Wait a beat so the file watcher's indexSource pass finishes before we
+    // open the source tab — otherwise the detail panel's graph query returns
+    // empty and the tab renders as "unknown source."
+    setTimeout(() => handleOpenSource(result.sourceId), 150);
+  }
+
+  async function handleIngestUrlAsSource() {
     if (!notebase.meta) return;
-    const raw = await showPrompt('URL to ingest:');
+    const raw = await showPrompt('URL to ingest as a source:');
     if (!raw) return;
     const url = raw.trim();
     if (!url) return;
     try {
       const result = await withBusy('Fetching…', () => api.sources.ingestUrl(url));
-      // Wait a beat so the file watcher's indexSource pass finishes before
-      // we try to open the source tab — otherwise the detail panel's graph
-      // query returns empty and the tab renders as "unknown source."
-      setTimeout(() => handleOpenSource(result.sourceId), 150);
-      if (result.duplicate) {
-        await showConfirm(
-          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
-          CONFIRM_KEYS.ingestDuplicate,
-          'OK',
-        );
-      }
+      await handleIngestedSourceResult(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
@@ -2251,35 +2272,12 @@
     }
   }
 
-  async function handleIngestPdf() {
+  async function handleIngestFileAsSource() {
     if (!notebase.meta) return;
     try {
-      const result = await withBusy('Extracting PDF…', () => api.sources.ingestPdf());
+      const result = await withBusy('Ingesting…', () => api.sources.ingestFile());
       if (!result) return; // user cancelled the picker
-      if (result.duplicate) {
-        setTimeout(() => handleOpenSource(result.sourceId), 150);
-        await showConfirm(
-          `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
-          CONFIRM_KEYS.ingestDuplicate,
-          'OK',
-        );
-        return;
-      }
-      if (result.needsOcr) {
-        // Scanned PDF — meta.ttl + original.pdf are persisted but
-        // body.md is empty until the renderer OCRs (#95). Hold off on
-        // opening the source tab until OCR finishes / is skipped, so
-        // the user isn't staring at a blank body.
-        ocrSession = {
-          sourceId: result.sourceId,
-          title: result.title,
-          pageCount: result.pageCount,
-        };
-        const bytes = await api.sources.readPdf(result.sourceId);
-        ocrPdfBytes = bytes;
-        return;
-      }
-      setTimeout(() => handleOpenSource(result.sourceId), 150);
+      await handleIngestedSourceResult(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
@@ -2968,9 +2966,9 @@
     api.menu.onBibliography(() => { void handleBibliography(); });
 
     // Ingest URL (#93)
-    api.menu.onIngestUrl(() => handleIngestUrl());
+    api.menu.onIngestUrl(() => handleIngestUrlAsSource());
     api.menu.onIngestIdentifier(() => handleIngestIdentifier());
-    api.menu.onIngestPdf(() => handleIngestPdf());
+    api.menu.onIngestFile(() => handleIngestFileAsSource());
     api.menu.onImportBibtex(() => handleImportBibtex());
     api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
     api.menu.onExport((id) => { exportDialogFor = id; });

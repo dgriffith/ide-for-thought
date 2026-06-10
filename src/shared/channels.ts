@@ -210,8 +210,9 @@ export const Channels = {
   SOURCES_INGEST_URL: 'sources:ingestUrl',
   /** Ingest a DOI / arXiv id / PubMed id (#96). Hits CrossRef / arXiv / PubMed. */
   SOURCES_INGEST_IDENTIFIER: 'sources:ingestIdentifier',
-  /** Ingest a local PDF (#94). Main opens a file picker and extracts text via unpdf. */
-  SOURCES_INGEST_PDF: 'sources:ingestPdf',
+  /** Ingest a local file as a source. Main opens a file picker; dispatches by
+   *  type — PDF (text+OCR), HTML (Readability), text/Markdown (verbatim body). */
+  SOURCES_INGEST_FILE: 'sources:ingestFile',
   /** Read raw PDF bytes of a persisted source, used by the OCR worker (#95). */
   SOURCES_READ_PDF: 'sources:readPdf',
   /** Cheap check used by the source detail UI to decide whether to
@@ -240,8 +241,8 @@ export const Channels = {
   MENU_INGEST_URL: 'menu:ingestUrl',
   /** Menu → "Ingest identifier…" — prompts the renderer for a DOI/arXiv/PMID. */
   MENU_INGEST_IDENTIFIER: 'menu:ingestIdentifier',
-  /** Menu → "Ingest PDF…" — opens a file picker in main and extracts the text layer. */
-  MENU_INGEST_PDF: 'menu:ingestPdf',
+  /** Menu → "Ingest File as Source…" — opens a file picker in main and ingests it. */
+  MENU_INGEST_FILE: 'menu:ingestFile',
   /** Menu → "Import BibTeX…" — opens a .bib picker and imports each entry as a Source. */
   MENU_IMPORT_BIBTEX: 'menu:importBibtex',
   /** Menu → "Import Zotero RDF…" — opens a .rdf picker; lifts attached PDFs when present. */

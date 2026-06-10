@@ -45,6 +45,21 @@ export async function ingestPdf(
   pdfAbsolutePath: string,
 ): Promise<PdfIngestResult> {
   const buf = await fs.readFile(pdfAbsolutePath);
+  return ingestPdfBuffer(rootPath, buf, { originalFilename: path.basename(pdfAbsolutePath) });
+}
+
+/**
+ * Ingest a PDF from an in-memory buffer (#94). The buffer source can be a local
+ * file (`ingestPdf`) or a PDF downloaded from a URL (`ingestUrl`). `originalFilename`
+ * is the title/filename fallback and is recorded in meta.ttl as provenance — for a
+ * URL it's the last path segment.
+ */
+export async function ingestPdfBuffer(
+  rootPath: string,
+  buf: Buffer,
+  opts: { originalFilename: string },
+): Promise<PdfIngestResult> {
+  const { originalFilename } = opts;
   // pdfjs transfers the underlying ArrayBuffer when we hand it a Uint8Array,
   // so every pdfjs call needs a fresh copy and we compute the content hash
   // up front from the untouched Node Buffer.
@@ -73,7 +88,7 @@ export async function ingestPdf(
       sourceId,
       relativePath,
       duplicate: true,
-      title: meta.title ?? path.basename(pdfAbsolutePath),
+      title: meta.title ?? originalFilename,
       pageCount: 0,
       needsOcr: false,
     };
@@ -87,7 +102,7 @@ export async function ingestPdf(
 
   await fs.mkdir(sourceDir, { recursive: true });
   await fs.writeFile(path.join(sourceDir, 'original.pdf'), buf);
-  const title = meta.title ?? path.basename(pdfAbsolutePath);
+  const title = meta.title ?? originalFilename;
   await fs.writeFile(
     path.join(sourceDir, 'body.md'),
     needsOcr
@@ -98,7 +113,7 @@ export async function ingestPdf(
   await fs.writeFile(
     path.join(sourceDir, 'meta.ttl'),
     buildMetaTtl(meta, {
-      originalFilename: path.basename(pdfAbsolutePath),
+      originalFilename,
       pageCount: totalPages,
       extractionMethod: needsOcr ? null : 'text-layer',
     }),
