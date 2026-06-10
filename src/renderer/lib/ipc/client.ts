@@ -583,7 +583,7 @@ export interface MenuApi {
   onBibliography(cb: () => void): void;
   onIngestUrl(cb: () => void): void;
   onIngestIdentifier(cb: () => void): void;
-  onIngestPdf(cb: () => void): void;
+  onIngestFile(cb: () => void): void;
   onExport(cb: (exporterId: string) => void): void;
   onImportBibtex(cb: () => void): void;
   onImportZoteroRdf(cb: () => void): void;
@@ -674,6 +674,13 @@ export interface SourcesApi {
     relativePath: string;
     duplicate: boolean;
     title: string;
+    /** 'web' for an HTML page; 'pdf' when the URL served a PDF (routed to the
+     *  PDF pipeline). */
+    kind?: 'web' | 'pdf' | 'text';
+    /** Page count when kind === 'pdf'. */
+    pageCount?: number;
+    /** True when a PDF URL had no text layer and needs OCR. */
+    needsOcr?: boolean;
   }>;
   /** Ingest a DOI / arXiv id / PubMed id via the matching bibliographic API. */
   ingestIdentifier(identifier: string): Promise<{
@@ -685,15 +692,18 @@ export interface SourcesApi {
     pdfSaved: boolean;
     pdfError: string | null;
   }>;
-  /** Open an OS file picker and ingest the selected PDF (#94). Returns null if cancelled. */
-  ingestPdf(): Promise<{
+  /** Open an OS file picker and ingest the selected file as a source — PDF, HTML,
+   *  or text/Markdown. Returns null if cancelled. */
+  ingestFile(): Promise<{
     sourceId: string;
     relativePath: string;
     duplicate: boolean;
     title: string;
-    pageCount: number;
-    /** True if the PDF has no text layer; caller should run OCR via readPdf + finishPdfOcr. */
-    needsOcr: boolean;
+    kind?: 'web' | 'pdf' | 'text';
+    /** Page count when kind === 'pdf'. */
+    pageCount?: number;
+    /** True if a PDF has no text layer; caller should run OCR via readPdf + finishPdfOcr. */
+    needsOcr?: boolean;
   } | null>;
   /** Read raw bytes of a persisted source's original.pdf (#95). */
   readPdf(sourceId: string): Promise<Uint8Array>;

@@ -179,6 +179,11 @@ thought:PDFSource a owl:Class ;
     rdfs:label "PDF Source" ;
     rdfs:comment "Catch-all for a source distributed as a PDF that does not fit another subtype. Most scholarly PDFs should be classified as thought:Article / thought:Preprint / thought:Book instead; this class exists for the long tail." .
 
+thought:Document a owl:Class ;
+    rdfs:subClassOf thought:Source ;
+    rdfs:label "Document" ;
+    rdfs:comment "A plain-text or Markdown document ingested as a source (#: ingest file as source). Its body is the file content verbatim, with no extraction step." .
+
 # ── Source Metadata ───────────────────────────────────────────────────────
 # Predicates expected on Source instances. We reuse standard vocabularies
 # (Dublin Core Terms, BIBO, schema.org/ScholarlyArticle) directly rather

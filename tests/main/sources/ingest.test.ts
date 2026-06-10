@@ -298,10 +298,12 @@ describe('ingestUrl (#93)', () => {
     ).rejects.toThrow(/404/);
   });
 
-  it('rejects non-HTML content types', async () => {
+  it('rejects content types that are neither HTML nor PDF', async () => {
+    // PDFs are now routed to the PDF pipeline (see the PDF-URL describe block);
+    // other binary types (e.g. images) are still rejected up front.
     await expect(
-      ingestUrl(root, 'https://example.com/doc.pdf', {
-        fetchImpl: mockFetch('%PDF-1.4...', { contentType: 'application/pdf' }),
+      ingestUrl(root, 'https://example.com/photo.png', {
+        fetchImpl: mockFetch('\x89PNG...', { contentType: 'image/png' }),
       }),
     ).rejects.toThrow(/unsupported content-type/i);
   });
@@ -369,5 +371,50 @@ describe('ingestUrl (#93)', () => {
       'utf-8',
     );
     expect(meta).toContain('thought:WebPage');
+  });
+
+  it('tags an HTML result with kind "web"', async () => {
+    const result = await ingestUrl(root, 'https://example.com/foo', {
+      fetchImpl: mockFetch(samplePageHtml()),
+    });
+    expect(result.kind).toBe('web');
+  });
+});
+
+// A URL can resolve to a PDF (e.g. an arXiv /pdf/ link). "Ingest URL as Source"
+// must route those through the PDF pipeline rather than rejecting them.
+describe('ingestUrl — PDF URLs (#: ingest url as source)', () => {
+  let root: string;
+  const FIXTURE_PDF = path.resolve(
+    __dirname, '..', '..', 'fixtures', 'sample-project', '.minerva', 'sources', 'arxiv-2604.18522', 'original.pdf',
+  );
+
+  beforeEach(() => { root = mkTempProject(); });
+  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+  function mockPdfFetch(bytes: Buffer, contentType: string): typeof fetch {
+    return async () => new Response(bytes, { status: 200, headers: { 'content-type': contentType } });
+  }
+
+  it('routes an application/pdf response to the PDF pipeline', async () => {
+    const bytes = fs.readFileSync(FIXTURE_PDF);
+    const result = await ingestUrl(root, 'https://example.com/paper', {
+      fetchImpl: mockPdfFetch(bytes, 'application/pdf'),
+    });
+    expect(result.kind).toBe('pdf');
+    expect(result.pageCount).toBeGreaterThan(0);
+    const dir = path.join(root, '.minerva', 'sources', result.sourceId);
+    expect(fs.existsSync(path.join(dir, 'original.pdf'))).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'body.md'))).toBe(true);
+    const meta = await fsp.readFile(path.join(dir, 'meta.ttl'), 'utf-8');
+    expect(meta).toContain('thought:PDFSource');
+  });
+
+  it('treats a .pdf URL served as octet-stream as a PDF', async () => {
+    const bytes = fs.readFileSync(FIXTURE_PDF);
+    const result = await ingestUrl(root, 'https://example.com/files/paper.pdf', {
+      fetchImpl: mockPdfFetch(bytes, 'application/octet-stream'),
+    });
+    expect(result.kind).toBe('pdf');
   });
 });

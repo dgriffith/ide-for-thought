@@ -78,7 +78,8 @@ import {
   USER_LOCALES_DIR,
 } from './publish/csl/user-assets';
 import { renderInlineCitations, type InlineCiteRequest } from './citations/render-inline';
-import { ingestPdf, finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
+import { finishPdfOcrIngest, readOriginalPdf } from './sources/ingest-pdf';
+import { ingestFile } from './sources/ingest-file';
 import { deleteSource } from './sources/delete-source';
 import { mergeSources, MergeSourcesError } from './sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from './sources/read-status';
@@ -1688,18 +1689,21 @@ export function registerIpcHandlers(): void {
     });
   });
 
-  ipcMain.handle(Channels.SOURCES_INGEST_PDF, async (e) => {
+  ipcMain.handle(Channels.SOURCES_INGEST_FILE, async (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const win = winFromEvent(e);
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
-      filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      title: 'Ingest PDF',
+      filters: [
+        { name: 'Documents', extensions: ['pdf', 'html', 'htm', 'md', 'markdown', 'txt', 'text'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+      title: 'Ingest File as Source',
       buttonLabel: 'Ingest',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const ingested = await ingestPdf(rootPath, result.filePaths[0]);
+    const ingested = await ingestFile(rootPath, result.filePaths[0]);
     // Re-index the new source so it shows up in the sidebar + graph.
     await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
     await persistIndexes(rootPath);

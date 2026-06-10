@@ -262,7 +262,7 @@ contextBridge.exposeInMainWorld('api', {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
     ingestIdentifier: (identifier: string) =>
       ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
-    ingestPdf: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_PDF),
+    ingestFile: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_FILE),
     readPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_READ_PDF, sourceId),
     hasPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_HAS_PDF, sourceId),
     getExcerptNoteFolder: () => ipcRenderer.invoke(Channels.EXCERPT_GET_NOTE_FOLDER),
@@ -534,8 +534,8 @@ contextBridge.exposeInMainWorld('api', {
     onIngestIdentifier: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_INGEST_IDENTIFIER, () => cb());
     },
-    onIngestPdf: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INGEST_PDF, () => cb());
+    onIngestFile: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INGEST_FILE, () => cb());
     },
     onExport: (cb: (exporterId: string) => void) => subscribeIpc(Channels.MENU_EXPORT, cb),
     onImportBibtex: (cb: () => void) => {

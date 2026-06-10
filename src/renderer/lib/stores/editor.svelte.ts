@@ -500,6 +500,30 @@ export function getEditorStore() {
     return closed;
   }
 
+  /** Close every tab bound to a source — both its detail view and its PDF
+   *  viewer — e.g. when the source is deleted, so neither is left pointing at
+   *  files that no longer exist. */
+  function closeTabsForSource(sourceId: string): number {
+    let closed = 0;
+    for (let i = tabs.length - 1; i >= 0; i--) {
+      const t = tabs[i];
+      if ((isSource(t) || isPdf(t)) && t.sourceId === sourceId) {
+        tabs.splice(i, 1);
+        if (i === activeIndex) {
+          activeIndex = -1;
+        } else if (i < activeIndex) {
+          activeIndex--;
+        }
+        closed++;
+      }
+    }
+    if (activeIndex < 0 && tabs.length > 0) {
+      activeIndex = Math.min(tabs.length - 1, Math.max(0, activeIndex));
+    }
+    if (closed > 0) schedulePersistTabs();
+    return closed;
+  }
+
   function switchTab(index: number) {
     if (index >= 0 && index < tabs.length) {
       flushAutoSave();
@@ -536,6 +560,7 @@ export function getEditorStore() {
     save,
     isPathDirty,
     closeTabsForDeletedPath,
+    closeTabsForSource,
     applyRenameTransitions,
     reloadTabFromDisk,
     setContent,

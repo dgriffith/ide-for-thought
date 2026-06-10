@@ -137,7 +137,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
 
         // Ingest / Import — bringing external things in.
         gate({
-          label: 'Ingest URL…',
+          label: 'Ingest URL as Source…',
           accelerator: 'CmdOrCtrl+Shift+I',
           click: () => send(Channels.MENU_INGEST_URL),
         }),
@@ -147,8 +147,8 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           click: () => send(Channels.MENU_INGEST_IDENTIFIER),
         }),
         gate({
-          label: 'Ingest PDF…',
-          click: () => send(Channels.MENU_INGEST_PDF),
+          label: 'Ingest File as Source…',
+          click: () => send(Channels.MENU_INGEST_FILE),
         }),
         gate({
           label: 'Import BibTeX…',

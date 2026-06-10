@@ -17,6 +17,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { Buffer } from 'node:buffer';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
@@ -24,6 +25,7 @@ import { canonicalSourceId, normalizeUrl } from './source-id';
 import { mergeMetaTtl } from './source-merge';
 import { extractStructured, structuredToArticleMetadata } from './site-handlers';
 import { buildMetaTtl as buildArticleMetaTtl } from './ingest-identifier';
+import { ingestPdfBuffer } from './ingest-pdf';
 
 export interface IngestResult {
   sourceId: string;
@@ -32,6 +34,15 @@ export interface IngestResult {
   duplicate: boolean;
   /** The `<title>`-derived title, for the caller to surface in a toast. */
   title: string;
+  /** What was ingested. `'web'` for an HTML page, `'pdf'` when a URL/file served
+   *  a PDF (routed to the PDF pipeline), `'text'` for a plain-text/Markdown file.
+   *  Absent on legacy callers that don't set it. */
+  kind?: 'web' | 'pdf' | 'text';
+  /** PDF page count — only set when `kind === 'pdf'`. */
+  pageCount?: number;
+  /** True when a PDF (from a URL) had no text layer and needs OCR — only set
+   *  when `kind === 'pdf'`. The renderer runs the same OCR flow as a file PDF. */
+  needsOcr?: boolean;
 }
 
 export interface IngestOptions {
@@ -47,30 +58,62 @@ export async function ingestUrl(
   const normalized = normalizeUrl(rawUrl);
   if (!normalized) throw new Error(`Not a valid URL: ${rawUrl}`);
 
-  // Structured-metadata extraction (#221) needs the DOM, so we have to
-  // fetch before we can decide on a canonical id. That means dedupe has
-  // to happen after fetch, not before — an extra network round-trip in
-  // the duplicate case, but scholarly sites dedupe straight to their
-  // identifier-based folder (arxiv-<id>, doi-<id>) which is what we want.
-  const html = await fetchHtml(normalized, opts.fetchImpl ?? globalThis.fetch);
+  // A URL can resolve to HTML or to a PDF (e.g. an arXiv /pdf/ link). Fetch
+  // once, then branch on the content: a PDF goes through the PDF pipeline so
+  // "Ingest URL as Source" handles papers-by-link, not just web pages.
+  const fetched = await fetchForIngest(normalized, opts.fetchImpl ?? globalThis.fetch);
+  if (fetched.kind === 'pdf') {
+    const pdf = await ingestPdfBuffer(rootPath, Buffer.from(fetched.bytes), {
+      originalFilename: pdfFilenameFromUrl(normalized),
+    });
+    return {
+      sourceId: pdf.sourceId,
+      relativePath: pdf.relativePath,
+      duplicate: pdf.duplicate,
+      title: pdf.title,
+      kind: 'pdf',
+      pageCount: pdf.pageCount,
+      needsOcr: pdf.needsOcr,
+    };
+  }
+  return ingestHtmlString(rootPath, fetched.text, { url: normalized });
+}
+
+/**
+ * Persist a web Source from an HTML string. Shared by URL ingest (with a `url`,
+ * which enables site-handler structured metadata + a bibo:uri) and local-file
+ * ingest (no `url` — id falls back to a content hash, no bibo:uri). Returns the
+ * same shape as `ingestUrl`'s HTML path.
+ */
+export async function ingestHtmlString(
+  rootPath: string,
+  html: string,
+  opts: { url?: string; titleFallback?: string } = {},
+): Promise<IngestResult> {
+  const url = opts.url ?? null;
   const { document } = parseHTML(html);
-  Object.defineProperty(document, 'documentURI', { value: normalized, configurable: true });
-  Object.defineProperty(document, 'baseURI', { value: normalized, configurable: true });
+  if (url) {
+    Object.defineProperty(document, 'documentURI', { value: url, configurable: true });
+    Object.defineProperty(document, 'baseURI', { value: url, configurable: true });
+  }
 
-  const urlObj = new URL(normalized);
-  const structured = extractStructured(document, urlObj);
+  const structured = url ? extractStructured(document, new URL(url)) : null;
 
-  const { id: sourceId } = canonicalSourceId({
-    doi: structured?.doi ?? undefined,
-    arxiv: structured?.arxiv ?? undefined,
-    pubmed: structured?.pubmed ?? undefined,
-    isbn: structured?.isbn ?? undefined,
-    url: normalized,
-  });
+  const { id: sourceId } = canonicalSourceId(
+    {
+      doi: structured?.doi ?? undefined,
+      arxiv: structured?.arxiv ?? undefined,
+      pubmed: structured?.pubmed ?? undefined,
+      isbn: structured?.isbn ?? undefined,
+      url: url ?? undefined,
+    },
+    // No URL/identifier (local file) → seed the id off the content.
+    url ? undefined : html,
+  );
   const sourceDir = path.join(rootPath, '.minerva', 'sources', sourceId);
   const relativePath = `.minerva/sources/${sourceId}/meta.ttl`;
 
-  const extracted = extractReadableFromDoc(document, normalized);
+  const extracted = extractReadableFromDoc(document, url ?? '', opts.titleFallback);
 
   // Dedupe: if meta.ttl already exists, MERGE new metadata into it
   // rather than overwrite or skip (#90). body.md and other files are
@@ -81,7 +124,7 @@ export async function ingestUrl(
       ? {
           doi: structured.doi ?? null,
           isbn: structured.isbn ?? null,
-          uri: normalized,
+          uri: url,
           // Structured handlers may supply richer metadata — fold it in
           // via structuredToArticleMetadata so the field shapes line up.
           ...(() => {
@@ -91,7 +134,7 @@ export async function ingestUrl(
               abstract: extracted.excerpt,
               issued: extracted.publishedTime,
               publisher: extracted.siteName,
-              uri: normalized,
+              uri: url,
             });
             return {
               issued: m.issued,
@@ -103,7 +146,7 @@ export async function ingestUrl(
           })(),
         }
       : {
-          uri: normalized,
+          uri: url,
           publisher: extracted.siteName,
           abstract: extracted.excerpt,
           issued: extracted.publishedTime,
@@ -114,7 +157,7 @@ export async function ingestUrl(
       await fs.writeFile(path.join(sourceDir, 'meta.ttl'), merged, 'utf-8');
     }
     const existingTitle = await readExistingTitle(sourceDir).catch(() => '');
-    return { sourceId, relativePath, duplicate: true, title: existingTitle || extracted.title };
+    return { sourceId, relativePath, duplicate: true, title: existingTitle || extracted.title, kind: 'web' };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     // Not found — proceed to fresh ingest.
@@ -136,27 +179,36 @@ export async function ingestUrl(
       abstract: extracted.excerpt,
       issued: extracted.publishedTime,
       publisher: extracted.siteName,
-      uri: normalized,
+      uri: url,
     });
     await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildArticleMetaTtl(metadata), 'utf-8');
     title = metadata.title;
   } else {
     // No site handler matched — Readability-only fallback writes a
     // thought:WebPage meta.ttl with a single byline.
-    await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildMetaTtl(extracted, normalized), 'utf-8');
+    await fs.writeFile(path.join(sourceDir, 'meta.ttl'), buildMetaTtl(extracted, url), 'utf-8');
     title = extracted.title;
   }
 
-  return { sourceId, relativePath, duplicate: false, title };
+  return { sourceId, relativePath, duplicate: false, title, kind: 'web' };
 }
 
-// ── HTML fetch ──────────────────────────────────────────────────────────
+// ── Fetch + content-type routing ─────────────────────────────────────────
 
-async function fetchHtml(url: string, f: typeof fetch): Promise<string> {
+type FetchedContent =
+  | { kind: 'html'; text: string }
+  | { kind: 'pdf'; bytes: ArrayBuffer };
+
+/**
+ * Fetch a URL and classify it as HTML or PDF. A PDF is recognised by its
+ * Content-Type (`application/pdf`) or, when the server is vague, by a `.pdf`
+ * URL path. Anything else that isn't HTML/XML is rejected as before.
+ */
+async function fetchForIngest(url: string, f: typeof fetch): Promise<FetchedContent> {
   const res = await f(url, {
-    // Respect the server's content negotiation while preferring HTML.
     headers: {
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      // Accept both HTML and PDF; prefer HTML for content negotiation.
+      'Accept': 'text/html,application/xhtml+xml,application/pdf;q=0.9,application/xml;q=0.8,*/*;q=0.7',
       // Some sites gate on UA; pretend to be a browser.
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
     },
@@ -166,10 +218,26 @@ async function fetchHtml(url: string, f: typeof fetch): Promise<string> {
     throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
   }
   const ct = (res.headers.get('content-type') ?? '').toLowerCase();
+  const looksPdfByUrl = /\.pdf(?:[?#]|$)/i.test(url);
+  if (ct.includes('pdf') || (looksPdfByUrl && (ct.includes('octet-stream') || ct.length === 0))) {
+    return { kind: 'pdf', bytes: await res.arrayBuffer() };
+  }
   if (!ct.includes('html') && !ct.includes('xml') && ct.length > 0) {
     throw new Error(`Unsupported content-type for ingest: ${ct}`);
   }
-  return await res.text();
+  return { kind: 'html', text: await res.text() };
+}
+
+/** Best-effort filename for a PDF fetched from a URL — the last path segment,
+ *  or the host. Used as the PDF title/provenance fallback. */
+function pdfFilenameFromUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const last = u.pathname.split('/').filter(Boolean).pop();
+    return last && /\.pdf$/i.test(last) ? last : (last ?? u.hostname);
+  } catch {
+    return url;
+  }
 }
 
 // ── Readability extraction ──────────────────────────────────────────────
@@ -203,7 +271,7 @@ export function extractReadable(html: string, url: string): ExtractedArticle {
  * parsing the HTML twice. The `documentURI` / `baseURI` setup is the
  * caller's responsibility.
  */
-export function extractReadableFromDoc(document: Document, _url: string): ExtractedArticle {
+export function extractReadableFromDoc(document: Document, _url: string, titleFallback?: string): ExtractedArticle {
   const reader = new Readability(document);
   const article = reader.parse();
   if (!article) throw new Error('Readability could not extract content from this page');
@@ -215,7 +283,7 @@ export function extractReadableFromDoc(document: Document, _url: string): Extrac
   const lang = article.lang?.trim() || null;
 
   return {
-    title: article.title?.trim() || '(untitled)',
+    title: article.title?.trim() || titleFallback?.trim() || '(untitled)',
     byline,
     siteName,
     excerpt,
@@ -243,12 +311,12 @@ export function buildBodyMarkdown(article: ExtractedArticle): string {
 
 // ── Turtle meta ─────────────────────────────────────────────────────────
 
-export function buildMetaTtl(article: ExtractedArticle, url: string): string {
+export function buildMetaTtl(article: ExtractedArticle, url: string | null): string {
   const lines: string[] = [
     'this: a thought:WebPage ;',
     `    dc:title ${ttlString(article.title)} ;`,
-    `    bibo:uri ${ttlString(url)} ;`,
   ];
+  if (url) lines.push(`    bibo:uri ${ttlString(url)} ;`);
   if (article.byline) lines.push(`    dc:creator ${ttlString(article.byline)} ;`);
   if (article.siteName) lines.push(`    dc:publisher ${ttlString(article.siteName)} ;`);
   if (article.excerpt) lines.push(`    dc:abstract ${ttlString(article.excerpt)} ;`);
