@@ -154,7 +154,7 @@ SELECT ?targetTitle ?linkType ?sourceTitle WHERE {
 ORDER BY ?targetTitle ?linkType`,
   },
   {
-    name: 'Sources: all with authors and year',
+    name: 'All sources with authors and year',
     description: 'Every indexed Source with its title, first author, and year',
     language: 'sparql',
     query: `${PREFIXES}
@@ -169,7 +169,7 @@ SELECT ?sourceId ?title ?creator ?year WHERE {
 ORDER BY ?sourceId`,
   },
   {
-    name: 'Sources: most-cited',
+    name: 'Most-cited sources',
     description: 'Sources ranked by the number of distinct notes citing or quoting them',
     language: 'sparql',
     query: `${PREFIXES}
@@ -189,7 +189,7 @@ GROUP BY ?src ?sourceId ?title
 ORDER BY DESC(?citations)`,
   },
   {
-    name: 'Sources: cited by N or more notes',
+    name: 'Sources cited by N or more notes',
     description: 'Sources that cross a citation threshold (edit MIN_COUNT)',
     language: 'sparql',
     query: `${PREFIXES}
@@ -211,7 +211,7 @@ HAVING (COUNT(DISTINCT ?note) >= 2)
 ORDER BY DESC(?citations)`,
   },
   {
-    name: 'Sources: most-quoted',
+    name: 'Most-quoted sources',
     description: 'Sources ranked by the number of linked Excerpts',
     language: 'sparql',
     query: `${PREFIXES}
@@ -226,7 +226,7 @@ GROUP BY ?src ?sourceId ?title
 ORDER BY DESC(?excerptCount)`,
   },
   {
-    name: 'Sources: missing metadata',
+    name: 'Sources missing metadata',
     description: 'Sources that are missing a title, an author, or both (stub records)',
     language: 'sparql',
     query: `${PREFIXES}
@@ -239,136 +239,6 @@ SELECT ?sourceId ?title ?creator WHERE {
   FILTER(!BOUND(?title) || !BOUND(?creator))
 }
 ORDER BY ?sourceId`,
-  },
-  {
-    name: 'Claims: due for a currency re-check (decay sweep)',
-    description: 'Claims whose last currency/fact check predates a cutoff date — the periodic "is my knowledge still current?" sweep. Edit the cutoff for your decay window.',
-    language: 'sparql',
-    query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-
-# Edit the cutoff date for your decay window (e.g. five years ago).
-SELECT ?label ?currency ?asOf WHERE {
-  ?claim a thought:Claim .
-  ?claim thought:asOfDate ?asOf .
-  OPTIONAL { ?claim thought:label ?label }
-  OPTIONAL { ?claim thought:currencyStatus ?currency }
-  FILTER(?asOf < "2021-06-01"^^xsd:date)
-}
-ORDER BY ?asOf`,
-  },
-  {
-    name: 'Claims: verification verdicts',
-    description: 'Every claim carrying a fact-check or currency verdict (corroborated / contested / unverifiable / decayed / scope-shifted / misstated) — scan for the contested and unverifiable ones.',
-    language: 'sparql',
-    query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
-SELECT ?label ?verification ?currency ?asOf WHERE {
-  ?claim a thought:Claim .
-  OPTIONAL { ?claim thought:label ?label }
-  OPTIONAL { ?claim thought:verificationStatus ?verification }
-  OPTIONAL { ?claim thought:currencyStatus ?currency }
-  OPTIONAL { ?claim thought:asOfDate ?asOf }
-  FILTER(BOUND(?verification) || BOUND(?currency))
-}
-ORDER BY ?verification ?currency`,
-  },
-  {
-    name: 'Compute: derived notes missing their source (#244)',
-    description: 'Notes saved via "Save cell output as note" whose source notebook no longer exists — surfaces breakage from a delete/rename that didn\'t fix up the derived note\'s provenance.',
-    language: 'sparql',
-    query: `${PREFIXES}
-PREFIX prov: <http://www.w3.org/ns/prov#>
-
-SELECT ?derived ?missingSource WHERE {
-  ?derived prov:wasDerivedFrom ?missingSource .
-  # The source URI doesn't appear as a subject anywhere in the graph
-  # — i.e. the indexer never saw a note at that path. Renaming a
-  # source without fixing up the derived note's frontmatter falls
-  # into this bucket.
-  FILTER NOT EXISTS { ?missingSource ?p ?o }
-}
-ORDER BY ?derived`,
-  },
-  {
-    name: 'Trust: Alias conflicts',
-    description: 'Frontmatter aliases claimed by two or more notes — the alphabetically-first path wins at resolution time, the rest are shadowed (#493).',
-    language: 'sparql',
-    query: `${PREFIXES}
-# Each row is one note that claims an alias also claimed by another
-# note. \`winner = true\` is the note the resolver actually picks
-# (alphabetically-smallest relativePath). Aliases that collide with a
-# canonical note name are filtered out — they're already dropped by
-# the indexer.
-SELECT ?alias ?note ?title ?winner WHERE {
-  {
-    SELECT ?alias WHERE {
-      ?n minerva:hasAlias ?alias .
-    }
-    GROUP BY ?alias
-    HAVING (COUNT(?n) > 1)
-  }
-  ?nUri minerva:hasAlias ?alias .
-  ?nUri minerva:relativePath ?note .
-  OPTIONAL { ?nUri dc:title ?title }
-  {
-    SELECT ?alias (MIN(?p) AS ?winnerPath) WHERE {
-      ?n2 minerva:hasAlias ?alias .
-      ?n2 minerva:relativePath ?p .
-    }
-    GROUP BY ?alias
-  }
-  BIND((?note = ?winnerPath) AS ?winner)
-}
-ORDER BY ?alias ?note`,
-  },
-  {
-    name: 'Trust: LLM-executed cells without proposal record',
-    description: 'Compute proposals whose record is missing thought:executed=true or whose source-of-truth fields are incomplete. On a clean system this returns no rows — every executed cell has a matching ComputeProposal (#245).',
-    language: 'sparql',
-    query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
-# Surface any ComputeProposal that's missing the audit-trail fields
-# the propose_compute Run handler is supposed to write. If a cell
-# ever lands in the conversation log without a matching proposal
-# record, the integrity check below also flags it (none today —
-# this query is the contract).
-SELECT ?proposal ?language ?executed ?executedAt WHERE {
-  ?proposal a thought:ComputeProposal .
-  OPTIONAL { ?proposal thought:language ?language }
-  OPTIONAL { ?proposal thought:executed ?executed }
-  OPTIONAL { ?proposal thought:executedAt ?executedAt }
-  # A proposal that was executed but has no executedAt is broken;
-  # a proposal that ran without setting executed is broken too.
-  FILTER(
-    !BOUND(?executed) ||
-    (?executed = "true"^^<http://www.w3.org/2001/XMLSchema#boolean> && !BOUND(?executedAt))
-  )
-}
-ORDER BY ?proposal`,
-  },
-  {
-    name: 'Trust: Unreviewed LLM writes',
-    description: 'Components attributed to an LLM without a corresponding approved proposal (trust principle violations)',
-    language: 'sparql',
-    query: `${PREFIXES}
-PREFIX thought: <https://minerva.dev/ontology/thought#>
-
-SELECT ?component ?label ?extractedBy WHERE {
-  ?component rdf:type/rdfs:subClassOf* thought:Component .
-  ?component thought:extractedBy ?extractedBy .
-  FILTER(CONTAINS(LCASE(?extractedBy), "llm"))
-  OPTIONAL { ?component thought:label ?label }
-  FILTER NOT EXISTS {
-    ?proposal rdf:type thought:Proposal .
-    ?proposal thought:affectsNode ?component .
-    ?proposal thought:proposalStatus thought:approved .
-  }
-}
-ORDER BY ?component`,
   },
   {
     name: 'Pending proposals',

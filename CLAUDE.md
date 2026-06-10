@@ -149,4 +149,22 @@ The graph module exposes `enterLLMContext()` / `exitLLMContext()` to mark call p
 
 ### Integrity Query
 
-The stock query "Trust: Unreviewed LLM writes" (in Graph > Stock Queries) detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run this after any LLM integration work to verify the trust principle holds.
+The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development:
+
+```sparql
+PREFIX thought: <https://minerva.dev/ontology/thought#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT ?component ?label ?extractedBy WHERE {
+  ?component rdf:type/rdfs:subClassOf* thought:Component .
+  ?component thought:extractedBy ?extractedBy .
+  FILTER(CONTAINS(LCASE(?extractedBy), "llm"))
+  OPTIONAL { ?component thought:label ?label }
+  FILTER NOT EXISTS {
+    ?proposal rdf:type thought:Proposal .
+    ?proposal thought:affectsNode ?component .
+    ?proposal thought:proposalStatus thought:approved .
+  }
+}
+ORDER BY ?component
+```
