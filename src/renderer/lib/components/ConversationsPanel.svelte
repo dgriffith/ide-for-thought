@@ -20,7 +20,8 @@
   } from '../../../shared/conversation-compute-drafts';
   import type { CellOutput } from '../../../shared/compute/types';
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
-  import type { ConversationMessage } from '../../../shared/types';
+  import type { ConversationMessage, Citation } from '../../../shared/types';
+  import { insertCitationMarker, noteBasename } from '../conversations/cite-from-conversation';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the
@@ -117,6 +118,53 @@
     if (!tab) return false;
     return tab.conversation.messages.some((m) => m.role === 'assistant');
   });
+
+  // ── Cite What You Said (#112) ───────────────────────────────────────────
+  // Promote a conversation citation into a real `thought:cites` edge on the
+  // note that anchors the conversation. Per-citation status keyed by
+  // `${tabId}:${messageIndex}:${citationIndex}` so each footnote tracks its
+  // own running / done / error state independently across tabs.
+  type CiteStatus = { phase: 'running' | 'done' } | { phase: 'error'; message: string };
+  let citeState = $state<Record<string, CiteStatus>>({});
+
+  function citeKey(tab: TabT, msgIndex: number, ci: number): string {
+    return `${tab.id}:${msgIndex}:${ci}`;
+  }
+
+  /** Note this conversation cites *into*: its anchor note, else whatever the
+   *  editor currently shows. Null when there's nowhere to record the edge. */
+  function citeTargetPath(tab: TabT): string | null {
+    return tab.conversation.contextBundle.notePath ?? currentNotePath;
+  }
+
+  async function handleCite(tab: TabT, msgIndex: number, ci: number, cite: Citation) {
+    const notePath = citeTargetPath(tab);
+    if (!notePath) return;
+    const key = citeKey(tab, msgIndex, ci);
+    if (citeState[key]?.phase === 'running' || citeState[key]?.phase === 'done') return;
+    citeState = { ...citeState, [key]: { phase: 'running' } };
+    try {
+      // 1. Ingest the cited URL as a Source (no-op-ish if it already exists —
+      //    the pipeline dedupes and returns the existing source id).
+      const { sourceId } = await api.sources.ingestUrl(cite.url);
+      // 2. Flush any pending editor edits to the target note first, so the
+      //    disk read below sees them and our write doesn't get clobbered by a
+      //    late autosave. Only the *active* tab can be dirty.
+      if (editor.activeFilePath === notePath) await editor.save();
+      // 3. Weave the citation marker into the note text and persist; the write
+      //    re-indexes the graph, which is what materialises the cites edge.
+      const text = await api.notebase.readFile(notePath);
+      const next = insertCitationMarker(text, sourceId);
+      if (next !== text) await api.notebase.writeFile(notePath, next);
+      // 4. Refresh the open tab (if any) so the user sees the new marker.
+      await editor.reloadTabFromDisk(notePath);
+      citeState = { ...citeState, [key]: { phase: 'done' } };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error('[conv-panel] cite from conversation failed:', e);
+      citeState = { ...citeState, [key]: { phase: 'error', message } };
+    }
+  }
 
   async function handleModelChange(tabId: string, e: Event) {
     const value = (e.currentTarget as HTMLSelectElement).value;
@@ -546,21 +594,36 @@
           {/if}
         </div>
 
-        {#snippet messageBlock(msg: ConversationMessage)}
+        {#snippet messageBlock(msg: ConversationMessage, tab: TabT, msgIndex: number)}
           {#if msg.role !== 'system'}
             <div class="msg {msg.role}">
               <div class="msg-role">{msg.role}</div>
               {#if msg.role === 'assistant'}
                 <div class="msg-content">{@html md.render(msg.content)}</div>
                 {#if msg.citations && msg.citations.length > 0}
+                  {@const target = citeTargetPath(tab)}
                   <ol class="citations">
                     {#each msg.citations as cite, ci}
+                      {@const st = citeState[citeKey(tab, msgIndex, ci)]}
                       <li>
                         <button type="button" class="citation-link" onclick={() => api.shell.openExternal(cite.url)} title={cite.citedText}>
                           <span class="citation-num">[{ci + 1}]</span>
                           <span class="citation-title">{cite.title ?? hostOf(cite.url)}</span>
                           <span class="citation-host">{hostOf(cite.url)}</span>
                         </button>
+                        {#if st?.phase === 'done'}
+                          <span class="cite-action done" title="Filed as a source and cited from this note">✓ cited</span>
+                        {:else if st?.phase === 'error'}
+                          <button type="button" class="cite-action error" title={st.message} onclick={() => handleCite(tab, msgIndex, ci, cite)}>retry</button>
+                        {:else}
+                          <button
+                            type="button"
+                            class="cite-action"
+                            disabled={!target || st?.phase === 'running'}
+                            title={target ? `Ingest as a source and cite from ${noteBasename(target)}` : 'No note to cite into — open one in the editor'}
+                            onclick={() => handleCite(tab, msgIndex, ci, cite)}
+                          >{st?.phase === 'running' ? 'citing…' : 'cite'}</button>
+                        {/if}
                       </li>
                     {/each}
                   </ol>
@@ -867,7 +930,7 @@
                message between the old assistant and its still-pending
                card. -->
           {#each tab.conversation.messages as msg, i}
-            {@render messageBlock(msg)}
+            {@render messageBlock(msg, tab, i)}
             {#each draftsAt(tab, i) as draft (draft.draftId)}
               {@render noteDraftCard(draft)}
             {/each}
@@ -1295,7 +1358,8 @@
     display: flex;
     align-items: baseline;
     gap: 6px;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 2px 0;
     border: none;
     background: none;
@@ -1308,6 +1372,21 @@
   .citation-num { color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .citation-title { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .citation-host { color: var(--text-muted); font-size: 10px; flex-shrink: 0; margin-left: auto; }
+  .citations li { display: flex; align-items: baseline; gap: 8px; }
+  .cite-action {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .cite-action:hover:not(:disabled) { color: var(--accent); background: var(--bg-button); }
+  .cite-action:disabled { opacity: 0.4; cursor: default; }
+  .cite-action.done { color: var(--accent); cursor: default; }
+  .cite-action.error { color: var(--text); }
 
   .ask-user-card {
     margin-top: 4px;
