@@ -3,6 +3,7 @@ id: research.find-supporting-arguments
 name: Find Supporting Arguments
 description: Surface the strongest cases in favour of a specific claim
 menu: Research
+group: Argumentation
 outputMode: openConversation
 context: [claimUnderCursor]
 model: claude-sonnet-4-6

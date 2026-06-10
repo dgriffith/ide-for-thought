@@ -3,6 +3,7 @@ id: research.decompose
 name: Decompose into Linked Notes
 description: Split the note into a parent index + 2–7 focused children
 menu: Research
+group: Decomposition
 outputMode: openConversation
 context: [fullNote]
 model: claude-opus-4-7

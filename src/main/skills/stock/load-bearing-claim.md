@@ -3,6 +3,7 @@ id: research.load-bearing-claim
 name: Find Load-Bearing Claim
 description: Identify the single claim whose falsity would collapse the argument
 menu: Research
+group: Argumentation
 outputMode: openConversation
 context: [selectedText, fullNote]
 model: claude-sonnet-4-6
