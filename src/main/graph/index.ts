@@ -226,56 +226,19 @@ export function noteUriFor(ctx: ProjectContext, relativePath: string): string | 
   return noteUri(state, relativePath).value;
 }
 
-// ── LLM Write Guard ───────────────────────────────────────────────────────
-// Tracks whether the current call path originates from an LLM operation.
-// Direct graph writes from LLM context that bypass the approval engine
-// are logged as warnings during development. Approval engine wraps its
-// own writes in the *trusted* counter so its in-LLM-context writes don't
-// trigger the warning.
-
-let llmContextDepth = 0;
-let trustedContextDepth = 0;
-
-/** Mark the start of an LLM-originated operation. Nest-safe. */
-export function enterLLMContext(): void {
-  llmContextDepth++;
-}
-
-/** Mark the end of an LLM-originated operation. */
-export function exitLLMContext(): void {
-  if (llmContextDepth > 0) llmContextDepth--;
-}
-
-/** Returns true if currently in an LLM call path. */
-export function isInLLMContext(): boolean {
-  return llmContextDepth > 0;
-}
-
-/**
- * Mark the start of a trusted graph mutation — i.e. one going through the
- * approval engine. Used by approval.ts to wrap its own parseIntoStore /
- * removeMatchingTriples calls so the write guard doesn't flag them.
- */
-export function enterTrustedContext(): void {
-  trustedContextDepth++;
-}
-
-export function exitTrustedContext(): void {
-  if (trustedContextDepth > 0) trustedContextDepth--;
-}
-
-/** Dev-time guard. Logs once per offending call when an LLM-originated
- *  call path mutates the graph without going through the approval engine.
- *  No-op in trusted context (proposeWrite / approveProposal / approval-only
- *  mutators) and outside LLM context. */
-function checkLLMWriteGuard(operation: string): void {
-  if (!isInLLMContext()) return;
-  if (trustedContextDepth > 0) return;
-  console.warn(
-    `[trust-guard] ${operation} called from LLM context outside the approval engine. ` +
-    `LLM-originated writes must go through proposeWrite()/approveProposal().`,
-  );
-}
+// ── LLM Write Guard (#671) ────────────────────────────────────────────────
+// Extracted into ./write-guard.ts so it can be unit-tested in isolation. The
+// public enter/exit/is helpers are re-exported here so existing
+// `graph.enterLLMContext()` call sites (approval.ts, auto-link/auto-tag, ipc)
+// are unchanged; the indexers below call `checkLLMWriteGuard` directly.
+export {
+  enterLLMContext,
+  exitLLMContext,
+  isInLLMContext,
+  enterTrustedContext,
+  exitTrustedContext,
+} from './write-guard';
+import { checkLLMWriteGuard } from './write-guard';
 
 // ── Project config (persisted in .minerva/config.json) ─────────────────────
 
