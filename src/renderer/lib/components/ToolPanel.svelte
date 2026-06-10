@@ -5,6 +5,7 @@
   import Icon from './Icon.svelte';
   import type { ToolContext } from '../../../shared/tools/types';
   import { isMissingApiKeyError } from '../../../shared/llm-errors';
+  import { resolveNoteParams, flattenNoteFiles } from '../tools/resolve-note-params';
 
   interface Props {
     onNoteCreated?: () => void;
@@ -23,6 +24,9 @@
   const panel = getToolPanelStore();
   let paramValues = $state<Record<string, string>>({});
   let running = $state(false);
+  // Note-picker (#516) options — flat list of project .md files, loaded lazily
+  // the first time a tool with a `note` parameter is configured.
+  let noteOptions = $state<{ name: string; relativePath: string }[]>([]);
 
   $effect(() => {
     if (panel.panelState === 'configure') {
@@ -33,6 +37,9 @@
         values[p.id] = p.defaultValue ?? '';
       }
       paramValues = values;
+      if (params.some((p) => p.type === 'note') && noteOptions.length === 0) {
+        void api.notebase.listFiles().then((tree) => { noteOptions = flattenNoteFiles(tree); });
+      }
     }
   });
 
@@ -65,12 +72,14 @@
     }
   }
 
-  function handleRunWithParams() {
+  async function handleRunWithParams() {
     const tool = panel.activeTool;
     if (!tool) return;
 
+    // Resolve any note-picker params to the picked note's content/title before
+    // folding them in (#516), so the prompt can reference {{param.x.content}}.
     const snappedParams = Object.keys(paramValues).length > 0
-      ? $state.snapshot(paramValues)
+      ? await resolveNoteParams(tool.parameters, $state.snapshot(paramValues), (p) => api.notebase.readFile(p))
       : undefined;
 
     if (tool.outputMode === 'openConversation') {
@@ -172,6 +181,17 @@
                     placeholder={param.placeholder ?? ''}
                     rows="3"
                   ></textarea>
+                {:else if param.type === 'note'}
+                  <input
+                    list={`notes-${param.id}`}
+                    bind:value={paramValues[param.id]}
+                    placeholder={param.placeholder ?? 'Type to find a note…'}
+                  />
+                  <datalist id={`notes-${param.id}`}>
+                    {#each noteOptions as n (n.relativePath)}
+                      <option value={n.relativePath}>{n.name}</option>
+                    {/each}
+                  </datalist>
                 {:else}
                   <input
                     type={param.type === 'number' ? 'number' : 'text'}
@@ -193,7 +213,7 @@
           </div>
         {/if}
         <div class="actions">
-          <button class="btn primary" onclick={handleRunWithParams}>Run</button>
+          <button class="btn primary" onclick={() => { void handleRunWithParams(); }}>Run</button>
           <button class="btn" onclick={() => panel.close()}>Cancel</button>
         </div>
       </div>

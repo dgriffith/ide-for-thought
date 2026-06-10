@@ -23,7 +23,7 @@ const CONTEXT_REQUIREMENTS: readonly ContextRequirement[] = [
 const OUTPUT_MODES: readonly OutputMode[] = [
   'newNote', 'appendToNote', 'replaceSelection', 'insertAtCursor', 'multipleNotes', 'openConversation',
 ];
-const PARAM_TYPES = ['text', 'textarea', 'select', 'number'] as const;
+const PARAM_TYPES = ['text', 'textarea', 'select', 'number', 'note'] as const;
 
 export interface ParseResult {
   skill?: SkillDef;

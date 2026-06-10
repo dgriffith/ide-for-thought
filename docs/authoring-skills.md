@@ -193,10 +193,38 @@ parameters:
         value: synthesis
 ```
 
-Types: `text`, `textarea`, `select`, `number`. `select` options may be bare
-strings (label = value) or `{label, value}` pairs. `default` (friendly alias of
-`defaultValue`) seeds the field. Because the template can't map a value to extra
-prose, put any per-option wording directly in the `value`.
+Types: `text`, `textarea`, `select`, `number`, `note`. `select` options may be
+bare strings (label = value) or `{label, value}` pairs. `default` (friendly
+alias of `defaultValue`) seeds the field. Because the template can't map a value
+to extra prose, put any per-option wording directly in the `value`.
+
+### The `note` picker — operating on a second note
+
+A `note` parameter is a fuzzy picker over the project's markdown files. It
+resolves to a **relativePath**, and the picked note's body and title are read
+and exposed to the prompt as companion vars — so a skill can work on a *second*
+note, not just the active one:
+
+| Template var | Value |
+|---|---|
+| `{{param.<id>}}` | the picked note's relativePath |
+| `{{param.<id>.title}}` | its title (basename) |
+| `{{param.<id>.content}}` | its full text |
+
+Guard on the content var — if the picked note was renamed or deleted between
+pick and run, the path and title survive but `{{param.<id>.content}}` is empty:
+
+```markdown
+{{#if param.otherNote.content}}
+Compare the active note against "{{param.otherNote.title}}":
+
+{{param.otherNote.content}}
+{{else}}
+The picked note couldn't be read — ask the user to pick another.
+{{/if}}
+```
+
+The stock **Find Tensions** skill is the worked example.
 
 Parameters cover the **upfront known-decision** case. For ambiguity that only
 appears after the agent reads the source, add `tools: [ask_user]` — the agent
