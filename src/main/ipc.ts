@@ -125,7 +125,6 @@ import type { AutoLinkSuggestion } from '../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../shared/refactor/auto-link-inbound';
 import { patchFrontmatterProperties } from '../shared/refactor/frontmatter-patch';
 import * as healthChecks from './graph/health-checks';
-import '../shared/tools/definitions/index';
 import { getSettings, saveSettings } from './llm/settings';
 import type { ToolExecutionRequest, LLMSettings } from '../shared/tools/types';
 import type { TabSession } from '../shared/types';

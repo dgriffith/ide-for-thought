@@ -12,7 +12,6 @@ import { listSavedQueries } from './saved-queries';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
-import '../shared/tools/definitions/index';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();

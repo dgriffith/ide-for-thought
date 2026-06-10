@@ -1,5 +1,3 @@
-// Import all tool definitions so they register with the registry
-import '../../../shared/tools/definitions/index';
 import { registerTool, unregisterTool } from '../../../shared/tools/registry';
 import { menuToCategory, type SkillInfo } from '../../../shared/skills/types';
 import type { ThinkingToolDef } from '../../../shared/tools/types';

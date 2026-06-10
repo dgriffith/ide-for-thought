@@ -3,9 +3,6 @@ import { complete } from '../llm/index';
 import { getSettings } from '../llm/settings';
 import type { ToolExecutionRequest, ToolExecutionResult, ThinkingToolDef, LLMSettings, ConversationToolPayload } from '../../shared/tools/types';
 
-// Ensure all tool definitions are registered
-import '../../shared/tools/definitions/index';
-
 /**
  * Resolution order for which model a tool invocation runs on:
  *   1. Explicit per-invocation override (not wired from any UI yet — reserved
