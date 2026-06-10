@@ -15,13 +15,16 @@
   import { onMount, tick } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { flattenNoteFiles, resolveWikiLinkTarget } from './lib/wiki-link-resolver';
-  import { expandSelectionToNoteFiles, resolveSelectionTargets, pathExistsInTree } from './lib/sidebar-tree-utils';
+  import { expandSelectionToNoteFiles } from './lib/sidebar-tree-utils';
   import {
     mergeTagsIntoContent,
     removeTagsFromContent,
     extractTagsFromContent,
   } from '../shared/refactor/auto-tag';
   import { getEditorStore } from './lib/stores/editor.svelte';
+  import { getBusyStore } from './lib/stores/busy.svelte';
+  import { getClipboardStore } from './lib/stores/clipboard.svelte';
+  import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
   import { substituteTemplate } from '../shared/templates';
@@ -62,11 +65,8 @@
   import {
     slugifyForPath,
     findAnchorOffset,
-    offsetToLineCol,
     flattenNotePaths,
     countNotes,
-    describeDeleteNoun,
-    describeDeleteMessage,
   } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
@@ -99,6 +99,8 @@
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
+  const busy = getBusyStore();
+  const clipboard = getClipboardStore();
   /** Last note tab the user was on. Used by the SourceDetail "Append
    *  to current note" action (#101) — when the user is viewing a
    *  source-detail tab the active tab IS the source, so "current"
@@ -132,8 +134,6 @@
   } | null>(null);
   /** Whether the Auto-link suggest request is currently in flight. Keeps the menu from re-triggering. */
   let autoLinkBusy = $state(false);
-  /** When set, renders a modal spinner overlay with this label. */
-  let busyLabel = $state<string | null>(null);
 
   /** Pending Auto-link inbound suggestions to review. Non-null = dialog is shown. */
   let autoLinkInboundReview = $state<{
@@ -250,7 +250,7 @@
   // live in the dialog store (#670); destructure the imperative `show*` helpers
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
-  const { showPrompt, showConfirm, showNewNoteDialog, showSnippetPicker } = dialogs;
+  const { showPrompt, showConfirm, showSnippetPicker } = dialogs;
   let exportDialogFor = $state<string | null>(null);
 
   /**
@@ -798,50 +798,6 @@
     sidebar?.refreshTags();
   }
 
-  async function handleNewNote(directory: string = '') {
-    if (!notebase.meta) return;
-    const result = await showNewNoteDialog();
-    if (!result) return;
-    const filename = `${result.name}${result.ext}`;
-    const relativePath = directory ? `${directory}/${filename}` : filename;
-
-    // Apply a template if one was chosen — substitution runs in the
-    // renderer with `showPrompt` as the interactive resolver so a
-    // `{{prompt:Label}}` template can pause for input. A null prompt
-    // return cancels: the file isn't written and the flow ends.
-    let initialContent = '';
-    let caretOffset: number | null = null;
-    if (result.templateFilename) {
-      const body = await api.templates.get(result.templateFilename);
-      if (body !== null) {
-        const sub = await substituteTemplate(body, {
-          title: result.name,
-          prompt: (label: string) => showPrompt(`${label}:`),
-        });
-        if (sub.cancelled) return;
-        initialContent = sub.content;
-        caretOffset = sub.cursorOffset;
-      }
-    }
-
-    if (initialContent) {
-      await api.notebase.writeFile(relativePath, initialContent);
-    } else {
-      await api.notebase.createFile(relativePath);
-    }
-    await notebase.refresh();
-    await editor.openFile(relativePath);
-    if (caretOffset !== null) {
-      // Wait one frame so the editor has mounted the file before we
-      // restore the position — restorePosition is a no-op against an
-      // empty doc otherwise. Capture in a const so TS keeps the
-      // narrowing past the closure boundary.
-      const offset = caretOffset;
-      requestAnimationFrame(() => editorComponent?.restorePosition(offset, 0));
-    }
-    sidebar?.refreshTags();
-  }
-
   /** Show the snippet picker (#475). Resolves with the chosen
    *  template or `null` when the user cancels. */
 
@@ -977,403 +933,11 @@
     return true;
   }
 
-  async function handleNewFolder(directory: string = '') {
-    if (!notebase.meta) return;
-    const name = await showPrompt('Folder name:');
-    if (!name) return;
-    const relativePath = directory ? `${directory}/${name}` : name;
-    await api.notebase.createFolder(relativePath);
-    await notebase.refresh();
-  }
-
-  /**
-   * Selection-driven Delete. Same model as Format: the sidebar's
-   * multi-selection is the source of truth, and the right-click menu
-   * has already promoted single-clicks to single-selections. The
-   * (relativePath, isDirectory) args are kept for the legacy callback
-   * signature but ignored when a selection exists.
-   *
-   * Safe by default (#429): before the standard confirm, expand the
-   * selection to its set of .md descendants and query the graph for
-   * inbound links from notes outside that set. If any exist, show
-   * the blocker dialog instead — the user can Cancel, Open the first
-   * reference to fix it, or Delete anyway. The "Delete anyway" path
-   * skips the second confirm; the blocker dialog already established
-   * intent.
-   *
-   * Best-effort across all targets: failures are collected and
-   * reported in one summary dialog rather than aborting the batch.
-   * `closeTabsForDeletedPath` runs per successful target so a folder
-   * delete also closes any open tabs for files inside it.
-   */
-  async function handleDelete(relativePath: string, isDirectory: boolean) {
-    if (!notebase.meta) return;
-
-    const selectionPaths = sidebar?.getSelectionPaths() ?? [];
-    const targets = selectionPaths.length > 0
-      ? resolveSelectionTargets(new Set(selectionPaths), notebase.files)
-      : [{ relativePath, isDirectory }];
-    if (targets.length === 0) return;
-
-    // Build the .md set S that the pre-flight reference check needs.
-    // expandSelectionToNoteFiles takes whatever paths the user picked
-    // (folders or files) and yields the .md leaves underneath.
-    const inputPaths = new Set(targets.map((t) => t.relativePath));
-    const mdSet = expandSelectionToNoteFiles(inputPaths, notebase.files);
-
-    let blockers: SafeDeleteBlocker[] = [];
-    if (mdSet.length > 0) {
-      try {
-        blockers = await api.links.externalInbound(mdSet);
-      } catch {
-        // Graph unreachable or transient: fail open (preserve old
-        // behaviour rather than block deletes on an indexing hiccup).
-        blockers = [];
-      }
-    }
-
-    if (blockers.length > 0) {
-      safeDeleteDialogState = {
-        selectionCount: targets.length,
-        targets: mdSet,
-        blockers,
-        proceed: () => executeDeletes(targets),
-      };
-      return;
-    }
-
-    const noun = describeDeleteNoun(targets);
-    const confirmed = await showConfirm(
-      describeDeleteMessage(targets, noun),
-      CONFIRM_KEYS.delete,
-      'Delete',
-    );
-    if (!confirmed) return;
-    await executeDeletes(targets);
-  }
-
-
-  async function executeDeletes(
-    targets: Array<{ relativePath: string; isDirectory: boolean }>,
-  ): Promise<void> {
-    const failures: Array<{ path: string; error: string }> = [];
-    for (const t of targets) {
-      try {
-        if (t.isDirectory) {
-          await api.notebase.deleteFolder(t.relativePath);
-        } else {
-          await api.notebase.deleteFile(t.relativePath);
-        }
-        editor.closeTabsForDeletedPath(t.relativePath);
-      } catch (err) {
-        failures.push({
-          path: t.relativePath,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    await notebase.refresh();
-    sidebar?.refreshTags();
-    sidebar?.clearSelection();
-
-    if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      await showConfirm(
-        `Failed to delete ${failures.length} of ${targets.length} item${targets.length === 1 ? '' : 's'}:\n${head}${tail}`,
-        CONFIRM_KEYS.deletePartialFailure,
-        'OK',
-      );
-    }
-  }
-
-  /**
-   * Open the first linking note from the safe-delete blocker dialog
-   * and jump to the link site. We scan the source's content for the
-   * first `[[…<basename>…]]` occurrence — typed and untyped wiki-link
-   * forms both start with `[[`, and the target basename is enough to
-   * disambiguate within a single source. On no match we still open
-   * the note (offset 0) so the user lands somewhere useful.
-   */
-  async function openFirstReferenceFromSafeDelete(source: string, target: string): Promise<void> {
-    safeDeleteDialogState = null;
-    await editor.openFile(source);
-    try {
-      const content = await api.notebase.readFile(source);
-      const basename = target.replace(/\.md$/, '').split('/').pop() ?? '';
-      // Match `[[…basename]]`, `[[…basename|alias]]`, `[[…basename#anchor]]`
-      // — anchor allowed since #140's broken-link inspection considers anchor
-      // links as references too.
-      const escaped = basename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`\\[\\[[^\\]]*${escaped}[^\\]]*\\]\\]`);
-      const m = re.exec(content);
-      const offset = m?.index ?? 0;
-      const { line, col } = offsetToLineCol(content, offset);
-      requestAnimationFrame(() => editorComponent?.gotoLineColumn(line, col + 1));
-    } catch {
-      // File may have been deleted/moved between the dialog popping
-      // and the click — opening alone is enough.
-    }
-  }
-
-  // ── Sidebar clipboard ──────────────────────────────────────────────────
-
-  /**
-   * Multi-path clipboard. Cut / Copy capture the current sidebar
-   * selection at click time (the right-click menu has already promoted
-   * single-clicks to single-selections, so the selection always
-   * matches what the user expects). The (relativePath, isDirectory)
-   * args from the menu callback are kept as a fallback for the rare
-   * path where the menu fires without a populated selection.
-   */
-  let clipboardItems = $state<{
-    items: Array<{ relativePath: string; isDirectory: boolean }>;
-    mode: 'cut' | 'copy';
-  } | null>(null);
-
-  function collectClipboardTargets(
-    fallbackPath: string,
-    fallbackIsDir: boolean,
-  ): Array<{ relativePath: string; isDirectory: boolean }> {
-    const sel = sidebar?.getSelectionPaths() ?? [];
-    if (sel.length > 0) return resolveSelectionTargets(new Set(sel), notebase.files);
-    return [{ relativePath: fallbackPath, isDirectory: fallbackIsDir }];
-  }
-
-  function handleCut(relativePath: string, isDirectory: boolean) {
-    clipboardItems = { items: collectClipboardTargets(relativePath, isDirectory), mode: 'cut' };
-  }
-
-  function handleCopy(relativePath: string, isDirectory: boolean) {
-    clipboardItems = { items: collectClipboardTargets(relativePath, isDirectory), mode: 'copy' };
-  }
-
-  /**
-   * Drag-move. When the dragged path is itself part of the sidebar
-   * selection, every selected item moves to `destDirectory` (Finder /
-   * VS Code convention). Otherwise we move just the dragged item —
-   * dragging a non-selected row should not silently drag the
-   * selection elsewhere on screen.
-   *
-   * Per-item: skip same-dir no-ops, skip collisions (collected for the
-   * summary), retarget any open tab whose path was the source.
-   */
-  async function handleMove(srcPath: string, destDirectory: string) {
-    if (!notebase.meta) return;
-
-    const sel = sidebar?.getSelectionPaths() ?? [];
-    const targets =
-      sel.includes(srcPath) && sel.length > 1
-        ? resolveSelectionTargets(new Set(sel), notebase.files)
-        : (() => {
-            // Look up isDirectory from the tree so a folder drag still
-            // round-trips correctly (rename works for both, but resolving
-            // here keeps the shape consistent for the summary dialog).
-            const exists = pathExistsInTree(srcPath, notebase.files);
-            if (!exists) return [];
-            const stack = [...notebase.files];
-            while (stack.length) {
-              const n = stack.pop()!;
-              if (n.relativePath === srcPath) return [{ relativePath: srcPath, isDirectory: !!n.isDirectory }];
-              if (n.children) stack.push(...n.children);
-            }
-            return [];
-          })();
-    if (targets.length === 0) return;
-
-    const collisions: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
-    for (const t of targets) {
-      const name = t.relativePath.split('/').pop()!;
-      const destPath = destDirectory ? `${destDirectory}/${name}` : name;
-      if (destPath === t.relativePath) continue;
-      if (pathExistsInTree(destPath, notebase.files)) {
-        collisions.push(destPath);
-        continue;
-      }
-      try {
-        await api.notebase.rename(t.relativePath, destPath);
-        const tabIdx = editor.tabs.findIndex((tab) => tab.type === 'note' && tab.relativePath === t.relativePath);
-        if (tabIdx !== -1) {
-          const tab = editor.tabs[tabIdx];
-          if (tab.type === 'note') {
-            tab.relativePath = destPath;
-            tab.fileName = name;
-          }
-        }
-      } catch (err) {
-        failures.push({ path: t.relativePath, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-    await notebase.refresh();
-    sidebar?.clearSelection();
-    if (collisions.length > 0 || failures.length > 0) {
-      await reportClipboardSummary('Move', targets.length, collisions, failures);
-    }
-  }
-
-  /**
-   * Paste handler for the multi-path clipboard. Cut+Paste renames
-   * each item into `destDirectory` and clears the clipboard +
-   * selection on success; Copy+Paste leaves both alone (the user may
-   * want to paste again somewhere else). Collisions and failures are
-   * collected per-item and reported in a single summary dialog rather
-   * than aborting the batch.
-   */
-  async function handlePaste(destDirectory: string) {
-    if (!clipboardItems || !notebase.meta) return;
-    const { items, mode } = clipboardItems;
-
-    const collisions: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
-    for (const item of items) {
-      const name = item.relativePath.split('/').pop()!;
-      const destPath = destDirectory ? `${destDirectory}/${name}` : name;
-      if (destPath === item.relativePath) continue;
-      if (pathExistsInTree(destPath, notebase.files)) {
-        collisions.push(destPath);
-        continue;
-      }
-      try {
-        if (mode === 'cut') {
-          await api.notebase.rename(item.relativePath, destPath);
-          const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === item.relativePath);
-          if (tabIdx !== -1) {
-            const tab = editor.tabs[tabIdx];
-            if (tab.type === 'note') {
-              tab.relativePath = destPath;
-              tab.fileName = name;
-            }
-          }
-        } else {
-          await api.notebase.copy(item.relativePath, destPath);
-        }
-      } catch (err) {
-        failures.push({ path: item.relativePath, error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-    if (mode === 'cut') {
-      clipboardItems = null;
-      sidebar?.clearSelection();
-    }
-    await notebase.refresh();
-    if (collisions.length > 0 || failures.length > 0) {
-      await reportClipboardSummary(mode === 'cut' ? 'Move' : 'Copy', items.length, collisions, failures);
-    }
-  }
-
-  async function reportClipboardSummary(
-    label: 'Move' | 'Copy',
-    total: number,
-    collisions: string[],
-    failures: Array<{ path: string; error: string }>,
-  ): Promise<void> {
-    const lines: string[] = [];
-    if (collisions.length > 0) {
-      const head = collisions.slice(0, 5).map((p) => `• ${p}`).join('\n');
-      const tail = collisions.length > 5 ? `\n…and ${collisions.length - 5} more` : '';
-      lines.push(`Skipped ${collisions.length} (destination already exists):\n${head}${tail}`);
-    }
-    if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      lines.push(`Failed (${failures.length}):\n${head}${tail}`);
-    }
-    const skipped = collisions.length + failures.length;
-    const completed = total - skipped;
-    const key = label === 'Move' ? CONFIRM_KEYS.moveCollision : CONFIRM_KEYS.copyCollision;
-    await showConfirm(
-      `${label} complete: ${completed} of ${total}.\n\n${lines.join('\n\n')}`,
-      key,
-      'OK',
-    );
-  }
-
-  /**
-   * Merge note (#464). Two-step: open a target picker (a filtered
-   * GotoNoteDialog), then run `performMerge` against the chosen target.
-   * Flushes any unsaved buffer for the source so the merge sees the
-   * latest content rather than a stale on-disk copy.
-   */
-  function handleMerge(sourceRelPath: string) {
-    if (!notebase.meta) return;
-    editor.flushAutoSave();
-    mergePickerSource = sourceRelPath;
-  }
-
-  async function performMerge(sourceRelPath: string, targetRelPath: string) {
-    if (sourceRelPath === targetRelPath) return;
-    const sourceName = sourceRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? sourceRelPath;
-    const targetName = targetRelPath.split('/').pop()?.replace(/\.md$/i, '') ?? targetRelPath;
-    try {
-      const preview = await withBusy('Counting incoming links…', () =>
-        api.notebase.mergePreview(sourceRelPath, targetRelPath),
-      );
-      const linkLine = preview.linkOccurrences > 0
-        ? `${preview.linkOccurrences} link${preview.linkOccurrences === 1 ? '' : 's'} across ${preview.affectedFiles} file${preview.affectedFiles === 1 ? '' : 's'} will be updated.`
-        : 'No incoming links — only the source content will move.';
-      const ok = await showConfirm(
-        `Merge "${sourceName}" into "${targetName}"?\n\n${linkLine}\n\nThe source note's content is appended to the target; its frontmatter is dropped; the source note is then deleted.`,
-        CONFIRM_KEYS.mergeNote,
-        'Merge',
-      );
-      if (!ok) return;
-      const result = await withBusy('Merging…', () =>
-        api.notebase.merge(sourceRelPath, targetRelPath),
-      );
-      // Open the target and scroll to the merge point. The
-      // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts handle tab
-      // cleanup for the source and any open referrers.
-      await editor.openFile(result.targetPath);
-      requestAnimationFrame(() => {
-        editorComponent?.gotoLineColumn(result.mergeLine, 1);
-      });
-      await notebase.refresh();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      await showConfirm(`Merge failed: ${msg}`, CONFIRM_KEYS.mergeFailed, 'OK');
-    }
-  }
-
-  async function handleRename(relativePath: string) {
-    if (!notebase.meta) return;
-    const oldName = relativePath.split('/').pop()!;
-    const rawNewName = await showPrompt('New name:');
-    if (!rawNewName || rawNewName === oldName) return;
-    // Preserve the old extension when the user didn't include one. A file
-    // that drops its .md / .ttl suffix falls out of the indexed set and
-    // effectively disappears from the sidebar; almost always a mistake.
-    const oldDotIdx = oldName.lastIndexOf('.');
-    const oldExt = oldDotIdx > 0 ? oldName.slice(oldDotIdx) : '';
-    const newName = !rawNewName.includes('.') && oldExt ? `${rawNewName}${oldExt}` : rawNewName;
-    const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
-    const newPath = dir ? `${dir}/${newName}` : newName;
-    // Tab path + content refresh is handled by the NOTEBASE_RENAMED /
-    // NOTEBASE_REWRITTEN listeners registered in onMount — don't duplicate.
-    await api.notebase.rename(relativePath, newPath);
-    await notebase.refresh();
-  }
-
-  /**
-   * Runs `fn` with the spinner overlay shown under `label`. Always clears
-   * the overlay before returning — even on error — so that subsequent UI
-   * (e.g. an error dialog) isn't trapped behind it.
-   */
-  async function withBusy<T>(label: string, fn: () => Promise<T>): Promise<T> {
-    busyLabel = label;
-    try {
-      return await fn();
-    } finally {
-      busyLabel = null;
-    }
-  }
-
   async function handleAutoLink(relativePath: string) {
     if (!notebase.meta || autoLinkBusy) return;
     autoLinkBusy = true;
     try {
-      const { suggestions } = await withBusy('Auto-linking\u2026', () =>
+      const { suggestions } = await busy.withBusy('Auto-linking\u2026', () =>
         api.refactor.autoLinkSuggest(relativePath),
       );
       if (suggestions.length === 0) {
@@ -1401,7 +965,7 @@
     if (!notebase.meta || autoLinkBusy) return;
     autoLinkBusy = true;
     try {
-      const { suggestions } = await withBusy('Scanning other notes\u2026', () =>
+      const { suggestions } = await busy.withBusy('Scanning other notes\u2026', () =>
         api.refactor.autoLinkInboundSuggest(relativePath),
       );
       if (suggestions.length === 0) {
@@ -1428,7 +992,7 @@
     autoLinkInboundReview = null;
     try {
       const plain = $state.snapshot(accepted);
-      const { applied, skipped } = await withBusy('Applying inbound links\u2026', () =>
+      const { applied, skipped } = await busy.withBusy('Applying inbound links\u2026', () =>
         api.refactor.autoLinkInboundApply(review.relativePath, plain),
       );
       if (applied.length === 0 && skipped.length > 0) {
@@ -1452,7 +1016,7 @@
       // Snapshot the suggestions before IPC — they came out of $state, which
       // wraps them in Svelte 5 proxies that structured-clone can't serialize.
       const plain = $state.snapshot(accepted);
-      const { applied, skipped } = await withBusy('Applying links\u2026', () =>
+      const { applied, skipped } = await busy.withBusy('Applying links\u2026', () =>
         api.refactor.autoLinkApply(review.relativePath, plain),
       );
       if (applied.length === 0 && skipped.length > 0) {
@@ -1690,7 +1254,7 @@
       try {
         let totalChanged = 0;
         let totalScanned = 0;
-        await withBusy(`Formatting ${targets.length} note${targets.length === 1 ? '' : 's'}\u2026`, async () => {
+        await busy.withBusy(`Formatting ${targets.length} note${targets.length === 1 ? '' : 's'}\u2026`, async () => {
           for (const path of targets) {
             const result = await api.formatter.formatFile(path, settings);
             totalScanned++;
@@ -1720,7 +1284,7 @@
       return;
     }
     try {
-      const result = await withBusy('Formatting\u2026', () =>
+      const result = await busy.withBusy('Formatting\u2026', () =>
         api.formatter.formatContent(tab.content, settings, tab.relativePath),
       );
       if (result !== tab.content) {
@@ -1747,7 +1311,7 @@
       // Save any unsaved buffer first — the generator reads from disk so
       // citations the user just typed wouldn't otherwise be picked up.
       if (tab.content !== tab.savedContent) await editor.save();
-      const result = await withBusy('Generating bibliography…', () =>
+      const result = await busy.withBusy('Generating bibliography…', () =>
         api.bibliography.generate(tab.relativePath),
       );
       const lines: string[] = [];
@@ -1808,7 +1372,7 @@
     const url = raw.trim();
     if (!url) return;
     try {
-      const result = await withBusy('Fetching…', () => api.sources.ingestUrl(url));
+      const result = await busy.withBusy('Fetching…', () => api.sources.ingestUrl(url));
       await handleIngestedSourceResult(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1827,7 +1391,7 @@
     }
     if (localPaths.length === 0) return;
     try {
-      const result = await withBusy('Importing…', () =>
+      const result = await busy.withBusy('Importing…', () =>
         api.files.dropImport(destFolder, localPaths),
       );
       // Open the first newly-ingested PDF source tab, matching the menu-
@@ -1856,7 +1420,7 @@
   async function handleImportBibtex() {
     if (!notebase.meta) return;
     try {
-      const result = await withBusy('Importing BibTeX…', () => api.sources.importBibtex());
+      const result = await busy.withBusy('Importing BibTeX…', () => api.sources.importBibtex());
       if (!result) return; // user cancelled the picker
       // Refresh the Sources panel so the new entries are immediately visible.
       sidebar?.refreshSources();
@@ -1886,7 +1450,7 @@
   async function handleImportZoteroRdf() {
     if (!notebase.meta) return;
     try {
-      const result = await withBusy('Importing Zotero RDF…', () => api.sources.importZoteroRdf());
+      const result = await busy.withBusy('Importing Zotero RDF…', () => api.sources.importZoteroRdf());
       if (!result) return;
       sidebar?.refreshSources();
       await refreshSourcesCache();
@@ -2055,7 +1619,7 @@
   async function handleIngestFileAsSource() {
     if (!notebase.meta) return;
     try {
-      const result = await withBusy('Ingesting…', () => api.sources.ingestFile());
+      const result = await busy.withBusy('Ingesting…', () => api.sources.ingestFile());
       if (!result) return; // user cancelled the picker
       await handleIngestedSourceResult(result);
     } catch (err) {
@@ -2103,7 +1667,7 @@
 
   async function handleMineReferences(source: import('../shared/types').SourceMetadata): Promise<void> {
     try {
-      const refs = await withBusy('Mining references…', () =>
+      const refs = await busy.withBusy('Mining references…', () =>
         api.sources.mineReferences(source.sourceId),
       );
       if (refs.length === 0) {
@@ -2132,7 +1696,7 @@
     mineReviewState = null;
     if (!state) return;
     try {
-      const result = await withBusy('Creating stubs…', () =>
+      const result = await busy.withBusy('Creating stubs…', () =>
         api.sources.createReferenceStubs(state.parentId, accepted),
       );
       await refreshSourcesCache();
@@ -2173,14 +1737,31 @@
     selectionCount: number;
     targets: string[];
     blockers: SafeDeleteBlocker[];
-    proceed: () => Promise<void>;
+    proceed: () => void | Promise<void>;
   } | null>(null);
+
+  // Note-ops handler cluster (#670): new note / folder, delete (+ safe-delete),
+  // the multi-path clipboard, merge, rename, prompt-driven copy / move. Lives in
+  // ./lib/app/note-ops.ts; destructured into the same names so every call site
+  // (menus, sidebar callbacks, command palette) reads unchanged. Placed after
+  // the component refs + safeDelete/mergePicker state it closes over via getters.
+  const noteOpsCtx: NoteOpsCtx = {
+    getSidebar: () => sidebar,
+    getEditorComponent: () => editorComponent,
+    setSafeDeleteState: (s) => { safeDeleteDialogState = s; },
+    setMergePickerSource: (s) => { mergePickerSource = s; },
+  };
+  const {
+    handleNewNote, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
+    handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
+  } = createNoteOps(noteOpsCtx);
 
   async function handleResolveStub(sourceId: string): Promise<void> {
     if (!notebase.meta) return;
     let candidates: import('../shared/resolve-stub').ResolveCandidate[];
     try {
-      candidates = await withBusy('Searching CrossRef…', () =>
+      candidates = await busy.withBusy('Searching CrossRef…', () =>
         api.sources.resolveStub(sourceId),
       );
     } catch (err) {
@@ -2220,7 +1801,7 @@
 
   async function applyResolution(sourceId: string, doi: string, newTitle: string): Promise<void> {
     try {
-      await withBusy('Applying resolution…', () =>
+      await busy.withBusy('Applying resolution…', () =>
         api.sources.applyStubResolution(sourceId, doi),
       );
       await refreshSourcesCache();
@@ -2258,7 +1839,7 @@
     );
     if (!confirmed) return;
     try {
-      const result = await withBusy('Looking up…', () => api.sources.ingestIdentifier(doi));
+      const result = await busy.withBusy('Looking up…', () => api.sources.ingestIdentifier(doi));
       setTimeout(() => handleOpenSource(result.sourceId), 150);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -2273,7 +1854,7 @@
     const identifier = raw.trim();
     if (!identifier) return;
     try {
-      const result = await withBusy('Looking up…', () => api.sources.ingestIdentifier(identifier));
+      const result = await busy.withBusy('Looking up…', () => api.sources.ingestIdentifier(identifier));
       setTimeout(() => handleOpenSource(result.sourceId), 150);
       if (result.duplicate) {
         await showConfirm(
@@ -2315,7 +1896,7 @@
   async function handleAutoTag(relativePath: string) {
     if (!notebase.meta) return;
     try {
-      const result = await withBusy('Auto-tagging\u2026', () =>
+      const result = await busy.withBusy('Auto-tagging\u2026', () =>
         api.refactor.autoTag(relativePath),
       );
       if (result.added.length === 0) {
@@ -2332,73 +1913,6 @@
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
     }
-  }
-
-  async function handleCopyWithPrompt(relativePath: string) {
-    if (!notebase.meta) return;
-    const oldName = relativePath.split('/').pop()!;
-    const dir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
-    const rawNewName = await showPrompt('Copy to (new name, or dir/name):');
-    if (!rawNewName) return;
-    const oldDotIdx = oldName.lastIndexOf('.');
-    const oldExt = oldDotIdx > 0 ? oldName.slice(oldDotIdx) : '';
-    // Preserve extension when the user didn't type one — mirror handleRename
-    // so a copy doesn't silently fall out of the indexed set.
-    const trimmed = rawNewName.trim().replace(/^\/+/, '');
-    const lastSeg = trimmed.split('/').pop()!;
-    const needsExt = !lastSeg.includes('.') && oldExt;
-    const finalLast = needsExt ? `${lastSeg}${oldExt}` : lastSeg;
-    const segs = trimmed.split('/');
-    segs[segs.length - 1] = finalLast;
-    const userPath = segs.join('/');
-    // If the user typed a path-like value (contains `/`), treat it as
-    // project-root relative; otherwise keep it in the source directory.
-    const destPath = trimmed.includes('/') ? userPath : (dir ? `${dir}/${userPath}` : userPath);
-    if (destPath === relativePath) return;
-
-    let collision = false;
-    try {
-      await api.notebase.readFile(destPath);
-      collision = true;
-    } catch { /* expected: dest doesn't exist */ }
-    if (collision) {
-      await showConfirm(
-        `A file already exists at "${destPath}". Copy cancelled.`,
-        CONFIRM_KEYS.copyCollision,
-        'OK',
-      );
-      return;
-    }
-
-    await api.notebase.copy(relativePath, destPath);
-    await notebase.refresh();
-  }
-
-  async function handleMoveWithPrompt(relativePath: string) {
-    if (!notebase.meta) return;
-    const fileName = relativePath.split('/').pop()!;
-    const currentDir = relativePath.includes('/') ? relativePath.substring(0, relativePath.lastIndexOf('/')) : '';
-    const raw = await showPrompt(`Move "${fileName}" to folder (leave empty for root):`);
-    if (raw === null) return;
-    const destDir = raw.trim().replace(/^\/+|\/+$/g, '');
-    if (destDir === currentDir) return;
-    const newPath = destDir ? `${destDir}/${fileName}` : fileName;
-
-    let collision = false;
-    try {
-      await api.notebase.readFile(newPath);
-      collision = true;
-    } catch { /* expected: dest doesn't exist */ }
-    if (collision) {
-      await showConfirm(
-        `A file already exists at "${newPath}". Move cancelled.`,
-        CONFIRM_KEYS.moveCollision,
-        'OK',
-      );
-      return;
-    }
-
-    await handleMove(relativePath, destDir);
   }
 
   function recordCurrentPosition() {
@@ -2712,9 +2226,9 @@
     // One handler per stream; both funnel into the same busyLabel so the
     // user doesn't care which import is running.
     const progressToBusyLabel = ({ done, total, currentTitle }: { done: number; total: number; currentTitle: string }) => {
-      if (busyLabel) {
+      if (busy.label) {
         const short = currentTitle.length > 60 ? currentTitle.slice(0, 57) + '…' : currentTitle;
-        busyLabel = `Importing ${done}/${total}: ${short}`;
+        busy.setLabel(`Importing ${done}/${total}: ${short}`);
       }
     };
     api.sources.onImportBibtexProgress(progressToBusyLabel);
@@ -2866,7 +2380,7 @@
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
-          canPaste={clipboardItems !== null}
+          canPaste={clipboard.current !== null}
         />
       {/if}
       <div
@@ -3277,8 +2791,8 @@
       onCancel={() => { autoLinkInboundReview = null; }}
     />
   {/if}
-  {#if busyLabel}
-    <BusyOverlay label={busyLabel} />
+  {#if busy.label}
+    <BusyOverlay label={busy.label} />
   {/if}
   {#if showSettings}
     <SettingsDialog
