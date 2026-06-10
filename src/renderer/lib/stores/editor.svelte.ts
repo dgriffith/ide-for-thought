@@ -1,6 +1,6 @@
 import { api } from '../ipc/client';
 import type { TabSession, SavedTab } from '../../../shared/types';
-import { normalizeSqlRows } from '../editor/sql-result';
+import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 
@@ -419,11 +419,16 @@ export function getEditorStore() {
         if (response.error) {
           tab.error = response.error;
         } else {
-          // Columns come from the SELECT projection (via the query engine's
-          // metadata), so a variable that's unbound in every row still shows
-          // as an (empty) column rather than vanishing.
-          tab.columns = response.columns;
-          tab.results = response.results as Record<string, string>[];
+          const rows = response.results as Record<string, string>[];
+          // Prefer the SELECT projection (from the engine metadata) — it keeps a
+          // variable that's unbound in every row as an empty column. Fall back
+          // to the union of keys across all rows when the projection is absent
+          // (e.g. an older main process that predates the columns field), so the
+          // panel never renders header-less / cell-less.
+          tab.columns = response.columns?.length
+            ? response.columns
+            : unionColumns(rows);
+          tab.results = rows;
         }
       }
     } catch (e) {

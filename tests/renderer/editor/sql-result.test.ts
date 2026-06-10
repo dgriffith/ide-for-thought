@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeSqlRows } from '../../../src/renderer/lib/editor/sql-result';
+import { normalizeSqlRows, unionColumns } from '../../../src/renderer/lib/editor/sql-result';
 
 describe('normalizeSqlRows (#234)', () => {
   it('stringifies bigints', () => {
@@ -39,5 +39,21 @@ describe('normalizeSqlRows (#234)', () => {
   it('tolerates columns missing from a row', () => {
     const rows = normalizeSqlRows(['a', 'b'], [{ a: 'x' }]);
     expect(rows).toEqual([{ a: 'x', b: '' }]);
+  });
+});
+
+describe('unionColumns (SPARQL fallback)', () => {
+  it('collects keys across all rows in first-seen order', () => {
+    const cols = unionColumns([{ a: '1', b: '2' }, { a: '3', c: '4' }]);
+    expect(cols).toEqual(['a', 'b', 'c']);
+  });
+
+  it('catches a key absent from the first row (the old first-row bug)', () => {
+    const cols = unionColumns([{ a: '1' }, { a: '2', b: '3' }]);
+    expect(cols).toEqual(['a', 'b']);
+  });
+
+  it('returns [] for no rows', () => {
+    expect(unionColumns([])).toEqual([]);
   });
 });
