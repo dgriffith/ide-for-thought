@@ -229,12 +229,13 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     }
   });
 
-  it('un-wired payload kinds (source / excerpt / saved-query) throw NotImplementedError on apply', async () => {
-    // The type accepts these kinds (the Research-tools tickets that
-    // need them are filed under #414/#415/follow-ups). The runtime
-    // behaviour is "fail loudly" until each is wired in its own PR.
+  it('un-wired payload kinds (source / saved-query) are rejected at proposeWrite time (#665)', async () => {
+    // The type accepts these kinds (the Research-tools tickets that need them
+    // are filed under #414/#415/follow-ups), but they have no apply dispatcher
+    // yet. Rather than file a proposal that explodes at the user's Approve
+    // click, proposeWrite rejects an un-wired kind at creation (#665).
     setPolicy('component_creation', 'requires_approval');
-    const proposal = await proposeWrite(ctx, {
+    await expect(proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [{
         kind: 'saved-query',
@@ -246,8 +247,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       }],
       note: 'unwired kind',
       proposedBy: 'unit-test',
-    });
-    await expect(approveProposal(ctx, proposal!.uri))
-      .rejects.toThrow(/not yet wired/);
+    })).rejects.toThrow(/no apply dispatcher/);
   });
 });

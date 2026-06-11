@@ -177,6 +177,31 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
   return r.results.length > 0;
 }
 
+/** Payload kinds that `dispatchApply` actually knows how to apply. Keep in
+ *  sync with the `switch` in dispatchApply — the `source` / `saved-query`
+ *  kinds are defined on the type but not yet wired to a dispatcher. */
+const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt']);
+
+/**
+ * Reject a bundle containing a payload kind that has no apply dispatcher (#665).
+ * Without this, an un-wired kind (`source` / `saved-query`) could be filed as a
+ * pending proposal and only blow up — with NotImplementedError — when the user
+ * clicks Approve. Fail fast at creation instead, so a skill emitting an
+ * unsupported kind surfaces the bug immediately rather than at the user's
+ * approve click.
+ */
+function assertWiredPayloads(payloads: ProposalPayload[]): void {
+  for (const p of payloads) {
+    if (!WIRED_PAYLOAD_KINDS.has(p.kind)) {
+      throw new Error(
+        `proposeWrite: payload kind "${p.kind}" has no apply dispatcher yet — ` +
+        `filing this proposal would fail at approval time. ` +
+        `Wired kinds: ${[...WIRED_PAYLOAD_KINDS].join(', ')}.`,
+      );
+    }
+  }
+}
+
 /**
  * Submit a proposed bundle. Based on the operation's approval tier:
  * - requires_approval: persists a pending Proposal, returns it.
@@ -185,6 +210,7 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
  * - autonomous: applies the bundle immediately, no proposal record.
  */
 export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal | null> {
+  assertWiredPayloads(write.payloads);
   let tier = getApprovalTier(write.operationType);
   const now = new Date().toISOString();
   const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * 86400000).toISOString();

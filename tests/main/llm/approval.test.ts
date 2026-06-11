@@ -246,3 +246,125 @@ describe('established-node escalation (#656)', () => {
     expect(await statusOf(proposal!.uri)).toEqual(['pending']);
   });
 });
+
+describe('payload-kind validation at proposeWrite time (#665)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-payload-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    resetPolicy();
+  });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  it('rejects a saved-query payload at creation (would throw at apply otherwise)', async () => {
+    await expect(proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [{
+        kind: 'saved-query',
+        scope: 'project',
+        name: 'watch',
+        description: 'd',
+        query: 'SELECT * WHERE { ?s ?p ?o }',
+        language: 'sparql',
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    })).rejects.toThrow(/saved-query.*no apply dispatcher/);
+  });
+
+  it('rejects a source payload at creation', async () => {
+    await expect(proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [{ kind: 'source', sourceId: 's1', metaTtl: '' }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    })).rejects.toThrow(/source.*no apply dispatcher/);
+  });
+
+  it('rejects when an un-wired kind is mixed into an otherwise-valid bundle', async () => {
+    await expect(proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [
+        { kind: 'graph-triples', turtle: '<https://ex.example/z> a <https://ex.example/Claim> .', affectsNodeUris: ['https://ex.example/z'] },
+        { kind: 'saved-query', scope: 'global', name: 'w', description: 'd', query: 'x', language: 'sql' },
+      ],
+      note: 'test',
+      proposedBy: 'unit-test',
+    })).rejects.toThrow(/no apply dispatcher/);
+  });
+
+  it('accepts the wired kinds (graph-triples)', async () => {
+    const p = await proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [{ kind: 'graph-triples', turtle: '<https://ex.example/ok> a <https://ex.example/Claim> .', affectsNodeUris: ['https://ex.example/ok'] }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    });
+    expect(p).not.toBeNull();
+  });
+});
+
+describe('tier store effects (#666)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+  const TAG = 'https://minerva.dev/ontology#tag';
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-tier-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    resetPolicy();
+  });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  /** Number of `<node> <TAG> ?o` triples currently in the store. */
+  async function tagCount(node: string): Promise<number> {
+    const r = await queryGraph(ctx, `SELECT ?o WHERE { <${node}> <${TAG}> ?o . }`);
+    return r.results.length;
+  }
+
+  function write(op: OperationType, node: string) {
+    return {
+      operationType: op,
+      payloads: [{ kind: 'graph-triples' as const, turtle: `<${node}> <${TAG}> "x" .`, affectsNodeUris: [node] }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    };
+  }
+
+  it('autonomous: the write lands in the store immediately, with no proposal record', async () => {
+    const node = 'https://ex.example/auto';
+    const proposal = await proposeWrite(ctx, write('tag_addition', node));
+    expect(proposal).toBeNull();
+    expect(await tagCount(node)).toBe(1);
+  });
+
+  it('notify_only: the write lands immediately AND an approved proposal is recorded', async () => {
+    const node = 'https://ex.example/notify';
+    const proposal = await proposeWrite(ctx, write('confidence_update', node));
+    expect(proposal).not.toBeNull();
+    expect(await tagCount(node)).toBe(1); // applied immediately
+    const r = await queryGraph(ctx, `SELECT ?s WHERE { <${proposal!.uri}> thought:proposalStatus ?s . }`);
+    expect((r.results as Array<{ s: string }>)[0].s).toBe('https://minerva.dev/ontology/thought#approved');
+  });
+
+  it('requires_approval: the write is ABSENT until approved, then present', async () => {
+    const node = 'https://ex.example/gated';
+    const proposal = await proposeWrite(ctx, write('new_claim', node));
+    expect(proposal).not.toBeNull();
+    expect(await tagCount(node)).toBe(0); // not applied yet
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect(await tagCount(node)).toBe(1); // applied on approval
+  });
+
+  it('requires_approval rejected: the write never lands', async () => {
+    const node = 'https://ex.example/rejected';
+    const proposal = await proposeWrite(ctx, write('new_claim', node));
+    expect(await tagCount(node)).toBe(0);
+    expect(await rejectProposal(ctx, proposal!.uri)).toBe(true);
+    expect(await tagCount(node)).toBe(0); // still absent
+  });
+});
