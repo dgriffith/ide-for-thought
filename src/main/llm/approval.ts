@@ -2,6 +2,7 @@ import * as $rdf from 'rdflib';
 import * as graph from '../graph/index';
 import * as notebaseFs from '../notebase/fs';
 import type { ProjectContext } from '../project-context-types';
+import { escapeTurtleLiteral } from './turtle';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -605,12 +606,12 @@ async function writeProposalToGraph(ctx: ProjectContext, p: Proposal): Promise<v
   const turtle = `
     <${p.uri}> a thought:Proposal ;
       thought:proposalStatus thought:${p.status} ;
-      thought:operationType "${escapeTurtle(p.operationType)}" ;
-      thought:proposalNote "${escapeTurtle(p.note)}" ;
-      thought:proposedBy "${escapeTurtle(p.proposedBy)}" ;
+      thought:operationType "${escapeTurtleLiteral(p.operationType)}" ;
+      thought:proposalNote "${escapeTurtleLiteral(p.note)}" ;
+      thought:proposedBy "${escapeTurtleLiteral(p.proposedBy)}" ;
       thought:proposedAt "${p.proposedAt}"^^xsd:dateTime ;
       thought:autoExpires "${p.autoExpires}"^^xsd:dateTime ;
-      thought:payloadJson "${escapeTurtle(payloadJson)}"
+      thought:payloadJson "${escapeTurtleLiteral(payloadJson)}"
       ${affectsNodeTriples}
       ${p.conversationUri ? `; thought:conversationRef <${p.conversationUri}>` : ''} .
   `;
@@ -673,10 +674,6 @@ async function applyTurtle(ctx: ProjectContext, turtle: string): Promise<void> {
     graph.exitTrustedContext();
   }
   await graph.persistGraph(ctx);
-}
-
-function escapeTurtle(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
 /**
