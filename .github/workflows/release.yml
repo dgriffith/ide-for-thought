@@ -1,0 +1,85 @@
+# Release pipeline for Minerva (#660).
+#
+# Builds the macOS distributables (DMG + ZIP) via electron-forge make and
+# publishes them. Two triggers:
+#   - push a `v*` tag  → build + attach to a DRAFT GitHub Release for review
+#   - workflow_dispatch → build + upload artifacts only (test the make path
+#     without cutting a release)
+#
+# This closes the two gaps from build review B-H1: the `make` path was never
+# exercised by CI (a maker regression stayed invisible until release day), and
+# there was no tag→downloadable-build flow.
+#
+# NOTE: builds are currently UNSIGNED + un-notarized — Gatekeeper will quarantine
+# them on other Macs. Code signing + notarization is #661 (blocked on Apple
+# Developer Program enrollment); it layers onto this pipeline once a Developer ID
+# certificate exists.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# The release job needs to create a Release and upload assets.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      # electron-forge package OOMs on the default heap when bundling the
+      # renderer + native deps — match build:e2e (#373).
+      NODE_OPTIONS: --max-old-space-size=4096
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build distributables (electron-forge make)
+        run: pnpm build
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist-artifacts
+          find out/make -type f \( -name '*.dmg' -o -name '*.zip' \) -exec cp {} dist-artifacts/ \;
+          echo "Collected:"
+          ls -la dist-artifacts
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: minerva-macos-${{ runner.arch }}
+          path: dist-artifacts/*
+          if-no-files-found: error
+
+      # Tag pushes additionally publish a DRAFT release — review the assets,
+      # then hit "Publish" by hand. Flip `draft: false` once the pipeline is
+      # trusted (and signing has landed).
+      - name: Publish draft GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-artifacts/*
+          draft: true
+          generate_release_notes: true
