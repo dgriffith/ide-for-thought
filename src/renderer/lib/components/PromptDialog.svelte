@@ -41,10 +41,10 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="prompt-dialog-title">
     <header class="card-header">
       <div class="eyebrow">Input</div>
-      <h2 class="title">{message}</h2>
+      <h2 class="title" id="prompt-dialog-title">{message}</h2>
     </header>
 
     <div class="body">
@@ -53,6 +53,7 @@
         bind:value
         type="text"
         class="input"
+        aria-labelledby="prompt-dialog-title"
         list={suggestions.length > 0 ? listId : undefined}
         autocomplete="off"
       />
