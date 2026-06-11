@@ -157,6 +157,27 @@ function collectAffectsNodes(ctx: ProjectContext, payloads: ProposalPayload[]): 
 }
 
 /**
+ * The Trust Principle's established-node escalation (#656): a write that
+ * touches any human-vetted (`thought:hasStatus thought:established`) node
+ * escalates to `requires_approval` regardless of its operation type — so the
+ * LLM can't silently re-tag, flag, or otherwise mutate an established claim
+ * via an `autonomous`/`notify_only` op. Returns true if any of `uris` is
+ * established.
+ */
+async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<boolean> {
+  if (uris.length === 0) return false;
+  const values = uris.map((u) => `<${u}>`).join(' ');
+  const r = await graph.queryGraph(ctx, `
+    PREFIX thought: <${THOUGHT}>
+    SELECT ?n WHERE {
+      VALUES ?n { ${values} }
+      ?n thought:hasStatus thought:established .
+    } LIMIT 1
+  `);
+  return r.results.length > 0;
+}
+
+/**
  * Submit a proposed bundle. Based on the operation's approval tier:
  * - requires_approval: persists a pending Proposal, returns it.
  * - notify_only: applies the bundle immediately, persists an approved
@@ -164,9 +185,19 @@ function collectAffectsNodes(ctx: ProjectContext, payloads: ProposalPayload[]): 
  * - autonomous: applies the bundle immediately, no proposal record.
  */
 export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal | null> {
-  const tier = getApprovalTier(write.operationType);
+  let tier = getApprovalTier(write.operationType);
   const now = new Date().toISOString();
   const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * 86400000).toISOString();
+
+  // Established-node escalation (#656). Computed before the tier dispatch so it
+  // can pull an autonomous/notify_only write up to requires_approval when it
+  // touches a human-vetted node — the Trust Principle invariant CLAUDE.md
+  // documents. Collected here (not after the autonomous return) so the check
+  // covers autonomous ops too.
+  const affectsNodeUris = collectAffectsNodes(ctx, write.payloads);
+  if (tier !== 'requires_approval' && await anyNodeEstablished(ctx, affectsNodeUris)) {
+    tier = 'requires_approval';
+  }
 
   if (tier === 'autonomous') {
     await applyBundle(ctx, write.payloads);
@@ -174,7 +205,6 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   }
 
   const uri = proposalUri();
-  const affectsNodeUris = collectAffectsNodes(ctx, write.payloads);
   const proposal: Proposal = {
     uri,
     status: tier === 'notify_only' ? 'approved' : 'pending',
