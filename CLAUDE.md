@@ -11,6 +11,11 @@ Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. I
 - `pnpm test` — Run tests once (vitest run). Use `pnpm test:watch` for the file-watcher loop.
 - `pnpm build` — Build distributable (electron-forge make)
 
+A **pre-push hook** (`.githooks/pre-push`, activated by the `prepare` script's
+`core.hooksPath` on `pnpm install`) runs `pnpm lint` before each push so an
+obvious failure is caught locally instead of in CI (#690). Bypass a single push
+with `git push --no-verify` (or `SKIP_HOOKS=1 git push`).
+
 ## Architecture
 
 Three-process Electron app with strict context isolation:
