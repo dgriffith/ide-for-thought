@@ -33,6 +33,7 @@
   import { insertCitationMarker } from '../conversations/cite-from-conversation';
   import { type CiteStatus } from '../conversations/citations';
   import MessageCitations from './MessageCitations.svelte';
+  import DraftCard from './DraftCard.svelte';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, filterSlashCommands } from '../conversations/slash-commands';
 
@@ -738,11 +739,13 @@
         {/snippet}
 
         {#snippet noteDraftCard(draft: ConversationDraft)}
-          <div class="draft-card">
-            <div class="draft-summary">
-              <strong>{draft.payloads.length} note{draft.payloads.length === 1 ? '' : 's'}</strong>
-              <span class="draft-note">{draft.note}</span>
-            </div>
+          <DraftCard
+            headline={`${draft.payloads.length} note${draft.payloads.length === 1 ? '' : 's'}`}
+            note={draft.note}
+            approveLabel="Approve & file"
+            onApprove={() => handleApprove(tab.id, draft)}
+            onDiscard={() => handleDiscard(tab.id, draft.draftId)}
+          >
             <ul class="draft-paths">
               {#each draft.payloads as p}
                 {@const key = draft.draftId + ':' + p.relativePath}
@@ -757,19 +760,17 @@
                 </li>
               {/each}
             </ul>
-            <div class="draft-actions">
-              <button type="button" class="draft-btn primary" onclick={() => handleApprove(tab.id, draft)}>Approve &amp; file</button>
-              <button type="button" class="draft-btn" onclick={() => handleDiscard(tab.id, draft.draftId)}>Discard</button>
-            </div>
-          </div>
+          </DraftCard>
         {/snippet}
 
         {#snippet sourceDraftCardBlock(draft: ConversationSourceDraft)}
-          <div class="draft-card">
-            <div class="draft-summary">
-              <strong>📚 {draft.sources.length} source{draft.sources.length === 1 ? '' : 's'}</strong>
-              <span class="draft-note">{draft.note}</span>
-            </div>
+          <DraftCard
+            headline={`📚 ${draft.sources.length} source${draft.sources.length === 1 ? '' : 's'}`}
+            note={draft.note}
+            approveLabel="Approve & ingest"
+            onApprove={() => handleApproveSource(tab.id, draft)}
+            onDiscard={() => handleDiscardSource(tab.id, draft.draftId)}
+          >
             <ul class="source-list">
               {#each draft.sources as s, si (si)}
                 <li>
@@ -778,11 +779,7 @@
                 </li>
               {/each}
             </ul>
-            <div class="draft-actions">
-              <button type="button" class="draft-btn primary" onclick={() => handleApproveSource(tab.id, draft)}>Approve &amp; ingest</button>
-              <button type="button" class="draft-btn" onclick={() => handleDiscardSource(tab.id, draft.draftId)}>Discard</button>
-            </div>
-          </div>
+          </DraftCard>
         {/snippet}
 
         {#snippet sourceResultLine(_draftId: string, outcomes: SourceIngestOutcome[])}
@@ -841,11 +838,13 @@
                instead of a flat list. Each value renders with its key
                so the user can eyeball the diff without clicking
                through to the file. -->
-          <div class="draft-card">
-            <div class="draft-summary">
-              <strong>🔑 {draft.updates.length} note{draft.updates.length === 1 ? '' : 's'}</strong>
-              <span class="draft-note">{draft.note}</span>
-            </div>
+          <DraftCard
+            headline={`🔑 ${draft.updates.length} note${draft.updates.length === 1 ? '' : 's'}`}
+            note={draft.note}
+            approveLabel="Approve & apply"
+            onApprove={() => handleApproveProperty(tab.id, draft)}
+            onDiscard={() => handleDiscardProperty(tab.id, draft.draftId)}
+          >
             <ul class="property-update-list">
               {#each draft.updates as u, ui (ui)}
                 <li class="property-update">
@@ -861,22 +860,20 @@
                 </li>
               {/each}
             </ul>
-            <div class="draft-actions">
-              <button type="button" class="draft-btn primary" onclick={() => handleApproveProperty(tab.id, draft)}>Approve &amp; apply</button>
-              <button type="button" class="draft-btn" onclick={() => handleDiscardProperty(tab.id, draft.draftId)}>Discard</button>
-            </div>
-          </div>
+          </DraftCard>
         {/snippet}
 
         {#snippet sourcePropertyDraftCardBlock(draft: ConversationSourcePropertyDraft)}
           <!-- propose_source_properties review card (#103). Shows the proposed
                abstract / TL;DR for one source; Approve upserts dc:abstract /
                thought:tldr into its meta.ttl. -->
-          <div class="draft-card">
-            <div class="draft-summary">
-              <strong>📄 Source summary</strong>
-              <span class="draft-note">{draft.note}</span>
-            </div>
+          <DraftCard
+            headline="📄 Source summary"
+            note={draft.note}
+            approveLabel="Approve & apply"
+            onApprove={() => handleApproveSourceProperty(tab.id, draft)}
+            onDiscard={() => handleDiscardSourceProperty(tab.id, draft.draftId)}
+          >
             <div class="property-update-path">{draft.sourceId}</div>
             {#if draft.abstract}
               <div class="source-prop-block">
@@ -890,11 +887,7 @@
                 <div class="source-prop-text">{draft.tldr}</div>
               </div>
             {/if}
-            <div class="draft-actions">
-              <button type="button" class="draft-btn primary" onclick={() => handleApproveSourceProperty(tab.id, draft)}>Approve &amp; apply</button>
-              <button type="button" class="draft-btn" onclick={() => handleDiscardSourceProperty(tab.id, draft.draftId)}>Discard</button>
-            </div>
-          </div>
+          </DraftCard>
         {/snippet}
 
         {#snippet sourcePropertyResultLine(_draftId: string, outcome: SourcePropertyOutcome)}
@@ -914,11 +907,13 @@
           <!-- propose_claims review card (#104). Each claim shows its kind,
                confidence, and the supporting quote; Approve files claim notes +
                excerpt nodes through the approval engine. -->
-          <div class="draft-card">
-            <div class="draft-summary">
-              <strong>🧩 {draft.claims.length} claim{draft.claims.length === 1 ? '' : 's'}</strong>
-              <span class="draft-note">{draft.note}</span>
-            </div>
+          <DraftCard
+            headline={`🧩 ${draft.claims.length} claim${draft.claims.length === 1 ? '' : 's'}`}
+            note={draft.note}
+            approveLabel="Approve & file"
+            onApprove={() => handleApproveClaims(tab.id, draft)}
+            onDiscard={() => handleDiscardClaims(tab.id, draft.draftId)}
+          >
             <ul class="claims-list">
               {#each draft.claims as c, ci (ci)}
                 <li class="claim-item">
@@ -932,11 +927,7 @@
                 </li>
               {/each}
             </ul>
-            <div class="draft-actions">
-              <button type="button" class="draft-btn primary" onclick={() => handleApproveClaims(tab.id, draft)}>Approve &amp; file</button>
-              <button type="button" class="draft-btn" onclick={() => handleDiscardClaims(tab.id, draft.draftId)}>Discard</button>
-            </div>
-          </div>
+          </DraftCard>
         {/snippet}
 
         {#snippet claimsResultLine(_draftId: string, outcome: ClaimsOutcome)}
@@ -1633,6 +1624,10 @@
   /* Proposal / draft card (§9.2) — accent-tinted bordered card so a
      proposal pops out of the message stream as something the user is
      about to decide on. Uses oklch color-mix so it tracks palette swaps. */
+  /* The five simple draft cards now render via DraftCard.svelte (which carries
+     its own copy of this chrome). These rules remain only for the still-inline
+     compute card (.draft-card.compute-card + its .draft-note / .draft-actions /
+     .draft-btn); they go away when the compute card is extracted too. */
   .draft-card {
     border: 1px solid color-mix(in oklch, var(--accent) 28%, transparent);
     border-radius: 8px;
@@ -1642,7 +1637,6 @@
     flex-direction: column;
     gap: 8px;
   }
-  .draft-summary { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .draft-note { color: var(--text-muted); font-size: 12px; }
   .draft-paths { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
   .draft-path-btn {
