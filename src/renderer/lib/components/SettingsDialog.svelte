@@ -44,6 +44,7 @@
   import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
+  import BibliographySettings from './BibliographySettings.svelte';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -226,88 +227,8 @@
     }
   }
 
-  // Bibliography style (per-project, persisted in .minerva/config.json).
-  let bibliographyStyles = $state<{ id: string; label: string; isUser?: boolean }[]>([]);
-  let bibliographyStyleId = $state('apa');
-  // User-imported CSL assets (#302) — project-scoped under .minerva/.
-  let userStyles = $state<{ id: string; label: string; filePath: string }[]>([]);
-  let userLocales = $state<{ id: string; filePath: string }[]>([]);
-  let cslImportError = $state<string | null>(null);
-  let cslImporting = $state(false);
-
-  async function loadBibliographySettings(): Promise<void> {
-    try {
-      const [styles, current, uStyles, uLocales] = await Promise.all([
-        api.bibliography.listStyles(),
-        api.bibliography.getStyle(),
-        api.csl.listUserStyles(),
-        api.csl.listUserLocales(),
-      ]);
-      bibliographyStyles = styles;
-      bibliographyStyleId = current;
-      userStyles = uStyles;
-      userLocales = uLocales;
-    } catch (e) {
-      console.error('[settings] failed to load bibliography settings:', e);
-    }
-  }
-
-  async function setBibliographyStyle(next: string): Promise<void> {
-    bibliographyStyleId = next;
-    try {
-      await api.bibliography.setStyle(next);
-    } catch (e) {
-      console.error('[settings] failed to save bibliography style:', e);
-    }
-  }
-
-  async function importUserStyle(): Promise<void> {
-    cslImportError = null;
-    cslImporting = true;
-    try {
-      const result = await api.csl.importStyle();
-      if (result) await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    } finally {
-      cslImporting = false;
-    }
-  }
-
-  async function importUserLocale(): Promise<void> {
-    cslImportError = null;
-    cslImporting = true;
-    try {
-      const result = await api.csl.importLocale();
-      if (result) await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    } finally {
-      cslImporting = false;
-    }
-  }
-
-  // Skills (#629, menu config #630) now live in SkillsSettings.svelte.
-
-  async function removeUserStyle(id: string): Promise<void> {
-    cslImportError = null;
-    try {
-      await api.csl.removeStyle(id);
-      await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    }
-  }
-
-  async function removeUserLocale(id: string): Promise<void> {
-    cslImportError = null;
-    try {
-      await api.csl.removeLocale(id);
-      await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    }
-  }
+  // Bibliography (#302) + Skills (#629) now live in their own panel components
+  // (BibliographySettings.svelte / SkillsSettings.svelte).
 
   // Web + AI settings (async-loaded from main process)
   let webEnabled = $state(true);
@@ -342,7 +263,6 @@
     } catch (e) {
       console.error('[settings] failed to load LLM settings:', e);
     }
-    await loadBibliographySettings();
     await loadExcerptSettings();
     try {
       const ingest = await api.sources.getIngestSettings();
@@ -807,90 +727,7 @@
           <SitesSettings />
 
         {:else if activeTab === 'bibliography'}
-          <div class="field">
-            <label for="csl-style">Citation style</label>
-            <select
-              id="csl-style"
-              value={bibliographyStyleId}
-              onchange={(e) => { void setBibliographyStyle(e.currentTarget.value); }}
-            >
-              {#each bibliographyStyles as style (style.id)}
-                <option value={style.id}>
-                  {style.label}{style.isUser ? ' (imported)' : ''}
-                </option>
-              {/each}
-            </select>
-            <p class="hint">
-              Used by Refactor → Insert/Update Bibliography. Stored per-project
-              in <code>.minerva/config.json</code>, so different thoughtbases can
-              follow different style guides.
-            </p>
-          </div>
-
-          <div class="field">
-            <label>Imported styles</label>
-            <p class="hint">
-              Drop additional <code>.csl</code> files into your project under
-              <code>.minerva/csl-styles/</code> — they show up in the picker above and
-              in the Export dialog. The Zotero Style Repository at
-              <code>zotero.org/styles</code> publishes 10,000+ open styles.
-            </p>
-            {#if userStyles.length === 0}
-              <p class="hint empty">No imported styles yet.</p>
-            {:else}
-              <ul class="csl-list">
-                {#each userStyles as s (s.id)}
-                  <li>
-                    <span class="csl-label">{s.label}</span>
-                    <span class="csl-id">{s.id}</span>
-                    <button class="link-btn" onclick={() => { void removeUserStyle(s.id); }}>
-                      Remove
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            <button
-              class="action-btn"
-              onclick={() => { void importUserStyle(); }}
-              disabled={cslImporting}
-            >
-              Import .csl style…
-            </button>
-          </div>
-
-          <div class="field">
-            <label>Imported locales</label>
-            <p class="hint">
-              Optional. Bundled locale is en-US; import additional CSL
-              locale XML to render bibliographies in another language.
-            </p>
-            {#if userLocales.length === 0}
-              <p class="hint empty">No imported locales yet.</p>
-            {:else}
-              <ul class="csl-list">
-                {#each userLocales as l (l.id)}
-                  <li>
-                    <span class="csl-label">{l.id}</span>
-                    <button class="link-btn" onclick={() => { void removeUserLocale(l.id); }}>
-                      Remove
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            <button
-              class="action-btn"
-              onclick={() => { void importUserLocale(); }}
-              disabled={cslImporting}
-            >
-              Import locale .xml…
-            </button>
-          </div>
-
-          {#if cslImportError}
-            <div class="csl-error">{cslImportError}</div>
-          {/if}
+          <BibliographySettings />
 
         {:else if activeTab === 'skills'}
           <SkillsSettings />
@@ -1392,46 +1229,6 @@
     margin: 0 0 16px 0;
   }
 
-  /* User-imported CSL assets list (#302). Mirrors the privileged-sites
-     style — each row shows a label, id, and a Remove action. */
-  .csl-list {
-    list-style: none;
-    margin: 0 0 8px 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .csl-list li {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-button);
-    font-size: 12px;
-  }
-  .csl-list .csl-label {
-    flex: 1;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .csl-list .csl-id {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .csl-list .link-btn {
-    align-self: auto;
-    margin-top: 0;
-  }
-  .hint.empty {
-    font-style: italic;
-    margin: 0 0 8px 0;
-  }
   .action-btn {
     align-self: flex-start;
     padding: 4px 12px;
@@ -1448,16 +1245,6 @@
   .action-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-  .csl-error {
-    margin-top: 8px;
-    padding: 6px 10px;
-    border-left: 3px solid var(--accent);
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    white-space: pre-wrap;
   }
 
   .section-intro code {
