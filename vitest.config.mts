@@ -1,7 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { svelteTesting } from '@testing-library/svelte/vite';
-import { sharedAlias } from './vite.shared';
 
 export default defineConfig({
   // Svelte + testing-library plugins let vitest transform `.svelte`
@@ -18,9 +17,6 @@ export default defineConfig({
     }),
     svelteTesting(),
   ],
-  resolve: {
-    alias: sharedAlias,
-  },
   test: {
     include: ['tests/**/*.test.ts'],
     coverage: {
