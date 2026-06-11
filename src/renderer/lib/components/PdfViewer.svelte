@@ -18,6 +18,12 @@
   import type { SourceExcerpt } from '../../../shared/types';
   import { getEditorStore } from '../stores/editor.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import {
+    MIN_SCALE, MAX_SCALE, DEFAULT_SCALE,
+    zoomInScale, zoomOutScale,
+    itemPosition, findExcerptRects,
+    type TextLayerItem,
+  } from '../pdf/text-layer';
   // Worker URL has to be a *static* import — Vite's `?url` suffix is
   // resolved at build time. Inside `await import(...)` it falls
   // through to a regular ES module load and `.default` is undefined,
@@ -56,10 +62,7 @@
 
   let page = $state(initialPage);
   let numPages = $state(0);
-  let scale = $state(1.2);
-  const MIN_SCALE = 0.5;
-  const MAX_SCALE = 3.0;
-  const SCALE_STEP = 0.15;
+  let scale = $state(DEFAULT_SCALE);
 
   let canvasEl = $state<HTMLCanvasElement>();
   let textLayerEl = $state<HTMLDivElement>();
@@ -199,24 +202,6 @@
     }
   }
 
-  function itemPosition(
-    item: { transform: number[]; width: number; height: number },
-    viewport: { width: number; height: number; transform: number[] },
-  ): { left: number; top: number; fontSize: number } {
-    // pdfjs page coordinates have origin at bottom-left; viewport
-    // transform flips Y and applies the user scale. Compose item's
-    // text matrix with the viewport transform to land in CSS pixels.
-    const t = item.transform;
-    const v = viewport.transform;
-    // Affine compose: out = v ∘ t
-    const a = v[0] * t[0] + v[2] * t[1];
-    const b = v[1] * t[0] + v[3] * t[1];
-    const e = v[0] * t[4] + v[2] * t[5] + v[4];
-    const f = v[1] * t[4] + v[3] * t[5] + v[5];
-    const fontSize = Math.hypot(a, b);
-    return { left: e, top: f - fontSize, fontSize };
-  }
-
   // ── Excerpt highlight overlay ─────────────────────────────────────────────
 
   function paintExcerptHighlights(
@@ -228,77 +213,24 @@
     highlightLayerEl.style.height = `${viewport.height}px`;
     highlightLayerEl.replaceChildren();
 
-    // Build a flat string of the page text plus a parallel
-    // index-of-each-character → text-item map so we can map a match
-    // range back to spans and their bounding boxes.
-    const pageText: string[] = [];
-    const charToItem: number[] = [];
-    text.items.forEach((it, idx) => {
-      if (!('str' in it)) return;
-      const s = (it as TextItem & { str: string }).str;
-      for (const ch of s) {
-        pageText.push(ch);
-        charToItem.push(idx);
-      }
-      // Trailing space to keep word boundaries when items are
-      // adjacent without intervening whitespace.
-      pageText.push(' ');
-      charToItem.push(idx);
-    });
-    const haystack = pageText.join('');
-    const haystackNorm = normalizeForMatch(haystack);
-
-    for (const e of excerpts) {
-      // Page constraint: if the excerpt knows its page, skip when
-      // it's not the current one. No page hint → still try matching.
-      // `page` from SourceExcerpt is the TTL-serialised string form;
-      // an int compare needs a parse first.
-      if (e.page != null) {
-        const ep = parseInt(e.page, 10);
-        if (Number.isFinite(ep) && ep !== page) continue;
-      }
-      if (!e.citedText) continue;
-      const needle = normalizeForMatch(e.citedText);
-      if (!needle) continue;
-      const start = haystackNorm.indexOf(needle);
-      if (start < 0) continue;
-      const end = start + needle.length;
-
-      // Resolve back to the set of text-content items the match spans
-      // and compute their union bounding box. itemRects gives us each
-      // contributing item's box; for a single-item match this is one
-      // rectangle, for multi-line we get a stacked set.
-      const itemSet = new Set<number>();
-      for (let i = start; i < end && i < charToItem.length; i++) {
-        itemSet.add(charToItem[i]);
-      }
-      for (const idx of itemSet) {
-        const it = text.items[idx] as TextItem & { transform: number[]; width: number; height: number };
-        if (!('str' in it)) continue;
-        const { left, top, fontSize } = itemPosition(it, viewport);
-        const width = it.width * scale;
-        const hl = document.createElement('div');
-        hl.className = 'pdf-excerpt-hl';
-        hl.style.left = `${left}px`;
-        hl.style.top = `${top}px`;
-        hl.style.width = `${width}px`;
-        hl.style.height = `${fontSize * 1.15}px`;
-        hl.title = `Excerpt ${e.excerptId}`;
-        highlightLayerEl.appendChild(hl);
-      }
+    // Matching + geometry is pure (text-layer.ts); paint the resulting rects.
+    const rects = findExcerptRects(
+      text.items as unknown as TextLayerItem[],
+      excerpts,
+      viewport,
+      scale,
+      page,
+    );
+    for (const r of rects) {
+      const hl = document.createElement('div');
+      hl.className = 'pdf-excerpt-hl';
+      hl.style.left = `${r.left}px`;
+      hl.style.top = `${r.top}px`;
+      hl.style.width = `${r.width}px`;
+      hl.style.height = `${r.height}px`;
+      hl.title = `Excerpt ${r.excerptId}`;
+      highlightLayerEl.appendChild(hl);
     }
-  }
-
-  /** Normalize whitespace + zero-width chars so the search is robust
-   *  against PDF's hyphenation / soft-line-break noise. Soft hyphen
-   *  (U+00AD), zero-width space (U+200B), zero-width non-joiner
-   *  (U+200C) get stripped — they're invisible noise that PDFs love. */
-  function normalizeForMatch(s: string): string {
-    return s
-      .replace(/\s+/g, ' ')
-      .replace(/[\u00AD\u200B\u200C]/g, '')
-      .trim()
-      .toLowerCase();
   }
 
   // ── Selection → Save as Excerpt ───────────────────────────────────────────
@@ -339,9 +271,9 @@
 
   function prevPage(): void { if (page > 1) page--; }
   function nextPage(): void { if (page < numPages) page++; }
-  function zoomIn(): void { scale = Math.min(MAX_SCALE, +(scale + SCALE_STEP).toFixed(2)); }
-  function zoomOut(): void { scale = Math.max(MIN_SCALE, +(scale - SCALE_STEP).toFixed(2)); }
-  function zoomReset(): void { scale = 1.2; }
+  function zoomIn(): void { scale = zoomInScale(scale); }
+  function zoomOut(): void { scale = zoomOutScale(scale); }
+  function zoomReset(): void { scale = DEFAULT_SCALE; }
 
   function handleKey(e: KeyboardEvent): void {
     // Ignore when typing into a text field — page jump input belongs to itself.
