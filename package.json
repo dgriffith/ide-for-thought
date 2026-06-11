@@ -16,7 +16,7 @@
     "lint:eslint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
+    "coverage": "vitest run --coverage --test-timeout=30000",
     "build:e2e": "NODE_OPTIONS=--max-old-space-size=4096 electron-forge package",
     "test:e2e": "pnpm build:e2e && playwright test"
   },

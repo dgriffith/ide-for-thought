@@ -1,7 +1,7 @@
 # CI for Minerva (#340 + #394).
 #
 # Two jobs run in parallel:
-#   - lint-and-test: tsc + svelte-check + eslint + vitest
+#   - lint-and-test: tsc + svelte-check + eslint + vitest (with coverage floors)
 #   - e2e: electron-forge package + Playwright Electron smoke
 #
 # Both on macos-latest: matches the dev machine, and the chokidar
@@ -62,8 +62,23 @@ jobs:
       - name: Lint (tsc + svelte-check + eslint)
         run: pnpm lint
 
-      - name: Test
-        run: pnpm test
+      # `pnpm coverage` runs the full suite with v8 instrumentation and enforces
+      # the per-area thresholds in vitest.config (src/shared, src/main/llm,
+      # src/main/notebase) — so the trust + security paths can't silently
+      # regress (#679). The citeproc publish suites carry per-test timeouts
+      # (#677) that absorb the instrumentation slowdown.
+      - name: Test + coverage
+        run: pnpm coverage
+
+      # Trend-tracking only — the floors above are the gate. Non-fatal so CI
+      # isn't blocked before the repo is enrolled on Codecov / CODECOV_TOKEN is
+      # set; activates automatically once it is.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e:
     # Runs in parallel with lint-and-test. Stays out of the unit loop

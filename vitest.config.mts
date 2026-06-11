@@ -41,15 +41,30 @@ export default defineConfig({
         // Ontology turtle blobs aren't code.
         '**/*.ttl',
       ],
-      // Soft floor: src/shared/ should already comfortably exceed this
-      // (pure logic, well-tested). The point isn't a CI gate elsewhere
-      // until we've looked at the numbers (#353) — src/main/llm/ at
-      // ~15% is the real gap and now has dedicated coverage from #342.
+      // Floors per area (#679). Set below the current numbers with headroom
+      // so a small refactor won't flap CI, but a real regression on the trust
+      // (llm) and security (notebase) paths fails. Measured at floor-time:
+      // shared ~? , llm ~65% lines / 46% branch, notebase ~89% lines. CI runs
+      // `pnpm coverage`, so these gate on every PR.
       thresholds: {
         'src/shared/**': {
           lines: 70,
           functions: 70,
           statements: 70,
+        },
+        // Trust path — proposals, approval gate, tool dispatch, turtle.
+        'src/main/llm/**': {
+          lines: 55,
+          functions: 58,
+          statements: 55,
+          branches: 38,
+        },
+        // Security path — fs sandbox, write pipeline, rename/merge link rewrites.
+        'src/main/notebase/**': {
+          lines: 80,
+          functions: 78,
+          statements: 78,
+          branches: 65,
         },
       },
     },
