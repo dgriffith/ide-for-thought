@@ -38,13 +38,11 @@
   } from '../../../shared/formatter/registry';
   import '../../../shared/formatter/rules/index';
   import type { FormatSettings } from '../../../shared/formatter/engine';
-  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
-  import { getAllToolInfos } from '../tools/tool-registry';
-  import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
   import BibliographySettings from './BibliographySettings.svelte';
+  import AiSettings from './AiSettings.svelte';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -244,7 +242,6 @@
   // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
   let loadedLlm: LLMSettings | null = null;
   let toolModelOverrides = $state<Record<string, string>>({});
-  const allTools: ThinkingToolInfo[] = getAllToolInfos();
 
   // Compute (#374): the Python-interpreter panel now lives in
   // ComputeSettings.svelte (self-contained).
@@ -272,12 +269,6 @@
     }
   });
 
-  function setToolOverride(toolId: string, value: string) {
-    const next = { ...toolModelOverrides };
-    if (value) next[toolId] = value;
-    else delete next[toolId];
-    toolModelOverrides = next;
-  }
 
   function parseDomains(text: string): string[] {
     return text
@@ -753,96 +744,13 @@
           <ComputeSettings />
 
         {:else if activeTab === 'ai'}
-          <div class="field">
-            <label for="model">Default model</label>
-            <select id="model" bind:value={model}>
-              {#each MODEL_OPTIONS as m}
-                <option value={m.value}>{m.label}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="field">
-            <div class="api-key-status" class:saved={apiKeyStatus === 'set' && !clearApiKey}>
-              {#if apiKeyStatus === 'unknown'}
-                Loading…
-              {:else if clearApiKey}
-                API key will be cleared on save
-              {:else if apiKeyStatus === 'set'}
-                ✓ API key saved
-              {:else}
-                No API key set
-              {/if}
-            </div>
-            <label for="api-key">
-              Anthropic API key
-            </label>
-            <input
-              id="api-key"
-              type="password"
-              bind:value={apiKeyInput}
-              placeholder={apiKeyStatus === 'set' ? 'Type to replace existing key' : 'Enter Anthropic API key'}
-              autocomplete="off"
-              spellcheck="false"
-              autocapitalize="off"
-              oncopy={(e) => e.preventDefault()}
-              oncut={(e) => e.preventDefault()}
-              oncontextmenu={(e) => e.preventDefault()}
-              disabled={clearApiKey}
-            />
-            <p class="hint">
-              Keys are stored in your user data directory. The saved value is never displayed back.
-              You can also set <code>ANTHROPIC_API_KEY</code> as an environment variable.
-            </p>
-            {#if apiKeyStatus === 'set' && !clearApiKey}
-              <button class="link-btn" onclick={() => { clearApiKey = true; apiKeyInput = ''; }}>
-                Clear saved key
-              </button>
-            {:else if clearApiKey}
-              <button class="link-btn" onclick={() => { clearApiKey = false; }}>
-                Cancel clear
-              </button>
-            {/if}
-          </div>
-          <div class="field">
-            <label>Tool model overrides</label>
-            <p class="hint">
-              Each tool's author may suggest a preferred model. You can override that
-              per tool. Empty override → use the tool's preference; no preference →
-              fall back to the default model above.
-            </p>
-            {#if allTools.length === 0}
-              <p class="hint">No tools registered.</p>
-            {:else}
-              <table class="tool-models">
-                <thead>
-                  <tr>
-                    <th>Tool</th>
-                    <th>Tool preference</th>
-                    <th>Your override</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each allTools as t}
-                    <tr>
-                      <td>{t.name}</td>
-                      <td class="muted">{t.preferredModel ? modelLabel(t.preferredModel) : '—'}</td>
-                      <td>
-                        <select
-                          value={toolModelOverrides[t.id] ?? ''}
-                          onchange={(e) => setToolOverride(t.id, e.currentTarget.value)}
-                        >
-                          <option value="">Use tool preference</option>
-                          {#each MODEL_OPTIONS as m}
-                            <option value={m.value}>{m.label}</option>
-                          {/each}
-                        </select>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-          </div>
+          <AiSettings
+            bind:model
+            bind:apiKeyInput
+            bind:clearApiKey
+            bind:toolModelOverrides
+            {apiKeyStatus}
+          />
         {/if}
       </section>
     </div>
@@ -1161,65 +1069,6 @@
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-
-  .tool-models {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-  }
-
-  .tool-models th,
-  .tool-models td {
-    text-align: left;
-    padding: 5px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .tool-models th {
-    font-weight: 600;
-    color: var(--text-muted);
-    font-size: 11px;
-  }
-
-  .tool-models td.muted {
-    color: var(--text-muted);
-  }
-
-  .tool-models select {
-    padding: 3px 6px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
-    max-width: 170px;
-  }
-
-  .api-key-status {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .api-key-status.saved {
-    color: var(--accent);
-  }
-
-  .link-btn {
-    align-self: flex-start;
-    margin-top: 4px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 11px;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .link-btn:hover {
-    color: var(--text);
   }
 
   .section-intro {
