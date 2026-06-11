@@ -15,6 +15,7 @@ import {
   onCsvTableCollision,
   type CsvTableCollision,
 } from '../../../src/main/sources/tables';
+import { initGraph, indexAllNotes, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 function mkTempProject(): string {
@@ -351,5 +352,54 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
 
     expect((await runQuery(ctx, `SELECT * FROM measurements`)).ok).toBe(true);
     expect((await runQuery(ctx, `SELECT * FROM readings`)).ok).toBe(false);
+  });
+});
+
+describe('CSV graph views coexist after indexAllNotes resets the store (#337 race fix)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    await initTablesDb(ctx);
+  });
+  afterEach(async () => {
+    disposeProject(ctx);
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('keeps both the file-level csvw:Table and the SQL table schema (minerva:fromFile)', async () => {
+    // indexAllNotes does `state.store = $rdf.graph()` — a full reset — then
+    // rebuilds. registerAllCsvs writes the CSV schema overlay (indexCsvTable) to
+    // that same store. The init path now sequences them so the overlay can never
+    // land in the discarded store; this pins that both graph views survive.
+    await fsp.writeFile(path.join(root, 'stations.csv'), 'id,name\n1,Alpha\n2,Beta\n', 'utf-8');
+
+    await indexAllNotes(ctx);   // resets + rebuilds the store; indexes the file-level view
+    await registerAllCsvs(ctx); // writes the SQL table schema + minerva:fromFile
+
+    // File-level view (indexCsvFile): the file IS a csvw:Table with columns.
+    const fileView = await queryGraph(ctx, `
+      SELECT ?col WHERE {
+        ?t minerva:relativePath "stations.csv" ; a csvw:Table ; csvw:column ?c .
+        ?c csvw:name ?col .
+      } ORDER BY ?col
+    `);
+    expect((fileView.results as Array<{ col: string }>).map((r) => r.col)).toEqual(['id', 'name']);
+
+    // SQL view (indexCsvTable): a typed table linked back to the file. This is
+    // exactly the triple set the race would have orphaned.
+    const sqlView = await queryGraph(ctx, `
+      SELECT ?col WHERE {
+        ?table minerva:fromFile ?file .
+        ?file minerva:relativePath "stations.csv" .
+        ?table csvw:tableSchema ?schema .
+        ?schema csvw:column ?c .
+        ?c csvw:name ?col .
+      } ORDER BY ?col
+    `);
+    expect((sqlView.results as Array<{ col: string }>).map((r) => r.col)).toEqual(['id', 'name']);
   });
 });

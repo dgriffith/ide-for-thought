@@ -222,11 +222,15 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
             const rootPath = getRootPath(win.id);
             if (!rootPath) return;
             const ctx = projectContext(rootPath);
+            // registerAllCsvs writes to the rdflib store that indexAllNotes
+            // resets+rebuilds; sequence it after so its CSV-schema triples can't
+            // land in the discarded store. search is independent (MiniSearch).
+            // Mirrors acquireProject (see project-context.ts).
             await Promise.all([
               graph.indexAllNotes(ctx),
               search.indexAllNotes(ctx),
-              tables.registerAllCsvs(ctx),
             ]);
+            await tables.registerAllCsvs(ctx);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
           },
         }),
