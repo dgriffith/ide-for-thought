@@ -13,7 +13,7 @@ import {
   type OperationType,
   type ApprovalTier,
 } from '../../../src/main/llm/approval';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
+import { initGraph, queryGraph, parseIntoStore } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 describe('approval policy', () => {
@@ -144,4 +144,105 @@ describe('approval tiers cover all default operations', () => {
       expect(getApprovalTier(op)).toBe(tier);
     });
   }
+});
+
+describe('established-node escalation (#656)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  const THOUGHT = 'https://minerva.dev/ontology/thought#';
+  const ESTABLISHED = 'https://ex.example/established-claim';
+  const TENTATIVE = 'https://ex.example/tentative-claim';
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-escalation-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    resetPolicy();
+    // Seed one human-vetted (established) node and one ordinary node.
+    parseIntoStore(ctx, `<${ESTABLISHED}> <${THOUGHT}hasStatus> <${THOUGHT}established> .`);
+    parseIntoStore(ctx, `<${TENTATIVE}> <${THOUGHT}hasStatus> <${THOUGHT}proposed> .`);
+  });
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  async function statusOf(uri: string): Promise<string[]> {
+    const r = await queryGraph(ctx, `SELECT ?s WHERE { <${uri}> thought:proposalStatus ?s . }`);
+    return (r.results as Array<{ s: string }>).map((row) => row.s.replace(THOUGHT, ''));
+  }
+
+  function tagWrite(nodeUri: string) {
+    return {
+      operationType: 'tag_addition' as OperationType,
+      payloads: [{
+        kind: 'graph-triples' as const,
+        turtle: `<${nodeUri}> <https://minerva.dev/ontology#tag> "auto" .`,
+        affectsNodeUris: [nodeUri],
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    };
+  }
+
+  it('an autonomous op on a NON-established node still applies silently (no proposal)', async () => {
+    const proposal = await proposeWrite(ctx, tagWrite(TENTATIVE));
+    expect(proposal).toBeNull();
+  });
+
+  it('escalates an autonomous op on an established node to a pending proposal', async () => {
+    const proposal = await proposeWrite(ctx, tagWrite(ESTABLISHED));
+    expect(proposal).not.toBeNull();
+    expect(await statusOf(proposal!.uri)).toEqual(['pending']);
+    // The write must NOT have been applied — escalation means it awaits approval.
+    const applied = await queryGraph(ctx,
+      `SELECT ?o WHERE { <${ESTABLISHED}> <https://minerva.dev/ontology#tag> ?o . }`);
+    expect(applied.results.length).toBe(0);
+  });
+
+  it('escalates a notify_only op on an established node to pending (not auto-applied)', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'confidence_update',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: `<${ESTABLISHED}> <${THOUGHT}confidenceValue> "0.9" .`,
+        affectsNodeUris: [ESTABLISHED],
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    });
+    expect(proposal).not.toBeNull();
+    expect(await statusOf(proposal!.uri)).toEqual(['pending']);
+  });
+
+  it('a notify_only op on a non-established node stays notify_only (approved + applied)', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'confidence_update',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: `<${TENTATIVE}> <${THOUGHT}confidenceValue> "0.5" .`,
+        affectsNodeUris: [TENTATIVE],
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    });
+    expect(proposal).not.toBeNull();
+    expect(await statusOf(proposal!.uri)).toEqual(['approved']);
+  });
+
+  it('does not escalate a requires_approval op differently (still pending, unaffected)', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'new_claim',
+      payloads: [{
+        kind: 'graph-triples',
+        turtle: `<${ESTABLISHED}> a <https://ex.example/Claim> .`,
+        affectsNodeUris: [ESTABLISHED],
+      }],
+      note: 'test',
+      proposedBy: 'unit-test',
+    });
+    expect(proposal).not.toBeNull();
+    expect(await statusOf(proposal!.uri)).toEqual(['pending']);
+  });
 });
