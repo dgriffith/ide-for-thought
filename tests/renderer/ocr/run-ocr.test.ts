@@ -47,7 +47,9 @@ import { runOcr, type OcrProgress } from '../../../src/renderer/lib/ocr/run-ocr'
 function stubPdf(numPages: number, opts: { onPageRender?: (n: number) => void } = {}) {
   const pageCleanup = vi.fn();
   const docCleanup = vi.fn();
-  const docDestroy = vi.fn();
+  // pdfjs 6: full teardown is `loadingTask.destroy()` (the getDocument() return),
+  // not `doc.destroy()`. The doc proxy only exposes cleanup().
+  const taskDestroy = vi.fn();
   const getPage = vi.fn(async (n: number) => ({
     getViewport: () => ({ width: 100, height: 200 }),
     render: () => ({
@@ -57,12 +59,14 @@ function stubPdf(numPages: number, opts: { onPageRender?: (n: number) => void } 
     }),
     cleanup: pageCleanup,
   }));
+  const doc = { numPages, getPage, cleanup: docCleanup };
   return {
-    doc: { numPages, getPage, cleanup: docCleanup, destroy: docDestroy },
+    doc,
+    loadingTask: { promise: Promise.resolve(doc), destroy: taskDestroy },
     getPage,
     pageCleanup,
     docCleanup,
-    docDestroy,
+    taskDestroy,
   };
 }
 
@@ -83,8 +87,8 @@ afterEach(() => {
 
 describe('runOcr() (#343)', () => {
   it('returns one extracted text per page in order', async () => {
-    const { doc } = stubPdf(3);
-    getDocumentMock.mockReturnValue({ promise: Promise.resolve(doc) });
+    const { loadingTask } = stubPdf(3);
+    getDocumentMock.mockReturnValue(loadingTask);
     recognizeMock
       .mockResolvedValueOnce({ data: { text: 'page-1-text' } })
       .mockResolvedValueOnce({ data: { text: 'page-2-text' } })
@@ -96,8 +100,8 @@ describe('runOcr() (#343)', () => {
   });
 
   it('fires onProgress at start, mid, and end of each page in order', async () => {
-    const { doc } = stubPdf(3);
-    getDocumentMock.mockReturnValue({ promise: Promise.resolve(doc) });
+    const { loadingTask } = stubPdf(3);
+    getDocumentMock.mockReturnValue(loadingTask);
     recognizeMock.mockResolvedValue({ data: { text: 'x' } });
     createWorkerMock.mockResolvedValue({ recognize: recognizeMock, terminate: terminateMock });
 
@@ -118,21 +122,21 @@ describe('runOcr() (#343)', () => {
   });
 
   it('always tears down the worker and the doc, even on error', async () => {
-    const { doc, docCleanup, docDestroy } = stubPdf(1);
-    getDocumentMock.mockReturnValue({ promise: Promise.resolve(doc) });
+    const { loadingTask, docCleanup, taskDestroy } = stubPdf(1);
+    getDocumentMock.mockReturnValue(loadingTask);
     recognizeMock.mockRejectedValueOnce(new Error('tesseract bombed'));
     createWorkerMock.mockResolvedValue({ recognize: recognizeMock, terminate: terminateMock });
 
     await expect(runOcr(new Uint8Array(), () => undefined)).rejects.toThrow('tesseract bombed');
     expect(terminateMock).toHaveBeenCalledTimes(1);
     expect(docCleanup).toHaveBeenCalledTimes(1);
-    expect(docDestroy).toHaveBeenCalledTimes(1);
+    expect(taskDestroy).toHaveBeenCalledTimes(1);
   });
 
   describe('AbortSignal', () => {
     it('rejects with AbortError when aborted before the first page', async () => {
-      const { doc, getPage } = stubPdf(3);
-      getDocumentMock.mockReturnValue({ promise: Promise.resolve(doc) });
+      const { loadingTask, getPage } = stubPdf(3);
+      getDocumentMock.mockReturnValue(loadingTask);
       recognizeMock.mockResolvedValue({ data: { text: 'x' } });
       createWorkerMock.mockResolvedValue({ recognize: recognizeMock, terminate: terminateMock });
 
@@ -152,8 +156,8 @@ describe('runOcr() (#343)', () => {
     it('mid-run abort skips remaining pages and still tears down', async () => {
       // Abort after page 2 finishes — page 3 must never be processed.
       const ctrl = new AbortController();
-      const { doc, getPage, docDestroy } = stubPdf(3);
-      getDocumentMock.mockReturnValue({ promise: Promise.resolve(doc) });
+      const { loadingTask, getPage, taskDestroy } = stubPdf(3);
+      getDocumentMock.mockReturnValue(loadingTask);
       recognizeMock.mockImplementation(async () => {
         // Trigger abort once page 2's recognize resolves; the loop will
         // see the signal at the top of iteration 3.
@@ -171,7 +175,7 @@ describe('runOcr() (#343)', () => {
       expect(getPage).toHaveBeenCalledTimes(2);
       expect(recognizeMock).toHaveBeenCalledTimes(2);
       expect(terminateMock).toHaveBeenCalledTimes(1);
-      expect(docDestroy).toHaveBeenCalledTimes(1);
+      expect(taskDestroy).toHaveBeenCalledTimes(1);
     });
   });
 });
