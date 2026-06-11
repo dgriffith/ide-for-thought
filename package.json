@@ -8,6 +8,7 @@
   "description": "Minerva — an integrated knowledge management environment",
   "main": ".vite/build/main.js",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "electron-forge start",
     "build": "electron-forge make",
     "package": "electron-forge package",
