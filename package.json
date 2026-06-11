@@ -68,6 +68,7 @@
     }
   },
   "devDependencies": {
+    "axe-core": "^4.10.3",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language-data": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.3",

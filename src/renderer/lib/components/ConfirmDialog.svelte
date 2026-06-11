@@ -41,10 +41,10 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
-  <div class="dialog" role="dialog" aria-modal="true">
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
     <header class="card-header">
       <div class="eyebrow">Confirm action</div>
-      <h2 class="title">{message}</h2>
+      <h2 class="title" id="confirm-dialog-title">{message}</h2>
     </header>
 
     {#if !hideDontAskAgain}
