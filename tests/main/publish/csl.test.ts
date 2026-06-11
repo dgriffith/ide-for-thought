@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -13,6 +13,13 @@ import { loadCitationAssets } from '../../../src/main/publish/csl';
 import { resolvePlan, runExporter } from '../../../src/main/publish/pipeline';
 import { noteHtmlExporter } from '../../../src/main/publish/exporters/note-html';
 import { parseLocatorAlias } from '../../../src/main/publish/exporters/note-html/render';
+
+// citeproc engine construction (notably Chicago note styles) is CPU-heavy and
+// can blow vitest's 5s default under full-suite parallelism on a contended CI
+// runner, even though it's ~1-2s in isolation (#677). Scope a generous timeout
+// to this file so a genuine hang still fails, without loosening the global
+// default for unrelated suites.
+vi.setConfig({ testTimeout: 30_000 });
 
 function mkTempProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-csl-test-'));

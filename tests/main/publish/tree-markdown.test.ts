@@ -6,7 +6,7 @@
  * mirrors how a user actually consumes the export.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -14,6 +14,13 @@ import os from 'node:os';
 import JSZip from 'jszip';
 import { resolvePlan, runExporter } from '../../../src/main/publish/pipeline';
 import { treeMarkdownExporter } from '../../../src/main/publish/exporters/tree-markdown';
+
+// citeproc engine construction (notably Chicago note styles) is CPU-heavy —
+// ~1.7s for the Chicago case in isolation, but under full-suite parallelism it
+// can blow vitest's 5s default on a contended CI runner (#677). Scope a
+// generous timeout to this file so a genuine hang still fails, without
+// loosening the global default for unrelated suites.
+vi.setConfig({ testTimeout: 30_000 });
 
 function mkProject(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-tree-md-'));
