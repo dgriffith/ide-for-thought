@@ -1,27 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, indexCsvTable, unindexCsvTable, unindexAllCsvTables, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
-
-function mkTempProject(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-csv-table-test-'));
-}
+import { describe, it, expect, beforeEach } from 'vitest';
+import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, queryGraph } from '../../../src/main/graph/index';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 describe('indexCsvTable — DuckDB table shape in the graph', () => {
-  let root: string;
+  const project = useGraphProject('minerva-csv-table-test-');
   let ctx: ProjectContext;
-
-  beforeEach(async () => {
-    root = mkTempProject();
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-
-  afterEach(() => {
-    fs.rmSync(root, { recursive: true, force: true });
-  });
+  beforeEach(() => { ctx = project.ctx; });
 
   it('emits the table as csvw:Table and owl:Class', async () => {
     indexCsvTable(ctx, {
