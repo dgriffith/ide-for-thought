@@ -8,15 +8,12 @@ export default defineConfig({
   // onwards). `svelteTesting` adds the browser resolve condition and
   // wires the auto-cleanup hook between tests.
   //
-  // Custom no-op `style` preprocessor bypasses vite-plugin-svelte's
-  // CSS preprocessing pass — under vitest 2 + vite 6 it explodes
-  // inside vite's `PartialEnvironment` constructor ("Cannot create
-  // proxy with a non-object as target or handler"). Component tests
-  // don't care about CSS, so leaving styles raw is fine.
+  // (The no-op `style` preprocessor that used to live here worked around a
+  // vitest-2 + vite-6 crash in vite's `PartialEnvironment` constructor; it's
+  // no longer needed under vite 7 + vitest 4 and was removed.)
   plugins: [
     svelte({
       hot: false,
-      preprocess: { style: ({ content }) => ({ code: content }) },
     }),
     svelteTesting(),
   ],

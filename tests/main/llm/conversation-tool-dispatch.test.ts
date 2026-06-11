@@ -22,10 +22,13 @@ const { streamMock, getSettingsMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('@anthropic-ai/sdk', () => {
+  // vitest 4: `new`-ing a vi.fn().mockImplementation(arrow) throws ("not a
+  // constructor"). Mock the SDK's default export as a real class so
+  // `new Anthropic(...)` works.
   return {
-    default: vi.fn().mockImplementation(() => ({
-      messages: { stream: streamMock },
-    })),
+    default: class MockAnthropic {
+      messages = { stream: streamMock };
+    },
   };
 });
 
