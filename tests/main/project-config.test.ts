@@ -3,11 +3,9 @@
  * including the new Python trust slice (#373).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
-import os from 'node:os';
 import {
   readProjectConfig,
   patchProjectConfig,
@@ -16,16 +14,11 @@ import {
   getPythonTrust,
   setPythonTrust,
 } from '../../src/main/project-config';
+import { useTempDir } from '../helpers/temp-project';
 
+const project = useTempDir('minerva-config-test-');
 let root: string;
-
-beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-config-test-'));
-});
-
-afterEach(async () => {
-  await fsp.rm(root, { recursive: true, force: true });
-});
+beforeEach(() => { root = project.root; });
 
 describe('readProjectConfig (#373)', () => {
   it('returns {} when the file is missing', () => {

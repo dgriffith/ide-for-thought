@@ -14,11 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
-import { initGraph, parseIntoStore, removeMatchingTriples, queryGraph } from '../../../src/main/graph/index';
+import { parseIntoStore, removeMatchingTriples, queryGraph } from '../../../src/main/graph/index';
 import {
   enterLLMContext,
   exitLLMContext,
@@ -26,7 +22,8 @@ import {
   exitTrustedContext,
   __resetWriteGuardForTests,
 } from '../../../src/main/graph/write-guard';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { type ProjectContext } from '../../../src/main/project-context-types';
+import { useGraphProject } from '../../helpers/temp-project';
 
 const S = 'https://minerva.dev/c/guard-test';
 const P = 'https://minerva.dev/ontology/thought#label';
@@ -38,22 +35,19 @@ async function objectsOf(ctx: ProjectContext): Promise<string[]> {
 }
 
 describe('LLM write guard wired into the graph write path (#657)', () => {
-  let root: string;
+  const project = useGraphProject('minerva-guard-wired-');
   let ctx: ProjectContext;
   let warnSpy: ReturnType<typeof vi.spyOn>;
 
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-guard-wired-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
+  beforeEach(() => {
+    ctx = project.ctx; // fresh per test (useGraphProject's beforeEach ran first)
     __resetWriteGuardForTests();
     warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     warnSpy.mockRestore();
     __resetWriteGuardForTests();
-    await fsp.rm(root, { recursive: true, force: true });
   });
 
   it('a direct parseIntoStore in LLM context (bypassing approval) trips the guard', () => {

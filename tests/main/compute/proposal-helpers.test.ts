@@ -6,18 +6,14 @@
  * provenance comes from `buildComputeProposalNoteBlock`.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import path from 'node:path';
-import os from 'node:os';
+import { describe, it, expect } from 'vitest';
 import {
   formatComputeResultAsContext,
   buildComputeProposalNoteBlock,
   recordComputeProposalRun,
 } from '../../../src/main/compute/proposal-helpers';
-import { initGraph, queryGraph } from '../../../src/main/graph/index';
-import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { queryGraph } from '../../../src/main/graph/index';
+import { useGraphProject } from '../../helpers/temp-project';
 import type { ConversationComputeDraft } from '../../../src/shared/conversation-compute-drafts';
 import type { CellResult } from '../../../src/shared/compute/types';
 
@@ -105,19 +101,10 @@ describe('buildComputeProposalNoteBlock', () => {
 });
 
 describe('recordComputeProposalRun (graph audit trail)', () => {
-  let root: string;
-  let ctx: ProjectContext;
-
-  beforeEach(async () => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-compute-rec-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-  });
-  afterEach(async () => {
-    await fsp.rm(root, { recursive: true, force: true });
-  });
+  const project = useGraphProject('minerva-compute-rec-');
 
   it('writes an approved+executed ComputeProposal node the integrity query can find', async () => {
+    const ctx = project.ctx;
     recordComputeProposalRun(ctx, draft({ draftId: 'run-1', code: 'print(2+2)' }), 'print(2+2)');
 
     const uri = 'https://minerva.dev/ontology/thought#proposal/run-1';
@@ -138,6 +125,7 @@ describe('recordComputeProposalRun (graph audit trail)', () => {
 
   it('escapes quotes/newlines in the recorded code so the turtle stays valid', async () => {
     // A naive (unescaped) build would produce broken turtle and write nothing.
+    const ctx = project.ctx;
     recordComputeProposalRun(ctx, draft({ draftId: 'run-2' }), 'print("a\nb")');
 
     const uri = 'https://minerva.dev/ontology/thought#proposal/run-2';
