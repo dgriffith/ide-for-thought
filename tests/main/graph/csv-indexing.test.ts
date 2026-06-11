@@ -67,37 +67,54 @@ describe('CSV file indexing (issue #199)', () => {
     ]);
   });
 
-  it('emits one csvw:Row per data row with cells keyed to columns', async () => {
+  it('does NOT emit per-cell csvw:Row / csvw:Cell triples (#337 — cell data is the SQL/DuckDB path)', async () => {
+    // The old behaviour wrote one csvw:Cell per value (~4M triples on a big
+    // CSV). #337 dropped that; only the Table + column schema remain.
     await indexNote(ctx, 'data/m.csv', 'name,count\nalice,3\nbob,5\n');
     const { results } = await queryGraph(ctx, `
-      SELECT ?name ?count WHERE {
-        ?t minerva:relativePath "data/m.csv" ;
-           csvw:row ?r .
-        ?r csvw:cell ?cellName, ?cellCount .
-        ?cellName  csvw:column ?colName  . ?colName  csvw:name "name"  . ?cellName  rdf:value ?name  .
-        ?cellCount csvw:column ?colCount . ?colCount csvw:name "count" . ?cellCount rdf:value ?count .
-      } ORDER BY ?name
+      SELECT ?x WHERE {
+        { ?t minerva:relativePath "data/m.csv" ; csvw:row ?x }
+        UNION
+        { ?x a csvw:Cell }
+      }
     `);
-    expect(results).toEqual([
-      { name: 'alice', count: '3' },
-      { name: 'bob', count: '5' },
-    ]);
+    expect(results).toEqual([]);
   });
 
-  it('re-indexing a CSV replaces the old triples (no stale rows)', async () => {
+  it('re-indexing a CSV replaces the old schema (no stale columns)', async () => {
     await indexNote(ctx, 'data/m.csv', 'name,count\nalice,3\nbob,5\n');
-    await indexNote(ctx, 'data/m.csv', 'name,count\ncarol,7\n');
+    await indexNote(ctx, 'data/m.csv', 'label,score,extra\ncarol,7,x\n');
 
     const { results } = await queryGraph(ctx, `
       SELECT ?name WHERE {
         ?t minerva:relativePath "data/m.csv" ;
-           csvw:row ?r .
-        ?r csvw:cell ?c .
-        ?c csvw:column ?col . ?col csvw:name "name" . ?c rdf:value ?name .
-      }
+           csvw:column ?c .
+        ?c csvw:name ?name .
+      } ORDER BY ?name
     `);
     const names = (results as Array<{ name: string }>).map((r) => r.name);
-    expect(names).toEqual(['carol']);
+    expect(names).toEqual(['extra', 'label', 'score']); // old name/count columns gone
+  });
+
+  it('graph footprint is independent of row count (#337 perf intent)', async () => {
+    // The whole point of #337: indexing a 3-row and a 3000-row CSV with the
+    // same columns must produce the same number of graph triples. Re-adding
+    // per-cell emission would make big.csv balloon and fail this.
+    const csv = (n: number) =>
+      'a,b\n' + Array.from({ length: n }, (_, i) => `r${i},${i}`).join('\n') + '\n';
+    await indexNote(ctx, 'small.csv', csv(3));
+    await indexNote(ctx, 'big.csv', csv(3000));
+
+    const tripleCount = async (p: string) => {
+      const { results } = await queryGraph(ctx, `
+        SELECT (COUNT(*) AS ?n) WHERE {
+          ?t minerva:relativePath "${p}" .
+          GRAPH ?t { ?s ?pred ?o }
+        }
+      `);
+      return Number((results as Array<{ n: string }>)[0].n);
+    };
+    expect(await tripleCount('big.csv')).toBe(await tripleCount('small.csv'));
   });
 
   it('uses the filename stem as dc:title', async () => {
