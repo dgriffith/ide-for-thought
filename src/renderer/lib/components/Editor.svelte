@@ -37,6 +37,10 @@
   import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
+  import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
+  import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
+  import { hasImageFiles, imageFilesFromTransfer, imageFilesFromClipboard } from '../editor/image-drop';
+  import { findFrontmatterFoldRange } from '../editor/frontmatter';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import { extractClaimUri } from '../../../shared/refactor/find-arguments';
 
@@ -186,19 +190,6 @@
   const lineNumbersCompartment = new Compartment();
   const whitespaceCompartment = new Compartment();
 
-  /**
-   * Sanity-check a stored history snapshot before handing it to
-   * `EditorState.fromJSON`. CM's JSON is an opaque blob to us; we just
-   * need `doc` (string) for the drift check. Anything that doesn't match
-   * that minimum shape is treated as "no snapshot, start fresh."
-   */
-  function toHistorySnapshot(raw: unknown): { doc: string } & Record<string, unknown> | null {
-    if (!raw || typeof raw !== 'object') return null;
-    const obj = raw as Record<string, unknown>;
-    if (typeof obj.doc !== 'string') return null;
-    return obj as { doc: string } & Record<string, unknown>;
-  }
-
   function cmTheme(): Extension {
     return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
   }
@@ -240,12 +231,8 @@
       view.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
     }
   }
-  const MIN_FONT = 10;
-  const MAX_FONT = 24;
-  const DEFAULT_FONT = 14;
-
   function getFontSize(): number {
-    return parseInt(localStorage.getItem('editorFontSize') ?? String(DEFAULT_FONT), 10);
+    return parseStoredFontSize(localStorage.getItem('editorFontSize'));
   }
 
   function fontSizeTheme(size: number) {
@@ -257,7 +244,7 @@
 
   export function changeFontSize(delta: number) {
     const current = getFontSize();
-    const next = Math.max(MIN_FONT, Math.min(MAX_FONT, current + delta));
+    const next = clampFontSize(current + delta);
     localStorage.setItem('editorFontSize', String(next));
     if (view) {
       view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(next)) });
@@ -302,19 +289,7 @@
 
   function findFrontmatterRange(): { from: number; to: number } | null {
     if (!view) return null;
-    const doc = view.state.doc;
-    if (doc.lines < 2) return null;
-    const firstLine = doc.line(1);
-    if (firstLine.text.trim() !== '---') return null;
-    for (let i = 2; i <= doc.lines; i++) {
-      const line = doc.line(i);
-      if (line.text.trim() === '---') {
-        // Fold range spans the content between the --- markers, keeping
-        // both fences visible as "---" lines in the gutter-collapsed view.
-        return { from: firstLine.to, to: line.to };
-      }
-    }
-    return null;
+    return findFrontmatterFoldRange(view.state.doc);
   }
 
   function foldFrontmatter() {
@@ -488,17 +463,7 @@
     // the YAML visible.
     foldService.of((state, lineStart) => {
       if (lineStart !== 0) return null;
-      const doc = state.doc;
-      if (doc.lines < 2) return null;
-      const first = doc.line(1);
-      if (first.text.trim() !== '---') return null;
-      for (let i = 2; i <= doc.lines; i++) {
-        const line = doc.line(i);
-        if (line.text.trim() === '---') {
-          return { from: first.to, to: line.to };
-        }
-      }
-      return null;
+      return findFrontmatterFoldRange(state.doc);
     }),
     themeCompartment.of(cmTheme()),
     minervaEditorTheme(),
@@ -600,8 +565,7 @@
         e.preventDefault();
         e.stopPropagation();
         const dropPos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
-        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
-        void handleImageUploads(files, dropPos);
+        void handleImageUploads(imageFilesFromTransfer(e.dataTransfer), dropPos);
         return true;
       },
       // Paste-image upload (#455). Catches the macOS Cmd+Shift+Ctrl+4
@@ -610,13 +574,7 @@
       paste: (e, v) => {
         const items = e.clipboardData?.items;
         if (!items) return false;
-        const files: File[] = [];
-        for (const item of items) {
-          if (item.kind !== 'file') continue;
-          if (!item.type.startsWith('image/')) continue;
-          const f = item.getAsFile();
-          if (f) files.push(f);
-        }
+        const files = imageFilesFromClipboard(items);
         if (files.length === 0) return false;
         e.preventDefault();
         void handleImageUploads(files, v.state.selection.main.head);
@@ -624,25 +582,6 @@
       },
     }),
   ];
-
-  /** True iff the DataTransfer carries at least one image file. Used
-   *  by the dragover gate so a text-drop or internal-CM drop still
-   *  routes through the editor's default handlers. */
-  function hasImageFiles(dt: DataTransfer): boolean {
-    // `items` is the modern API; `files` is the fallback. Either
-    // surface lets us spot an image without consuming the data.
-    if (dt.items) {
-      for (const item of dt.items) {
-        if (item.kind === 'file' && item.type.startsWith('image/')) return true;
-      }
-    }
-    if (dt.files) {
-      for (const f of dt.files) {
-        if (f.type.startsWith('image/')) return true;
-      }
-    }
-    return false;
-  }
 
   /**
    * Run the image-upload pipeline for each file, accumulate the
@@ -893,7 +832,7 @@
     // undoing to a document that no longer matches reality is worse than
     // losing history.
     const snapshot = toHistorySnapshot(initialHistory);
-    const canRestore = snapshot !== null && snapshot.doc === content;
+    const canRestore = canRestoreHistory(snapshot, content);
     const state = canRestore
       ? EditorState.fromJSON(
           snapshot,
