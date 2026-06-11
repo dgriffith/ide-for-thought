@@ -16,10 +16,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "outDir": "dist",
-    "declaration": true,
-    "paths": {
-      "@shared/*": ["./src/shared/*"]
-    }
+    "declaration": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", ".vite"]

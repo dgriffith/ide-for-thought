@@ -1,10 +1,6 @@
 import { defineConfig } from 'vite';
-import { sharedAlias } from './vite.shared';
 
 export default defineConfig({
-  resolve: {
-    alias: sharedAlias,
-  },
   build: {
     rollupOptions: {
       // linkedom has an optional `canvas` integration: it tries

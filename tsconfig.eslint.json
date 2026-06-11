@@ -10,7 +10,6 @@
     "tests/**/*",
     "*.config.ts",
     "*.config.mts",
-    "vite.shared.ts",
     "eslint.config.mjs"
   ],
   "exclude": ["node_modules", "dist", ".vite", "out", "coverage", "tests/fixtures"]

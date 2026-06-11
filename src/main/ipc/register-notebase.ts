@@ -64,17 +64,6 @@ export function registerNotebase(): void {
     return null;
   });
 
-  ipcMain.handle(Channels.NOTEBASE_NEW_WINDOW, (_e, rootPath?: string) => {
-    const win = createWindow();
-    if (rootPath) {
-      // Wait for window to be ready before opening project
-      win.webContents.once('did-finish-load', async () => {
-        await openProjectInWindow(win, rootPath);
-        win.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
-      });
-    }
-  });
-
   // ── "…in new window" variants ─────────────────────────────────────────────
   // Renderer decides whether the user picked "this window" (existing IPCs) or
   // "new window" (these). The picker runs in main so we can parent it to the

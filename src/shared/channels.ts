@@ -30,9 +30,6 @@ export const Channels = {
   NOTEBASE_OPEN_PATH: 'notebase:openPath',
   NOTEBASE_NEW_PROJECT: 'notebase:newProject',
   NOTEBASE_CLOSE: 'notebase:close',
-  /** Open an empty new window (no project). Handler exists; currently unwired
-   *  on the renderer side — see #673 note. */
-  NOTEBASE_NEW_WINDOW: 'notebase:newWindow',
   NOTEBASE_OPEN_IN_NEW_WINDOW: 'notebase:openInNewWindow',
   NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW: 'notebase:newProjectInNewWindow',
   NOTEBASE_OPEN_PATH_IN_NEW_WINDOW: 'notebase:openPathInNewWindow',
