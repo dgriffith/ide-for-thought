@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import * as graph from '../graph/index';
 import { projectContext, type ProjectContext } from '../project-context-types';
+import { escapeTurtleLiteral } from './turtle';
 import type {
   Conversation,
   ConversationMessage,
@@ -281,10 +282,6 @@ function convUri(id: string): string {
   return `${THOUGHT}conversation/${id}`;
 }
 
-function escapeTurtle(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
-}
-
 /** Predicates a conversation subject can hold. Listed so we can drop them
  *  cleanly before re-projecting (so historical bad-shape triples from
  *  before #350 don't linger as dust alongside the corrected ones). */
@@ -359,7 +356,7 @@ async function fileAsSource(conv: Conversation): Promise<void> {
     @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 
     <${uri}> a thought:Source ;
-      thought:conversationContent "${escapeTurtle(transcript)}" ;
+      thought:conversationContent "${escapeTurtleLiteral(transcript)}" ;
       dc:created "${conv.startedAt}"^^xsd:dateTime .
   `;
   const ctx = activeCtx();
