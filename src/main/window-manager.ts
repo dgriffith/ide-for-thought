@@ -93,7 +93,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   win.webContents.on('did-finish-load', () => {
     const ctx = contexts.get(win.id);
     if (ctx?.rootPath && !win.isDestroyed()) {
-      win.webContents.send('project:opened', {
+      win.webContents.send(Channels.PROJECT_OPENED, {
         rootPath: ctx.rootPath,
         name: path.basename(ctx.rootPath),
       });

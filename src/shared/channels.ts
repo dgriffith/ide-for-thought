@@ -26,6 +26,22 @@ export const Channels = {
   NOTEBASE_SEARCH_IN_NOTES: 'notebase:searchInNotes',
   NOTEBASE_REPLACE_IN_NOTES: 'notebase:replaceInNotes',
 
+  // Project + window lifecycle (#673)
+  NOTEBASE_OPEN_PATH: 'notebase:openPath',
+  NOTEBASE_NEW_PROJECT: 'notebase:newProject',
+  NOTEBASE_CLOSE: 'notebase:close',
+  /** Open an empty new window (no project). Handler exists; currently unwired
+   *  on the renderer side — see #673 note. */
+  NOTEBASE_NEW_WINDOW: 'notebase:newWindow',
+  NOTEBASE_OPEN_IN_NEW_WINDOW: 'notebase:openInNewWindow',
+  NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW: 'notebase:newProjectInNewWindow',
+  NOTEBASE_OPEN_PATH_IN_NEW_WINDOW: 'notebase:openPathInNewWindow',
+  /** Clear the recent-projects list. */
+  RECENT_CLEAR: 'recent:clear',
+  /** main → renderer: a project finished opening in this window. Payload is
+   *  `{ rootPath, name }`. Sent from every open/new path (#673). */
+  PROJECT_OPENED: 'project:opened',
+
   // File watcher events (main → renderer)
   NOTEBASE_FILE_CHANGED: 'notebase:fileChanged',
   NOTEBASE_FILE_CREATED: 'notebase:fileCreated',
@@ -116,6 +132,14 @@ export const Channels = {
   TEMPLATES_SAVE_AS: 'templates:saveAs',
 
   // Menu → renderer events (main sends, renderer listens)
+  // Project / file menu actions (#673)
+  MENU_OPEN_PROJECT: 'menu:openProject',
+  MENU_NEW_PROJECT: 'menu:newProject',
+  MENU_CLOSE_PROJECT: 'menu:closeProject',
+  MENU_CLEAR_RECENT: 'menu:clearRecent',
+  MENU_PRINT: 'menu:print',
+  MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
+  MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
   MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
   MENU_INSERT_TEMPLATE: 'menu:insertTemplate',

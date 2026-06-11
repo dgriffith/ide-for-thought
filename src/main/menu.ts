@@ -52,7 +52,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
               const win = createWindow();
               win.webContents.once('did-finish-load', async () => {
                 await openProjectInWindow(win, projectPath);
-                win.webContents.send('project:opened', { rootPath: projectPath, name: path.basename(projectPath) });
+                win.webContents.send(Channels.PROJECT_OPENED, { rootPath: projectPath, name: path.basename(projectPath) });
               });
             }
           },
@@ -60,7 +60,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         { type: 'separator' as const },
         {
           label: 'Clear Recent Thoughtbases',
-          click: () => send('menu:clearRecent'),
+          click: () => send(Channels.MENU_CLEAR_RECENT),
         },
       ]
     : [{ label: 'No Recent Thoughtbases', enabled: false }];
@@ -100,12 +100,12 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         // "open my thoughtbase" before "do anything in it".
         {
           label: 'New Thoughtbase…',
-          click: () => send('menu:newProject'),
+          click: () => send(Channels.MENU_NEW_PROJECT),
         },
         {
           label: 'Open Thoughtbase…',
           accelerator: 'CmdOrCtrl+O',
-          click: () => send('menu:openProject'),
+          click: () => send(Channels.MENU_OPEN_PROJECT),
         },
         {
           label: 'Recent Thoughtbases',
@@ -114,7 +114,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         gate({
           label: 'Close Thoughtbase',
           accelerator: 'CmdOrCtrl+Shift+W',
-          click: () => send('menu:closeProject'),
+          click: () => send(Channels.MENU_CLOSE_PROJECT),
         }),
         { type: 'separator' },
 
@@ -172,7 +172,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         // path; these remain for "just print what's on screen" flows).
         gate({
           label: 'Print…',
-          click: () => send('menu:print'),
+          click: () => send(Channels.MENU_PRINT),
         }),
         gate({
           label: 'Export as PDF…',
@@ -205,11 +205,11 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
             }),
             gate({
               label: 'Open in Default App',
-              click: () => send('menu:openInDefault'),
+              click: () => send(Channels.MENU_OPEN_IN_DEFAULT),
             }),
             gate({
               label: 'Open in Terminal',
-              click: () => send('menu:openInTerminal'),
+              click: () => send(Channels.MENU_OPEN_IN_TERMINAL),
             }),
           ],
         },
