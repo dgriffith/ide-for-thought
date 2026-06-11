@@ -38,12 +38,11 @@
   } from '../../../shared/formatter/registry';
   import '../../../shared/formatter/rules/index';
   import type { FormatSettings } from '../../../shared/formatter/engine';
-  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
-  import { getAllToolInfos } from '../tools/tool-registry';
-  import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
+  import BibliographySettings from './BibliographySettings.svelte';
+  import AiSettings from './AiSettings.svelte';
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -226,88 +225,8 @@
     }
   }
 
-  // Bibliography style (per-project, persisted in .minerva/config.json).
-  let bibliographyStyles = $state<{ id: string; label: string; isUser?: boolean }[]>([]);
-  let bibliographyStyleId = $state('apa');
-  // User-imported CSL assets (#302) — project-scoped under .minerva/.
-  let userStyles = $state<{ id: string; label: string; filePath: string }[]>([]);
-  let userLocales = $state<{ id: string; filePath: string }[]>([]);
-  let cslImportError = $state<string | null>(null);
-  let cslImporting = $state(false);
-
-  async function loadBibliographySettings(): Promise<void> {
-    try {
-      const [styles, current, uStyles, uLocales] = await Promise.all([
-        api.bibliography.listStyles(),
-        api.bibliography.getStyle(),
-        api.csl.listUserStyles(),
-        api.csl.listUserLocales(),
-      ]);
-      bibliographyStyles = styles;
-      bibliographyStyleId = current;
-      userStyles = uStyles;
-      userLocales = uLocales;
-    } catch (e) {
-      console.error('[settings] failed to load bibliography settings:', e);
-    }
-  }
-
-  async function setBibliographyStyle(next: string): Promise<void> {
-    bibliographyStyleId = next;
-    try {
-      await api.bibliography.setStyle(next);
-    } catch (e) {
-      console.error('[settings] failed to save bibliography style:', e);
-    }
-  }
-
-  async function importUserStyle(): Promise<void> {
-    cslImportError = null;
-    cslImporting = true;
-    try {
-      const result = await api.csl.importStyle();
-      if (result) await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    } finally {
-      cslImporting = false;
-    }
-  }
-
-  async function importUserLocale(): Promise<void> {
-    cslImportError = null;
-    cslImporting = true;
-    try {
-      const result = await api.csl.importLocale();
-      if (result) await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    } finally {
-      cslImporting = false;
-    }
-  }
-
-  // Skills (#629, menu config #630) now live in SkillsSettings.svelte.
-
-  async function removeUserStyle(id: string): Promise<void> {
-    cslImportError = null;
-    try {
-      await api.csl.removeStyle(id);
-      await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    }
-  }
-
-  async function removeUserLocale(id: string): Promise<void> {
-    cslImportError = null;
-    try {
-      await api.csl.removeLocale(id);
-      await loadBibliographySettings();
-    } catch (e) {
-      cslImportError = e instanceof Error ? e.message : String(e);
-    }
-  }
+  // Bibliography (#302) + Skills (#629) now live in their own panel components
+  // (BibliographySettings.svelte / SkillsSettings.svelte).
 
   // Web + AI settings (async-loaded from main process)
   let webEnabled = $state(true);
@@ -323,7 +242,6 @@
   // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
   let loadedLlm: LLMSettings | null = null;
   let toolModelOverrides = $state<Record<string, string>>({});
-  const allTools: ThinkingToolInfo[] = getAllToolInfos();
 
   // Compute (#374): the Python-interpreter panel now lives in
   // ComputeSettings.svelte (self-contained).
@@ -342,7 +260,6 @@
     } catch (e) {
       console.error('[settings] failed to load LLM settings:', e);
     }
-    await loadBibliographySettings();
     await loadExcerptSettings();
     try {
       const ingest = await api.sources.getIngestSettings();
@@ -352,12 +269,6 @@
     }
   });
 
-  function setToolOverride(toolId: string, value: string) {
-    const next = { ...toolModelOverrides };
-    if (value) next[toolId] = value;
-    else delete next[toolId];
-    toolModelOverrides = next;
-  }
 
   function parseDomains(text: string): string[] {
     return text
@@ -807,90 +718,7 @@
           <SitesSettings />
 
         {:else if activeTab === 'bibliography'}
-          <div class="field">
-            <label for="csl-style">Citation style</label>
-            <select
-              id="csl-style"
-              value={bibliographyStyleId}
-              onchange={(e) => { void setBibliographyStyle(e.currentTarget.value); }}
-            >
-              {#each bibliographyStyles as style (style.id)}
-                <option value={style.id}>
-                  {style.label}{style.isUser ? ' (imported)' : ''}
-                </option>
-              {/each}
-            </select>
-            <p class="hint">
-              Used by Refactor → Insert/Update Bibliography. Stored per-project
-              in <code>.minerva/config.json</code>, so different thoughtbases can
-              follow different style guides.
-            </p>
-          </div>
-
-          <div class="field">
-            <label>Imported styles</label>
-            <p class="hint">
-              Drop additional <code>.csl</code> files into your project under
-              <code>.minerva/csl-styles/</code> — they show up in the picker above and
-              in the Export dialog. The Zotero Style Repository at
-              <code>zotero.org/styles</code> publishes 10,000+ open styles.
-            </p>
-            {#if userStyles.length === 0}
-              <p class="hint empty">No imported styles yet.</p>
-            {:else}
-              <ul class="csl-list">
-                {#each userStyles as s (s.id)}
-                  <li>
-                    <span class="csl-label">{s.label}</span>
-                    <span class="csl-id">{s.id}</span>
-                    <button class="link-btn" onclick={() => { void removeUserStyle(s.id); }}>
-                      Remove
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            <button
-              class="action-btn"
-              onclick={() => { void importUserStyle(); }}
-              disabled={cslImporting}
-            >
-              Import .csl style…
-            </button>
-          </div>
-
-          <div class="field">
-            <label>Imported locales</label>
-            <p class="hint">
-              Optional. Bundled locale is en-US; import additional CSL
-              locale XML to render bibliographies in another language.
-            </p>
-            {#if userLocales.length === 0}
-              <p class="hint empty">No imported locales yet.</p>
-            {:else}
-              <ul class="csl-list">
-                {#each userLocales as l (l.id)}
-                  <li>
-                    <span class="csl-label">{l.id}</span>
-                    <button class="link-btn" onclick={() => { void removeUserLocale(l.id); }}>
-                      Remove
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
-            <button
-              class="action-btn"
-              onclick={() => { void importUserLocale(); }}
-              disabled={cslImporting}
-            >
-              Import locale .xml…
-            </button>
-          </div>
-
-          {#if cslImportError}
-            <div class="csl-error">{cslImportError}</div>
-          {/if}
+          <BibliographySettings />
 
         {:else if activeTab === 'skills'}
           <SkillsSettings />
@@ -916,96 +744,13 @@
           <ComputeSettings />
 
         {:else if activeTab === 'ai'}
-          <div class="field">
-            <label for="model">Default model</label>
-            <select id="model" bind:value={model}>
-              {#each MODEL_OPTIONS as m}
-                <option value={m.value}>{m.label}</option>
-              {/each}
-            </select>
-          </div>
-          <div class="field">
-            <div class="api-key-status" class:saved={apiKeyStatus === 'set' && !clearApiKey}>
-              {#if apiKeyStatus === 'unknown'}
-                Loading…
-              {:else if clearApiKey}
-                API key will be cleared on save
-              {:else if apiKeyStatus === 'set'}
-                ✓ API key saved
-              {:else}
-                No API key set
-              {/if}
-            </div>
-            <label for="api-key">
-              Anthropic API key
-            </label>
-            <input
-              id="api-key"
-              type="password"
-              bind:value={apiKeyInput}
-              placeholder={apiKeyStatus === 'set' ? 'Type to replace existing key' : 'Enter Anthropic API key'}
-              autocomplete="off"
-              spellcheck="false"
-              autocapitalize="off"
-              oncopy={(e) => e.preventDefault()}
-              oncut={(e) => e.preventDefault()}
-              oncontextmenu={(e) => e.preventDefault()}
-              disabled={clearApiKey}
-            />
-            <p class="hint">
-              Keys are stored in your user data directory. The saved value is never displayed back.
-              You can also set <code>ANTHROPIC_API_KEY</code> as an environment variable.
-            </p>
-            {#if apiKeyStatus === 'set' && !clearApiKey}
-              <button class="link-btn" onclick={() => { clearApiKey = true; apiKeyInput = ''; }}>
-                Clear saved key
-              </button>
-            {:else if clearApiKey}
-              <button class="link-btn" onclick={() => { clearApiKey = false; }}>
-                Cancel clear
-              </button>
-            {/if}
-          </div>
-          <div class="field">
-            <label>Tool model overrides</label>
-            <p class="hint">
-              Each tool's author may suggest a preferred model. You can override that
-              per tool. Empty override → use the tool's preference; no preference →
-              fall back to the default model above.
-            </p>
-            {#if allTools.length === 0}
-              <p class="hint">No tools registered.</p>
-            {:else}
-              <table class="tool-models">
-                <thead>
-                  <tr>
-                    <th>Tool</th>
-                    <th>Tool preference</th>
-                    <th>Your override</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each allTools as t}
-                    <tr>
-                      <td>{t.name}</td>
-                      <td class="muted">{t.preferredModel ? modelLabel(t.preferredModel) : '—'}</td>
-                      <td>
-                        <select
-                          value={toolModelOverrides[t.id] ?? ''}
-                          onchange={(e) => setToolOverride(t.id, e.currentTarget.value)}
-                        >
-                          <option value="">Use tool preference</option>
-                          {#each MODEL_OPTIONS as m}
-                            <option value={m.value}>{m.label}</option>
-                          {/each}
-                        </select>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-          </div>
+          <AiSettings
+            bind:model
+            bind:apiKeyInput
+            bind:clearApiKey
+            bind:toolModelOverrides
+            {apiKeyStatus}
+          />
         {/if}
       </section>
     </div>
@@ -1326,65 +1071,6 @@
     cursor: not-allowed;
   }
 
-  .tool-models {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-  }
-
-  .tool-models th,
-  .tool-models td {
-    text-align: left;
-    padding: 5px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .tool-models th {
-    font-weight: 600;
-    color: var(--text-muted);
-    font-size: 11px;
-  }
-
-  .tool-models td.muted {
-    color: var(--text-muted);
-  }
-
-  .tool-models select {
-    padding: 3px 6px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
-    max-width: 170px;
-  }
-
-  .api-key-status {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 4px;
-  }
-
-  .api-key-status.saved {
-    color: var(--accent);
-  }
-
-  .link-btn {
-    align-self: flex-start;
-    margin-top: 4px;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    font-size: 11px;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .link-btn:hover {
-    color: var(--text);
-  }
-
   .section-intro {
     font-size: 12px;
     color: var(--text-muted);
@@ -1392,46 +1078,6 @@
     margin: 0 0 16px 0;
   }
 
-  /* User-imported CSL assets list (#302). Mirrors the privileged-sites
-     style — each row shows a label, id, and a Remove action. */
-  .csl-list {
-    list-style: none;
-    margin: 0 0 8px 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .csl-list li {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-button);
-    font-size: 12px;
-  }
-  .csl-list .csl-label {
-    flex: 1;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .csl-list .csl-id {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .csl-list .link-btn {
-    align-self: auto;
-    margin-top: 0;
-  }
-  .hint.empty {
-    font-style: italic;
-    margin: 0 0 8px 0;
-  }
   .action-btn {
     align-self: flex-start;
     padding: 4px 12px;
@@ -1448,16 +1094,6 @@
   .action-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-  }
-  .csl-error {
-    margin-top: 8px;
-    padding: 6px 10px;
-    border-left: 3px solid var(--accent);
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 12px;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    white-space: pre-wrap;
   }
 
   .section-intro code {
