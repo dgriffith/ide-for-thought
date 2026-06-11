@@ -1,3 +1,9 @@
+// Side-effect CSS imports (the global stylesheet + the @fontsource font faces
+// in renderer/main.ts). Vite handles these at build time; this ambient module
+// declares them so TypeScript 6 — which errors on side-effect imports of
+// modules with no type declarations (TS2882) — accepts them.
+declare module '*.css';
+
 declare module '*.ttl?raw' {
   const content: string;
   export default content;
