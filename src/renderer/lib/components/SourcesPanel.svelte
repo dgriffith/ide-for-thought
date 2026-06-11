@@ -6,6 +6,8 @@
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
+  import SourceListItem from './SourceListItem.svelte';
+  import { formatDueStamp } from '../sources/source-display';
   import Icon from './Icon.svelte';
 
   type QueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
@@ -676,61 +678,6 @@
     }
   }
 
-  function formatCreators(creators: string[]): string {
-    if (creators.length === 0) return '';
-    if (creators.length === 1) return creators[0];
-    if (creators.length === 2) return `${creators[0]} and ${creators[1]}`;
-    return `${creators[0]} et al.`;
-  }
-
-  /** Compact stamp for the source row's due-by indicator. Shows
-   *  "Jun 15" within the current year, "Jun 15 2027" otherwise. The
-   *  caller adds the leading "due " word so it can be re-styled
-   *  independently. */
-  function formatDueStamp(iso: string): string {
-    const d = new Date(`${iso}T00:00:00`);
-    if (isNaN(d.getTime())) return iso;
-    const now = new Date();
-    const sameYear = d.getFullYear() === now.getFullYear();
-    const opts: Intl.DateTimeFormatOptions = sameYear
-      ? { month: 'short', day: 'numeric' }
-      : { month: 'short', day: 'numeric', year: 'numeric' };
-    return new Intl.DateTimeFormat(undefined, opts).format(d);
-  }
-
-  /** True when the due-by date is strictly before today (local time).
-   *  We highlight overdue items in the list so the user can spot them
-   *  without opening detail. Per CLAUDE.md no-danger-styling: overdue
-   *  uses --rust (a signal color, not red). */
-  function isOverdue(iso: string | null): boolean {
-    if (!iso) return false;
-    const d = new Date(`${iso}T00:00:00`);
-    if (isNaN(d.getTime())) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return d.getTime() < today.getTime();
-  }
-
-  /** Single character glyph for the status indicator dot. Picked for
-   *  ASCII-safety; users learn the mapping from the title attribute. */
-  function statusGlyph(status: SourceMetadata['readStatus']): string {
-    switch (status) {
-      case 'reading': return '◐';
-      case 'read': return '●';
-      case 'unread': return '○';
-      case 'skipped': return '×';
-      default: return '';
-    }
-  }
-  function statusTitle(status: SourceMetadata['readStatus']): string {
-    switch (status) {
-      case 'reading': return 'Reading';
-      case 'read': return 'Read';
-      case 'unread': return 'Unread';
-      case 'skipped': return 'Skipped';
-      default: return '';
-    }
-  }
 </script>
 
 <div class="sources-panel">
@@ -852,35 +799,7 @@
     </div>
     <div class="source-list">
       {#each visible as s (s.sourceId)}
-        <button
-          class="source-item"
-          onclick={() => onSourceSelect(s.sourceId)}
-          oncontextmenu={(e) => handleContextMenu(e, s)}
-          title={s.sourceId}
-        >
-          <div class="source-title">
-            {#if s.readStatus}
-              <span
-                class="status-dot status-{s.readStatus}"
-                title={statusTitle(s.readStatus)}
-                aria-label={statusTitle(s.readStatus)}
-              >{statusGlyph(s.readStatus)}</span>
-            {/if}
-            {displaySourceTitle(s)}
-          </div>
-          {#if s.creators.length > 0 || s.year || s.readDueBy}
-            {@const who = formatCreators(s.creators)}
-            <div class="source-byline">
-              {#if who}{who}{/if}{#if who && s.year} · {/if}{#if s.year}<span class="year">{s.year}</span>{/if}
-              {#if s.readDueBy}
-                {#if who || s.year} · {/if}
-                <span class="due-stamp" class:overdue={isOverdue(s.readDueBy)} title="Reading due {s.readDueBy}">
-                  due {formatDueStamp(s.readDueBy)}
-                </span>
-              {/if}
-            </div>
-          {/if}
-        </button>
+        <SourceListItem source={s} onSelect={onSourceSelect} onContextMenu={handleContextMenu} />
       {/each}
       {#if visible.length === 0}
         <div class="empty">
@@ -1141,50 +1060,12 @@
      bibliography entry: italic display-serif title, sans+mono byline.
      The 2px accent rail still marks hover/active for parity with the
      file tree. */
-  .source-item {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    text-align: left;
-    padding: 10px 16px;
-    background: none;
-    border: none;
-    border-top: 1px solid var(--border);
-    border-left: 2px solid transparent;
-    color: var(--text);
-    cursor: pointer;
-  }
-  .source-list .source-item:first-child {
+  /* The row itself (border, title, byline, status dot, due stamp) now lives
+     in SourceListItem.svelte. Only the list-level seam stays here: the first
+     row drops its top border so it doesn't double up with the section edge.
+     Targets the child component's root via :global. */
+  .source-list :global(.source-item:first-child) {
     border-top: none;
-  }
-  .source-item:hover {
-    background: color-mix(in oklch, var(--text) 4%, transparent);
-    border-left-color: var(--accent);
-  }
-
-  .source-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 13.5px;
-    color: var(--text);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .source-byline {
-    font-size: 11px;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-top: 2px;
-  }
-  /* The year (and any other mono fragment in the byline) reads as a
-     citation locator — switch to the mono face for tabular feel. */
-  .source-byline :global(.year) {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
   }
 
   /* Collections section sits above the flat source list. Visual
@@ -1287,23 +1168,6 @@
   }
   .smart-row { gap: 6px; }
 
-  /* Reading-queue status dot in the source list (#116). Just a small
-     inline mark in front of the title so the user can scan for "what's
-     reading right now" without leaving the panel. */
-  .status-dot {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
-    margin-right: 4px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1;
-    vertical-align: baseline;
-  }
-  .status-dot.status-reading { color: var(--accent); }
-  .status-dot.status-read { color: color-mix(in oklch, var(--text-muted) 90%, transparent); }
-  .status-dot.status-unread { color: var(--text-faint); }
-  .status-dot.status-skipped { color: var(--text-faint); }
 
   /* Reading-queue section sits BELOW Collections now, with a
      collapsible header so users who never touch the queue can fold
@@ -1495,15 +1359,4 @@
     font-weight: 600;
   }
   .due-dialog-btn.primary:hover { opacity: 0.92; }
-
-  /* Compact "due Jun 15" stamp on the source row byline. Overdue
-     items shift to --rust (signal color, not red — per CLAUDE.md). */
-  .due-stamp {
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    color: var(--text-muted);
-  }
-  .due-stamp.overdue {
-    color: var(--rust);
-  }
 </style>
