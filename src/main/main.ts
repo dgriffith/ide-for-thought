@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
 import { buildMenu } from './menu';
 import { createWindow, openProjectInWindow } from './window-manager';
@@ -53,7 +54,7 @@ void app.whenReady().then(async () => {
       buildMenu(win);
       win.webContents.once('did-finish-load', async () => {
         await openProjectInWindow(win, state.rootPath);
-        win.webContents.send('project:opened', {
+        win.webContents.send(Channels.PROJECT_OPENED, {
           rootPath: state.rootPath,
           name: path.basename(state.rootPath),
         });

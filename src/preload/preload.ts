@@ -16,13 +16,13 @@ function subscribeIpc<T>(channel: string, cb: (payload: T) => void): () => void 
 contextBridge.exposeInMainWorld('api', {
   notebase: {
     open: () => ipcRenderer.invoke(Channels.NOTEBASE_OPEN),
-    openPath: (rootPath: string) => ipcRenderer.invoke('notebase:openPath', rootPath),
-    newProject: () => ipcRenderer.invoke('notebase:newProject'),
-    openInNewWindow: () => ipcRenderer.invoke('notebase:openInNewWindow'),
-    newProjectInNewWindow: () => ipcRenderer.invoke('notebase:newProjectInNewWindow'),
-    openPathInNewWindow: (rootPath: string) => ipcRenderer.invoke('notebase:openPathInNewWindow', rootPath),
-    close: () => ipcRenderer.invoke('notebase:close'),
-    clearRecent: () => ipcRenderer.invoke('recent:clear'),
+    openPath: (rootPath: string) => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_PATH, rootPath),
+    newProject: () => ipcRenderer.invoke(Channels.NOTEBASE_NEW_PROJECT),
+    openInNewWindow: () => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW),
+    newProjectInNewWindow: () => ipcRenderer.invoke(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW),
+    openPathInNewWindow: (rootPath: string) => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, rootPath),
+    close: () => ipcRenderer.invoke(Channels.NOTEBASE_CLOSE),
+    clearRecent: () => ipcRenderer.invoke(Channels.RECENT_CLEAR),
     listFiles: () => ipcRenderer.invoke(Channels.NOTEBASE_LIST_FILES),
     readFile: (relativePath: string) =>
       ipcRenderer.invoke(Channels.NOTEBASE_READ_FILE, relativePath),
@@ -471,26 +471,26 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.MENU_OPEN_SETTINGS, () => cb());
     },
     onOpenProject: (cb: () => void) => {
-      ipcRenderer.on('menu:openProject', () => cb());
+      ipcRenderer.on(Channels.MENU_OPEN_PROJECT, () => cb());
     },
     onNewProject: (cb: () => void) => {
-      ipcRenderer.on('menu:newProject', () => cb());
+      ipcRenderer.on(Channels.MENU_NEW_PROJECT, () => cb());
     },
     onOpenRecentProject: (cb: (path: string) => void) => subscribeIpc('menu:openRecentProject', cb),
     onCloseProject: (cb: () => void) => {
-      ipcRenderer.on('menu:closeProject', () => cb());
+      ipcRenderer.on(Channels.MENU_CLOSE_PROJECT, () => cb());
     },
     onClearRecent: (cb: () => void) => {
-      ipcRenderer.on('menu:clearRecent', () => cb());
+      ipcRenderer.on(Channels.MENU_CLEAR_RECENT, () => cb());
     },
     onPrint: (cb: () => void) => {
-      ipcRenderer.on('menu:print', () => cb());
+      ipcRenderer.on(Channels.MENU_PRINT, () => cb());
     },
     onOpenInDefault: (cb: () => void) => {
-      ipcRenderer.on('menu:openInDefault', () => cb());
+      ipcRenderer.on(Channels.MENU_OPEN_IN_DEFAULT, () => cb());
     },
     onOpenInTerminal: (cb: () => void) => {
-      ipcRenderer.on('menu:openInTerminal', () => cb());
+      ipcRenderer.on(Channels.MENU_OPEN_IN_TERMINAL, () => cb());
     },
     onRefactorRename: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_REFACTOR_RENAME, () => cb());
@@ -545,7 +545,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.MENU_IMPORT_ZOTERO_RDF, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
-      subscribeIpc('project:opened', cb),
+      subscribeIpc(Channels.PROJECT_OPENED, cb),
   },
 });
 

@@ -38,13 +38,13 @@ export function registerNotebase(): void {
     return meta;
   });
 
-  ipcMain.handle('notebase:openPath', async (e, rootPath: string) => {
+  ipcMain.handle(Channels.NOTEBASE_OPEN_PATH, async (e, rootPath: string) => {
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('notebase:newProject', async (e) => {
+  ipcMain.handle(Channels.NOTEBASE_NEW_PROJECT, async (e) => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
       title: 'Choose location for new thoughtbase',
@@ -58,19 +58,19 @@ export function registerNotebase(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('notebase:close', (e) => {
+  ipcMain.handle(Channels.NOTEBASE_CLOSE, (e) => {
     const win = winFromEvent(e);
     closeProjectInWindow(win.id);
     return null;
   });
 
-  ipcMain.handle('notebase:newWindow', (_e, rootPath?: string) => {
+  ipcMain.handle(Channels.NOTEBASE_NEW_WINDOW, (_e, rootPath?: string) => {
     const win = createWindow();
     if (rootPath) {
       // Wait for window to be ready before opening project
       win.webContents.once('did-finish-load', async () => {
         await openProjectInWindow(win, rootPath);
-        win.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+        win.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
       });
     }
   });
@@ -81,7 +81,7 @@ export function registerNotebase(): void {
   // invoking window for focus; the fresh window is created once the user
   // commits to a path.
 
-  ipcMain.handle('notebase:openInNewWindow', async (e) => {
+  ipcMain.handle(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW, async (e) => {
     const parentWin = winFromEvent(e);
     const result = await dialog.showOpenDialog(parentWin, {
       properties: ['openDirectory'],
@@ -92,12 +92,12 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
     });
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('notebase:newProjectInNewWindow', async (e) => {
+  ipcMain.handle(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW, async (e) => {
     const parentWin = winFromEvent(e);
     const result = await dialog.showOpenDialog(parentWin, {
       properties: ['openDirectory', 'createDirectory'],
@@ -109,21 +109,21 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
     });
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('notebase:openPathInNewWindow', (_e, rootPath: string) => {
+  ipcMain.handle(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, (_e, rootPath: string) => {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send('project:opened', { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
     });
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle('recent:clear', () => {
+  ipcMain.handle(Channels.RECENT_CLEAR, () => {
     clearRecentProjects();
     rebuildMenu();
   });
