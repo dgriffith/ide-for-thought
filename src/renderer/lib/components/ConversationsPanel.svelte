@@ -30,7 +30,9 @@
   import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import type { ConversationMessage, Citation } from '../../../shared/types';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
-  import { insertCitationMarker, noteBasename } from '../conversations/cite-from-conversation';
+  import { insertCitationMarker } from '../conversations/cite-from-conversation';
+  import { type CiteStatus } from '../conversations/citations';
+  import MessageCitations from './MessageCitations.svelte';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, filterSlashCommands } from '../conversations/slash-commands';
 
@@ -139,7 +141,6 @@
   // note that anchors the conversation. Per-citation status keyed by
   // `${tabId}:${messageIndex}:${citationIndex}` so each footnote tracks its
   // own running / done / error state independently across tabs.
-  type CiteStatus = { phase: 'running' | 'done' } | { phase: 'error'; message: string };
   let citeState = $state<Record<string, CiteStatus>>({});
 
   function citeKey(tab: TabT, msgIndex: number, ci: number): string {
@@ -518,10 +519,6 @@
     return 'id';
   }
 
-  function hostOf(url: string): string {
-    try { return new URL(url).host.replace(/^www\./, ''); } catch { return url; }
-  }
-
   // ── Card anchoring helpers ───────────────────────────────────────────
   // Each draft / sourceDraft / sourceDraftResult carries an
   // `afterMessageIndex` captured when it arrived (the slot the streaming
@@ -725,32 +722,13 @@
               {#if msg.role === 'assistant'}
                 <div class="msg-content">{@html md.render(msg.content)}</div>
                 {#if msg.citations && msg.citations.length > 0}
-                  {@const target = citeTargetPath(tab)}
-                  <ol class="citations">
-                    {#each msg.citations as cite, ci}
-                      {@const st = citeState[citeKey(tab, msgIndex, ci)]}
-                      <li>
-                        <button type="button" class="citation-link" onclick={() => api.shell.openExternal(cite.url)} title={cite.citedText}>
-                          <span class="citation-num">[{ci + 1}]</span>
-                          <span class="citation-title">{cite.title ?? hostOf(cite.url)}</span>
-                          <span class="citation-host">{hostOf(cite.url)}</span>
-                        </button>
-                        {#if st?.phase === 'done'}
-                          <span class="cite-action done" title="Filed as a source and cited from this note">✓ cited</span>
-                        {:else if st?.phase === 'error'}
-                          <button type="button" class="cite-action error" title={st.message} onclick={() => handleCite(tab, msgIndex, ci, cite)}>retry</button>
-                        {:else}
-                          <button
-                            type="button"
-                            class="cite-action"
-                            disabled={!target || st?.phase === 'running'}
-                            title={target ? `Ingest as a source and cite from ${noteBasename(target)}` : 'No note to cite into — open one in the editor'}
-                            onclick={() => handleCite(tab, msgIndex, ci, cite)}
-                          >{st?.phase === 'running' ? 'citing…' : 'cite'}</button>
-                        {/if}
-                      </li>
-                    {/each}
-                  </ol>
+                  <MessageCitations
+                    citations={msg.citations}
+                    targetPath={citeTargetPath(tab)}
+                    citeStateFor={(ci) => citeState[citeKey(tab, msgIndex, ci)]}
+                    onOpenExternal={(url) => api.shell.openExternal(url)}
+                    onCite={(ci, cite) => handleCite(tab, msgIndex, ci, cite)}
+                  />
                 {/if}
               {:else}
                 <div class="msg-content">{msg.content}</div>
@@ -1598,48 +1576,6 @@
     40%          { opacity: 1;    transform: scale(1.1); }
   }
 
-  .citations {
-    list-style: none;
-    margin: 8px 0 4px 0;
-    padding: 6px 10px;
-    border-left: 2px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .citation-link {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-    padding: 2px 0;
-    border: none;
-    background: none;
-    color: var(--text);
-    font-size: 11px;
-    text-align: left;
-    cursor: pointer;
-  }
-  .citation-link:hover .citation-title { text-decoration: underline; }
-  .citation-num { color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
-  .citation-title { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .citation-host { color: var(--text-muted); font-size: 10px; flex-shrink: 0; margin-left: auto; }
-  .citations li { display: flex; align-items: baseline; gap: 8px; }
-  .cite-action {
-    flex-shrink: 0;
-    border: none;
-    background: none;
-    padding: 2px 4px;
-    font-size: 10px;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 3px;
-  }
-  .cite-action:hover:not(:disabled) { color: var(--accent); background: var(--bg-button); }
-  .cite-action:disabled { opacity: 0.4; cursor: default; }
-  .cite-action.done { color: var(--accent); cursor: default; }
-  .cite-action.error { color: var(--text); }
 
   .ask-user-card {
     margin-top: 4px;
