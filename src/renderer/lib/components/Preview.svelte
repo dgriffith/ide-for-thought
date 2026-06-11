@@ -25,12 +25,15 @@
   import { normalizeSqlRows } from '../editor/sql-result';
   import { clampSubmenu } from '../utils/menuClamp';
   import { renderChart, type ChartHandle, type ChartConfig, type ChartSeries } from '../charts';
-  import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
   import { getToolInfosByCategory } from '../tools/tool-registry';
   import mdFootnote from 'markdown-it-footnote';
   import { planOutputEdit } from '../editor/output-block';
   import { findRunnableFences, codeOf } from '../../../shared/compute/fences';
   import type { CellResult } from '../ipc/client';
+  import { escapeHtml, escapeAttr, stripFrontmatter, countFrontmatterLines } from '../preview/text';
+  import { resolveRelativeImagePath, mimeFromPath } from '../preview/image-paths';
+  import { type CiteMeta, type QuoteMeta, collapseCiteRows, buildCiteTooltip, buildQuoteTooltip, buildFootnoteTooltip } from '../preview/cite-meta';
+  import { findSourceFenceBefore, renderComputeOutput, tableToCsv, outputToMarkdownClipboard } from '../preview/compute-output-render';
 
   interface Props {
     content: string;
@@ -141,22 +144,6 @@
   const queryCache = new Map<string, { results: unknown[]; error?: string }>();
 
   // Cite/quote metadata caches: id → resolved bundle (survives re-renders)
-  interface CiteMeta {
-    title?: string;
-    creators: string[];
-    year?: string;
-    doi?: string;
-    uri?: string;
-  }
-  interface QuoteMeta {
-    citedText?: string;
-    sourceTitle?: string;
-    sourceCreator?: string;
-    sourceYear?: string;
-    page?: string;
-    pageRange?: string;
-    locationText?: string;
-  }
   const citeMetaCache = new Map<string, CiteMeta>();
   const quoteMetaCache = new Map<string, QuoteMeta>();
 
@@ -462,63 +449,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   };
 
   /**
-   * Walk backwards from the output fence token to find the executable
-   * fence that produced it. Returns null when anything other than
-   * whitespace sits between the two — a loose sanity check that keeps
-   * us from wiring a Save-as-note action to the wrong source when users
-   * paste an isolated output block.
-   */
-  function findSourceFenceBefore(tokens: Token[], idx: number): { language: string; code: string } | null {
-    const RUNNABLE = new Set(['sparql', 'sql', 'python']);
-    for (let i = idx - 1; i >= 0; i--) {
-      const t = tokens[i];
-      if (t.type === 'fence') {
-        const lang = (t.info ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-        if (RUNNABLE.has(lang)) {
-          return { language: lang, code: (t.content ?? '').replace(/\n$/, '') };
-        }
-        return null;
-      }
-      // Any heading / paragraph / blockquote between the two fences means
-      // the output block isn't adjacent to a runnable source — bail.
-      if (t.type === 'paragraph_open' || t.type === 'heading_open' ||
-          t.type === 'blockquote_open' || t.type === 'bullet_list_open' ||
-          t.type === 'ordered_list_open') {
-        return null;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Resolve a relative `![](src)` reference against the note's
-   * directory and normalise so `..` segments collapse. Returns a
-   * project-rooted relative path (no leading `/`).
-   */
-  function resolveRelativeImagePath(src: string, fromNote: string | null | undefined): string {
-    // Split off the note's parent directory. The regex form
-    // `/\/[^/]*$/` would silently fall back to the full string when
-    // there's no slash — i.e. for a project-root note like
-    // `graph.md`, `noteDir` would become `graph.md` and downstream
-    // resolution would treat the file itself as a directory (the
-    // ENOTDIR symptom). Use a guarded lastIndexOf instead.
-    const lastSlash = fromNote ? fromNote.lastIndexOf('/') : -1;
-    const noteDir = lastSlash > 0 && fromNote ? fromNote.slice(0, lastSlash) : '';
-    const baseSegments = noteDir ? noteDir.split('/') : [];
-    const srcSegments = src.split('/');
-    const out: string[] = [...baseSegments];
-    for (const seg of srcSegments) {
-      if (seg === '' || seg === '.') continue;
-      if (seg === '..') {
-        if (out.length > 0) out.pop();
-        continue;
-      }
-      out.push(seg);
-    }
-    return out.join('/');
-  }
-
-  /**
    * Cache of {projectRelPath → data URL} for images referenced from
    * the rendered note. Survives re-renders so panning around a long
    * doc doesn't keep refetching the same `<img>` over and over.
@@ -526,18 +456,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
    * project-scoped automatically since paths include the note dir).
    */
   const imageDataUrlCache = new Map<string, string>();
-
-  /** MIME guess from a relative-path extension; data URLs need it explicit. */
-  function mimeFromPath(rel: string): string {
-    const ext = rel.toLowerCase().match(/\.([^./\\]+)$/)?.[1] ?? '';
-    if (ext === 'png') return 'image/png';
-    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-    if (ext === 'gif') return 'image/gif';
-    if (ext === 'webp') return 'image/webp';
-    if (ext === 'svg') return 'image/svg+xml';
-    if (ext === 'avif') return 'image/avif';
-    return 'application/octet-stream';
-  }
 
   /**
    * Post-render hydration: walk every `.local-image[data-rel]`
@@ -582,91 +500,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         img.classList.add('local-image-broken');
       }
     }));
-  }
-
-  function renderComputeOutput(content: string, source: { language: string; code: string } | null): string {
-    let payload: unknown;
-    try {
-      payload = JSON.parse(content.trim());
-    } catch {
-      return `<pre class="compute-output compute-output-raw">${escapeHtml(content)}</pre>`;
-    }
-    const p = payload as { type?: string } & Record<string, unknown>;
-    let inner: string;
-    let saveable = false;
-    if (!p || typeof p !== 'object' || typeof p.type !== 'string') {
-      inner = `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
-    } else if (p.type === 'error') {
-      const message = typeof p.message === 'string' ? p.message : JSON.stringify(p.message);
-      inner = `<div class="compute-output compute-output-error">${escapeHtml(message)}</div>`;
-      // Errors aren't worth saving as notes; skip the overflow menu.
-    } else if (p.type === 'text') {
-      const value = typeof p.value === 'string' ? p.value : JSON.stringify(p.value);
-      inner = `<pre class="compute-output compute-output-text">${escapeHtml(value)}</pre>`;
-      saveable = true;
-    } else if (p.type === 'table' && Array.isArray(p.columns) && Array.isArray(p.rows)) {
-      const columns = p.columns as string[];
-      const rows = p.rows as Array<Array<string | number | boolean | null>>;
-      const totalRows = typeof p.totalRows === 'number' ? p.totalRows : null;
-      const truncated = p.truncated === true;
-      const headers = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
-      const body = rows.map((r) => {
-        const cells = r.map((v) => `<td>${escapeHtml(v == null ? '' : String(v))}</td>`).join('');
-        return `<tr>${cells}</tr>`;
-      }).join('');
-      // Truncation footer (#243): when the kernel capped rows, surface
-      // the gap so the user knows there's more data than they can see
-      // and can re-run with `df.tail(...)` / `.iloc[]` if they need it.
-      const footer = truncated && totalRows
-        ? `<p class="compute-output-truncation">Showing ${rows.length} of ${totalRows} rows · ${totalRows - rows.length} more hidden</p>`
-        : '';
-      inner = `<div class="compute-output-table-wrap"><table class="compute-output compute-output-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>${footer}</div>`;
-      saveable = true;
-    } else if (p.type === 'json') {
-      inner = `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(p.value, null, 2))}</pre>`;
-      saveable = true;
-    } else if (p.type === 'image' && (p.mime === 'image/png' || p.mime === 'image/svg+xml')) {
-      // Inline image (#243). PNG → data URL with base64 payload; SVG →
-      // raw markup wrapped in a div so the host stylesheet can scope it.
-      // Click-to-zoom toggles a `.zoomed` class via the global compute
-      // output click handler (App.svelte) — same affordance as save-as-note.
-      const data = typeof p.data === 'string' ? p.data : '';
-      if (p.mime === 'image/png') {
-        inner = `<img class="compute-output compute-output-image" src="data:image/png;base64,${escapeAttr(data)}" alt="cell output" />`;
-      } else {
-        // SVG: insert raw markup. SVG is rendered inline, so any embedded
-        // <script> would execute. Sanitize with the same DOMPurify config
-        // the html branch uses.
-        const safe = sanitizeComputeOutputHtml(data);
-        inner = `<div class="compute-output compute-output-svg">${safe}</div>`;
-      }
-      saveable = true;
-    } else if (p.type === 'html' && typeof p.html === 'string') {
-      // _repr_html_ output (Seaborn styled tables, IPython.display.HTML, …).
-      // DOMPurify with a strict allowlist — no <script>, no <iframe>,
-      // no event handlers — so a malformed _repr_html_ from a user-side
-      // library can't escape the output container.
-      const safe = sanitizeComputeOutputHtml(p.html);
-      inner = `<div class="compute-output compute-output-html">${safe}</div>`;
-      saveable = true;
-    } else {
-      // Unknown type — show the raw JSON so the user can tell what came back.
-      inner = `<pre class="compute-output compute-output-json">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>`;
-    }
-
-    // Wrap the rendered output with a ⋯ overflow-menu button when we have
-    // enough context to offer save/copy actions — the output payload
-    // parses cleanly, its type is saveable, and we found the source
-    // fence it came from (so we know what cell to attribute back).
-    if (saveable && source) {
-      const outputB64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const codeB64 = btoa(unescape(encodeURIComponent(source.code)));
-      return `<div class="compute-output-wrap" data-source-language="${escapeAttr(source.language)}" data-source-code-b64="${outputB64.length > 0 ? codeB64 : ''}" data-output-b64="${outputB64}">
-        <button class="compute-output-menu-btn" type="button" title="Output options">⋯</button>
-        ${inner}
-      </div>`;
-    }
-    return inner;
   }
 
   // Query directive plugin: :::query-list ... :::
@@ -735,24 +568,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
     return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
   };
-
-  function escapeHtml(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function escapeAttr(str: string): string {
-    return escapeHtml(str).replace(/"/g, '&quot;');
-  }
-
-  function stripFrontmatter(text: string): string {
-    return text.replace(/^---\n[\s\S]*?\n---\n?/, '');
-  }
-
-  function countFrontmatterLines(text: string): number {
-    const m = text.match(/^---\n[\s\S]*?\n---\n?/);
-    if (!m) return 0;
-    return (m[0].match(/\n/g) ?? []).length;
-  }
 
   // Re-rendering markdown + KaTeX + highlight.js + citeproc on every
   // keystroke felt as typing lag in split-view once notes pass a few
@@ -982,22 +797,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     } catch {
       // Fall back to the source-id already rendered.
     }
-  }
-
-  function collapseCiteRows(rows: Array<Record<string, string>>): CiteMeta {
-    const meta: CiteMeta = { creators: [] };
-    const creatorSet = new Set<string>();
-    for (const row of rows) {
-      if (row.title && !meta.title) meta.title = row.title;
-      if (row.creator && !creatorSet.has(row.creator)) {
-        creatorSet.add(row.creator);
-        meta.creators.push(row.creator);
-      }
-      if (row.issued && !meta.year) meta.year = row.issued.slice(0, 4);
-      if (row.doi && !meta.doi) meta.doi = row.doi;
-      if (row.uri && !meta.uri) meta.uri = row.uri;
-    }
-    return meta;
   }
 
   function applyCiteMeta(el: HTMLElement, _displayEl: HTMLSpanElement, _sourceId: string, meta: CiteMeta) {
@@ -1532,43 +1331,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     outputMenu = null;
   }
 
-  /**
-   * RFC-4180-ish CSV: quote fields containing commas, quotes, or
-   * newlines; double internal quotes; CRLF row terminator. Pasted into
-   * Excel / Numbers / Sheets it parses back to the original table.
-   */
-  function tableToCsv(
-    columns: string[],
-    rows: Array<Array<string | number | boolean | null>>,
-  ): string {
-    const escape = (v: string | number | boolean | null): string => {
-      if (v == null) return '';
-      const s = String(v);
-      if (/[",\r\n]/.test(s)) {
-        return '"' + s.replace(/"/g, '""') + '"';
-      }
-      return s;
-    };
-    const lines = [columns.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
-    return lines.join('\r\n');
-  }
-
-  function outputToMarkdownClipboard(output: import('../../../shared/compute/types').CellOutput): string {
-    if (output.type === 'table') {
-      if (output.columns.length === 0) return '*(empty result)*';
-      const esc = (s: string) => s.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
-      const header = `| ${output.columns.map(esc).join(' | ')} |`;
-      const divider = `| ${output.columns.map(() => '---').join(' | ')} |`;
-      const body = output.rows.map((r) =>
-        `| ${r.map((v) => esc(v == null ? '' : String(v))).join(' | ')} |`,
-      );
-      return [header, divider, ...body].join('\n');
-    }
-    if (output.type === 'text') return '```\n' + output.value.replace(/\n$/, '') + '\n```';
-    if (output.type === 'json') return '```json\n' + JSON.stringify(output.value, null, 2) + '\n```';
-    return '```\n' + JSON.stringify(output) + '\n```';
-  }
-
   let tooltipVisible = $state(false);
   let tooltipHtml = $state('');
   let tooltipStyle = $state('');
@@ -1618,21 +1380,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     tooltipVisible = false;
   }
 
-  /**
-   * Clone the footnote-body `<li>` minus its back-arrow anchor and the
-   * surrounding `<p>` wrapper, leaving the bare body text. markdown-it-
-   * footnote always wraps the body in one or more `<p>` elements with
-   * a trailing `<a class="footnote-backref">↩</a>`; stripping the
-   * backref and reusing the cleaned innerHTML keeps the tooltip a faithful
-   * mini-render of the footnote prose (links, emphasis, code spans
-   * all preserved).
-   */
-  function buildFootnoteTooltip(body: HTMLElement): string {
-    const clone = body.cloneNode(true) as HTMLElement;
-    for (const bk of clone.querySelectorAll('.footnote-backref')) bk.remove();
-    return `<div class="tt-footnote">${clone.innerHTML.trim()}</div>`;
-  }
-
   function positionTooltip(anchor: HTMLElement) {
     if (!previewEl) return;
     const anchorRect = anchor.getBoundingClientRect();
@@ -1645,42 +1392,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     tooltipStyle = `top:${top}px;left:${Math.min(left, Math.max(8, maxLeft))}px`;
   }
 
-  function buildCiteTooltip(meta: CiteMeta): string {
-    const parts: string[] = [];
-    if (meta.title) parts.push(`<div class="tt-title">${escapeHtml(meta.title)}</div>`);
-    const byline = formatFullByline(meta.creators, meta.year);
-    if (byline) parts.push(`<div class="tt-byline">${escapeHtml(byline)}</div>`);
-    if (meta.doi) parts.push(`<div class="tt-meta">DOI: ${escapeHtml(meta.doi)}</div>`);
-    else if (meta.uri) parts.push(`<div class="tt-meta">${escapeHtml(meta.uri)}</div>`);
-    return parts.join('') || `<div class="tt-meta">No metadata available</div>`;
-  }
-
-  function buildQuoteTooltip(meta: QuoteMeta): string {
-    const parts: string[] = [];
-    if (meta.citedText) {
-      parts.push(`<div class="tt-quote">“${escapeHtml(meta.citedText)}”</div>`);
-    }
-    const src = meta.sourceTitle;
-    const creator = meta.sourceCreator;
-    const year = meta.sourceYear;
-    const byline = [src, creator && year ? `${creator} (${year})` : creator || (year ? `(${year})` : '')]
-      .filter(Boolean).join(' — ');
-    if (byline) parts.push(`<div class="tt-byline">— ${escapeHtml(byline)}</div>`);
-    const loc = meta.pageRange ? `pp. ${meta.pageRange}`
-      : meta.page ? `p. ${meta.page}`
-      : meta.locationText ? meta.locationText
-      : '';
-    if (loc) parts.push(`<div class="tt-meta">${escapeHtml(loc)}</div>`);
-    return parts.join('') || `<div class="tt-meta">No excerpt metadata available</div>`;
-  }
-
-  function formatFullByline(creators: string[], year?: string): string {
-    const who = creators.length === 0 ? ''
-      : creators.length <= 3 ? creators.join(', ')
-      : `${creators.slice(0, 3).join(', ')}, …`;
-    if (who && year) return `${who} · ${year}`;
-    return who || (year ?? '');
-  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
