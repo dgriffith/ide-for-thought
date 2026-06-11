@@ -37,6 +37,7 @@
   // the call sites here and the dynamic import doesn't give us
   // namespaces. The API we touch is small and stable.
   type PdfjsModule = typeof import('pdfjs-dist');
+  type PdfLoadingTask = ReturnType<PdfjsModule['getDocument']>;
   type PdfDocumentProxy = Awaited<ReturnType<PdfjsModule['getDocument']>['promise']>;
   type PdfPageProxy = Awaited<ReturnType<PdfDocumentProxy['getPage']>>;
   type TextContent = Awaited<ReturnType<PdfPageProxy['getTextContent']>>;
@@ -57,6 +58,9 @@
 
   let pdfjs = $state<PdfjsModule | null>(null);
   let doc = $state<PdfDocumentProxy | null>(null);
+  /** The current document's loading task — pdfjs 6 hangs `destroy()` here, not
+   *  on the proxy. Held so a reload (or unmount) can tear the old doc down. */
+  let loadingTask: PdfLoadingTask | null = null;
   let loadError = $state<string | null>(null);
   let loading = $state(true);
 
@@ -114,8 +118,10 @@
         pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
       }
       const bytes = await api.sources.readPdf(id);
-      const newDoc = await pdfjs.getDocument({ data: bytes }).promise;
-      if (doc) void doc.destroy();
+      const newTask = pdfjs.getDocument({ data: bytes });
+      const newDoc = await newTask.promise;
+      if (loadingTask) void loadingTask.destroy();
+      loadingTask = newTask;
       doc = newDoc;
       numPages = newDoc.numPages;
       if (page > numPages) page = numPages;

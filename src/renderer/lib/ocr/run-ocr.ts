@@ -39,7 +39,11 @@ export async function runOcr(
   onProgress: (p: OcrProgress) => void,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  const doc = await pdfjs.getDocument({ data: pdfBytes }).promise;
+  // pdfjs 6 moved full teardown from the document proxy to the loading task —
+  // `PDFDocumentProxy` now only exposes `cleanup()`; `destroy()` lives on the
+  // task returned by `getDocument()`. Hold the task so we can tear it down.
+  const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+  const doc = await loadingTask.promise;
   const totalPages = doc.numPages;
 
   const worker = await createTesseractWorker();
@@ -63,7 +67,7 @@ export async function runOcr(
   } finally {
     await worker.terminate();
     await doc.cleanup();
-    await doc.destroy();
+    await loadingTask.destroy();
   }
 }
 
