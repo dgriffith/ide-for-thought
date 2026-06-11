@@ -53,11 +53,21 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       await graph.initGraph(ctx);
       await tables.initTablesDb(ctx);
       conversation.initConversations(rootPath);
+      // graph.indexAllNotes resets the rdflib store (`state.store = $rdf.graph()`)
+      // then rebuilds it; registerAllCsvs writes the CSV table-schema overlay to
+      // that same store via indexCsvTable. Running them concurrently is a latent
+      // hazard — if a schema write lands before the reset (an array reorder or an
+      // added await would do it) those triples go to the discarded store and
+      // vanish silently. So sequence: index notes (owns the reset), THEN register
+      // CSVs against the now-stable store. search.indexAllNotes is independent
+      // (MiniSearch, never touches the rdflib store), so it stays parallel. As a
+      // bonus, registerAllCsvs's `minerva:fromFile` links now resolve against
+      // fully-indexed notes. (#337 follow-up.)
       await Promise.all([
         graph.indexAllNotes(ctx),
         search.indexAllNotes(ctx),
-        tables.registerAllCsvs(ctx),
       ]);
+      await tables.registerAllCsvs(ctx);
       // Re-project conversation JSON into the graph after notes are
       // indexed (so contextNote IRIs resolve against a populated note
       // namespace). Also self-heals stale relative-path triples from
