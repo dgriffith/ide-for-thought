@@ -836,33 +836,22 @@ function indexCsvFile(
   const parsed = parseCsv(content);
   if (parsed.headers.length === 0) return;
 
-  // Columns
-  const colNodes: $rdf.NamedNode[] = [];
+  // Columns — the table's schema (header name + zero-based index). One triple-
+  // cluster per header, so the cost is bounded by column count.
+  //
+  // We deliberately do NOT emit per-cell `csvw:Cell` / `csvw:Row` triples (#337).
+  // A 10k-row × 100-col CSV produced ~4M triples in the in-memory store, and
+  // nothing queried cell *values* over the graph — cell-level querying is the
+  // DuckDB / SQL path's job (`indexCsvTable`, joinable back to this file via
+  // `minerva:fromFile`). Keeping just the Table + column schema is enough for
+  // the sidebar / tag / schema queries that touch CSV files through the graph.
   for (let ci = 0; ci < parsed.headers.length; ci++) {
     const colName = parsed.headers[ci];
     const colUri = $rdf.sym(`${subject.value}/column/${encodeURIComponent(colName)}`);
-    colNodes.push(colUri);
     store.add(colUri, RDF('type'), CSVW('Column'), graph);
     store.add(colUri, CSVW('name'), $rdf.lit(colName), graph);
     store.add(colUri, CSVW('columnIndex'), $rdf.lit(String(ci), undefined, XSD('integer')), graph);
     store.add(subject, CSVW('column'), colUri, graph);
-  }
-
-  // Rows + cells
-  for (let ri = 0; ri < parsed.rows.length; ri++) {
-    const rowUri = $rdf.sym(`${subject.value}/row/${ri}`);
-    store.add(rowUri, RDF('type'), CSVW('Row'), graph);
-    store.add(rowUri, CSVW('rowIndex'), $rdf.lit(String(ri), undefined, XSD('integer')), graph);
-    store.add(subject, CSVW('row'), rowUri, graph);
-
-    for (let ci = 0; ci < parsed.headers.length; ci++) {
-      const value = parsed.rows[ri][ci] ?? '';
-      const cellUri = $rdf.sym(`${rowUri.value}/cell/${encodeURIComponent(parsed.headers[ci])}`);
-      store.add(cellUri, RDF('type'), CSVW('Cell'), graph);
-      store.add(cellUri, CSVW('column'), colNodes[ci], graph);
-      store.add(cellUri, RDF('value'), $rdf.lit(value), graph);
-      store.add(rowUri, CSVW('cell'), cellUri, graph);
-    }
   }
 }
 
