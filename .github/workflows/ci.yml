@@ -43,7 +43,20 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # node-linker=hoisted → node_modules is a self-contained flat tree (no
+      # store symlinks), so caching it directly is safe. Keyed on the lockfile
+      # + Node + OS/arch, so a dep or Node bump busts it. The `cache: pnpm`
+      # store cache above still speeds the miss path. Bump v1 if a runner-image
+      # change ever stales the native binaries baked into the tree (#663).
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Lint (tsc + svelte-check + eslint)
@@ -73,7 +86,17 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # See lint-and-test for the rationale; same key so both jobs share the
+      # cached tree across runs (#663).
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-v1-${{ runner.os }}-${{ runner.arch }}-node-${{ hashFiles('.nvmrc') }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install dependencies
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: E2E (electron-forge package + Playwright)
