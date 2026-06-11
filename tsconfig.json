@@ -4,6 +4,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // Incremental typecheck: cache results so a repeat `pnpm lint` only
+    // re-checks what changed (#664). DX-only — CI always starts cold. The
+    // buildinfo lives under node_modules/.cache (gitignored); tsconfig.eslint
+    // uses a distinct file so the two programs don't clobber each other.
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/minerva/tsconfig.tsbuildinfo",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

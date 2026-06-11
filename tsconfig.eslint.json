@@ -1,5 +1,10 @@
 {
   "extends": "./tsconfig.json",
+  // Distinct buildinfo from the base `tsc --noEmit` (#664) — different include
+  // set, so sharing one file would thrash both caches.
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/minerva/tsconfig.eslint.tsbuildinfo"
+  },
   "include": [
     "src/**/*",
     "tests/**/*",
