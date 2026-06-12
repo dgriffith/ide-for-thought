@@ -157,6 +157,10 @@
     if (rootName && !rootExpanded) rootExpanded = true;
     expandAncestors(path);
     void scrollPathIntoView(path);
+    // Selection follows the revealed file: single-select it so a stale
+    // selection from before the active file changed (via tab switch, a link,
+    // the command palette, …) doesn't stay highlighted alongside it.
+    selectionStore.setSingle(path);
   });
 
   async function scrollPathIntoView(path: string): Promise<void> {
