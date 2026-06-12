@@ -80,6 +80,7 @@
       class:active={i === activeIndex}
       class:dirty
       onclick={() => onSwitch(i)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSwitch(i); } }}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
       title={tab.type === 'note'
