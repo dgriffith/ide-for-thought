@@ -151,7 +151,7 @@
 </script>
 
 <div class="field">
-  <label>Skills</label>
+  <span class="field-label">Skills</span>
   <p class="hint">
     Skills are markdown files that drive the Learning, Research, and
     Analysis menus. Built-in skills ship with Minerva; your own live in
@@ -178,7 +178,7 @@
 
 {#if skillCatalog.errors.length > 0}
   <div class="field">
-    <label>Skills that failed to load</label>
+    <span class="field-label">Skills that failed to load</span>
     <ul class="skill-errs">
       {#each skillCatalog.errors as err (err.filePath + err.message)}
         <li><span class="skill-err-label">{err.label}</span> — {err.message}</li>
@@ -196,7 +196,7 @@
 {#each SKILL_MENU_ORDER as menu (menu)}
   {@const items = skillsForMenu(menu)}
   <div class="field">
-    <label>{menu}</label>
+    <span class="field-label">{menu}</span>
     {#if items.length === 0}
       <p class="hint empty">No skills in this menu.</p>
     {:else}
@@ -260,7 +260,7 @@
     color: var(--text);
     font-size: 12px;
   }
-  .field label { color: var(--text); }
+  .field-label { color: var(--text); }
   .field select {
     padding: 5px 8px;
     background: var(--bg);
