@@ -5,9 +5,8 @@
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
-  import { EditorState, Prec, Compartment, type Extension } from '@codemirror/state';
-  import { oneDark } from '@codemirror/theme-one-dark';
-  import { getEffectiveTheme, getThemeMode } from '../theme';
+  import { EditorState, Prec, Compartment } from '@codemirror/state';
+  import { cmTheme, minervaEditorTheme, fontSizeTheme } from '../editor/editor-theme';
   import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
   import { indentUnit, foldEffect, unfoldEffect, foldedRanges, foldService } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
@@ -190,42 +189,6 @@
   const lineNumbersCompartment = new Compartment();
   const whitespaceCompartment = new Compartment();
 
-  function cmTheme(): Extension {
-    return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
-  }
-
-  /** Minerva-specific gutter + active-line styling per
-   *  IMPLEMENTATION.md §8.2. Layered on top of cmTheme() so both dark
-   *  oneDark and the empty light base inherit the same tokens. */
-  function minervaEditorTheme(): Extension {
-    return EditorView.theme({
-      '.cm-gutters': {
-        backgroundColor: 'var(--bg)',
-        border: 'none',
-        color: 'var(--text-faint)',
-        fontFamily: 'var(--font-mono)',
-      },
-      '.cm-lineNumbers': { minWidth: '56px' },
-      '.cm-lineNumbers .cm-gutterElement': {
-        padding: '0 10px 0 0',
-        color: 'var(--text-faint)',
-      },
-      '.cm-activeLineGutter': {
-        backgroundColor: 'transparent',
-        color: 'var(--accent)',
-      },
-      // Bar marks the boundary between gutters and content. Painting it
-      // on the content row (rather than the gutter's right edge) means a
-      // single line regardless of how many gutter columns are stacked —
-      // the compute gutter would otherwise paint its own bar on fence
-      // lines, doubling up.
-      '.cm-activeLine': {
-        backgroundColor: 'color-mix(in oklch, var(--accent) 6%, transparent)',
-        boxShadow: 'inset 2px 0 0 var(--accent)',
-      },
-    });
-  }
-
   export function updateTheme() {
     if (view) {
       view.dispatch({ effects: themeCompartment.reconfigure(cmTheme()) });
@@ -233,13 +196,6 @@
   }
   function getFontSize(): number {
     return parseStoredFontSize(localStorage.getItem('editorFontSize'));
-  }
-
-  function fontSizeTheme(size: number) {
-    return EditorView.theme({
-      '.cm-content': { fontSize: `${size}px` },
-      '.cm-gutters': { fontSize: `${size}px` },
-    });
   }
 
   export function changeFontSize(delta: number) {
