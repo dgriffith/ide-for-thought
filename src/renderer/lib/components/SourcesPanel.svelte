@@ -8,6 +8,13 @@
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
   import SourceListItem from './SourceListItem.svelte';
   import { formatDueStamp } from '../sources/source-display';
+  import {
+    collectionSubtree,
+    membersInSubtree,
+    subtreeCounts,
+    filterSources,
+    flattenCollectionRows,
+  } from '../sources/collection-tree';
   import Icon from './Icon.svelte';
 
   type QueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
@@ -264,108 +271,28 @@
     !!activeCollectionId && smartCollections.some((s) => s.id === activeCollectionId),
   );
 
-  /** Collection ids in the active subtree (the focused manual
-   *  collection and every descendant). Selecting a parent shows
-   *  everything filed under it — matches what users expect from
-   *  Zotero's "include child collections" default. Returns null
-   *  when nothing is focused, or when the focused entry is a smart
-   *  collection (which has no subtree). */
-  const activeSubtree = $derived.by(() => {
-    if (!activeCollectionId || activeIsSmart) return null;
-    const out = new Set<string>([activeCollectionId]);
-    let added = true;
-    while (added) {
-      added = false;
-      for (const c of collections) {
-        if (c.parent && out.has(c.parent) && !out.has(c.id)) {
-          out.add(c.id);
-          added = true;
-        }
-      }
-    }
-    return out;
-  });
+  /** Collection ids in the active subtree (the focused manual collection and
+   *  every descendant) — see collectionSubtree. */
+  const activeSubtree = $derived(collectionSubtree(activeCollectionId, activeIsSmart, collections));
 
-  /** Source ids the active collection contributes. For manual: union
-   *  of every member array in the subtree. For smart: the live
-   *  smartMembers set. For a queue view: the live queueMembers set. */
+  /** Source ids the active collection contributes. For manual: union of every
+   *  member array in the subtree. For smart: the live smartMembers set. For a
+   *  queue view: the live queueMembers set. */
   const activeMembers = $derived.by(() => {
     if (activeQueueView) return queueMembers;
     if (!activeCollectionId) return null;
     if (activeIsSmart) return smartMembers;
     if (!activeSubtree) return null;
-    const out = new Set<string>();
-    for (const c of collections) {
-      if (activeSubtree.has(c.id)) for (const m of c.members) out.add(m);
-    }
-    return out;
+    return membersInSubtree(activeSubtree, collections);
   });
 
-  /** Per-collection visible counts shown next to each row. Each count
-   *  reflects the subtree-rooted membership the user would see if they
-   *  clicked that row (i.e. includes descendants). */
-  const counts = $derived.by(() => {
-    const childrenOf = new Map<string | null, string[]>();
-    for (const c of collections) {
-      const arr = childrenOf.get(c.parent) ?? [];
-      arr.push(c.id);
-      childrenOf.set(c.parent, arr);
-    }
-    const subtreeMembers = new Map<string, Set<string>>();
-    const collect = (id: string): Set<string> => {
-      const cached = subtreeMembers.get(id);
-      if (cached) return cached;
-      const own = collections.find((c) => c.id === id);
-      const out = new Set<string>(own?.members ?? []);
-      for (const childId of childrenOf.get(id) ?? []) {
-        for (const m of collect(childId)) out.add(m);
-      }
-      subtreeMembers.set(id, out);
-      return out;
-    };
-    const result = new Map<string, number>();
-    for (const c of collections) result.set(c.id, collect(c.id).size);
-    return result;
-  });
+  /** Per-collection subtree-rooted counts shown next to each row. */
+  const counts = $derived(subtreeCounts(collections));
 
-  let visible = $derived.by(() => {
-    let base = sources;
-    if (activeMembers) base = base.filter((s) => activeMembers.has(s.sourceId));
-    const q = filter.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter((s) => {
-      const title = displaySourceTitle(s).toLowerCase();
-      const byline = s.creators.join(' ').toLowerCase();
-      const year = s.year ?? '';
-      return title.includes(q) || byline.includes(q) || year.includes(q) || s.sourceId.includes(q);
-    });
-  });
+  let visible = $derived(filterSources(sources, activeMembers, filter));
 
-  interface CollectionRow {
-    collection: Collection;
-    depth: number;
-    hasChildren: boolean;
-  }
   /** Display-order flattening of the tree, honouring expansion state. */
-  const collectionRows = $derived.by<CollectionRow[]>(() => {
-    const childrenOf = new Map<string | null, Collection[]>();
-    for (const c of collections) {
-      const arr = childrenOf.get(c.parent) ?? [];
-      arr.push(c);
-      childrenOf.set(c.parent, arr);
-    }
-    for (const arr of childrenOf.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
-    const out: CollectionRow[] = [];
-    const walk = (parent: string | null, depth: number) => {
-      for (const c of childrenOf.get(parent) ?? []) {
-        const hasChildren = (childrenOf.get(c.id)?.length ?? 0) > 0;
-        out.push({ collection: c, depth, hasChildren });
-        if (hasChildren && expandedCollections[c.id]) walk(c.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    return out;
-  });
+  const collectionRows = $derived(flattenCollectionRows(collections, expandedCollections));
 
   function toggleExpanded(id: string) {
     expandedCollections = { ...expandedCollections, [id]: !expandedCollections[id] };
