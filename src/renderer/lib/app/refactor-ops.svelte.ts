@@ -58,6 +58,28 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const flow = getRefactorFlowStore();
   const { showPrompt, showConfirm } = dialogs;
 
+  /**
+   * After a renderer-initiated bulk write (tag add/remove, entrypoint toggle),
+   * sync any affected OPEN note tabs to disk so the visible page reflects the
+   * change. `api.notebase.writeFile` suppresses the `rewritten` broadcast that
+   * normally drives this (it assumes the writer is the editor saving its own
+   * buffer) — so the writer refreshes the views itself, mirroring App's
+   * onRewritten flow including the unsaved-edits prompt.
+   */
+  async function syncOpenTabsToDisk(paths: string[]): Promise<void> {
+    for (const path of paths) {
+      if (editor.isPathDirty(path)) {
+        const keepDisk = await showConfirm(
+          `"${path}" is open with unsaved edits. Discard them and load the updated version?`,
+          CONFIRM_KEYS.rewriteConflict,
+          'Load disk',
+        );
+        if (!keepDisk) continue;
+      }
+      await editor.reloadTabFromDisk(path);
+    }
+  }
+
   async function resolveTitle(body: string): Promise<string | null> {
     const derived = deriveProposedTitle(body);
     if (derived) return derived;
@@ -308,7 +330,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     const tag = raw.trim().toLowerCase();
     if (!tag) return;
 
-    let changed = 0;
+    const changedPaths: string[] = [];
     const failures: Array<{ path: string; error: string }> = [];
     for (const path of targets) {
       try {
@@ -316,7 +338,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
         const { content: next, addedTags } = mergeTagsIntoContent(content, [tag]);
         if (addedTags.length > 0) {
           await api.notebase.writeFile(path, next);
-          changed++;
+          changedPaths.push(path);
         }
       } catch (err) {
         failures.push({ path, error: err instanceof Error ? err.message : String(err) });
@@ -324,7 +346,8 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
 
     ctx.getSidebar()?.refreshTags();
-    await reportBulkTagSummary('Add', tag, targets.length, changed, failures);
+    await syncOpenTabsToDisk(changedPaths);
+    await reportBulkTagSummary('Add', tag, targets.length, changedPaths.length, failures);
   }
 
   /**
@@ -377,7 +400,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     const tag = raw.trim().toLowerCase();
     if (!tag) return;
 
-    let changed = 0;
+    const changedPaths: string[] = [];
     const failures: Array<{ path: string; error: string }> = [...readFailures];
     for (const path of targets) {
       // Skip files that already errored on read — we don't have
@@ -388,7 +411,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
         const { content: next, removedTags } = removeTagsFromContent(content, [tag]);
         if (removedTags.length > 0) {
           await api.notebase.writeFile(path, next);
-          changed++;
+          changedPaths.push(path);
         }
       } catch (err) {
         failures.push({ path, error: err instanceof Error ? err.message : String(err) });
@@ -396,7 +419,8 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
 
     ctx.getSidebar()?.refreshTags();
-    await reportBulkTagSummary('Remove', tag, targets.length, changed, failures);
+    await syncOpenTabsToDisk(changedPaths);
+    await reportBulkTagSummary('Remove', tag, targets.length, changedPaths.length, failures);
   }
 
   /**
@@ -414,14 +438,16 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       const content = await api.notebase.readFile(relativePath);
       const hasIt = extractTagsFromContent(content)
         .some((t) => t.toLowerCase() === ENTRYPOINT_TAG);
+      let wrote = false;
       if (hasIt) {
         const { content: next, removedTags } = removeTagsFromContent(content, [ENTRYPOINT_TAG]);
-        if (removedTags.length > 0) await api.notebase.writeFile(relativePath, next);
+        if (removedTags.length > 0) { await api.notebase.writeFile(relativePath, next); wrote = true; }
       } else {
         const { content: next, addedTags } = mergeTagsIntoContent(content, [ENTRYPOINT_TAG]);
-        if (addedTags.length > 0) await api.notebase.writeFile(relativePath, next);
+        if (addedTags.length > 0) { await api.notebase.writeFile(relativePath, next); wrote = true; }
       }
       ctx.getSidebar()?.refreshTags();
+      if (wrote) await syncOpenTabsToDisk([relativePath]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Toggle entrypoint failed: ${msg}`, CONFIRM_KEYS.bulkTagFailed, 'OK');
