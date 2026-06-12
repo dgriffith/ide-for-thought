@@ -86,10 +86,16 @@
       {#each tables() as name}
         {@const info = registeredTables.get(name)}
         {@const known = info !== undefined}
-        <button
+        <!-- A div, not a button: the row carries an inner "SELECT *" button, and
+             a button can't contain a button. role/tabindex/onkeydown keep it
+             keyboard-accessible. -->
+        <div
           class="row"
           class:dead={!known}
+          role="button"
+          tabindex="0"
           onclick={() => onOpenQuery(`SELECT * FROM ${name}`)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenQuery(`SELECT * FROM ${name}`); } }}
           title={known ? `${name} · ${info.rowCount} × ${info.columns.length}` : `${name} (not registered)`}
         >
           {#if known}
@@ -112,7 +118,7 @@
               title="SELECT * FROM {name}"
             >SELECT *</button>
           {/if}
-        </button>
+        </div>
       {/each}
     {/if}
   </div>
@@ -159,6 +165,10 @@
   .row:hover {
     background: color-mix(in oklch, var(--text) 4%, transparent);
     border-left-color: var(--accent);
+  }
+  .row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
   .row.dead {
     cursor: default;

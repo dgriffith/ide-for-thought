@@ -431,9 +431,6 @@
     align-items: center;
     cursor: pointer;
   }
-  .radio-group input:disabled + * {
-    color: var(--text-muted);
-  }
   select {
     background: var(--bg-button);
     color: var(--text);
@@ -534,8 +531,7 @@
     flex-basis: 100%;
   }
   .audit-section li > .row-check ~ .title,
-  .audit-section li > .row-check ~ .path,
-  .audit-section li > .row-check ~ .reason {
+  .audit-section li > .row-check ~ .path {
     flex-basis: calc(100% - 22px);
   }
 

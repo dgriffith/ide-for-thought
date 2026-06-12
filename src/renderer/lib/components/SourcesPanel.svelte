@@ -1183,12 +1183,6 @@
   .submenu-item:hover > .submenu {
     display: block;
   }
-  .submenu-separator {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 0;
-  }
-
   /* Reading-due-date modal — popped out of the context-menu "Set due
      date" item. Owns its own dismissal (Escape / overlay click /
      Cancel / Save) so the native date picker can open without the

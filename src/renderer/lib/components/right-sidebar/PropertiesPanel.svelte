@@ -923,20 +923,6 @@
     width: 14px;
     flex-shrink: 0;
   }
-  .key-input {
-    flex: 1;
-    background: var(--bg-inset);
-    border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 4px 8px;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 12px;
-  }
-  .key-input:focus {
-    border-color: var(--accent);
-    outline: none;
-  }
   .add-btn {
     background: var(--bg);
     border: 1px solid var(--border);
