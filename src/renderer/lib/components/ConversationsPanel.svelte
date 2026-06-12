@@ -35,6 +35,13 @@
   import ComputeDraftCard from './ComputeDraftCard.svelte';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, filterSlashCommands } from '../conversations/slash-commands';
+  import {
+    tabTitle,
+    formatPropertyValue,
+    sourceLabel,
+    basename,
+    sourceKindLabel,
+  } from '../conversations/conversation-display';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the
@@ -304,21 +311,6 @@
     window.addEventListener('pointerup', up);
   }
 
-  function tabTitle(tab: { title: string | null; conversation: { messages: { role: string; content: string }[] } }): string {
-    if (tab.title) return tab.title;
-    const firstUser = tab.conversation.messages.find((m) => m.role === 'user');
-    if (!firstUser) return 'New conversation';
-    const flat = firstUser.content.replace(/\s+/g, ' ').trim();
-    if (!flat) return 'New conversation';
-    // 60-char auto-title heuristic. Truncates on a word boundary when one
-    // exists in the last quarter so we don't slice mid-word for the common
-    // case of a 60-80 char first turn.
-    if (flat.length <= 60) return flat;
-    const window = flat.slice(0, 60);
-    const lastSpace = window.lastIndexOf(' ');
-    return (lastSpace > 45 ? window.slice(0, lastSpace) : window) + '…';
-  }
-
   let pendingAnswerText = $state('');
 
   async function submitAnswer(tabId: string, answer: string) {
@@ -426,45 +418,12 @@
    *  Strings render bare; everything else falls back to compact JSON
    *  so the user can eyeball arrays/objects without scrolling. Null
    *  is shown as a deletion marker. */
-  function formatPropertyValue(v: unknown): string {
-    if (v === null) return '⌫ deleted';
-    if (typeof v === 'string') return v;
-    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-    try { return JSON.stringify(v) ?? ''; } catch { return '[unserializable]'; }
-  }
-
-  function sourceLabel(s: { identifier?: string; url?: string }): string {
-    return s.identifier ?? s.url ?? '(unknown source)';
-  }
-
-  /** Last segment of a project-relative path — the only part the user
-   *  needs to recognize the filed note in the compact "Filed:" line.
-   *  Full path is still on the link's `title` for hover disambiguation
-   *  when two filings have the same basename. */
-  function basename(p: string): string {
-    const slash = p.lastIndexOf('/');
-    return slash >= 0 ? p.slice(slash + 1) : p;
-  }
-
   function openFiledNote(relativePath: string) {
     void editor.openFile(relativePath);
   }
 
   function openFiledSource(sourceId: string) {
     editor.openSource(sourceId);
-  }
-
-  /** Cheap heuristic for the "doi / arxiv / pmid / url" pill — exact
-   *  normalization happens server-side at ingest time. Only used for
-   *  the badge label so a bit of imprecision is fine. */
-  function sourceKindLabel(s: { identifier?: string; url?: string }): string {
-    if (s.url) return 'url';
-    const id = s.identifier ?? '';
-    const stripped = id.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:|arxiv:|pmid:)\s*/i, '');
-    if (/^10\./.test(stripped)) return 'doi';
-    if (/^\d{4}\.\d{4,5}$|^[a-z-]+(?:\.[a-z-]+)?\/\d{7}$/i.test(stripped)) return 'arxiv';
-    if (/^\d+$/.test(stripped)) return 'pmid';
-    return 'id';
   }
 
   // ── Card anchoring helpers ───────────────────────────────────────────
