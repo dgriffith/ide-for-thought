@@ -147,11 +147,13 @@
 
 {#snippet bookmarkNode(node: BookmarkNode, depth: number)}
   {#if node.type === 'folder'}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="bm-item folder"
       style:padding-left="{8 + depth * 14}px"
+      role="button"
+      tabindex="0"
       onclick={() => toggleFolder(node.id)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleFolder(node.id); } }}
       oncontextmenu={(e) => showContextMenu(e, node)}
       ondragover={handleDragOver}
       ondrop={(e) => { e.stopPropagation(); handleDrop(e, node.id); }}
@@ -169,11 +171,13 @@
       {/each}
     {/if}
   {:else}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="bm-item bookmark"
       style:padding-left="{8 + depth * 14}px"
+      role="button"
+      tabindex="0"
       onclick={() => handleClick(node)}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(node); } }}
       oncontextmenu={(e) => showContextMenu(e, node)}
       draggable={true}
       ondragstart={(e) => handleDragStart(e, node.id)}
@@ -249,6 +253,10 @@
   .bm-item:hover {
     background: color-mix(in oklch, var(--text) 4%, transparent);
     border-left-color: var(--accent);
+  }
+  .bm-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
   /* Fixed-width chevron slot so folder/bookmark icons align in a column */

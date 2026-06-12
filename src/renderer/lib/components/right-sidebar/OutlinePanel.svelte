@@ -67,23 +67,28 @@
         {#each headings as heading, i}
           {#if isVisible(i)}
             <li>
-              <button
+              <!-- A div, not a button: it carries the inner collapse-toggle
+                   button, and a button can't contain a button. -->
+              <div
                 class="outline-item"
+                role="button"
+                tabindex="0"
                 style:padding-left="{(heading.level - 1) * 14 + 8}px"
                 onclick={() => onScrollToLine(heading.line)}
+                onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onScrollToLine(heading.line); } }}
               >
                 {#if hasChildren(i) && !search.trim()}
-                  <span
+                  <button
+                    type="button"
                     class="collapse-toggle"
                     onclick={(e) => { e.stopPropagation(); toggleCollapse(i); }}
-                    role="button"
-                    tabindex="-1"
-                  >{collapsed[i] ? '▸' : '▾'}</span>
+                    title={collapsed[i] ? 'Expand' : 'Collapse'}
+                  >{collapsed[i] ? '▸' : '▾'}</button>
                 {:else}
                   <span class="collapse-spacer"></span>
                 {/if}
                 <span class="heading-text">{heading.text}</span>
-              </button>
+              </div>
             </li>
           {/if}
         {/each}
@@ -125,12 +130,19 @@
     text-align: left;
     border-radius: 3px;
   }
+  .outline-item:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
 
   .outline-item:hover {
     background: var(--bg-button);
   }
 
   .collapse-toggle {
+    border: none;
+    background: none;
+    padding: 0;
     font-size: 10px;
     width: 12px;
     text-align: center;

@@ -85,8 +85,13 @@
         {@const collapsed = !!collapsedGroups[type]}
         <div class="type-group">
           {#if type !== ''}
-            <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-            <div class="type-header" onclick={() => toggleGroup(type)}>
+            <div
+              class="type-header"
+              role="button"
+              tabindex="0"
+              onclick={() => toggleGroup(type)}
+              onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGroup(type); } }}
+            >
               <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={11} color="var(--text-faint)" />
               <span class="type-square" style:background={typeLinks[0].linkColor} aria-hidden="true"></span>
               <span class="type-label">{typeLinks[0].linkLabel}</span>
@@ -143,6 +148,10 @@
     align-items: center;
     gap: 8px;
     color: var(--text);
+  }
+  .type-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
   .type-header:hover {
     background: color-mix(in oklch, var(--text) 4%, transparent);
