@@ -953,7 +953,6 @@
     font-size: 12px;
   }
 
-  .field input[type="password"],
   .field input[type="text"],
   .field select,
   .field textarea {
@@ -966,7 +965,6 @@
     font-family: inherit;
   }
 
-  .field input[type="password"]:focus,
   .field input[type="text"]:focus,
   .field select:focus,
   .field textarea:focus {
@@ -1078,23 +1076,6 @@
     margin: 0 0 16px 0;
   }
 
-  .action-btn {
-    align-self: flex-start;
-    padding: 4px 12px;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 12px;
-    cursor: pointer;
-  }
-  .action-btn:hover:not(:disabled) {
-    background: var(--bg-button-hover);
-  }
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 
   .section-intro code {
     font-size: 11px;
