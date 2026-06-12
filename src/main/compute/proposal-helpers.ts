@@ -71,8 +71,31 @@ function formatTableCell(value: unknown): string {
 
 /**
  * Write the ComputeProposal triples into the graph. Called from the RUN handler
- * so every executed cell leaves an audit-trail record — the integrity stock
- * query verifies the LLM hasn't snuck a cell past review.
+ * so every executed cell leaves an audit-trail record.
+ *
+ * Trust-model note (#667): this writes `thought:proposalStatus thought:approved`
+ * directly via `graph.parseIntoStore`, bypassing the approval engine
+ * (`proposeWrite` → user review → `approveProposal`). That is intentional and is
+ * NOT a Trust-Principle violation:
+ *
+ *  - It is not an LLM *claim* about the knowledge graph (the kind that must be
+ *    reviewed). It is an audit record of a compute cell the user ALREADY
+ *    confirmed by clicking Run — the approval already happened, in the UI, at
+ *    run time. There is nothing left to review, so routing it back through the
+ *    pending-proposal queue would be busywork that asks the user to approve
+ *    something they just triggered.
+ *  - It records the proposal *as* approved precisely so it doubles as its own
+ *    provenance: who proposed it (`llm:propose_compute`), the exact code that
+ *    ran, and when.
+ *
+ * It is, however, exactly the shape the dev-time write guard
+ * (`graph/write-guard`) flags — a direct `parseIntoStore` from a near-LLM path.
+ * If a guard warning ever points here, this is the carve-out: a warning is
+ * expected and benign. The integrity stock query (CLAUDE.md) looks for
+ * `thought:Component` nodes attributed to an LLM that LACK an approved proposal;
+ * a `thought:ComputeProposal` that already carries `thought:proposalStatus
+ * thought:approved` is its own approval record, so it does not (and must not) be
+ * mistaken for an unreviewed bypass.
  */
 export function recordComputeProposalRun(
   ctx: ProjectContext,

@@ -1,5 +1,28 @@
 import type { ThinkingToolDef, ThinkingToolInfo, ToolCategory } from './types';
 
+/**
+ * Cross-process tool registry (#675).
+ *
+ * `tools` below is module-global mutable state. An ES module is a singleton
+ * *per process*, and main and renderer are separate processes — so each gets
+ * its OWN independent copy of this Map. That duplication is by design:
+ *
+ *  - **Main** populates it from compiled skills (`skills/register.ts`) with full
+ *    `ThinkingToolDef`s, including the prompt bodies the executor needs.
+ *  - **Renderer** populates ITS copy (`renderer/lib/tools/tool-registry.ts`)
+ *    from `api.skills.list()` — serializable `SkillInfo` only. The renderer
+ *    never receives prompt bodies (see CLAUDE.md "Tools for Thought"); its
+ *    registry exists so menus / the command palette / right-click can list and
+ *    dispatch tools without a round-trip.
+ *
+ * The two copies are populated from different sources and never share state at
+ * runtime; "register once in each process at startup" is the contract.
+ *
+ * Caveat for tests: because the Map is process-global, a test that registers
+ * tools mutates a singleton shared with every other test in the same worker —
+ * register into a clean state and clear up front (`unregisterTool` / re-register)
+ * rather than assuming an empty registry.
+ */
 const tools = new Map<string, ThinkingToolDef>();
 
 export function registerTool(tool: ThinkingToolDef): void {
