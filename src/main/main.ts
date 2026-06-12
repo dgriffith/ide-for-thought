@@ -18,9 +18,11 @@ app.setName('Minerva');
 // Boot-trace: stderr-tagged so the e2e smoke test (#394) can recover them
 // from the captured main-process stream when launch hangs on CI (#518).
 // In normal runs these are a few lines and harmless; on a hang they tell
-// us which step never returned.
+// us which step never returned — and the elapsed-ms makes them a cheap
+// startup profile (which phase owns the time).
+const BOOT_T0 = Date.now();
 function boot(label: string): void {
-  console.error(`[boot] ${label}`);
+  console.error(`[boot +${Date.now() - BOOT_T0}ms] ${label}`);
 }
 
 boot('main module loaded');
@@ -53,7 +55,9 @@ void app.whenReady().then(async () => {
       const win = createWindow({ x: state.x, y: state.y, width: state.width, height: state.height });
       buildMenu(win);
       win.webContents.once('did-finish-load', async () => {
+        boot(`renderer loaded — opening project ${path.basename(state.rootPath)}`);
         await openProjectInWindow(win, state.rootPath);
+        boot(`project indexed ${path.basename(state.rootPath)}`);
         win.webContents.send(Channels.PROJECT_OPENED, {
           rootPath: state.rootPath,
           name: path.basename(state.rootPath),
