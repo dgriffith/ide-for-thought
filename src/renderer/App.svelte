@@ -27,7 +27,9 @@
   import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
-  import PdfViewer from './lib/components/PdfViewer.svelte';
+  // PdfViewer + OcrProgressDialog are loaded lazily at their render sites
+  // (`{#await import()}`) so pdfjs-dist + tesseract.js stay out of the eager
+  // startup graph (#691).
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
@@ -41,7 +43,6 @@
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
-  import OcrProgressDialog from './lib/components/OcrProgressDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
@@ -1264,11 +1265,15 @@
           {/key}
         {:else if editor.activeTab?.type === 'pdf'}
           {#key editor.activeTab.sourceId}
-            <PdfViewer
-              sourceId={editor.activeTab.sourceId}
-              initialPage={editor.activeTab.page}
-              onShowMarkdown={handleShowMarkdownFromPdf}
-            />
+            <!-- Lazy: pdfjs-dist only loads when a PDF tab is opened, keeping it
+                 out of the eager startup graph (#691). -->
+            {#await import('./lib/components/PdfViewer.svelte') then { default: PdfViewer }}
+              <PdfViewer
+                sourceId={editor.activeTab.sourceId}
+                initialPage={editor.activeTab.page}
+                onShowMarkdown={handleShowMarkdownFromPdf}
+              />
+            {/await}
           {/key}
         {:else}
           <div class="no-file">
@@ -1369,13 +1374,17 @@
     />
   {/if}
   {#if sourceFlow.ocrSession && sourceFlow.ocrPdfBytes}
-    <OcrProgressDialog
-      pdfBytes={sourceFlow.ocrPdfBytes}
-      pageCount={sourceFlow.ocrSession.pageCount}
-      title={sourceFlow.ocrSession.title}
-      onDone={handleOcrDone}
-      onCancel={handleOcrCancel}
-    />
+    <!-- Lazy: tesseract.js (multi-MB WASM) + pdfjs only load when OCR actually
+         runs, keeping them out of the eager startup graph (#691). -->
+    {#await import('./lib/components/OcrProgressDialog.svelte') then { default: OcrProgressDialog }}
+      <OcrProgressDialog
+        pdfBytes={sourceFlow.ocrPdfBytes}
+        pageCount={sourceFlow.ocrSession.pageCount}
+        title={sourceFlow.ocrSession.title}
+        onDone={handleOcrDone}
+        onCancel={handleOcrCancel}
+      />
+    {/await}
   {/if}
   {#if findInNotesMode}
     <FindInNotesDialog
