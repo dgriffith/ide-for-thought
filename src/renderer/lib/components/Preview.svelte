@@ -18,8 +18,8 @@
   import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
   import { installHighlight } from '../../../shared/markdown/highlight-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
+  import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
-  import { getLinkType } from '../../../shared/link-types';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
   import { normalizeSqlRows } from '../editor/sql-result';
@@ -276,67 +276,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   };
 
   // Wiki-link plugin: [[type::target|display]], [[type::target]], [[target|display]], [[target]]
-  md.inline.ruler.push('wiki_link', (state, silent) => {
-    const src = state.src.slice(state.pos);
-    // Match typed: [[type::target|display]] or [[type::target]]
-    // Or plain: [[target|display]] or [[target]]
-    const match = src.match(/^\[\[(?:([a-z][\w-]*)::)?((?:[^\]|])+?)(?:\|((?:[^\]])+?))?\]\]/);
-    if (!match) return false;
-    if (!silent) {
-      const token = state.push('wiki_link', '', 0);
-      const linkTypeName = match[1] ?? 'references';
-      const target = match[2].trim();
-      const display = match[3]?.trim() ?? target;
-      token.meta = { target, display, linkType: linkTypeName };
-    }
-    state.pos += match[0].length;
-    return true;
-  });
-
-  md.renderer.rules.wiki_link = (tokens, idx) => {
-    const { target, display, linkType: typeName } = tokens[idx].meta;
-    const linkType = getLinkType(typeName);
-    if (typeName === 'references') {
-      // Plain links render as before
-      return `<a class="wiki-link" data-target="${escapeAttr(target)}">${escapeHtml(display)}</a>`;
-    }
-    // Cite/quote links get a placeholder class so the post-render effect can
-    // swap the display text for resolved metadata when the user didn't supply
-    // their own |display override.
-    const hasOverride = display !== target;
-    let extraClasses = '';
-    let resolveData = '';
-    if (linkType.targetKind === 'source') {
-      extraClasses = ' cite-link';
-      resolveData = ` data-source-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`;
-    } else if (linkType.targetKind === 'excerpt') {
-      extraClasses = ' quote-link';
-      resolveData = ` data-excerpt-id="${escapeAttr(target)}" data-display-override="${hasOverride ? '1' : '0'}"`;
-    }
-    // Typed links render with a colored badge
-    return `<a class="wiki-link typed-link${extraClasses}" data-target="${escapeAttr(target)}"${resolveData} style="--link-color: ${linkType.color}"><span class="link-type-badge" style="background: ${linkType.color}">${escapeHtml(linkType.label)}</span><span class="link-display">${escapeHtml(display)}</span></a>`;
-  };
-
-  // Tag plugin: #tag (but not inside URLs or after non-whitespace)
-  md.inline.ruler.push('note_tag', (state, silent) => {
-    // Must be at start or preceded by whitespace
-    if (state.pos > 0 && state.src[state.pos - 1] !== ' ' && state.src[state.pos - 1] !== '\n') return false;
-
-    const src = state.src.slice(state.pos);
-    const match = src.match(/^#([a-zA-Z][\w-/]*)/);
-    if (!match) return false;
-    if (!silent) {
-      const token = state.push('note_tag', '', 0);
-      token.meta = { tag: match[1] };
-    }
-    state.pos += match[0].length;
-    return true;
-  });
-
-  md.renderer.rules.note_tag = (tokens, idx) => {
-    const { tag } = tokens[idx].meta;
-    return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
-  };
+  installWikiLinks(md);
+  installNoteTags(md);
 
   /**
    * Image rule (#244). markdown-it would normally emit `<img src="…">`
