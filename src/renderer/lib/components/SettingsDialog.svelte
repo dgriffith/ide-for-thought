@@ -465,7 +465,7 @@
             </p>
           </div>
           <div class="field">
-            <label>Don't-ask-again confirmations</label>
+            <span class="field-label">Don't-ask-again confirmations</span>
             <p class="hint">
               Dialogs you've muted via "Don't ask again." Re-enable a row to see its
               prompt next time the action occurs.

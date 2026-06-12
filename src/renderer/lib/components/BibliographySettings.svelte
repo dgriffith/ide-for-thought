@@ -113,7 +113,7 @@
 </div>
 
 <div class="field">
-  <label>Imported styles</label>
+  <span class="field-label">Imported styles</span>
   <p class="hint">
     Drop additional <code>.csl</code> files into your project under
     <code>.minerva/csl-styles/</code> — they show up in the picker above and
@@ -145,7 +145,7 @@
 </div>
 
 <div class="field">
-  <label>Imported locales</label>
+  <span class="field-label">Imported locales</span>
   <p class="hint">
     Optional. Bundled locale is en-US; import additional CSL
     locale XML to render bibliographies in another language.

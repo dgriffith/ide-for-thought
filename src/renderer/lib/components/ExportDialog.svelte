@@ -178,7 +178,7 @@
     </h2>
 
     <div class="option-row">
-      <label>Scope</label>
+      <span class="field-label">Scope</span>
       <div class="radio-group">
         {#if canScopeProject}
           <label>

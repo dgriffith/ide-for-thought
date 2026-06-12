@@ -90,7 +90,7 @@
   {/if}
 </div>
 <div class="field">
-  <label>Tool model overrides</label>
+  <span class="field-label">Tool model overrides</span>
   <p class="hint">
     Each tool's author may suggest a preferred model. You can override that
     per tool. Empty override → use the tool's preference; no preference →
