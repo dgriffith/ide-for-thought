@@ -53,9 +53,12 @@
   $effect(() => { nameInputEl?.focus(); });
 
   async function loadTags(): Promise<void> {
-    allTags = await api.tags.list();
+    // Smart collections here filter *sources*, so only offer tags that appear
+    // on at least one source (`sourceCount > 0`). The unfiltered vocabulary
+    // includes note-only tags, which can never match a source predicate.
+    allTags = (await api.tags.list()).filter((t) => t.sourceCount > 0);
     // Restore any pre-selected tag that doesn't appear in the live
-    // project vocabulary (e.g. the predicate references a tag that's
+    // source vocabulary (e.g. the predicate references a tag that's
     // since been removed from every source). We still show it so the
     // user can either keep it or uncheck it deliberately.
     for (const t of selectedTags) {
