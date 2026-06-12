@@ -170,7 +170,8 @@
   }
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="export-dialog-backdrop" onclick={handleBackdropClick}>
   <div class="export-dialog" role="dialog" aria-labelledby="export-dialog-title">
     <h2 id="export-dialog-title">
@@ -296,7 +297,8 @@
             <p class="hint">Click any excluded row to re-include it in this export.</p>
             <ul>
               {#each plan.excluded.slice(0, 40) as ex (ex.relativePath)}
-                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
                 <li
                   class="clickable"
                   onclick={() => (

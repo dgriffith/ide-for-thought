@@ -97,7 +97,8 @@
 {#if ticks.length > 0}
   <div class="excerpt-density-gutter" aria-hidden="true">
     {#each ticks as t (t.excerptId)}
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="tick"
         style:top="{t.topPct * 100}%"
