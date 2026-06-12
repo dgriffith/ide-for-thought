@@ -32,6 +32,7 @@ const h = vi.hoisted(() => {
     flushAutoSave: vi.fn(),
     save: vi.fn().mockResolvedValue(undefined),
     reloadTabFromDisk: vi.fn().mockResolvedValue(undefined),
+    isPathDirty: vi.fn(() => false),
     openFile: vi.fn().mockResolvedValue(undefined),
     setContent: vi.fn(),
   };
@@ -153,6 +154,28 @@ describe('handleAddTag', () => {
     const [path] = h.api.notebase.writeFile.mock.calls[0];
     expect(path).toBe('note.md');
     expect(sidebar.refreshTags).toHaveBeenCalled();
+  });
+
+  it('syncs an open tab to disk after tagging so the page updates (regression)', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('bar');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    h.api.notebase.writeFile.mockResolvedValue(undefined);
+    await ops.handleAddTag('note.md', false);
+    // The whole point: the changed note's open editor buffer is reloaded.
+    expect(h.editor.reloadTabFromDisk).toHaveBeenCalledWith('note.md');
+  });
+
+  it('prompts before clobbering unsaved edits in an open tab, and skips reload if declined', async () => {
+    h.api.tags.list.mockResolvedValue([]);
+    h.dialog.showPrompt.mockResolvedValue('bar');
+    h.api.notebase.readFile.mockResolvedValue('body');
+    h.api.notebase.writeFile.mockResolvedValue(undefined);
+    h.editor.isPathDirty.mockReturnValue(true);
+    h.dialog.showConfirm.mockResolvedValue(false); // keep my edits
+    await ops.handleAddTag('note.md', false);
+    expect(h.dialog.showConfirm).toHaveBeenCalled();
+    expect(h.editor.reloadTabFromDisk).not.toHaveBeenCalled();
   });
 });
 
