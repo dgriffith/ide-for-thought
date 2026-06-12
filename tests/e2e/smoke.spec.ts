@@ -29,11 +29,28 @@
 
 import { test, expect, _electron as electron, type ConsoleMessage, type Page } from '@playwright/test';
 import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
 
 // Playwright transpiles tests as CJS (no `"type": "module"` in
 // package.json), so __dirname is available — using import.meta.url
 // would force ESM and trip Playwright's loader.
 const projectRoot = path.resolve(__dirname, '..', '..');
+
+/** Path to the packaged app binary, or null if it hasn't been built. */
+function packagedBinary(): string | null {
+  if (process.platform !== 'darwin') return null; // only darwin .app layout handled
+  const p = path.join(
+    projectRoot,
+    'out',
+    `Minerva-${process.platform}-${process.arch}`,
+    'Minerva.app',
+    'Contents',
+    'MacOS',
+    'Minerva',
+  );
+  return fs.existsSync(p) ? p : null;
+}
 
 test('app launches, renderer mounts, no thrown errors', async () => {
   // page.on('pageerror') captures synchronous renderer-side throws
@@ -115,4 +132,70 @@ test('app launches, renderer mounts, no thrown errors', async () => {
   expect(rendererErrors, `renderer threw: ${rendererErrors.map((e) => e.message).join('; ')}`)
     .toHaveLength(0);
   expect(meaningful, `renderer console errors: ${meaningful.join('; ')}`).toHaveLength(0);
+});
+
+/**
+ * Packaging regression: the *packaged* app opens a project that uses DuckDB
+ * tables (#691 follow-up). The test above boots `.vite/build/main.js` against
+ * the repo, so it uses the dev `node_modules` and never exercises what actually
+ * shipped. @electron-forge/plugin-vite bundles the main process and ships no
+ * node_modules, so the externalized `@duckdb/node-bindings` native binary has to
+ * be copied in by forge.config's `afterPrune` hook — and if it isn't, the app
+ * dies at first DuckDB use with "cannot find @duckdb/node-bindings".
+ *
+ * We launch the packaged binary against a seeded session that restores a
+ * CSV-bearing fixture, so `registerAllCsvs` runs DuckDB on launch. A copy of the
+ * fixture is used so the run can't dirty the git-tracked one.
+ */
+test('packaged app opens a DuckDB-backed project (native binding shipped)', async () => {
+  const appBinary = packagedBinary();
+  test.skip(appBinary === null, 'packaged app not built — run `pnpm build:e2e` first');
+
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-userdata-'));
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-e2e-project-'));
+  // Copy the fixture (it has newData.csv → registerAllCsvs → DuckDB) so the
+  // launch can't mutate the tracked fixture (search-index persist, etc.).
+  fs.cpSync(path.join(projectRoot, 'tests', 'fixtures', 'sample-project'), projectDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(userDataDir, 'session.json'),
+    JSON.stringify([{ x: 80, y: 80, width: 1000, height: 700, rootPath: projectDir }]),
+  );
+
+  const mainOut: string[] = [];
+  const app = await electron.launch({
+    executablePath: appBinary as string,
+    args: [`--user-data-dir=${userDataDir}`],
+    timeout: 60_000,
+    env: { ...process.env, ELECTRON_ENABLE_LOGGING: '1' },
+  });
+  app.process().stderr?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
+  app.process().stdout?.on('data', (chunk: Buffer) => mainOut.push(chunk.toString()));
+
+  let openedProject = false;
+  try {
+    const win: Page = await app.firstWindow({ timeout: 20_000 });
+    await win.waitForLoadState('domcontentloaded');
+    // Session restore opens the project in `did-finish-load` → acquireProject →
+    // registerAllCsvs (DuckDB). On success the welcome screen is replaced by the
+    // workspace, so the "Open Thoughtbase" button disappears; on a missing
+    // binding, registerAllCsvs throws, the project never opens, and the error
+    // lands on the main stream. Poll for the workspace, tolerating the failure
+    // case so the clearer stderr assertion below runs.
+    try {
+      await expect(win.getByRole('button', { name: 'Open Thoughtbase' }))
+        .toHaveCount(0, { timeout: 25_000 });
+      openedProject = true;
+    } catch { /* fall through to the stream assertion for a clearer message */ }
+  } finally {
+    await app.close().catch(() => { /* already exited */ });
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  }
+
+  const out = mainOut.join('');
+  expect(
+    /cannot find.*duckdb|@duckdb\/node-bindings/i.test(out),
+    `DuckDB native binding failed to load in the packaged app:\n${out}`,
+  ).toBe(false);
+  expect(openedProject, 'the restored project never opened (workspace never replaced the welcome screen)').toBe(true);
 });

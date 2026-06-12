@@ -3,18 +3,14 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     rollupOptions: {
-      // linkedom has an optional `canvas` integration: it tries
-      // `require('canvas')` and falls back to an internal shim when the
-      // native module isn't installed. Bundling both branches eagerly
-      // collapses the try/catch — rollup emits a synthetic throw for
-      // the unresolvable `canvas` and the app crashes at load. Mark
-      // `canvas` external so the `require` stays runtime and the
-      // fallback branch actually runs.
-      //
-      // DuckDB ships a platform-specific `.node` binary per arch via
-      // `require('@duckdb/node-bindings-<platform>-<arch>/duckdb.node')`.
-      // Rollup can't resolve `.node` files — keep the whole bindings
-      // family external so the require stays runtime.
+      // Kept as runtime `require`s rather than bundled:
+      // - `canvas`: linkedom's optional canvas integration tries
+      //   `require('canvas')` and falls back to an internal shim when it's
+      //   absent. Bundling both branches collapses the try/catch into a
+      //   synthetic throw, crashing at load — keep the require runtime.
+      // - DuckDB bindings: Rollup can't bundle the `.node` binary. The plugin
+      //   ships no node_modules, so forge.config's `afterPrune` hook copies the
+      //   binding's runtime closure into the packaged app.
       external: [
         'canvas',
         /^@duckdb\/node-bindings/,
