@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   upsertSingleValuedPredicate,
   ttlString,
+  setSourceTitle,
 } from '../../../src/main/sources/source-meta-write';
 
 const META = `this: a thought:Article ;
@@ -49,6 +50,26 @@ describe('source summary predicates', () => {
     expect(ttl.trimEnd().endsWith('.')).toBe(true);
     expect(ttl).toContain('dc:abstract "A." ;');
     expect(ttl).toContain('thought:tldr "T." ;');
+  });
+});
+
+describe('setSourceTitle (rename, #765)', () => {
+  it('replaces dc:title in place — no duplicate line, old title gone', () => {
+    const out = upsertSingleValuedPredicate(META, 'dc:title', ttlString('Renamed paper'));
+    expect(out).toContain('dc:title "Renamed paper" ;');
+    expect(out).not.toContain('"Test paper"');
+    expect((out.match(/dc:title/g) ?? []).length).toBe(1);
+  });
+
+  it('inserts dc:title when a source has none yet', () => {
+    const noTitle = `this: a thought:Article ;\n    dc:creator "Alice" .\n`;
+    const out = upsertSingleValuedPredicate(noTitle, 'dc:title', ttlString('Fresh'));
+    expect(out).toContain('dc:title "Fresh" ;');
+    expect(out.trimEnd().endsWith('.')).toBe(true);
+  });
+
+  it('rejects an empty/whitespace title before touching disk', async () => {
+    await expect(setSourceTitle('/nonexistent/root', 'src-x', '   ')).rejects.toThrow(/cannot be empty/);
   });
 });
 

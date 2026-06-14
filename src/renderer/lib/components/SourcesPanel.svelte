@@ -211,6 +211,19 @@
     await refresh();
   }
 
+  async function handleRenameSource(source: SourceMetadata): Promise<void> {
+    contextMenu = null;
+    const current = displaySourceTitle(source);
+    const name = await onShowPrompt('Rename source:', current);
+    if (!name || name.trim() === current) return;
+    try {
+      await api.sources.setTitle(source.sourceId, name.trim());
+      // setTitle broadcasts SOURCES_CHANGED → host refreshes the sidebar.
+    } catch (err) {
+      console.error('[minerva] Rename source failed:', err);
+    }
+  }
+
   function handleMergeStart(source: SourceMetadata) {
     contextMenu = null;
     mergeSrc = source;
@@ -749,6 +762,8 @@
       style:left="{contextMenu.x}px"
       style:top="{contextMenu.y}px"
     >
+      <button onclick={() => handleRenameSource(contextMenu!.source)}>Rename…</button>
+      <div class="context-divider"></div>
       <button onclick={() => handleAddToCollection(contextMenu!.source)}>Add to collection…</button>
       {#if activeCollectionId && !activeIsSmart}
         <button onclick={() => handleRemoveFromActiveCollection(contextMenu!.source)}>Remove from collection</button>

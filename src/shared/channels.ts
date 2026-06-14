@@ -277,6 +277,8 @@ export const Channels = {
   SOURCES_MERGE: 'sources:merge',
   /** Set/clear a source's reading-queue status (#116). */
   SOURCES_SET_READ_STATUS: 'sources:setReadStatus',
+  /** Rename a source (upsert dc:title) (#765). */
+  SOURCES_SET_TITLE: 'sources:setTitle',
   /** Set/clear a source's due-by date (#116). */
   SOURCES_SET_READ_DUE_BY: 'sources:setReadDueBy',
   /** Resolve a built-in Reading Queue view (unread / reading /

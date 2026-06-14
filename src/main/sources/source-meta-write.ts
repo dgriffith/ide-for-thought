@@ -154,3 +154,23 @@ export async function setSourceProperties(
   }
   return changed;
 }
+
+/**
+ * Rename a source by upserting its `dc:title` (#765). A source's display name
+ * is its `dc:title`; `displaySourceTitle` falls back to URI/DOI/"Untitled" only
+ * when it's absent, so renaming is just a single-predicate upsert + reindex —
+ * the same direct-write path as read-status (a user action, not an LLM
+ * proposal, so it does not go through the approval engine). Empty/whitespace
+ * titles are rejected so a rename can't blank the name into the fallback.
+ */
+export async function setSourceTitle(
+  rootPath: string,
+  sourceId: string,
+  title: string,
+): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error('Source title cannot be empty.');
+  await setSourceProperties(rootPath, sourceId, [
+    { predicate: 'dc:title', value: ttlString(trimmed) },
+  ]);
+}

@@ -1252,6 +1252,7 @@
               highlightExcerptId={editor.activeTab.highlightExcerptId}
               onNavigate={handleNavigate}
               onShowConfirm={showConfirm}
+              onShowPrompt={showPrompt}
               onDeleted={handleSourceDeleted}
               onCreateAboutNote={handleNewAboutSourceNote}
               onOpenReference={handleOpenSource}

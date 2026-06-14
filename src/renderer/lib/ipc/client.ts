@@ -753,6 +753,8 @@ export interface SourcesApi {
   }>;
   /** Set / change / clear a source's reading-queue status (#116). */
   setReadStatus(sourceId: string, status: import('../../../shared/types').ReadStatus | null): Promise<void>;
+  /** Rename a source (upsert dc:title) (#765). */
+  setTitle(sourceId: string, title: string): Promise<void>;
   /** Set / change / clear a source's due-by date (ISO YYYY-MM-DD). */
   setReadDueBy(sourceId: string, dueBy: string | null): Promise<void>;
   /** Resolve a built-in Reading Queue view against the live graph. */

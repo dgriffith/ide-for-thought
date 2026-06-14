@@ -23,6 +23,8 @@
     highlightExcerptId?: string;
     onNavigate: (target: string) => void;
     onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
+    /** Prompt for text (rename). Host supplies App.svelte's showPrompt. */
+    onShowPrompt: (message: string, initial?: string) => Promise<string | null>;
     onDeleted?: (sourceId: string) => void;
     /** Create a Zotero-style child note pre-populated with
      *  `about: [[sources/<id>]]`, open it for editing, and refresh
@@ -64,7 +66,7 @@
   }
 
   let {
-    sourceId, highlightExcerptId, onNavigate, onShowConfirm, onDeleted,
+    sourceId, highlightExcerptId, onNavigate, onShowConfirm, onShowPrompt, onDeleted,
     onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
     onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
     onInvokeTool,
@@ -110,6 +112,19 @@
   $effect(() => {
     void api.sources.hasPdf(sourceId).then((r) => { hasPdf = r; });
   });
+
+  async function handleRename() {
+    if (!detail) return;
+    const current = displaySourceTitle(detail.metadata);
+    const name = await onShowPrompt('Rename source:', current);
+    if (!name || name.trim() === current) return;
+    try {
+      await api.sources.setTitle(sourceId, name.trim());
+      await load(sourceId);
+    } catch (err) {
+      console.error('[minerva] Rename source failed:', err);
+    }
+  }
 
   async function handleDelete() {
     if (!detail) return;
@@ -458,6 +473,7 @@
         {#if hasPdf && onOpenPdf}
           <button class="action-btn" onclick={() => onOpenPdf(sourceId)}>Open original PDF</button>
         {/if}
+        <button class="action-btn" onclick={handleRename}>Rename source</button>
         <button class="action-btn" onclick={handleDelete}>Delete source</button>
       </div>
     </section>
