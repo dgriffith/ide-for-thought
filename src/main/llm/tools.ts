@@ -870,7 +870,11 @@ function parseProposeNotesInput(
   const note = typeof obj.note === 'string' ? obj.note.trim() : '';
   if (!note) return { error: '`note` is required and must be a non-empty string.' };
   if (!Array.isArray(obj.payloads) || obj.payloads.length === 0) {
-    return { error: '`payloads` must be a non-empty array.' };
+    return {
+      error: '`payloads` must be a non-empty array. If you have no concrete notes '
+        + 'to file, do NOT call propose_notes — reply to the user in plain markdown '
+        + 'text instead.',
+    };
   }
   const payloads: DraftPayload[] = [];
   for (const raw of obj.payloads) {
@@ -965,7 +969,8 @@ function parseProposeSourcesInput(
   const note = typeof obj.note === 'string' ? obj.note.trim() : '';
   if (!note) return { error: '`note` is required and must be a non-empty string.' };
   if (!Array.isArray(obj.sources) || obj.sources.length === 0) {
-    return { error: '`sources` must be a non-empty array.' };
+    return { error: '`sources` must be a non-empty array. If you have no sources to '
+      + 'file, do NOT call propose_sources — reply to the user in plain text instead.' };
   }
   const sources: DraftSource[] = [];
   for (const raw of obj.sources) {
@@ -1222,7 +1227,8 @@ function parseSetPropertiesInput(
   const note = typeof obj.note === 'string' ? obj.note.trim() : '';
   if (!note) return { error: '`note` is required and must be a non-empty string.' };
   if (!Array.isArray(obj.updates) || obj.updates.length === 0) {
-    return { error: '`updates` must be a non-empty array.' };
+    return { error: '`updates` must be a non-empty array. If you have no property '
+      + 'changes to propose, reply to the user in plain text instead.' };
   }
   const updates: PropertyUpdate[] = [];
   for (const raw of obj.updates) {
@@ -1428,7 +1434,8 @@ function parseProposeClaimsInput(
   const sourceId = typeof obj.sourceId === 'string' ? obj.sourceId.trim() : '';
   if (!sourceId) return { error: '`sourceId` is required and must be a non-empty string.' };
   if (!Array.isArray(obj.claims) || obj.claims.length === 0) {
-    return { error: '`claims` must be a non-empty array.' };
+    return { error: '`claims` must be a non-empty array. If you have no claims to '
+      + 'extract, reply to the user in plain text instead.' };
   }
   const claims: ProposeClaimsInput['claims'] = [];
   for (const raw of obj.claims) {
