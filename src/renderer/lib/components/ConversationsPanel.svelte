@@ -331,7 +331,9 @@
 
   async function handleApprove(tabId: string, draft: ConversationDraft) {
     try {
-      await store.approveDraft(tabId, draft);
+      const { filedPaths } = await store.approveDraft(tabId, draft);
+      // Open the first filed note so the user lands on what they just approved.
+      if (filedPaths.length > 0) void editor.openFile(filedPaths[0]);
     } catch (e) {
       console.error('[conv-panel] approve failed:', e);
     }

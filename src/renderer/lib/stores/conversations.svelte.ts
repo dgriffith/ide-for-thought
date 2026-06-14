@@ -588,9 +588,9 @@ async function cancel(): Promise<void> {
   }
 }
 
-async function approveDraft(tabId: string, draft: ConversationDraft): Promise<void> {
+async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ filedPaths: string[] }> {
   const tab = findTab(tabId);
-  if (!tab) return;
+  if (!tab) return { filedPaths: [] };
   // Inherit the draft's anchor so the result line lands on the same
   // assistant turn the card was attached to.
   const anchored = tab.drafts.find((d) => d.draftId === draft.draftId);
@@ -607,6 +607,7 @@ async function approveDraft(tabId: string, draft: ConversationDraft): Promise<vo
     ...tab.noteDraftResults,
     [draft.draftId]: { filedPaths: result.filedPaths, afterMessageIndex },
   };
+  return { filedPaths: result.filedPaths };
 }
 
 function discardDraft(tabId: string, draftId: string): void {
