@@ -282,6 +282,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SOURCES_MERGE, { srcId, destId }),
     setReadStatus: (sourceId: string, status: 'unread' | 'reading' | 'read' | 'skipped' | null) =>
       ipcRenderer.invoke(Channels.SOURCES_SET_READ_STATUS, { sourceId, status }),
+    setTitle: (sourceId: string, title: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_SET_TITLE, { sourceId, title }),
     setReadDueBy: (sourceId: string, dueBy: string | null) =>
       ipcRenderer.invoke(Channels.SOURCES_SET_READ_DUE_BY, { sourceId, dueBy }),
     queueMembers: (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') =>
