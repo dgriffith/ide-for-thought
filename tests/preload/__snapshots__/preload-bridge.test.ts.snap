@@ -140,6 +140,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onInsertTemplate",
     "onNavBack",
     "onNavForward",
+    "onNewConversation",
     "onNewNote",
     "onNewProject",
     "onNewQuery",

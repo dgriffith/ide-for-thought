@@ -212,7 +212,9 @@
   });
 
   async function handleNewTab() {
-    await store.openFreeform(currentNotePath ?? undefined);
+    // A blank conversation — the "New conversation" button is note-agnostic.
+    // Note-scoped conversations come from the "Ask about this note" affordance.
+    await store.openFreeform();
     await tick();
     composerEl?.focus();
   }
@@ -1064,7 +1066,7 @@
               value={tab.composer}
               oninput={handleComposerInput}
               onkeydown={handleKeydown}
-              placeholder="Ask about this note, or type / for skills…"
+              placeholder={tab.conversation.contextBundle.notePath ? 'Ask about this note, or type / for skills…' : 'Ask anything, or type / for skills…'}
               rows="2"
               disabled={tab.streaming}
             ></textarea>

@@ -134,6 +134,16 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
     await conversationsStore.openFreeform(editor.activeFilePath ?? undefined);
   }
 
+  /**
+   * Start a blank conversation with no note context and reveal the panel
+   * (openFreeform calls show()). This is the "just open the panel and start
+   * talking" entry point — distinct from openConversation(), which seeds the
+   * active note so the "Ask about this note" buttons stay note-scoped (#768).
+   */
+  async function newConversation() {
+    await conversationsStore.openFreeform();
+  }
+
   async function handleOpenConversationFromTool(invocation: { toolId: string; context: ToolContext }) {
     let prep;
     try {
@@ -181,6 +191,7 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
     handleDecompose,
     handleCrystallize,
     openConversation,
+    newConversation,
     openConversationWithMessage,
     handleOpenConversationFromTool,
     handleToolInvoke,
