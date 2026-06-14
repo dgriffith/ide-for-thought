@@ -7,6 +7,7 @@ import {
   normalizeIsbn,
   normalizeUrl,
   shortHash,
+  amazonAsin,
 } from '../../../src/main/sources/source-id';
 
 describe('normalizeDoi (#90)', () => {
@@ -154,6 +155,47 @@ describe('normalizeUrl (#90)', () => {
 
   it('returns null for malformed input', () => {
     expect(normalizeUrl('not a url')).toBeNull();
+  });
+
+  // Amazon product-URL canonicalization (#767).
+  it('collapses a noisy Amazon product URL to /dp/<ASIN>', () => {
+    expect(normalizeUrl('https://www.amazon.com/Some-Book-Title/dp/B0ABCDEFGH/ref=sr_1_1?keywords=foo&qid=999&sr=8-1'))
+      .toBe('https://amazon.com/dp/B0ABCDEFGH');
+  });
+
+  it('handles the /gp/product/ shape too', () => {
+    expect(normalizeUrl('https://www.amazon.co.uk/gp/product/B0ABCDEFGH/ref=ppx_yo_dt_b_asin_title'))
+      .toBe('https://amazon.co.uk/dp/B0ABCDEFGH');
+  });
+
+  it('dedupes two differently-decorated links to the same book', () => {
+    const a = normalizeUrl('https://www.amazon.com/dp/B0ABCDEFGH?tag=aff-20&ref_=nav');
+    const b = normalizeUrl('https://amazon.com/Different-Slug/dp/B0ABCDEFGH/ref=sr_1_3');
+    expect(a).toBe(b);
+  });
+
+  it('leaves non-product Amazon URLs (search, storefront) untouched', () => {
+    expect(normalizeUrl('https://www.amazon.com/s?k=dune'))
+      .toBe('https://amazon.com/s?k=dune');
+  });
+
+  it('does not touch non-Amazon hosts', () => {
+    expect(normalizeUrl('https://example.com/dp/B0ABCDEFGH/ref=x'))
+      .toBe('https://example.com/dp/B0ABCDEFGH/ref=x');
+  });
+});
+
+describe('amazonAsin (#767)', () => {
+  it('extracts the ASIN from common product path shapes', () => {
+    expect(amazonAsin('amazon.com', '/Title/dp/B0ABCDEFGH/ref=x')).toBe('B0ABCDEFGH');
+    expect(amazonAsin('amazon.com', '/gp/product/B0ABCDEFGH')).toBe('B0ABCDEFGH');
+    expect(amazonAsin('www.amazon.co.jp', '/dp/4061099890')).toBe('4061099890');
+  });
+
+  it('returns null off-Amazon or for non-product paths', () => {
+    expect(amazonAsin('example.com', '/dp/B0ABCDEFGH')).toBeNull();
+    expect(amazonAsin('amazon.com', '/s?k=dune')).toBeNull();
+    expect(amazonAsin('notamazon.com', '/dp/B0ABCDEFGH')).toBeNull();
   });
 });
 

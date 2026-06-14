@@ -48,6 +48,10 @@ export interface IngestResult {
 export interface IngestOptions {
   /** Dependency-injection seam for tests; defaults to `globalThis.fetch`. */
   fetchImpl?: typeof fetch;
+  /** When false, page-derived subject tags (e.g. Amazon breadcrumb categories)
+   *  are not written. Mirrors the identifier-ingest setting (#473). Default
+   *  true. */
+  importUpstreamTags?: boolean;
 }
 
 export async function ingestUrl(
@@ -76,7 +80,10 @@ export async function ingestUrl(
       needsOcr: pdf.needsOcr,
     };
   }
-  return ingestHtmlString(rootPath, fetched.text, { url: normalized });
+  return ingestHtmlString(rootPath, fetched.text, {
+    url: normalized,
+    importUpstreamTags: opts.importUpstreamTags,
+  });
 }
 
 /**
@@ -88,7 +95,7 @@ export async function ingestUrl(
 export async function ingestHtmlString(
   rootPath: string,
   html: string,
-  opts: { url?: string; titleFallback?: string } = {},
+  opts: { url?: string; titleFallback?: string; importUpstreamTags?: boolean } = {},
 ): Promise<IngestResult> {
   const url = opts.url ?? null;
   const { document } = parseHTML(html);
@@ -98,6 +105,11 @@ export async function ingestHtmlString(
   }
 
   const structured = url ? extractStructured(document, new URL(url)) : null;
+  // Honor the import-upstream-tags setting (#473): drop page-derived subject
+  // tags before they reach meta.ttl when the user has opted out.
+  if (structured && opts.importUpstreamTags === false) {
+    structured.keywords = [];
+  }
 
   const { id: sourceId } = canonicalSourceId(
     {

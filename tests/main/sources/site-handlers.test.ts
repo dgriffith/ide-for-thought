@@ -5,6 +5,7 @@ import {
   citationMetaHandler,
   arxivUrlHandler,
   pubmedUrlHandler,
+  amazonHandler,
   structuredToArticleMetadata,
   normalizeCitationDate,
   type DocLike,
@@ -217,5 +218,48 @@ describe('normalizeCitationDate', () => {
   it('returns null for unparseable inputs', () => {
     expect(normalizeCitationDate('')).toBeNull();
     expect(normalizeCitationDate('no year')).toBeNull();
+  });
+});
+
+describe('amazonHandler (#767)', () => {
+  const html = `<html><head>
+      <meta property="og:title" content="Dune (Hardcover)">
+    </head><body>
+      <div id="wayfinding-breadcrumbs_feature_div">
+        <ul>
+          <li><a href="/books">Books</a></li>
+          <li><a href="/sf">Science Fiction &amp; Fantasy</a></li>
+          <li><a href="/hard-sf">Hard Science Fiction</a></li>
+        </ul>
+      </div>
+    </body></html>`;
+
+  it('pulls title + breadcrumb categories as keywords for a /dp/ page', () => {
+    const out = amazonHandler(docFrom(html), new URL('https://www.amazon.com/Dune/dp/0441013597/ref=sr_1_1'));
+    expect(out).not.toBeNull();
+    expect(out!.title).toBe('Dune (Hardcover)');
+    // "Books" department label is dropped; the specific categories remain.
+    expect(out!.keywords).toEqual(['Science Fiction & Fantasy', 'Hard Science Fiction']);
+    expect(out!.subtype).toBe('Book'); // breadcrumb says Books
+    expect(out!.isbn).toBe('0441013597'); // ISBN-10-shaped ASIN
+  });
+
+  it('returns null for a non-product Amazon URL', () => {
+    expect(amazonHandler(docFrom(html), new URL('https://www.amazon.com/s?k=dune'))).toBeNull();
+  });
+
+  it('returns null off-Amazon', () => {
+    expect(amazonHandler(docFrom(html), new URL('https://example.com/dp/0441013597'))).toBeNull();
+  });
+
+  it('does not claim subtype Book when no Books crumb and ASIN is not ISBN-shaped', () => {
+    const gadget = `<html><head><meta property="og:title" content="USB Cable"></head><body>
+      <div id="wayfinding-breadcrumbs_feature_div"><ul>
+        <li><a href="/e">Electronics</a></li><li><a href="/c">Cables</a></li>
+      </ul></div></body></html>`;
+    const out = amazonHandler(docFrom(gadget), new URL('https://www.amazon.com/dp/B0ABCDEFGH'));
+    expect(out!.subtype).toBeUndefined();
+    expect(out!.isbn).toBeNull();
+    expect(out!.keywords).toEqual(['Electronics', 'Cables']);
   });
 });
