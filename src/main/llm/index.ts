@@ -237,6 +237,16 @@ export async function completeWithTools(
   let containerId: string | null = options.initialContainerId ?? null;
   let containerExpiresAt: string | null = null;
 
+  // Guard against a model that gets wedged calling the same write tool with
+  // bad input — e.g. propose_notes with an empty payload list. Each such call
+  // returns an error tool_result the model is meant to recover from, but a
+  // stubborn model can otherwise burn every iteration retrying, which reads to
+  // the user as the conversation hanging. After this many consecutive
+  // iterations in which *every* tool call errored, give up with a plain
+  // message instead of looping to maxIterations.
+  const MAX_CONSECUTIVE_ERROR_ITERS = 3;
+  let consecutiveAllErrorIters = 0;
+
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const streamParams: Anthropic.MessageStreamParams = {
       model,
@@ -388,6 +398,18 @@ export async function completeWithTools(
     }
 
     messages.push({ role: 'user', content: toolResults });
+
+    // Track runs of all-error iterations and bail out of a wedged retry loop.
+    const allErrored = toolResults.length > 0 && toolResults.every((r) => r.is_error);
+    consecutiveAllErrorIters = allErrored ? consecutiveAllErrorIters + 1 : 0;
+    if (consecutiveAllErrorIters >= MAX_CONSECUTIVE_ERROR_ITERS) {
+      console.warn(`[conv] aborting after ${consecutiveAllErrorIters} consecutive all-error tool iterations`);
+      const msg = '\n\n_(I hit repeated tool errors and stopped before finishing. '
+        + 'Could you rephrase what you\'d like me to do?)_';
+      textPieces.push(msg);
+      if (callbacks) callbacks.onChunk(msg);
+      break;
+    }
   }
 
   return {
