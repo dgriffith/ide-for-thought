@@ -286,6 +286,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.SOURCES_SET_TITLE, { sourceId, title }),
     setReadDueBy: (sourceId: string, dueBy: string | null) =>
       ipcRenderer.invoke(Channels.SOURCES_SET_READ_DUE_BY, { sourceId, dueBy }),
+    addTag: (sourceId: string, tag: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_ADD_TAG, { sourceId, tag }),
+    removeTag: (sourceId: string, tag: string) =>
+      ipcRenderer.invoke(Channels.SOURCES_REMOVE_TAG, { sourceId, tag }),
     queueMembers: (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') =>
       ipcRenderer.invoke(Channels.SOURCES_QUEUE_MEMBERS, view),
     stripUpstreamTags: (sourceId: string) =>

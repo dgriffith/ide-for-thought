@@ -281,6 +281,10 @@ export const Channels = {
   SOURCES_SET_TITLE: 'sources:setTitle',
   /** Set/clear a source's due-by date (#116). */
   SOURCES_SET_READ_DUE_BY: 'sources:setReadDueBy',
+  /** Add a user tag to a source (#766). */
+  SOURCES_ADD_TAG: 'sources:addTag',
+  /** Remove a tag from a source (#766). */
+  SOURCES_REMOVE_TAG: 'sources:removeTag',
   /** Resolve a built-in Reading Queue view (unread / reading /
    *  dueThisWeek / recentlyFinished) against the live graph (#116). */
   SOURCES_QUEUE_MEMBERS: 'sources:queueMembers',

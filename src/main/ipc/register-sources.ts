@@ -12,7 +12,7 @@ import { ingestFile } from '../sources/ingest-file';
 import { deleteSource } from '../sources/delete-source';
 import { mergeSources, MergeSourcesError } from '../sources/merge-sources';
 import { setSourceReadStatus, setSourceReadDueBy } from '../sources/read-status';
-import { setSourceTitle } from '../sources/source-meta-write';
+import { setSourceTitle, addSourceTag, removeSourceTag } from '../sources/source-meta-write';
 import { stripUpstreamTags } from '../sources/strip-upstream-tags';
 import { getIngestSettings, saveIngestSettings, type IngestSettings } from '../sources/ingest-settings';
 import { ingestSmart } from '../sources/ingest-smart';
@@ -267,6 +267,24 @@ export function registerSources(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await setSourceTitle(rootPath, params.sourceId, params.title);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_ADD_TAG, async (e, params: { sourceId: string; tag: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await addSourceTag(rootPath, params.sourceId, params.tag);
+    await persistIndexes(rootPath);
+    const win = winFromEvent(e);
+    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+  });
+
+  ipcMain.handle(Channels.SOURCES_REMOVE_TAG, async (e, params: { sourceId: string; tag: string }) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    await removeSourceTag(rootPath, params.sourceId, params.tag);
     await persistIndexes(rootPath);
     const win = winFromEvent(e);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);

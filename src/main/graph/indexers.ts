@@ -924,6 +924,19 @@ export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: stri
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
   }
 
+  // User-added tags (#766). Each `minerva:tag "..."` literal becomes a
+  // hasTag edge too, so a tag added via the source's add/remove affordance
+  // looks identical to an upstream or body tag in the tag panel + smart
+  // collections. Distinct predicate from upstreamTag so "Strip upstream
+  // tags" leaves the user's own tags alone.
+  for (const st of store.statementsMatching(subject, MINERVA('tag'), undefined, graph)) {
+    const name = st.object.value;
+    if (!name) continue;
+    const tagNode = tagUri(state, name);
+    ensureTag(state, tagNode, name);
+    store.add(subject, MINERVA('hasTag'), tagNode, graph);
+  }
+
   if (bodyMd) indexSourceBody(state, sourceId, bodyMd, subject, graph);
 }
 

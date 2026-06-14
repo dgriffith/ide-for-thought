@@ -35,7 +35,7 @@
     onSourceSelect: (sourceId: string) => void;
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
-    onShowPrompt: (message: string, initial?: string) => Promise<string | null>;
+    onShowPrompt: (message: string, initialOrOptions?: string | { suggestions?: string[]; initial?: string }) => Promise<string | null>;
     /** Open a freshly-ingested source in a tab. Wired by the host so
      *  the "+" button's smart-paste path lands the user on the new
      *  source without an extra click. (#473) */
@@ -221,6 +221,25 @@
       // setTitle broadcasts SOURCES_CHANGED → host refreshes the sidebar.
     } catch (err) {
       console.error('[minerva] Rename source failed:', err);
+    }
+  }
+
+  async function handleAddTag(source: SourceMetadata): Promise<void> {
+    contextMenu = null;
+    // Offer the project tag vocabulary (minus what this source already has) as
+    // autocomplete, so tags get reused rather than re-spelled.
+    let suggestions: string[] = [];
+    try {
+      const have = new Set(source.tags);
+      suggestions = (await api.tags.list()).map((t) => t.tag).filter((t) => !have.has(t));
+    } catch { /* fall back to a plain prompt */ }
+    const tag = await onShowPrompt('Add tag to source:', { suggestions });
+    if (!tag || !tag.trim()) return;
+    try {
+      await api.sources.addTag(source.sourceId, tag.trim());
+      // addTag broadcasts SOURCES_CHANGED → host refreshes the sidebar.
+    } catch (err) {
+      console.error('[minerva] Add source tag failed:', err);
     }
   }
 
@@ -763,6 +782,7 @@
       style:top="{contextMenu.y}px"
     >
       <button onclick={() => handleRenameSource(contextMenu!.source)}>Rename…</button>
+      <button onclick={() => handleAddTag(contextMenu!.source)}>Add tag…</button>
       <div class="context-divider"></div>
       <button onclick={() => handleAddToCollection(contextMenu!.source)}>Add to collection…</button>
       {#if activeCollectionId && !activeIsSmart}

@@ -261,6 +261,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "setMenuConfig",
   ],
   "sources": [
+    "addTag",
     "applyStubResolution",
     "createExcerpt",
     "createReferenceStubs",
@@ -284,6 +285,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onImportZoteroRdfProgress",
     "queueMembers",
     "readPdf",
+    "removeTag",
     "resolveStub",
     "setExcerptNoteFolder",
     "setIngestSettings",

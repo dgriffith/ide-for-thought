@@ -8,6 +8,9 @@ import {
   upsertSingleValuedPredicate,
   ttlString,
   setSourceTitle,
+  addTagLine,
+  removeTagLines,
+  addSourceTag,
 } from '../../../src/main/sources/source-meta-write';
 
 const META = `this: a thought:Article ;
@@ -70,6 +73,47 @@ describe('setSourceTitle (rename, #765)', () => {
 
   it('rejects an empty/whitespace title before touching disk', async () => {
     await expect(setSourceTitle('/nonexistent/root', 'src-x', '   ')).rejects.toThrow(/cannot be empty/);
+  });
+});
+
+describe('source tags (#766)', () => {
+  it('adds a minerva:tag line before the closing dot', () => {
+    const { ttl, added } = addTagLine(META, 'methods');
+    expect(added).toBe(true);
+    expect(ttl).toContain('minerva:tag "methods" ;');
+    expect(ttl.indexOf('minerva:tag')).toBeLessThan(ttl.indexOf('thought:accessedAt'));
+    expect(ttl.trimEnd().endsWith('.')).toBe(true);
+  });
+
+  it('does not duplicate a tag already present as a user OR upstream tag', () => {
+    const withUser = addTagLine(META, 'ml').ttl;
+    expect(addTagLine(withUser, 'ml').added).toBe(false);
+    const upstream = `this: a thought:Article ;\n    minerva:upstreamTag "ml" ;\n    dc:title "X" .\n`;
+    expect(addTagLine(upstream, 'ml').added).toBe(false);
+  });
+
+  it('removes both user (minerva:tag) and upstream (minerva:upstreamTag) lines', () => {
+    const ttl = `this: a thought:Article ;\n    minerva:tag "ml" ;\n    minerva:upstreamTag "ml" ;\n    dc:title "X" .\n`;
+    const { ttl: out, removed } = removeTagLines(ttl, 'ml');
+    expect(removed).toBe(true);
+    expect(out).not.toContain('"ml"');
+    expect(out).toContain('dc:title "X"');
+    expect(out.trimEnd().endsWith('.')).toBe(true);
+  });
+
+  it('removing a tag that is the last predicate keeps the TTL well-formed', () => {
+    const ttl = `this: a thought:Article ;\n    minerva:tag "only" .\n`;
+    const { ttl: out } = removeTagLines(ttl, 'only');
+    expect(out).not.toContain('minerva:tag');
+    expect(out.trimEnd().endsWith('.')).toBe(true);
+  });
+
+  it('removeTagLines is a no-op for an absent tag', () => {
+    expect(removeTagLines(META, 'nope').removed).toBe(false);
+  });
+
+  it('addSourceTag rejects an empty tag before touching disk', async () => {
+    await expect(addSourceTag('/nonexistent/root', 'src-x', '  ')).rejects.toThrow(/cannot be empty/);
   });
 });
 

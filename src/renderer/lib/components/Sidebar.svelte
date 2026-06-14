@@ -63,7 +63,7 @@
     onSourceSelect?: (sourceId: string) => void;
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
-    onShowPrompt?: (message: string, initial?: string) => Promise<string | null>;
+    onShowPrompt?: (message: string, initialOrOptions?: string | { suggestions?: string[]; initial?: string }) => Promise<string | null>;
     onMineReferences?: (source: import('../../../shared/types').SourceMetadata) => Promise<void>;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;

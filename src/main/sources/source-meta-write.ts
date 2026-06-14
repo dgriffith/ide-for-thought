@@ -121,6 +121,76 @@ export function ttlString(s: string): string {
   return `"${escaped}"`;
 }
 
+/**
+ * Add a user tag to a source (#766): insert a `minerva:tag "tag"` line unless
+ * the source already carries that tag as a user (`minerva:tag`) or upstream
+ * (`minerva:upstreamTag`) literal. Returns true if a line was added. The
+ * indexer maps `minerva:tag` → `minerva:hasTag`, so the new tag immediately
+ * joins the tag tree + smart collections. (A user write, not an LLM proposal —
+ * no approval engine, same as read-status / rename.)
+ */
+export async function addSourceTag(
+  rootPath: string,
+  sourceId: string,
+  tag: string,
+): Promise<boolean> {
+  const t = tag.trim();
+  if (!t) throw new Error('Tag cannot be empty.');
+  const metaPath = sourceMetaPath(rootPath, sourceId);
+  const { ttl, added } = addTagLine(await readMeta(metaPath), t);
+  if (!added) return false;
+  await fs.writeFile(metaPath, ttl, 'utf-8');
+  await reindexSource(rootPath, sourceId);
+  return true;
+}
+
+/**
+ * Pure: insert a `minerva:tag "tag"` line unless the source already carries
+ * that tag as a user (`minerva:tag`) or upstream (`minerva:upstreamTag`)
+ * literal. Exposed for tests.
+ */
+export function addTagLine(ttl: string, tag: string): { ttl: string; added: boolean } {
+  const litEsc = ttlString(tag).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`^[ \\t]*minerva:(tag|upstreamTag)\\s+${litEsc}\\s*;`, 'm').test(ttl)) {
+    return { ttl, added: false };
+  }
+  return { ttl: insertBeforeFinalDot(ttl, `    minerva:tag ${ttlString(tag)} ;`), added: true };
+}
+
+/**
+ * Remove a tag from a source (#766): drop any `minerva:tag "tag"` and
+ * `minerva:upstreamTag "tag"` line. Body-hashtag-derived tags are NOT removable
+ * here (they live in body.md and re-derive on index) — callers should surface
+ * that the tag must be removed from the source body. Returns true if a line was
+ * removed.
+ */
+export async function removeSourceTag(
+  rootPath: string,
+  sourceId: string,
+  tag: string,
+): Promise<boolean> {
+  const t = tag.trim();
+  if (!t) return false;
+  const metaPath = sourceMetaPath(rootPath, sourceId);
+  const { ttl, removed } = removeTagLines(await readMeta(metaPath), t);
+  if (!removed) return false;
+  await fs.writeFile(metaPath, ttl, 'utf-8');
+  await reindexSource(rootPath, sourceId);
+  return true;
+}
+
+/**
+ * Pure: drop every `minerva:tag "tag"` / `minerva:upstreamTag "tag"` line.
+ * Body-hashtag-derived tags re-derive on index and are not removable here.
+ * Exposed for tests.
+ */
+export function removeTagLines(ttl: string, tag: string): { ttl: string; removed: boolean } {
+  const litEsc = ttlString(tag).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^[ \\t]*minerva:(tag|upstreamTag)\\s+${litEsc}\\s*;?[ \\t]*\\n?`, 'gm');
+  if (!re.test(ttl)) return { ttl, removed: false };
+  return { ttl: normaliseTrailingSeparator(ttl.replace(re, '')), removed: true };
+}
+
 /** One predicate to upsert. `value` is the raw TTL object (already a quoted
  *  literal / typed literal), or `null` to delete the predicate. */
 export interface SourceMetaUpdate {
