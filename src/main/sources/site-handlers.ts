@@ -19,6 +19,7 @@
  */
 
 import type { ArticleMetadata } from './api-adapters/types';
+import { amazonAsin } from './source-id';
 
 /**
  * Partial metadata derived from site-handler inspection. The ingest
@@ -40,6 +41,10 @@ export interface StructuredExtraction {
   pdfUrl?: string | null;
   /** The site-handler's subtype inference (Article / Preprint / Book …). */
   subtype?: ArticleMetadata['subtype'];
+  /** Subject tags pulled from the page (e.g. Amazon breadcrumb categories).
+   *  Written to meta.ttl as `minerva:upstreamTag` literals, subject to the
+   *  import-upstream-tags setting. */
+  keywords?: string[];
 }
 
 /**
@@ -53,6 +58,10 @@ export interface DocLike {
 }
 interface MetaLike {
   getAttribute(name: string): string | null;
+  /** Present on real elements (linkedom + native); used by handlers that read
+   *  visible text such as breadcrumb categories. Optional so `<meta>`-only
+   *  handlers don't depend on it. */
+  textContent?: string | null;
 }
 
 /**
@@ -61,7 +70,7 @@ interface MetaLike {
  * Returns null when no handler contributed anything.
  */
 export function extractStructured(doc: DocLike, url: URL): StructuredExtraction | null {
-  const handlers = [citationMetaHandler, arxivUrlHandler, pubmedUrlHandler];
+  const handlers = [citationMetaHandler, arxivUrlHandler, pubmedUrlHandler, amazonHandler];
   let out: StructuredExtraction | null = null;
   for (const handler of handlers) {
     const result = handler(doc, url);
@@ -90,6 +99,7 @@ function mergeExtractions(a: StructuredExtraction, b: StructuredExtraction): Str
     isbn: a.isbn ?? b.isbn,
     pdfUrl: a.pdfUrl ?? b.pdfUrl,
     subtype: a.subtype ?? b.subtype,
+    keywords: a.keywords && a.keywords.length > 0 ? a.keywords : b.keywords,
   };
 }
 
@@ -180,7 +190,63 @@ export function pubmedUrlHandler(_doc: DocLike, url: URL): StructuredExtraction 
   return { pubmed: m[1] };
 }
 
+/**
+ * Amazon product pages (#767). Amazon serves the breadcrumb category trail and
+ * og:title in the initial HTML, so for a recognized `/dp/<ASIN>` URL we can pull
+ * a clean title + the category trail as subject tags without rendering JS. The
+ * leading "Books" department label is dropped (too coarse to be a useful tag);
+ * the remaining crumbs ("Science Fiction & Fantasy", "Hard Science Fiction", …)
+ * become `keywords`. We only claim subtype Book when the trail says so, since
+ * Amazon `/dp/` pages are products of every kind. An ISBN-10-shaped ASIN (older
+ * print books) doubles as the ISBN. Everything is best-effort — markup drift
+ * just yields fewer fields, never an error.
+ */
+export function amazonHandler(doc: DocLike, url: URL): StructuredExtraction | null {
+  const asin = amazonAsin(url.hostname, url.pathname);
+  if (!asin) return null;
+
+  const crumbs = elementTexts(doc, '#wayfinding-breadcrumbs_feature_div a')
+    .map((t) => t.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const looksLikeBook = crumbs.some((c) => /^books?$/i.test(c));
+  const keywords = dedupeStrings(crumbs.filter((c) => !/^books?$/i.test(c)));
+
+  const title = metaContent(doc, 'og:title') ?? metaContent(doc, 'title');
+  const isbn = /^\d{9}[\dX]$/i.test(asin) ? asin.toUpperCase() : null;
+
+  return {
+    title: title ?? null,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    isbn,
+    subtype: looksLikeBook || isbn ? 'Book' : undefined,
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Visible text of every element matching `selector` (trimmed, non-empty). */
+function elementTexts(doc: DocLike, selector: string): string[] {
+  const nodes = doc.querySelectorAll(selector);
+  const out: string[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const t = nodes[i].textContent;
+    if (t && t.trim()) out.push(t.trim());
+  }
+  return out;
+}
+
+/** Order-preserving case-insensitive dedupe. */
+function dedupeStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of values) {
+    const key = v.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+}
 
 function metaContent(doc: DocLike, name: string): string | null {
   // Some publishers use `name=`; rarer `property=` (OpenGraph-ish). Try
@@ -308,7 +374,7 @@ export function structuredToArticleMetadata(
     uri: fallback.uri ?? null,
     pdfUrl: structured.pdfUrl ?? null,
     category: null,
-    keywords: [],
+    keywords: structured.keywords ?? [],
   };
 }
 

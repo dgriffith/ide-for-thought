@@ -168,7 +168,33 @@ export function normalizeUrl(url: string): string | null {
   if (parsed.pathname.length > 1 && parsed.pathname.endsWith('/')) {
     parsed.pathname = parsed.pathname.slice(0, -1);
   }
+
+  // Amazon product pages bury the ASIN under a title slug and a trailing
+  // `/ref=…` affiliate/section segment, so two links to the same book rarely
+  // match. Collapse a recognized product URL to the canonical `/dp/<ASIN>`
+  // (and drop the query) so the same book dedupes to one source.
+  const asin = amazonAsin(parsed.hostname, parsed.pathname);
+  if (asin) {
+    parsed.pathname = `/dp/${asin}`;
+    parsed.search = '';
+  }
   return parsed.toString();
+}
+
+/**
+ * Extract the 10-char ASIN from an Amazon product URL, or null when the host
+ * isn't Amazon / the path isn't a product page. ASIN appears under several path
+ * shapes (`/dp/`, `/gp/product/`, the legacy `/exec/obidos/…`); we match them
+ * all. `hostname` is expected already-lowercased with `www.` stripped
+ * (normalizeUrl does this), but we tolerate either.
+ */
+export function amazonAsin(hostname: string, pathname: string): string | null {
+  const host = hostname.toLowerCase().replace(/^www\./, '');
+  if (!/(?:^|\.)amazon\.[a-z.]+$/.test(host)) return null;
+  const m = pathname.match(
+    /\/(?:dp|gp\/product|gp\/aw\/d|o|exec\/obidos\/(?:asin|tg\/detail\/-\/[^/]+))\/([A-Z0-9]{10})(?=[/?]|$)/i,
+  );
+  return m ? m[1].toUpperCase() : null;
 }
 
 const TRACKING_PARAMS = new Set([

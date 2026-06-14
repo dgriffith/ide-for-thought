@@ -45,7 +45,11 @@ export function registerSources(): void {
   ipcMain.handle(Channels.SOURCES_INGEST_URL, async (e, url: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-    return await ingestUrl(rootPath, url, { fetchImpl: privilegedFetch });
+    const ingestSettings = await getIngestSettings();
+    return await ingestUrl(rootPath, url, {
+      fetchImpl: privilegedFetch,
+      importUpstreamTags: ingestSettings.importUpstreamTags,
+    });
   });
 
   ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
