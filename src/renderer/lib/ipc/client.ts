@@ -548,6 +548,7 @@ export interface MenuApi {
   onFontReset(cb: () => void): void;
   onToggleRightSidebar(cb: () => void): void;
   onToggleConversations(cb: () => void): void;
+  onNewConversation(cb: () => void): void;
   onNavBack(cb: () => void): void;
   onNavForward(cb: () => void): void;
   onGotoLine(cb: () => void): void;

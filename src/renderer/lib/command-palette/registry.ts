@@ -48,6 +48,7 @@ export interface CommandDeps {
   toggleRightSidebar(): void;
   togglePreview(): void;
   toggleConversations(): void;
+  newConversation(): void;
   cycleTheme(): void;
   fontIncrease(): void;
   fontDecrease(): void;
@@ -136,6 +137,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: hasNote, run: () => deps.togglePreview() },
     { id: 'view.toggleConversations', title: 'Toggle Conversations', category: 'View',
       keybinding: null, enabled: true, run: () => deps.toggleConversations() },
+    { id: 'view.newConversation', title: 'New Conversation', category: 'View',
+      keybinding: null, enabled: hasProject, run: () => deps.newConversation() },
     { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View',
       keybinding: null, enabled: true, run: () => deps.cycleTheme() },
     { id: 'view.fontIncrease', title: 'Increase Font Size', category: 'View',

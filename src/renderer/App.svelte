@@ -415,6 +415,7 @@
     toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
     togglePreview: () => cycleViewMode(),
     toggleConversations: () => conversationsStore.toggle(),
+    newConversation: () => { void newConversation(); },
     cycleTheme: () => handleCycleTheme(),
     fontIncrease: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
     fontDecrease: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
@@ -675,7 +676,7 @@
   // stay in App (onMount streaming still uses them).
   const {
     handleSaveCellOutput, handleDecompose, handleCrystallize,
-    openConversation, openConversationWithMessage, handleOpenConversationFromTool, handleToolInvoke,
+    openConversation, newConversation, openConversationWithMessage, handleOpenConversationFromTool, handleToolInvoke,
   } = createConversationOps({
     getEditorView: () => editorComponent?.getView(),
     getToolPanelComponent: () => toolPanelComponent,
@@ -834,6 +835,7 @@
     api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
     api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
     api.menu.onToggleConversations(() => conversationsStore.toggle());
+    api.menu.onNewConversation(() => { void newConversation(); });
     api.menu.onTogglePreview(() => cycleViewMode());
     api.menu.onOpenProject(() => handleOpenThoughtbase());
     api.menu.onNewProject(() => handleNewThoughtbase());

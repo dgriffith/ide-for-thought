@@ -145,6 +145,7 @@ export const Channels = {
   MENU_TOGGLE_PREVIEW: 'menu:togglePreview',
   MENU_TOGGLE_RIGHT_SIDEBAR: 'menu:toggleRightSidebar',
   MENU_TOGGLE_CONVERSATIONS: 'menu:toggleConversations',
+  MENU_NEW_CONVERSATION: 'menu:newConversation',
   MENU_CYCLE_THEME: 'menu:cycleTheme',
   MENU_FONT_INCREASE: 'menu:fontIncrease',
   MENU_FONT_DECREASE: 'menu:fontDecrease',

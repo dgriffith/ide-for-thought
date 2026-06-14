@@ -365,6 +365,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           click: () => send(Channels.MENU_TOGGLE_CONVERSATIONS),
         }),
         gate({
+          label: 'New Conversation',
+          click: () => send(Channels.MENU_NEW_CONVERSATION),
+        }),
+        gate({
           label: 'Cycle Preview Mode',
           accelerator: 'CmdOrCtrl+Shift+P',
           click: () => send(Channels.MENU_TOGGLE_PREVIEW),

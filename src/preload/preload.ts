@@ -441,6 +441,9 @@ contextBridge.exposeInMainWorld('api', {
     onToggleConversations: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_TOGGLE_CONVERSATIONS, () => cb());
     },
+    onNewConversation: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_NEW_CONVERSATION, () => cb());
+    },
     onNavBack: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NAV_BACK, () => cb());
     },
