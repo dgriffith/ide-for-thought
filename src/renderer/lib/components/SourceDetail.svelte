@@ -146,9 +146,24 @@
   /** Focus the inline tag input the moment it mounts. */
   function autofocus(node: HTMLInputElement) { node.focus(); }
 
+  /** Project tag vocabulary for the inline add-tag autocomplete, minus tags
+   *  this source already carries. Loaded fresh each time the input opens. */
+  let tagVocab = $state<string[]>([]);
+  const tagListId = 'source-tag-suggestions';
+
   function startAddTag() {
     newTagText = '';
     addingTag = true;
+    void loadTagVocab();
+  }
+
+  async function loadTagVocab() {
+    try {
+      const have = new Set(detail?.metadata.tags ?? []);
+      tagVocab = (await api.tags.list()).map((t) => t.tag).filter((t) => !have.has(t));
+    } catch {
+      tagVocab = [];
+    }
   }
 
   async function commitAddTag() {
@@ -451,12 +466,18 @@
         {#if addingTag}
           <input
             class="tag-input"
+            list={tagListId}
             bind:value={newTagText}
             use:autofocus
             onkeydown={tagInputKeydown}
             onblur={() => { addingTag = false; newTagText = ''; }}
             placeholder="tag…"
           />
+          <datalist id={tagListId}>
+            {#each tagVocab as t (t)}
+              <option value={t}></option>
+            {/each}
+          </datalist>
         {:else}
           <button class="add-tag-btn" onclick={startAddTag}>+ tag</button>
         {/if}
