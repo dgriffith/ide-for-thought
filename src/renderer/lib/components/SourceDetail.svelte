@@ -542,7 +542,8 @@
     {/if}
 
     {#if excerptMenu}
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="excerpt-menu"
         style:left="{excerptMenu.x}px"
@@ -617,7 +618,8 @@
       {:else}
         <ul class="about-list">
           {#each detail.aboutNotes as note (note.relativePath)}
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
             <li onclick={() => onNavigate(note.relativePath)}>
               <span class="about-title">{note.title}</span>
               <span class="about-path mono">{note.relativePath}</span>
@@ -632,7 +634,8 @@
         <h2>References ({detail.references.length})</h2>
         <ul class="about-list">
           {#each detail.references as ref (ref.sourceId)}
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
             <li onclick={() => onOpenReference?.(ref.sourceId)} class:stub-row={ref.stubStatus === 'unresolved'}>
               <span class="about-title">{ref.title}</span>
               {#if ref.stubStatus === 'unresolved'}
@@ -651,7 +654,8 @@
       {:else}
         <ul class="backlink-list">
           {#each detail.backlinks as b}
-            <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
             <li onclick={() => onNavigate(b.relativePath)}>
               <span class="backlink-title">{b.title}</span>
               <span class="backlink-meta">

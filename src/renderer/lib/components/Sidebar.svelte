@@ -510,7 +510,8 @@
             <button class="clear-btn" onclick={() => selectionStore.clear()}>clear</button>
           </div>
         {/if}
-        <!-- svelte-ignore a11y_no_static_element_interactions a11y_no_noninteractive_tabindex -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <div
           class="file-list"
           class:root-drop-hover={rootDropHover}
@@ -576,6 +577,7 @@
           {/if}
         </div>
       {:else}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="empty" oncontextmenu={handleContextMenu}>
           <p>No notes yet</p>
         </div>
