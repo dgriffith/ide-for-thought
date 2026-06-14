@@ -757,6 +757,10 @@ export interface SourcesApi {
   setTitle(sourceId: string, title: string): Promise<void>;
   /** Set / change / clear a source's due-by date (ISO YYYY-MM-DD). */
   setReadDueBy(sourceId: string, dueBy: string | null): Promise<void>;
+  /** Add a user tag to a source (#766). */
+  addTag(sourceId: string, tag: string): Promise<void>;
+  /** Remove a tag from a source (#766). */
+  removeTag(sourceId: string, tag: string): Promise<void>;
   /** Resolve a built-in Reading Queue view against the live graph. */
   queueMembers(view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished'):
     Promise<import('../../../shared/types').SourceMetadata[]>;

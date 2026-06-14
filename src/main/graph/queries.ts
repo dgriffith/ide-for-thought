@@ -819,6 +819,18 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
   const readStatus = rawReadStatus && READ_STATUS_VALUES.has(rawReadStatus as ReadStatus)
     ? rawReadStatus as ReadStatus
     : null;
+
+  // Tag names: resolve each hasTag edge to its tagName literal (falling back
+  // to the URI tail). Deduped + sorted for a stable display order.
+  const tags: string[] = [];
+  for (const st of store.statementsMatching(subject, MINERVA('hasTag'), undefined)) {
+    const tagNode = st.object as $rdf.NamedNode;
+    const nameStmts = store.statementsMatching(tagNode, MINERVA('tagName'), undefined);
+    const name = nameStmts[0]?.object.value ?? tagNode.value;
+    if (name && !tags.includes(name)) tags.push(name);
+  }
+  tags.sort((a, b) => a.localeCompare(b));
+
   return {
     sourceId,
     subtype,
@@ -832,6 +844,7 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
     readStatus,
     readDueBy: first(MINERVA('readDueBy')),
     stubStatus: first(THOUGHT('stubStatus')),
+    tags,
   };
 }
 

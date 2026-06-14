@@ -139,6 +139,45 @@
     onDeleted?.(sourceId);
   }
 
+  // ── Tags (#766) ──────────────────────────────────────────────────────────
+  let addingTag = $state(false);
+  let newTagText = $state('');
+
+  /** Focus the inline tag input the moment it mounts. */
+  function autofocus(node: HTMLInputElement) { node.focus(); }
+
+  function startAddTag() {
+    newTagText = '';
+    addingTag = true;
+  }
+
+  async function commitAddTag() {
+    const t = newTagText.trim();
+    addingTag = false;
+    newTagText = '';
+    if (!t) return;
+    try {
+      await api.sources.addTag(sourceId, t);
+      await load(sourceId);
+    } catch (err) {
+      console.error('[minerva] add source tag failed:', err);
+    }
+  }
+
+  function tagInputKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); void commitAddTag(); }
+    else if (e.key === 'Escape') { addingTag = false; newTagText = ''; }
+  }
+
+  async function handleRemoveTag(tag: string) {
+    try {
+      await api.sources.removeTag(sourceId, tag);
+      await load(sourceId);
+    } catch (err) {
+      console.error('[minerva] remove source tag failed:', err);
+    }
+  }
+
   let detail = $state<SourceDetail | null>(null);
   let loading = $state(true);
   let loadedId = $state<string | null>(null);
@@ -402,6 +441,26 @@
       {#if detail.metadata.creators.length || detail.metadata.year}
         <div class="byline">{formatByline(detail.metadata.creators, detail.metadata.year)}</div>
       {/if}
+      <div class="source-tags">
+        {#each detail.metadata.tags as tag (tag)}
+          <span class="tag-chip">
+            #{tag}
+            <button class="tag-remove" title="Remove tag" onclick={() => handleRemoveTag(tag)}>×</button>
+          </span>
+        {/each}
+        {#if addingTag}
+          <input
+            class="tag-input"
+            bind:value={newTagText}
+            use:autofocus
+            onkeydown={tagInputKeydown}
+            onblur={() => { addingTag = false; newTagText = ''; }}
+            placeholder="tag…"
+          />
+        {:else}
+          <button class="add-tag-btn" onclick={startAddTag}>+ tag</button>
+        {/if}
+      </div>
       {#if detail.metadata.stubStatus === 'unresolved' && onResolveStub}
         <button
           class="resolve-stub-btn"
@@ -780,6 +839,56 @@
     color: var(--text-muted);
     font-size: 14px;
   }
+
+  /* Tag editor (#766) */
+  .source-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 4px 1px 7px;
+    border-radius: 10px;
+    background: var(--bg-button);
+    color: var(--text);
+    font-size: 12px;
+  }
+  .tag-remove {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .tag-remove:hover { color: var(--text); }
+  .add-tag-btn {
+    border: 1px dashed var(--border);
+    background: none;
+    color: var(--text-muted);
+    border-radius: 10px;
+    font-size: 12px;
+    padding: 1px 8px;
+    cursor: pointer;
+  }
+  .add-tag-btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .tag-input {
+    border: 1px solid var(--accent);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 10px;
+    font-size: 12px;
+    padding: 1px 8px;
+    width: 100px;
+    font-family: inherit;
+  }
+  .tag-input:focus { outline: none; }
 
   section {
     margin-bottom: 12px;

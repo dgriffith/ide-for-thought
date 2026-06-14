@@ -224,6 +224,18 @@
     }
   }
 
+  async function handleAddTag(source: SourceMetadata): Promise<void> {
+    contextMenu = null;
+    const tag = await onShowPrompt('Add tag to source:');
+    if (!tag || !tag.trim()) return;
+    try {
+      await api.sources.addTag(source.sourceId, tag.trim());
+      // addTag broadcasts SOURCES_CHANGED → host refreshes the sidebar.
+    } catch (err) {
+      console.error('[minerva] Add source tag failed:', err);
+    }
+  }
+
   function handleMergeStart(source: SourceMetadata) {
     contextMenu = null;
     mergeSrc = source;
@@ -763,6 +775,7 @@
       style:top="{contextMenu.y}px"
     >
       <button onclick={() => handleRenameSource(contextMenu!.source)}>Rename…</button>
+      <button onclick={() => handleAddTag(contextMenu!.source)}>Add tag…</button>
       <div class="context-divider"></div>
       <button onclick={() => handleAddToCollection(contextMenu!.source)}>Add to collection…</button>
       {#if activeCollectionId && !activeIsSmart}

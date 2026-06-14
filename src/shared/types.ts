@@ -131,6 +131,10 @@ export interface SourceMetadata {
    *  created by reference-mining (#106) — partial metadata, no body,
    *  resolvable later via #107. `null` for fully-ingested sources. */
   stubStatus: string | null;
+  /** Tag names attached to this source — the union of its `minerva:hasTag`
+   *  edges (user `minerva:tag`, upstream subject tags, body hashtags),
+   *  sorted. Editable via add/remove (#766). */
+  tags: string[];
 }
 
 export interface SourceExcerpt {
