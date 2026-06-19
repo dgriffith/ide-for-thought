@@ -1,23 +1,21 @@
 <script lang="ts">
   /**
-   * AI settings panel (default model + Anthropic API key + per-tool model
-   * overrides, extracted from SettingsDialog for #672).
+   * AI settings panel (default model + Anthropic API key, extracted from
+   * SettingsDialog for #672). Per-skill model overrides now live inline in
+   * the Skills panel.
    *
    * Unlike the other settings panels, the AI settings are persisted by the
-   * dialog's Done handler (so the key + model + overrides apply together), not
-   * on each edit. So this panel is presentational: the dialog owns the state
-   * and the save, and binds it here via `$bindable` props. `apiKeyStatus` is
+   * dialog's Done handler (so the key + model apply together), not on each
+   * edit. So this panel is presentational: the dialog owns the state and the
+   * save, and binds it here via `$bindable` props. `apiKeyStatus` is
    * read-only (reflects what's already stored).
    */
-  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
-  import { getAllToolInfos } from '../tools/tool-registry';
-  import type { ThinkingToolInfo } from '../../../shared/tools/types';
+  import { MODEL_OPTIONS } from '../../../shared/tools/models';
 
   interface Props {
     model: string;
     apiKeyInput: string;
     clearApiKey: boolean;
-    toolModelOverrides: Record<string, string>;
     apiKeyStatus: 'unknown' | 'set' | 'unset';
   }
 
@@ -25,18 +23,8 @@
     model = $bindable(),
     apiKeyInput = $bindable(),
     clearApiKey = $bindable(),
-    toolModelOverrides = $bindable(),
     apiKeyStatus,
   }: Props = $props();
-
-  const allTools: ThinkingToolInfo[] = getAllToolInfos();
-
-  function setToolOverride(toolId: string, value: string): void {
-    const next = { ...toolModelOverrides };
-    if (value) next[toolId] = value;
-    else delete next[toolId];
-    toolModelOverrides = next;
-  }
 </script>
 
 <div class="field">
@@ -87,46 +75,6 @@
     <button class="link-btn" onclick={() => { clearApiKey = false; }}>
       Cancel clear
     </button>
-  {/if}
-</div>
-<div class="field">
-  <span class="field-label">Tool model overrides</span>
-  <p class="hint">
-    Each tool's author may suggest a preferred model. You can override that
-    per tool. Empty override → use the tool's preference; no preference →
-    fall back to the default model above.
-  </p>
-  {#if allTools.length === 0}
-    <p class="hint">No tools registered.</p>
-  {:else}
-    <table class="tool-models">
-      <thead>
-        <tr>
-          <th>Tool</th>
-          <th>Tool preference</th>
-          <th>Your override</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each allTools as t}
-          <tr>
-            <td>{t.name}</td>
-            <td class="muted">{t.preferredModel ? modelLabel(t.preferredModel) : '—'}</td>
-            <td>
-              <select
-                value={toolModelOverrides[t.id] ?? ''}
-                onchange={(e) => setToolOverride(t.id, e.currentTarget.value)}
-              >
-                <option value="">Use tool preference</option>
-                {#each MODEL_OPTIONS as m}
-                  <option value={m.value}>{m.label}</option>
-                {/each}
-              </select>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
   {/if}
 </div>
 
@@ -180,7 +128,7 @@
   }
   .link-btn:hover { color: var(--text); }
 
-  /* AI panel — API key status + tool-override table. */
+  /* AI panel — API key status. */
   .api-key-status {
     font-size: 11px;
     color: var(--text-muted);
@@ -188,33 +136,5 @@
   }
   .api-key-status.saved {
     color: var(--accent);
-  }
-  .tool-models {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-  }
-  .tool-models th,
-  .tool-models td {
-    text-align: left;
-    padding: 5px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  .tool-models th {
-    font-weight: 600;
-    color: var(--text-muted);
-    font-size: 11px;
-  }
-  .tool-models td.muted {
-    color: var(--text-muted);
-  }
-  .tool-models select {
-    padding: 3px 6px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
-    max-width: 170px;
   }
 </style>

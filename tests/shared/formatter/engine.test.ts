@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   formatContent,
   formatContentToFixedPoint,
+  isRuleEnabled,
   resolveEnabled,
   DEFAULT_FORMAT_SETTINGS,
 } from '../../../src/shared/formatter/engine';
@@ -9,6 +10,7 @@ import {
   registerRule,
   __resetRuleRegistryForTests,
 } from '../../../src/shared/formatter/registry';
+import { HOUSE_STYLE_RULE_IDS } from '../../../src/shared/formatter/house-style';
 import type { FormatterRule } from '../../../src/shared/formatter/types';
 
 function rule(partial: Partial<FormatterRule<unknown>> & {
@@ -119,5 +121,37 @@ describe('formatter engine (issue #153)', () => {
       configs: {},
     });
     expect(out).toBe('a\n\nb');
+  });
+});
+
+describe('house style defaults', () => {
+  const houseId = [...HOUSE_STYLE_RULE_IDS][0];
+  const nonHouseId = 'definitely-not-a-house-style-rule';
+
+  beforeEach(() => {
+    __resetRuleRegistryForTests();
+  });
+
+  it('a house-style rule defaults on when the user has no entry for it', () => {
+    expect(isRuleEnabled({ enabled: {}, configs: {} }, houseId)).toBe(true);
+  });
+
+  it('a non-house rule defaults off', () => {
+    expect(isRuleEnabled({ enabled: {}, configs: {} }, nonHouseId)).toBe(false);
+  });
+
+  it('an explicit false overrides the house-style default', () => {
+    expect(isRuleEnabled({ enabled: { [houseId]: false }, configs: {} }, houseId)).toBe(false);
+  });
+
+  it('an explicit true enables a non-house rule', () => {
+    expect(isRuleEnabled({ enabled: { [nonHouseId]: true }, configs: {} }, nonHouseId)).toBe(true);
+  });
+
+  it('resolveEnabled runs registered house-style rules under default settings', () => {
+    registerRule(rule({ id: houseId, apply: (c) => c }));
+    registerRule(rule({ id: nonHouseId, apply: (c) => c }));
+    const enabled = resolveEnabled(DEFAULT_FORMAT_SETTINGS);
+    expect(enabled.map((e) => e.rule.id)).toEqual([houseId]);
   });
 });

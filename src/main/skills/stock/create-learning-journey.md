@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /learning-journey
-model: claude-opus-4-7
+model: claude-opus-4-8
 web: true
 firstMessage: "{{#if note}}Build me a learning journey.{{/if}}"
 longDescription: >-

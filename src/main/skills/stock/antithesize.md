@@ -6,7 +6,7 @@ menu: Analysis
 group: Generation
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-opus-4-7
+model: claude-opus-4-8
 web: false
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, generate the antithesis."
 longDescription: >-

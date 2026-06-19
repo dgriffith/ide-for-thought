@@ -22,6 +22,35 @@
     type MenuConfig,
   } from '../../../shared/skills/menu-config';
   import { registerSkillInfos } from '../tools/tool-registry';
+  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+
+  interface Props {
+    /** Per-skill model override map (skill id → model id). Owned + persisted
+     *  by SettingsDialog's Done handler alongside the API key + default model;
+     *  bound here so each skill row can edit its own override inline. */
+    toolModelOverrides: Record<string, string>;
+    /** The global default model id. A skill with no override and no `model:`
+     *  preference resolves to this, so the empty option names it instead of
+     *  saying a bare "Default model". */
+    defaultModel?: string;
+  }
+  let { toolModelOverrides = $bindable({}), defaultModel }: Props = $props();
+
+  /** Label for a skill row's empty ("use the default") model option. The
+   *  resolution order at run time is: this skill's `model:` preference, then
+   *  the global default. Name whichever one applies so the row never shows a
+   *  bare "Default model" with no indication of what that is. */
+  function defaultOptionLabel(skillModel: string | undefined): string {
+    const resolved = skillModel || defaultModel;
+    return resolved ? `Default · ${modelLabel(resolved)}` : 'Default model';
+  }
+
+  function setToolOverride(skillId: string, value: string): void {
+    const next = { ...toolModelOverrides };
+    if (value) next[skillId] = value;
+    else delete next[skillId];
+    toolModelOverrides = next;
+  }
 
   let skillCatalog = $state<{ skills: SkillInfo[]; errors: SkillLoadError[]; config: MenuConfig }>({
     skills: [],
@@ -236,6 +265,17 @@
                     <option value={m}>{m}</option>
                   {/each}
                 </select>
+                <select
+                  class="skill-model-select"
+                  title="Model for this skill — empty uses the skill's preferred model, then the default model"
+                  value={toolModelOverrides[s.id] ?? ''}
+                  onchange={(e) => setToolOverride(s.id, e.currentTarget.value)}
+                >
+                  <option value="">{defaultOptionLabel(s.model)}</option>
+                  {#each MODEL_OPTIONS as m (m.value)}
+                    <option value={m.value}>{m.label}</option>
+                  {/each}
+                </select>
                 {#if s.source === 'user'}
                   <button class="link-btn" onclick={() => { void removeSkill(s.id); }} disabled={skillsBusy}>
                     Remove
@@ -380,13 +420,20 @@
   }
   .reorder-btn:hover:not(:disabled) { border-color: var(--accent); }
   .reorder-btn:disabled { opacity: 0.35; cursor: default; }
-  .skill-menu-select {
+  .skill-menu-select,
+  .skill-model-select {
     font-size: 12px;
     padding: 2px 4px;
     border: 1px solid var(--border);
     border-radius: 4px;
     background: var(--bg-button);
     color: var(--text);
+  }
+  .skill-model-select {
+    /* Fixed width so every row's picker is the same length and the longest
+       label ("Default · Claude Sonnet 4.6") fits without clipping. */
+    flex: none;
+    width: 210px;
   }
   .skill-name {
     font-weight: 600;

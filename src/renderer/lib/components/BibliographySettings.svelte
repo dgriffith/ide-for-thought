@@ -118,7 +118,11 @@
     Drop additional <code>.csl</code> files into your project under
     <code>.minerva/csl-styles/</code> — they show up in the picker above and
     in the Export dialog. The Zotero Style Repository at
-    <code>zotero.org/styles</code> publishes 10,000+ open styles.
+    <a
+      class="ext-link"
+      href="https://www.zotero.org/styles"
+      onclick={(e) => { e.preventDefault(); void api.shell.openExternal('https://www.zotero.org/styles'); }}
+    >zotero.org/styles</a> publishes 10,000+ open styles.
   </p>
   {#if userStyles.length === 0}
     <p class="hint empty">No imported styles yet.</p>
@@ -148,7 +152,13 @@
   <span class="field-label">Imported locales</span>
   <p class="hint">
     Optional. Bundled locale is en-US; import additional CSL
-    locale XML to render bibliographies in another language.
+    locale XML to render bibliographies in another language. The official
+    locales live at
+    <a
+      class="ext-link"
+      href="https://github.com/citation-style-language/locales"
+      onclick={(e) => { e.preventDefault(); void api.shell.openExternal('https://github.com/citation-style-language/locales'); }}
+    >github.com/citation-style-language/locales</a>.
   </p>
   {#if userLocales.length === 0}
     <p class="hint empty">No imported locales yet.</p>
@@ -237,6 +247,12 @@
     cursor: pointer;
   }
   .link-btn:hover { color: var(--text); }
+  .ext-link {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ext-link:hover { text-decoration: underline; }
   .csl-error {
     margin-top: 8px;
     padding: 6px 10px;
