@@ -9,14 +9,29 @@
  */
 
 import { buildParseCache } from './parse-cache';
+import { HOUSE_STYLE_RULE_IDS } from './house-style';
 import { CATEGORY_ORDER, getRule, listAllRules } from './registry';
 import type { EnabledRule, FormatterRule } from './types';
 
 export interface FormatSettings {
-  /** Per-rule enable map. Unlisted rules default to disabled. */
+  /**
+   * Per-rule enable map. A rule with no entry here falls back to the house
+   * style (on for `HOUSE_STYLE_RULE_IDS`, off otherwise); an explicit
+   * `true`/`false` always overrides the default. Read through
+   * `isRuleEnabled`, never `enabled[id]` directly.
+   */
   enabled: Record<string, boolean>;
   /** Per-rule config override. Unlisted rules use the rule’s defaultConfig. */
   configs: Record<string, unknown>;
+}
+
+/**
+ * Whether a rule should run, honouring the curated house style as the
+ * default for rules the user has never explicitly toggled. An explicit
+ * entry in `enabled` (including `false`) always wins.
+ */
+export function isRuleEnabled(settings: FormatSettings, ruleId: string): boolean {
+  return settings.enabled[ruleId] ?? HOUSE_STYLE_RULE_IDS.has(ruleId);
 }
 
 export const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
@@ -58,7 +73,7 @@ export function resolveEnabled(settings: FormatSettings): EnabledRule[] {
 
   const out: EnabledRule[] = [];
   for (const rule of ordered) {
-    if (!settings.enabled[rule.id]) continue;
+    if (!isRuleEnabled(settings, rule.id)) continue;
     const config = rule.id in settings.configs
       ? settings.configs[rule.id]
       : rule.defaultConfig;

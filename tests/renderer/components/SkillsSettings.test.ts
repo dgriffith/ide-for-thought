@@ -149,4 +149,52 @@ describe('SkillsSettings (#672)', () => {
     const { findByText } = render(SkillsSettings, {});
     expect(await findByText(/parse error/)).toBeTruthy();
   });
+
+  it('renders a per-skill model override select whose default reflects the skill preference, and updates on change', async () => {
+    listMock.mockResolvedValue(catalog([
+      skill({ id: 'a', name: 'Summarize', menu: 'Learning', model: 'claude-opus-4-8' }),
+    ]));
+    const { findByText, getAllByRole } = render(SkillsSettings, { toolModelOverrides: {} });
+    await findByText('Summarize');
+
+    // Per skill row: [0] menu (location) select, [1] model override select.
+    const modelSelect = getAllByRole('combobox')[1] as HTMLSelectElement;
+    expect(modelSelect.value).toBe(''); // empty → use the skill's preferred model
+    expect(modelSelect.options[0].textContent).toMatch(/Default · Claude Opus 4\.8/);
+
+    await fireEvent.change(modelSelect, { target: { value: 'claude-haiku-4-5' } });
+    expect(modelSelect.value).toBe('claude-haiku-4-5');
+  });
+
+  it('shows a plain "Default model" option when the skill has no preference and no global default is given', async () => {
+    listMock.mockResolvedValue(catalog([skill({ id: 'a', name: 'Summarize', menu: 'Learning' })]));
+    const { findByText, getAllByRole } = render(SkillsSettings, { toolModelOverrides: {} });
+    await findByText('Summarize');
+    const modelSelect = getAllByRole('combobox')[1] as HTMLSelectElement;
+    expect(modelSelect.options[0].textContent).toBe('Default model');
+  });
+
+  it('names the global default model in the empty option when the skill has no preference', async () => {
+    listMock.mockResolvedValue(catalog([skill({ id: 'a', name: 'Summarize', menu: 'Learning' })]));
+    const { findByText, getAllByRole } = render(SkillsSettings, {
+      toolModelOverrides: {},
+      defaultModel: 'claude-sonnet-4-6',
+    });
+    await findByText('Summarize');
+    const modelSelect = getAllByRole('combobox')[1] as HTMLSelectElement;
+    expect(modelSelect.options[0].textContent).toBe('Default · Claude Sonnet 4.6');
+  });
+
+  it("prefers the skill's own model over the global default in the empty option", async () => {
+    listMock.mockResolvedValue(catalog([
+      skill({ id: 'a', name: 'Summarize', menu: 'Learning', model: 'claude-opus-4-8' }),
+    ]));
+    const { findByText, getAllByRole } = render(SkillsSettings, {
+      toolModelOverrides: {},
+      defaultModel: 'claude-sonnet-4-6',
+    });
+    await findByText('Summarize');
+    const modelSelect = getAllByRole('combobox')[1] as HTMLSelectElement;
+    expect(modelSelect.options[0].textContent).toBe('Default · Claude Opus 4.8');
+  });
 });

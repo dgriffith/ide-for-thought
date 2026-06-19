@@ -50,6 +50,7 @@
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: (relativePath: string, isDirectory: boolean) => void;
     onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
+    onFormat?: (relativePath: string, isDirectory: boolean) => void;
     onRename: (relativePath: string) => void;
     onMerge?: (relativePath: string) => void;
     onCut: (relativePath: string, isDirectory: boolean) => void;
@@ -71,7 +72,7 @@
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -563,6 +564,7 @@
               {onDelete}
               {onAddTag}
               {onRemoveTag}
+              {onFormat}
               onContextMenuTarget={handleContextMenuTarget}
               {onRename}
               {onMerge}

@@ -51,6 +51,18 @@ export function setFormatSettings(patch: Partial<FormatSettings>): FormatSetting
   return settings;
 }
 
+/**
+ * Restore the curated house style by clearing every explicit enable/disable
+ * override — each rule falls back to its default (on for the house-style set,
+ * off otherwise). Per-rule config overrides are intentionally left untouched;
+ * this only resets *which* rules run, not how they’re configured.
+ */
+export function resetFormatToHouseStyle(): FormatSettings {
+  settings = { enabled: {}, configs: { ...settings.configs } };
+  api.formatter.saveSettings(settings).catch(() => { /* swallow — retried on next change */ });
+  return settings;
+}
+
 /** Test-only: reset the in-memory cache to defaults. */
 export function __resetFormatSettingsForTests(): void {
   settings = { ...DEFAULT_FORMAT_SETTINGS };

@@ -1037,6 +1037,7 @@
           onDelete={handleDelete}
           onAddTag={handleAddTag}
           onRemoveTag={handleRemoveTag}
+          onFormat={() => handleFormat()}
           onRename={handleRename}
           onMerge={handleMerge}
           onCut={handleCut}

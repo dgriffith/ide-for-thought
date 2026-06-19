@@ -31,13 +31,14 @@
   import {
     getFormatSettings,
     setFormatSettings,
+    resetFormatToHouseStyle,
   } from '../formatter/settings';
   import {
     listRulesByCategory,
     CATEGORY_ORDER,
   } from '../../../shared/formatter/registry';
   import '../../../shared/formatter/rules/index';
-  import type { FormatSettings } from '../../../shared/formatter/engine';
+  import { isRuleEnabled, type FormatSettings } from '../../../shared/formatter/engine';
   import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
@@ -56,7 +57,7 @@
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'refactoring' | 'formatter' | 'web' | 'ingest' | 'sites' | 'bibliography' | 'excerpts' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'web' | 'sources' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -82,18 +83,16 @@
     {
       label: 'Authoring',
       items: [
-        { id: 'refactoring',  label: 'Refactoring',  sub: 'Default destination · merge rules' },
+        { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
         { id: 'formatter',    label: 'Formatter',    sub: 'On-save rules' },
         { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
-        { id: 'excerpts',     label: 'Excerpt notes', sub: 'Default destination folder' },
       ],
     },
     {
       label: 'Ingest & compute',
       items: [
         { id: 'web',     label: 'Web',     sub: 'Default ingest rules' },
-        { id: 'ingest',  label: 'Ingest',  sub: 'Identifier lookups · upstream tags' },
-        { id: 'sites',   label: 'Sites',   sub: 'Privileged-domain logins' },
+        { id: 'sources', label: 'Sources', sub: 'Identifier lookups · privileged logins' },
         { id: 'compute', label: 'Compute', sub: 'Python interpreter · trust' },
       ],
     },
@@ -146,6 +145,15 @@
     };
     setFormatSettings({ enabled: { [id]: on } });
   }
+  // True when no rule has an explicit override — i.e. already at house style.
+  let atHouseStyle = $derived(Object.keys(formatter.enabled).length === 0);
+  function restoreHouseStyle(): void {
+    const next = resetFormatToHouseStyle();
+    formatter = {
+      enabled: { ...next.enabled },
+      configs: { ...next.configs },
+    };
+  }
   const FORMATTER_CATEGORY_LABELS: Record<string, string> = {
     yaml: 'YAML frontmatter',
     heading: 'Headings',
@@ -180,7 +188,6 @@
   let orphanSuppressedKeys = $derived(
     [...confirmSuppression.suppressed].filter((k) => !confirmRegistryEntry(k))
   );
-  let suppressedCount = $derived(confirmRows.filter((r) => r.suppressed).length);
   let activeTab = $state<TabId>(initialTab ?? 'editor');
 
   // Editor settings
@@ -465,54 +472,44 @@
             </p>
           </div>
           <div class="field">
-            <span class="field-label">Don't-ask-again confirmations</span>
+            <span class="field-label">Confirmation dialogs</span>
             <p class="hint">
-              Dialogs you've muted via "Don't ask again." Re-enable a row to see its
-              prompt next time the action occurs.
+              Uncheck a dialog to stop it asking — the same as ticking "Don't ask
+              again" when it appears. Re-check it to see the prompt next time.
             </p>
           </div>
-          <ul class="confirm-rows">
-            {#each confirmRows as row}
-              <li class="confirm-row" class:muted={!row.suppressed}>
-                <div class="confirm-text">
-                  <div class="confirm-title">{row.entry.title}</div>
-                  <div class="confirm-desc">{row.entry.description}</div>
-                </div>
-                {#if row.suppressed}
-                  <button
-                    class="btn small"
-                    onclick={() => confirmSuppression.unsuppress(row.entry.key)}
-                  >Re-enable</button>
-                {:else}
-                  <span class="confirm-status">Active</span>
-                {/if}
-              </li>
-            {/each}
-            {#each orphanSuppressedKeys as key}
-              <li class="confirm-row">
-                <div class="confirm-text">
-                  <div class="confirm-title">Unknown confirmation</div>
-                  <div class="confirm-desc mono">{key}</div>
-                </div>
-                <button
-                  class="btn small"
-                  onclick={() => confirmSuppression.unsuppress(key)}
-                >Re-enable</button>
-              </li>
-            {/each}
-          </ul>
-          <div class="field">
-            <button
-              class="btn secondary"
-              disabled={suppressedCount === 0 && orphanSuppressedKeys.length === 0}
-              onclick={() => confirmSuppression.clearAll()}
-            >Show all confirmations again</button>
-            <p class="hint">
-              Clears every muted dialog at once.
-            </p>
-          </div>
+          {#each confirmRows as row}
+            <div class="field checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={!row.suppressed}
+                  onchange={(e) =>
+                    e.currentTarget.checked
+                      ? confirmSuppression.unsuppress(row.entry.key)
+                      : confirmSuppression.suppress(row.entry.key)}
+                />
+                {row.entry.title}
+              </label>
+              <p class="hint">{row.entry.description}</p>
+            </div>
+          {/each}
+          {#each orphanSuppressedKeys as key}
+            <div class="field checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={false}
+                  onchange={() => confirmSuppression.unsuppress(key)}
+                />
+                Unknown confirmation
+              </label>
+              <p class="hint mono">{key}</p>
+            </div>
+          {/each}
 
-        {:else if activeTab === 'refactoring'}
+        {:else if activeTab === 'notes'}
+          <h3 class="settings-subsection">Refactoring</h3>
           <div class="field">
             <label for="destination">Destination for new notes</label>
             <select
@@ -623,11 +620,29 @@
             </p>
           </div>
 
+          <h3 class="settings-subsection">Excerpt notes</h3>
+          <div class="field">
+            <label for="excerpt-note-folder">Default destination folder</label>
+            <input
+              id="excerpt-note-folder"
+              type="text"
+              placeholder="(project root)"
+              value={excerptNoteFolder}
+              onchange={(e) => { void commitExcerptNoteFolder(e.currentTarget.value); }}
+            />
+            <p class="hint">
+              Project-relative folder where "New note from excerpt" lands. Empty
+              means the project root. The folder is created on first write.
+              Stored per-project in <code>.minerva/config.json</code>.
+            </p>
+          </div>
+
         {:else if activeTab === 'formatter'}
           <p class="section-intro">
             Deterministic normalizations applied by the <strong>Refactor ▸ Format</strong> commands.
-            Rules are off by default — turn on the ones whose aesthetics you want
-            enforced. Choices are stored in
+            A curated <em>house style</em> — safe whitespace, frontmatter, and link
+            tidying — is on by default; everything else is opt-in. Toggle any rule to
+            override. Choices are stored in
             <code>.minerva/formatter.json</code> so they travel with the thoughtbase.
           </p>
 
@@ -636,6 +651,15 @@
               No formatter rules are registered yet. Rule sets land per category
               in follow-up tickets (#155–#161); once any of those merge, rules
               appear here as rows you can enable.
+            </div>
+          {:else}
+            <div class="fm-actions">
+              <button
+                class="btn secondary"
+                disabled={atHouseStyle}
+                onclick={restoreHouseStyle}
+              >Restore house style</button>
+              <span class="hint">Clears your overrides and re-enables the default curated set.</span>
             </div>
           {/if}
 
@@ -648,7 +672,7 @@
                     <label>
                       <input
                         type="checkbox"
-                        checked={!!formatter.enabled[rule.id]}
+                        checked={isRuleEnabled(formatter, rule.id)}
                         onchange={(e) => toggleFormatterRule(rule.id, e.currentTarget.checked)}
                       />
                       {rule.title}
@@ -698,7 +722,8 @@
             </p>
           </div>
 
-        {:else if activeTab === 'ingest'}
+        {:else if activeTab === 'sources'}
+          <h3 class="settings-subsection">Ingest</h3>
           <div class="field checkbox">
             <label>
               <input type="checkbox" bind:checked={importUpstreamTags} />
@@ -714,31 +739,14 @@
             </p>
           </div>
 
-        {:else if activeTab === 'sites'}
+          <h3 class="settings-subsection">Privileged sites</h3>
           <SitesSettings />
 
         {:else if activeTab === 'bibliography'}
           <BibliographySettings />
 
         {:else if activeTab === 'skills'}
-          <SkillsSettings />
-
-        {:else if activeTab === 'excerpts'}
-          <div class="field">
-            <label for="excerpt-note-folder">Default destination folder</label>
-            <input
-              id="excerpt-note-folder"
-              type="text"
-              placeholder="(project root)"
-              value={excerptNoteFolder}
-              onchange={(e) => { void commitExcerptNoteFolder(e.currentTarget.value); }}
-            />
-            <p class="hint">
-              Project-relative folder where "New note from excerpt" lands. Empty
-              means the project root. The folder is created on first write.
-              Stored per-project in <code>.minerva/config.json</code>.
-            </p>
-          </div>
+          <SkillsSettings bind:toolModelOverrides defaultModel={model} />
 
         {:else if activeTab === 'compute'}
           <ComputeSettings />
@@ -748,7 +756,6 @@
             bind:model
             bind:apiKeyInput
             bind:clearApiKey
-            bind:toolModelOverrides
             {apiKeyStatus}
           />
         {/if}
@@ -780,8 +787,12 @@
     background: var(--bg-elev);
     border: 1px solid var(--border-strong);
     border-radius: 12px;
-    min-width: 720px;
-    max-width: 880px;
+    /* Fixed width so the dialog doesn't shrink-wrap to each panel's
+       content — otherwise narrower panels (the self-contained sub-panels
+       whose fields don't fill the row) resize the whole dialog as you
+       switch tabs. Clamp to the viewport on small screens. */
+    width: 880px;
+    max-width: calc(100vw - 64px);
     min-height: 420px;
     max-height: calc(100vh - 64px);
     box-shadow:
@@ -1004,64 +1015,8 @@
     font-family: ui-monospace, monospace;
   }
 
-  .confirm-rows {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .confirm-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-button);
-  }
-
-  .confirm-row.muted {
-    background: transparent;
-    opacity: 0.7;
-  }
-
-  .confirm-text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .confirm-title {
-    font-size: 12px;
-    color: var(--text);
-    font-weight: 500;
-  }
-
-  .confirm-desc {
-    font-size: 11px;
-    color: var(--text-muted);
-    line-height: 1.4;
-    margin-top: 2px;
-  }
-
-  .confirm-desc.mono {
+  .hint.mono {
     font-family: ui-monospace, monospace;
-  }
-
-  .confirm-status {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-muted);
-    align-self: center;
-  }
-
-  .btn.small {
-    padding: 3px 10px;
-    font-size: 11px;
   }
 
   .btn:disabled {
@@ -1091,7 +1046,8 @@
     line-height: 1.5;
   }
 
-  .fm-category {
+  .fm-category,
+  .settings-subsection {
     margin: 18px 0 8px 0;
     font-size: 11px;
     font-weight: 600;
@@ -1100,10 +1056,25 @@
     letter-spacing: 0.06em;
   }
 
+  .settings-subsection:first-child {
+    margin-top: 0;
+  }
+
   .fm-rules {
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+
+  .fm-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .fm-actions .hint {
+    margin: 0;
   }
 
   footer {

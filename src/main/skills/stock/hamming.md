@@ -6,7 +6,7 @@ menu: Analysis
 group: Planning
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-opus-4-7
+model: claude-opus-4-8
 web: false
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, apply the Hamming question."
 longDescription: >-

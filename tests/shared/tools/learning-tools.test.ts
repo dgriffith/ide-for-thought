@@ -60,7 +60,7 @@ describe('Learning skills (migrated from #180–#186 tools)', () => {
   });
 
   it('create-learning-journey is Opus-preferred (richer planning)', () => {
-    expect(defs.get('learning.create-learning-journey')!.preferredModel).toBe('claude-opus-4-7');
+    expect(defs.get('learning.create-learning-journey')!.preferredModel).toBe('claude-opus-4-8');
   });
 
   it('deep-dive is marked requiresSelection', () => {
