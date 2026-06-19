@@ -14,6 +14,9 @@ export const CONFIRM_KEYS = {
   deleteSource: 'delete-source',
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
+  /** "Bookmark Section" invoked with the cursor above the first heading —
+   *  there's no section to anchor to. (#755) */
+  bookmarkSectionNoHeading: 'bookmark-section-no-heading',
   moveCollision: 'move-collision',
   copyCollision: 'copy-collision',
   autoTagNoSuggestions: 'auto-tag-no-suggestions',
@@ -119,6 +122,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Update links after heading rename',
     description:
       'Offer to rewrite incoming [[note#heading]] links when a heading edit looks like a rename.',
+  },
+  {
+    key: CONFIRM_KEYS.bookmarkSectionNoHeading,
+    title: 'Bookmark Section: no heading above cursor',
+    description:
+      'Shown when "Bookmark Section" is invoked with the cursor sitting before the note’s first heading, so there is no section to anchor the bookmark to.',
   },
   {
     key: CONFIRM_KEYS.moveCollision,

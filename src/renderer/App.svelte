@@ -66,6 +66,7 @@
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
+  import { sectionAnchorAt } from './lib/markdown/headings';
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
@@ -218,6 +219,27 @@
   const dialogs = getDialogStore();
   const { showPrompt, showConfirm } = dialogs;
   let exportDialogFor = $state<string | null>(null);
+
+  /**
+   * Bookmark the section the cursor sits in — the nearest heading at/above
+   * it. Stores the heading slug as the bookmark's `anchor` so opening it
+   * scrolls to that heading (#755). Falls back to a dismissible notice when
+   * the cursor is above the note's first heading.
+   */
+  async function handleBookmarkSection() {
+    if (!editor.activeFilePath) return;
+    const offset = editorComponent?.getOffset() ?? 0;
+    const section = sectionAnchorAt(editor.content, offset);
+    if (!section) {
+      await showConfirm(
+        'No section heading above the cursor to bookmark. Place the cursor inside a section first.',
+        CONFIRM_KEYS.bookmarkSectionNoHeading,
+        'OK',
+      );
+      return;
+    }
+    bookmarkStore.add(section.text, editor.activeFilePath, { anchor: section.slug });
+  }
 
   /**
    * Surfaced when any LLM-backed action fails because the user hasn't
@@ -1032,6 +1054,7 @@
           rootName={notebase.meta?.name}
           activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
+          onNavigate={handleNavigate}
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
           onDelete={handleDelete}
@@ -1159,7 +1182,8 @@
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     getSources={() => sourcesCache}
                     getAliases={() => aliasEntries}
-                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, editorComponent?.getOffset()); }}
+                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, { cursorOffset: editorComponent?.getOffset() }); }}
+                    onBookmarkSection={() => { void handleBookmarkSection(); }}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}

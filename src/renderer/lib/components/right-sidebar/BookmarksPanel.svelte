@@ -6,9 +6,12 @@
   interface Props {
     activeFilePath: string | null;
     onFileSelect: (relativePath: string) => void;
+    /** Open + scroll to an anchor (`path#slug`) for section bookmarks.
+     *  Works even when the file is already active (scrolls in place). */
+    onNavigate?: (target: string) => void | Promise<void>;
   }
 
-  let { activeFilePath, onFileSelect }: Props = $props();
+  let { activeFilePath, onFileSelect, onNavigate }: Props = $props();
 
   const bookmarks = getBookmarksStore();
 
@@ -42,10 +45,10 @@
           <button
             type="button"
             class="bm-open"
-            onclick={() => onFileSelect(bm.relativePath)}
-            title={bm.name}
+            onclick={() => (bm.anchor && onNavigate ? onNavigate(`${bm.relativePath}#${bm.anchor}`) : onFileSelect(bm.relativePath))}
+            title={bm.anchor ? `${bm.relativePath} › ${bm.name}` : bm.name}
           >
-            <Icon name="bookmark" size={13} color="var(--text-faint)" />
+            <Icon name={bm.anchor ? 'outline' : 'bookmark'} size={13} color="var(--text-faint)" />
             <span class="bm-name">{bm.name}</span>
           </button>
           <button
