@@ -513,10 +513,16 @@ export async function indexNote(
 }
 
 /**
- * Offer a rewrite suggestion only for the unambiguous case where exactly
- * one heading slug disappeared AND exactly one appeared AND there are
- * incoming anchored links to the old slug. Anything else (multiple
- * removals, pure deletion, additions without removals) → no prompt.
+ * Detect the unambiguous case where exactly one heading slug disappeared
+ * AND exactly one appeared — i.e. a single heading was renamed in place.
+ * Anything else (multiple removals, pure deletion, additions without
+ * removals) → no candidate.
+ *
+ * `incomingLinkCount` reports how many notes link to the old slug. The
+ * renderer uses it to decide whether to OFFER a link rewrite (only when
+ * > 0), but the candidate fires regardless of link count so the renderer
+ * can also cascade purely-local state — e.g. keep a section bookmark
+ * pointing at the renamed heading (#755), even when nothing links to it.
  */
 function detectHeadingRename(
   state: GraphState,
@@ -533,7 +539,6 @@ function detectHeadingRename(
   const old = removed[0];
   const fresh = added[0];
   const incoming = findNotesLinkingToAnchorImpl(state, relativePath, old.slug).length;
-  if (incoming === 0) return undefined;
 
   return {
     relativePath,
