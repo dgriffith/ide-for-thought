@@ -970,7 +970,13 @@
     });
 
     api.notebase.onHeadingRenameSuggested(async (candidate) => {
+      // Keep the user's own section bookmarks pointing at the renamed
+      // heading (#755). Local metadata, no content mutation — do it
+      // unconditionally, even when nothing links to the heading.
+      bookmarkStore.retargetSectionAnchor(candidate.relativePath, candidate.oldSlug, candidate.newSlug);
+      // Only offer to rewrite OTHER notes' incoming links when some exist.
       const n = candidate.incomingLinkCount;
+      if (n === 0) return;
       const msg =
         `The heading "${candidate.oldText}" in ${candidate.relativePath} looks like it was renamed ` +
         `to "${candidate.newText}". Update ${n} incoming link${n === 1 ? '' : 's'}?`;

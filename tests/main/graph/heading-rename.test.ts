@@ -63,10 +63,16 @@ describe('heading snapshots (issue #139)', () => {
     expect(headingRenameCandidate!.incomingLinkCount).toBe(1);
   });
 
-  it('does not flag when there are no incoming links to the old slug', async () => {
+  it('still flags a rename with zero incoming links, reporting incomingLinkCount 0', async () => {
+    // The candidate fires regardless of link count so the renderer can
+    // cascade purely-local state (e.g. section bookmarks, #755); the
+    // link-rewrite dialog is what's gated on incomingLinkCount > 0.
     await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Overview');
     const { headingRenameCandidate } = await indexNote(ctx, 'notes/foo.md', '# Foo\n\n## Summary');
-    expect(headingRenameCandidate).toBeUndefined();
+    expect(headingRenameCandidate).toBeDefined();
+    expect(headingRenameCandidate!.oldSlug).toBe('overview');
+    expect(headingRenameCandidate!.newSlug).toBe('summary');
+    expect(headingRenameCandidate!.incomingLinkCount).toBe(0);
   });
 
   it('does not flag ambiguous cases (multiple removals or additions)', async () => {

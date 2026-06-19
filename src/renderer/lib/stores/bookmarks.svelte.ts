@@ -89,6 +89,28 @@ export function getBookmarksStore() {
     }
   }
 
+  /**
+   * Heading-rename resilience (#755): when a heading in `relativePath` is
+   * renamed (`oldAnchor` slug → `newAnchor`), repoint every section bookmark
+   * that targeted the old slug so it keeps resolving. Returns the number of
+   * bookmarks updated. Pure-local metadata edit — no file mutation.
+   */
+  function retargetSectionAnchor(relativePath: string, oldAnchor: string, newAnchor: string): number {
+    let changed = 0;
+    const walk = (nodes: BookmarkNode[]) => {
+      for (const n of nodes) {
+        if (n.type === 'folder') walk(n.children);
+        else if (n.relativePath === relativePath && n.anchor === oldAnchor) {
+          n.anchor = newAnchor;
+          changed++;
+        }
+      }
+    };
+    walk(tree);
+    if (changed > 0) schedulePersist();
+    return changed;
+  }
+
   function move(id: string, targetFolderId: string | null) {
     const node = findNode(tree, id);
     if (!node) return;
@@ -115,6 +137,7 @@ export function getBookmarksStore() {
     remove,
     move,
     applyRenameTransitions,
+    retargetSectionAnchor,
   };
 }
 
