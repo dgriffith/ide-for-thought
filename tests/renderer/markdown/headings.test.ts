@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractHeadings, activeHeadingChain } from '../../../src/renderer/lib/markdown/headings';
+import { extractHeadings, activeHeadingChain, sectionAnchorAt } from '../../../src/renderer/lib/markdown/headings';
 
 describe('extractHeadings', () => {
   it('parses ATX headings at every level (1–6)', () => {
@@ -116,5 +116,44 @@ describe('activeHeadingChain', () => {
     // Build the chain conservatively: take the strictly-shallower
     // ancestors we find. Missing levels are not synthesized.
     expect(chain.map((h) => h.text)).toEqual(['A', 'C']);
+  });
+});
+
+describe('sectionAnchorAt (#755 — section bookmarks)', () => {
+  const doc = [
+    '# Intro',          // line 1, offsets 0..6 (incl newline at 7)
+    'intro body',       // line 2
+    '## Methods',       // line 3
+    'methods body here', // line 4
+  ].join('\n');
+
+  /** Char offset of the start of a 1-based line in `doc`. */
+  function offsetOfLine(line: number): number {
+    return doc.split('\n').slice(0, line - 1).join('\n').length + (line > 1 ? 1 : 0);
+  }
+
+  it('returns the nearest heading at/above the cursor as { slug, text }', () => {
+    const inMethods = offsetOfLine(4) + 3; // inside "methods body here"
+    expect(sectionAnchorAt(doc, inMethods)).toEqual({ slug: 'methods', text: 'Methods' });
+  });
+
+  it('uses the H1 when the cursor sits in the intro body', () => {
+    const inIntro = offsetOfLine(2) + 2;
+    expect(sectionAnchorAt(doc, inIntro)).toEqual({ slug: 'intro', text: 'Intro' });
+  });
+
+  it('returns null when the cursor is above the first heading', () => {
+    const lead = '\n\nprose before any heading\n# Later\n';
+    expect(sectionAnchorAt(lead, 1)).toBeNull();
+  });
+
+  it('slugifies multi-word headings the same way [[note#slug]] links do', () => {
+    const d = '## Prior Work & Notes\nbody';
+    const anchor = sectionAnchorAt(d, d.length - 1);
+    expect(anchor).toEqual({ slug: 'prior-work-notes', text: 'Prior Work & Notes' });
+  });
+
+  it('clamps an out-of-range offset instead of throwing', () => {
+    expect(sectionAnchorAt(doc, 10_000)).toEqual({ slug: 'methods', text: 'Methods' });
   });
 });

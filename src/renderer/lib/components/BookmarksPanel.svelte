@@ -7,10 +7,12 @@
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
+    /** Open + scroll to an anchor (`path#slug`) for section bookmarks. */
+    onNavigate?: (target: string) => void | Promise<void>;
     onShowPrompt: (message: string) => Promise<string | null>;
   }
 
-  let { onFileSelect, onShowPrompt }: Props = $props();
+  let { onFileSelect, onNavigate, onShowPrompt }: Props = $props();
 
   const bookmarks = getBookmarksStore();
   let expanded = $state<Record<string, boolean>>({});
@@ -65,7 +67,8 @@
 
   function handleClick(node: BookmarkNode) {
     if (node.type === 'bookmark') {
-      onFileSelect(node.relativePath);
+      if (node.anchor && onNavigate) void onNavigate(`${node.relativePath}#${node.anchor}`);
+      else onFileSelect(node.relativePath);
     } else {
       toggleFolder(node.id);
     }
@@ -183,10 +186,10 @@
       ondragstart={(e) => handleDragStart(e, node.id)}
     >
       <span class="chev"></span>
-      <Icon name="bookmark" size={13} color="var(--text-faint)" />
+      <Icon name={node.anchor ? 'outline' : 'bookmark'} size={13} color="var(--text-faint)" />
       <span class="bm-body">
         <span class="bm-name">{node.name}</span>
-        <span class="bm-path">{node.relativePath}</span>
+        <span class="bm-path">{node.anchor ? `${node.relativePath} › §` : node.relativePath}</span>
       </span>
     </div>
   {/if}

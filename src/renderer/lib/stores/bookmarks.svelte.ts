@@ -22,13 +22,19 @@ export function getBookmarksStore() {
     tree = await api.bookmarks.load();
   }
 
-  function add(name: string, relativePath: string, cursorOffset?: number, parentFolderId?: string) {
+  function add(
+    name: string,
+    relativePath: string,
+    opts: { cursorOffset?: number; anchor?: string; parentFolderId?: string } = {},
+  ) {
+    const { cursorOffset, anchor, parentFolderId } = opts;
     const bookmark: Bookmark = {
       type: 'bookmark',
       id: generateId(),
       name,
       relativePath,
       cursorOffset,
+      anchor,
     };
     if (parentFolderId) {
       const folder = findFolder(tree, parentFolderId);

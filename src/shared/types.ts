@@ -280,6 +280,10 @@ export interface Bookmark {
   name: string;
   relativePath: string;
   cursorOffset?: number;
+  /** Optional sub-file anchor. A heading slug (#755 — e.g. `methods`) or a
+   *  `^block-id` (#756). Absent ⇒ the bookmark targets the whole file and
+   *  opens by path, exactly as before. */
+  anchor?: string;
 }
 
 export interface BookmarkFolder {

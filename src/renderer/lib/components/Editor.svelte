@@ -77,6 +77,9 @@
     onToolInvoke?: (toolId: string) => void;
     onOpenConversation?: () => void;
     onBookmark?: () => void;
+    /** Bookmark the section (nearest heading at/above the cursor). The
+     *  handler reads the cursor via `getOffset()` and resolves the slug. */
+    onBookmarkSection?: () => void;
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
     /** Click on a `[[cite::source-id]]` in the editor → open the source tab. */
@@ -136,6 +139,7 @@
     onToolInvoke,
     onOpenConversation,
     onBookmark,
+    onBookmarkSection,
     onInsertQueryList,
     onNavigate,
     onOpenSource,
@@ -1071,6 +1075,9 @@
     {/if}
     <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
     <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
+    {#if onBookmarkSection}
+      <button onclick={() => handleMenuAction(() => onBookmarkSection?.())}>Bookmark Section</button>
+    {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
       <span class="submenu-trigger">Open In<Icon name="chevronRight" size={10} /></span>

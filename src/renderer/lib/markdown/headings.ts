@@ -10,6 +10,8 @@
  * skipping it keeps the parser O(n) per line.
  */
 
+import { slugify } from '../../../shared/slug';
+
 export interface Heading {
   /** ATX level: 1 (`#`) through 6 (`######`). */
   level: number;
@@ -66,4 +68,24 @@ export function activeHeadingChain(headings: readonly Heading[], cursorLine: num
     }
   }
   return chain;
+}
+
+/**
+ * The nearest heading at or above a character offset, as a `{ slug, text }`
+ * suitable for a section bookmark (#755). Returns `null` when the offset sits
+ * before any heading. The slug is computed with the same `slugify` the wiki-
+ * link indexer uses, so `[[note#slug]]` navigation resolves it.
+ */
+export function sectionAnchorAt(
+  content: string,
+  offset: number,
+): { slug: string; text: string } | null {
+  const clamped = Math.max(0, Math.min(offset, content.length));
+  // 1-based line of the cursor — matches `Heading.line`.
+  const cursorLine = content.slice(0, clamped).split('\n').length;
+  const chain = activeHeadingChain(extractHeadings(content), cursorLine);
+  const heading = chain.at(-1);
+  if (!heading) return null;
+  const slug = slugify(heading.text);
+  return slug ? { slug, text: heading.text } : null;
 }

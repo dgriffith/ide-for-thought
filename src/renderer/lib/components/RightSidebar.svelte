@@ -233,7 +233,7 @@
     {:else if activePanel === 'citations'}
       <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
-      <BookmarksPanel {activeFilePath} {onFileSelect} />
+      <BookmarksPanel {activeFilePath} {onFileSelect} {onNavigate} />
     {:else if activePanel === 'inspections'}
       <InspectionsPanel {revision} {onOpenConversation} />
     {:else if activePanel === 'proposals'}
