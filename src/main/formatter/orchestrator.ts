@@ -7,6 +7,7 @@ import * as search from '../search/index';
 import { formatContent, type FormatSettings } from '../../shared/formatter/engine';
 import type { FormatContext, FormatFileResult } from '../../shared/formatter/types';
 import { slugify } from '../../shared/slug';
+import { canonicalizeWikiLinkTarget } from '../../shared/wiki-link-resolver';
 import { renameAnchor } from '../notebase/rename-anchor';
 // Side-effect import: populates the rule registry on the main-process side.
 // The renderer has its own import in SettingsDialog for the UI listing.
@@ -190,11 +191,16 @@ function extractHeadingSlugsInOrder(content: string): string[] {
  */
 function buildFormatContext(rootPath: string, relativePath: string): FormatContext {
   const ctx = projectContext(rootPath);
+  const notePaths = graph.allNotePaths(ctx);
+  const files = notePaths.map((p) => ({ relativePath: p, isDirectory: false }));
+  const aliases = graph.getAliasMap(ctx);
   return {
     notePath: relativePath,
-    allNotePaths: graph.allNotePaths(ctx),
+    allNotePaths: notePaths,
     incomingAnchorLinkCount: (target, slug) =>
       graph.findNotesLinkingToAnchor(ctx, target, slug).length,
+    canonicalizeLinkTarget: (target, style) =>
+      canonicalizeWikiLinkTarget(target, style, files, aliases),
   };
 }
 

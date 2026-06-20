@@ -55,6 +55,10 @@ export interface FormatContext {
   /** How many notes link to `target#slug` (slug is a heading slug, or a
    *  `^block-id` including the caret). Backed by the graph. */
   incomingAnchorLinkCount?: (target: string, slug: string) => number;
+  /** Rewrite a wiki-link's path part to the canonical form for `style`
+   *  (#778), or null when it doesn't resolve to a note (leave it as-is).
+   *  Backed by the alias-aware resolver. */
+  canonicalizeLinkTarget?: (target: string, style: 'absolute' | 'shortest') => string | null;
 }
 
 export interface FormatterRule<Config = unknown> {

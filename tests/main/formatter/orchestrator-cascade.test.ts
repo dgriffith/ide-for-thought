@@ -132,4 +132,20 @@ describe('formatter orchestrator cross-note context (#215)', () => {
     expect(result.after).toBe('linked para ^kept\n\norphan para\n');
     expect(readNote(root, 'notes/foo.md')).toBe('linked para ^kept\n\norphan para\n');
   });
+
+  it('canonical-wiki-link-path-style rewrites note links to full paths, leaving cite untouched', async () => {
+    writeNote(root, 'notes/topic/raft.md', '# Raft\n');
+    writeNote(root, 'notes/index.md', 'See [[raft]] and [[cite::some-source]].\n');
+
+    await indexNote(ctx, 'notes/topic/raft.md', readNote(root, 'notes/topic/raft.md'));
+    await indexNote(ctx, 'notes/index.md', readNote(root, 'notes/index.md'));
+
+    const result = await formatFile(root, 'notes/index.md', {
+      enabled: { 'canonical-wiki-link-path-style': true },
+      configs: { 'canonical-wiki-link-path-style': { style: 'absolute' } },
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.after).toBe('See [[notes/topic/raft]] and [[cite::some-source]].\n');
+  });
 });
