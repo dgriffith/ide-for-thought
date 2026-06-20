@@ -65,7 +65,7 @@
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
-  import { getBookmarksStore } from './lib/stores/bookmarks.svelte';
+  import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { sectionAnchorAt } from './lib/markdown/headings';
   import { isMissingApiKeyError } from '../shared/llm-errors';
@@ -98,6 +98,13 @@
   const toolPanel = getToolPanelStore();
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
+  // Position-bearing bookmarks for the active file, fed to the editor's
+  // gutter-flag extension (#756). Recomputes as bookmarks are added/removed.
+  const currentFileBookmarks = $derived(
+    editor.activeFilePath
+      ? collectBookmarksForPath(bookmarkStore.tree, editor.activeFilePath)
+      : [],
+  );
   let showSettings = $state(false);
   /** Tab the SettingsDialog should land on when next opened. Cleared
    *  on close so the next manual open returns to the default Editor
@@ -1202,6 +1209,7 @@
                     onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
                     onBookmarkSection={() => { void handleBookmarkSection(); }}
                     onBookmarkLine={handleBookmarkLine}
+                    bookmarks={currentFileBookmarks}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}
