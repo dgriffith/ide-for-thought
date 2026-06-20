@@ -157,6 +157,27 @@ describe('house style defaults', () => {
   });
 });
 
+describe('FormatContext threading (#215)', () => {
+  beforeEach(__resetRuleRegistryForTests);
+
+  it('passes the ctx through to rule.apply', () => {
+    registerRule(rule({
+      id: 'ctx-probe',
+      apply: (c, _cfg, _cache, ctx) => (ctx?.notePath ? `${c}[${ctx.notePath}]` : c),
+    }));
+    const out = formatContent('x', { enabled: { 'ctx-probe': true }, configs: {} }, { notePath: 'a.md' });
+    expect(out).toBe('x[a.md]');
+  });
+
+  it('rule sees undefined ctx when none is supplied', () => {
+    registerRule(rule({
+      id: 'ctx-probe',
+      apply: (c, _cfg, _cache, ctx) => (ctx === undefined ? `${c}[NONE]` : c),
+    }));
+    expect(formatContent('x', { enabled: { 'ctx-probe': true }, configs: {} })).toBe('x[NONE]');
+  });
+});
+
 describe('formatPasteSafe (#160)', () => {
   beforeEach(__resetRuleRegistryForTests);
 

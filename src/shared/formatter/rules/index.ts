@@ -55,6 +55,7 @@ import './minerva/remove-redundant-wiki-link-display';
 import './minerva/canonicalize-frontmatter-keys';
 import './minerva/unique-block-ids-per-note';
 import './minerva/unique-heading-slugs';
+import './minerva/strip-orphaned-block-ids';
 
 // Footnote (#159) — reference placement, definition ordering, renumbering.
 // `move-footnotes-to-the-bottom` runs before `re-index-footnotes` so the

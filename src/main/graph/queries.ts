@@ -156,6 +156,14 @@ function collectNotePathsWithPredicate(
   return [...seen];
 }
 
+/** All indexed `.md` note paths in the thoughtbase (#215 — cross-note
+ *  rules use this to reason about which link shortenings are unambiguous). */
+export function allNotePaths(ctx: ProjectContext): string[] {
+  const state = getState(ctx);
+  if (!state) return [];
+  return [...state.indexedNotePaths].filter((p) => p.endsWith('.md'));
+}
+
 /** Like findNotesLinkingTo, but scoped to links whose anchor is exactly `slug`. */
 export function findNotesLinkingToAnchor(
   ctx: ProjectContext,

@@ -5,7 +5,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
 import { formatContent, type FormatSettings } from '../../shared/formatter/engine';
-import type { FormatFileResult } from '../../shared/formatter/types';
+import type { FormatContext, FormatFileResult } from '../../shared/formatter/types';
 import { slugify } from '../../shared/slug';
 import { renameAnchor } from '../notebase/rename-anchor';
 // Side-effect import: populates the rule registry on the main-process side.
@@ -29,11 +29,18 @@ export function formatNoteContent(
   content: string,
   settings: FormatSettings,
   relativePath?: string,
+  rootPath?: string,
 ): string {
   const settingsWithCtx = relativePath
     ? injectFileContext(settings, relativePath)
     : settings;
-  return formatContent(content, settingsWithCtx);
+  // Buffer-mode format (e.g. palette Format on the active note). When we know
+  // the file + project, hand cross-note rules the same context an on-disk
+  // format gets, so behaviour matches between the two paths (#215).
+  const ctx = relativePath && rootPath
+    ? buildFormatContext(rootPath, relativePath)
+    : undefined;
+  return formatContent(content, settingsWithCtx, ctx);
 }
 
 /** Format a single `.md` file on disk + route the write through the standard broadcast pipeline. */
@@ -44,7 +51,7 @@ export async function formatFile(
 ): Promise<FormatFileResult> {
   const before = await notebaseFs.readFile(rootPath, relativePath);
   const settingsWithCtx = injectFileContext(settings, relativePath);
-  const after = formatContent(before, settingsWithCtx);
+  const after = formatContent(before, settingsWithCtx, buildFormatContext(rootPath, relativePath));
   if (after === before) {
     return { relativePath, changed: false, before, after, cascadedPaths: [] };
   }
@@ -174,6 +181,21 @@ function extractHeadingSlugsInOrder(content: string): string[] {
     if (m) out.push(slugify(m[2].trim()));
   }
   return out;
+}
+
+/**
+ * Thoughtbase-scope context for cross-note rules (#215). Backed by the graph
+ * (note list + incoming-anchor links), so it's a main-process concern; the
+ * engine just forwards it to each rule's `apply`.
+ */
+function buildFormatContext(rootPath: string, relativePath: string): FormatContext {
+  const ctx = projectContext(rootPath);
+  return {
+    notePath: relativePath,
+    allNotePaths: graph.allNotePaths(ctx),
+    incomingAnchorLinkCount: (target, slug) =>
+      graph.findNotesLinkingToAnchor(ctx, target, slug).length,
+  };
 }
 
 function injectFileContext(settings: FormatSettings, relativePath: string): FormatSettings {

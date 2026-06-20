@@ -23,7 +23,7 @@ import {
 // external `import * as graph from './graph/index'` callers are unchanged.
 export {
   getAliasMap, getAliasEntries, getAllFrontmatterKeys, noteUriFor, headingsFor,
-  findNotesCitingSource, findNotesQuotingExcerpt, findNotesLinkingToAnchor,
+  findNotesCitingSource, findNotesQuotingExcerpt, findNotesLinkingToAnchor, allNotePaths,
   injectSparqlPrefixes, schemaForCompletion, queryGraph,
   listTags, notesByTagPrefix, notesByTag, sourcesByTag, listAllSources, allTags,
   outgoingLinks, findDerivedNoteForCell, findNotesLinkingTo, backlinks, findExternalInboundLinks,

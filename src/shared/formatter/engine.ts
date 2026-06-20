@@ -12,7 +12,7 @@ import { buildParseCache } from './parse-cache';
 import { HOUSE_STYLE_RULE_IDS } from './house-style';
 import { PASTE_SAFE_RULE_IDS } from './paste-safe';
 import { CATEGORY_ORDER, getRule, listAllRules } from './registry';
-import type { EnabledRule, FormatterRule } from './types';
+import type { EnabledRule, FormatContext, FormatterRule } from './types';
 
 export interface FormatSettings {
   /**
@@ -44,14 +44,18 @@ export const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
  * Apply enabled rules to `content`. Returns the rewritten string; equal to
  * `content` when no enabled rule matched.
  */
-export function formatContent(content: string, settings: FormatSettings): string {
+export function formatContent(
+  content: string,
+  settings: FormatSettings,
+  ctx?: FormatContext,
+): string {
   const enabledRules = resolveEnabled(settings);
   if (enabledRules.length === 0) return content;
 
   let current = content;
   for (const { rule, config } of enabledRules) {
     const cache = buildParseCache(current);
-    const next = rule.apply(current, config, cache);
+    const next = rule.apply(current, config, cache, ctx);
     if (next !== current) current = next;
   }
   return current;
@@ -106,10 +110,11 @@ export function formatContentToFixedPoint(
   content: string,
   settings: FormatSettings,
   maxPasses = 3,
+  ctx?: FormatContext,
 ): string {
   let current = content;
   for (let i = 0; i < maxPasses; i++) {
-    const next = formatContent(current, settings);
+    const next = formatContent(current, settings, ctx);
     if (next === current) return current;
     current = next;
   }
