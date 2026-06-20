@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Minerva Clipper",
+  "version": "0.1.0",
+  "description": "Send the page you're reading to Minerva as a Source — with your selection as a linked excerpt.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Save to Minerva"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "commands": {
+    "save-to-minerva": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Save the current page to Minerva"
+    }
+  }
+}

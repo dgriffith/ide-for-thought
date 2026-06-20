@@ -25,14 +25,17 @@ export interface ClipperState {
   pairingCode: string | null;
 }
 
+// `btoa`/`atob` (global in Node 16+ and every browser) keep this importable
+// from the browser extension (#792), where `Buffer` doesn't exist. The payload
+// is ASCII (digits, hex secret, JSON punctuation), so the Latin1 round-trip
+// btoa requires is safe; forgiving-base64 in both runtimes tolerates the
+// stripped `=` padding on decode.
 function toBase64Url(s: string): string {
-  return Buffer.from(s, 'utf-8').toString('base64')
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function fromBase64Url(s: string): string {
-  const padded = s.replace(/-/g, '+').replace(/_/g, '/');
-  return Buffer.from(padded, 'base64').toString('utf-8');
+  return atob(s.replace(/-/g, '+').replace(/_/g, '/'));
 }
 
 export function encodePairingCode(port: number, secret: string): string {
