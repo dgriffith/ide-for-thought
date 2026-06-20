@@ -373,3 +373,70 @@ export const insertWikiLink: Command = (view: EditorView) => {
   }
   return true;
 };
+
+// ── Fenced block + diagram inserts ─────────────────────────────────────────
+
+/** Insert a fenced block in `lang` with the cursor on its empty body line.
+ *  Adds a leading newline when not already at the start of a line. */
+function makeInsertFence(lang: string): Command {
+  return (view: EditorView) => {
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    const prefix = pos === line.from ? '' : '\n';
+    const open = `${prefix}\`\`\`${lang}\n`;
+    view.dispatch({
+      changes: { from: pos, insert: `${open}\n\`\`\`\n` },
+      selection: { anchor: pos + open.length }, // empty line inside the fence
+    });
+    return true;
+  };
+}
+
+export const insertSparqlQuery: Command = makeInsertFence('sparql');
+export const insertSqlQuery: Command = makeInsertFence('sql');
+export const insertPythonScript: Command = makeInsertFence('python');
+export const insertMermaidDiagram: Command = makeInsertFence('mermaid');
+
+// ── Callout inserts ────────────────────────────────────────────────────────
+
+/** Callout types supported by the preview's callout plugin, in a sensible
+ *  menu order. */
+const CALLOUT_TYPES: { type: string; label: string }[] = [
+  { type: 'note', label: 'Note' },
+  { type: 'abstract', label: 'Abstract' },
+  { type: 'info', label: 'Info' },
+  { type: 'tip', label: 'Tip' },
+  { type: 'success', label: 'Success' },
+  { type: 'question', label: 'Question' },
+  { type: 'warning', label: 'Warning' },
+  { type: 'failure', label: 'Failure' },
+  { type: 'danger', label: 'Danger' },
+  { type: 'bug', label: 'Bug' },
+  { type: 'example', label: 'Example' },
+  { type: 'quote', label: 'Quote' },
+  { type: 'todo', label: 'Todo' },
+];
+
+function makeInsertCallout(type: string): Command {
+  return (view: EditorView) => {
+    const { state } = view;
+    const { from, to } = state.selection.main;
+    const selected = state.sliceDoc(from, to);
+    const line = state.doc.lineAt(from);
+    const prefix = from === line.from ? '' : '\n';
+    if (selected) {
+      // Wrap the selection as the callout body.
+      const body = selected.split('\n').map((l) => `> ${l}`).join('\n');
+      const insert = `${prefix}> [!${type}]\n${body}\n`;
+      view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length } });
+    } else {
+      const head = `${prefix}> [!${type}]\n> `;
+      view.dispatch({ changes: { from, insert: head }, selection: { anchor: from + head.length } });
+    }
+    return true;
+  };
+}
+
+/** Pre-built insert commands per callout type, for the editor menu. */
+export const insertCallouts: { type: string; label: string; command: Command }[] =
+  CALLOUT_TYPES.map((c) => ({ ...c, command: makeInsertCallout(c.type) }));
