@@ -54,7 +54,8 @@
   }
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
-  import { isSourceScoped } from '../../../shared/tools/types';
+  import { isSourceScoped, type ThinkingToolInfo } from '../../../shared/tools/types';
+  import { groupToolsByGroup, hasNamedGroups } from '../../../shared/tools/grouping';
 
   interface Props {
     filePath: string;
@@ -172,10 +173,20 @@
     onRunCell,
   }: Props = $props();
 
-  // Source-scoped tools (#103) belong to the Source viewer, never the note
-  // editor's right-click menu.
-  const analysisTools = getToolInfosByCategory('analysis').filter((t) => !isSourceScoped(t));
-  const learningTools = getToolInfosByCategory('learning').filter((t) => !isSourceScoped(t));
+  // Tools-for-Thought submenus, built to match the native main menu exactly
+  // (menu.ts): same categories in the same order (Learning → Research →
+  // Analysis), the same #525 thematic sub-grouping, sourced from the same
+  // registry (which already reflects the user's menu-config order). Source-
+  // scoped tools (#103) belong to the Source viewer, never this menu.
+  // Snapshot at mount — matches the previous non-reactive behavior; reopen
+  // the editor to pick up menu-config changes.
+  const TOOL_MENU_LABELS = { learning: 'Learning', research: 'Research', analysis: 'Analysis' } as const;
+  const toolMenus = (['learning', 'research', 'analysis'] as const)
+    .map((id) => {
+      const tools = getToolInfosByCategory(id).filter((t) => !isSourceScoped(t));
+      return { id, label: TOOL_MENU_LABELS[id], tools, groups: groupToolsByGroup(tools) };
+    })
+    .filter((m) => m.tools.length > 0);
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
@@ -925,6 +936,20 @@
   </div>
 {/if}
 
+{#snippet toolButton(tool: ThinkingToolInfo)}
+  {@const needsSelection = !!tool.requiresSelection && !contextMenu?.hasSelection}
+  {@const needsClaim = (tool.context?.includes('claimUnderCursor') ?? false) && !contextMenu?.claimUri}
+  <button
+    onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}
+    disabled={needsSelection || needsClaim}
+    title={needsClaim
+      ? 'Right-click on a line containing a claim URI'
+      : needsSelection
+        ? 'Select text first'
+        : tool.description}
+  >{tool.name}</button>
+{/snippet}
+
 {#if contextMenu}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
@@ -988,57 +1013,27 @@
         <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>
     </div>
-    {#if onToolInvoke && (analysisTools.length > 0 || learningTools.length > 0)}
+    {#if onToolInvoke && toolMenus.length > 0}
       <div class="separator"></div>
-      {#if learningTools.length > 0}
+      {#each toolMenus as menu (menu.id)}
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Learning<Icon name="chevronRight" size={10} /></span>
+          <span class="submenu-trigger">{menu.label}<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">
-            {#each learningTools.filter((t) => contextMenu!.hasSelection || !t.requiresSelection) as tool}
-              <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
-            {/each}
+            {#if hasNamedGroups(menu.groups)}
+              {#each menu.groups as group (group.label ?? 'General')}
+                <div class="submenu-item" onmouseenter={adjustSubmenu}>
+                  <span class="submenu-trigger">{group.label ?? 'General'}<Icon name="chevronRight" size={10} /></span>
+                  <div class="submenu">
+                    {#each group.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
+                  </div>
+                </div>
+              {/each}
+            {:else}
+              {#each menu.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
+            {/if}
           </div>
         </div>
-      {/if}
-      {#if analysisTools.length > 0}
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Analysis<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            {#each analysisTools as tool}
-              <button onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}>{tool.name}</button>
-            {/each}
-          </div>
-        </div>
-      {/if}
-    {/if}
-    {#if onToolInvoke}
-      <div class="submenu-item" onmouseenter={adjustSubmenu}>
-        <span class="submenu-trigger">Research<Icon name="chevronRight" size={10} /></span>
-        <div class="submenu">
-          <!-- Decompose into Claims is a conversational tool
-               (research.decompose-into-claims). Routes through the
-               standard tool-registry path so seeded conversations
-               stay in one pipeline. -->
-          <button onclick={() => handleMenuAction(() => onToolInvoke?.('research.decompose-into-claims'))}>Decompose into Claims</button>
-          <div class="separator"></div>
-          <!-- Find Supporting / Opposing Arguments are conversational tools
-               (research.find-{supporting,opposing}-arguments). Their tool
-               def's 'claimUnderCursor' requirement makes the cursor-on-
-               a-claim-line check authoritative; the disabled state here
-               is just early UX feedback so users see why the items are
-               inert before clicking. -->
-          <button
-            onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-supporting-arguments'))}
-            disabled={!contextMenu?.claimUri}
-            title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
-          >Find Supporting Arguments</button>
-          <button
-            onclick={() => handleMenuAction(() => onToolInvoke?.('research.find-opposing-arguments'))}
-            disabled={!contextMenu?.claimUri}
-            title={contextMenu?.claimUri ? '' : 'Right-click on a line containing a claim URI'}
-          >Find Opposing Arguments</button>
-        </div>
-      </div>
+      {/each}
     {/if}
     <div class="separator"></div>
     {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
