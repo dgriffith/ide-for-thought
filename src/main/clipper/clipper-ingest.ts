@@ -8,12 +8,16 @@
  *   - a non-empty `selection` is filed as a `thought:Excerpt` linked to the
  *     new source, via `createExcerpt` (idempotent on the source + quote text).
  *
- * Offset-accurate excerpt anchoring (mapping the selection into body.md) is a
- * separate concern — see #794. v1 stores the quote text only.
+ * A non-empty selection is anchored into body.md best-effort (#794): we re-find
+ * the selection in the extracted markdown and store `charStart`/`charEnd` when
+ * the match is unambiguous, falling back to text-only when it isn't.
  */
 
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { ingestHtmlString } from '../sources/ingest';
 import { createExcerpt } from '../sources/create-excerpt';
+import { locateExcerptOffsets } from '../sources/excerpt-anchor';
 import { getIngestSettings } from '../sources/ingest-settings';
 import type { ClipperPayload, ClipperIngestOutcome } from './clipper-server';
 
@@ -40,13 +44,37 @@ export async function clipperIngest(
 
   const selection = payload.selection?.trim();
   if (selection) {
+    const offsets = await anchorSelection(rootPath, result.sourceId, selection);
     const excerpt = await createExcerpt(rootPath, {
       sourceId: result.sourceId,
       citedText: selection,
+      charStart: offsets?.charStart ?? null,
+      charEnd: offsets?.charEnd ?? null,
     });
     outcome.excerptId = excerpt.excerptId;
     outcome.excerptDuplicate = excerpt.duplicate;
   }
 
   return outcome;
+}
+
+/**
+ * Read the source's extracted body.md and try to anchor the selection into it.
+ * Returns null (text-only excerpt) when body.md is unreadable or the selection
+ * can't be located unambiguously — never throws, anchoring is best-effort.
+ */
+async function anchorSelection(
+  rootPath: string,
+  sourceId: string,
+  selection: string,
+): Promise<{ charStart: number; charEnd: number } | null> {
+  try {
+    const body = await fs.readFile(
+      path.join(rootPath, '.minerva', 'sources', sourceId, 'body.md'),
+      'utf-8',
+    );
+    return locateExcerptOffsets(body, selection);
+  } catch {
+    return null;
+  }
 }
