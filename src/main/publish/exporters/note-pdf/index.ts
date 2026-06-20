@@ -19,6 +19,7 @@ import { renderPdfFromHtml } from './electron-render';
 export const notePdfExporter: Exporter = {
   id: 'note-pdf',
   label: 'Note as PDF',
+  group: 'pdf',
   accepts: (input) => input.kind === 'single-note',
   acceptedKinds: ['single-note'],
   async run(plan) {

@@ -20,6 +20,7 @@ import type { Exporter, ExportPlanFile } from '../../types';
 export const annotatedReadingExporter: Exporter = {
   id: 'annotated-reading-html',
   label: 'Annotated Source as HTML',
+  group: 'annotated',
   // Source-only — needs a single source's body + its excerpts.
   accepts: (input) => input.kind === 'source',
   acceptedKinds: ['source'],

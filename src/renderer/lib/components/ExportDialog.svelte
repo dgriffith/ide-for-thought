@@ -1,12 +1,14 @@
 <script lang="ts">
   import { api } from '../ipc/client';
-  import type { ExportPreviewPlan } from '../ipc/client';
+  import type { ExportPreviewPlan, ExporterInfo } from '../ipc/client';
 
   interface Props {
-    /** Registered exporter id the menu launched with. */
-    exporterId: string;
-    /** The note the user currently has open — used for 'single-note' scope and the folder default. */
+    /** Format-family group id the menu launched with (#: export-menu-redesign). */
+    group: string;
+    /** The note the user currently has open — used for note/folder/tree scope. */
     activeFilePath: string | null;
+    /** The source whose tab is active, if any — enables the `source` scope. */
+    activeSourceId: string | null;
     /** Close the dialog without exporting. */
     onCancel: () => void;
     /**
@@ -17,16 +19,18 @@
     onExported: (result: { filesWritten: number; summary: string; outputDir: string; writtenPaths: string[] }) => void;
   }
 
-  let { exporterId, activeFilePath, onCancel, onExported }: Props = $props();
+  let { group, activeFilePath, activeSourceId, onCancel, onExported }: Props = $props();
 
-  // The dialog only renders the four user-facing scopes; `source`
-  // (#253) is invoked from the Sources sidebar context menu, not
-  // through this dialog's radio group, so the dialog filters it out
-  // when populating from the registry.
-  type Scope = 'project' | 'folder' | 'single-note' | 'tree';
+  type Scope = 'project' | 'folder' | 'single-note' | 'tree' | 'source';
   type LinkPolicy = 'drop' | 'inline-title' | 'follow-to-file';
 
   let scope = $state<Scope>('project');
+  // Index into scopeCandidates — the variant within a family at the chosen
+  // scope (e.g. Markdown Cleaned vs Verbatim). Usually there's only one.
+  let variantIndex = $state(0);
+  // How many wiki-link hops out from the current note the 'tree' scope walks
+  // (#: export-menu-redesign). 1 = this note + what it directly links to.
+  let treeDepth = $state(3);
   let linkPolicy = $state<LinkPolicy>('inline-title');
   let citationStyle = $state<string>('apa');
   let citationLocale = $state<string>('en-US');
@@ -34,8 +38,10 @@
   let loading = $state(false);
   let exporting = $state(false);
   let error = $state<string | null>(null);
-  let acceptedKinds = $state<readonly Scope[]>(['single-note', 'folder', 'project']);
-  let acceptedLoaded = $state(false);
+  // Every exporter in the launched family. The dialog resolves which concrete
+  // one runs from (group + scope + variant).
+  let groupExporters = $state<ExporterInfo[]>([]);
+  let loaded = $state(false);
   // Per-export exclusion overrides (#283). Set of relative paths the
   // user has explicitly re-included; the pipeline force-includes them
   // even when the private-by-default rules would otherwise exclude.
@@ -65,28 +71,45 @@
     return slash >= 0 ? activeFilePath.slice(0, slash) : '';
   });
 
-  // Scopes that don't apply to the current context (e.g. 'single-note'
-  // when no file is open) get disabled rather than hidden — keeps the
-  // radio layout stable.
-  const canScopeNote = $derived(activeFilePath != null);
-  const canScopeTree = $derived(activeFilePath != null && acceptedKinds.includes('tree'));
-  const canScopeProject = $derived(acceptedKinds.includes('project'));
-  const canScopeFolder = $derived(acceptedKinds.includes('folder'));
-  const canScopeSingleNote = $derived(acceptedKinds.includes('single-note'));
+  const groupLabel = $derived(groupExporters[0]?.group.label ?? 'Export');
+
+  // A scope is offered only when the family supports it AND the current
+  // context can satisfy it (a note open for note/folder/tree; a source tab
+  // for source). Unavailable scopes are hidden, not disabled — the menu is
+  // format-first, so the live scopes follow from what you're looking at.
+  function scopeAvailable(s: Scope): boolean {
+    if (!groupExporters.some((e) => e.acceptedKinds.includes(s))) return false;
+    if (s === 'project') return true;
+    if (s === 'source') return activeSourceId != null;
+    return activeFilePath != null; // single-note / folder / tree
+  }
+  const SCOPE_ORDER: Scope[] = ['single-note', 'folder', 'tree', 'project', 'source'];
+  const availableScopes = $derived(SCOPE_ORDER.filter(scopeAvailable));
+
+  // Exporters in this family valid at the chosen scope, sorted for the variant
+  // picker (Markdown → Cleaned / Verbatim / Bundle). Usually exactly one.
+  const scopeCandidates = $derived(
+    groupExporters
+      .filter((e) => e.acceptedKinds.includes(scope))
+      .sort((a, b) => a.variantOrder - b.variantOrder || a.label.localeCompare(b.label)),
+  );
+  const selectedExporterId = $derived((scopeCandidates[variantIndex] ?? scopeCandidates[0])?.id ?? '');
 
   function scopeInput(): { kind: Scope; relativePath?: string; maxDepth?: number } {
     if (scope === 'single-note') return { kind: 'single-note', relativePath: activeFilePath ?? '' };
     if (scope === 'folder') return { kind: 'folder', relativePath: activeFolder };
-    if (scope === 'tree') return { kind: 'tree', relativePath: activeFilePath ?? '', maxDepth: 3 };
+    if (scope === 'tree') return { kind: 'tree', relativePath: activeFilePath ?? '', maxDepth: treeDepth };
+    if (scope === 'source') return { kind: 'source', relativePath: activeSourceId ?? '' };
     return { kind: 'project' };
   }
 
   async function refreshPlan(): Promise<void> {
+    if (!selectedExporterId) { plan = null; return; }
     loading = true;
     error = null;
     try {
       plan = await api.publish.resolvePlan(scopeInput(), {
-        exporterId,
+        exporterId: selectedExporterId,
         linkPolicy,
         citationStyle,
         citationLocale,
@@ -101,52 +124,51 @@
     }
   }
 
-  // On mount, fetch acceptedKinds so the scope radios can disable
-  // kinds the exporter doesn't support, and pick a sensible initial
-  // scope (tree when only tree is accepted; else project).
+  // On mount, load the family's exporters and pick a sensible default scope:
+  // the current note if the family handles it, else the current source, else
+  // the whole project, else whatever's available.
   $effect(() => {
+    void group; // re-load if the launched family changes
     void (async () => {
-      const list = await api.publish.listExporters();
-      const entry = list.find((e) => e.id === exporterId);
-      if (entry) {
-        // Filter out `source` — that scope is reachable only from the
-        // Sources sidebar context menu (#253), not this dialog.
-        acceptedKinds = entry.acceptedKinds.filter((k): k is Scope => k !== 'source');
-        // Pick the best default scope given what the exporter accepts
-        // AND what the context supports.
-        if (!acceptedKinds.includes(scope)) {
-          if (acceptedKinds.includes('tree') && activeFilePath) scope = 'tree';
-          else if (acceptedKinds.includes('project')) scope = 'project';
-          else if (acceptedKinds.includes('single-note') && activeFilePath) scope = 'single-note';
-          else scope = acceptedKinds[0] ?? 'project';
-        }
+      const all = await api.publish.listExporters();
+      groupExporters = all.filter((e) => e.group.id === group);
+      const avail = SCOPE_ORDER.filter(scopeAvailable);
+      if (!avail.includes(scope)) {
+        scope = avail.includes('single-note') ? 'single-note'
+          : avail.includes('source') ? 'source'
+          : avail.includes('project') ? 'project'
+          : avail[0] ?? 'project';
       }
-      acceptedLoaded = true;
+      loaded = true;
     })();
   });
 
-  // Re-resolve whenever an input affecting the plan changes. `$effect`
-  // re-runs on any tracked read, so wrapping refreshPlan() in here
-  // subscribes to scope, linkPolicy, citationStyle/locale, activeFilePath.
+  // Reset the variant when scope changes so the index can't dangle onto a
+  // candidate that doesn't exist at the new scope.
+  $effect(() => { void scope; variantIndex = 0; });
+
+  // Re-resolve whenever an input affecting the plan changes.
   $effect(() => {
     void scope;
+    void variantIndex;
+    void treeDepth;
     void linkPolicy;
     void citationStyle;
     void citationLocale;
     void activeFilePath;
     void overrides;
     void deselections;
-    if (!acceptedLoaded) return;
+    if (!loaded) return;
     void refreshPlan();
   });
 
   async function handleExport(): Promise<void> {
-    if (!plan) return;
+    if (!plan || !selectedExporterId) return;
     exporting = true;
     error = null;
     try {
       const result = await api.publish.runExport({
-        exporterId,
+        exporterId: selectedExporterId,
         input: scopeInput(),
         linkPolicy,
         citationStyle,
@@ -174,39 +196,85 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="export-dialog-backdrop" onclick={handleBackdropClick}>
   <div class="export-dialog" role="dialog" aria-labelledby="export-dialog-title">
-    <h2 id="export-dialog-title">
-      {plan ? `Export as ${plan.exporterLabel}` : 'Export'}
-    </h2>
+    <h2 id="export-dialog-title">Export as {groupLabel}</h2>
 
-    <div class="option-row">
-      <span class="field-label">Scope</span>
-      <div class="radio-group">
-        {#if canScopeProject}
-          <label>
-            <input type="radio" name="scope" value="project" bind:group={scope} />
-            Entire project
-          </label>
-        {/if}
-        {#if canScopeFolder}
-          <label>
-            <input type="radio" name="scope" value="folder" bind:group={scope} disabled={!activeFilePath} />
-            Current folder{activeFolder ? ` (${activeFolder || 'root'})` : ''}
-          </label>
-        {/if}
-        {#if canScopeSingleNote}
-          <label>
-            <input type="radio" name="scope" value="single-note" bind:group={scope} disabled={!canScopeNote} />
-            Current note{activeFilePath ? ` (${activeFilePath})` : ''}
-          </label>
-        {/if}
-        {#if acceptedKinds.includes('tree')}
-          <label>
-            <input type="radio" name="scope" value="tree" bind:group={scope} disabled={!canScopeTree} />
-            Note tree from current note (depth 3)
-          </label>
+    {#if loaded && availableScopes.length === 0}
+      <div class="empty-scope">
+        {#if groupExporters.some((e) => e.acceptedKinds.includes('source'))}
+          Open a source to export it as {groupLabel}.
+        {:else}
+          Open a note to export it as {groupLabel}.
         {/if}
       </div>
-    </div>
+    {/if}
+
+    {#if availableScopes.length > 0}
+      <div class="option-row">
+        <span class="field-label">Scope</span>
+        <div class="radio-group">
+          {#if availableScopes.includes('single-note')}
+            <label>
+              <input type="radio" name="scope" value="single-note" bind:group={scope} />
+              Current note{activeFilePath ? ` (${activeFilePath})` : ''}
+            </label>
+          {/if}
+          {#if availableScopes.includes('folder')}
+            <label>
+              <input type="radio" name="scope" value="folder" bind:group={scope} />
+              Current folder ({activeFolder || 'root'})
+            </label>
+          {/if}
+          {#if availableScopes.includes('tree')}
+            <label>
+              <input type="radio" name="scope" value="tree" bind:group={scope} />
+              Linked notes <span class="scope-hint">— this note and the notes it links to</span>
+            </label>
+          {/if}
+          {#if availableScopes.includes('project')}
+            <label>
+              <input type="radio" name="scope" value="project" bind:group={scope} />
+              Entire project
+            </label>
+          {/if}
+          {#if availableScopes.includes('source')}
+            <label>
+              <input type="radio" name="scope" value="source" bind:group={scope} />
+              This source{activeSourceId ? ` (${activeSourceId})` : ''}
+            </label>
+          {/if}
+        </div>
+      </div>
+    {/if}
+
+    {#if scope === 'tree'}
+      <div class="option-row">
+        <span class="field-label">Depth</span>
+        <div class="depth-control">
+          <select bind:value={treeDepth}>
+            {#each [1, 2, 3, 4, 5] as d (d)}
+              <option value={d}>{d} hop{d === 1 ? '' : 's'}</option>
+            {/each}
+          </select>
+          <span class="scope-hint">
+            how far to follow links out from this note{plan ? ` — ${plan.inputs.length} note${plan.inputs.length === 1 ? '' : 's'}` : ''}
+          </span>
+        </div>
+      </div>
+    {/if}
+
+    {#if scopeCandidates.length > 1}
+      <div class="option-row">
+        <span class="field-label">Variant</span>
+        <div class="radio-group">
+          {#each scopeCandidates as cand, i (cand.id)}
+            <label>
+              <input type="radio" name="variant" checked={variantIndex === i} onchange={() => (variantIndex = i)} />
+              {cand.variantLabel ?? cand.label}
+            </label>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <div class="option-row">
       <label for="link-policy">Link handling</label>
@@ -364,7 +432,7 @@
       <button
         class="primary"
         onclick={handleExport}
-        disabled={exporting || loading || !plan || plan.inputs.length === 0}
+        disabled={exporting || loading || !plan || !selectedExporterId || plan.inputs.length === 0}
       >
         {exporting ? 'Exporting…' : 'Export…'}
       </button>
@@ -417,10 +485,34 @@
     margin-bottom: 12px;
     font-size: 12px;
   }
-  .option-row > label:first-child {
+  .option-row > label:first-child,
+  .field-label {
     min-width: 90px;
     color: var(--text-muted);
     padding-top: 3px;
+  }
+
+  .empty-scope {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-button);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .scope-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .depth-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .depth-control select {
+    flex: 0 0 auto;
   }
   .radio-group {
     display: flex;

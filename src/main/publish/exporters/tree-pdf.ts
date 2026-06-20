@@ -120,6 +120,7 @@ ${bibSection}
 export const treePdfExporter: Exporter = {
   id: 'tree-pdf',
   label: 'Note Tree as Single PDF',
+  group: 'pdf',
   // Same input shape as tree-html — walking the wiki-link closure is
   // the whole point.
   accepts: (input) => input.kind === 'tree',

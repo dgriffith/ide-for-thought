@@ -251,6 +251,27 @@ export interface ExportPreviewPlan {
 
 export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 'source';
 
+/** Format family metadata for the format-first export menu (#: export-menu-redesign). */
+export type ExportGroupId =
+  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'bibtex' | 'pandoc';
+export interface ExportGroupMeta {
+  id: ExportGroupId;
+  label: string;
+  category: 'document' | 'publication' | 'citation';
+  order: number;
+}
+
+/** One registered exporter, as surfaced to the menu + export dialog. */
+export interface ExporterInfo {
+  id: string;
+  label: string;
+  acceptedKinds: ExportInputKind[];
+  group: ExportGroupMeta;
+  /** Set when the exporter shares a group + scope with another (Markdown). */
+  variantLabel?: string;
+  variantOrder: number;
+}
+
 export interface RunExportInput {
   exporterId: string;
   input: {
@@ -277,7 +298,7 @@ export interface RunExportResult {
 
 export interface PublishApi {
   /** Every registered exporter, for menu + dialog population. */
-  listExporters(): Promise<Array<{ id: string; label: string; acceptedKinds: ExportInputKind[] }>>;
+  listExporters(): Promise<ExporterInfo[]>;
   /** Resolve an ExportPlan without running it — for the preview dialog. */
   resolvePlan(
     input: RunExportInput['input'],

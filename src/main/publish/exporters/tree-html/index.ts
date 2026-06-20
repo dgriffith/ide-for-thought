@@ -30,6 +30,7 @@ import type { Exporter, ExportOutput, ExportPlan, ExportPlanFile } from '../../t
 export const treeHtmlExporter: Exporter = {
   id: 'tree-html',
   label: 'Note Tree as HTML Bundle',
+  group: 'html',
   // Only the tree scope — walking wiki-link closures is the whole point.
   accepts: (input) => input.kind === 'tree',
   acceptedKinds: ['tree'],

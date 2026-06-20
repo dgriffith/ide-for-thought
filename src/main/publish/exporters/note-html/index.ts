@@ -63,6 +63,7 @@ function appendCitationsTail(body: string, renderer: CitationRenderer): string {
 export const noteHtmlExporter: Exporter = {
   id: 'note-html',
   label: 'Note as HTML',
+  group: 'html',
   // Single-note HTML is the canonical use; folder / project scopes also
   // work (emits one file per note) but the tree scope belongs to the
   // dedicated tree-html exporter which handles the bundle shape.

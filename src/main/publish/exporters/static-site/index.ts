@@ -38,6 +38,7 @@ import { SITE_SEARCH_SCRIPT } from './search-script';
 export const staticSiteExporter: Exporter = {
   id: 'static-site',
   label: 'Project as Static Site',
+  group: 'site',
   // Project-only — the whole point is "publish this thoughtbase".
   // Single-note / folder static sites would be a separate, weirder
   // product (a one-page site? a folder-of-notes site?).

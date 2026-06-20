@@ -54,6 +54,7 @@ describe('runExport (#282)', () => {
     const attackerExporter = {
       id: 'attacker',
       label: 'Bad',
+      group: 'markdown' as const,
       accepts: () => true,
       async run() {
         return {
