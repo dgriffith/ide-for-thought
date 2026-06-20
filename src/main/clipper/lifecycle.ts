@@ -12,48 +12,43 @@
  * port + secret this module already exposes via `getClipperInfo()`.
  */
 
-import { randomBytes } from 'node:crypto';
 import { startClipperServer, type ClipperServerHandle } from './clipper-server';
 import { clipperIngest } from './clipper-ingest';
+import { getClipperConfig, ensureClipperSecret } from './clipper-config';
 
 /** Preferred loopback port; falls back to an ephemeral one if taken. */
 const PREFERRED_PORT = 41599;
 
 let handle: ClipperServerHandle | null = null;
 let starting: Promise<ClipperServerHandle> | null = null;
-let secret: string | null = null;
 
 export interface ClipperInfo {
   port: number;
   secret: string;
 }
 
-/**
- * Whether the clipper should auto-start on project open. Off by default;
- * opt in for now with `MINERVA_CLIPPER=1`. Replaced by the persisted setting
- * in #791.
- */
-export function isClipperEnabled(): boolean {
-  return process.env.MINERVA_CLIPPER === '1';
+/** Whether the clipper is enabled — the persisted Settings toggle (#791). */
+export async function isClipperEnabled(): Promise<boolean> {
+  return (await getClipperConfig()).enabled;
 }
 
 /**
  * Ensure the loopback server is running, returning its port + secret.
- * Idempotent and concurrency-safe.
+ * Idempotent and concurrency-safe. Uses the persisted secret so a paired
+ * extension survives restarts.
  */
 export async function ensureClipperRunning(
   resolveRootPath: () => string | null,
 ): Promise<ClipperInfo> {
   if (handle) return { port: handle.port, secret: handle.secret };
   if (!starting) {
-    secret ??= randomBytes(32).toString('hex');
-    const issued = secret;
-    starting = startClipperServer({
-      secret: issued,
-      resolveRootPath,
-      ingest: clipperIngest,
-      port: PREFERRED_PORT,
-    })
+    starting = ensureClipperSecret()
+      .then((secret) => startClipperServer({
+        secret,
+        resolveRootPath,
+        ingest: clipperIngest,
+        port: PREFERRED_PORT,
+      }))
       .then((h) => {
         handle = h;
         starting = null;

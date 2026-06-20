@@ -5,9 +5,12 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import http from 'node:http';
 import {
   startClipperServer,
   SECRET_HEADER,
+  isLoopbackHost,
+  isAllowedOrigin,
   type ClipperServerHandle,
   type ClipperIngestFn,
 } from '../../../src/main/clipper/clipper-server';
@@ -45,6 +48,50 @@ beforeEach(() => {
 
 afterEach(async () => {
   await server?.close();
+});
+
+describe('origin / host allowlist (pure)', () => {
+  it('allows loopback hosts and an absent host, rejects others', () => {
+    for (const h of ['127.0.0.1:41599', 'localhost:8080', '[::1]:1', undefined]) {
+      expect(isLoopbackHost(h)).toBe(true);
+    }
+    for (const h of ['evil.com', 'evil.com:41599', '10.0.0.5:80']) {
+      expect(isLoopbackHost(h)).toBe(false);
+    }
+  });
+
+  it('allows extension origins and an absent origin, rejects web origins', () => {
+    expect(isAllowedOrigin(undefined)).toBe(true);
+    expect(isAllowedOrigin('chrome-extension://abc')).toBe(true);
+    expect(isAllowedOrigin('moz-extension://abc')).toBe(true);
+    expect(isAllowedOrigin('https://evil.com')).toBe(false);
+    expect(isAllowedOrigin('http://localhost:3000')).toBe(false);
+  });
+});
+
+describe('host enforcement (integration)', () => {
+  // fetch() forces a loopback Host, so use raw http to spoof a rebinding Host.
+  function rawGet(headers: Record<string, string>): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port: server.port, path: '/ping', method: 'GET', headers },
+        (res) => { res.resume(); resolve(res.statusCode ?? 0); },
+      );
+      req.on('error', reject);
+      req.end();
+    });
+  }
+
+  it('rejects a non-loopback Host header (403) — DNS-rebinding guard', async () => {
+    await start();
+    expect(await rawGet({ Host: 'evil.com', [SECRET_HEADER]: SECRET })).toBe(403);
+  });
+
+  it('rejects a web-page Origin (403)', async () => {
+    // Origin is a forbidden fetch header (undici drops it), so use raw http.
+    await start();
+    expect(await rawGet({ Origin: 'https://evil.com', [SECRET_HEADER]: SECRET })).toBe(403);
+  });
 });
 
 describe('auth', () => {

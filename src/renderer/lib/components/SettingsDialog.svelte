@@ -57,7 +57,7 @@
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'web' | 'sources' | 'bibliography' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -93,6 +93,7 @@
       items: [
         { id: 'web',     label: 'Web',     sub: 'Default ingest rules' },
         { id: 'sources', label: 'Sources', sub: 'Identifier lookups · privileged logins' },
+        { id: 'clipper', label: 'Browser Clipper', sub: 'Enable · pairing code · status' },
         { id: 'compute', label: 'Compute', sub: 'Python interpreter · trust' },
       ],
     },
@@ -241,6 +242,12 @@
   let blockedDomainsText = $state('');
   // Ingest settings — per-machine, used by identifier ingest paths (#473).
   let importUpstreamTags = $state(true);
+  // Browser-clipper state — per-machine enable + pairing (#791). Applied
+  // immediately on toggle (not deferred to Done) since it starts/stops a
+  // loopback server.
+  let clipper = $state<import('../../../shared/clipper-pairing').ClipperState | null>(null);
+  let clipperRevealed = $state(false);
+  let clipperCopied = $state(false);
   let model = $state('claude-sonnet-4-6');
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
@@ -274,7 +281,42 @@
     } catch (e) {
       console.error('[settings] failed to load ingest settings:', e);
     }
+    try {
+      clipper = await api.clipper.getState();
+    } catch (e) {
+      console.error('[settings] failed to load clipper state:', e);
+    }
   });
+
+  async function toggleClipper(enabled: boolean) {
+    try {
+      clipper = await api.clipper.setEnabled(enabled);
+      clipperRevealed = false;
+      clipperCopied = false;
+    } catch (e) {
+      console.error('[settings] failed to toggle clipper:', e);
+    }
+  }
+
+  async function regenerateClipperSecret() {
+    try {
+      clipper = await api.clipper.regenerateSecret();
+      clipperCopied = false;
+    } catch (e) {
+      console.error('[settings] failed to regenerate clipper secret:', e);
+    }
+  }
+
+  async function copyPairingCode() {
+    if (!clipper?.pairingCode) return;
+    try {
+      await navigator.clipboard.writeText(clipper.pairingCode);
+      clipperCopied = true;
+      setTimeout(() => { clipperCopied = false; }, 1500);
+    } catch (e) {
+      console.error('[settings] failed to copy pairing code:', e);
+    }
+  }
 
 
   function parseDomains(text: string): string[] {
@@ -742,6 +784,62 @@
           <h3 class="settings-subsection">Privileged sites</h3>
           <SitesSettings />
 
+        {:else if activeTab === 'clipper'}
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={clipper?.enabled ?? false}
+                onchange={(e) => toggleClipper(e.currentTarget.checked)}
+              />
+              Enable browser clipper
+            </label>
+            <p class="hint">
+              Runs a small server on <code>127.0.0.1</code> that the Minerva
+              browser extension sends clipped pages to — the page you're reading
+              becomes a Source (and your selection a linked excerpt) without a
+              copy-paste. Off by default; the endpoint only listens while this is
+              on and a thoughtbase is open.
+            </p>
+          </div>
+
+          {#if clipper?.enabled}
+            {#if clipper.running && clipper.pairingCode}
+              <div class="field">
+                <label for="clipper-pairing">Pairing code</label>
+                <div class="clipper-pair-row">
+                  <input
+                    id="clipper-pairing"
+                    class="clipper-pair-code"
+                    type={clipperRevealed ? 'text' : 'password'}
+                    readonly
+                    value={clipper.pairingCode}
+                  />
+                  <button class="btn secondary" onclick={() => (clipperRevealed = !clipperRevealed)}>
+                    {clipperRevealed ? 'Hide' : 'Reveal'}
+                  </button>
+                  <button class="btn secondary" onclick={copyPairingCode}>
+                    {clipperCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                <p class="hint">
+                  Paste this into the browser extension once to pair it. Listening
+                  on port <code>{clipper.port}</code>. Keep it private — anyone
+                  with the code can send pages to this thoughtbase.
+                </p>
+              </div>
+
+              <div class="field">
+                <button class="btn secondary" onclick={regenerateClipperSecret}>Regenerate code</button>
+                <p class="hint">Invalidates the old code; you'll need to re-pair the extension.</p>
+              </div>
+            {:else}
+              <p class="hint">
+                Open a thoughtbase to start the clipper and reveal its pairing code.
+              </p>
+            {/if}
+          {/if}
+
         {:else if activeTab === 'bibliography'}
           <BibliographySettings />
 
@@ -990,6 +1088,27 @@
 
   .field input[type="checkbox"] {
     cursor: pointer;
+  }
+
+  .clipper-pair-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .clipper-pair-code {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+  }
+  .clipper-pair-code:focus {
+    outline: none;
+    border-color: var(--accent);
   }
 
   .hint {

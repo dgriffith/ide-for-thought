@@ -86,10 +86,37 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
   res.end(text);
 }
 
+/**
+ * The `Host` header must name a loopback address (#791). Defends against
+ * DNS-rebinding: a malicious site that resolves its domain to 127.0.0.1 would
+ * still send its own domain in `Host`, which we reject. An absent Host (raw
+ * clients / tests) is allowed.
+ */
+export function isLoopbackHost(host: string | undefined): boolean {
+  if (!host) return true;
+  const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+  return name === '127.0.0.1' || name === 'localhost' || name === '::1';
+}
+
+/**
+ * The request `Origin`, when present, must be a browser-extension origin
+ * (#791). A regular web page's `http(s)://` origin is rejected so a drive-by
+ * page can't reach the endpoint even if it somehow learned the secret. An
+ * absent Origin (the extension service worker / raw clients / tests) is fine.
+ */
+export function isAllowedOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  return /^(chrome-extension|moz-extension|safari-web-extension):\/\//.test(origin);
+}
+
 function applyCors(req: http.IncomingMessage, res: http.ServerResponse): void {
-  // Reflect the requesting origin (a chrome-extension:// URL). The secret
-  // header is the real gate; #791 narrows this to a paired-extension allowlist.
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin ?? '*');
+  // Only reflect an allowed (extension) origin; a disallowed origin gets no
+  // Access-Control-Allow-Origin, so the browser blocks the response. The
+  // secret header + the explicit 403 below are the real gates.
+  const origin = req.headers.origin;
+  if (isAllowedOrigin(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', `Content-Type, ${SECRET_HEADER}`);
   res.setHeader('Access-Control-Max-Age', '600');
@@ -134,11 +161,25 @@ export function createClipperRequestListener(
     void (async () => {
       applyCors(req, res);
 
+      // DNS-rebinding guard — reject anything not addressed to loopback,
+      // before even the preflight (a rebound request shouldn't get a CORS OK).
+      if (!isLoopbackHost(req.headers.host)) {
+        sendJson(res, 403, { error: 'Forbidden host' });
+        return;
+      }
+
       // Preflight — answered before the secret check so the browser can send
       // the real, secret-bearing request.
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();
+        return;
+      }
+
+      // Reject non-extension web origins outright (defence in depth beyond the
+      // secret). Absent Origin — extension worker / raw client — is allowed.
+      if (!isAllowedOrigin(req.headers.origin)) {
+        sendJson(res, 403, { error: 'Forbidden origin' });
         return;
       }
 
