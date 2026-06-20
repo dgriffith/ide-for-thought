@@ -103,8 +103,6 @@
     onAutoTag?: () => void;
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
-    onDecompose?: () => void;
-    onCrystallize?: () => void;
     onFormatCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
@@ -162,8 +160,6 @@
     onAutoTag,
     onAutoLink,
     onAutoLinkInbound,
-    onDecompose,
-    onCrystallize,
     onFormatCurrentNote,
     getNotePaths,
     getSources,
@@ -1036,7 +1032,7 @@
       {/each}
     {/if}
     <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
+    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound}
       <div class="submenu-item" onmouseenter={adjustSubmenu}>
         <span class="submenu-trigger">Refactor<Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
@@ -1067,7 +1063,7 @@
           {#if onSplitByHeading}
             <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
           {/if}
-          {#if onAutoTag || onAutoLink || onAutoLinkInbound || onDecompose || onCrystallize}
+          {#if onAutoTag || onAutoLink || onAutoLinkInbound}
             {#if onExtractSelection || onSplitHere || onSplitByHeading}
               <div class="separator"></div>
             {/if}
@@ -1079,12 +1075,6 @@
             {/if}
             {#if onAutoLinkInbound}
               <button onclick={() => handleMenuAction(() => onAutoLinkInbound?.())}>Auto-link inbound&hellip;</button>
-            {/if}
-            {#if onDecompose}
-              <button onclick={() => handleMenuAction(() => onDecompose?.())}>Decompose Note&hellip;</button>
-            {/if}
-            {#if onCrystallize}
-              <button onclick={() => handleMenuAction(() => onCrystallize?.())}>Crystallize as Components&hellip;</button>
             {/if}
           {/if}
           {#if onFormatCurrentNote}
