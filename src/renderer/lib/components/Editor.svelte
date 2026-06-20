@@ -39,6 +39,9 @@
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { hasImageFiles, imageFilesFromTransfer, imageFilesFromClipboard } from '../editor/image-drop';
+  import { formatPaste } from '../editor/paste-format';
+  import { getFormatSettings } from '../formatter/settings';
+  import { buildParseCache } from '../../../shared/formatter/parse-cache';
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import { extractClaimUri } from '../../../shared/refactor/find-arguments';
@@ -537,11 +540,31 @@
       // image clipboard contents (text / html) fall through.
       paste: (e, v) => {
         const items = e.clipboardData?.items;
-        if (!items) return false;
-        const files = imageFilesFromClipboard(items);
-        if (files.length === 0) return false;
+        if (items) {
+          const files = imageFilesFromClipboard(items);
+          if (files.length > 0) {
+            e.preventDefault();
+            void handleImageUploads(files, v.state.selection.main.head);
+            return true;
+          }
+        }
+        // Format-on-paste (#160): tidy the pasted text with the user's
+        // enabled paste-safe formatter rules + the always-on paste fixups.
+        const text = e.clipboardData?.getData('text/plain') ?? '';
+        if (!text) return false;
+        const pos = v.state.selection.main.from;
+        // Never reformat content pasted into a code fence / math / inline
+        // code — let the native paste insert it verbatim.
+        if (buildParseCache(v.state.doc.toString()).isProtected(pos)) return false;
+        const line = v.state.doc.lineAt(pos);
+        const lineBeforeCursor = line.text.slice(0, pos - line.from);
+        const out = formatPaste(text, getFormatSettings(), {
+          lineBeforeCursor,
+          inBlockquote: /^\s*>/.test(line.text),
+        });
+        if (out === text) return false; // unchanged → native paste
         e.preventDefault();
-        void handleImageUploads(files, v.state.selection.main.head);
+        v.dispatch(v.state.replaceSelection(out));
         return true;
       },
     }),
