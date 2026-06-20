@@ -10,6 +10,7 @@
 
 import { buildParseCache } from './parse-cache';
 import { HOUSE_STYLE_RULE_IDS } from './house-style';
+import { PASTE_SAFE_RULE_IDS } from './paste-safe';
 import { CATEGORY_ORDER, getRule, listAllRules } from './registry';
 import type { EnabledRule, FormatterRule } from './types';
 
@@ -49,6 +50,24 @@ export function formatContent(content: string, settings: FormatSettings): string
 
   let current = content;
   for (const { rule, config } of enabledRules) {
+    const cache = buildParseCache(current);
+    const next = rule.apply(current, config, cache);
+    if (next !== current) current = next;
+  }
+  return current;
+}
+
+/**
+ * Apply the user's enabled rules to a *pasted fragment* (#160), restricted
+ * to the fragment-safe subset (`PASTE_SAFE_RULE_IDS`). Same enable/ordering
+ * semantics as `formatContent`, so paste formatting follows the house style
+ * + the user's toggles — there are no separate paste settings. Whole-
+ * document rules are skipped because the fragment isn't the whole document.
+ */
+export function formatPasteSafe(text: string, settings: FormatSettings): string {
+  let current = text;
+  for (const { rule, config } of resolveEnabled(settings)) {
+    if (!PASTE_SAFE_RULE_IDS.has(rule.id)) continue;
     const cache = buildParseCache(current);
     const next = rule.apply(current, config, cache);
     if (next !== current) current = next;

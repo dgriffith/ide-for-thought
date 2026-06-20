@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   formatContent,
   formatContentToFixedPoint,
+  formatPasteSafe,
   isRuleEnabled,
   resolveEnabled,
   DEFAULT_FORMAT_SETTINGS,
@@ -153,5 +154,26 @@ describe('house style defaults', () => {
     registerRule(rule({ id: nonHouseId, apply: (c) => c }));
     const enabled = resolveEnabled(DEFAULT_FORMAT_SETTINGS);
     expect(enabled.map((e) => e.rule.id)).toEqual([houseId]);
+  });
+});
+
+describe('formatPasteSafe (#160)', () => {
+  beforeEach(__resetRuleRegistryForTests);
+
+  it('runs an enabled paste-safe rule but skips an enabled non-paste-safe rule', () => {
+    // 'proper-ellipsis' is paste-safe; 'unique-heading-slugs' is not.
+    registerRule(rule({ id: 'proper-ellipsis', apply: (c) => c.replaceAll('...', '…') }));
+    registerRule(rule({ id: 'unique-heading-slugs', apply: (c) => `${c}[WHOLE-DOC]` }));
+    const out = formatPasteSafe('a... b', {
+      enabled: { 'proper-ellipsis': true, 'unique-heading-slugs': true },
+      configs: {},
+    });
+    expect(out).toBe('a… b'); // ellipsis applied; whole-doc rule did not run
+  });
+
+  it('does not run a paste-safe rule the user has disabled', () => {
+    registerRule(rule({ id: 'proper-ellipsis', apply: (c) => c.replaceAll('...', '…') }));
+    const out = formatPasteSafe('a...', { enabled: { 'proper-ellipsis': false }, configs: {} });
+    expect(out).toBe('a...');
   });
 });
