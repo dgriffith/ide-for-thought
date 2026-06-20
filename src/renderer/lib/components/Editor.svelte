@@ -968,37 +968,20 @@
     {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Format<Icon name="chevronRight" size={10} /></span>
+      <span class="submenu-trigger">Highlight<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
+        <button onclick={() => runCmd(toggleHighlight)}>Colored Highlight</button>
         <button onclick={() => runCmd(toggleBold)}>Bold</button>
         <button onclick={() => runCmd(toggleItalic)}>Italic</button>
         <button onclick={() => runCmd(toggleCode)}>Code</button>
         <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
-        <button onclick={() => runCmd(toggleHighlight)}>Highlight</button>
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Paragraph<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
-        <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
-        <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
-        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
-        <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
-        <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
-        <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
-      </div>
-    </div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Insert<Icon name="chevronRight" size={10} /></span>
+      <span class="submenu-trigger">Link<Icon name="chevronRight" size={10} /></span>
       <div class="submenu">
         <button onclick={() => runCmd(insertWikiLink)}>Wiki Link</button>
         <button onclick={() => runCmd(insertLink)}>URL Link</button>
-        <button onclick={() => runCmd(insertImage)}>Image</button>
-        <button onclick={() => runCmd(insertTable)}>Table</button>
-        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
-        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
-        <div class="submenu-separator"></div>
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Typed Link...<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">
@@ -1012,6 +995,27 @@
         </div>
         <div class="submenu-separator"></div>
         <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
+      </div>
+    </div>
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
+      <span class="submenu-trigger">Paragraph<Icon name="chevronRight" size={10} /></span>
+      <div class="submenu">
+        <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
+        <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
+        <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
+      </div>
+    </div>
+    <div class="submenu-item" onmouseenter={adjustSubmenu}>
+      <span class="submenu-trigger">Elements<Icon name="chevronRight" size={10} /></span>
+      <div class="submenu">
+        <button onclick={() => runCmd(insertTable)}>Table</button>
+        <button onclick={() => runCmd(insertImage)}>Image</button>
+        <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
+        <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
+        <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
+        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
+        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
+        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
       </div>
     </div>
     {#if onToolInvoke && toolMenus.length > 0}
