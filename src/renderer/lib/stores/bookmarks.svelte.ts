@@ -141,6 +141,29 @@ export function getBookmarksStore() {
   };
 }
 
+/**
+ * Flatten the bookmark tree to the position-bearing bookmarks targeting
+ * `relativePath` — what the editor's gutter-flag extension needs (#756).
+ * Pure (takes the tree explicitly) so callers in a `$derived` track it and
+ * it stays unit-testable.
+ */
+export function collectBookmarksForPath(
+  nodes: readonly BookmarkNode[],
+  relativePath: string,
+): Array<{ cursorOffset?: number; anchor?: string }> {
+  const out: Array<{ cursorOffset?: number; anchor?: string }> = [];
+  const walk = (ns: readonly BookmarkNode[]) => {
+    for (const n of ns) {
+      if (n.type === 'folder') walk(n.children);
+      else if (n.relativePath === relativePath) {
+        out.push({ cursorOffset: n.cursorOffset, anchor: n.anchor });
+      }
+    }
+  };
+  walk(nodes);
+  return out;
+}
+
 // ── Tree helpers ─────────────────────────────────────────────────────────
 
 function findNode(nodes: BookmarkNode[], id: string): BookmarkNode | null {

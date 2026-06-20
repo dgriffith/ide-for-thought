@@ -33,6 +33,12 @@
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { highlightDecorations } from '../editor/highlight-decorations';
   import { computeCellsExtension } from '../editor/compute-cells';
+  import {
+    bookmarkGutterExtension,
+    applyBookmarkOffsets,
+    resolveBookmarkOffsets,
+    type BookmarkRef,
+  } from '../editor/bookmark-gutter';
   import { footnotePreview } from '../editor/footnote-preview';
   import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
@@ -88,6 +94,9 @@
     /** Bookmark the current line — stores the cursor offset so opening
      *  jumps back to it (#756). */
     onBookmarkLine?: () => void;
+    /** Position-bearing bookmarks for the current file. The editor renders
+     *  a filled-ribbon flag in the gutter on each resolved line (#756). */
+    bookmarks?: readonly BookmarkRef[];
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
     /** Click on a `[[cite::source-id]]` in the editor → open the source tab. */
@@ -147,6 +156,7 @@
     onBookmark,
     onBookmarkSection,
     onBookmarkLine,
+    bookmarks,
     onInsertQueryList,
     onNavigate,
     onOpenSource,
@@ -473,6 +483,7 @@
         void api.shell.openExternal(url);
       },
     }),
+    bookmarkGutterExtension(),
     computeCellsExtension({
       runCell: (language, code) => (
         onRunCell
@@ -837,6 +848,10 @@
       : EditorState.create({ doc: content, extensions: allExtensions });
     view = new EditorView({ state, parent: editorContainer });
 
+    // Initial bookmark flags — the reactive $effect below only fires on
+    // subsequent changes (view isn't $state, so it can't re-run on mount).
+    applyBookmarkOffsets(view, resolveBookmarkOffsets(content, bookmarks ?? []));
+
     if (initSettings.alwaysCollapseFrontmatter) {
       // Defer so the folding extension is active before we dispatch
       requestAnimationFrame(() => foldFrontmatter());
@@ -859,6 +874,18 @@
       );
       view.destroy();
     };
+  });
+
+  // Push bookmark gutter flags whenever the file's bookmarks change. Keyed
+  // on `filePath` too so a tab-switch (same Editor instance isn't reused —
+  // the `{#key}` recreates it — but guard anyway) re-resolves cleanly.
+  // Resolved against the live doc; the field maps offsets forward on edits,
+  // so we deliberately don't depend on `content` (no per-keystroke churn).
+  $effect(() => {
+    const refs = bookmarks ?? [];
+    void filePath;
+    if (!view) return;
+    applyBookmarkOffsets(view, resolveBookmarkOffsets(view.state.doc.toString(), refs));
   });
 
   // Handle external content changes within the same tab (e.g. file reloaded from disk)
@@ -1192,6 +1219,20 @@
     animation: cm-compute-pulse 1s infinite;
   }
   @keyframes cm-compute-pulse { 50% { opacity: 0.4; } }
+
+  /* Bookmark-flag gutter (#756). Kept in sync with `bookmarkGutterStyles`
+     in src/renderer/lib/editor/bookmark-gutter.ts — inlined for the same
+     scoped-CSS :global() reason as the compute gutter above. min-width 0
+     lets the column collapse on notes with no bookmarks. */
+  .editor-wrapper :global(.cm-bookmark-gutter) { min-width: 0; }
+  .editor-wrapper :global(.cm-bookmark-flag) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    color: var(--accent);
+    line-height: 1;
+  }
 
   .context-menu {
     position: fixed;
