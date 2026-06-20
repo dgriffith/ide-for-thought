@@ -62,6 +62,43 @@ export async function sendClip(
   };
 }
 
+export interface PreviewResult {
+  ok: boolean;
+  /** Canonical source id the save would produce (e.g. `arxiv-2604.18561`). */
+  sourceId?: string;
+  method?: string;
+  title?: string;
+  error?: string;
+}
+
+/** Ask the app for the canonical source id a clip would produce (no write). */
+export async function preview(
+  pairing: PairingPayload,
+  payload: { url: string; html: string },
+  fetchImpl: typeof fetch = fetch,
+): Promise<PreviewResult> {
+  let res: Response;
+  try {
+    res = await fetchImpl(endpoint(pairing, '/preview'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', [SECRET_HEADER]: pairing.secret },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    return { ok: false, error: 'Minerva isn’t reachable.' };
+  }
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    return { ok: false, error: typeof body.error === 'string' ? body.error : `HTTP ${res.status}` };
+  }
+  return {
+    ok: true,
+    sourceId: typeof body.sourceId === 'string' ? body.sourceId : undefined,
+    method: typeof body.method === 'string' ? body.method : undefined,
+    title: typeof body.title === 'string' ? body.title : undefined,
+  };
+}
+
 export interface PingResult {
   ok: boolean;
   projectOpen?: boolean;

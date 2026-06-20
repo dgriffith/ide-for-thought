@@ -20,6 +20,7 @@ await build({
   entryPoints: {
     background: path.join(root, 'src/background.ts'),
     options: path.join(root, 'src/options.ts'),
+    popup: path.join(root, 'src/popup.ts'),
   },
   bundle: true,
   format: 'esm',
@@ -30,5 +31,6 @@ await build({
 
 await cp(path.join(root, 'manifest.json'), path.join(out, 'manifest.json'));
 await cp(path.join(root, 'options.html'), path.join(out, 'options.html'));
+await cp(path.join(root, 'popup.html'), path.join(out, 'popup.html'));
 
 console.log('Minerva Clipper built →', path.relative(process.cwd(), out));

@@ -8,6 +8,7 @@ import {
   extractReadable,
   buildBodyMarkdown,
   buildMetaTtl,
+  previewSourceFromHtml,
 } from '../../../src/main/sources/ingest';
 
 function mkTempProject(): string {
@@ -42,6 +43,31 @@ function samplePageHtml(overrides: Partial<{
   </body>
 </html>`;
 }
+
+describe('previewSourceFromHtml (#793)', () => {
+  it('derives a url-method id + title from a web page without writing', () => {
+    const p = previewSourceFromHtml(samplePageHtml(), 'https://example.com/foo');
+    expect(p.method).toBe('url');
+    expect(p.sourceId).toMatch(/^url-[0-9a-f]{12}$/);
+    expect(p.title).toBe('A Reasonable Headline');
+  });
+
+  it('matches the id ingestUrl would produce for the same URL', async () => {
+    const root = mkTempProject();
+    const fetchImpl = (async () => new Response(samplePageHtml(), {
+      status: 200, headers: { 'Content-Type': 'text/html' },
+    })) as unknown as typeof fetch;
+    const ingested = await ingestUrl(root, 'https://example.com/foo', { fetchImpl });
+    const preview = previewSourceFromHtml(samplePageHtml(), 'https://example.com/foo');
+    expect(preview.sourceId).toBe(ingested.sourceId);
+  });
+
+  it('falls back to a content-hash id when no URL is supplied', () => {
+    const p = previewSourceFromHtml(samplePageHtml());
+    expect(p.method).toBe('hash');
+    expect(p.sourceId).toMatch(/^sha-[0-9a-f]{12}$/);
+  });
+});
 
 describe('extractReadable (#93)', () => {
   it('extracts title, byline, siteName, and content', () => {

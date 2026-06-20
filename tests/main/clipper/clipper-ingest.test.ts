@@ -6,14 +6,18 @@
 
 import { it, expect, beforeEach, vi } from 'vitest';
 
-const { ingestHtmlString, createExcerpt, getIngestSettings } = vi.hoisted(() => ({
+const { ingestHtmlString, createExcerpt, getIngestSettings, addSourceTag, createAboutNote } = vi.hoisted(() => ({
   ingestHtmlString: vi.fn(),
   createExcerpt: vi.fn(),
   getIngestSettings: vi.fn(),
+  addSourceTag: vi.fn(),
+  createAboutNote: vi.fn(),
 }));
 
 vi.mock('../../../src/main/sources/ingest', () => ({ ingestHtmlString }));
 vi.mock('../../../src/main/sources/create-excerpt', () => ({ createExcerpt }));
+vi.mock('../../../src/main/sources/about-note', () => ({ createAboutNote }));
+vi.mock('../../../src/main/sources/source-meta-write', () => ({ addSourceTag }));
 vi.mock('../../../src/main/sources/ingest-settings', () => ({ getIngestSettings }));
 
 import { clipperIngest } from '../../../src/main/clipper/clipper-ingest';
@@ -29,6 +33,8 @@ beforeEach(() => {
     kind: 'web',
   });
   createExcerpt.mockResolvedValue({ excerptId: 'url-abc123-deadbeef0000', relativePath: '...', duplicate: false });
+  addSourceTag.mockResolvedValue(true);
+  createAboutNote.mockResolvedValue({ relativePath: 'note-on-a-page.md' });
 });
 
 it('runs HTML through ingestHtmlString with url + title fallback + the tags setting', async () => {
@@ -62,4 +68,36 @@ it('skips the excerpt when the selection is absent or whitespace', async () => {
   await clipperIngest({ html: '<h1>Hi</h1>' }, '/tmp/project');
   await clipperIngest({ html: '<h1>Hi</h1>', selection: '   ' }, '/tmp/project');
   expect(createExcerpt).not.toHaveBeenCalled();
+});
+
+it('applies popup tags and reports the ones newly added (#793)', async () => {
+  addSourceTag.mockResolvedValueOnce(true).mockResolvedValueOnce(false); // 2nd already present
+  const out = await clipperIngest(
+    { html: '<h1>Hi</h1>', tags: ['ai', 'dup', '  ', ''] },
+    '/tmp/project',
+  );
+  expect(addSourceTag).toHaveBeenCalledTimes(2); // blank tags skipped
+  expect(addSourceTag).toHaveBeenNthCalledWith(1, '/tmp/project', 'url-abc123', 'ai');
+  expect(out.tags).toEqual(['ai']); // only the newly-added one
+});
+
+it('files an about-note from the popup note (#793)', async () => {
+  const out = await clipperIngest(
+    { html: '<h1>Hi</h1>', note: '  worth revisiting  ' },
+    '/tmp/project',
+  );
+  expect(createAboutNote).toHaveBeenCalledWith('/tmp/project', {
+    sourceId: 'url-abc123',
+    title: 'Note on A Page',
+    body: 'worth revisiting', // trimmed
+  });
+  expect(out.notePath).toBe('note-on-a-page.md');
+});
+
+it('skips tags/note application when none are supplied', async () => {
+  const out = await clipperIngest({ html: '<h1>Hi</h1>' }, '/tmp/project');
+  expect(addSourceTag).not.toHaveBeenCalled();
+  expect(createAboutNote).not.toHaveBeenCalled();
+  expect(out.tags).toBeUndefined();
+  expect(out.notePath).toBeUndefined();
 });

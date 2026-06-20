@@ -6,7 +6,9 @@
  *     browser-supplied HTML (no refetch — that's the whole point), writing the
  *     Source the same way "Ingest URL…" does;
  *   - a non-empty `selection` is filed as a `thought:Excerpt` linked to the
- *     new source, via `createExcerpt` (idempotent on the source + quote text).
+ *     new source, via `createExcerpt` (idempotent on the source + quote text);
+ *   - popup `tags` are applied as user `minerva:tag`s, and a popup `note` is
+ *     filed as a Zotero-style about-note (#793).
  *
  * Offset-accurate excerpt anchoring (mapping the selection into body.md) is a
  * separate concern — see #794. v1 stores the quote text only.
@@ -14,6 +16,8 @@
 
 import { ingestHtmlString } from '../sources/ingest';
 import { createExcerpt } from '../sources/create-excerpt';
+import { createAboutNote } from '../sources/about-note';
+import { addSourceTag } from '../sources/source-meta-write';
 import { getIngestSettings } from '../sources/ingest-settings';
 import type { ClipperPayload, ClipperIngestOutcome } from './clipper-server';
 
@@ -46,6 +50,27 @@ export async function clipperIngest(
     });
     outcome.excerptId = excerpt.excerptId;
     outcome.excerptDuplicate = excerpt.duplicate;
+  }
+
+  // Popup tags (#793): apply each as a user tag. addSourceTag is idempotent and
+  // reindexes; collect the ones that were newly added for the response.
+  const applied: string[] = [];
+  for (const raw of payload.tags ?? []) {
+    const tag = raw.trim();
+    if (!tag) continue;
+    if (await addSourceTag(rootPath, result.sourceId, tag)) applied.push(tag);
+  }
+  if (applied.length) outcome.tags = applied;
+
+  // Popup note (#793): file a Zotero-style about-note linked to the source.
+  const note = payload.note?.trim();
+  if (note) {
+    const { relativePath } = await createAboutNote(rootPath, {
+      sourceId: result.sourceId,
+      title: `Note on ${result.title || result.sourceId}`,
+      body: note,
+    });
+    outcome.notePath = relativePath;
   }
 
   return outcome;
