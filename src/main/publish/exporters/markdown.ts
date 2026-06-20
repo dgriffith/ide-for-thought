@@ -21,6 +21,9 @@ import type { Exporter } from '../types';
 export const markdownExporter: Exporter = {
   id: 'markdown',
   label: 'Markdown (passthrough)',
+  group: 'markdown',
+  variantLabel: 'Verbatim — files as written',
+  variantOrder: 1,
   accepts: (input) => input.kind !== 'tree',
   acceptedKinds: ['single-note', 'folder', 'project'],
   // Exporter contract requires Promise<ExportOutput>; this trivial

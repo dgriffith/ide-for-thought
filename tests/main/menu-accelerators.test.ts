@@ -58,6 +58,7 @@ vi.mock('../../src/main/saved-queries', () => ({ listSavedQueries: () => [] }));
 vi.mock('../../src/main/compute/python-kernel', () => ({ restartKernel: () => undefined }));
 vi.mock('../../src/main/publish', () => ({
   listExporters: () => [],
+  listExportGroups: () => [],
 }));
 
 // ── The actual test ──────────────────────────────────────────────────────

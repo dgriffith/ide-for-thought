@@ -24,6 +24,9 @@ import type { Exporter, ExportPlan, ExportPlanFile } from '../types';
 export const treeMarkdownExporter: Exporter = {
   id: 'tree-markdown',
   label: 'Note Tree as Markdown Zip',
+  group: 'markdown',
+  variantLabel: 'Bundle (zip)',
+  variantOrder: 2,
   // Tree-only — same input shape as tree-html and tree-pdf.
   accepts: (input) => input.kind === 'tree',
   acceptedKinds: ['tree'],

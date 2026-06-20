@@ -29,6 +29,7 @@ import { buildLinkResolverContext, rewriteWikiLinksInContent } from '../link-res
 export const pandocExporter: Exporter = {
   id: 'pandoc',
   label: 'Pandoc (Markdown + CSL JSON)',
+  group: 'pandoc',
   // Pandoc is fundamentally per-document; folder/project would just
   // concatenate naively without the chapter structure most users
   // actually want. Keep the surface honest.

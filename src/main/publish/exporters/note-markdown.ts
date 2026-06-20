@@ -38,6 +38,9 @@ import type { CitationRenderer } from '../csl';
 export const noteMarkdownExporter: Exporter = {
   id: 'note-markdown',
   label: 'Note as Clean Markdown',
+  group: 'markdown',
+  variantLabel: 'Cleaned — normalized markdown',
+  variantOrder: 0,
   // Single-note + folder + project; tree mode belongs to a future
   // bundle-shaped markdown exporter (`#291`).
   accepts: (input) => input.kind !== 'tree' && input.kind !== 'source',

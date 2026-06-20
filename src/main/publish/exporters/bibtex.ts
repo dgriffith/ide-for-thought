@@ -26,6 +26,7 @@ import { scanCitations } from '../../bibliography/scan-citations';
 export const bibtexExporter: Exporter = {
   id: 'bibtex',
   label: 'BibTeX (.bib)',
+  group: 'bibtex',
   acceptedKinds: ['project', 'folder', 'single-note'],
   accepts: (input) => input.kind !== 'tree',
 

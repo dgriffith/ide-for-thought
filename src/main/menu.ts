@@ -168,14 +168,15 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         },
         { type: 'separator' },
 
-        // Print / export single-note PDF (the Export menu is the canonical
-        // path; these remain for "just print what's on screen" flows).
+        // Print / quick-PDF of the current view. Distinct from Export ▸ PDF,
+        // which runs the note through the real publish pipeline; these two are
+        // the "just capture what's on screen" escape hatches (named to say so).
         gate({
           label: 'Print…',
           click: () => send(Channels.MENU_PRINT),
         }),
         gate({
-          label: 'Export as PDF…',
+          label: 'Print to PDF…',
           click: async () => {
             const win = BrowserWindow.getFocusedWindow();
             if (!win) return;
@@ -583,22 +584,34 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
       ],
     },
 
-    // Export (#282) — dynamically populated from the publish registry.
-    // Empty submenu is a placeholder that surfaces a disabled item when
-    // no exporter is registered; in practice #246's markdown passthrough
-    // always registers at app-ready. The knowledge-graph dump is a
-    // separate hard-coded entry — the note-export pipeline's ExportPlan
-    // shape doesn't fit an RDF dump, so it stays outside the registry.
+    // Export (#282, format-first redesign) — one item per *format family*
+    // (Markdown / HTML / PDF / Static Site / …), grouped into sections by
+    // category. The dialog picks scope (note/folder/tree/project/source) and,
+    // where a family has more than one exporter at a scope, the variant. The
+    // knowledge-graph dump is a separate hard-coded entry — the note-export
+    // pipeline's ExportPlan shape doesn't fit an RDF dump.
     {
       label: 'Export',
       submenu: (() => {
-        const exporters = publish.listExporters();
-        const items: Electron.MenuItemConstructorOptions[] = exporters.length === 0
-          ? [{ label: 'No exporters registered', enabled: false }]
-          : exporters.map((e) => gate({
-              label: `Export as ${e.label}…`,
-              click: () => send(Channels.MENU_EXPORT, e.id),
+        const groups = publish.listExportGroups();
+        const items: Electron.MenuItemConstructorOptions[] = [];
+        if (groups.length === 0) {
+          items.push({ label: 'No exporters registered', enabled: false });
+        } else {
+          let prevCategory: string | null = null;
+          for (const { group } of groups) {
+            // Separator between format categories (document / publication /
+            // citation) so the families read as comprehensible chunks.
+            if (prevCategory !== null && group.category !== prevCategory) {
+              items.push({ type: 'separator' });
+            }
+            prevCategory = group.category;
+            items.push(gate({
+              label: `${group.label}…`,
+              click: () => send(Channels.MENU_EXPORT, group.id),
             }));
+          }
+        }
         items.push({ type: 'separator' });
         items.push(gate({
           label: 'Export Knowledge Graph…',

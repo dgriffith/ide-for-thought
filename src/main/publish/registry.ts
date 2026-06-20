@@ -8,7 +8,8 @@
  * shape don't appear.
  */
 
-import type { Exporter, ExportInput } from './types';
+import type { Exporter, ExportInput, ExportGroupMeta } from './types';
+import { EXPORT_GROUPS } from './types';
 
 const exporters = new Map<string, Exporter>();
 
@@ -28,6 +29,29 @@ export function listExporters(): Exporter[] {
 /** Only the exporters that can handle this input — drives the menu's dynamic contents. */
 export function exportersFor(input: ExportInput): Exporter[] {
   return listExporters().filter((e) => e.accepts(input));
+}
+
+export interface ExportGroupListing {
+  group: ExportGroupMeta;
+  exporterIds: string[];
+}
+
+/**
+ * Registered exporters collapsed into format families, ordered for the
+ * format-first Export menu (#: export-menu-redesign). One listing per group
+ * that has at least one registered exporter.
+ */
+export function listExportGroups(): ExportGroupListing[] {
+  const byGroup = new Map<string, string[]>();
+  for (const e of listExporters()) {
+    const ids = byGroup.get(e.group) ?? [];
+    ids.push(e.id);
+    byGroup.set(e.group, ids);
+  }
+  return [...byGroup.entries()]
+    .map(([id, exporterIds]) => ({ group: EXPORT_GROUPS[id as ExportGroupMeta['id']], exporterIds }))
+    .filter((entry) => entry.group != null)
+    .sort((a, b) => a.group.order - b.group.order);
 }
 
 /** Exposed for tests to reset state between cases. */

@@ -223,7 +223,8 @@
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
   const { showPrompt, showConfirm } = dialogs;
-  let exportDialogFor = $state<string | null>(null);
+  // The format-family group id the Export menu launched with (#: export-menu-redesign).
+  let exportDialogGroup = $state<string | null>(null);
 
   /**
    * Bookmark the section the cursor sits in — the nearest heading at/above
@@ -932,7 +933,7 @@
     api.menu.onIngestFile(() => handleIngestFileAsSource());
     api.menu.onImportBibtex(() => handleImportBibtex());
     api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
-    api.menu.onExport((id) => { exportDialogFor = id; });
+    api.menu.onExport((groupId) => { exportDialogGroup = groupId; });
 
     // Progress updates during a bulk import — rewrites the busy-overlay
     // label in place so the user sees running counts on large imports.
@@ -1489,13 +1490,14 @@
       onClose={() => { showCommandPalette = false; }}
     />
   {/if}
-  {#if exportDialogFor}
+  {#if exportDialogGroup}
     <ExportDialog
-      exporterId={exportDialogFor}
+      group={exportDialogGroup}
       activeFilePath={editor.activeFilePath}
-      onCancel={() => { exportDialogFor = null; }}
+      activeSourceId={editor.activeSourceTab?.sourceId ?? null}
+      onCancel={() => { exportDialogGroup = null; }}
       onExported={async (result) => {
-        exportDialogFor = null;
+        exportDialogGroup = null;
         const pathPreview = result.writtenPaths.slice(0, 5).map((p) => `  • ${p}`).join('\n');
         const more = result.writtenPaths.length > 5
           ? `\n  …and ${result.writtenPaths.length - 5} more`

@@ -17,6 +17,12 @@ export function registerPublish(): void {
       // tree is opt-in (only exporters that know how to walk wiki-link
       // closures should expose it as a scope in the dialog).
       acceptedKinds: e.acceptedKinds ?? ['single-note', 'folder', 'project'],
+      // Format-first menu metadata (#: export-menu-redesign): the group the
+      // dialog buckets this exporter under, plus its variant label/order for
+      // groups where >1 exporter is valid at the same scope (Markdown).
+      group: publish.EXPORT_GROUPS[e.group],
+      variantLabel: e.variantLabel,
+      variantOrder: e.variantOrder ?? 0,
     })),
   );
 

@@ -132,11 +132,54 @@ export interface ExportOutput {
   summary: string;
 }
 
+/**
+ * Format-first export menu (#: export-menu-redesign). Scope (note/folder/tree/
+ * project/source) and format (markdown/html/pdf/…) are orthogonal, so the menu
+ * organizes by *format family* — one item per group — and the export dialog
+ * picks scope. Several exporters can share a group (e.g. note-html + tree-html
+ * are both `html`, differing only in scope); the dialog resolves
+ * `(group + scope [+ variant])` back to one concrete exporter.
+ */
+export type ExportGroupId =
+  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'bibtex' | 'pandoc';
+
+/** Menu section a group sits in — drives the separators between families. */
+export type ExportGroupCategory = 'document' | 'publication' | 'citation';
+
+export interface ExportGroupMeta {
+  id: ExportGroupId;
+  /** Menu item + dialog title ("Export as <label>"). */
+  label: string;
+  category: ExportGroupCategory;
+  /** Sort order within the Export menu. */
+  order: number;
+}
+
+export const EXPORT_GROUPS: Record<ExportGroupId, ExportGroupMeta> = {
+  markdown:  { id: 'markdown',  label: 'Markdown',         category: 'document',    order: 1 },
+  html:      { id: 'html',      label: 'HTML',             category: 'document',    order: 2 },
+  pdf:       { id: 'pdf',       label: 'PDF',              category: 'document',    order: 3 },
+  site:      { id: 'site',      label: 'Static Site',      category: 'publication', order: 4 },
+  annotated: { id: 'annotated', label: 'Annotated Source', category: 'publication', order: 5 },
+  bibtex:    { id: 'bibtex',    label: 'BibTeX',           category: 'citation',    order: 6 },
+  pandoc:    { id: 'pandoc',    label: 'Pandoc',           category: 'citation',    order: 7 },
+};
+
 export interface Exporter {
   /** Stable id — used by the menu registry and IPC. */
   id: string;
   /** Human-readable label for the menu / palette. */
   label: string;
+  /** Format family this exporter belongs to (#: export-menu-redesign). */
+  group: ExportGroupId;
+  /**
+   * Distinguishes exporters that share a group AND a scope — e.g. Markdown's
+   * verbatim (`markdown`) vs cleaned (`note-markdown`), both valid at
+   * note/folder/project. Shown in the dialog's variant picker; omit when the
+   * exporter is the only candidate at its scopes. Lower `variantOrder` first.
+   */
+  variantLabel?: string;
+  variantOrder?: number;
   /** Whether the exporter can handle this input kind. Falsy = hidden in the menu. */
   accepts(input: ExportInput): boolean;
   /**
