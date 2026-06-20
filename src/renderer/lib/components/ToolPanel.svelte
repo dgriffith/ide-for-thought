@@ -3,9 +3,10 @@
   import { handleToolOutput } from '../tools/output';
   import { api } from '../ipc/client';
   import Icon from './Icon.svelte';
+  import ToolParamsDialog from './ToolParamsDialog.svelte';
   import type { ToolContext } from '../../../shared/tools/types';
   import { isMissingApiKeyError } from '../../../shared/llm-errors';
-  import { resolveNoteParams, flattenNoteFiles } from '../tools/resolve-note-params';
+  import { resolveNoteParams } from '../tools/resolve-note-params';
 
   interface Props {
     onNoteCreated?: () => void;
@@ -22,26 +23,7 @@
   let { onNoteCreated, onOpenConversation, onMissingApiKey }: Props = $props();
 
   const panel = getToolPanelStore();
-  let paramValues = $state<Record<string, string>>({});
   let running = $state(false);
-  // Note-picker (#516) options — flat list of project .md files, loaded lazily
-  // the first time a tool with a `note` parameter is configured.
-  let noteOptions = $state<{ name: string; relativePath: string }[]>([]);
-
-  $effect(() => {
-    if (panel.panelState === 'configure') {
-      const params = panel.activeTool?.parameters;
-      if (!params) return;
-      const values: Record<string, string> = {};
-      for (const p of params) {
-        values[p.id] = p.defaultValue ?? '';
-      }
-      paramValues = values;
-      if (params.some((p) => p.type === 'note') && noteOptions.length === 0) {
-        void api.notebase.listFiles().then((tree) => { noteOptions = flattenNoteFiles(tree); });
-      }
-    }
-  });
 
   async function executeToolRun() {
     const tool = panel.activeTool;
@@ -72,14 +54,14 @@
     }
   }
 
-  async function handleRunWithParams() {
+  async function handleRunWithParams(rawValues: Record<string, string>) {
     const tool = panel.activeTool;
     if (!tool) return;
 
     // Resolve any note-picker params to the picked note's content/title before
     // folding them in (#516), so the prompt can reference {{param.x.content}}.
-    const snappedParams = Object.keys(paramValues).length > 0
-      ? await resolveNoteParams(tool.parameters, $state.snapshot(paramValues), (p) => api.notebase.readFile(p))
+    const snappedParams = Object.keys(rawValues).length > 0
+      ? await resolveNoteParams(tool.parameters, rawValues, (p) => api.notebase.readFile(p))
       : undefined;
 
     if (tool.outputMode === 'openConversation') {
@@ -151,7 +133,18 @@
   }
 </script>
 
-{#if panel.panelState !== 'hidden'}
+<!-- Argument entry is a dismissable modal (#: tool-args UX); streaming + review
+     stay in the bottom dock below, where output is read alongside the note. -->
+{#if panel.panelState === 'configure' && panel.activeTool}
+  <ToolParamsDialog
+    tool={panel.activeTool}
+    context={panel.context}
+    onRun={(values) => { void handleRunWithParams(values); }}
+    onCancel={() => panel.close()}
+  />
+{/if}
+
+{#if panel.panelState === 'running' || panel.panelState === 'review'}
   <div class="tool-panel">
     <div class="tool-header">
       <div class="tool-title">
@@ -161,64 +154,7 @@
       <button class="close-btn" onclick={() => { panel.close(); running = false; }}><Icon name="close" size={11} /></button>
     </div>
 
-    {#if panel.panelState === 'configure'}
-      <div class="tool-body">
-        <div class="tool-info">{panel.activeTool?.longDescription ?? ''}</div>
-        {#if panel.activeTool?.parameters}
-          <div class="params">
-            {#each panel.activeTool.parameters as param}
-              <label class="param-label">
-                <span>{param.label}{param.required ? ' *' : ''}</span>
-                {#if param.type === 'select' && param.options}
-                  <select bind:value={paramValues[param.id]}>
-                    {#each param.options as opt}
-                      <option value={opt.value}>{opt.label}</option>
-                    {/each}
-                  </select>
-                {:else if param.type === 'textarea'}
-                  <textarea
-                    bind:value={paramValues[param.id]}
-                    placeholder={param.placeholder ?? ''}
-                    rows="3"
-                  ></textarea>
-                {:else if param.type === 'note'}
-                  <input
-                    list={`notes-${param.id}`}
-                    bind:value={paramValues[param.id]}
-                    placeholder={param.placeholder ?? 'Type to find a note…'}
-                  />
-                  <datalist id={`notes-${param.id}`}>
-                    {#each noteOptions as n (n.relativePath)}
-                      <option value={n.relativePath}>{n.name}</option>
-                    {/each}
-                  </datalist>
-                {:else}
-                  <input
-                    type={param.type === 'number' ? 'number' : 'text'}
-                    bind:value={paramValues[param.id]}
-                    placeholder={param.placeholder ?? ''}
-                  />
-                {/if}
-              </label>
-            {/each}
-          </div>
-        {/if}
-        {#if panel.context.selectedText}
-          <div class="context-preview">
-            <span class="context-label">Selected text ({panel.context.selectedText.length} chars)</span>
-          </div>
-        {:else if panel.context.fullNoteContent}
-          <div class="context-preview">
-            <span class="context-label">Full note: {panel.context.fullNoteTitle ?? 'Untitled'}</span>
-          </div>
-        {/if}
-        <div class="actions">
-          <button class="btn primary" onclick={() => { void handleRunWithParams(); }}>Run</button>
-          <button class="btn" onclick={() => panel.close()}>Cancel</button>
-        </div>
-      </div>
-
-    {:else if panel.panelState === 'running'}
+    {#if panel.panelState === 'running'}
       <div class="tool-body output-body">
         <div class="output-scroll">
           <pre class="output">{panel.streamedOutput || 'Thinking...'}</pre>
@@ -314,56 +250,6 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-  }
-
-  .tool-info {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 12px;
-    line-height: 1.5;
-  }
-
-  .params {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .param-label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--text);
-  }
-
-  .param-label input,
-  .param-label textarea,
-  .param-label select {
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 12px;
-    font-family: inherit;
-  }
-
-  .param-label input:focus,
-  .param-label textarea:focus,
-  .param-label select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  .context-preview {
-    margin-bottom: 12px;
-  }
-
-  .context-label {
-    font-size: 11px;
-    color: var(--text-muted);
   }
 
   .output-scroll {
