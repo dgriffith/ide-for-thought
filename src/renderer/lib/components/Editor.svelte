@@ -24,9 +24,10 @@
   import { sortLines, selectionTracker } from '../editor/commands';
   import {
     toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
-    toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
+    toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList,
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
-    insertWikiLink, insertTypedLinks,
+    insertWikiLink, insertTypedLinks, insertCallouts,
+    insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
@@ -994,7 +995,7 @@
           </div>
         </div>
         <div class="submenu-separator"></div>
-        <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
+        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
@@ -1003,6 +1004,17 @@
         <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
         <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
         <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
+        <div class="submenu-separator"></div>
+        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
+          <span class="submenu-trigger">Callout...<Icon name="chevronRight" size={10} /></span>
+          <div class="submenu">
+            {#each insertCallouts as { label, command }}
+              <button onclick={() => runCmd(command)}>{label}</button>
+            {/each}
+          </div>
+        </div>
+        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
       </div>
     </div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
@@ -1012,10 +1024,18 @@
         <button onclick={() => runCmd(insertImage)}>Image</button>
         <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
         <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
-        <button onclick={() => runCmd(toggleTaskList)}>Task List</button>
-        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
-        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
-        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
+        <div class="submenu-separator"></div>
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
+          <span class="submenu-trigger">Query...<Icon name="chevronRight" size={10} /></span>
+          <div class="submenu">
+            <button onclick={() => runCmd(insertSqlQuery)}>SQL</button>
+            <button onclick={() => runCmd(insertSparqlQuery)}>SPARQL</button>
+          </div>
+        </div>
+        <button onclick={() => runCmd(insertPythonScript)}>Python Script</button>
+        <button onclick={() => runCmd(insertMermaidDiagram)}>Mermaid Diagram</button>
+        <div class="submenu-separator"></div>
+        <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>
     </div>
     {#if onToolInvoke && toolMenus.length > 0}
