@@ -1206,7 +1206,6 @@
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     getSources={() => sourcesCache}
                     getAliases={() => aliasEntries}
-                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
                     onBookmarkSection={() => { void handleBookmarkSection(); }}
                     onBookmarkLine={handleBookmarkLine}
                     bookmarks={currentFileBookmarks}

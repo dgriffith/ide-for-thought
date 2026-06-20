@@ -87,7 +87,6 @@
     onCursorChange?: (info: CursorInfo) => void;
     onToolInvoke?: (toolId: string) => void;
     onOpenConversation?: () => void;
-    onBookmark?: () => void;
     /** Bookmark the section (nearest heading at/above the cursor). The
      *  handler reads the cursor via `getOffset()` and resolves the slug. */
     onBookmarkSection?: () => void;
@@ -153,7 +152,6 @@
     onCursorChange,
     onToolInvoke,
     onOpenConversation,
-    onBookmark,
     onBookmarkSection,
     onBookmarkLine,
     bookmarks,
@@ -198,7 +196,7 @@
   let editorContainer: HTMLDivElement;
   let view: EditorView;
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null; claimUri: string | null } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null; claimUri: string | null; atHeading: boolean } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
   // Separate from the main context menu: right-click anywhere in the
   // gutter opens a tiny toggle for line-number visibility. Keeps the
@@ -304,12 +302,17 @@
     let hasSelection = false;
     let docPos: number | null = null;
     let claimUri: string | null = null;
+    // Whether the caret sits on a heading line — drives the single
+    // contextual Bookmark item (section vs. line). Caret-based to match
+    // the App handlers, which resolve against `getOffset()`.
+    let atHeading = false;
     if (view) {
       const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
       docPos = pos ?? null;
       if (pos != null) link = findLinkAt(view.state, pos);
       const sel = view.state.selection.main;
       hasSelection = sel.from !== sel.to;
+      atHeading = /^#{1,6}\s+/.test(view.state.doc.lineAt(sel.head).text);
       // Resolve a thought:Claim URI from (1) the active selection, then
       // (2) the line under the right-click. Powers Find Supporting /
       // Opposing Arguments — those need a Claim node to link Grounds to.
@@ -320,7 +323,7 @@
         claimUri = extractClaimUri(line.text);
       }
     }
-    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos, claimUri };
+    contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos, claimUri, atHeading };
     const close = () => {
       closeMenu();
       window.removeEventListener('click', close);
@@ -1142,12 +1145,12 @@
       <div class="separator"></div>
     {/if}
     <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
-    <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
-    {#if onBookmarkSection}
-      <button onclick={() => handleMenuAction(() => onBookmarkSection?.())}>Bookmark Section</button>
-    {/if}
-    {#if onBookmarkLine}
-      <button onclick={() => handleMenuAction(() => onBookmarkLine?.())}>Bookmark Line</button>
+    {#if onBookmarkSection || onBookmarkLine}
+      <!-- One contextual item: bookmark the section when the caret is on a
+           heading, otherwise the line. Every editor bookmark has a position. -->
+      <button onclick={() => { const section = contextMenu?.atHeading ?? false; handleMenuAction(() => (section ? onBookmarkSection?.() : onBookmarkLine?.())); }}>
+        {contextMenu?.atHeading ? 'Bookmark Section' : 'Bookmark Line'}
+      </button>
     {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
