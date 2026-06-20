@@ -91,6 +91,8 @@
      *  value chip (#489) so clicking opens the right note regardless of
      *  how the target is written. */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** Open a note and jump to a character offset (line bookmarks, #756). */
+    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onScrollToLine: (line: number) => void;
     onOpenConversation?: (message: string) => void;
     onOpenQuery: (sql: string) => void;
@@ -100,7 +102,7 @@
   }
 
   let {
-    activeFilePath, content, onFileSelect, onNavigate, onScrollToLine,
+    activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
     onContentChange,
   }: Props = $props();
@@ -233,7 +235,7 @@
     {:else if activePanel === 'citations'}
       <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
-      <BookmarksPanel {activeFilePath} {onFileSelect} {onNavigate} />
+      <BookmarksPanel {activeFilePath} {onFileSelect} {onNavigate} {onOpenAtOffset} />
     {:else if activePanel === 'inspections'}
       <InspectionsPanel {revision} {onOpenConversation} />
     {:else if activePanel === 'proposals'}

@@ -6,6 +6,7 @@ import {
   slugifyForPath,
   findAnchorOffset,
   offsetToLineCol,
+  lineBookmarkName,
   flattenNotePaths,
   countNotes,
   describeDeleteNoun,
@@ -57,6 +58,32 @@ describe('offsetToLineCol', () => {
     expect(offsetToLineCol(text, 2)).toEqual({ line: 1, col: 2 });
     expect(offsetToLineCol(text, 4)).toEqual({ line: 2, col: 0 });
     expect(offsetToLineCol(text, 7)).toEqual({ line: 3, col: 0 });
+  });
+});
+
+describe('lineBookmarkName (#756)', () => {
+  it('uses the trimmed text of the line the offset sits on', () => {
+    const text = '# Title\n\n  Methods and materials  \nbody';
+    const offset = text.indexOf('Methods') + 3;
+    expect(lineBookmarkName(text, offset)).toBe('Methods and materials');
+  });
+
+  it('falls back to "Line N" on a blank line', () => {
+    const text = 'first\n\nthird';
+    const blank = text.indexOf('\n') + 1; // start of the empty line 2
+    expect(lineBookmarkName(text, blank)).toBe('Line 2');
+  });
+
+  it('truncates long lines with an ellipsis', () => {
+    const long = 'x'.repeat(100);
+    const out = lineBookmarkName(long, 0);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out.length).toBe(58); // 57 chars + ellipsis
+  });
+
+  it('clamps an out-of-range offset to the last line', () => {
+    const text = 'one\ntwo';
+    expect(lineBookmarkName(text, 9999)).toBe('two');
   });
 });
 

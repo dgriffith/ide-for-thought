@@ -41,6 +41,21 @@ export function offsetToLineCol(text: string, offset: number): { line: number; c
   return { line, col };
 }
 
+/**
+ * Display name for a line bookmark (#756): the trimmed text of the line the
+ * offset sits on, truncated, or `Line N` when that line is blank. Gives the
+ * bookmarks panel something legible without storing extra fields.
+ */
+export function lineBookmarkName(text: string, offset: number): string {
+  const clamped = Math.max(0, Math.min(offset, text.length));
+  const start = text.lastIndexOf('\n', clamped - 1) + 1;
+  const endNl = text.indexOf('\n', clamped);
+  const end = endNl === -1 ? text.length : endNl;
+  const line = text.slice(start, end).trim();
+  if (line) return line.length > 60 ? `${line.slice(0, 57)}…` : line;
+  return `Line ${offsetToLineCol(text, clamped).line}`;
+}
+
 /** Flatten a NoteFile tree to the relative paths of indexable leaf files. */
 export function flattenNotePaths(files: NoteFile[]): string[] {
   const out: string[] = [];

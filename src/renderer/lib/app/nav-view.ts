@@ -81,6 +81,20 @@ export function createNavView(ctx: NavViewCtx) {
   }
 
   /**
+   * Open a note and jump to a stored character offset — line bookmarks
+   * (#756). The offset is honored as-is; it can go stale if the text above
+   * it was edited since the bookmark was made (the offset-MVP tradeoff).
+   * `restorePosition` clamps an out-of-range offset.
+   */
+  async function handleOpenAtOffset(relativePath: string, offset: number) {
+    recordCurrentPosition();
+    await editor.openFile(relativePath);
+    await tick();
+    requestAnimationFrame(() => ctx.getEditorComponent()?.restorePosition(offset));
+    nav.record({ type: 'note', relativePath, offset });
+  }
+
+  /**
    * Locate a heading (by slug) or block-id inside raw markdown and return
    * the character offset of its line. Shared between source and split modes.
    */
@@ -181,6 +195,7 @@ export function createNavView(ctx: NavViewCtx) {
 
   return {
     recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate,
+    handleOpenAtOffset,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
   };
 }

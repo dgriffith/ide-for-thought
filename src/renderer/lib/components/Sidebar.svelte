@@ -48,6 +48,8 @@
     /** Open a note and scroll to an anchor, for `path#slug` targets (e.g.
      *  section bookmarks). Whole-file opens still go through onFileSelect. */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** Open a note and jump to a character offset (line bookmarks). */
+    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
@@ -75,7 +77,7 @@
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -599,7 +601,7 @@
       {/if}
     {:else if activePanel === 'bookmarks'}
       {#if onShowPrompt}
-        <BookmarksPanel {onFileSelect} {onNavigate} {onShowPrompt} />
+        <BookmarksPanel {onFileSelect} {onNavigate} {onOpenAtOffset} {onShowPrompt} />
       {/if}
     {/if}
   </div>

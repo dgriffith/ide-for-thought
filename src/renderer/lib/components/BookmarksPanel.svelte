@@ -9,10 +9,12 @@
     onFileSelect: (relativePath: string) => void;
     /** Open + scroll to an anchor (`path#slug`) for section bookmarks. */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** Open + jump to a character offset for line bookmarks (#756). */
+    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onShowPrompt: (message: string) => Promise<string | null>;
   }
 
-  let { onFileSelect, onNavigate, onShowPrompt }: Props = $props();
+  let { onFileSelect, onNavigate, onOpenAtOffset, onShowPrompt }: Props = $props();
 
   const bookmarks = getBookmarksStore();
   let expanded = $state<Record<string, boolean>>({});
@@ -68,10 +70,18 @@
   function handleClick(node: BookmarkNode) {
     if (node.type === 'bookmark') {
       if (node.anchor && onNavigate) void onNavigate(`${node.relativePath}#${node.anchor}`);
+      else if (node.cursorOffset != null && onOpenAtOffset) void onOpenAtOffset(node.relativePath, node.cursorOffset);
       else onFileSelect(node.relativePath);
     } else {
       toggleFolder(node.id);
     }
+  }
+
+  /** Icon distinguishing the three bookmark kinds. */
+  function bmIcon(node: { anchor?: string; cursorOffset?: number }): 'outline' | 'dot' | 'bookmark' {
+    if (node.anchor) return 'outline';
+    if (node.cursorOffset != null) return 'dot';
+    return 'bookmark';
   }
 
   function showContextMenu(e: MouseEvent, node: BookmarkNode) {
@@ -186,7 +196,7 @@
       ondragstart={(e) => handleDragStart(e, node.id)}
     >
       <span class="chev"></span>
-      <Icon name={node.anchor ? 'outline' : 'bookmark'} size={13} color="var(--text-faint)" />
+      <Icon name={bmIcon(node)} size={13} color="var(--text-faint)" />
       <span class="bm-body">
         <span class="bm-name">{node.name}</span>
         <span class="bm-path">{node.anchor ? `${node.relativePath} › §` : node.relativePath}</span>

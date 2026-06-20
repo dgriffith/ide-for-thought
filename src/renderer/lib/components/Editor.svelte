@@ -80,6 +80,9 @@
     /** Bookmark the section (nearest heading at/above the cursor). The
      *  handler reads the cursor via `getOffset()` and resolves the slug. */
     onBookmarkSection?: () => void;
+    /** Bookmark the current line — stores the cursor offset so opening
+     *  jumps back to it (#756). */
+    onBookmarkLine?: () => void;
     onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
     /** Click on a `[[cite::source-id]]` in the editor → open the source tab. */
@@ -140,6 +143,7 @@
     onOpenConversation,
     onBookmark,
     onBookmarkSection,
+    onBookmarkLine,
     onInsertQueryList,
     onNavigate,
     onOpenSource,
@@ -1077,6 +1081,9 @@
     <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
     {#if onBookmarkSection}
       <button onclick={() => handleMenuAction(() => onBookmarkSection?.())}>Bookmark Section</button>
+    {/if}
+    {#if onBookmarkLine}
+      <button onclick={() => handleMenuAction(() => onBookmarkLine?.())}>Bookmark Line</button>
     {/if}
     <div class="separator"></div>
     <div class="submenu-item" onmouseenter={adjustSubmenu}>
