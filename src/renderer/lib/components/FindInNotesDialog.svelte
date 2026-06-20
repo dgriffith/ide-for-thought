@@ -270,7 +270,6 @@
               <Icon name={collapsedFile ? 'chevronRight' : 'chevronDown'} size={11} color="var(--text-faint)" />
             </span>
             {#if mode === 'replace'}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
               <input
                 type="checkbox"
                 class="file-check"

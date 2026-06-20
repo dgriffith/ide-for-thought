@@ -74,7 +74,6 @@
 <div class="tab-bar">
   {#each tabs as tab, i}
     {@const dirty = tab.type === 'note' && tab.content !== tab.savedContent}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="tab"
       class:active={i === activeIndex}
