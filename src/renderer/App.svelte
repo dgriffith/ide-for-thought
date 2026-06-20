@@ -704,14 +704,14 @@
   } satisfies TemplateOpsCtx);
 
   // Conversation / tool-invocation handler cluster (#670): save-cell-output
-  // (#244), decompose / crystallize (#515), the freeform / message / from-tool
+  // (#244), decompose (#515), the freeform / message / from-tool
   // conversation openers, and generic tool invocation. Lives in
   // ./lib/app/conversation-ops.ts. Placed after createNavView so handleFileSelect
   // is in scope for the openFileSelect getter; reaches the editor view + tool-
   // panel component via ctx. The conversationsStore / toolPanel store handles
   // stay in App (onMount streaming still uses them).
   const {
-    handleSaveCellOutput, handleDecompose, handleCrystallize,
+    handleSaveCellOutput, handleDecompose,
     openConversation, newConversation, openConversationWithMessage, handleOpenConversationFromTool, handleToolInvoke,
   } = createConversationOps({
     getEditorView: () => editorComponent?.getView(),
@@ -1216,8 +1216,6 @@
                     onAutoTag={() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); }}
                     onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
                     onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
-                    onDecompose={() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); }}
-                    onCrystallize={() => { if (editor.activeFilePath) void handleCrystallize(editor.activeFilePath); }}
                     onFormatCurrentNote={() => handleFormat()}
                     onUploadError={(message) => {
                       // Image-upload rejection (#455). Surface via the

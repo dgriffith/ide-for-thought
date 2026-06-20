@@ -1,6 +1,6 @@
 /**
  * Conversation / tool-invocation handler cluster extracted from App.svelte
- * (#670). Save-cell-output (#244), decompose / crystallize (#515), the
+ * (#670). Save-cell-output (#244), decompose (#515), the
  * freeform / message / from-tool conversation openers, and generic tool
  * invocation. Bodies are verbatim from App.svelte; the only changes are the
  * ctx getter substitutions for the pieces that used to be inline component
@@ -108,19 +108,13 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
 
   async function handleDecompose(_relativePath: string) {
     if (!notebase.meta) return;
-    // Both decompose and crystallize are ThinkingTools (#515), so the
-    // editor right-click menu routes through the same tool-prep flow
-    // the ToolPanel uses. The `_relativePath` arg is preserved for
-    // API symmetry with the other right-click handlers, but the tool
-    // gathers its own `fullNote` context against the active editor.
+    // Decompose is a ThinkingTool (#515), so the Refactor ▸ Decompose Note
+    // menu item (and the command palette) routes through the same tool-prep
+    // flow the ToolPanel uses. The `_relativePath` arg is preserved for API
+    // symmetry with the other handlers, but the tool gathers its own
+    // `fullNote` context against the active editor.
     const toolCtx = await gatherContext(['fullNote'], ctx.getEditorView());
     await handleOpenConversationFromTool({ toolId: 'research.decompose', context: toolCtx });
-  }
-
-  async function handleCrystallize(_relativePath: string) {
-    if (!notebase.meta) return;
-    const toolCtx = await gatherContext(['fullNote'], ctx.getEditorView());
-    await handleOpenConversationFromTool({ toolId: 'research.crystallize', context: toolCtx });
   }
 
   async function openConversationWithMessage(message: string) {
@@ -189,7 +183,6 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
   return {
     handleSaveCellOutput,
     handleDecompose,
-    handleCrystallize,
     openConversation,
     newConversation,
     openConversationWithMessage,
