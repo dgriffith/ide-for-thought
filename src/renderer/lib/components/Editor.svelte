@@ -999,12 +999,17 @@
         <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
         <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
         <div class="submenu-separator"></div>
-        {#each insertTypedLinks as { linkType, command }}
-          <button onclick={() => runCmd(command)}>
-            <span class="typed-link-dot" style:background={linkType.color}></span>
-            {linkType.label} Link
-          </button>
-        {/each}
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
+          <span class="submenu-trigger">Typed Link...<Icon name="chevronRight" size={10} /></span>
+          <div class="submenu">
+            {#each insertTypedLinks as { linkType, command }}
+              <button onclick={() => runCmd(command)}>
+                <span class="typed-link-dot" style:background={linkType.color}></span>
+                {linkType.label} Link
+              </button>
+            {/each}
+          </div>
+        </div>
         <div class="submenu-separator"></div>
         <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>
