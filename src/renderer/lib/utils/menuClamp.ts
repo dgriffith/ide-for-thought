@@ -60,6 +60,36 @@ export function clampMenuToViewport(
 }
 
 /**
+ * Decide which side a submenu should open on (true = left, false = right).
+ * Pure geometry so it's unit-testable.
+ *
+ * Two refinements over a naive "flip left only if the right edge overflows":
+ *   - **Reserve room for a nested level.** When the submenu itself contains
+ *     further submenus (`hasNested`), require room for one more same-width
+ *     level on the chosen side — otherwise a chosen child flyout has nowhere
+ *     to open and clips near the right edge.
+ *   - **Inherit the cascade direction.** Once a chain has opened leftward
+ *     (`inheritLeft`), keep it leftward unless the left genuinely won't fit,
+ *     so descendants don't zig-zag back over their parent.
+ */
+export function chooseSubmenuSide(opts: {
+  itemLeft: number;
+  itemRight: number;
+  submenuWidth: number;
+  viewportWidth: number;
+  inheritLeft: boolean;
+  hasNested: boolean;
+  margin?: number;
+}): boolean {
+  const margin = opts.margin ?? MARGIN;
+  const reserve = opts.hasNested ? opts.submenuWidth : 0;
+  const rightFits = opts.itemRight + opts.submenuWidth + reserve <= opts.viewportWidth - margin;
+  const leftFits = opts.itemLeft - opts.submenuWidth - reserve >= margin;
+  if (opts.inheritLeft) return leftFits || !rightFits;
+  return !rightFits && leftFits;
+}
+
+/**
  * Reposition a hover-opened `.submenu` inside the given `.submenu-item`
  * so it stays in the viewport. Resets prior overrides first so the
  * default CSS position (right + below the parent) is measured cleanly,
@@ -77,11 +107,34 @@ export function clampSubmenu(item: HTMLElement): void {
   submenu.style.left = '';
   submenu.style.right = '';
 
+  // Inherit the open side from the nearest ancestor submenu that already
+  // chose one (recorded via `dataset.openLeft` below).
+  const parentSubmenu = item.closest<HTMLElement>('.submenu');
+  const inheritLeft = parentSubmenu?.dataset.openLeft === 'true';
+
   requestAnimationFrame(() => {
     const subRect = submenu.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
     const vh = window.innerHeight;
     const vw = window.innerWidth;
+
+    // Horizontal: pick the side with room — reserving space for one more
+    // level when this submenu has nested submenus, and inheriting the
+    // parent chain's direction. Record the choice so children inherit it.
+    const hasNested = !!submenu.querySelector(':scope > .submenu-item > .submenu');
+    const openLeft = chooseSubmenuSide({
+      itemLeft: itemRect.left,
+      itemRight: itemRect.right,
+      submenuWidth: subRect.width,
+      viewportWidth: vw,
+      inheritLeft,
+      hasNested,
+    });
+    if (openLeft) {
+      submenu.style.left = 'auto';
+      submenu.style.right = '100%';
+    }
+    submenu.dataset.openLeft = String(openLeft);
 
     // Vertical: prefer down (default), else flip up, else clamp to top
     // edge. The flipped position has the submenu's bottom 4px below the
@@ -103,11 +156,6 @@ export function clampSubmenu(item: HTMLElement): void {
       // parent item sits near the top of the viewport.
       submenu.style.top = `${MARGIN - itemRect.top}px`;
       submenu.style.bottom = 'auto';
-    }
-
-    if (subRect.right > vw - MARGIN) {
-      submenu.style.left = 'auto';
-      submenu.style.right = '100%';
     }
   });
 }
