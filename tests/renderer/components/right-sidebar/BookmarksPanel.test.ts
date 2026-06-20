@@ -62,4 +62,36 @@ describe('right-sidebar BookmarksPanel (#755)', () => {
     await fireEvent.click(getByText('Methods'));
     expect(onFileSelect).toHaveBeenCalledWith(ACTIVE);
   });
+
+  it('opens a line bookmark via onOpenAtOffset(path, offset)', async () => {
+    treeRef.current = [
+      { type: 'bookmark', id: 'd', name: 'some line', relativePath: ACTIVE, cursorOffset: 142 },
+    ];
+    const onFileSelect = vi.fn();
+    const onNavigate = vi.fn();
+    const onOpenAtOffset = vi.fn();
+    const { getByText } = render(BookmarksPanel, {
+      activeFilePath: ACTIVE, onFileSelect, onNavigate, onOpenAtOffset,
+    });
+
+    await fireEvent.click(getByText('some line'));
+    expect(onOpenAtOffset).toHaveBeenCalledWith(ACTIVE, 142);
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(onFileSelect).not.toHaveBeenCalled();
+  });
+
+  it('prefers the section anchor over a stored offset when both are present', async () => {
+    treeRef.current = [
+      { type: 'bookmark', id: 'e', name: 'Methods', relativePath: ACTIVE, anchor: 'methods', cursorOffset: 5 },
+    ];
+    const onNavigate = vi.fn();
+    const onOpenAtOffset = vi.fn();
+    const { getByText } = render(BookmarksPanel, {
+      activeFilePath: ACTIVE, onFileSelect: vi.fn(), onNavigate, onOpenAtOffset,
+    });
+
+    await fireEvent.click(getByText('Methods'));
+    expect(onNavigate).toHaveBeenCalledWith(`${ACTIVE}#methods`);
+    expect(onOpenAtOffset).not.toHaveBeenCalled();
+  });
 });

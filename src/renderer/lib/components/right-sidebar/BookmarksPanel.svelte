@@ -9,9 +9,26 @@
     /** Open + scroll to an anchor (`path#slug`) for section bookmarks.
      *  Works even when the file is already active (scrolls in place). */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** Open + jump to a character offset for line bookmarks (#756). */
+    onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
   }
 
-  let { activeFilePath, onFileSelect, onNavigate }: Props = $props();
+  let { activeFilePath, onFileSelect, onNavigate, onOpenAtOffset }: Props = $props();
+
+  /** Route a bookmark click by kind: section (anchor) → scroll to heading;
+   *  line (cursorOffset) → jump to offset; otherwise open the whole file. */
+  function openBookmark(bm: Bookmark) {
+    if (bm.anchor && onNavigate) void onNavigate(`${bm.relativePath}#${bm.anchor}`);
+    else if (bm.cursorOffset != null && onOpenAtOffset) void onOpenAtOffset(bm.relativePath, bm.cursorOffset);
+    else onFileSelect(bm.relativePath);
+  }
+
+  /** Icon distinguishing the three bookmark kinds. */
+  function bmIcon(bm: Bookmark): 'outline' | 'dot' | 'bookmark' {
+    if (bm.anchor) return 'outline';
+    if (bm.cursorOffset != null) return 'dot';
+    return 'bookmark';
+  }
 
   const bookmarks = getBookmarksStore();
 
@@ -45,10 +62,10 @@
           <button
             type="button"
             class="bm-open"
-            onclick={() => (bm.anchor && onNavigate ? onNavigate(`${bm.relativePath}#${bm.anchor}`) : onFileSelect(bm.relativePath))}
+            onclick={() => openBookmark(bm)}
             title={bm.anchor ? `${bm.relativePath} › ${bm.name}` : bm.name}
           >
-            <Icon name={bm.anchor ? 'outline' : 'bookmark'} size={13} color="var(--text-faint)" />
+            <Icon name={bmIcon(bm)} size={13} color="var(--text-faint)" />
             <span class="bm-name">{bm.name}</span>
           </button>
           <button

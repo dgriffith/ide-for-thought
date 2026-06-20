@@ -60,6 +60,7 @@
     slugifyForPath,
     flattenNotePaths,
     countNotes,
+    lineBookmarkName,
   } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
   import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
@@ -239,6 +240,19 @@
       return;
     }
     bookmarkStore.add(section.text, editor.activeFilePath, { anchor: section.slug });
+  }
+
+  /**
+   * Bookmark the current line — stores the cursor offset so opening jumps
+   * back to it (#756, offset MVP). The offset can go stale if text above is
+   * later edited. A line bookmark is one with a `cursorOffset` and no
+   * `anchor`; the panels render it distinctly and open it via the offset.
+   */
+  function handleBookmarkLine() {
+    if (!editor.activeFilePath) return;
+    const offset = editorComponent?.getOffset() ?? 0;
+    const name = lineBookmarkName(editor.content, offset);
+    bookmarkStore.add(name, editor.activeFilePath, { cursorOffset: offset });
   }
 
   /**
@@ -628,7 +642,7 @@
   // module reads / writes pending search + preview anchor, view mode, and the
   // alias map via ctx — those `$state` decls stay in App.
   const {
-    recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate,
+    recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate, handleOpenAtOffset,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
   } = createNavView({
     getEditorComponent: () => editorComponent,
@@ -1055,6 +1069,7 @@
           activeFilePath={editor.activeFilePath}
           onFileSelect={handleFileSelect}
           onNavigate={handleNavigate}
+          onOpenAtOffset={handleOpenAtOffset}
           onNewNote={handleNewNote}
           onNewFolder={handleNewFolder}
           onDelete={handleDelete}
@@ -1182,8 +1197,9 @@
                     getNotePaths={() => flattenNotePaths(notebase.files)}
                     getSources={() => sourcesCache}
                     getAliases={() => aliasEntries}
-                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath, { cursorOffset: editorComponent?.getOffset() }); }}
+                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
                     onBookmarkSection={() => { void handleBookmarkSection(); }}
+                    onBookmarkLine={handleBookmarkLine}
                     onExtractSelection={handleExtractSelection}
                     onSplitHere={handleSplitHere}
                     onSplitByHeading={handleSplitByHeading}
@@ -1317,6 +1333,7 @@
           content={editor.content}
           onFileSelect={handleFileSelect}
           onNavigate={handleNavigate}
+          onOpenAtOffset={handleOpenAtOffset}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
           onOpenConversation={(msg) => { void openConversationWithMessage(msg); }}
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
