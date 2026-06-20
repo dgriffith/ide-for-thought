@@ -1,48 +1,16 @@
 /**
- * Service worker — the one-click capture-and-save path (#792).
+ * Service worker — the instant capture-and-save path (#792).
  *
- * Triggered by the toolbar action click or the keyboard command. Captures the
- * active tab's rendered HTML + selection (via `scripting.executeScript`, gated
- * by `activeTab` so no broad host access is needed to read pages), then POSTs
- * from here — the service worker, whose `chrome-extension://` Origin the app
- * endpoint accepts. A badge flashes the outcome.
+ * The toolbar button now opens the popup (curate-before-save, #793), so the
+ * one-click path here is driven by the keyboard command: capture the active
+ * tab and POST from the service worker (whose `chrome-extension://` Origin the
+ * app endpoint accepts), flashing a badge with the outcome. The popup handles
+ * the click; this keeps the no-UI shortcut.
  */
 
 import { loadPairing } from './pairing-store';
 import { sendClip } from './ingest';
-import { normalizeSelection, type ClipPayload } from './payload';
-
-/**
- * Runs in the page context (serialized by executeScript) — must be
- * self-contained, referencing only page globals.
- */
-function capturePage() {
-  return {
-    url: location.href,
-    html: document.documentElement.outerHTML,
-    pageTitle: document.title,
-    selection: window.getSelection()?.toString() ?? '',
-  };
-}
-
-async function captureActiveTab(): Promise<ClipPayload | null> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return null;
-  const [injected] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: capturePage,
-  });
-  const r = injected?.result as
-    | { url: string; html: string; pageTitle: string; selection: string }
-    | undefined;
-  if (!r?.html) return null;
-  return {
-    url: r.url,
-    html: r.html,
-    pageTitle: r.pageTitle,
-    selection: normalizeSelection(r.selection),
-  };
-}
+import { captureActiveTab } from './capture';
 
 async function flashBadge(text: string, color: string): Promise<void> {
   await chrome.action.setBadgeBackgroundColor({ color });
@@ -71,7 +39,6 @@ async function saveCurrentPage(): Promise<void> {
   }
 }
 
-chrome.action.onClicked.addListener(() => { void saveCurrentPage(); });
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'save-to-minerva') void saveCurrentPage();
 });

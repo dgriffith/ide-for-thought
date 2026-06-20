@@ -13,6 +13,7 @@ import {
   isAllowedOrigin,
   type ClipperServerHandle,
   type ClipperIngestFn,
+  type ClipperPreviewFn,
 } from '../../../src/main/clipper/clipper-server';
 
 const SECRET = 'test-secret-abc';
@@ -20,12 +21,14 @@ const SECRET = 'test-secret-abc';
 let server: ClipperServerHandle;
 let rootPath: string | null;
 let ingest: ReturnType<typeof vi.fn> & ClipperIngestFn;
+let preview: ReturnType<typeof vi.fn> & ClipperPreviewFn;
 
 async function start(opts: { maxBodyBytes?: number } = {}) {
   server = await startClipperServer({
     secret: SECRET,
     resolveRootPath: () => rootPath,
     ingest,
+    preview,
     port: 0,
     maxBodyBytes: opts.maxBodyBytes,
   });
@@ -44,6 +47,11 @@ beforeEach(() => {
     title: 'Clipped Page',
     kind: 'web',
   })) as ReturnType<typeof vi.fn> & ClipperIngestFn;
+  preview = vi.fn(() => ({
+    sourceId: 'url-abc123',
+    method: 'url',
+    title: 'Clipped Page',
+  })) as ReturnType<typeof vi.fn> & ClipperPreviewFn;
 });
 
 afterEach(async () => {
@@ -193,5 +201,55 @@ describe('POST /ingest', () => {
     const res = await post({ html: 'x'.repeat(500) });
     expect(res.status).toBe(413);
     expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it('passes popup tags + note through to ingest (#793)', async () => {
+    await start();
+    await post({ html: '<h1>Hi</h1>', tags: ['ai', 'paper'], note: 'read later' });
+    expect(ingest).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ['ai', 'paper'], note: 'read later' }),
+      '/tmp/project',
+    );
+  });
+});
+
+describe('POST /preview (#793)', () => {
+  function post(body: unknown) {
+    return fetch(url('/preview'), {
+      method: 'POST',
+      headers: { [SECRET_HEADER]: SECRET, 'Content-Type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+  }
+
+  it('returns the previewed source id + title without a write', async () => {
+    await start();
+    const res = await post({ url: 'https://example.com/a', html: '<h1>Hi</h1>' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ sourceId: 'url-abc123', method: 'url', title: 'Clipped Page' });
+    expect(preview).toHaveBeenCalledWith({ url: 'https://example.com/a', html: '<h1>Hi</h1>' });
+    expect(ingest).not.toHaveBeenCalled();
+  });
+
+  it('works even with no thoughtbase open (id derivation is project-independent)', async () => {
+    await start();
+    rootPath = null;
+    const res = await post({ url: 'https://example.com/a', html: '<h1>Hi</h1>' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a payload with no html (400)', async () => {
+    await start();
+    const res = await post({ url: 'https://example.com/a' });
+    expect(res.status).toBe(400);
+    expect(preview).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a preview failure as 500', async () => {
+    await start();
+    preview.mockImplementationOnce(() => { throw new Error('bad html'); });
+    const res = await post({ html: '<h1>Hi</h1>' });
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe('bad html');
   });
 });

@@ -33,7 +33,25 @@ export interface ClipperPayload {
   pageTitle?: string;
   /** Selected text → filed as a linked thought:Excerpt when present. */
   selection?: string;
+  /** Optional user tags from the popup → applied as `minerva:tag` (#793). */
+  tags?: string[];
+  /** Optional free-text note → filed as a Zotero-style about-note (#793). */
+  note?: string;
 }
+
+/** Body of a `POST /preview` — enough to derive the canonical id (#793). */
+export interface ClipperPreviewPayload {
+  url?: string;
+  html: string;
+}
+
+export interface ClipperPreviewResult {
+  sourceId: string;
+  method: string;
+  title: string;
+}
+
+export type ClipperPreviewFn = (payload: ClipperPreviewPayload) => ClipperPreviewResult;
 
 export interface ClipperIngestOutcome {
   sourceId: string;
@@ -44,6 +62,10 @@ export interface ClipperIngestOutcome {
   /** Set when a selection was supplied and an excerpt was filed. */
   excerptId?: string;
   excerptDuplicate?: boolean;
+  /** Tags that were newly applied to the source (#793). */
+  tags?: string[];
+  /** Project-relative path of the about-note filed from `note`, if any (#793). */
+  notePath?: string;
 }
 
 export type ClipperIngestFn = (
@@ -58,6 +80,8 @@ export interface ClipperListenerOptions {
   resolveRootPath: () => string | null;
   /** Does the extraction + write. Injected so the transport stays pure. */
   ingest: ClipperIngestFn;
+  /** Derives the canonical id for `/preview` (no write). Injected (#793). */
+  preview: ClipperPreviewFn;
   /** Reject bodies larger than this (default 32 MB). */
   maxBodyBytes?: number;
 }
@@ -194,6 +218,29 @@ export function createClipperRequestListener(
       // whether a thoughtbase is currently open.
       if (req.method === 'GET' && url === '/ping') {
         sendJson(res, 200, { ok: true, projectOpen: opts.resolveRootPath() != null });
+        return;
+      }
+
+      // Source-id preview (#793). Pure id derivation from the captured HTML —
+      // no write, so it works even before a thoughtbase is open.
+      if (req.method === 'POST' && url === '/preview') {
+        let payload: ClipperPreviewPayload;
+        try {
+          payload = JSON.parse(await readBody(req, maxBytes)) as ClipperPreviewPayload;
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode ?? 400;
+          sendJson(res, status, { error: status === 413 ? 'Payload too large' : 'Invalid JSON body' });
+          return;
+        }
+        if (typeof payload?.html !== 'string' || payload.html.trim() === '') {
+          sendJson(res, 400, { error: 'Missing `html` in payload' });
+          return;
+        }
+        try {
+          sendJson(res, 200, opts.preview(payload));
+        } catch (err) {
+          sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) });
+        }
         return;
       }
 

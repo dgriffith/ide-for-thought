@@ -21,7 +21,7 @@ import { Buffer } from 'node:buffer';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
-import { canonicalSourceId, normalizeUrl } from './source-id';
+import { canonicalSourceId, normalizeUrl, type CanonicalIdMethod } from './source-id';
 import { mergeMetaTtl } from './source-merge';
 import { extractStructured, structuredToArticleMetadata } from './site-handlers';
 import { buildMetaTtl as buildArticleMetaTtl } from './ingest-identifier';
@@ -203,6 +203,48 @@ export async function ingestHtmlString(
   }
 
   return { sourceId, relativePath, duplicate: false, title, kind: 'web' };
+}
+
+export interface SourceIdPreview {
+  sourceId: string;
+  method: CanonicalIdMethod;
+  /** Best-effort extracted title, for the clipper popup to confirm what it'll save. */
+  title: string;
+}
+
+/**
+ * Derive the canonical source id (and a title) a clip *would* produce, without
+ * writing anything (#793). Mirrors `ingestHtmlString`'s id derivation exactly —
+ * site-handler structured ids over the HTML, then `canonicalSourceId` — so the
+ * clipper popup can show `arxiv-2604.18561` before the user commits. Title
+ * extraction is best-effort: Readability failures fall back to the `<title>`.
+ */
+export function previewSourceFromHtml(html: string, url?: string): SourceIdPreview {
+  const { document } = parseHTML(html);
+  if (url) {
+    Object.defineProperty(document, 'documentURI', { value: url, configurable: true });
+    Object.defineProperty(document, 'baseURI', { value: url, configurable: true });
+  }
+
+  const structured = url ? extractStructured(document, new URL(url)) : null;
+  const { id: sourceId, method } = canonicalSourceId(
+    {
+      doi: structured?.doi ?? undefined,
+      arxiv: structured?.arxiv ?? undefined,
+      pubmed: structured?.pubmed ?? undefined,
+      isbn: structured?.isbn ?? undefined,
+      url: url ?? undefined,
+    },
+    url ? undefined : html,
+  );
+
+  let title: string;
+  try {
+    title = extractReadableFromDoc(document, url ?? '').title;
+  } catch {
+    title = document.title || '';
+  }
+  return { sourceId, method, title };
 }
 
 // ── Fetch + content-type routing ─────────────────────────────────────────
