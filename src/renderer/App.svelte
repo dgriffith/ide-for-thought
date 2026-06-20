@@ -109,6 +109,8 @@
    *  `onboarding.dismissed` flag is false. */
   let showOnboarding = $state(false);
 
+  // Inspections hidden for v1.0 — kept at 0 (no polling), so the status-bar
+  // badge never shows. See the disabled polling in the project-open handler.
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
   /** Frontmatter alias → relativePath snapshot (#469). Refreshed on
@@ -132,11 +134,6 @@
     } catch {
       aliasEntries = [];
     }
-  }
-
-  async function refreshInspectionCount() {
-    const results = await api.graph.inspections();
-    inspectionCount = (results as unknown[]).length;
   }
 
   /**
@@ -1016,10 +1013,9 @@
       sidebar?.refreshTables();
       await refreshSourcesCache();
       await refreshAliasMap();
-      // Load inspection count after a brief delay to let health checks finish
-      setTimeout(refreshInspectionCount, 3000);
-      // Refresh periodically
-      setInterval(refreshInspectionCount, 60000);
+      // Inspections hidden for v1.0: count polling disabled so the status-bar
+      // badge stays hidden (inspectionCount stays 0). Restore the
+      // setTimeout/setInterval(refreshInspectionCount) to re-enable.
       // Restore position for the active tab after tabs are rendered
       const activeTab = editor.activeNoteTab;
       if (activeTab?.cursorOffset != null) {
