@@ -66,7 +66,8 @@
       id: 'activity',
       label: 'Activity',
       items: [
-        { id: 'inspections', label: 'Inspections', icon: 'inspections' },
+        // Inspections panel hidden for v1.0 — the InspectionsPanel component +
+        // render branch are kept; restore this tab entry to re-enable.
         { id: 'proposals',   label: 'Proposals',   icon: 'proposals' },
       ],
     },
