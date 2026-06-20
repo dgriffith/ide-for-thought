@@ -11,6 +11,7 @@ import { registerBuiltinExporters } from './publish';
 import { installCsp } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
+import { stopClipperServer } from './clipper/lifecycle';
 import { registerSkillsAtStartup } from './skills/register';
 
 app.setName('Minerva');
@@ -96,6 +97,7 @@ app.on('before-quit', (event) => {
   Promise.allSettled([
     flushAllProjects(),
     shutdownAllKernels(),
+    stopClipperServer(),
   ])
     .catch((err) => console.warn('[quit] shutdown failed:', err))
     .finally(() => app.quit());

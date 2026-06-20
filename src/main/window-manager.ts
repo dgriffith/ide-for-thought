@@ -14,6 +14,7 @@ import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { installNavigationGuards } from './security';
+import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
@@ -122,6 +123,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
       void releaseProject(heldRoot, win.id);
     }
     persistSession();
+    syncClipperLifecycle();
   });
 
   win.on('move', persistSession);
@@ -155,6 +157,35 @@ export function windowsForProject(rootPath: string): BrowserWindow[] {
     if (contexts.get(win.id)?.rootPath === rootPath) hits.push(win);
   }
   return hits;
+}
+
+/**
+ * Which thoughtbase a clipped page lands in: the focused window's project if
+ * it has one, else the first open project. When the clip arrives Minerva isn't
+ * focused (the browser is), so the fallback is the common path — fine for the
+ * single-project norm; a multi-project picker is a later refinement.
+ */
+function resolveActiveRootPath(): string | null {
+  const focused = BrowserWindow.getFocusedWindow();
+  if (focused && !focused.isDestroyed()) {
+    const r = contexts.get(focused.id)?.rootPath;
+    if (r) return r;
+  }
+  for (const ctx of contexts.values()) {
+    if (ctx.rootPath) return ctx.rootPath;
+  }
+  return null;
+}
+
+/**
+ * Start the clipper server when a project is open (and the feature is
+ * enabled), stop it when none are. Called after any project open/close.
+ */
+function syncClipperLifecycle(): void {
+  if (!isClipperEnabled()) return;
+  const anyOpen = [...contexts.values()].some((c) => c.rootPath);
+  if (anyOpen) void ensureClipperRunning(resolveActiveRootPath);
+  else void stopClipperServer();
 }
 
 export async function openProjectInWindow(win: BrowserWindow, rootPath: string): Promise<void> {
@@ -397,6 +428,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // registered, but the renderer still needs a kick to load it.)
   if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
   persistSession();
+  syncClipperLifecycle();
 }
 
 export function closeProjectInWindow(winId: number): void {
@@ -414,6 +446,7 @@ export function closeProjectInWindow(winId: number): void {
   }
   rebuildMenu();
   persistSession();
+  syncClipperLifecycle();
 }
 
 export function getWindowById(id: number): BrowserWindow | null {
