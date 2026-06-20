@@ -296,6 +296,10 @@ export const Channels = {
    *  tags on source ingest" and friends. */
   INGEST_GET_SETTINGS: 'ingest:getSettings',
   INGEST_SET_SETTINGS: 'ingest:setSettings',
+  /** Browser-clipper enable + pairing (#791). */
+  CLIPPER_GET_STATE: 'clipper:getState',
+  CLIPPER_SET_ENABLED: 'clipper:setEnabled',
+  CLIPPER_REGENERATE_SECRET: 'clipper:regenerateSecret',
   /** Smart-route ingest: takes a raw string from a clipboard paste or
    *  the "+" button, detects whether it's a DOI / arXiv id / PMID /
    *  URL, and dispatches to the matching ingest path (#473). */

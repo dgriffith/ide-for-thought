@@ -1,5 +1,6 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
+import type { ClipperState } from '../../../shared/clipper-pairing';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -380,6 +381,14 @@ export interface BookmarksApi {
   save(tree: BookmarkNode[]): Promise<void>;
 }
 
+export interface ClipperApi {
+  /** Enable toggle + secret + (when running) pairing code, for Settings (#791). */
+  getState(): Promise<ClipperState>;
+  setEnabled(enabled: boolean): Promise<ClipperState>;
+  /** Rotate the secret, invalidating the old pairing code. */
+  regenerateSecret(): Promise<ClipperState>;
+}
+
 export interface ConversationsApi {
   create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
@@ -606,6 +615,7 @@ export interface IdeApi {
   publish: PublishApi;
   shell: ShellApi;
   bookmarks: BookmarksApi;
+  clipper: ClipperApi;
   conversations: ConversationsApi;
   proposals: ProposalsApi;
   tabs: TabsApi;

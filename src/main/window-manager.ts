@@ -123,7 +123,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
       void releaseProject(heldRoot, win.id);
     }
     persistSession();
-    syncClipperLifecycle();
+    void syncClipperLifecycle();
   });
 
   win.on('move', persistSession);
@@ -178,14 +178,25 @@ function resolveActiveRootPath(): string | null {
 }
 
 /**
- * Start the clipper server when a project is open (and the feature is
- * enabled), stop it when none are. Called after any project open/close.
+ * Reconcile the clipper server with desired state: running iff the feature is
+ * enabled AND a thoughtbase is open. Called after any project open/close and
+ * after the Settings toggle changes.
  */
-function syncClipperLifecycle(): void {
-  if (!isClipperEnabled()) return;
+async function syncClipperLifecycle(): Promise<void> {
+  const enabled = await isClipperEnabled();
   const anyOpen = [...contexts.values()].some((c) => c.rootPath);
-  if (anyOpen) void ensureClipperRunning(resolveActiveRootPath);
-  else void stopClipperServer();
+  if (enabled && anyOpen) await ensureClipperRunning(resolveActiveRootPath);
+  else await stopClipperServer();
+}
+
+/**
+ * Apply a clipper config change from Settings (#791): enable toggled, or the
+ * secret rotated. Stop first so a fresh start picks up the new secret / state,
+ * then reconcile. Exposed for the IPC layer.
+ */
+export async function applyClipperConfigChange(): Promise<void> {
+  await stopClipperServer();
+  await syncClipperLifecycle();
 }
 
 export async function openProjectInWindow(win: BrowserWindow, rootPath: string): Promise<void> {
@@ -428,7 +439,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // registered, but the renderer still needs a kick to load it.)
   if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
   persistSession();
-  syncClipperLifecycle();
+  void syncClipperLifecycle();
 }
 
 export function closeProjectInWindow(winId: number): void {
@@ -446,7 +457,7 @@ export function closeProjectInWindow(winId: number): void {
   }
   rebuildMenu();
   persistSession();
-  syncClipperLifecycle();
+  void syncClipperLifecycle();
 }
 
 export function getWindowById(id: number): BrowserWindow | null {

@@ -243,6 +243,11 @@ contextBridge.exposeInMainWorld('api', {
     load: () => ipcRenderer.invoke(Channels.BOOKMARKS_LOAD),
     save: (tree: unknown) => ipcRenderer.invoke(Channels.BOOKMARKS_SAVE, tree),
   },
+  clipper: {
+    getState: () => ipcRenderer.invoke(Channels.CLIPPER_GET_STATE),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke(Channels.CLIPPER_SET_ENABLED, enabled),
+    regenerateSecret: () => ipcRenderer.invoke(Channels.CLIPPER_REGENERATE_SECRET),
+  },
   tabs: {
     save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
     load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
