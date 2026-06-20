@@ -39,14 +39,33 @@ export interface ParseCache {
   isProtected(offset: number): boolean;
 }
 
+/**
+ * Thoughtbase-scope context for cross-note rules (#215). Most rules are
+ * purely local and ignore this; a few need to know about *other* notes —
+ * which paths exist, or who links to a given anchor. The orchestrator
+ * populates it on the main side (it has the graph + file list); buffer-mode
+ * formatting (e.g. paste) leaves it undefined, and ctx-dependent rules must
+ * no-op gracefully when a field they need is absent.
+ */
+export interface FormatContext {
+  /** Relative path of the note being formatted. */
+  notePath?: string;
+  /** All `.md` relative paths in the thoughtbase. */
+  allNotePaths?: readonly string[];
+  /** How many notes link to `target#slug` (slug is a heading slug, or a
+   *  `^block-id` including the caret). Backed by the graph. */
+  incomingAnchorLinkCount?: (target: string, slug: string) => number;
+}
+
 export interface FormatterRule<Config = unknown> {
   id: string;
   category: FormatterCategory;
   title: string;
   description: string;
   defaultConfig: Config;
-  /** Pure, idempotent. Must not perform IO or mutate shared state. */
-  apply(content: string, config: Config, cache: ParseCache): string;
+  /** Idempotent, no IO of its own. `ctx` (#215) is the only outside channel:
+   *  cross-note rules read through it; local rules ignore it. */
+  apply(content: string, config: Config, cache: ParseCache, ctx?: FormatContext): string;
 }
 
 /** A rule bound to its user-configured state for a single invocation. */

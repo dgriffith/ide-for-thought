@@ -70,8 +70,8 @@ export function registerRefactor(): void {
   // Formatter (issue #153)
   ipcMain.handle(
     Channels.FORMATTER_FORMAT_CONTENT,
-    (_e, content: string, settings: FormatSettings, relativePath?: string) =>
-      formatNoteContent(content, settings, relativePath),
+    (e, content: string, settings: FormatSettings, relativePath?: string) =>
+      formatNoteContent(content, settings, relativePath, rootPathFromEvent(e) ?? undefined),
   );
 
   // Project-scoped formatter settings (#154). Stored in .minerva/formatter.json

@@ -101,3 +101,35 @@ describe('formatter orchestrator heading-rename cascade (#156)', () => {
     expect(result.cascadedPaths).toEqual([]);
   });
 });
+
+describe('formatter orchestrator cross-note context (#215)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('strip-orphaned-block-ids drops a block-id nothing links to, keeps a linked one', async () => {
+    writeNote(root, 'notes/foo.md', 'linked para ^kept\n\norphan para ^gone\n');
+    writeNote(root, 'notes/bar.md', 'See [[notes/foo#^kept]].\n');
+
+    await indexNote(ctx, 'notes/foo.md', readNote(root, 'notes/foo.md'));
+    await indexNote(ctx, 'notes/bar.md', readNote(root, 'notes/bar.md'));
+
+    const result = await formatFile(root, 'notes/foo.md', {
+      enabled: { 'strip-orphaned-block-ids': true },
+      configs: {},
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.after).toBe('linked para ^kept\n\norphan para\n');
+    expect(readNote(root, 'notes/foo.md')).toBe('linked para ^kept\n\norphan para\n');
+  });
+});
