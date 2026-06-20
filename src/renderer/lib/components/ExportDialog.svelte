@@ -28,6 +28,9 @@
   // Index into scopeCandidates — the variant within a family at the chosen
   // scope (e.g. Markdown Cleaned vs Verbatim). Usually there's only one.
   let variantIndex = $state(0);
+  // How many wiki-link hops out from the current note the 'tree' scope walks
+  // (#: export-menu-redesign). 1 = this note + what it directly links to.
+  let treeDepth = $state(3);
   let linkPolicy = $state<LinkPolicy>('inline-title');
   let citationStyle = $state<string>('apa');
   let citationLocale = $state<string>('en-US');
@@ -95,7 +98,7 @@
   function scopeInput(): { kind: Scope; relativePath?: string; maxDepth?: number } {
     if (scope === 'single-note') return { kind: 'single-note', relativePath: activeFilePath ?? '' };
     if (scope === 'folder') return { kind: 'folder', relativePath: activeFolder };
-    if (scope === 'tree') return { kind: 'tree', relativePath: activeFilePath ?? '', maxDepth: 3 };
+    if (scope === 'tree') return { kind: 'tree', relativePath: activeFilePath ?? '', maxDepth: treeDepth };
     if (scope === 'source') return { kind: 'source', relativePath: activeSourceId ?? '' };
     return { kind: 'project' };
   }
@@ -148,6 +151,7 @@
   $effect(() => {
     void scope;
     void variantIndex;
+    void treeDepth;
     void linkPolicy;
     void citationStyle;
     void citationLocale;
@@ -223,7 +227,7 @@
           {#if availableScopes.includes('tree')}
             <label>
               <input type="radio" name="scope" value="tree" bind:group={scope} />
-              Note tree from current note (depth 3)
+              Linked notes <span class="scope-hint">— this note and the notes it links to</span>
             </label>
           {/if}
           {#if availableScopes.includes('project')}
@@ -238,6 +242,22 @@
               This source{activeSourceId ? ` (${activeSourceId})` : ''}
             </label>
           {/if}
+        </div>
+      </div>
+    {/if}
+
+    {#if scope === 'tree'}
+      <div class="option-row">
+        <span class="field-label">Depth</span>
+        <div class="depth-control">
+          <select bind:value={treeDepth}>
+            {#each [1, 2, 3, 4, 5] as d (d)}
+              <option value={d}>{d} hop{d === 1 ? '' : 's'}</option>
+            {/each}
+          </select>
+          <span class="scope-hint">
+            how far to follow links out from this note{plan ? ` — ${plan.inputs.length} note${plan.inputs.length === 1 ? '' : 's'}` : ''}
+          </span>
         </div>
       </div>
     {/if}
@@ -479,6 +499,20 @@
     border-radius: 4px;
     padding: 10px 12px;
     margin-bottom: 12px;
+  }
+
+  .scope-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .depth-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .depth-control select {
+    flex: 0 0 auto;
   }
   .radio-group {
     display: flex;
