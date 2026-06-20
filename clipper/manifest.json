@@ -10,7 +10,8 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Save to Minerva"
+    "default_title": "Save to Minerva",
+    "default_popup": "popup.html"
   },
   "options_ui": {
     "page": "options.html",

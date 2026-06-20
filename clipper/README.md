@@ -5,8 +5,9 @@ selection rides along as a linked excerpt. The browser sends the **rendered
 HTML it can see**, so authenticated / paywalled pages extract correctly (the
 app does the Readability extraction, not the extension).
 
-This is the first cut (#792): Chrome only, save-with-defaults, no popup UI.
-Richer popup (tags / note / id preview) is #793; packaging/signing is #795.
+Chrome only for now (#792). The toolbar button opens a popup to curate before
+saving — add tags / a note and confirm the canonical source id (#793) — while
+the keyboard shortcut stays a no-UI instant save. Packaging/signing is #795.
 
 ## Build
 
@@ -33,17 +34,26 @@ pnpm typecheck:clipper  # tsc over the extension sources
 
 ## Use
 
-- Click the toolbar button (pin it first — see Install), or press
-  **⌘⇧S / Ctrl+Shift+S**, on any page.
-- A badge flashes **✓** on success, **!** on failure, **?** if not yet paired.
+- **Curate, then save:** click the toolbar button (pin it first — see Install)
+  to open the popup. It shows the page title + the canonical source **id** the
+  save will produce (e.g. `arxiv-2604.18561`), and lets you add **tags** and a
+  **note** before hitting **Save**. A current text selection is saved as a
+  linked excerpt.
+- **Instant save:** press **⌘⇧S / Ctrl+Shift+S** on any page — no popup,
+  defaults only. A badge flashes **✓** on success, **!** on failure, **?** if
+  not yet paired.
 
 ## How it talks to Minerva
 
-POSTs `{ url, html, selection?, pageTitle }` to the app's loopback endpoint
-(`http://127.0.0.1:<port>/ingest`) with the shared secret in the
-`x-minerva-clipper-secret` header. The request goes out from the **service
-worker** (extension origin) — the endpoint rejects content-script / web-page
-origins, so capture and send are deliberately split.
+- `POST /ingest` — `{ url, html, pageTitle, selection?, tags?, note? }` saves the
+  Source (and an excerpt / tags / about-note as supplied).
+- `POST /preview` — `{ url, html }` → `{ sourceId, method, title }`: the id the
+  save *would* produce, with no write. Powers the popup's live id preview.
+
+Both carry the shared secret in the `x-minerva-clipper-secret` header and go to
+`http://127.0.0.1:<port>`. Requests originate from the extension (popup /
+service worker), whose `chrome-extension://` origin the endpoint accepts — it
+rejects content-script / web-page origins, so capture and send are split.
 
 > Icons are intentionally omitted for the unpacked dev build; Chrome shows a
 > default. A branded icon set lands with packaging (#795).

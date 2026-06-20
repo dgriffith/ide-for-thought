@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Save to Minerva</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 13px/1.45 system-ui, sans-serif;
+        width: 20rem;
+        margin: 0;
+        padding: 0.85rem;
+      }
+      h1 { font-size: 0.95rem; margin: 0 0 0.5rem; }
+      label { display: block; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+      input, textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font: inherit;
+        padding: 0.35rem 0.4rem;
+      }
+      textarea { min-height: 3.2rem; resize: vertical; }
+      .preview {
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        opacity: 0.85;
+        word-break: break-all;
+        min-height: 1.2em;
+        margin: 0.1rem 0 0.2rem;
+      }
+      .title { opacity: 0.7; font-size: 12px; min-height: 1.2em; }
+      .sel { opacity: 0.7; font-size: 12px; font-style: italic; }
+      .row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+      button { padding: 0.4rem 0.9rem; font: inherit; cursor: pointer; }
+      button[disabled] { opacity: 0.5; cursor: default; }
+      #status { min-height: 1.2em; font-size: 12px; margin-left: auto; text-align: right; }
+    </style>
+  </head>
+  <body>
+    <h1>Save to Minerva</h1>
+
+    <div class="title" id="title">Reading the page…</div>
+    <div class="preview" id="preview"></div>
+    <div class="sel" id="selection"></div>
+
+    <label for="tags">Tags <span style="font-weight: 400; opacity: 0.6;">(optional)</span></label>
+    <input id="tags" type="text" placeholder="comma or space separated" />
+
+    <label for="note">Note <span style="font-weight: 400; opacity: 0.6;">(optional)</span></label>
+    <textarea id="note" placeholder="A note filed alongside the source"></textarea>
+
+    <div class="row">
+      <button id="save" disabled>Save</button>
+      <span id="status"></span>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
