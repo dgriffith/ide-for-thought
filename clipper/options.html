@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Minerva Clipper</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        font: 14px/1.5 system-ui, sans-serif;
+        max-width: 32rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 { font-size: 1.2rem; }
+      ol { padding-left: 1.2rem; }
+      textarea {
+        width: 100%;
+        min-height: 4rem;
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+        box-sizing: border-box;
+      }
+      .row { display: flex; gap: 0.5rem; margin: 0.75rem 0; }
+      button { padding: 0.4rem 0.8rem; cursor: pointer; }
+      #status { min-height: 1.4em; font-size: 13px; opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <h1>Minerva Clipper</h1>
+    <ol>
+      <li>In Minerva, open <strong>Settings → Browser Clipper</strong> and turn it on.</li>
+      <li>Open a thoughtbase, then copy the <strong>pairing code</strong>.</li>
+      <li>Paste it below and click <strong>Pair</strong>.</li>
+    </ol>
+    <textarea id="code" placeholder="Paste pairing code here"></textarea>
+    <div class="row">
+      <button id="pair">Pair</button>
+      <button id="test">Test connection</button>
+      <button id="unpair">Unpair</button>
+    </div>
+    <p id="status"></p>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

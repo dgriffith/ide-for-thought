@@ -33,6 +33,11 @@ export default tseslint.config(
       // CLI scripts run by `pnpm new-tool` (#511). Plain Node ESM, not
       // part of the TS project; lint via `node --check` if needed.
       'scripts/**',
+      // The browser-clipper extension (#792) is a separate build target with
+      // its own tsconfig (DOM + chrome globals) and esbuild bundle — not part
+      // of the app's Node/Electron TS project. Type-check via
+      // `pnpm typecheck:clipper`; its pure logic is covered by tests/clipper.
+      'clipper/**',
     ],
   },
   js.configs.recommended,
