@@ -39,6 +39,7 @@
   import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
   import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
+  import AboutDialog from './lib/components/AboutDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
@@ -225,6 +226,7 @@
   const { showPrompt, showConfirm } = dialogs;
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);
+  let showAbout = $state(false);
 
   /**
    * Bookmark the section the cursor sits in — the nearest heading at/above
@@ -905,6 +907,7 @@
     api.menu.onFindInNotes(() => { findInNotesMode = 'find'; });
     api.menu.onReplaceInNotes(() => { findInNotesMode = 'replace'; });
     api.menu.onPrint(() => window.print());
+    api.menu.onAbout(() => { showAbout = true; });
     api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
     api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
     api.menu.onOpenSettings(() => { showSettings = true; });
@@ -1489,6 +1492,9 @@
       {commands}
       onClose={() => { showCommandPalette = false; }}
     />
+  {/if}
+  {#if showAbout}
+    <AboutDialog onClose={() => { showAbout = false; }} />
   {/if}
   {#if exportDialogGroup}
     <ExportDialog

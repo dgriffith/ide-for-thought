@@ -135,6 +135,7 @@ export const Channels = {
   MENU_CLOSE_PROJECT: 'menu:closeProject',
   MENU_CLEAR_RECENT: 'menu:clearRecent',
   MENU_PRINT: 'menu:print',
+  MENU_ABOUT: 'menu:about',
   MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
@@ -498,6 +499,7 @@ export const Channels = {
   MENU_EXPORT: 'menu:export',
 
   // Renderer → main (for menu-triggered main-process actions)
+  APP_GET_INFO: 'app:getInfo',
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',

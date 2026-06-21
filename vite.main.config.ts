@@ -1,6 +1,24 @@
 import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
+
+// Stamp the build with the current commit + date so the About dialog (#803)
+// can show what's running. Resolved at config-eval time (Node); a packaged
+// build has no git, so these are baked in here. Falls back gracefully in a
+// checkout without git / a shallow clone.
+function gitCommit(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString().trim();
+  } catch {
+    return 'unknown';
+  }
+}
 
 export default defineConfig({
+  define: {
+    __APP_COMMIT__: JSON.stringify(gitCommit()),
+    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+  },
   build: {
     rollupOptions: {
       // Kept as runtime `require`s rather than bundled:

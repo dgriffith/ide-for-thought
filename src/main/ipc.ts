@@ -16,6 +16,7 @@ import { registerPublish } from './ipc/register-publish';
 import { registerConversation } from './ipc/register-conversation';
 import { registerBookmarks } from './ipc/register-bookmarks';
 import { registerClipper } from './ipc/register-clipper';
+import { registerApp } from './ipc/register-app';
 
 export function registerIpcHandlers(): void {
   registerNotebase();
@@ -36,4 +37,5 @@ export function registerIpcHandlers(): void {
   registerConversation();
   registerBookmarks();
   registerClipper();
+  registerApp();
 }
