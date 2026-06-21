@@ -55,7 +55,7 @@
       <section class="ack">
         <h3>Acknowledgments</h3>
         <p>
-          Several thinking skills — Rhyme, Metaphorize, and Dimensionalize — are adapted from
+          Many of Minerva's thinking skills are adapted from
           <button class="link" onclick={() => open(FUTURE_TOKENS_URL)}>Future Tokens</button>
           by Jordan Rubin, used with thanks under its Creative Commons license.
         </p>
