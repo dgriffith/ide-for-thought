@@ -32,5 +32,6 @@ await build({
 await cp(path.join(root, 'manifest.json'), path.join(out, 'manifest.json'));
 await cp(path.join(root, 'options.html'), path.join(out, 'options.html'));
 await cp(path.join(root, 'popup.html'), path.join(out, 'popup.html'));
+await cp(path.join(root, 'icons'), path.join(out, 'icons'), { recursive: true });
 
 console.log('Minerva Clipper built →', path.relative(process.cwd(), out));
