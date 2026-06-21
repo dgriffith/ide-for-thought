@@ -72,7 +72,7 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           {
             label: 'Minerva',
             submenu: [
-              { role: 'about' as const },
+              { label: 'About Minerva', click: () => send(Channels.MENU_ABOUT) },
               { type: 'separator' as const },
               {
                 label: 'Preferences\u2026',

@@ -2,6 +2,9 @@
 
 exports[`preload contextBridge contract (#676) > matches the full method surface (snapshot — drift must be reviewed) 1`] = `
 {
+  "app": [
+    "getInfo",
+  ],
   "bibliography": [
     "generate",
     "getStyle",
@@ -123,6 +126,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "outgoing",
   ],
   "menu": [
+    "onAbout",
     "onBibliography",
     "onClearRecent",
     "onCloseProject",

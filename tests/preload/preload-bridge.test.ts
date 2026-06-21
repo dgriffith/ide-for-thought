@@ -54,7 +54,7 @@ describe('preload contextBridge contract (#676)', () => {
 
   it('exposes exactly the expected namespace set', () => {
     expect(Object.keys(api()).sort()).toEqual([
-      'bibliography', 'bookmarks', 'citations', 'clipper', 'collections', 'compute',
+      'app', 'bibliography', 'bookmarks', 'citations', 'clipper', 'collections', 'compute',
       'conversations', 'csl', 'export', 'files', 'formatter', 'git', 'graph',
       'links', 'menu', 'notebase', 'proposals', 'publish', 'queries',
       'refactor', 'search', 'shell', 'sites', 'skills', 'sources', 'tables',

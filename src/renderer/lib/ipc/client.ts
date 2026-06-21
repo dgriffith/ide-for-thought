@@ -397,6 +397,21 @@ export interface ShellApi {
   openExternal(url: string): Promise<void>;
 }
 
+/** App + build metadata for the About dialog (#803). */
+export interface AppInfo {
+  name: string;
+  version: string;
+  commit: string;
+  buildDate: string;
+  electron: string;
+  chrome: string;
+  node: string;
+}
+
+export interface AppApi {
+  getInfo(): Promise<AppInfo>;
+}
+
 export interface BookmarksApi {
   load(): Promise<BookmarkNode[]>;
   save(tree: BookmarkNode[]): Promise<void>;
@@ -592,6 +607,7 @@ export interface MenuApi {
   onSortLines(cb: () => void): void;
   onOpenSettings(cb: () => void): void;
   onPrint(cb: () => void): void;
+  onAbout(cb: () => void): void;
   onOpenInDefault(cb: () => void): void;
   onOpenInTerminal(cb: () => void): void;
   onOpenProject(cb: () => void): void;
@@ -635,6 +651,7 @@ export interface IdeApi {
   compute: ComputeApi;
   publish: PublishApi;
   shell: ShellApi;
+  app: AppApi;
   bookmarks: BookmarksApi;
   clipper: ClipperApi;
   conversations: ConversationsApi;

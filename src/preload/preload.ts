@@ -177,6 +177,9 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
     runExport: (args: unknown) => ipcRenderer.invoke(Channels.PUBLISH_RUN_EXPORT, args),
   },
+  app: {
+    getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
+  },
   shell: {
     revealFile: (relativePath?: string) =>
       ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
@@ -499,6 +502,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onPrint: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_PRINT, () => cb());
+    },
+    onAbout: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_ABOUT, () => cb());
     },
     onOpenInDefault: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_OPEN_IN_DEFAULT, () => cb());
