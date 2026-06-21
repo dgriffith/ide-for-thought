@@ -35,7 +35,7 @@
     <header class="card-header">
       <div class="eyebrow">About</div>
       <h2 class="title" id="about-title">Minerva</h2>
-      <p class="tagline">A desktop IDE for thought — markdown notes backed by a knowledge graph and git.</p>
+      <p class="tagline">Thoughts Worth Keeping</p>
     </header>
 
     <div class="body">
@@ -119,7 +119,8 @@
   }
   .tagline {
     margin: 6px 0 0;
-    font-size: 12.5px;
+    font-size: 13.5px;
+    font-style: italic;
     color: var(--text-muted);
     line-height: 1.5;
   }
