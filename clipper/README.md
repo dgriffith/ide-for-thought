@@ -55,5 +55,5 @@ Both carry the shared secret in the `x-minerva-clipper-secret` header and go to
 service worker), whose `chrome-extension://` origin the endpoint accepts — it
 rejects content-script / web-page origins, so capture and send are split.
 
-> Icons are intentionally omitted for the unpacked dev build; Chrome shows a
-> default. A branded icon set lands with packaging (#795).
+Branded toolbar + extension icons live in `clipper/icons/` (16/32/48/128) and
+are copied into `dist/` by the build. Store packaging/signing is still #795.

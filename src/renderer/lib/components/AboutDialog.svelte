@@ -7,6 +7,9 @@
    */
   import { api } from '../ipc/client';
   import type { AppInfo } from '../ipc/client';
+  // Vite resolves the bundled icon to a URL (same `?url` pattern as the OCR
+  // trained-data asset). SVG keeps it crisp at any DPI.
+  import iconUrl from '../../assets/minerva-icon.svg?url';
 
   interface Props {
     onClose: () => void;
@@ -33,9 +36,12 @@
 <div class="overlay" onkeydown={handleKeydown} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
     <header class="card-header">
-      <div class="eyebrow">About</div>
-      <h2 class="title" id="about-title">Minerva</h2>
-      <p class="tagline">Thoughts Worth Keeping</p>
+      <img class="app-icon" src={iconUrl} alt="" />
+      <div class="brand">
+        <div class="eyebrow">About</div>
+        <h2 class="title" id="about-title">Minerva</h2>
+        <p class="tagline">Thoughts Worth Keeping</p>
+      </div>
     </header>
 
     <div class="body">
@@ -100,6 +106,18 @@
 
   .card-header {
     padding: 20px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .app-icon {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 14px;
+  }
+  .brand {
+    min-width: 0;
   }
   .eyebrow {
     font-family: var(--font-mono);

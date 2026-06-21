@@ -68,6 +68,10 @@ function copyExternalDeps(buildPath: string): void {
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Minerva',
+    // App icon (#805). Base path without extension — electron-packager picks
+    // `.icns` on macOS and `.ico` on Windows. Linux has no embedded app icon,
+    // so the window/taskbar icon is set at runtime from resources/icons.
+    icon: path.resolve(process.cwd(), 'assets', 'Minerva'),
     // Stage `resources/python/minerva_kernel.py` (and anything else
     // we drop under `resources/`) next to the main bundle in the
     // packaged app, so process.resourcesPath finds it (#241).
@@ -85,7 +89,7 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerZIP({}, ['darwin', 'linux', 'win32']),
-    new MakerDMG({}),
+    new MakerDMG({ icon: path.resolve(process.cwd(), 'assets', 'Minerva.icns') }),
   ],
   plugins: [
     new VitePlugin({
