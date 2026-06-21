@@ -63,7 +63,7 @@ vi.mock('../../src/main/publish', () => ({
 
 // ── The actual test ──────────────────────────────────────────────────────
 
-import { rebuildMenu, collectAcceleratorsByMenu } from '../../src/main/menu';
+import { rebuildMenu, collectAcceleratorsByMenu, formatAccelerator, getMenuShortcuts } from '../../src/main/menu';
 
 describe('collectAcceleratorsByMenu (#398)', () => {
   it('returns empty for an empty template', () => {
@@ -140,5 +140,36 @@ describe('production menu has no within-menu accelerator collisions (#398)', () 
       }
     }
     expect(collisions, collisions.join('\n')).toEqual([]);
+  });
+});
+
+describe('formatAccelerator (#804)', () => {
+  it('renders macOS symbol form, joined without separators', () => {
+    expect(formatAccelerator('CmdOrCtrl+Shift+S', 'darwin')).toBe('⌘⇧S');
+    expect(formatAccelerator('Cmd+,', 'darwin')).toBe('⌘,');
+    expect(formatAccelerator('Alt+Ctrl+P', 'darwin')).toBe('⌥⌃P');
+  });
+
+  it('renders Ctrl-word form on other platforms, plus-joined', () => {
+    expect(formatAccelerator('CmdOrCtrl+Shift+S', 'win32')).toBe('Ctrl+Shift+S');
+    expect(formatAccelerator('CmdOrCtrl+/', 'linux')).toBe('Ctrl+/');
+  });
+});
+
+describe('getMenuShortcuts (#804)', () => {
+  it('groups the live accelerators by top-level menu, top label dropped', () => {
+    rebuildMenu(); // populate the cached template
+    const groups = getMenuShortcuts();
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) {
+      expect(typeof g.menu).toBe('string');
+      expect(g.items.length).toBeGreaterThan(0);
+      for (const item of g.items) {
+        expect(item.label).not.toBe('');
+        expect(item.keys).not.toBe('');
+        // The top-level menu label is dropped from the item label.
+        expect(item.label.startsWith(`${g.menu} › `)).toBe(false);
+      }
+    }
   });
 });

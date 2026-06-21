@@ -1,5 +1,6 @@
 import { ipcMain, app } from 'electron';
 import { Channels } from '../../shared/channels';
+import { getMenuShortcuts } from '../menu';
 
 // Injected by vite.main.config.ts `define` at build time — a packaged app has
 // no git to query at runtime, so the commit + date are baked in.
@@ -27,4 +28,7 @@ export function registerApp(): void {
     chrome: process.versions.chrome,
     node: process.versions.node,
   }));
+
+  // Keyboard-shortcut reference for the Help menu (#804).
+  ipcMain.handle(Channels.APP_GET_SHORTCUTS, () => getMenuShortcuts());
 }

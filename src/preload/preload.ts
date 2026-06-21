@@ -179,6 +179,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   app: {
     getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
+    getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
   },
   shell: {
     revealFile: (relativePath?: string) =>
@@ -505,6 +506,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onAbout: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_ABOUT, () => cb());
+    },
+    onShortcuts: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SHORTCUTS, () => cb());
     },
     onOpenInDefault: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_OPEN_IN_DEFAULT, () => cb());

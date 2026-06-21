@@ -4,6 +4,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
 {
   "app": [
     "getInfo",
+    "getShortcuts",
   ],
   "bibliography": [
     "generate",
@@ -175,6 +176,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onReplaceInNotes",
     "onSave",
     "onSaveAsTemplate",
+    "onShortcuts",
     "onSortLines",
     "onToggleConversations",
     "onTogglePreview",

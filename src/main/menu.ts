@@ -668,28 +668,85 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
 
     // Help
     {
+      role: 'help',
       label: 'Help',
       submenu: [
         {
-          label: 'Keyboard Shortcuts',
+          label: 'Keyboard Shortcuts…',
           accelerator: 'CmdOrCtrl+/',
-          enabled: false,
-          click: () => {},
+          click: () => send(Channels.MENU_SHORTCUTS),
         },
         { type: 'separator' },
         {
-          label: 'Report Issue',
-          click: () => {
-            void shell.openExternal('https://github.com/dgriffith/minerva/issues');
-          },
+          label: 'Documentation',
+          click: () => { void shell.openExternal(DOCS_URL); },
         },
+        {
+          label: 'Report an Issue…',
+          click: () => { void shell.openExternal(ISSUES_URL); },
+        },
+        // macOS keeps About in the app menu; Windows/Linux have no app menu,
+        // so About lives at the foot of Help (the platform convention).
+        ...(isMac
+          ? []
+          : [
+              { type: 'separator' as const },
+              { label: 'About Minerva', click: () => send(Channels.MENU_ABOUT) },
+            ]),
       ],
     },
   ];
 
+  lastTemplate = template;
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
   return template;
+}
+
+const DOCS_URL = 'https://github.com/dgriffith/ide-for-thought/tree/main/docs';
+const ISSUES_URL = 'https://github.com/dgriffith/ide-for-thought/issues';
+
+/** The most recently built menu template — the source for the shortcuts
+ *  reference, so it reflects whatever menu state the user is actually in. */
+let lastTemplate: Electron.MenuItemConstructorOptions[] | null = null;
+
+export interface ShortcutItem { label: string; keys: string }
+export interface ShortcutGroup { menu: string; items: ShortcutItem[] }
+
+/**
+ * The keyboard-shortcut reference for the Help menu (#804) — every accelerator
+ * in the live menu, grouped by top-level menu, with keys formatted for the
+ * current platform. Built from the last menu template so it tracks real state.
+ */
+export function getMenuShortcuts(): ShortcutGroup[] {
+  const template = lastTemplate ?? rebuildMenu();
+  const groups: ShortcutGroup[] = [];
+  for (const [menu, entries] of collectAcceleratorsByMenu(template)) {
+    const items = entries.map((e) => ({
+      // Drop the top-level menu label; keep any submenu nesting.
+      label: e.path.slice(1).join(' › ') || menu,
+      keys: formatAccelerator(e.accelerator),
+    }));
+    groups.push({ menu, items });
+  }
+  return groups;
+}
+
+/** Render an Electron accelerator string for display on the current platform
+ *  (⌘⇧S on macOS, Ctrl+Shift+S elsewhere). */
+export function formatAccelerator(accelerator: string, platform: NodeJS.Platform = process.platform): string {
+  const isMac = platform === 'darwin';
+  const mac: Record<string, string> = {
+    CmdOrCtrl: '⌘', Cmd: '⌘', Command: '⌘', Ctrl: '⌃', Control: '⌃',
+    Alt: '⌥', Option: '⌥', Shift: '⇧', Super: '⌘', Plus: '+', Minus: '−',
+  };
+  const other: Record<string, string> = {
+    CmdOrCtrl: 'Ctrl', Cmd: 'Ctrl', Command: 'Ctrl', Ctrl: 'Ctrl', Control: 'Ctrl',
+    Alt: 'Alt', Option: 'Alt', Shift: 'Shift', Super: 'Win', Plus: '+', Minus: '−',
+  };
+  const map = isMac ? mac : other;
+  const tokens = accelerator.split('+').map((t) => map[t] ?? t);
+  return isMac ? tokens.join('') : tokens.join('+');
 }
 
 /**

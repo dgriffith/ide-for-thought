@@ -408,8 +408,19 @@ export interface AppInfo {
   node: string;
 }
 
+/** One keyboard shortcut for the Help ▸ Keyboard Shortcuts reference (#804). */
+export interface ShortcutItem {
+  label: string;
+  keys: string;
+}
+export interface ShortcutGroup {
+  menu: string;
+  items: ShortcutItem[];
+}
+
 export interface AppApi {
   getInfo(): Promise<AppInfo>;
+  getShortcuts(): Promise<ShortcutGroup[]>;
 }
 
 export interface BookmarksApi {
@@ -608,6 +619,7 @@ export interface MenuApi {
   onOpenSettings(cb: () => void): void;
   onPrint(cb: () => void): void;
   onAbout(cb: () => void): void;
+  onShortcuts(cb: () => void): void;
   onOpenInDefault(cb: () => void): void;
   onOpenInTerminal(cb: () => void): void;
   onOpenProject(cb: () => void): void;
