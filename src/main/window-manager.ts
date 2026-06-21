@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
+import { appIconPath } from './app-icon';
 import { startWatching, stopWatching } from './notebase/watcher';
 import { markPathHandled as markPathHandledImpl, wasHandled } from './notebase/path-dedup';
 import * as graph from './graph/index';
@@ -64,6 +65,9 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     ...(opts?.x != null && opts?.y != null ? { x: opts.x, y: opts.y } : {}),
     minWidth: 600,
     minHeight: 400,
+    // Window + taskbar icon on Linux/Windows (macOS uses the app bundle's
+    // embedded icon and ignores this) (#805).
+    icon: appIconPath(),
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {

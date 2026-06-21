@@ -5,6 +5,7 @@ import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
 import { buildMenu } from './menu';
 import { createWindow, openProjectInWindow } from './window-manager';
+import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
@@ -30,6 +31,12 @@ boot('main module loaded');
 
 void app.whenReady().then(async () => {
   boot('app ready');
+  // macOS dev dock icon (#805). A packaged .app gets its icon from the bundle
+  // (packagerConfig.icon); an unpackaged `electron-forge start` shows the stock
+  // Electron icon unless we set the dock icon here.
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.dock?.setIcon(appIconPath());
+  }
   installCsp();
   boot('csp installed');
   registerIpcHandlers();
