@@ -4,6 +4,7 @@ import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import path from 'node:path';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 // @electron-forge/plugin-vite bundles the main process and ships NO node_modules
 // in the package. That's fine for everything Rollup can bundle — but a few deps
@@ -65,9 +66,47 @@ function copyExternalDeps(buildPath: string): void {
   }
 }
 
+// macOS code signing + notarization (#661/#662). Signing runs only on macOS;
+// notarization additionally requires the App Store Connect API-key env vars, so a
+// plain local `pnpm build` (no creds) still signs but skips notarization instead
+// of erroring. Credentials are read from the environment and never committed:
+//   APPLE_API_KEY     — path to the AuthKey_XXXX.p8 file
+//   APPLE_API_KEY_ID  — the key's Key ID (10 chars)
+//   APPLE_API_ISSUER  — the App Store Connect Issuer ID (UUID)
+// The Developer ID Application identity is auto-detected from the login keychain;
+// set OSX_SIGN_IDENTITY to disambiguate if more than one is installed.
+const isDarwin = process.platform === 'darwin';
+const hasNotarizeCreds = Boolean(
+  process.env.APPLE_API_KEY && process.env.APPLE_API_KEY_ID && process.env.APPLE_API_ISSUER,
+);
+// Only sign for real release builds. Otherwise `electron-forge package` (used by
+// `pnpm build:e2e`) would try to sign on every dev/CI run and fail wherever no
+// Developer ID cert is installed. Signing turns on when notarize creds are present
+// (the release path), or when OSX_SIGN_IDENTITY is set to force sign-without-notarize.
+const wantSign = isDarwin && (hasNotarizeCreds || Boolean(process.env.OSX_SIGN_IDENTITY));
+
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Minerva',
+    // Hardened runtime + entitlements (auto-detected Developer ID Application cert).
+    // @electron/osx-sign applies the hardened runtime and signs nested binaries
+    // (the DuckDB .node, dylibs) automatically; entitlements come from the plist.
+    osxSign: wantSign
+      ? {
+          optionsForFile: () => ({
+            entitlements: path.resolve(process.cwd(), 'build', 'entitlements.mac.plist'),
+          }),
+          ...(process.env.OSX_SIGN_IDENTITY ? { identity: process.env.OSX_SIGN_IDENTITY } : {}),
+        }
+      : undefined,
+    osxNotarize:
+      isDarwin && hasNotarizeCreds
+        ? {
+            appleApiKey: process.env.APPLE_API_KEY as string,
+            appleApiKeyId: process.env.APPLE_API_KEY_ID as string,
+            appleApiIssuer: process.env.APPLE_API_ISSUER as string,
+          }
+        : undefined,
     // App icon (#805). Base path without extension — electron-packager picks
     // `.icns` on macOS and `.ico` on Windows. Linux has no embedded app icon,
     // so the window/taskbar icon is set at runtime from resources/icons.
@@ -113,6 +152,33 @@ const config: ForgeConfig = {
       ],
     }),
   ],
+  hooks: {
+    // Forge signs + notarizes + staples the .app during the package step, but the
+    // DMG maker wraps that app WITHOUT stapling the .dmg itself. An un-stapled DMG
+    // still works online (Gatekeeper checks notarization on mount) but fails to
+    // open offline. Notarize + staple each produced DMG here so the wrapper is
+    // self-contained. Runs only for release builds (notarize creds present); a
+    // plain dev `pnpm build` with no creds produces an unsigned DMG and skips this.
+    postMake: (_forgeConfig, makeResults) => {
+      if (!(isDarwin && hasNotarizeCreds)) return makeResults;
+      const dmgs = makeResults.flatMap((r) => r.artifacts).filter((a) => a.endsWith('.dmg'));
+      for (const dmg of dmgs) {
+        execFileSync(
+          'xcrun',
+          [
+            'notarytool', 'submit', dmg,
+            '--key', process.env.APPLE_API_KEY as string,
+            '--key-id', process.env.APPLE_API_KEY_ID as string,
+            '--issuer', process.env.APPLE_API_ISSUER as string,
+            '--wait',
+          ],
+          { stdio: 'inherit' },
+        );
+        execFileSync('xcrun', ['stapler', 'staple', dmg], { stdio: 'inherit' });
+      }
+      return makeResults;
+    },
+  },
 };
 
 export default config;
