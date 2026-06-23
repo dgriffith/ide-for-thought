@@ -136,6 +136,7 @@ export const Channels = {
   MENU_CLEAR_RECENT: 'menu:clearRecent',
   MENU_PRINT: 'menu:print',
   MENU_ABOUT: 'menu:about',
+  MENU_SHORTCUTS: 'menu:shortcuts',
   MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
@@ -500,6 +501,7 @@ export const Channels = {
 
   // Renderer → main (for menu-triggered main-process actions)
   APP_GET_INFO: 'app:getInfo',
+  APP_GET_SHORTCUTS: 'app:getShortcuts',
   EXPORT_CSV: 'export:csv',
   SHELL_REVEAL_FILE: 'shell:revealFile',
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
