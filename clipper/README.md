@@ -7,22 +7,27 @@ app does the Readability extraction, not the extension).
 
 Chrome only for now (#792). The toolbar button opens a popup to curate before
 saving — add tags / a note and confirm the canonical source id (#793) — while
-the keyboard shortcut stays a no-UI instant save. Packaging/signing is #795.
+the keyboard shortcut stays a no-UI instant save. Installs unpacked today;
+Chrome Web Store listing + signing is the remaining part of #795.
 
 ## Build
 
 ```sh
-pnpm build:clipper      # → clipper/dist/
+pnpm build:clipper      # → clipper/dist/ (load this unpacked during dev)
+pnpm package:clipper    # → clipper/minerva-clipper-<version>.zip (shareable / Web Store upload)
 pnpm typecheck:clipper  # tsc over the extension sources
 ```
+
+`package:clipper` rebuilds `dist/` and zips its contents (manifest at the archive
+root). You don't need the zip for local install — "Load unpacked" points straight
+at `dist/`.
 
 ## Install (unpacked)
 
 1. `pnpm build:clipper`
 2. Chrome → `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick `clipper/dist`.
 3. Click the puzzle-piece (Extensions) icon → **Pin** *Minerva Clipper* so its
-   button stays on the toolbar. (Until packaging adds an icon, it shows a
-   default placeholder.)
+   button stays on the toolbar.
 
 ## Pair
 
@@ -56,4 +61,5 @@ service worker), whose `chrome-extension://` origin the endpoint accepts — it
 rejects content-script / web-page origins, so capture and send are split.
 
 Branded toolbar + extension icons live in `clipper/icons/` (16/32/48/128) and
-are copied into `dist/` by the build. Store packaging/signing is still #795.
+are copied into `dist/` by the build. `pnpm package:clipper` zips a release
+artifact; the Chrome Web Store listing + review is the open part of #795.

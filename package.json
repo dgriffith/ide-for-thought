@@ -21,6 +21,7 @@
     "build:e2e": "NODE_OPTIONS=--max-old-space-size=4096 electron-forge package",
     "test:e2e": "pnpm build:e2e && playwright test",
     "build:clipper": "node clipper/build.mjs",
+    "package:clipper": "node clipper/package.mjs",
     "typecheck:clipper": "tsc -p clipper/tsconfig.json --noEmit"
   },
   "dependencies": {
