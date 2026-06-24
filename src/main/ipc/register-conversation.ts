@@ -793,4 +793,58 @@ export function registerConversation(): void {
       return conversation.setEffort(convId, effort);
     },
   );
+
+  ipcMain.handle(Channels.CONVERSATION_COMPACT, (_e, convId: string) => compactConversation(convId));
+}
+
+/**
+ * `/compact` (#824): client-side compaction. Summarizes the early history with
+ * a model call and seeds a fresh conversation with the summary + the retained
+ * recent turns. The pre-compaction original is archived (filed as a
+ * thought:Source, recoverable from the archived list), never silently
+ * destroyed. The summarization call's own token usage is recorded on the
+ * summary message (#820). Decision/assembly logic is in `llm/compact.ts`.
+ */
+async function compactConversation(
+  convId: string,
+): Promise<import('../../shared/types').CompactResult> {
+  const conv = await conversation.load(convId);
+  if (!conv) throw new Error(`Conversation not found: ${convId}`);
+  if (conv.status !== 'active') {
+    return { compacted: false, reason: 'This conversation is archived and can\'t be compacted.' };
+  }
+  const { planCompaction, buildSummaryPrompt, buildSummaryMessage, COMPACT_SYSTEM_PROMPT } =
+    await import('../llm/compact');
+  const plan = planCompaction(conv.messages);
+  if (!plan.ok) return { compacted: false, reason: plan.reason };
+
+  let usage: import('../../shared/types').TurnUsage | undefined;
+  let usageModel: string | undefined;
+  const { complete } = await import('../llm/index');
+  const summary = await complete(buildSummaryPrompt(plan.transcript), {
+    system: COMPACT_SYSTEM_PROMPT,
+    model: conv.model,
+    onUsage: (u, m) => { usage = u; usageModel = m; },
+  });
+  const summaryMsg = buildSummaryMessage(
+    plan.prefix.length,
+    summary,
+    usage,
+    usageModel,
+    new Date().toISOString(),
+  );
+
+  // Archive the original (files the full transcript as a thought:Source —
+  // recoverable) before opening the compacted continuation.
+  await conversation.archive(convId);
+  const createOpts: { systemPrompt?: string; model?: string } = {};
+  if (conv.systemPrompt) createOpts.systemPrompt = conv.systemPrompt;
+  if (conv.model) createOpts.model = conv.model;
+  const fresh = await conversation.create(
+    conv.contextBundle,
+    conv.triggerNodeUri,
+    Object.keys(createOpts).length > 0 ? createOpts : undefined,
+  );
+  const updated = await conversation.replaceMessages(fresh.id, [summaryMsg, ...plan.recent]);
+  return { compacted: true, conversation: updated };
 }

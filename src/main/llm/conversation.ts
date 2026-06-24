@@ -215,6 +215,23 @@ export async function setEffort(
   return conv;
 }
 
+/**
+ * Replace a conversation's entire message array (used by `/compact`, #824, to
+ * seed a fresh conversation with a summary + the retained recent turns).
+ * Re-persists the whole JSON like every other mutation; no graph re-projection
+ * since the conversation subject's triples don't depend on message content.
+ */
+export async function replaceMessages(
+  id: string,
+  messages: ConversationMessage[],
+): Promise<Conversation> {
+  const conv = await load(id);
+  if (!conv) throw new Error(`Conversation not found: ${id}`);
+  conv.messages = messages;
+  await persist(conv);
+  return conv;
+}
+
 export async function load(id: string): Promise<Conversation | null> {
   try {
     const data = await fs.readFile(convPath(id), 'utf-8');
