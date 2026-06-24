@@ -351,6 +351,13 @@ export interface ConversationMessage {
    * keyed off this lands in #821.
    */
   usageModel?: string;
+  /**
+   * Derived turn cost in USD, computed from `usage` under `usageModel`'s
+   * pricing at append time and persisted so a conversation's running total
+   * survives reload (#821). Absent when the producing model is unpriced — the
+   * UI then shows tokens only, never a guessed dollar figure.
+   */
+  costUSD?: number;
 }
 
 /**
