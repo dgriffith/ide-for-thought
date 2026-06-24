@@ -108,7 +108,7 @@ export async function appendMessage(
   id: string,
   role: ConversationMessage['role'],
   content: string,
-  extra?: Partial<Pick<ConversationMessage, 'citations'>>,
+  extra?: Partial<Pick<ConversationMessage, 'citations' | 'usage' | 'usageModel'>>,
 ): Promise<Conversation> {
   const conv = await load(id);
   if (!conv) throw new Error(`Conversation not found: ${id}`);
@@ -121,6 +121,13 @@ export async function appendMessage(
   };
   if (extra?.citations && extra.citations.length > 0) {
     message.citations = extra.citations;
+  }
+  // Persist per-turn token usage + producing model on the assistant message
+  // so the conversation's running cost survives reload (#820). Cost math
+  // keyed off this lands in #821.
+  if (extra?.usage) {
+    message.usage = extra.usage;
+    if (extra.usageModel) message.usageModel = extra.usageModel;
   }
   conv.messages.push(message);
   await persist(conv);
