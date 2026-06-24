@@ -6,6 +6,15 @@
   import { api } from '../ipc/client';
   import MarkdownIt from 'markdown-it';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+  import {
+    EFFORT_LEVELS,
+    supportedEfforts,
+    modelSupportsEffort,
+    effortSupported,
+    clampEffort,
+    isEffort,
+    type Effort,
+  } from '../../../shared/tools/effort';
   import type { ConversationDraft } from '../../../shared/conversation-drafts';
   import type {
     ConversationSourceDraft,
@@ -89,6 +98,7 @@
   // Project-default model — used to label the "Default" option so the
   // user can see which concrete model "default" resolves to.
   let defaultModel = $state<string | null>(null);
+  let defaultEffort = $state<Effort | undefined>(undefined);
   // Width-of-tab-bar overflow handling deferred to polish (#505).
 
   onMount(async () => {
@@ -99,6 +109,7 @@
     try {
       const s = await api.tools.getSettings();
       defaultModel = s.model ?? null;
+      defaultEffort = s.effort;
     } catch { /* settings unavailable; picker still works without the label */ }
   });
 
@@ -192,9 +203,31 @@
     }
   }
 
+  /** Resolve the model a conversation actually runs on (override → global
+   *  default → built-in fallback), for gating the effort picker. */
+  function effectiveModel(model: string | undefined): string {
+    return model ?? defaultModel ?? 'claude-sonnet-4-6';
+  }
+
   async function handleModelChange(tabId: string, e: Event) {
     const value = (e.currentTarget as HTMLSelectElement).value;
     await store.setModel(tabId, value || undefined);
+    // Re-gate effort against the new model: if the conversation pinned an
+    // effort the new model can't honor (e.g. Extra → Sonnet, or any → Haiku),
+    // clamp it to the nearest supported level (or clear it for Haiku) so the
+    // next turn doesn't 400.
+    const tab = store.tabs.find((t) => t.id === tabId);
+    const current = tab?.conversation.effort;
+    if (current) {
+      const model = effectiveModel(value || undefined);
+      const clamped = clampEffort(model, current);
+      if (clamped !== current) await store.setEffort(tabId, clamped);
+    }
+  }
+
+  async function handleEffortChange(tabId: string, e: Event) {
+    const value = (e.currentTarget as HTMLSelectElement).value;
+    await store.setEffort(tabId, isEffort(value) ? value : undefined);
   }
 
   function scrollToBottom() {
@@ -623,6 +656,22 @@
               <option value={m.value}>{m.label}</option>
             {/each}
           </select>
+          {#if modelSupportsEffort(effectiveModel(tab.conversation.model))}
+            {@const convModel = effectiveModel(tab.conversation.model)}
+            {@const inherited = defaultEffort ? clampEffort(convModel, defaultEffort) : undefined}
+            {@const inheritedLabel = inherited ? EFFORT_LEVELS.find((l) => l.value === inherited)?.label : null}
+            <select
+              class="model-picker effort-picker"
+              value={tab.conversation.effort && effortSupported(convModel, tab.conversation.effort) ? tab.conversation.effort : ''}
+              onchange={(e) => handleEffortChange(tab.id, e)}
+              title="Reasoning effort for this conversation"
+            >
+              <option value="">Effort: default{inheritedLabel ? ` (${inheritedLabel})` : ''}</option>
+              {#each EFFORT_LEVELS.filter((l) => supportedEfforts(convModel).includes(l.value)) as lvl}
+                <option value={lvl.value}>Effort: {lvl.label}</option>
+              {/each}
+            </select>
+          {/if}
           {#if onCreateNoteFromConversation}
             <button
               type="button"

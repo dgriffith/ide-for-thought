@@ -7,6 +7,7 @@ import {
   type ToolCallbacks,
 } from './tools';
 import type { Citation, TurnUsage } from '../../shared/types';
+import { resolveEffort, type Effort } from '../../shared/tools/effort';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { MISSING_API_KEY_MARKER } from '../../shared/llm-errors';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
@@ -79,6 +80,12 @@ export interface CompleteOptions {
   /** Override the global default model for this call only. */
   model?: string;
   /**
+   * Per-call reasoning-effort override (#825). Resolved over the global default
+   * and clamped to the model; omitted entirely for models without effort
+   * support (Haiku). Sent as `output_config.effort`.
+   */
+  effort?: Effort;
+  /**
    * Fired once the single completion finishes, with this call's token usage
    * and the model that produced it (#820). `complete()` keeps returning a
    * plain string — five callers depend on that contract — so usage is
@@ -97,6 +104,9 @@ export interface CompleteWithToolsOptions {
   maxIterations?: number;
   /** Override the global default model for this call only. */
   model?: string;
+  /** Per-call reasoning-effort override (#825); resolved over the global
+   *  default and clamped to the model. Sent as `output_config.effort`. */
+  effort?: Effort;
   /** Template-scoped tools to enable in addition to the default toolset. */
   extraTools?: ConversationToolKey[];
   /**
@@ -133,6 +143,7 @@ async function getClient(): Promise<{
   client: Anthropic;
   model: string;
   web: NonNullable<Awaited<ReturnType<typeof getSettings>>['web']>;
+  effort: Effort | undefined;
 }> {
   const settings = await getSettings();
   if (!settings.apiKey) {
@@ -148,7 +159,24 @@ async function getClient(): Promise<{
     client: new Anthropic({ apiKey: settings.apiKey }),
     model: settings.model,
     web: settings.web ?? { ...DEFAULT_WEB_SETTINGS },
+    effort: settings.effort,
   };
+}
+
+/**
+ * Build the `output_config` to attach to a Messages call for a given
+ * (model, override) pair, or `undefined` to omit it. Effort is resolved from
+ * the per-call override over the global default, then clamped to what the model
+ * supports — Haiku gets nothing (sending effort 400s); `xhigh` only survives on
+ * Opus. Returned as a partial so callers can spread it onto the params.
+ */
+function outputConfigFor(
+  model: string,
+  override: Effort | undefined,
+  globalDefault: Effort | undefined,
+): { output_config: { effort: Effort } } | undefined {
+  const effort = resolveEffort(model, override, globalDefault);
+  return effort ? { output_config: { effort } } : undefined;
 }
 
 /**
@@ -164,6 +192,7 @@ export async function complete(
   let messages: Anthropic.MessageParam[];
   let callbacks: StreamCallbacks | undefined;
   let modelOverride: string | undefined;
+  let effortOverride: Effort | undefined;
   let onUsage: ((usage: TurnUsage, model: string) => void) | undefined;
 
   if (callbacksOrOptions && 'onChunk' in callbacksOrOptions) {
@@ -174,20 +203,23 @@ export async function complete(
     system = opts.system;
     callbacks = opts.callbacks;
     modelOverride = opts.model;
+    effortOverride = opts.effort;
     onUsage = opts.onUsage;
     messages = (opts.messages ?? [{ role: 'user', content: prompt }]);
   } else {
     messages = [{ role: 'user', content: prompt }];
   }
 
-  const { client, model: defaultModel } = await getClient();
+  const { client, model: defaultModel, effort: defaultEffort } = await getClient();
   const model = modelOverride ?? defaultModel;
+  const outputConfig = outputConfigFor(model, effortOverride, defaultEffort);
 
   if (!callbacks) {
     const response = await client.messages.create({
       model,
       max_tokens: 16000,
       ...(system ? { system } : {}),
+      ...outputConfig,
       messages,
     });
     if (onUsage) onUsage(addUsage(emptyUsage(), response.usage), model);
@@ -198,6 +230,7 @@ export async function complete(
     model,
     max_tokens: 64000,
     ...(system ? { system } : {}),
+    ...outputConfig,
     messages,
   }, { signal: callbacks.signal });
 
@@ -219,8 +252,9 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { client, model: defaultModel, web } = await getClient();
+  const { client, model: defaultModel, web, effort: defaultEffort } = await getClient();
   const model = options.model ?? defaultModel;
+  const outputConfig = outputConfigFor(model, options.effort, defaultEffort);
   const { toolContext, callbacks, maxIterations = 10 } = options;
   const messages: Anthropic.MessageParam[] = [...options.messages];
 
@@ -278,6 +312,7 @@ export async function completeWithTools(
       system,
       tools,
       messages,
+      ...outputConfig,
     };
     if (containerId) streamParams.container = containerId;
     // Per-iteration diagnostic so the "container_id is required" 400s

@@ -579,6 +579,16 @@ async function setModel(tabId: string, model: string | undefined): Promise<void>
   tab.conversation = updated;
 }
 
+async function setEffort(
+  tabId: string,
+  effort: import('../../../shared/tools/effort').Effort | undefined,
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const updated = await api.conversations.setEffort(tabId, effort);
+  tab.conversation = updated;
+}
+
 /**
  * Dispatch a reserved built-in slash command (#822). Built-ins are app-level
  * conversation operations, not skills — the composer's slash menu routes them
@@ -888,6 +898,7 @@ export function getConversationsStore() {
     answerQuestion,
     cancel,
     setModel,
+    setEffort,
     runBuiltinCommand,
     approveDraft,
     discardDraft,

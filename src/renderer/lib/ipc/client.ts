@@ -457,6 +457,12 @@ export interface ConversationsApi {
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
+  /** Per-conversation reasoning-effort override (#825). Pass undefined to
+   *  clear it and inherit the global default. */
+  setEffort(
+    conversationId: string,
+    effort: import('../../../shared/tools/effort').Effort | undefined,
+  ): Promise<Conversation>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */

@@ -226,6 +226,13 @@ export interface LLMSettings {
   model: string;
   web?: WebSettings;
   /**
+   * Global default reasoning effort (#825), sent as `output_config.effort`.
+   * A per-conversation `Conversation.effort` overrides this. Clamped to what
+   * the active model supports at call time; `undefined` ⇒ use the built-in
+   * default. See `shared/tools/effort.ts`.
+   */
+  effort?: import('./effort').Effort;
+  /**
    * User-level overrides of each tool's preferred model. Keyed by tool id.
    * Resolution order for a tool invocation:
    *   request.modelOverride ?? toolModelOverrides[id] ?? tool.preferredModel ?? model

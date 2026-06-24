@@ -235,6 +235,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>
       ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
+    setEffort: (conversationId: string, effort: string | undefined) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_SET_EFFORT, conversationId, effort),
   },
   proposals: {
     list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),

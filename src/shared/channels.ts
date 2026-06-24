@@ -437,6 +437,8 @@ export const Channels = {
   /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */
   CONVERSATION_INSERT_COMPUTE_DRAFT: 'conversation:insertComputeDraft',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
+  /** Per-conversation reasoning-effort override (#825). */
+  CONVERSATION_SET_EFFORT: 'conversation:setEffort',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */

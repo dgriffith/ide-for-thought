@@ -198,6 +198,23 @@ export async function setModel(id: string, model: string | undefined): Promise<C
   return conv;
 }
 
+/**
+ * Pin a reasoning-effort override on this conversation (#825). Pass `undefined`
+ * to clear it so the conversation again inherits the global default. Mirrors
+ * `setModel`.
+ */
+export async function setEffort(
+  id: string,
+  effort: import('../../shared/tools/effort').Effort | undefined,
+): Promise<Conversation> {
+  const conv = await load(id);
+  if (!conv) throw new Error(`Conversation not found: ${id}`);
+  if (effort) conv.effort = effort;
+  else delete conv.effort;
+  await persist(conv);
+  return conv;
+}
+
 export async function load(id: string): Promise<Conversation | null> {
   try {
     const data = await fs.readFile(convPath(id), 'utf-8');

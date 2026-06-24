@@ -407,6 +407,12 @@ export interface Conversation {
    */
   model?: string;
   /**
+   * Per-conversation reasoning-effort override (#825). `undefined` means inherit
+   * the global default (`LLMSettings.effort`). Clamped to the active model's
+   * supported levels at call time. Mirrors the `model` override pattern.
+   */
+  effort?: import('./tools/effort').Effort;
+  /**
    * Tool-specific system prompt pinned on the conversation. When set, every
    * `send` uses this as the tool/user-supplied system (on top of the
    * default tool-using system prompt built on the main side). Set when the
