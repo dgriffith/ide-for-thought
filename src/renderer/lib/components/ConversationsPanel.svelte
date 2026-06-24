@@ -27,14 +27,13 @@
     ConversationComputeDraft,
   } from '../../../shared/conversation-compute-drafts';
   import type { ConversationMessage, Citation } from '../../../shared/types';
-  import type { ThinkingToolInfo } from '../../../shared/tools/types';
   import { insertCitationMarker } from '../conversations/cite-from-conversation';
   import { type CiteStatus } from '../conversations/citations';
   import MessageCitations from './MessageCitations.svelte';
   import DraftCard from './DraftCard.svelte';
   import ComputeDraftCard from './ComputeDraftCard.svelte';
   import { getSlashCommands } from '../tools/tool-registry';
-  import { slashQueryFromComposer, filterSlashCommands } from '../conversations/slash-commands';
+  import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../conversations/slash-commands';
   import {
     tabTitle,
     formatPropertyValue,
@@ -235,29 +234,35 @@
     await store.send(text, currentNotePath ?? undefined);
   }
 
-  // ── Slash-command launcher (#648) ───────────────────────────────────────
+  // ── Slash-command launcher (#648, #822) ─────────────────────────────────
   // Typing a single leading `/token` in the composer opens a filtered menu of
-  // skills that declared a slashCommand; selecting one invokes it exactly like
-  // the menu entry (host's onInvokeSkill → handleToolInvoke). The skill list is
-  // a snapshot of the registry (populated at startup, before the panel mounts).
+  // reserved built-in commands (#822) and skills that declared a slashCommand.
+  // Built-ins resolve first and route to an app-level handler; skills invoke
+  // exactly like the menu entry (host's onInvokeSkill → handleToolInvoke). The
+  // skill list is a snapshot of the registry (populated at startup, before the
+  // panel mounts).
   let slashOpen = $state(false);
   let slashIndex = $state(0);
-  let slashItems = $state<ThinkingToolInfo[]>([]);
+  let slashItems = $state<SlashMenuItem[]>([]);
 
   function refreshSlash(text: string) {
     const q = slashQueryFromComposer(text);
     if (q === null) { slashOpen = false; return; }
     // Read the registry lazily — skills register at app startup, which may race
     // this panel's mount; reading on open guarantees the populated list.
-    slashItems = filterSlashCommands(getSlashCommands(), q);
+    slashItems = buildSlashMenu(getSlashCommands(), q);
     slashIndex = 0;
     slashOpen = slashItems.length > 0;
   }
 
-  function selectSlash(tool: ThinkingToolInfo) {
+  function selectSlash(item: SlashMenuItem) {
     slashOpen = false;
     store.setComposer('');
-    onInvokeSkill?.(tool.id);
+    if (item.kind === 'builtin') {
+      void store.runBuiltinCommand(item.command.name);
+    } else {
+      onInvokeSkill?.(item.tool.id);
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -1059,7 +1064,7 @@
           <div class="composer-card">
             {#if slashOpen}
               <div class="slash-menu" role="listbox">
-                {#each slashItems as item, si (item.id)}
+                {#each slashItems as item, si (item.kind === 'builtin' ? `b:${item.command.name}` : `s:${item.tool.id}`)}
                   <button
                     type="button"
                     role="option"
@@ -1069,9 +1074,15 @@
                     onmousedown={(e) => { e.preventDefault(); selectSlash(item); }}
                     onmouseenter={() => (slashIndex = si)}
                   >
-                    <span class="slash-cmd">{item.slashCommand}</span>
-                    <span class="slash-name">{item.name}</span>
-                    <span class="slash-desc">{item.description}</span>
+                    {#if item.kind === 'builtin'}
+                      <span class="slash-cmd">{item.command.slashCommand}</span>
+                      <span class="slash-name">built-in</span>
+                      <span class="slash-desc">{item.command.description}</span>
+                    {:else}
+                      <span class="slash-cmd">{item.tool.slashCommand}</span>
+                      <span class="slash-name">{item.tool.name}</span>
+                      <span class="slash-desc">{item.tool.description}</span>
+                    {/if}
                   </button>
                 {/each}
               </div>
