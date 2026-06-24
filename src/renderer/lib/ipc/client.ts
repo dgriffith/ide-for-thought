@@ -457,6 +457,9 @@ export interface ConversationsApi {
   onStream(cb: (chunk: string) => void): void;
   cancel(): Promise<void>;
   setModel(conversationId: string, model: string | undefined): Promise<Conversation>;
+  /** Client-side compaction (#824): summarize earlier turns into a fresh
+   *  conversation, archiving the original. */
+  compact(conversationId: string): Promise<import('../../../shared/types').CompactResult>;
   /** Subscribe to drafts produced by the propose_notes tool. Drafts are scoped per conversation. */
   onDraft(cb: (draft: import('../../../shared/conversation-drafts').ConversationDraft) => void): void;
   /** File a draft as a Proposal AND auto-approve it (the user already reviewed the inline card). */

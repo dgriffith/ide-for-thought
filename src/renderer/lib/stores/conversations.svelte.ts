@@ -564,6 +564,43 @@ async function send(content: string, currentNotePath?: string): Promise<void> {
   }
 }
 
+/**
+ * `/compact` (#824): summarize earlier turns into a fresh conversation, then
+ * swap it into the same tab slot. The original is archived main-side (filed as
+ * a thought:Source). Shows a brief busy state while the summarization call
+ * runs; a too-short conversation is left untouched.
+ */
+async function compactConversation(): Promise<void> {
+  const tab = activeTab();
+  if (!tab || tab.streaming) return;
+  tab.streaming = true;
+  tab.streamedChunks = 'Compacting earlier turns…';
+  try {
+    const result = await api.conversations.compact(tab.id);
+    if (!result.compacted || !result.conversation) {
+      // Nothing to compact (or skipped) — leave the conversation as-is.
+      if (result.reason) console.info(`[conv] /compact: ${result.reason}`);
+      return;
+    }
+    const newTab = blankTabRuntime(result.conversation, [...tab.extraTools]);
+    const idx = tabs.findIndex((t) => t.id === tab.id);
+    if (idx === -1) {
+      tabs = [...tabs, newTab];
+    } else {
+      tabs = [...tabs.slice(0, idx), newTab, ...tabs.slice(idx + 1)];
+    }
+    activeTabId = newTab.id;
+    scheduleSave();
+  } catch (e) {
+    console.error('[conv] /compact failed:', e);
+  } finally {
+    // If the tab was swapped out, this just touches the now-detached old tab
+    // object; the new tab starts with streaming=false.
+    tab.streaming = false;
+    tab.streamedChunks = '';
+  }
+}
+
 async function answerQuestion(tabId: string, answer: string): Promise<void> {
   const tab = findTab(tabId);
   if (!tab || !tab.pendingQuestion) return;
@@ -591,9 +628,12 @@ function runBuiltinCommand(name: string): void {
     case 'clear':
       void clearConversation();
       break;
+    case 'compact':
+      void compactConversation();
+      break;
     default:
-      // Reserved but not yet wired (handler lands in #824). No-op loudly
-      // rather than throwing into the composer's keydown path.
+      // Reserved but not yet wired. No-op loudly rather than throwing into
+      // the composer's keydown path.
       console.warn(`[conv] no handler for built-in command: /${name}`);
   }
 }

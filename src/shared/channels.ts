@@ -437,6 +437,9 @@ export const Channels = {
   /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */
   CONVERSATION_INSERT_COMPUTE_DRAFT: 'conversation:insertComputeDraft',
   CONVERSATION_SET_MODEL: 'conversation:setModel',
+  /** Client-side compaction (#824): summarize earlier turns into a fresh
+   *  conversation, archiving the original. */
+  CONVERSATION_COMPACT: 'conversation:compact',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */
