@@ -579,6 +579,22 @@ async function setModel(tabId: string, model: string | undefined): Promise<void>
   tab.conversation = updated;
 }
 
+/**
+ * Dispatch a reserved built-in slash command (#822). Built-ins are app-level
+ * conversation operations, not skills — the composer's slash menu routes them
+ * here instead of through `onInvokeSkill`. Handlers land in #823 (`clear`) and
+ * #824 (`compact`); an unknown/not-yet-wired name no-ops loudly rather than
+ * throwing into the composer's keydown path.
+ */
+function runBuiltinCommand(name: string): void {
+  switch (name) {
+    default:
+      // Reserved but not yet wired (handlers land in #823/#824). No-op
+      // loudly rather than throwing into the composer's keydown path.
+      console.warn(`[conv] no handler for built-in command: /${name}`);
+  }
+}
+
 async function cancel(): Promise<void> {
   await api.conversations.cancel();
   const tab = activeTab();
@@ -872,6 +888,7 @@ export function getConversationsStore() {
     answerQuestion,
     cancel,
     setModel,
+    runBuiltinCommand,
     approveDraft,
     discardDraft,
     approveSourceDraft,

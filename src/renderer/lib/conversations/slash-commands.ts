@@ -10,6 +10,11 @@
 
 import type { ThinkingToolInfo } from '../../../shared/tools/types';
 import { isSourceScoped } from '../../../shared/tools/types';
+import {
+  filterBuiltinCommands,
+  RESERVED_BUILTIN_NAMES,
+  type BuiltinCommand,
+} from './builtin-commands';
 
 /**
  * The query for the slash menu, or null when the composer isn't a slash-command
@@ -44,6 +49,9 @@ export function filterSlashCommands(
     if (isSourceScoped(info)) continue;
     const key = commandKey(info);
     if (!key) continue;
+    // A built-in command name is reserved — a user skill can never shadow it
+    // (#822). Drop the colliding skill from the slash menu; the built-in wins.
+    if (RESERVED_BUILTIN_NAMES.has(key)) continue;
     const name = info.name.toLowerCase();
     let rank: number;
     if (q === '') rank = 3;
@@ -55,4 +63,31 @@ export function filterSlashCommands(
   }
   scored.sort((a, b) => (a.rank - b.rank) || a.key.localeCompare(b.key));
   return scored.map((s) => s.info);
+}
+
+/**
+ * A row in the composer slash menu — either a reserved built-in command or a
+ * skill. The panel renders both uniformly and dispatches on `kind`: built-ins
+ * route to their app-level handler, skills invoke as before (#822).
+ */
+export type SlashMenuItem =
+  | { kind: 'builtin'; command: BuiltinCommand }
+  | { kind: 'skill'; tool: ThinkingToolInfo };
+
+/**
+ * Build the full slash menu for a query: available built-ins first (so they're
+ * discoverable and unambiguous), then matching skills with reserved names
+ * already excluded. Ranking within each group is preserved from the underlying
+ * filters; built-ins always sort ahead of skills.
+ */
+export function buildSlashMenu(skills: ThinkingToolInfo[], query: string): SlashMenuItem[] {
+  const builtins: SlashMenuItem[] = filterBuiltinCommands(query).map((command) => ({
+    kind: 'builtin',
+    command,
+  }));
+  const skillItems: SlashMenuItem[] = filterSlashCommands(skills, query).map((tool) => ({
+    kind: 'skill',
+    tool,
+  }));
+  return [...builtins, ...skillItems];
 }
