@@ -249,6 +249,7 @@
   let clipperRevealed = $state(false);
   let clipperCopied = $state(false);
   let model = $state('claude-sonnet-4-6');
+  let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
   let clearApiKey = $state(false);
@@ -265,6 +266,7 @@
       const s = await api.tools.getSettings();
       loadedLlm = s;
       model = s.model;
+      effort = s.effort;
       apiKeyStatus = s.apiKey ? 'set' : 'unset';
       const web = s.web ?? { enabled: true, allowedDomains: [], blockedDomains: [] };
       webEnabled = web.enabled;
@@ -353,6 +355,7 @@
         allowedDomains: parseDomains(allowedDomainsText),
         blockedDomains: parseDomains(blockedDomainsText),
       },
+      ...(effort ? { effort } : {}),
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
     };
     try {
@@ -852,6 +855,7 @@
         {:else if activeTab === 'ai'}
           <AiSettings
             bind:model
+            bind:effort
             bind:apiKeyInput
             bind:clearApiKey
             {apiKeyStatus}

@@ -238,6 +238,52 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     expect(result.usageModel).toBe('claude-sonnet-4-6');
   });
 
+  it('sends output_config.effort, clamped to the model (#825)', async () => {
+    streamMock.mockReturnValue(streamReturning(textMessage('done')));
+
+    // Supported level passes through.
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+      model: 'claude-opus-4-8',
+      effort: 'xhigh',
+    });
+    expect((streamMock.mock.calls[0][0] as { output_config?: { effort: string } }).output_config)
+      .toEqual({ effort: 'xhigh' });
+
+    // xhigh isn't valid on Sonnet → clamped to high.
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+      model: 'claude-sonnet-4-6',
+      effort: 'xhigh',
+    });
+    expect((streamMock.mock.calls[1][0] as { output_config?: { effort: string } }).output_config)
+      .toEqual({ effort: 'high' });
+
+    // Haiku supports no effort → output_config omitted entirely.
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+      model: 'claude-haiku-4-5',
+      effort: 'high',
+    });
+    expect((streamMock.mock.calls[2][0] as { output_config?: unknown }).output_config).toBeUndefined();
+  });
+
+  it('omits output_config when no effort is configured', async () => {
+    streamMock.mockReturnValueOnce(streamReturning(textMessage('done')));
+    await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'go' }],
+      toolContext: { rootPath: root },
+    });
+    expect((streamMock.mock.calls[0][0] as { output_config?: unknown }).output_config).toBeUndefined();
+  });
+
   it('honours maxIterations as a hard cap on tool-use cycles', async () => {
     // Always return tool_use — the loop should break at maxIterations
     // without ever emitting a final text response.

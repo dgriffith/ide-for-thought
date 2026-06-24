@@ -11,9 +11,11 @@
    * read-only (reflects what's already stored).
    */
   import { MODEL_OPTIONS } from '../../../shared/tools/models';
+  import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
 
   interface Props {
     model: string;
+    effort: Effort | undefined;
     apiKeyInput: string;
     clearApiKey: boolean;
     apiKeyStatus: 'unknown' | 'set' | 'unset';
@@ -21,10 +23,18 @@
 
   let {
     model = $bindable(),
+    effort = $bindable(),
     apiKeyInput = $bindable(),
     clearApiKey = $bindable(),
     apiKeyStatus,
   }: Props = $props();
+
+  // '' in the <select> means "no override → built-in default"; map to/from
+  // the optional `effort` prop.
+  function onEffortChange(e: Event) {
+    const v = (e.currentTarget as HTMLSelectElement).value;
+    effort = v ? (v as Effort) : undefined;
+  }
 </script>
 
 <div class="field">
@@ -34,6 +44,21 @@
       <option value={m.value}>{m.label}</option>
     {/each}
   </select>
+</div>
+<div class="field">
+  <label for="effort">Default reasoning effort</label>
+  <select id="effort" value={effort ?? ''} onchange={onEffortChange}>
+    <option value="">Model default</option>
+    {#each EFFORT_LEVELS as lvl}
+      <option value={lvl.value}>{lvl.label}</option>
+    {/each}
+  </select>
+  <p class="hint">
+    Higher effort lets the model think longer. Leave on “Model default” to send
+    no preference. Per-conversation overrides take precedence. Not all models
+    support every level — the per-conversation picker only offers what the chosen
+    model accepts (Haiku has no effort control), and “Extra” is Opus-only.
+  </p>
 </div>
 <div class="field">
   <div class="api-key-status" class:saved={apiKeyStatus === 'set' && !clearApiKey}>

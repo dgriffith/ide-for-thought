@@ -300,6 +300,7 @@ export function registerConversation(): void {
           messages,
           toolContext: { rootPath, conversationId: convId },
           model: conv.model,
+          effort: conv.effort,
           extraTools,
           // Re-echo any prior turn's code-execution sandbox id. Required
           // by the API whenever the persisted message history still
@@ -330,6 +331,7 @@ export function registerConversation(): void {
           messages: recoveredMessages,
           toolContext: { rootPath, conversationId: convId },
           model: conv.model,
+          effort: conv.effort,
           extraTools,
           callbacks: streamCallbacks,
         });
@@ -784,4 +786,11 @@ export function registerConversation(): void {
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
     return conversation.setModel(convId, model);
   });
+
+  ipcMain.handle(
+    Channels.CONVERSATION_SET_EFFORT,
+    async (_e, convId: string, effort: import('../../shared/tools/effort').Effort | undefined) => {
+      return conversation.setEffort(convId, effort);
+    },
+  );
 }

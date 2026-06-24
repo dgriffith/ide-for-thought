@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { LLMSettings, WebSettings } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
+import { isEffort, type Effort } from '../../shared/tools/effort';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -26,6 +27,10 @@ function resolveWeb(stored: unknown): WebSettings {
   };
 }
 
+function resolveEffortSetting(stored: unknown): Effort | undefined {
+  return isEffort(stored) ? stored : undefined;
+}
+
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'llm-settings.json');
 }
@@ -38,6 +43,7 @@ export async function getSettings(): Promise<LLMSettings> {
       apiKey: parsed.apiKey ?? process.env.ANTHROPIC_API_KEY ?? '',
       model: resolveModel(parsed.model),
       web: resolveWeb(parsed.web),
+      ...(resolveEffortSetting(parsed.effort) ? { effort: resolveEffortSetting(parsed.effort) } : {}),
     };
   } catch {
     return {
