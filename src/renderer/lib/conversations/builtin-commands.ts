@@ -29,7 +29,7 @@ export const BUILTIN_COMMANDS: BuiltinCommand[] = [
     name: 'clear',
     slashCommand: '/clear',
     description: 'Archive this conversation and start a fresh one',
-    available: false,
+    available: true,
   },
   {
     name: 'compact',
