@@ -35,7 +35,7 @@ export const BUILTIN_COMMANDS: BuiltinCommand[] = [
     name: 'compact',
     slashCommand: '/compact',
     description: 'Summarize earlier turns to shorten a long thread',
-    available: false,
+    available: true,
   },
 ];
 

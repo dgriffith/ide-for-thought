@@ -439,6 +439,9 @@ export const Channels = {
   CONVERSATION_SET_MODEL: 'conversation:setModel',
   /** Per-conversation reasoning-effort override (#825). */
   CONVERSATION_SET_EFFORT: 'conversation:setEffort',
+  /** Client-side compaction (#824): summarize earlier turns into a fresh
+   *  conversation, archiving the original. */
+  CONVERSATION_COMPACT: 'conversation:compact',
   /** Load tool-window UI state (.minerva/conversations/_ui.json). */
   CONVERSATION_UI_STATE_LOAD: 'conversation:uiStateLoad',
   /** Persist tool-window UI state (visibility, height, last-active tab). */
