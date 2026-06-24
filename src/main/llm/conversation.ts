@@ -3,6 +3,7 @@ import path from 'node:path';
 import * as graph from '../graph/index';
 import { projectContext, type ProjectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
+import { costForUsage } from '../../shared/tools/models';
 import type {
   Conversation,
   ConversationMessage,
@@ -123,11 +124,16 @@ export async function appendMessage(
     message.citations = extra.citations;
   }
   // Persist per-turn token usage + producing model on the assistant message
-  // so the conversation's running cost survives reload (#820). Cost math
-  // keyed off this lands in #821.
+  // so the conversation's running cost survives reload (#820), and derive the
+  // dollar cost once at append time (#821). An unpriced model leaves costUSD
+  // absent — the UI shows tokens only rather than a guessed figure.
   if (extra?.usage) {
     message.usage = extra.usage;
-    if (extra.usageModel) message.usageModel = extra.usageModel;
+    if (extra.usageModel) {
+      message.usageModel = extra.usageModel;
+      const cost = costForUsage(extra.usage, extra.usageModel);
+      if (cost !== null) message.costUSD = cost;
+    }
   }
   conv.messages.push(message);
   await persist(conv);

@@ -42,6 +42,10 @@
     basename,
     sourceKindLabel,
   } from '../conversations/conversation-display';
+  import {
+    costBadgeFor,
+    formatTurnCost,
+  } from '../conversations/conversation-cost';
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the
@@ -592,6 +596,7 @@
 
     {#if store.activeTab}
       {@const tab = store.activeTab}
+      {@const costBadge = costBadgeFor(tab.conversation.messages)}
       <div class="content">
         <div class="context-rail">
           {#if tab.conversation.contextBundle.notePath}
@@ -629,7 +634,15 @@
         {#snippet messageBlock(msg: ConversationMessage, tab: TabT, msgIndex: number)}
           {#if msg.role !== 'system'}
             <div class="msg {msg.role}">
-              <div class="msg-role">{msg.role}</div>
+              <div class="msg-role">
+                <span>{msg.role}</span>
+                {#if msg.role === 'assistant'}
+                  {@const turnCost = formatTurnCost(msg)}
+                  {#if turnCost}
+                    <span class="msg-cost" title="Token usage / cost for this turn">{turnCost}</span>
+                  {/if}
+                {/if}
+              </div>
               {#if msg.role === 'assistant'}
                 <div class="msg-content">{@html md.render(msg.content)}</div>
                 {#if msg.citations && msg.citations.length > 0}
@@ -1078,6 +1091,12 @@
                 <span class="composer-context">{tab.conversation.contextBundle.notePath}</span>
               {/if}
               <span class="composer-spacer"></span>
+              {#if costBadge}
+                <span
+                  class="composer-cost"
+                  title={costBadge.title}
+                >{costBadge.text}</span>
+              {/if}
               <span class="composer-hint">⏎ send · ⇧⏎ newline</span>
               {#if tab.streaming}
                 <button type="button" class="send-btn" onclick={() => store.cancel()}>Cancel</button>
@@ -1312,8 +1331,17 @@
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-muted);
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
   .msg.user .msg-role { color: var(--accent); }
+  .msg-cost {
+    font-weight: 400;
+    text-transform: none;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+  }
   .msg-content {
     font-size: 13px;
     line-height: 1.5;
@@ -1745,6 +1773,14 @@
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
+  }
+  .composer-cost {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    margin-right: 10px;
+    cursor: default;
   }
 
   .send-btn {
