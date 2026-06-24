@@ -588,11 +588,83 @@ async function setModel(tabId: string, model: string | undefined): Promise<void>
  */
 function runBuiltinCommand(name: string): void {
   switch (name) {
+    case 'clear':
+      void clearConversation();
+      break;
     default:
-      // Reserved but not yet wired (handlers land in #823/#824). No-op
-      // loudly rather than throwing into the composer's keydown path.
+      // Reserved but not yet wired (handler lands in #824). No-op loudly
+      // rather than throwing into the composer's keydown path.
       console.warn(`[conv] no handler for built-in command: /${name}`);
   }
+}
+
+/** Empty per-turn state for a freshly-created conversation tab. Keeps the
+ *  three tab-construction sites from drifting as draft kinds are added. */
+function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]): TabRuntime {
+  return {
+    id: conv.id,
+    title: null,
+    conversation: conv,
+    drafts: [],
+    sourceDrafts: [],
+    sourceDraftResults: {},
+    noteDraftResults: {},
+    propertyDrafts: [],
+    propertyDraftResults: {},
+    sourcePropertyDrafts: [],
+    sourcePropertyDraftResults: {},
+    claimsDrafts: [],
+    claimsDraftResults: {},
+    computeDrafts: [],
+    computeDraftState: {},
+    pendingQuestion: null,
+    composer: '',
+    streaming: false,
+    streamedChunks: '',
+    extraTools,
+  };
+}
+
+/**
+ * `/clear` (#823): archive the active conversation and open a fresh one in its
+ * place, carrying the same context (origin note, trigger node, system prompt,
+ * model, template tools). Archive is non-destructive — it files the transcript
+ * as a `thought:Source` and leaves any pending approval proposals (which are
+ * graph-global, not conversation-scoped) untouched. Truncating in place would
+ * orphan those proposals, hence archive-and-new.
+ */
+async function clearConversation(): Promise<void> {
+  const tab = activeTab();
+  if (!tab) return;
+  const prev = tab.conversation;
+  // A brand-new, never-used conversation has nothing to archive — just no-op
+  // so spamming /clear doesn't litter the archived list with empties.
+  if (prev.messages.length === 0) return;
+  try {
+    await api.conversations.archive(prev.id);
+  } catch (e) {
+    // Already-archived or transient failure — proceed to open a fresh tab
+    // regardless so the user still gets their clean slate.
+    console.warn('[conv] /clear: archive failed', e);
+  }
+  const createOpts: { systemPrompt?: string; model?: string } = {};
+  if (prev.systemPrompt) createOpts.systemPrompt = prev.systemPrompt;
+  if (prev.model) createOpts.model = prev.model;
+  const fresh = await api.conversations.create(
+    prev.contextBundle,
+    prev.triggerNodeUri,
+    Object.keys(createOpts).length > 0 ? createOpts : undefined,
+  );
+  const newTab = blankTabRuntime(fresh, [...tab.extraTools]);
+  // Replace in place so the fresh conversation keeps the same tab slot.
+  const idx = tabs.findIndex((t) => t.id === tab.id);
+  if (idx === -1) {
+    tabs = [...tabs, newTab];
+  } else {
+    tabs = [...tabs.slice(0, idx), newTab, ...tabs.slice(idx + 1)];
+  }
+  activeTabId = newTab.id;
+  scheduleSave();
 }
 
 async function cancel(): Promise<void> {
