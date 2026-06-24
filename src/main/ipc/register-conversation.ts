@@ -339,7 +339,7 @@ export function registerConversation(): void {
         convId,
         'assistant',
         result.text,
-        { citations: result.citations },
+        { citations: result.citations, usage: result.usage, usageModel: result.usageModel },
       );
       // Persist the (possibly updated) container id so the next turn
       // for this conversation can echo it. We write unconditionally

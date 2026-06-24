@@ -318,11 +318,39 @@ export interface Citation {
   citedText: string;
 }
 
+/**
+ * Token usage for one completed assistant turn. For tool-using turns this is
+ * the **sum** across every iteration of the agentic loop — `completeWithTools`
+ * runs up to 10 model calls per turn, each with its own `usage`, and reading
+ * only the last one badly under-reports tool-heavy turns. Cache reads/writes
+ * are kept distinct from plain input tokens because they price differently
+ * (cache read ≈ 0.1× input, cache write ≈ 1.25× input — see #821).
+ */
+export interface TurnUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+}
+
 export interface ConversationMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string;
   citations?: Citation[];
+  /**
+   * Accumulated token usage for the turn that produced this (assistant)
+   * message. Persisted so a conversation's running cost survives reload
+   * (#820). Absent on user/system messages and on turns that predate usage
+   * capture.
+   */
+  usage?: TurnUsage;
+  /**
+   * The model that produced this turn. Usage is meaningless for cost without
+   * it — pricing is per-model. Recorded alongside `usage` (#820); cost math
+   * keyed off this lands in #821.
+   */
+  usageModel?: string;
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   type ToolContext,
   type ToolCallbacks,
 } from './tools';
-import type { Citation } from '../../shared/types';
+import type { Citation, TurnUsage } from '../../shared/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { MISSING_API_KEY_MARKER } from '../../shared/llm-errors';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
@@ -78,6 +78,14 @@ export interface CompleteOptions {
   callbacks?: StreamCallbacks;
   /** Override the global default model for this call only. */
   model?: string;
+  /**
+   * Fired once the single completion finishes, with this call's token usage
+   * and the model that produced it (#820). `complete()` keeps returning a
+   * plain string — five callers depend on that contract — so usage is
+   * surfaced out-of-band here. `/compact` (#824) uses this to count the
+   * summarization call's own tokens.
+   */
+  onUsage?: (usage: TurnUsage, model: string) => void;
 }
 
 export interface CompleteWithToolsOptions {
@@ -105,6 +113,14 @@ export interface CompleteWithToolsOptions {
 export interface CompleteWithToolsResult {
   text: string;
   citations: Citation[];
+  /**
+   * Token usage summed across every iteration of the agentic loop (#820).
+   * A tool-heavy turn loops N times; this is the total of all N, not the
+   * last iteration's reading.
+   */
+  usage: TurnUsage;
+  /** Model that produced this turn — needed to price `usage` (#821). */
+  usageModel: string;
   /** Final sandbox id at the end of this agent turn — pass to
    *  `setContainerId` so the next turn can echo it back. `undefined`
    *  if no server-side tool ran. */
@@ -148,6 +164,7 @@ export async function complete(
   let messages: Anthropic.MessageParam[];
   let callbacks: StreamCallbacks | undefined;
   let modelOverride: string | undefined;
+  let onUsage: ((usage: TurnUsage, model: string) => void) | undefined;
 
   if (callbacksOrOptions && 'onChunk' in callbacksOrOptions) {
     callbacks = callbacksOrOptions;
@@ -157,6 +174,7 @@ export async function complete(
     system = opts.system;
     callbacks = opts.callbacks;
     modelOverride = opts.model;
+    onUsage = opts.onUsage;
     messages = (opts.messages ?? [{ role: 'user', content: prompt }]);
   } else {
     messages = [{ role: 'user', content: prompt }];
@@ -172,6 +190,7 @@ export async function complete(
       ...(system ? { system } : {}),
       messages,
     });
+    if (onUsage) onUsage(addUsage(emptyUsage(), response.usage), model);
     return extractText(response.content);
   }
 
@@ -184,6 +203,7 @@ export async function complete(
 
   stream.on('text', (delta) => callbacks.onChunk(delta));
   const finalMessage = await stream.finalMessage();
+  if (onUsage) onUsage(addUsage(emptyUsage(), finalMessage.usage), model);
   return extractText(finalMessage.content);
 }
 
@@ -223,6 +243,10 @@ export async function completeWithTools(
 
   const textPieces: string[] = [];
   const citationMap = new Map<string, Citation>();
+  // Per-turn usage total, summed across every loop iteration below. Reading
+  // only the final iteration's usage would under-report tool-heavy turns by
+  // however many tool round-trips it took to get there (#820).
+  const usage = emptyUsage();
   // Code-execution sandbox id, threaded across iterations AND across
   // turns of the same conversation. The newer web_search_20260209 /
   // web_fetch_20260209 tools surface as `server_tool_use` blocks of
@@ -301,6 +325,7 @@ export async function completeWithTools(
     }
 
     const message = await stream.finalMessage();
+    addUsage(usage, message.usage);
     messages.push({ role: 'assistant', content: message.content });
     // Hold on to the container so the next iteration of this same
     // agent turn can reuse it. Don't clear if a later iteration's
@@ -415,6 +440,8 @@ export async function completeWithTools(
   return {
     text: textPieces.join(''),
     citations: [...citationMap.values()],
+    usage,
+    usageModel: model,
     ...(containerId ? { containerId } : {}),
     ...(containerExpiresAt ? { containerExpiresAt } : {}),
   };
@@ -435,6 +462,25 @@ function collectCitations(
       citedText: c.cited_text,
     });
   }
+}
+
+function emptyUsage(): TurnUsage {
+  return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+}
+
+/**
+ * Fold one API response's `usage` into a running per-turn total. Kept distinct
+ * by token kind (plain input vs cache read vs cache write) so #821 can price
+ * each at its own rate. Mutates and returns `acc` for terse call sites in the
+ * agentic loop.
+ */
+function addUsage(acc: TurnUsage, usage: Anthropic.Usage | undefined): TurnUsage {
+  if (!usage) return acc;
+  acc.inputTokens += usage.input_tokens ?? 0;
+  acc.outputTokens += usage.output_tokens ?? 0;
+  acc.cacheCreationTokens += usage.cache_creation_input_tokens ?? 0;
+  acc.cacheReadTokens += usage.cache_read_input_tokens ?? 0;
+  return acc;
 }
 
 function extractText(content: Anthropic.ContentBlock[]): string {

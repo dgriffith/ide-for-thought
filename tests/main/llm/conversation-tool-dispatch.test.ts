@@ -90,6 +90,20 @@ function toolUseMessage(name: string, input: unknown, id: string): Anthropic.Mes
   } as unknown as Anthropic.Message;
 }
 
+/** A text message carrying an explicit usage block, for accumulation tests. */
+function textMessageWithUsage(text: string, usage: Partial<Anthropic.Usage>): Anthropic.Message {
+  return { ...textMessage(text), usage: usage as unknown as Anthropic.Usage };
+}
+
+function toolUseMessageWithUsage(
+  name: string,
+  input: unknown,
+  id: string,
+  usage: Partial<Anthropic.Usage>,
+): Anthropic.Message {
+  return { ...toolUseMessage(name, input, id), usage: usage as unknown as Anthropic.Usage };
+}
+
 describe('completeWithTools() dispatch loop (#342)', () => {
   let root: string;
 
@@ -186,6 +200,42 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     });
     const args = streamMock.mock.calls[0][0] as { model: string };
     expect(args.model).toBe('claude-opus-4-7');
+  });
+
+  it('sums token usage across every iteration of a tool-heavy turn (#820)', async () => {
+    const notePath = 'notes/hello.md';
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fsp.writeFile(path.join(root, notePath), '# Hello\n', 'utf-8');
+
+    setupStreamWith([
+      toolUseMessageWithUsage('read_note', { relative_path: notePath }, 'tu-1', {
+        input_tokens: 100,
+        output_tokens: 10,
+        cache_creation_input_tokens: 200,
+        cache_read_input_tokens: 0,
+      }),
+      textMessageWithUsage('Final answer.', {
+        input_tokens: 50,
+        output_tokens: 20,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 300,
+      }),
+    ]);
+
+    const result = await completeWithTools({
+      system: 'sys',
+      messages: [{ role: 'user', content: 'read it' }],
+      toolContext: { rootPath: root },
+    });
+
+    // Two iterations → the sum, not the last reading.
+    expect(result.usage).toEqual({
+      inputTokens: 150,
+      outputTokens: 30,
+      cacheCreationTokens: 200,
+      cacheReadTokens: 300,
+    });
+    expect(result.usageModel).toBe('claude-sonnet-4-6');
   });
 
   it('honours maxIterations as a hard cap on tool-use cycles', async () => {
