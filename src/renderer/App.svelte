@@ -4,8 +4,7 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import SplitContainer from './lib/components/SplitContainer.svelte';
-  import PaneDropZone from './lib/components/PaneDropZone.svelte';
-  import { splitForZone, type DropZone } from './lib/editor/drop-zone';
+  import { dropZoneFromFraction, splitForZone, type DropZone } from './lib/editor/drop-zone';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
@@ -206,25 +205,65 @@
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
 
-  // Drag-tab-to-split (#817): the tab currently being dragged, by its source
-  // pane + index. Set on dragstart, cleared on drop/dragend. While set, each
-  // pane renders a PaneDropZone overlay. The payload rides in state rather than
-  // dataTransfer (which is unreadable during dragover in Chromium).
+  // Drag-tab-to-split (#817) — pointer-based, NOT HTML5 DnD. A macOS native
+  // drag enters a nested run-loop that suspends the page's reactivity queue, so
+  // an overlay created reactively on dragstart never renders and the drop never
+  // lands. Pointer events keep reactivity live, so the preview + drop both work
+  // (and it's deterministically testable).
+  //
+  // `draggingTab` is the tab being dragged once movement passes the threshold;
+  // `dropTarget` is the pane + zone currently under the pointer (drives the
+  // preview). `pendingDrag` is the pre-threshold press (plain, non-reactive).
   let draggingTab = $state<{ groupId: string; index: number } | null>(null);
+  let dropTarget = $state<{ groupId: string; zone: DropZone } | null>(null);
+  let pendingDrag: { groupId: string; index: number; startX: number; startY: number } | null = null;
+  const DRAG_THRESHOLD = 5; // px before a press becomes a drag
 
-  /** Resolve a tab drop on `targetGroupId`: edge zones split + move the dragged
-   *  tab into the new sub-pane; center moves it into the target pane (no-op when
-   *  dropped back on its own pane). */
-  function handleTabDrop(targetGroupId: string, zone: DropZone) {
+  // Suppress text selection / show a grabbing cursor while a tab drags.
+  $effect(() => {
+    document.body.classList.toggle('tab-dragging', draggingTab !== null);
+  });
+
+  function onTabPointerDown(groupId: string, index: number, e: PointerEvent) {
+    pendingDrag = { groupId, index, startX: e.clientX, startY: e.clientY };
+    window.addEventListener('pointermove', onTabPointerMove);
+    window.addEventListener('pointerup', onTabPointerUp, { once: true });
+  }
+
+  function onTabPointerMove(e: PointerEvent) {
+    if (!pendingDrag) return;
+    if (!draggingTab) {
+      if (Math.hypot(e.clientX - pendingDrag.startX, e.clientY - pendingDrag.startY) < DRAG_THRESHOLD) return;
+      draggingTab = { groupId: pendingDrag.groupId, index: pendingDrag.index };
+    }
+    dropTarget = dropTargetAt(e.clientX, e.clientY);
+  }
+
+  /** Which pane + zone the pointer is over, via the pane's data-group-id and
+   *  geometry. Returns null when the pointer isn't over a pane. */
+  function dropTargetAt(x: number, y: number): { groupId: string; zone: DropZone } | null {
+    const pane = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('.group-pane');
+    const groupId = pane?.dataset.groupId;
+    if (!pane || !groupId) return null;
+    const r = pane.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return null;
+    return { groupId, zone: dropZoneFromFraction((x - r.left) / r.width, (y - r.top) / r.height) };
+  }
+
+  function onTabPointerUp() {
+    window.removeEventListener('pointermove', onTabPointerMove);
     const drag = draggingTab;
+    const target = dropTarget;
+    pendingDrag = null;
     draggingTab = null;
-    if (!drag) return;
-    const split = splitForZone(zone);
+    dropTarget = null;
+    if (!drag || !target) return;
+    const split = splitForZone(target.zone);
     if (!split) {
-      if (drag.groupId === targetGroupId) return; // center of its own pane
-      editor.moveTab(drag.groupId, drag.index, targetGroupId);
+      if (drag.groupId === target.groupId) return; // center of its own pane → no-op
+      editor.moveTab(drag.groupId, drag.index, target.groupId);
     } else {
-      editor.moveTabToSplit(drag.groupId, drag.index, targetGroupId, split.direction, split.before);
+      editor.moveTabToSplit(drag.groupId, drag.index, target.groupId, split.direction, split.before);
     }
   }
 
@@ -1186,6 +1225,7 @@
             <div
               class="group-pane"
               class:focused={groupId === editor.activeGroupId && editor.groups.length > 1}
+              data-group-id={groupId}
               onpointerdowncapture={() => editor.setActiveGroup(groupId)}
             >
               {#if group.tabs.length > 0}
@@ -1201,8 +1241,7 @@
                   onOpenConversation={openConversation}
                   onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
                   onNewTab={() => { editor.setActiveGroup(groupId); void handleNewNote(); }}
-                  onTabDragStart={(i) => { draggingTab = { groupId, index: i }; }}
-                  onTabDragEnd={() => { draggingTab = null; }}
+                  onTabPointerDown={(i, e) => onTabPointerDown(groupId, i, e)}
                 />
               {/if}
               {#if active?.type === 'note'}
@@ -1389,8 +1428,8 @@
                   <p>Select a note from the sidebar</p>
                 </div>
               {/if}
-              {#if draggingTab}
-                <PaneDropZone onDropZone={(zone) => handleTabDrop(groupId, zone)} />
+              {#if draggingTab && dropTarget?.groupId === groupId}
+                <div class="drop-preview {dropTarget.zone}"></div>
               {/if}
             </div>
           {/if}
@@ -1690,6 +1729,31 @@
   /* Subtle focus ring on the active pane — only meaningful once split. */
   .group-pane.focused {
     box-shadow: inset 0 2px 0 0 var(--accent);
+  }
+
+  /* Drag-tab-to-split preview (#817): a faint accent wash over the half/area the
+     dragged tab will land in. pointer-events:none so the hit-test
+     (elementFromPoint) still resolves to the pane underneath. The inset
+     transition glides the highlight between zones instead of hard-snapping. */
+  .drop-preview {
+    position: absolute;
+    z-index: 6;
+    pointer-events: none;
+    background: color-mix(in oklch, var(--accent) 10%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 45%, transparent);
+    transition: inset 90ms ease;
+  }
+  .drop-preview.left { inset: 0 50% 0 0; }
+  .drop-preview.right { inset: 0 0 0 50%; }
+  .drop-preview.top { inset: 0 0 50% 0; }
+  .drop-preview.bottom { inset: 50% 0 0 0; }
+  .drop-preview.center { inset: 0; }
+
+  /* While a tab drags, kill text selection and show a grabbing cursor app-wide
+     (pointer-based drag, so no native drag cursor — #817). */
+  :global(body.tab-dragging) {
+    cursor: grabbing;
+    user-select: none;
   }
 
   .toolbar {
