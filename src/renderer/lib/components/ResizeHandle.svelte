@@ -23,6 +23,9 @@
   let dragging = $state(false);
   let last = 0;
 
+  /** Pixels nudged per arrow-key press (keyboard divider operation, #817). */
+  const KEY_STEP = 24;
+
   function coord(e: PointerEvent): number {
     return direction === 'horizontal' ? e.clientX : e.clientY;
   }
@@ -50,17 +53,44 @@
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     onResizeEnd?.();
   }
+
+  /**
+   * Keyboard operation (#817 a11y): the focused divider nudges the boundary by
+   * a fixed step. Arrow keys map to the split axis — Left/Right for a vertical
+   * bar (horizontal split), Up/Down for a horizontal bar (vertical split) —
+   * with "forward" growing the leading pane, matching a rightward/downward drag.
+   */
+  function onKeydown(e: KeyboardEvent) {
+    const forward = direction === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
+    const backward = direction === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
+    let delta: number;
+    if (e.key === forward) delta = KEY_STEP;
+    else if (e.key === backward) delta = -KEY_STEP;
+    else return;
+    e.preventDefault();
+    onResize(delta);
+    onResizeEnd?.();
+  }
 </script>
 
+<!-- A focusable separator is the ARIA "window splitter" pattern: it carries
+     role="separator" + tabindex and is operated with the arrow keys (#817).
+     Svelte's a11y lint treats a separator as non-interactive, so the
+     tabindex + keyboard/pointer listeners are intentional here. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="resize-handle {direction}"
   class:dragging
   role="separator"
+  tabindex="0"
   aria-orientation={direction === 'horizontal' ? 'vertical' : 'horizontal'}
+  aria-label="Resize split panes (use arrow keys)"
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
   onpointerup={endDrag}
   onpointercancel={endDrag}
+  onkeydown={onKeydown}
 ></div>
 
 <style>
@@ -87,5 +117,11 @@
   .resize-handle:hover,
   .resize-handle.dragging {
     background-color: var(--accent);
+  }
+  /* Keyboard focus: the 1px bar is easy to miss, so widen the accent hit. */
+  .resize-handle:focus-visible {
+    background-color: var(--accent);
+    outline: 1px solid var(--accent);
+    outline-offset: 1px;
   }
 </style>
