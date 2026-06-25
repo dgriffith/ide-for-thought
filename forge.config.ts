@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 // "cannot find @mixmark-io/domino" (turndown's DOM impl, required eagerly so it
 // crashed at launch). Rather than chase them one by one, we ship the *transitive
 // closure* of the known unbundleable roots. The packaged-app e2e (tests/e2e)
-// opens a real project and so fails loudly if this list ever goes stale again.
+// opens a real project and so fails loudly if this list ever goes stale again. #
 //
 // `afterPrune` runs after the plugin strips node_modules, so the copies survive.
 //

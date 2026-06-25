@@ -78,7 +78,9 @@
   import { registerSkillInfos } from './lib/tools/tool-registry';
   import { applyMenuConfig } from '../shared/skills/menu-config';
 
-  type ViewMode = 'source' | 'preview' | 'split';
+  // 'editor-preview' = source editor + rendered preview side by side. Named
+  // away from "split" so #810's pane-splitting feature can claim that word.
+  type ViewMode = 'source' | 'preview' | 'editor-preview';
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
@@ -805,7 +807,7 @@
 
   function cycleViewMode() {
     if (viewMode === 'source') viewMode = 'preview';
-    else if (viewMode === 'preview') viewMode = 'split';
+    else if (viewMode === 'preview') viewMode = 'editor-preview';
     else viewMode = 'source';
   }
 
@@ -1173,10 +1175,10 @@
                 title="Source (Cmd+Shift+P to cycle)"
               >Source</button>
               <button
-                class:active={viewMode === 'split'}
-                onclick={() => viewMode = 'split'}
-                title="Split view"
-              >Split</button>
+                class:active={viewMode === 'editor-preview'}
+                onclick={() => viewMode = 'editor-preview'}
+                title="Source + preview side by side"
+              >Side by side</button>
               <button
                 class:active={viewMode === 'preview'}
                 onclick={() => viewMode = 'preview'}
@@ -1190,8 +1192,8 @@
               title="Toggle Right Sidebar (Cmd+Shift+B)"
             ><Icon name="outline" size={12} /></button>
           </div>
-          <div class="editor-content" class:split={viewMode === 'split'}>
-            {#if viewMode === 'source' || viewMode === 'split'}
+          <div class="editor-content" class:editor-preview={viewMode === 'editor-preview'}>
+            {#if viewMode === 'source' || viewMode === 'editor-preview'}
               <div class="editor-panel">
                 {#key editor.activeFilePath}
                   <Editor
@@ -1247,7 +1249,7 @@
                 {/key}
               </div>
             {/if}
-            {#if viewMode === 'preview' || viewMode === 'split'}
+            {#if viewMode === 'preview' || viewMode === 'editor-preview'}
               <div class="preview-panel">
                 <Preview
                   bind:this={previewComponent}
@@ -1644,7 +1646,7 @@
     overflow: hidden;
   }
 
-  .editor-content.split {
+  .editor-content.editor-preview {
     gap: 1px;
     background: var(--border);
   }
