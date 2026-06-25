@@ -379,6 +379,19 @@ export interface PrivilegedSite {
 export type ConversationStatus = 'active' | 'archived';
 
 /**
+ * Result of a `/compact` (#824). On success, `conversation` is the fresh
+ * conversation (earlier turns replaced by a summary, recent turns kept
+ * verbatim); the pre-compaction original is archived and recoverable. When the
+ * thread is too short to be worth compacting, `compacted` is false and `reason`
+ * explains why — nothing is changed.
+ */
+export interface CompactResult {
+  compacted: boolean;
+  conversation?: Conversation;
+  reason?: string;
+}
+
+/**
  * Tool-window UI state for the conversations panel. Persisted in
  * `.minerva/conversations/_ui.json` so it survives relaunch but stays
  * project-scoped (different projects can have different layouts).
