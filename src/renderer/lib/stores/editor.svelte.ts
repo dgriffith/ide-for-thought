@@ -136,6 +136,25 @@ export function getEditorStore() {
     return groups.flatMap((g) => g.tabs);
   }
 
+  /** First tab matching `match` across every group, with its group + index.
+   *  Backs the forbid-duplicate-open rule (#815): a file/source/pdf lives in
+   *  at most one pane, so opening one already open anywhere just refocuses it. */
+  function locateTab(match: (t: Tab) => boolean): { group: EditorGroup; index: number } | null {
+    for (const group of groups) {
+      const index = group.tabs.findIndex(match);
+      if (index !== -1) return { group, index };
+    }
+    return null;
+  }
+
+  /** Focus the pane + tab `found` points at, and persist the focus change.
+   *  The redirect target when a duplicate open is suppressed (#815). */
+  function focusExistingTab(found: { group: EditorGroup; index: number }): void {
+    activeGroupId = found.group.id;
+    found.group.activeIndex = found.index;
+    schedulePersistTabs();
+  }
+
   function activeTab(): Tab | null {
     const g = activeGroup();
     return g.activeIndex >= 0 && g.activeIndex < g.tabs.length ? g.tabs[g.activeIndex] : null;
@@ -239,16 +258,16 @@ export function getEditorStore() {
   // ── Source operations ───────────────────────────────────────────────────
 
   function openSource(sourceId: string, opts?: { highlightExcerptId?: string; groupId?: string }) {
-    const grp = resolveGroup(opts?.groupId);
-    activeGroupId = grp.id;
-    const existing = grp.tabs.findIndex((t) => isSource(t) && t.sourceId === sourceId);
-    if (existing !== -1) {
-      const existingTab = grp.tabs[existing] as SourceTab;
-      existingTab.highlightExcerptId = opts?.highlightExcerptId;
-      grp.activeIndex = existing;
-      schedulePersistTabs();
+    // Forbid duplicate open (#815): if this source is already open in any pane,
+    // refocus it (refreshing the excerpt highlight) instead of opening a copy.
+    const found = locateTab((t) => isSource(t) && t.sourceId === sourceId);
+    if (found) {
+      (found.group.tabs[found.index] as SourceTab).highlightExcerptId = opts?.highlightExcerptId;
+      focusExistingTab(found);
       return;
     }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
     const tab: SourceTab = {
       type: 'source',
       sourceId,
@@ -260,16 +279,16 @@ export function getEditorStore() {
   }
 
   function openPdf(sourceId: string, opts?: { page?: number; groupId?: string }) {
-    const grp = resolveGroup(opts?.groupId);
-    activeGroupId = grp.id;
-    const existing = grp.tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
-    if (existing !== -1) {
-      const existingTab = grp.tabs[existing] as PdfTab;
-      if (opts?.page) existingTab.page = opts.page;
-      grp.activeIndex = existing;
-      schedulePersistTabs();
+    // Forbid duplicate open (#815): if this PDF is already open in any pane,
+    // refocus it (jumping to the requested page) instead of opening a copy.
+    const found = locateTab((t) => isPdf(t) && t.sourceId === sourceId);
+    if (found) {
+      if (opts?.page) (found.group.tabs[found.index] as PdfTab).page = opts.page;
+      focusExistingTab(found);
       return;
     }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
     const tab: PdfTab = {
       type: 'pdf',
       sourceId,
@@ -297,14 +316,18 @@ export function getEditorStore() {
   // ── Note operations ─────────────────────────────────────────────────────
 
   async function openFile(relativePath: string, groupId?: string) {
-    const grp = resolveGroup(groupId);
-    activeGroupId = grp.id;
-    const existing = grp.tabs.findIndex((t) => isNote(t) && t.relativePath === relativePath);
-    if (existing !== -1) {
-      grp.activeIndex = existing;
+    // Forbid duplicate open (#815): a note lives in at most one pane. If it's
+    // already open anywhere, focus that pane + tab rather than spawning a second
+    // live buffer (which would race to last-write-wins on save). This holds for
+    // every caller — sidebar, wiki-link, search, split-open.
+    const found = locateTab((t) => isNote(t) && t.relativePath === relativePath);
+    if (found) {
+      focusExistingTab(found);
       return;
     }
 
+    const grp = resolveGroup(groupId);
+    activeGroupId = grp.id;
     const text = await api.notebase.readFile(relativePath);
     const fileName = relativePath.split('/').pop() ?? '';
     const tab: NoteTab = {
@@ -529,6 +552,16 @@ export function getEditorStore() {
     return v === 'preview' || v === 'editor-preview' || v === 'source' ? v : 'source';
   }
 
+  /** Cross-pane identity of a persisted tab, for the forbid-duplicate dedup on
+   *  restore (#815). Queries have no shared-buffer identity (each is its own
+   *  scratch buffer), so they return null and are never deduped. */
+  function savedTabIdentity(t: SavedTab): string | null {
+    if (t.type === 'note') return `note:${t.relativePath}`;
+    if (t.type === 'source') return `source:${t.sourceId}`;
+    if (t.type === 'pdf') return `pdf:${t.sourceId}`;
+    return null;
+  }
+
   /** Coerce whatever is on disk into the current multi-group shape. New
    *  sessions pass through; a legacy flat `TabSession` migrates to a single
    *  group (#816); anything else (null / empty / unrecognised) → null, so the
@@ -555,13 +588,22 @@ export function getEditorStore() {
     const session = normalizeSession(await api.tabs.load());
     if (!session) return; // nothing saved or corrupt → keep the default empty group
 
-    // Rebuild each group, dropping note tabs whose files have since vanished.
+    // Rebuild each group, dropping note tabs whose files have since vanished
+    // and any duplicate of a tab already restored in an earlier pane — the
+    // forbid-duplicate-open invariant (#815) must hold even if the on-disk
+    // session was hand-edited or written by an older build.
+    const seen = new Set<string>();
     const restored: EditorGroup[] = [];
     for (const sg of session.groups) {
       const tabs: Tab[] = [];
       for (const saved of sg.tabs) {
+        const identity = savedTabIdentity(saved);
+        if (identity && seen.has(identity)) continue;
         const tab = await reconstructTab(saved);
-        if (tab) tabs.push(tab);
+        if (tab) {
+          tabs.push(tab);
+          if (identity) seen.add(identity);
+        }
       }
       const activeIndex =
         sg.activeIndex >= 0 && sg.activeIndex < tabs.length
