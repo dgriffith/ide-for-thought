@@ -608,6 +608,11 @@ export interface MenuApi {
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
   onCycleTheme(cb: () => void): void;
+  onSplitRight(cb: () => void): void;
+  onSplitDown(cb: () => void): void;
+  onFocusNextGroup(cb: () => void): void;
+  onFocusPrevGroup(cb: () => void): void;
+  onCloseGroup(cb: () => void): void;
   onFontIncrease(cb: () => void): void;
   onFontDecrease(cb: () => void): void;
   onFontReset(cb: () => void): void;

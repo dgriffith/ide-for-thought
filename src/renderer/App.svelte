@@ -888,6 +888,12 @@
     api.menu.onToggleConversations(() => conversationsStore.toggle());
     api.menu.onNewConversation(() => { void newConversation(); });
     api.menu.onTogglePreview(() => cycleViewMode());
+    // Editor split — pane focus & layout commands (#814).
+    api.menu.onSplitRight(() => editor.splitGroup(editor.activeGroupId, 'horizontal'));
+    api.menu.onSplitDown(() => editor.splitGroup(editor.activeGroupId, 'vertical'));
+    api.menu.onFocusNextGroup(() => editor.focusNextGroup());
+    api.menu.onFocusPrevGroup(() => editor.focusPreviousGroup());
+    api.menu.onCloseGroup(() => editor.closeActiveGroup());
     api.menu.onOpenProject(() => handleOpenThoughtbase());
     api.menu.onNewProject(() => handleNewThoughtbase());
     api.menu.onOpenRecentProject((p) => handleOpenRecentThoughtbase(p));
