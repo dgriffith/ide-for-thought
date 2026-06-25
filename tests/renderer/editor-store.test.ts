@@ -485,3 +485,90 @@ describe('session persistence — multi-group layout (#816)', () => {
     expect(Number(newId.match(/\d+/)?.[0])).toBeGreaterThan(4);
   });
 });
+
+describe('forbid duplicate open (#815)', () => {
+  const countOpen = (pred: (t: { type: string }) => boolean) =>
+    editor.groups.flatMap((g) => g.tabs).filter(pred).length;
+
+  it('opening a note already open in another pane focuses that pane, no second buffer', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // into g2 (active)
+    expect(editor.activeGroupId).toBe(g2);
+
+    await editor.openFile('a.md'); // already open in g1 → refocus g1
+    expect(editor.activeGroupId).toBe(g1);
+    expect(editor.noteTabForGroup(g1)?.relativePath).toBe('a.md');
+    expect(editor.groups.find((g) => g.id === g2)?.tabs).toHaveLength(1); // g2 untouched
+    expect(countOpen((t) => t.type === 'note' && (t as { relativePath: string }).relativePath === 'a.md')).toBe(1);
+  });
+
+  it('an explicit target group is overridden when the note is already open elsewhere', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+
+    await editor.openFile('a.md', g2); // request g2, but a.md lives in g1
+    expect(editor.activeGroupId).toBe(g1);
+    expect(editor.groups.find((g) => g.id === g2)?.tabs).toHaveLength(0);
+  });
+
+  it('after the only copy is closed, the file can be opened again in any pane', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    editor.splitGroup(g1, 'horizontal'); // → g2 (active)
+    await editor.openFile('b.md'); // g2
+
+    editor.closeTab(0, g1); // closes a.md → g1 collapses, only g2 remains
+    expect(countOpen((t) => t.type === 'note' && (t as { relativePath: string }).relativePath === 'a.md')).toBe(0);
+
+    await editor.openFile('a.md'); // free to reopen now
+    expect(countOpen((t) => t.type === 'note' && (t as { relativePath: string }).relativePath === 'a.md')).toBe(1);
+    expect(editor.noteTabForGroup(editor.activeGroupId)?.relativePath).toBe('a.md');
+  });
+
+  it('sources and PDFs dedup across panes by id (and refresh highlight/page)', async () => {
+    editor.openSource('src-1'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    editor.openPdf('src-2'); // g2
+
+    editor.openSource('src-1', { highlightExcerptId: 'ex-9' }); // refocus g1
+    expect(editor.activeGroupId).toBe(g1);
+    expect(countOpen((t) => t.type === 'source' && (t as { sourceId: string }).sourceId === 'src-1')).toBe(1);
+    const srcTab = editor.groups.find((g) => g.id === g1)?.tabs[0];
+    expect(srcTab?.type === 'source' && srcTab.highlightExcerptId).toBe('ex-9');
+
+    editor.openPdf('src-2', { page: 7 }); // refocus g2
+    expect(editor.activeGroupId).toBe(g2);
+    expect(countOpen((t) => t.type === 'pdf' && (t as { sourceId: string }).sourceId === 'src-2')).toBe(1);
+    const pdfTab = editor.groups.find((g) => g.id === g2)?.tabs[0];
+    expect(pdfTab?.type === 'pdf' && pdfTab.page).toBe(7);
+  });
+
+  it('restore drops a duplicate that appears in two panes (keeps the first)', async () => {
+    h.tabsLoad.mockResolvedValueOnce({
+      version: 2,
+      activeGroupId: 'group-1',
+      groups: [
+        { id: 'group-1', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'dup.md' }] },
+        {
+          id: 'group-2', activeIndex: 0, viewMode: 'source',
+          tabs: [{ type: 'note', relativePath: 'dup.md' }, { type: 'note', relativePath: 'other.md' }],
+        },
+      ],
+      layout: {
+        kind: 'split', direction: 'horizontal', sizes: [0.5, 0.5],
+        children: [{ kind: 'leaf', groupId: 'group-1' }, { kind: 'leaf', groupId: 'group-2' }],
+      },
+    });
+    await editor.restoreTabs();
+
+    expect(countOpen((t) => t.type === 'note' && (t as { relativePath: string }).relativePath === 'dup.md')).toBe(1);
+    expect(editor.noteTabForGroup('group-1')?.relativePath).toBe('dup.md'); // kept in the first pane
+    const g2Paths = editor.groups.find((g) => g.id === 'group-2')?.tabs
+      .map((t) => (t.type === 'note' ? t.relativePath : t.type));
+    expect(g2Paths).toEqual(['other.md']);
+  });
+});
