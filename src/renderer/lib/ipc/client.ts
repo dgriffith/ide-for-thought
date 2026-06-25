@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 
@@ -527,8 +527,10 @@ export interface ProposalsApi {
 }
 
 export interface TabsApi {
-  save(session: TabSession): Promise<void>;
-  load(): Promise<TabSession | null>;
+  save(session: LayoutSession): Promise<void>;
+  /** Returns the new multi-group format, or a legacy flat `TabSession` written
+   *  by an older build — the renderer migrates the latter on load (#816). */
+  load(): Promise<LayoutSession | TabSession | null>;
 }
 
 export interface RefactorApi {

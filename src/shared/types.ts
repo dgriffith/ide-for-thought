@@ -102,9 +102,45 @@ export interface SavedPdfTab {
 
 export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab;
 
+/** Legacy flat session: one group's tabs + active index. Superseded by
+ *  {@link LayoutSession} (#816); still read on load and migrated to a single
+ *  group so no pre-split session is lost. */
 export interface TabSession {
   activeIndex: number;
   tabs: SavedTab[];
+}
+
+/** One persisted editor group (pane): its tabs, focused tab, and view mode. */
+export interface SavedGroup {
+  id: string;
+  activeIndex: number;
+  /** Persisted as a string; the renderer validates it against `ViewMode` on
+   *  load (unknown values fall back to 'source'). */
+  viewMode: string;
+  tabs: SavedTab[];
+}
+
+/** Structural mirror of the renderer's `LayoutNode` tree, for the persisted
+ *  split layout. Kept here (not imported from the renderer) so the shared/main
+ *  boundary stays free of renderer types; the renderer validates the shape on
+ *  load before casting back to `LayoutNode`. */
+export type SavedLayoutNode =
+  | { kind: 'leaf'; groupId: string }
+  | {
+      kind: 'split';
+      direction: 'horizontal' | 'vertical';
+      children: SavedLayoutNode[];
+      /** Fractional sizes (sum ≈ 1), one per child, in child order. */
+      sizes: number[];
+    };
+
+/** Full split-pane session (#816): every group, the focused group, and the
+ *  layout tree (directions + sizes). `version` gates future migrations. */
+export interface LayoutSession {
+  version: 2;
+  activeGroupId: string;
+  groups: SavedGroup[];
+  layout: SavedLayoutNode;
 }
 
 // ── Source detail ─────────────────────────────────────────────────────────

@@ -19,9 +19,12 @@
     node: LayoutNode;
     /** Renders one pane's content for a given groupId. */
     leaf: Snippet<[string]>;
+    /** Notified after a divider drag changes pane sizes, so the layout can be
+     *  persisted (#816). Threaded through the recursion unchanged. */
+    onLayoutChange?: () => void;
   }
 
-  let { node, leaf }: Props = $props();
+  let { node, leaf, onLayoutChange }: Props = $props();
 
   /** Minimum pane extent along the split axis, in px. */
   const MIN_PX = 140;
@@ -37,6 +40,7 @@
     const total = node.direction === 'horizontal' ? containerEl.clientWidth : containerEl.clientHeight;
     if (total <= 0) return;
     node.sizes = redistributeSizes(node.sizes, index, deltaPx / total, MIN_PX / total);
+    onLayoutChange?.();
   }
 </script>
 
@@ -51,7 +55,7 @@
         style:min-width={node.direction === 'horizontal' ? `${MIN_PX}px` : null}
         style:min-height={node.direction === 'vertical' ? `${MIN_PX}px` : null}
       >
-        <SplitContainer node={child} {leaf} />
+        <SplitContainer node={child} {leaf} {onLayoutChange} />
       </div>
       {#if i < node.children.length - 1}
         <ResizeHandle direction={node.direction} onResize={(d) => handleResize(i, d)} />

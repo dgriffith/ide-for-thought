@@ -37,6 +37,30 @@ export function collectGroupIds(node: LayoutNode): string[] {
   return node.children.flatMap(collectGroupIds);
 }
 
+/**
+ * Structural guard for an untrusted layout value (e.g. parsed from disk on
+ * session restore, #816). Verifies the recursive shape — leaf/split kinds,
+ * split direction, and one positive-length `sizes` entry per child — but not
+ * that the leaf group ids correspond to live groups (the caller checks that).
+ */
+export function isLayoutNode(value: unknown): value is LayoutNode {
+  if (!value || typeof value !== 'object') return false;
+  const n = value as Record<string, unknown>;
+  if (n.kind === 'leaf') return typeof n.groupId === 'string';
+  if (n.kind === 'split') {
+    return (
+      (n.direction === 'horizontal' || n.direction === 'vertical') &&
+      Array.isArray(n.children) &&
+      n.children.length > 0 &&
+      Array.isArray(n.sizes) &&
+      n.sizes.length === n.children.length &&
+      n.sizes.every((s) => typeof s === 'number') &&
+      n.children.every(isLayoutNode)
+    );
+  }
+  return false;
+}
+
 /** Normalize a sizes array to sum to 1 (guards against drift / bad input). */
 function normalizeSizes(sizes: number[]): number[] {
   const total = sizes.reduce((a, b) => a + (b > 0 ? b : 0), 0);

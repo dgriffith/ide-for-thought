@@ -1,5 +1,5 @@
 import { api } from '../ipc/client';
-import type { TabSession, SavedTab } from '../../../shared/types';
+import type { TabSession, SavedTab, SavedGroup, LayoutSession } from '../../../shared/types';
 import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
 import {
   type LayoutNode,
@@ -8,6 +8,7 @@ import {
   splitLeaf,
   removeLeaf,
   collectGroupIds,
+  isLayoutNode,
 } from '../editor/layout-tree';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
@@ -166,7 +167,10 @@ export function getEditorStore() {
   }
 
   function setActiveGroup(id: string): void {
-    if (groups.some((g) => g.id === id)) activeGroupId = id;
+    if (id !== activeGroupId && groups.some((g) => g.id === id)) {
+      activeGroupId = id;
+      schedulePersistTabs(); // focus is part of the persisted session (#816)
+    }
   }
 
   /**
@@ -181,6 +185,7 @@ export function getEditorStore() {
     const cur = ids.indexOf(activeGroupId);
     const start = cur === -1 ? 0 : cur;
     activeGroupId = ids[(start + delta + ids.length) % ids.length];
+    schedulePersistTabs();
   }
   const focusNextGroup = () => cycleFocus(1);
   const focusPreviousGroup = () => cycleFocus(-1);
@@ -208,6 +213,7 @@ export function getEditorStore() {
     const newId = addGroup(source?.viewMode ?? 'source');
     layout = splitLeaf(layout, groupId, direction, newId);
     activeGroupId = newId;
+    schedulePersistTabs();
     return newId;
   }
 
@@ -227,6 +233,7 @@ export function getEditorStore() {
     if (activeGroupId === groupId) {
       activeGroupId = collectGroupIds(layout)[0] ?? groups[0]?.id;
     }
+    schedulePersistTabs();
   }
 
   // ── Source operations ───────────────────────────────────────────────────
@@ -446,83 +453,163 @@ export function getEditorStore() {
     }, TAB_PERSIST_DELAY);
   }
 
+  function toSavedTab(t: Tab): SavedTab {
+    if (isNote(t)) {
+      return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
+    } else if (isQuery(t)) {
+      return { type: 'query', title: t.title, query: t.query, language: t.language };
+    } else if (isPdf(t)) {
+      return { type: 'pdf', sourceId: t.sourceId, page: t.page };
+    } else {
+      return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
+    }
+  }
+
   function persistTabs() {
-    // Persistence shape is unchanged (#816 owns the multi-group layout format):
-    // serialise the active group's tabs + active index, exactly as before.
-    const grp = activeGroup();
-    const savedTabs: SavedTab[] = grp.tabs.map((t): SavedTab => {
-      if (isNote(t)) {
-        return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
-      } else if (isQuery(t)) {
-        return { type: 'query', title: t.title, query: t.query, language: t.language };
-      } else if (isPdf(t)) {
-        return { type: 'pdf', sourceId: t.sourceId, page: t.page };
-      } else {
-        return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
-      }
-    });
-    const session: TabSession = { activeIndex: grp.activeIndex, tabs: savedTabs };
+    // Persist the whole split arrangement (#816): every group's tabs +
+    // active tab + view mode, the focused group, and the layout tree. The
+    // layout is reactive ($state) — snapshot it to a plain object so the
+    // structured-clone IPC boundary doesn't choke on the Svelte proxy.
+    const session: LayoutSession = {
+      version: 2,
+      activeGroupId,
+      groups: groups.map((g): SavedGroup => ({
+        id: g.id,
+        activeIndex: g.activeIndex,
+        viewMode: g.viewMode,
+        tabs: g.tabs.map(toSavedTab),
+      })),
+      layout: $state.snapshot(layout),
+    };
     void api.tabs.save(session);
   }
 
-  async function restoreTabs() {
-    const session = await api.tabs.load();
-    if (!session || session.tabs.length === 0) return;
-
-    const grp = activeGroup();
-    for (const saved of session.tabs) {
-      if (saved.type === 'note') {
-        try {
-          const text = await api.notebase.readFile(saved.relativePath);
-          const fileName = saved.relativePath.split('/').pop() ?? '';
-          const tab: NoteTab = {
-            type: 'note',
-            relativePath: saved.relativePath,
-            fileName,
-            content: text,
-            savedContent: text,
-            cursorOffset: saved.cursorOffset,
-            scrollTop: saved.scrollTop,
-          };
-          grp.tabs.push(tab);
-        } catch {
-          // File may have been deleted since last session
-        }
-      } else if (saved.type === 'query') {
-        queryCounter++;
-        const tab: QueryTab = {
-          type: 'query',
-          id: `query-${queryCounter}-${Date.now()}`,
-          title: saved.title,
-          query: saved.query,
-          language: saved.language ?? 'sparql',
-          results: null,
-          columns: [],
-          error: null,
-          executing: false,
-          executionTime: null,
+  /** Reconstruct a live tab from its persisted form. Notes read their file
+   *  back (returning null if it was deleted since last session, so the tab is
+   *  dropped); the other kinds rehydrate from saved fields. */
+  async function reconstructTab(saved: SavedTab): Promise<Tab | null> {
+    if (saved.type === 'note') {
+      try {
+        const text = await api.notebase.readFile(saved.relativePath);
+        const fileName = saved.relativePath.split('/').pop() ?? '';
+        return {
+          type: 'note',
+          relativePath: saved.relativePath,
+          fileName,
+          content: text,
+          savedContent: text,
+          cursorOffset: saved.cursorOffset,
+          scrollTop: saved.scrollTop,
         };
-        grp.tabs.push(tab);
-      } else if (saved.type === 'pdf') {
-        grp.tabs.push({
-          type: 'pdf',
-          sourceId: saved.sourceId,
-          page: saved.page ?? 1,
-        });
-      } else {
-        grp.tabs.push({
-          type: 'source',
-          sourceId: saved.sourceId,
-          highlightExcerptId: saved.highlightExcerptId,
-        });
+      } catch {
+        return null; // file deleted since last session
       }
+    } else if (saved.type === 'query') {
+      queryCounter++;
+      return {
+        type: 'query',
+        id: `query-${queryCounter}-${Date.now()}`,
+        title: saved.title,
+        query: saved.query,
+        language: saved.language ?? 'sparql',
+        results: null,
+        columns: [],
+        error: null,
+        executing: false,
+        executionTime: null,
+      };
+    } else if (saved.type === 'pdf') {
+      return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
+    } else {
+      return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
+    }
+  }
+
+  function asViewMode(v: unknown): ViewMode {
+    return v === 'preview' || v === 'editor-preview' || v === 'source' ? v : 'source';
+  }
+
+  /** Coerce whatever is on disk into the current multi-group shape. New
+   *  sessions pass through; a legacy flat `TabSession` migrates to a single
+   *  group (#816); anything else (null / empty / unrecognised) → null, so the
+   *  caller keeps the start-of-session empty group. */
+  function normalizeSession(raw: LayoutSession | TabSession | null): LayoutSession | null {
+    if (!raw || typeof raw !== 'object') return null;
+    if ('groups' in raw && Array.isArray(raw.groups)) {
+      return raw.groups.length > 0 ? raw : null;
+    }
+    if ('tabs' in raw && Array.isArray(raw.tabs)) {
+      if (raw.tabs.length === 0) return null;
+      const id = newGroupId();
+      return {
+        version: 2,
+        activeGroupId: id,
+        groups: [{ id, activeIndex: raw.activeIndex ?? 0, viewMode: 'source', tabs: raw.tabs }],
+        layout: { kind: 'leaf', groupId: id },
+      };
+    }
+    return null;
+  }
+
+  async function restoreTabs() {
+    const session = normalizeSession(await api.tabs.load());
+    if (!session) return; // nothing saved or corrupt → keep the default empty group
+
+    // Rebuild each group, dropping note tabs whose files have since vanished.
+    const restored: EditorGroup[] = [];
+    for (const sg of session.groups) {
+      const tabs: Tab[] = [];
+      for (const saved of sg.tabs) {
+        const tab = await reconstructTab(saved);
+        if (tab) tabs.push(tab);
+      }
+      const activeIndex =
+        sg.activeIndex >= 0 && sg.activeIndex < tabs.length
+          ? sg.activeIndex
+          : tabs.length > 0 ? 0 : -1;
+      restored.push({ id: sg.id, tabs, activeIndex, viewMode: asViewMode(sg.viewMode) });
+    }
+    if (restored.length === 0) return;
+
+    // The saved layout must structurally match the restored groups exactly
+    // (every leaf ↔ a live group, no orphans). If it doesn't, we can't trust
+    // the tree — recover by merging every restored tab into one pane rather
+    // than rendering a broken split or crashing.
+    const ids = new Set(restored.map((g) => g.id));
+    // SavedLayoutNode is structurally a LayoutNode; isLayoutNode still guards
+    // against a corrupt on-disk tree that doesn't match the declared shape.
+    const savedLayout = session.layout;
+    const layoutOk =
+      isLayoutNode(savedLayout) &&
+      (() => {
+        const leaves = collectGroupIds(savedLayout);
+        return leaves.length === ids.size && leaves.every((id) => ids.has(id));
+      })();
+
+    groups.length = 0;
+    if (layoutOk) {
+      groups.push(...restored);
+      layout = savedLayout;
+      activeGroupId = ids.has(session.activeGroupId) ? session.activeGroupId : restored[0].id;
+    } else {
+      const merged: EditorGroup = {
+        id: restored[0].id,
+        tabs: restored.flatMap((g) => g.tabs),
+        activeIndex: -1,
+        viewMode: restored[0].viewMode,
+      };
+      merged.activeIndex = merged.tabs.length > 0 ? 0 : -1;
+      groups.push(merged);
+      layout = leaf(merged.id);
+      activeGroupId = merged.id;
     }
 
-    // Clamp activeIndex to valid range
-    if (session.activeIndex >= 0 && session.activeIndex < grp.tabs.length) {
-      grp.activeIndex = session.activeIndex;
-    } else if (grp.tabs.length > 0) {
-      grp.activeIndex = 0;
+    // `groupCounter` reset to 0 at launch; restored ids came from disk. Advance
+    // it past the highest restored `group-N` so a later split can't re-mint an
+    // id that's already live.
+    for (const g of groups) {
+      const n = Number(g.id.match(/^group-(\d+)$/)?.[1]);
+      if (Number.isFinite(n) && n > groupCounter) groupCounter = n;
     }
   }
 
@@ -797,5 +884,6 @@ export function getEditorStore() {
     executeQuery,
     restoreTabs,
     persistTabs,
+    schedulePersistTabs,
   };
 }
