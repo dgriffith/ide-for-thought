@@ -3,6 +3,7 @@
   import TabBar from './lib/components/TabBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
+  import SplitContainer from './lib/components/SplitContainer.svelte';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
@@ -99,13 +100,9 @@
   const toolPanel = getToolPanelStore();
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
-  // Position-bearing bookmarks for the active file, fed to the editor's
-  // gutter-flag extension (#756). Recomputes as bookmarks are added/removed.
-  const currentFileBookmarks = $derived(
-    editor.activeFilePath
-      ? collectBookmarksForPath(bookmarkStore.tree, editor.activeFilePath)
-      : [],
-  );
+  // Position-bearing bookmarks are resolved per pane at the Editor mount via
+  // `collectBookmarksForPath(bookmarkStore.tree, <that pane's file>)` (#813),
+  // so each split pane shows its own file's gutter flags (#756).
   let showSettings = $state(false);
   /** Tab the SettingsDialog should land on when next opened. Cleared
    *  on close so the next manual open returns to the default Editor
@@ -193,9 +190,17 @@
   let sidebar = $state<Sidebar>();
   let rightSidebar = $state<RightSidebar>();
   let rightSidebarVisible = $state(false);
-  let editorComponent = $state<Editor>();
-  let queryPanelComponent = $state<QueryPanel>();
-  let previewComponent = $state<Preview>();
+  // Per-group component instances, keyed by group id (#813). Each split pane
+  // binds its own Editor / Preview / QueryPanel into these maps; the bare
+  // `editorComponent` / `previewComponent` / `queryPanelComponent` accessors
+  // resolve to the *active* group's instance so all the imperative command
+  // sites (nav, goto-line, insert, theme re-skin) target the focused pane.
+  let editorComponents = $state<Record<string, Editor | undefined>>({});
+  let queryPanelComponents = $state<Record<string, QueryPanel | undefined>>({});
+  let previewComponents = $state<Record<string, Preview | undefined>>({});
+  const editorComponent = $derived(editorComponents[editor.activeGroupId]);
+  const queryPanelComponent = $derived(queryPanelComponents[editor.activeGroupId]);
+  const previewComponent = $derived(previewComponents[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
 
@@ -735,7 +740,10 @@
     previewComponent?.updateTheme();
   }
 
-  async function handleSwitchTab(index: number) {
+  async function handleSwitchTab(index: number, groupId?: string) {
+    // Focus the target pane first so the active-group delegates (editor.tabs,
+    // editor.openFile, the editorComponent accessor) all operate on it (#813).
+    if (groupId) editor.setActiveGroup(groupId);
     recordCurrentPosition();
 
     const targetTab = editor.tabs[index];
@@ -1132,156 +1140,218 @@
           void handleExternalDrop(destDir, files);
         }}
       >
-        {#if editor.tabs.length > 0}
-          <TabBar
-            tabs={editor.tabs}
-            activeIndex={editor.activeIndex}
-            sources={sourcesCache}
-            onSwitch={handleSwitchTab}
-            onClose={editor.closeTab}
-            onCloseOthers={editor.closeOthers}
-            onCloseAll={editor.closeAll}
-            onReveal={handleRevealInSidebar}
-            onOpenConversation={openConversation}
-            onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
-            onNewTab={() => handleNewNote()}
-          />
-        {/if}
-        {#if editor.activeTab?.type === 'note'}
-          <BreadcrumbsBar
-            filePath={editor.activeFilePath}
-            content={editor.activeTab.content}
-            cursorLine={cursorInfo.line}
-            showHeadings={breadcrumbsSettings.showHeadingChain}
-            onRevealFolder={(folder) => { void sidebar?.revealFolder(folder); }}
-            onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
-          />
-        {/if}
-        {#if editor.activeTab?.type === 'note' && editor.activeTab.relativePath.endsWith('.csv')}
-          <CsvTable
-            relativePath={editor.activeTab.relativePath}
-            content={editor.activeTab.content}
-          />
-        {:else if editor.activeTab?.type === 'note'}
-          <div class="toolbar">
-            <div class="view-toggle">
-              <button
-                class:active={editor.viewMode === 'source'}
-                onclick={() => editor.setViewMode('source')}
-                title="Source (Cmd+Shift+P to cycle)"
-              >Source</button>
-              <button
-                class:active={editor.viewMode === 'editor-preview'}
-                onclick={() => editor.setViewMode('editor-preview')}
-                title="Source + preview side by side"
-              >Side by side</button>
-              <button
-                class:active={editor.viewMode === 'preview'}
-                onclick={() => editor.setViewMode('preview')}
-                title="Preview"
-              >Preview</button>
+        <!-- Per-group pane (#813): one editor group's tab bar + active-tab
+             content, rendered at each leaf of the recursive split layout.
+             Clicking anywhere in a pane focuses its group so the active-group
+             delegates (commands, status bar, right sidebar) follow it. -->
+        {#snippet groupPane(groupId: string)}
+          {@const group = editor.groups.find((g) => g.id === groupId)}
+          {#if group}
+            {@const active = group.tabs[group.activeIndex] ?? null}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="group-pane"
+              class:focused={groupId === editor.activeGroupId && editor.groups.length > 1}
+              onpointerdowncapture={() => editor.setActiveGroup(groupId)}
+            >
+              {#if group.tabs.length > 0}
+                <TabBar
+                  tabs={group.tabs}
+                  activeIndex={group.activeIndex}
+                  sources={sourcesCache}
+                  onSwitch={(i) => handleSwitchTab(i, groupId)}
+                  onClose={(i) => editor.closeTab(i, groupId)}
+                  onCloseOthers={(i) => editor.closeOthers(i, groupId)}
+                  onCloseAll={() => editor.closeAll(groupId)}
+                  onReveal={handleRevealInSidebar}
+                  onOpenConversation={openConversation}
+                  onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
+                  onNewTab={() => { editor.setActiveGroup(groupId); void handleNewNote(); }}
+                />
+              {/if}
+              {#if active?.type === 'note'}
+                <BreadcrumbsBar
+                  filePath={active.relativePath}
+                  content={active.content}
+                  cursorLine={cursorInfo.line}
+                  showHeadings={breadcrumbsSettings.showHeadingChain}
+                  onRevealFolder={(folder) => { void sidebar?.revealFolder(folder); }}
+                  onScrollToLine={(line) => editorComponents[groupId]?.gotoLineColumn(line, 1)}
+                />
+              {/if}
+              {#if active?.type === 'note' && active.relativePath.endsWith('.csv')}
+                <CsvTable relativePath={active.relativePath} content={active.content} />
+              {:else if active?.type === 'note'}
+                {@const note = active}
+                <div class="toolbar">
+                  <div class="view-toggle">
+                    <button
+                      class:active={group.viewMode === 'source'}
+                      onclick={() => editor.setViewMode('source', groupId)}
+                      title="Source (Cmd+Shift+P to cycle)"
+                    >Source</button>
+                    <button
+                      class:active={group.viewMode === 'editor-preview'}
+                      onclick={() => editor.setViewMode('editor-preview', groupId)}
+                      title="Source + preview side by side"
+                    >Side by side</button>
+                    <button
+                      class:active={group.viewMode === 'preview'}
+                      onclick={() => editor.setViewMode('preview', groupId)}
+                      title="Preview"
+                    >Preview</button>
+                  </div>
+                  <button
+                    class="nav-btn"
+                    onclick={() => editor.splitGroup(groupId, 'horizontal')}
+                    title="Split right"
+                  ><Icon name="split-h" size={12} /></button>
+                  <button
+                    class="nav-btn"
+                    onclick={() => editor.splitGroup(groupId, 'vertical')}
+                    title="Split down"
+                  ><Icon name="split-v" size={12} /></button>
+                  <button
+                    class="nav-btn sidebar-toggle"
+                    class:active={rightSidebarVisible}
+                    onclick={() => { rightSidebarVisible = !rightSidebarVisible; }}
+                    title="Toggle Right Sidebar (Cmd+Shift+B)"
+                  ><Icon name="outline" size={12} /></button>
+                </div>
+                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview'}>
+                  {#if group.viewMode === 'source' || group.viewMode === 'editor-preview'}
+                    <div class="editor-panel">
+                      {#key groupId + ':' + note.relativePath}
+                        <Editor
+                          bind:this={editorComponents[groupId]}
+                          groupId={groupId}
+                          filePath={note.relativePath}
+                          content={note.content}
+                          initialHistory={note.historyJson}
+                          searchQuery={pendingSearchQuery}
+                          onContentChange={(text) => editor.setContent(text, groupId)}
+                          onSave={handleSave}
+                          onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
+                          onEditorStateSave={editor.saveEditorState}
+                          onCursorChange={(info) => { cursorInfo = info; }}
+                          onToolInvoke={handleToolInvoke}
+                          onOpenConversation={openConversation}
+                          onNavigate={handleNavigate}
+                          onOpenSource={handleOpenSource}
+                          onOpenExcerpt={handleOpenExcerpt}
+                          getNotePaths={() => flattenNotePaths(notebase.files)}
+                          getSources={() => sourcesCache}
+                          getAliases={() => aliasEntries}
+                          onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
+                          onBookmarkSection={() => { void handleBookmarkSection(); }}
+                          onBookmarkLine={handleBookmarkLine}
+                          bookmarks={collectBookmarksForPath(bookmarkStore.tree, note.relativePath)}
+                          onExtractSelection={handleExtractSelection}
+                          onSplitHere={handleSplitHere}
+                          onSplitByHeading={handleSplitByHeading}
+                          onRename={() => void handleRename(note.relativePath)}
+                          onMove={() => void handleMoveWithPrompt(note.relativePath)}
+                          onCopyFile={() => void handleCopyWithPrompt(note.relativePath)}
+                          onMerge={() => handleMerge(note.relativePath)}
+                          onAutoTag={() => void handleAutoTag(note.relativePath)}
+                          onAutoLink={() => void handleAutoLink(note.relativePath)}
+                          onAutoLinkInbound={() => void handleAutoLinkInbound(note.relativePath)}
+                          onFormatCurrentNote={() => handleFormat()}
+                          onUploadError={(message) => {
+                            void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
+                          }}
+                          onRunCell={(language, code, notePath) =>
+                            runCellWithTrust(language, code, notePath, { showConfirm })
+                          }
+                          onInsertQueryList={async () => {
+                            const tag = await showPrompt('Tag name:');
+                            if (!tag) return;
+                            const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
+                            editorComponents[groupId]?.insertText(block);
+                          }}
+                        />
+                      {/key}
+                    </div>
+                  {/if}
+                  {#if group.viewMode === 'preview' || group.viewMode === 'editor-preview'}
+                    <div class="preview-panel">
+                      <Preview
+                        bind:this={previewComponents[groupId]}
+                        content={note.content}
+                        notePath={note.relativePath}
+                        onNavigate={handleNavigate}
+                        onTagSelect={handleTagSelect}
+                        onOpenSource={handleOpenSource}
+                        onOpenExcerpt={handleOpenExcerpt}
+                        pendingAnchor={pendingPreviewAnchor}
+                        onAnchorResolved={() => { pendingPreviewAnchor = null; }}
+                        onTaskToggle={handleTaskToggle}
+                        onDoiClick={handleDoiClick}
+                        onSaveCellOutput={handleSaveCellOutput}
+                        onToolInvoke={handleToolInvoke}
+                        onOpenConversation={openConversation}
+                        onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
+                        onRunCell={(language, code, notePath) =>
+                          runCellWithTrust(language, code, notePath, { showConfirm })
+                        }
+                        onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
+                      />
+                    </div>
+                  {/if}
+                </div>
+              {:else if active?.type === 'query'}
+                <QueryPanel
+                  bind:this={queryPanelComponents[groupId]}
+                  tab={active}
+                  onQueryChange={editor.setQueryText}
+                  onLanguageChange={editor.setQueryLanguage}
+                  onExecute={editor.executeQuery}
+                  onSave={handleSaveQuery}
+                />
+              {:else if active?.type === 'source'}
+                {#key active.sourceId}
+                  <SourceDetail
+                    sourceId={active.sourceId}
+                    highlightExcerptId={active.highlightExcerptId}
+                    onNavigate={handleNavigate}
+                    onShowConfirm={showConfirm}
+                    onShowPrompt={showPrompt}
+                    onDeleted={handleSourceDeleted}
+                    onCreateAboutNote={handleNewAboutSourceNote}
+                    onOpenReference={handleOpenSource}
+                    onResolveStub={handleResolveStub}
+                    onOpenPdf={handleOpenPdf}
+                    onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
+                    onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
+                    canAppendToCurrent={lastNotePath !== null}
+                    onInvokeTool={handleToolInvoke}
+                  />
+                {/key}
+              {:else if active?.type === 'pdf'}
+                {#key active.sourceId}
+                  <!-- Lazy: pdfjs-dist only loads when a PDF tab is opened (#691). -->
+                  {#await import('./lib/components/PdfViewer.svelte') then { default: PdfViewer }}
+                    <PdfViewer
+                      sourceId={active.sourceId}
+                      initialPage={active.page}
+                      onShowMarkdown={handleShowMarkdownFromPdf}
+                    />
+                  {/await}
+                {/key}
+              {:else}
+                <div class="no-file">
+                  <p>Select a note from the sidebar</p>
+                </div>
+              {/if}
             </div>
-            <button
-              class="nav-btn sidebar-toggle"
-              class:active={rightSidebarVisible}
-              onclick={() => { rightSidebarVisible = !rightSidebarVisible; }}
-              title="Toggle Right Sidebar (Cmd+Shift+B)"
-            ><Icon name="outline" size={12} /></button>
-          </div>
-          <!-- Editor instance bound to a specific group (#812). Sources
-               filePath / content / history from that group's active note tab
-               and routes content changes back to it, so each split pane (#813)
-               stays independent. Rendered once today (the active group). -->
-          {#snippet editorPane(group: import('./lib/stores/editor.svelte').EditorGroup)}
-            {@const note = editor.noteTabForGroup(group.id)}
-            {#if note}
-              {#key group.id + ':' + note.relativePath}
-                <Editor
-                  bind:this={editorComponent}
-                  groupId={group.id}
-                  filePath={note.relativePath}
-                  content={note.content}
-                  initialHistory={note.historyJson}
-                  searchQuery={pendingSearchQuery}
-                  onContentChange={(text) => editor.setContent(text, group.id)}
-                  onSave={handleSave}
-                  onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
-                  onEditorStateSave={editor.saveEditorState}
-                  onCursorChange={(info) => { cursorInfo = info; }}
-                  onToolInvoke={handleToolInvoke}
-                  onOpenConversation={openConversation}
-                  onNavigate={handleNavigate}
-                  onOpenSource={handleOpenSource}
-                  onOpenExcerpt={handleOpenExcerpt}
-                  getNotePaths={() => flattenNotePaths(notebase.files)}
-                  getSources={() => sourcesCache}
-                  getAliases={() => aliasEntries}
-                  onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
-                  onBookmarkSection={() => { void handleBookmarkSection(); }}
-                  onBookmarkLine={handleBookmarkLine}
-                  bookmarks={currentFileBookmarks}
-                  onExtractSelection={handleExtractSelection}
-                  onSplitHere={handleSplitHere}
-                  onSplitByHeading={handleSplitByHeading}
-                  onRename={() => void handleRename(note.relativePath)}
-                  onMove={() => void handleMoveWithPrompt(note.relativePath)}
-                  onCopyFile={() => void handleCopyWithPrompt(note.relativePath)}
-                  onMerge={() => handleMerge(note.relativePath)}
-                  onAutoTag={() => void handleAutoTag(note.relativePath)}
-                  onAutoLink={() => void handleAutoLink(note.relativePath)}
-                  onAutoLinkInbound={() => void handleAutoLinkInbound(note.relativePath)}
-                  onFormatCurrentNote={() => handleFormat()}
-                  onUploadError={(message) => {
-                    // Image-upload rejection (#455). Surface via the
-                    // existing confirm dialog with a dismissable key —
-                    // user-facing but not blocking.
-                    void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
-                  }}
-                  onRunCell={(language, code, notePath) =>
-                    runCellWithTrust(language, code, notePath, { showConfirm })
-                  }
-                  onInsertQueryList={async () => {
-                    const tag = await showPrompt('Tag name:');
-                    if (!tag) return;
-                    const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
-                    editorComponent?.insertText(block);
-                  }}
-                />
-              {/key}
-            {/if}
-          {/snippet}
-          <div class="editor-content" class:editor-preview={editor.viewMode === 'editor-preview'}>
-            {#if editor.viewMode === 'source' || editor.viewMode === 'editor-preview'}
-              <div class="editor-panel">
-                {@render editorPane(editor.activeGroup)}
-              </div>
-            {/if}
-            {#if editor.viewMode === 'preview' || editor.viewMode === 'editor-preview'}
-              <div class="preview-panel">
-                <Preview
-                  bind:this={previewComponent}
-                  content={editor.content}
-                  notePath={editor.activeFilePath}
-                  onNavigate={handleNavigate}
-                  onTagSelect={handleTagSelect}
-                  onOpenSource={handleOpenSource}
-                  onOpenExcerpt={handleOpenExcerpt}
-                  pendingAnchor={pendingPreviewAnchor}
-                  onAnchorResolved={() => { pendingPreviewAnchor = null; }}
-                  onTaskToggle={handleTaskToggle}
-                  onDoiClick={handleDoiClick}
-                  onSaveCellOutput={handleSaveCellOutput}
-                  onToolInvoke={handleToolInvoke}
-                  onOpenConversation={openConversation}
-                  onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
-                  onRunCell={(language, code, notePath) =>
-                    runCellWithTrust(language, code, notePath, { showConfirm })
-                  }
-                  onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent); }}
-                />
-              </div>
-            {/if}
-          </div>
+          {/if}
+        {/snippet}
+
+        <SplitContainer node={editor.layout} leaf={groupPane} />
+
+        <!-- Window-level status + tool surfaces, reflecting the active group's
+             note. (Per-group status bars are #817 polish.) -->
+        {#if editor.activeTab?.type === 'note'}
           <StatusBar
             cursor={cursorInfo}
             fontSize={editorFontSize}
@@ -1304,50 +1374,6 @@
             onOpenConversation={handleOpenConversationFromTool}
             onMissingApiKey={() => { void handleMissingApiKey(); }}
           />
-        {:else if editor.activeTab?.type === 'query'}
-          <QueryPanel
-            bind:this={queryPanelComponent}
-            tab={editor.activeQueryTab!}
-            onQueryChange={editor.setQueryText}
-            onLanguageChange={editor.setQueryLanguage}
-            onExecute={editor.executeQuery}
-            onSave={handleSaveQuery}
-          />
-        {:else if editor.activeTab?.type === 'source'}
-          {#key editor.activeTab.sourceId}
-            <SourceDetail
-              sourceId={editor.activeTab.sourceId}
-              highlightExcerptId={editor.activeTab.highlightExcerptId}
-              onNavigate={handleNavigate}
-              onShowConfirm={showConfirm}
-              onShowPrompt={showPrompt}
-              onDeleted={handleSourceDeleted}
-              onCreateAboutNote={handleNewAboutSourceNote}
-              onOpenReference={handleOpenSource}
-              onResolveStub={handleResolveStub}
-              onOpenPdf={handleOpenPdf}
-              onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
-              onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
-              canAppendToCurrent={lastNotePath !== null}
-              onInvokeTool={handleToolInvoke}
-            />
-          {/key}
-        {:else if editor.activeTab?.type === 'pdf'}
-          {#key editor.activeTab.sourceId}
-            <!-- Lazy: pdfjs-dist only loads when a PDF tab is opened, keeping it
-                 out of the eager startup graph (#691). -->
-            {#await import('./lib/components/PdfViewer.svelte') then { default: PdfViewer }}
-              <PdfViewer
-                sourceId={editor.activeTab.sourceId}
-                initialPage={editor.activeTab.page}
-                onShowMarkdown={handleShowMarkdownFromPdf}
-              />
-            {/await}
-          {/key}
-        {:else}
-          <div class="no-file">
-            <p>Select a note from the sidebar</p>
-          </div>
         {/if}
       </div>
       {#if rightSidebarVisible && editor.activeTab?.type === 'note'}
@@ -1596,6 +1622,21 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  /* One editor group's pane within the split layout (#813). Fills its leaf
+     cell; stacks tab bar → breadcrumbs → content. */
+  .group-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  /* Subtle focus ring on the active pane — only meaningful once split. */
+  .group-pane.focused {
+    box-shadow: inset 0 2px 0 0 var(--accent);
   }
 
   .toolbar {

@@ -126,6 +126,17 @@ export const ICONS = {
     '<path d="M10.5 5.5 13 8l-2.5 2.5"/>' +
     '<path d="M9.5 4.5 6.5 11.5"/>',
 
+  // ── Editor split (#813) ───────────────────────────────────────────
+  // A framed pane divided by the axis the split adds along: split-h adds a
+  // pane to the right (vertical divider); split-v adds one below (horizontal
+  // divider).
+  'split-h':
+    '<rect x="2.5" y="3" width="11" height="10" rx="1"/>' +
+    '<path d="M8 3v10"/>',
+  'split-v':
+    '<rect x="2.5" y="3" width="11" height="10" rx="1"/>' +
+    '<path d="M2.5 8h11"/>',
+
   // ── Brand ─────────────────────────────────────────────────────────
   minervaMark:
     '<circle cx="8" cy="8" r="6"/>' +
