@@ -242,9 +242,14 @@
   /** Which pane + zone the pointer is over, via the pane's data-group-id and
    *  geometry. Returns null when the pointer isn't over a pane. */
   function dropTargetAt(x: number, y: number): { groupId: string; zone: DropZone } | null {
-    const pane = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('.group-pane');
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const pane = el?.closest<HTMLElement>('.group-pane');
     const groupId = pane?.dataset.groupId;
     if (!pane || !groupId) return null;
+    // Over a pane's tab bar → "move into this group" (the natural gesture),
+    // not a split — matches VS Code (#817). The geometric top strip would
+    // otherwise read as a split-down.
+    if (el?.closest('.tab-bar')) return { groupId, zone: 'center' };
     const r = pane.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return null;
     return { groupId, zone: dropZoneFromFraction((x - r.left) / r.width, (y - r.top) / r.height) };
