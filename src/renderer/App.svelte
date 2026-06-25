@@ -1348,6 +1348,16 @@
                     />
                   {/await}
                 {/key}
+              {:else if editor.groups.length > 1}
+                <!-- A freshly split pane is empty until a note lands in it.
+                     It has no tab bar, so offer a way back out (#817). -->
+                <div class="no-file empty-pane">
+                  <p>Empty pane</p>
+                  <p class="empty-pane-hint">Open a note from the sidebar to fill it.</p>
+                  <button class="empty-pane-close" onclick={() => editor.collapseGroup(groupId)}>
+                    Close this pane
+                  </button>
+                </div>
               {:else}
                 <div class="no-file">
                   <p>Select a note from the sidebar</p>
@@ -1359,8 +1369,10 @@
 
         <SplitContainer node={editor.layout} leaf={groupPane} onLayoutChange={() => editor.schedulePersistTabs()} />
 
-        <!-- Window-level status + tool surfaces, reflecting the active group's
-             note. (Per-group status bars are #817 polish.) -->
+        <!-- One window-level status bar that reflects the focused group's note
+             (word count, cursor, dirty state) — the deliberate #817 choice over
+             a bar per pane: it tracks `editor.activeTab`, which follows the
+             active group. -->
         {#if editor.activeTab?.type === 'note'}
           <StatusBar
             cursor={cursorInfo}
@@ -1732,6 +1744,28 @@
   .no-file p {
     color: var(--text-muted);
     font-size: 14px;
+  }
+
+  .empty-pane {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .empty-pane-hint {
+    font-size: 12px !important;
+    opacity: 0.8;
+  }
+  .empty-pane-close {
+    margin-top: 8px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg-button);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .empty-pane-close:hover {
+    border-color: var(--accent);
   }
 
   .welcome {
