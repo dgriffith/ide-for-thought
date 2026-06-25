@@ -20,6 +20,14 @@
     onReveal: (relativePath: string) => void;
     onOpenConversation?: () => void;
     onBookmark?: (relativePath: string) => void;
+    /** "Close All In Group" — empties + collapses this pane. Shown only when
+     *  there's more than one group (i.e. `otherGroups` is non-empty) (#870). */
+    onCloseAllInGroup?: () => void;
+    /** Other editor groups this tab can be moved to, in visual order (#870).
+     *  Empty when this is the only group. */
+    otherGroups?: { id: string; label: string }[];
+    /** Move the tab at `index` into the group `targetGroupId` (#870). */
+    onMoveToGroup?: (index: number, targetGroupId: string) => void;
     /** Trailing `+` button — opens a new note at the project root. */
     onNewTab?: () => void;
     /** Drag-tab-to-split (#817): pointer pressed on the tab at `index`. The
@@ -29,7 +37,7 @@
     onTabPointerDown?: (index: number, e: PointerEvent) => void;
   }
 
-  let { tabs, activeIndex, sources, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab, onTabPointerDown }: Props = $props();
+  let { tabs, activeIndex, sources, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab, onTabPointerDown, onCloseAllInGroup, otherGroups, onMoveToGroup }: Props = $props();
 
   /** Map sourceId → metadata for label lookups. Rebuilds whenever the
    *  parent's `sources` array changes. */
@@ -143,6 +151,21 @@
     <button onclick={() => { onClose(contextMenu!.index); contextMenu = null; }}>Close</button>
     <button onclick={() => { onCloseOthers(contextMenu!.index); contextMenu = null; }}>Close Others</button>
     <button onclick={() => { onCloseAll(); contextMenu = null; }}>Close All</button>
+    {#if onCloseAllInGroup && (otherGroups?.length ?? 0) > 0}
+      <button onclick={() => { onCloseAllInGroup?.(); contextMenu = null; }}>Close All In Group</button>
+    {/if}
+    {#if otherGroups && otherGroups.length === 1}
+      <button onclick={() => { onMoveToGroup?.(contextMenu!.index, otherGroups[0].id); contextMenu = null; }}>Move to Other Group</button>
+    {:else if otherGroups && otherGroups.length > 1}
+      <div class="submenu-item">
+        <span class="submenu-trigger">Move to Group <Icon name="chevronRight" size={10} /></span>
+        <div class="submenu">
+          {#each otherGroups as g (g.id)}
+            <button onclick={() => { onMoveToGroup?.(contextMenu!.index, g.id); contextMenu = null; }}>{g.label}</button>
+          {/each}
+        </div>
+      </div>
+    {/if}
     {#if tabs[contextMenu.index]?.type === 'note'}
       <div class="separator"></div>
       <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>

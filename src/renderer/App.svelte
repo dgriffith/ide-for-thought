@@ -5,6 +5,7 @@
   import Editor from './lib/components/Editor.svelte';
   import SplitContainer from './lib/components/SplitContainer.svelte';
   import { dropZoneFromFraction, splitForZone, type DropZone } from './lib/editor/drop-zone';
+  import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
@@ -223,6 +224,14 @@
   $effect(() => {
     document.body.classList.toggle('tab-dragging', draggingTab !== null);
   });
+
+  /** Other editor groups a tab in `groupId` can be moved to (#870), in visual
+   *  (left-to-right) order and labelled by position. Empty when single-pane. */
+  function otherGroupsFor(groupId: string): { id: string; label: string }[] {
+    return collectGroupIds(editor.layout)
+      .map((id, i) => ({ id, label: `Group ${i + 1}` }))
+      .filter((g) => g.id !== groupId);
+  }
 
   function onTabPointerDown(groupId: string, index: number, e: PointerEvent) {
     pendingDrag = { groupId, index, startX: e.clientX, startY: e.clientY };
@@ -1242,6 +1251,9 @@
                   onClose={(i) => editor.closeTab(i, groupId)}
                   onCloseOthers={(i) => editor.closeOthers(i, groupId)}
                   onCloseAll={() => editor.closeAll(groupId)}
+                  onCloseAllInGroup={() => editor.closeAllAndCollapse(groupId)}
+                  otherGroups={otherGroupsFor(groupId)}
+                  onMoveToGroup={(i, targetGroupId) => editor.moveTab(groupId, i, targetGroupId)}
                   onReveal={handleRevealInSidebar}
                   onOpenConversation={openConversation}
                   onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
