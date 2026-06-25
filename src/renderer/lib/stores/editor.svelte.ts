@@ -1,6 +1,14 @@
 import { api } from '../ipc/client';
 import type { TabSession, SavedTab } from '../../../shared/types';
 import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
+import {
+  type LayoutNode,
+  type SplitDirection,
+  leaf,
+  splitLeaf,
+  removeLeaf,
+  collectGroupIds,
+} from '../editor/layout-tree';
 
 // ── Tab types ───────────────────────────────────────────────────────────────
 
@@ -98,6 +106,9 @@ const groups = $state<EditorGroup[]>([
   { id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' },
 ]);
 let activeGroupId = $state(groups[0].id);
+// Recursive split layout (#813). A lone leaf = the single-pane case (today);
+// `splitGroup` grows it into a tree, `collapseGroup` rebalances it back.
+let layout = $state<LayoutNode>(leaf(groups[0].id));
 
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let tabPersistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -156,6 +167,41 @@ export function getEditorStore() {
 
   function setActiveGroup(id: string): void {
     if (groups.some((g) => g.id === id)) activeGroupId = id;
+  }
+
+  // ── Split layout (#813) ───────────────────────────────────────────────────
+
+  /**
+   * Split the pane holding `groupId` along `direction`, creating an empty new
+   * group beside it and focusing it. The new pane starts empty — opening a file
+   * (which targets the active group) populates it. Returns the new group id.
+   */
+  function splitGroup(groupId: string, direction: SplitDirection): string {
+    const source = groups.find((g) => g.id === groupId);
+    // New pane inherits the splitting pane's view mode so the split feels
+    // continuous; falls back to 'source'.
+    const newId = addGroup(source?.viewMode ?? 'source');
+    layout = splitLeaf(layout, groupId, direction, newId);
+    activeGroupId = newId;
+    return newId;
+  }
+
+  /**
+   * Remove a group's pane from the layout and rebalance the tree (a split left
+   * with one child collapses into it). No-op for the last remaining pane — the
+   * window always keeps one. Drops the group from `groups` and reassigns focus
+   * to the first surviving pane if the collapsed one was active.
+   */
+  function collapseGroup(groupId: string): void {
+    if (groups.length <= 1) return;
+    const next = removeLeaf(layout, groupId);
+    if (next === null) return; // was the whole tree — keep it
+    layout = next;
+    const idx = groups.findIndex((g) => g.id === groupId);
+    if (idx !== -1) groups.splice(idx, 1);
+    if (activeGroupId === groupId) {
+      activeGroupId = collectGroupIds(layout)[0] ?? groups[0]?.id;
+    }
   }
 
   // ── Source operations ───────────────────────────────────────────────────
@@ -558,6 +604,10 @@ export function getEditorStore() {
     grp.tabs.splice(index, 1);
     if (grp.tabs.length === 0) {
       grp.activeIndex = -1;
+      // Closing a split pane's last tab collapses the pane and rebalances the
+      // tree (#813). The final pane is kept (collapseGroup no-ops there) so a
+      // lone editor empties to its "no file" state exactly as today.
+      collapseGroup(grp.id);
     } else if (index <= grp.activeIndex) {
       grp.activeIndex = Math.max(0, grp.activeIndex - 1);
     }
@@ -653,10 +703,12 @@ export function getEditorStore() {
 
   function clear() {
     flushAutoSave();
-    // Collapse back to a single empty group — the start-of-session shape.
+    // Collapse back to a single empty group + single-leaf layout — the
+    // start-of-session shape.
     groups.length = 0;
     groups.push({ id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' });
     activeGroupId = groups[0].id;
+    layout = leaf(groups[0].id);
   }
 
   return {
@@ -680,9 +732,12 @@ export function getEditorStore() {
     get groups() { return groups; },
     get activeGroupId() { return activeGroupId; },
     get activeGroup() { return activeGroup(); },
+    get layout() { return layout; },
     noteTabForGroup,
     addGroup,
     setActiveGroup,
+    splitGroup,
+    collapseGroup,
     openFile,
     openSource,
     openPdf,
