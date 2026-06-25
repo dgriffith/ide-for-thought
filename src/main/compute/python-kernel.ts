@@ -71,8 +71,10 @@ async function resolvePythonBin(): Promise<string> {
  * a localhost origin) the repo root is `process.cwd()`; in a packaged
  * build, electron-forge stages `resources/` next to the main bundle.
  */
-/** Root of the bundled Python resources tree. */
-function pythonResourcesRoot(): string {
+/** Root of the bundled Python resources tree. Exported for #808 regression
+ *  coverage — the packaged path must include the `resources/` nesting that
+ *  `extraResource` produces. */
+export function pythonResourcesRoot(): string {
   // The build-time global is undefined in the test runner — guard so a
   // ReferenceError doesn't kill the import. In dev (or in tests) the
   // repo's `resources/` is reachable from cwd; in a packaged build,
@@ -81,12 +83,17 @@ function pythonResourcesRoot(): string {
     typeof MAIN_WINDOW_VITE_DEV_SERVER_URL !== 'undefined'
       ? Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL)
       : !app?.isPackaged;
+  // `extraResource: ['resources']` (forge.config.ts) copies the whole
+  // `resources/` dir verbatim into the bundle, so the packaged kernel lands at
+  // `<Resources>/resources/python/…`, NOT `<Resources>/python/…`. The missing
+  // `resources` segment meant the packaged kernel path didn't exist (#808);
+  // app-icon.ts already resolves the icons the corrected way.
   return isDev
     ? path.join(process.cwd(), 'resources', 'python')
-    : path.join(process.resourcesPath, 'python');
+    : path.join(process.resourcesPath, 'resources', 'python');
 }
 
-function kernelScriptPath(): string {
+export function kernelScriptPath(): string {
   return path.join(pythonResourcesRoot(), 'minerva_kernel.py');
 }
 
