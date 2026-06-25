@@ -22,9 +22,12 @@
     onBookmark?: (relativePath: string) => void;
     /** Trailing `+` button — opens a new note at the project root. */
     onNewTab?: () => void;
+    /** Drag-tab-to-split (#817): the tab at `index` started / ended dragging. */
+    onTabDragStart?: (index: number) => void;
+    onTabDragEnd?: () => void;
   }
 
-  let { tabs, activeIndex, sources, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab }: Props = $props();
+  let { tabs, activeIndex, sources, onSwitch, onClose, onCloseOthers, onCloseAll, onReveal, onOpenConversation, onBookmark, onNewTab, onTabDragStart, onTabDragEnd }: Props = $props();
 
   /** Map sourceId → metadata for label lookups. Rebuilds whenever the
    *  parent's `sources` array changes. */
@@ -78,6 +81,15 @@
       class="tab"
       class:active={i === activeIndex}
       class:dirty
+      draggable="true"
+      ondragstart={(e) => {
+        // Some data is required for the drag to initiate in Chromium; the
+        // payload itself travels via the parent's drag state (#817).
+        e.dataTransfer?.setData('text/plain', String(i));
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        onTabDragStart?.(i);
+      }}
+      ondragend={() => onTabDragEnd?.()}
       onclick={() => onSwitch(i)}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSwitch(i); } }}
       onauxclick={(e) => handleMiddleClick(e, i)}

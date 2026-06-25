@@ -75,7 +75,9 @@ function normalizeSizes(sizes: number[]): number[] {
  * If the leaf's existing parent split runs in the *same* direction, the new
  * leaf is inserted as a flat sibling (keeping the tree shallow and the existing
  * panes' relative sizes intact). Otherwise the leaf is replaced by a fresh
- * binary split of the requested direction, 50/50. Returns a new tree; the
+ * binary split of the requested direction, 50/50. `before` places the new leaf
+ * on the leading side (left / top) instead of the default trailing side
+ * (right / bottom) — used by drag-tab-to-split (#817). Returns a new tree; the
  * original is not mutated.
  */
 export function splitLeaf(
@@ -83,22 +85,26 @@ export function splitLeaf(
   groupId: string,
   direction: SplitDirection,
   newGroupId: string,
+  before = false,
 ): LayoutNode {
   // Root is the target leaf → wrap it directly (no parent to flatten into).
   if (root.kind === 'leaf') {
     if (root.groupId !== groupId) return root;
-    return { kind: 'split', direction, children: [leaf(groupId), leaf(newGroupId)], sizes: [0.5, 0.5] };
+    const children = before
+      ? [leaf(newGroupId), leaf(groupId)]
+      : [leaf(groupId), leaf(newGroupId)];
+    return { kind: 'split', direction, children, sizes: [0.5, 0.5] };
   }
 
   // Same-direction parent that directly contains the target leaf → insert a
-  // flat sibling right after it, splitting the target's slice in two so the
-  // other panes keep their sizes.
+  // flat sibling next to it, splitting the target's slice in two so the other
+  // panes keep their sizes.
   if (root.direction === direction) {
     const idx = root.children.findIndex((c) => c.kind === 'leaf' && c.groupId === groupId);
     if (idx !== -1) {
       const children = [...root.children];
       const sizes = [...root.sizes];
-      children.splice(idx + 1, 0, leaf(newGroupId));
+      children.splice(before ? idx : idx + 1, 0, leaf(newGroupId));
       const half = sizes[idx] / 2;
       sizes.splice(idx, 1, half, half);
       return { ...root, children, sizes: normalizeSizes(sizes) };
@@ -108,7 +114,7 @@ export function splitLeaf(
   // Otherwise recurse into children, rebuilding the path to the change.
   return {
     ...root,
-    children: root.children.map((c) => splitLeaf(c, groupId, direction, newGroupId)),
+    children: root.children.map((c) => splitLeaf(c, groupId, direction, newGroupId, before)),
   };
 }
 

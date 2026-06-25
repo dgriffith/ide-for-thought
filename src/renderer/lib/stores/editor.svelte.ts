@@ -223,17 +223,73 @@ export function getEditorStore() {
   /**
    * Split the pane holding `groupId` along `direction`, creating an empty new
    * group beside it and focusing it. The new pane starts empty — opening a file
-   * (which targets the active group) populates it. Returns the new group id.
+   * (which targets the active group) populates it. `before` places the new pane
+   * on the leading side (left / top) instead of the trailing side, used by
+   * drag-tab-to-split (#817). Returns the new group id.
    */
-  function splitGroup(groupId: string, direction: SplitDirection): string {
+  function splitGroup(groupId: string, direction: SplitDirection, opts?: { before?: boolean }): string {
     const source = groups.find((g) => g.id === groupId);
     // New pane inherits the splitting pane's view mode so the split feels
     // continuous; falls back to 'source'.
     const newId = addGroup(source?.viewMode ?? 'source');
-    layout = splitLeaf(layout, groupId, direction, newId);
+    layout = splitLeaf(layout, groupId, direction, newId, opts?.before ?? false);
     activeGroupId = newId;
     schedulePersistTabs();
     return newId;
+  }
+
+  /**
+   * Move a tab from one pane to another (or to a new index within a pane),
+   * focusing the destination (#817 drag-and-drop). The moved tab becomes the
+   * destination's active tab. If the source pane is left empty it collapses,
+   * rebalancing the tree — same contract as closing its last tab. No-op if the
+   * source tab doesn't exist or the move would be a no-op within one pane.
+   */
+  function moveTab(fromGroupId: string, fromIndex: number, toGroupId: string, toIndex?: number): void {
+    const from = groups.find((g) => g.id === fromGroupId);
+    const to = groups.find((g) => g.id === toGroupId);
+    if (!from || !to) return;
+    if (fromIndex < 0 || fromIndex >= from.tabs.length) return;
+
+    const sameGroup = from.id === to.id;
+    let insertAt = toIndex ?? to.tabs.length;
+    if (sameGroup && toIndex !== undefined && toIndex > fromIndex) insertAt -= 1;
+    if (sameGroup && insertAt === fromIndex) return; // dropped onto itself
+
+    const [tab] = from.tabs.splice(fromIndex, 1);
+    // Re-home the source's active index now that a tab left it.
+    if (from.tabs.length === 0) {
+      from.activeIndex = -1;
+    } else if (fromIndex <= from.activeIndex) {
+      from.activeIndex = Math.max(0, from.activeIndex - 1);
+    }
+
+    insertAt = Math.max(0, Math.min(insertAt, to.tabs.length));
+    to.tabs.splice(insertAt, 0, tab);
+    to.activeIndex = insertAt;
+    activeGroupId = to.id;
+
+    if (!sameGroup && from.tabs.length === 0) collapseGroup(from.id);
+    schedulePersistTabs();
+  }
+
+  /**
+   * Drag-tab-to-split (#817): split the target pane along `direction` and move
+   * the dragged tab into the freshly created sub-pane (on the leading side when
+   * `before`). Dragging a pane's only tab onto its own edge is a no-op net —
+   * the source empties and collapses back, leaving the tab where it was.
+   */
+  function moveTabToSplit(
+    fromGroupId: string,
+    fromIndex: number,
+    targetGroupId: string,
+    direction: SplitDirection,
+    before: boolean,
+  ): void {
+    const from = groups.find((g) => g.id === fromGroupId);
+    if (!from || fromIndex < 0 || fromIndex >= from.tabs.length) return;
+    const newId = splitGroup(targetGroupId, direction, { before });
+    moveTab(fromGroupId, fromIndex, newId);
   }
 
   /**
@@ -899,6 +955,8 @@ export function getEditorStore() {
     closeActiveGroup,
     splitGroup,
     collapseGroup,
+    moveTab,
+    moveTabToSplit,
     openFile,
     openSource,
     openPdf,

@@ -26,6 +26,7 @@ vi.mock('../../src/renderer/lib/ipc/client', () => ({
 }));
 
 import { getEditorStore } from '../../src/renderer/lib/stores/editor.svelte';
+import { collectGroupIds } from '../../src/renderer/lib/editor/layout-tree';
 
 const editor = getEditorStore();
 
@@ -570,5 +571,79 @@ describe('forbid duplicate open (#815)', () => {
     const g2Paths = editor.groups.find((g) => g.id === 'group-2')?.tabs
       .map((t) => (t.type === 'note' ? t.relativePath : t.type));
     expect(g2Paths).toEqual(['other.md']);
+  });
+});
+
+describe('drag-tab-to-split — moveTab / moveTabToSplit (#817)', () => {
+  const notePath = (g: { tabs: { type: string }[] }) =>
+    g.tabs.map((t) => (t.type === 'note' ? (t as { relativePath: string }).relativePath : t.type));
+
+  it('moveTab moves a tab into another pane and focuses it', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // g2
+    await editor.openFile('c.md'); // g2: [b, c]
+
+    editor.moveTab(g2, 0, g1); // move b.md → g1
+    expect(notePath(editor.groups.find((g) => g.id === g1)!)).toEqual(['a.md', 'b.md']);
+    expect(notePath(editor.groups.find((g) => g.id === g2)!)).toEqual(['c.md']);
+    expect(editor.activeGroupId).toBe(g1);
+    expect(editor.noteTabForGroup(g1)?.relativePath).toBe('b.md'); // moved tab is active
+  });
+
+  it('moveTab collapses the source pane when it empties', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // g2 has only b.md
+
+    editor.moveTab(g2, 0, g1); // g2 empties → collapses
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout).toEqual({ kind: 'leaf', groupId: g1 });
+    expect(notePath(editor.groups[0])).toEqual(['a.md', 'b.md']);
+  });
+
+  it('moveTabToSplit creates a new pane on the requested side and moves the tab in', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // g2
+    await editor.openFile('c.md'); // g2: [b, c]
+
+    // Drag c.md onto the bottom edge of g1 → vertical split under g1, c moves in.
+    editor.moveTabToSplit(g2, 1, g1, 'vertical', false);
+    expect(editor.groups).toHaveLength(3);
+    const newGroupId = editor.activeGroupId;
+    expect(editor.noteTabForGroup(newGroupId)?.relativePath).toBe('c.md');
+    expect(notePath(editor.groups.find((g) => g.id === g2)!)).toEqual(['b.md']);
+    // g1 and the new pane share a vertical split, g1 leading (before=false).
+    const ids = collectGroupIds(editor.layout);
+    expect(ids).toContain(newGroupId);
+    expect(ids).toContain(g1);
+  });
+
+  it('dragging a pane\'s only tab onto its own edge is a net no-op (source collapses back)', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // g2 has only b.md
+    expect(editor.groups).toHaveLength(2);
+
+    editor.moveTabToSplit(g2, 0, g2, 'horizontal', false); // split g2, move b into the new pane
+    // g2 emptied and collapsed; the new pane holding b.md remains — still 2 panes total.
+    expect(editor.groups).toHaveLength(2);
+    expect(
+      editor.groups.flatMap((g) => g.tabs).filter((t) => t.type === 'note' && (t as { relativePath: string }).relativePath === 'b.md'),
+    ).toHaveLength(1);
+  });
+
+  it('moveTab is a no-op when dropped at its own position in the same pane', async () => {
+    await editor.openFile('a.md');
+    await editor.openFile('b.md'); // g1: [a, b]
+    const g1 = editor.groups[0].id;
+    editor.moveTab(g1, 0, g1, 0);
+    expect(notePath(editor.groups[0])).toEqual(['a.md', 'b.md']);
+    expect(editor.groups).toHaveLength(1);
   });
 });

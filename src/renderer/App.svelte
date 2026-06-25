@@ -4,6 +4,8 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Editor from './lib/components/Editor.svelte';
   import SplitContainer from './lib/components/SplitContainer.svelte';
+  import PaneDropZone from './lib/components/PaneDropZone.svelte';
+  import { splitForZone, type DropZone } from './lib/editor/drop-zone';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
@@ -203,6 +205,28 @@
   const previewComponent = $derived(previewComponents[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
+
+  // Drag-tab-to-split (#817): the tab currently being dragged, by its source
+  // pane + index. Set on dragstart, cleared on drop/dragend. While set, each
+  // pane renders a PaneDropZone overlay. The payload rides in state rather than
+  // dataTransfer (which is unreadable during dragover in Chromium).
+  let draggingTab = $state<{ groupId: string; index: number } | null>(null);
+
+  /** Resolve a tab drop on `targetGroupId`: edge zones split + move the dragged
+   *  tab into the new sub-pane; center moves it into the target pane (no-op when
+   *  dropped back on its own pane). */
+  function handleTabDrop(targetGroupId: string, zone: DropZone) {
+    const drag = draggingTab;
+    draggingTab = null;
+    if (!drag) return;
+    const split = splitForZone(zone);
+    if (!split) {
+      if (drag.groupId === targetGroupId) return; // center of its own pane
+      editor.moveTab(drag.groupId, drag.index, targetGroupId);
+    } else {
+      editor.moveTabToSplit(drag.groupId, drag.index, targetGroupId, split.direction, split.before);
+    }
+  }
 
   // Breadcrumbs bar above the editor (#476). Single toggle for the
   // heading-chain second tier — held in local state so the bar reacts
@@ -1177,6 +1201,8 @@
                   onOpenConversation={openConversation}
                   onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
                   onNewTab={() => { editor.setActiveGroup(groupId); void handleNewNote(); }}
+                  onTabDragStart={(i) => { draggingTab = { groupId, index: i }; }}
+                  onTabDragEnd={() => { draggingTab = null; }}
                 />
               {/if}
               {#if active?.type === 'note'}
@@ -1362,6 +1388,9 @@
                 <div class="no-file">
                   <p>Select a note from the sidebar</p>
                 </div>
+              {/if}
+              {#if draggingTab}
+                <PaneDropZone onDropZone={(zone) => handleTabDrop(groupId, zone)} />
               {/if}
             </div>
           {/if}
@@ -1655,6 +1684,8 @@
     min-width: 0;
     min-height: 0;
     overflow: hidden;
+    /* Anchor for the absolutely-positioned drag-to-split overlay (#817). */
+    position: relative;
   }
   /* Subtle focus ring on the active pane — only meaningful once split. */
   .group-pane.focused {
