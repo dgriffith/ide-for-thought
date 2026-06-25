@@ -252,4 +252,40 @@ describe('split layout ops (#813)', () => {
     expect(editor.layout).toEqual({ kind: 'leaf', groupId: only });
     expect(editor.tabs).toHaveLength(0);
   });
+
+  it('closeAll on a split pane collapses it, same as closing each tab', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // into g2 (active)
+    await editor.openFile('c.md'); // g2 now has two tabs
+    expect(editor.groups).toHaveLength(2);
+
+    // Close-all empties g2 → pane collapses, tree returns to the lone leaf.
+    editor.closeAll(g2);
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout).toEqual({ kind: 'leaf', groupId: g1 });
+  });
+
+  it('closeAll on the only pane empties it without collapsing', async () => {
+    await editor.openFile('a.md');
+    await editor.openFile('b.md');
+    const only = editor.groups[0].id;
+    editor.closeAll();
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout).toEqual({ kind: 'leaf', groupId: only });
+    expect(editor.tabs).toHaveLength(0);
+  });
+
+  it('closeOthers keeps the named tab and leaves the pane intact', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // into g2
+    await editor.openFile('c.md'); // g2: [b, c]
+
+    editor.closeOthers(0, g2); // keep b.md
+    expect(editor.groups).toHaveLength(2);
+    expect(editor.noteTabForGroup(g2)?.relativePath).toBe('b.md');
+  });
 });

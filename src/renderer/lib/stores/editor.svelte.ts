@@ -617,6 +617,7 @@ export function getEditorStore() {
   function closeOthers(index: number, groupId?: string) {
     const grp = resolveGroup(groupId);
     const kept = grp.tabs[index];
+    if (!kept) return; // out-of-range — nothing to keep, leave the pane as-is
     grp.tabs.length = 0;
     grp.tabs.push(kept);
     grp.activeIndex = 0;
@@ -628,6 +629,9 @@ export function getEditorStore() {
     flushAutoSave();
     grp.tabs.length = 0;
     grp.activeIndex = -1;
+    // Emptying a split pane collapses it and rebalances the tree, same as
+    // closing its last tab one-by-one (#813). No-ops on the last pane.
+    collapseGroup(grp.id);
     schedulePersistTabs();
   }
 
