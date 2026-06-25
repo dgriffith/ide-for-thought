@@ -137,3 +137,46 @@ describe('group-scoped mutations (#811)', () => {
     expect(editor.groups[1].tabs[0].type === 'note' && editor.groups[1].tabs[0].relativePath).toBe('other.md');
   });
 });
+
+describe('group-addressed editor sourcing (#812)', () => {
+  it('noteTabForGroup sources each group independently', async () => {
+    await editor.openFile('one.md'); // group 1
+    const g2 = editor.addGroup();
+    await editor.openFile('two.md', g2);
+
+    const t1 = editor.noteTabForGroup(editor.groups[0].id);
+    const t2 = editor.noteTabForGroup(g2);
+    expect(t1?.relativePath).toBe('one.md');
+    expect(t2?.relativePath).toBe('two.md');
+    expect(t1).not.toBe(t2);
+  });
+
+  it('returns null for an unknown group or a non-note active tab', () => {
+    expect(editor.noteTabForGroup('nope')).toBeNull();
+    const g = editor.addGroup();
+    editor.openQuery('SELECT 1', 'sparql', g);
+    expect(editor.noteTabForGroup(g)).toBeNull();
+  });
+
+  it('content / cursor / scroll / history stay independent per group', async () => {
+    await editor.openFile('a.md'); // group 1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.addGroup();
+    await editor.openFile('b.md', g2);
+
+    // Edit each group's buffer through the group-targeted setter — what the
+    // Editor's onContentChange routes to.
+    editor.setContent('edited-A', g1);
+    editor.setContent('edited-B', g2);
+    expect(editor.noteTabForGroup(g1)?.content).toBe('edited-A');
+    expect(editor.noteTabForGroup(g2)?.content).toBe('edited-B');
+
+    // Per-file cursor/scroll/history capture lands on the right group's tab.
+    editor.saveEditorState('a.md', 10, 100, { hist: 'A' });
+    editor.saveEditorState('b.md', 20, 200, { hist: 'B' });
+    const ta = editor.noteTabForGroup(g1);
+    const tb = editor.noteTabForGroup(g2);
+    expect([ta?.cursorOffset, ta?.scrollTop, ta?.historyJson]).toEqual([10, 100, { hist: 'A' }]);
+    expect([tb?.cursorOffset, tb?.scrollTop, tb?.historyJson]).toEqual([20, 200, { hist: 'B' }]);
+  });
+});

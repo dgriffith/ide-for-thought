@@ -1188,61 +1188,72 @@
               title="Toggle Right Sidebar (Cmd+Shift+B)"
             ><Icon name="outline" size={12} /></button>
           </div>
+          <!-- Editor instance bound to a specific group (#812). Sources
+               filePath / content / history from that group's active note tab
+               and routes content changes back to it, so each split pane (#813)
+               stays independent. Rendered once today (the active group). -->
+          {#snippet editorPane(group: import('./lib/stores/editor.svelte').EditorGroup)}
+            {@const note = editor.noteTabForGroup(group.id)}
+            {#if note}
+              {#key group.id + ':' + note.relativePath}
+                <Editor
+                  bind:this={editorComponent}
+                  groupId={group.id}
+                  filePath={note.relativePath}
+                  content={note.content}
+                  initialHistory={note.historyJson}
+                  searchQuery={pendingSearchQuery}
+                  onContentChange={(text) => editor.setContent(text, group.id)}
+                  onSave={handleSave}
+                  onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
+                  onEditorStateSave={editor.saveEditorState}
+                  onCursorChange={(info) => { cursorInfo = info; }}
+                  onToolInvoke={handleToolInvoke}
+                  onOpenConversation={openConversation}
+                  onNavigate={handleNavigate}
+                  onOpenSource={handleOpenSource}
+                  onOpenExcerpt={handleOpenExcerpt}
+                  getNotePaths={() => flattenNotePaths(notebase.files)}
+                  getSources={() => sourcesCache}
+                  getAliases={() => aliasEntries}
+                  onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
+                  onBookmarkSection={() => { void handleBookmarkSection(); }}
+                  onBookmarkLine={handleBookmarkLine}
+                  bookmarks={currentFileBookmarks}
+                  onExtractSelection={handleExtractSelection}
+                  onSplitHere={handleSplitHere}
+                  onSplitByHeading={handleSplitByHeading}
+                  onRename={() => void handleRename(note.relativePath)}
+                  onMove={() => void handleMoveWithPrompt(note.relativePath)}
+                  onCopyFile={() => void handleCopyWithPrompt(note.relativePath)}
+                  onMerge={() => handleMerge(note.relativePath)}
+                  onAutoTag={() => void handleAutoTag(note.relativePath)}
+                  onAutoLink={() => void handleAutoLink(note.relativePath)}
+                  onAutoLinkInbound={() => void handleAutoLinkInbound(note.relativePath)}
+                  onFormatCurrentNote={() => handleFormat()}
+                  onUploadError={(message) => {
+                    // Image-upload rejection (#455). Surface via the
+                    // existing confirm dialog with a dismissable key —
+                    // user-facing but not blocking.
+                    void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
+                  }}
+                  onRunCell={(language, code, notePath) =>
+                    runCellWithTrust(language, code, notePath, { showConfirm })
+                  }
+                  onInsertQueryList={async () => {
+                    const tag = await showPrompt('Tag name:');
+                    if (!tag) return;
+                    const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
+                    editorComponent?.insertText(block);
+                  }}
+                />
+              {/key}
+            {/if}
+          {/snippet}
           <div class="editor-content" class:editor-preview={editor.viewMode === 'editor-preview'}>
             {#if editor.viewMode === 'source' || editor.viewMode === 'editor-preview'}
               <div class="editor-panel">
-                {#key editor.activeFilePath}
-                  <Editor
-                    bind:this={editorComponent}
-                    filePath={editor.activeFilePath!}
-                    content={editor.content}
-                    initialHistory={editor.activeNoteTab?.historyJson}
-                    searchQuery={pendingSearchQuery}
-                    onContentChange={editor.setContent}
-                    onSave={handleSave}
-                    onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
-                    onEditorStateSave={editor.saveEditorState}
-                    onCursorChange={(info) => { cursorInfo = info; }}
-                    onToolInvoke={handleToolInvoke}
-                    onOpenConversation={openConversation}
-                    onNavigate={handleNavigate}
-                    onOpenSource={handleOpenSource}
-                    onOpenExcerpt={handleOpenExcerpt}
-                    getNotePaths={() => flattenNotePaths(notebase.files)}
-                    getSources={() => sourcesCache}
-                    getAliases={() => aliasEntries}
-                    onBookmark={() => { if (editor.activeFilePath) bookmarkStore.add(editor.activeFileName.replace(/\.(md|ttl|csv)$/, ''), editor.activeFilePath); }}
-                    onBookmarkSection={() => { void handleBookmarkSection(); }}
-                    onBookmarkLine={handleBookmarkLine}
-                    bookmarks={currentFileBookmarks}
-                    onExtractSelection={handleExtractSelection}
-                    onSplitHere={handleSplitHere}
-                    onSplitByHeading={handleSplitByHeading}
-                    onRename={() => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); }}
-                    onMove={() => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); }}
-                    onCopyFile={() => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); }}
-                    onMerge={() => { if (editor.activeFilePath) handleMerge(editor.activeFilePath); }}
-                    onAutoTag={() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); }}
-                    onAutoLink={() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); }}
-                    onAutoLinkInbound={() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); }}
-                    onFormatCurrentNote={() => handleFormat()}
-                    onUploadError={(message) => {
-                      // Image-upload rejection (#455). Surface via the
-                      // existing confirm dialog with a dismissable key —
-                      // user-facing but not blocking.
-                      void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
-                    }}
-                    onRunCell={(language, code, notePath) =>
-                      runCellWithTrust(language, code, notePath, { showConfirm })
-                    }
-                    onInsertQueryList={async () => {
-                      const tag = await showPrompt('Tag name:');
-                      if (!tag) return;
-                      const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
-                      editorComponent?.insertText(block);
-                    }}
-                  />
-                {/key}
+                {@render editorPane(editor.activeGroup)}
               </div>
             {/if}
             {#if editor.viewMode === 'preview' || editor.viewMode === 'editor-preview'}

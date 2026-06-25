@@ -65,6 +65,14 @@
   import { groupToolsByGroup, hasNamedGroups } from '../../../shared/tools/grouping';
 
   interface Props {
+    /**
+     * The editor group this instance belongs to (#812). The parent sources
+     * `filePath` / `content` / `initialHistory` from this group's active tab
+     * and routes state-changing callbacks back to it, so multiple instances
+     * (one per split pane, #813) stay independent. Surfaced as `data-group-id`
+     * for identification.
+     */
+    groupId: string;
     filePath: string;
     content: string;
     searchQuery?: string | null;
@@ -143,6 +151,7 @@
   }
 
   let {
+    groupId,
     filePath,
     content,
     searchQuery = null,
@@ -942,7 +951,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="editor-wrapper" bind:this={editorContainer} oncontextmenu={handleWrapperContextMenu}></div>
+<div class="editor-wrapper" data-group-id={groupId} bind:this={editorContainer} oncontextmenu={handleWrapperContextMenu}></div>
 
 {#if gutterMenu}
   <!-- svelte-ignore a11y_no_static_element_interactions -->

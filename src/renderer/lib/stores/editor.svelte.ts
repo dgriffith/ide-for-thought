@@ -310,6 +310,14 @@ export function getEditorStore() {
     return tab && isNote(tab) ? tab : null;
   }
 
+  /** Active note tab of a specific group — what an `Editor` bound to that group
+   *  renders from (#812). Returns null if the group's active tab isn't a note
+   *  (or the group doesn't exist). */
+  function noteTabForGroup(groupId: string): NoteTab | null {
+    const grp = groups.find((g) => g.id === groupId);
+    return grp ? noteTabOf(grp) : null;
+  }
+
   function scheduleAutoSave() {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
     autoSaveTimer = setTimeout(async () => {
@@ -671,6 +679,8 @@ export function getEditorStore() {
     // arrives in #813/#814.
     get groups() { return groups; },
     get activeGroupId() { return activeGroupId; },
+    get activeGroup() { return activeGroup(); },
+    noteTabForGroup,
     addGroup,
     setActiveGroup,
     openFile,
