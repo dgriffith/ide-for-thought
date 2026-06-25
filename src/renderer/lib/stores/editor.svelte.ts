@@ -212,10 +212,10 @@ export function getEditorStore() {
   /**
    * Close the focused pane: drop all its tabs and collapse it, rebalancing the
    * tree (#814). On the lone pane this just empties it (collapse no-ops), so the
-   * window always keeps one group — same contract as {@link closeAll}.
+   * window always keeps one group.
    */
   function closeActiveGroup(): void {
-    closeAll(activeGroupId);
+    closeAllAndCollapse(activeGroupId);
   }
 
   // ── Split layout (#813) ───────────────────────────────────────────────────
@@ -834,15 +834,23 @@ export function getEditorStore() {
     schedulePersistTabs();
   }
 
+  /** "Close All" (#870): empty a pane's tabs but keep the pane — leaves an
+   *  empty/blank pane rather than collapsing the split. */
   function closeAll(groupId?: string) {
     const grp = resolveGroup(groupId);
     flushAutoSave();
     grp.tabs.length = 0;
     grp.activeIndex = -1;
-    // Emptying a split pane collapses it and rebalances the tree, same as
-    // closing its last tab one-by-one (#813). No-ops on the last pane.
-    collapseGroup(grp.id);
     schedulePersistTabs();
+  }
+
+  /** "Close All In Group" / Close Group (#870, #814): empty a pane AND collapse
+   *  it, rebalancing the tree. No-ops the collapse on the last remaining pane,
+   *  so the window always keeps one group. */
+  function closeAllAndCollapse(groupId?: string) {
+    const grp = resolveGroup(groupId);
+    closeAll(grp.id);
+    collapseGroup(grp.id);
   }
 
   /**
@@ -973,6 +981,7 @@ export function getEditorStore() {
     closeTab,
     closeOthers,
     closeAll,
+    closeAllAndCollapse,
     switchTab,
     clear,
     saveEditorState,

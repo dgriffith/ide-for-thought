@@ -255,7 +255,7 @@ describe('split layout ops (#813)', () => {
     expect(editor.tabs).toHaveLength(0);
   });
 
-  it('closeAll on a split pane collapses it, same as closing each tab', async () => {
+  it('closeAll empties a split pane but keeps it (does NOT collapse) (#870)', async () => {
     await editor.openFile('a.md'); // g1
     const g1 = editor.groups[0].id;
     const g2 = editor.splitGroup(g1, 'horizontal');
@@ -263,19 +263,38 @@ describe('split layout ops (#813)', () => {
     await editor.openFile('c.md'); // g2 now has two tabs
     expect(editor.groups).toHaveLength(2);
 
-    // Close-all empties g2 → pane collapses, tree returns to the lone leaf.
     editor.closeAll(g2);
+    // "Close All" leaves the (now empty) pane in place, split intact.
+    expect(editor.groups).toHaveLength(2);
+    expect(editor.groups.find((g) => g.id === g2)?.tabs).toHaveLength(0);
+    expect(editor.layout).toMatchObject({ kind: 'split' });
+  });
+
+  it('closeAllAndCollapse empties a split pane and collapses it (#870)', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md');
+    await editor.openFile('c.md'); // g2 has two tabs
+    expect(editor.groups).toHaveLength(2);
+
+    editor.closeAllAndCollapse(g2);
     expect(editor.groups).toHaveLength(1);
     expect(editor.layout).toEqual({ kind: 'leaf', groupId: g1 });
   });
 
-  it('closeAll on the only pane empties it without collapsing', async () => {
+  it('closeAll / closeAllAndCollapse on the only pane both just empty it', async () => {
     await editor.openFile('a.md');
     await editor.openFile('b.md');
     const only = editor.groups[0].id;
     editor.closeAll();
     expect(editor.groups).toHaveLength(1);
     expect(editor.layout).toEqual({ kind: 'leaf', groupId: only });
+    expect(editor.tabs).toHaveLength(0);
+
+    await editor.openFile('c.md');
+    editor.closeAllAndCollapse(); // collapse no-ops on the last pane
+    expect(editor.groups).toHaveLength(1);
     expect(editor.tabs).toHaveLength(0);
   });
 
