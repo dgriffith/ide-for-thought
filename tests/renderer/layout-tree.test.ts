@@ -54,6 +54,27 @@ describe('splitLeaf', () => {
     expect(splitLeaf(root, 'zzz', 'horizontal', 'b')).toEqual(root);
   });
 
+  it('before=true places the new leaf on the leading side of a lone leaf (#817)', () => {
+    const next = splitLeaf(leaf('a'), 'a', 'horizontal', 'b', true);
+    expect(next).toEqual({
+      kind: 'split',
+      direction: 'horizontal',
+      children: [leaf('b'), leaf('a')],
+      sizes: [0.5, 0.5],
+    });
+  });
+
+  it('before=true inserts the flat sibling ahead of the target', () => {
+    const root = splitLeaf(leaf('a'), 'a', 'horizontal', 'b'); // [a|b]
+    const next = splitLeaf(root, 'b', 'horizontal', 'c', true) as Extract<LayoutNode, { kind: 'split' }>;
+    // c lands immediately before b: a, c, b.
+    expect(collectGroupIds(next)).toEqual(['a', 'c', 'b']);
+    expect(sum(next.sizes)).toBeCloseTo(1, 6);
+    expect(next.sizes[0]).toBeCloseTo(0.5, 6); // a kept its half
+    expect(next.sizes[1]).toBeCloseTo(0.25, 6); // c
+    expect(next.sizes[2]).toBeCloseTo(0.25, 6); // b
+  });
+
   it('does not mutate the original tree', () => {
     const root = splitLeaf(leaf('a'), 'a', 'horizontal', 'b');
     const snapshot = JSON.parse(JSON.stringify(root));
