@@ -78,9 +78,6 @@
   import { registerSkillInfos } from './lib/tools/tool-registry';
   import { applyMenuConfig } from '../shared/skills/menu-config';
 
-  // 'editor-preview' = source editor + rendered preview side by side. Named
-  // away from "split" so #810's pane-splitting feature can claim that word.
-  type ViewMode = 'source' | 'preview' | 'editor-preview';
 
   const notebase = getNotebaseStore();
   const editor = getEditorStore();
@@ -190,7 +187,8 @@
 
   // ConversationsPanel handles its own per-project init via onMount,
   // remounting on project change via the {#key} block at the mount site.
-  let viewMode = $state<ViewMode>('source');
+  // viewMode now lives per editor group in the editor store (#811) — read it
+  // via `editor.viewMode` and set it via `editor.setViewMode`.
   let sidebarVisible = $state(true);
   let sidebar = $state<Sidebar>();
   let rightSidebar = $state<RightSidebar>();
@@ -659,7 +657,7 @@
     getEditorComponent: () => editorComponent,
     setPendingSearchQuery: (s) => { pendingSearchQuery = s; },
     setPendingPreviewAnchor: (s) => { pendingPreviewAnchor = s; },
-    getViewMode: () => viewMode,
+    getViewMode: () => editor.viewMode,
     getAliasMap: () => aliasMap,
   } satisfies NavViewCtx);
 
@@ -806,9 +804,7 @@
   });
 
   function cycleViewMode() {
-    if (viewMode === 'source') viewMode = 'preview';
-    else if (viewMode === 'preview') viewMode = 'editor-preview';
-    else viewMode = 'source';
+    editor.cycleViewMode();
   }
 
   // Global keyboard shortcuts live in lib/keymap/handle-keydown.ts (#670);
@@ -1170,18 +1166,18 @@
           <div class="toolbar">
             <div class="view-toggle">
               <button
-                class:active={viewMode === 'source'}
-                onclick={() => viewMode = 'source'}
+                class:active={editor.viewMode === 'source'}
+                onclick={() => editor.setViewMode('source')}
                 title="Source (Cmd+Shift+P to cycle)"
               >Source</button>
               <button
-                class:active={viewMode === 'editor-preview'}
-                onclick={() => viewMode = 'editor-preview'}
+                class:active={editor.viewMode === 'editor-preview'}
+                onclick={() => editor.setViewMode('editor-preview')}
                 title="Source + preview side by side"
               >Side by side</button>
               <button
-                class:active={viewMode === 'preview'}
-                onclick={() => viewMode = 'preview'}
+                class:active={editor.viewMode === 'preview'}
+                onclick={() => editor.setViewMode('preview')}
                 title="Preview"
               >Preview</button>
             </div>
@@ -1192,8 +1188,8 @@
               title="Toggle Right Sidebar (Cmd+Shift+B)"
             ><Icon name="outline" size={12} /></button>
           </div>
-          <div class="editor-content" class:editor-preview={viewMode === 'editor-preview'}>
-            {#if viewMode === 'source' || viewMode === 'editor-preview'}
+          <div class="editor-content" class:editor-preview={editor.viewMode === 'editor-preview'}>
+            {#if editor.viewMode === 'source' || editor.viewMode === 'editor-preview'}
               <div class="editor-panel">
                 {#key editor.activeFilePath}
                   <Editor
@@ -1249,7 +1245,7 @@
                 {/key}
               </div>
             {/if}
-            {#if viewMode === 'preview' || viewMode === 'editor-preview'}
+            {#if editor.viewMode === 'preview' || editor.viewMode === 'editor-preview'}
               <div class="preview-panel">
                 <Preview
                   bind:this={previewComponent}
