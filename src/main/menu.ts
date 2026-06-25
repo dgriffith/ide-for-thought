@@ -375,6 +375,33 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           click: () => send(Channels.MENU_TOGGLE_PREVIEW),
         }),
         { type: 'separator' },
+        // Editor split — pane focus & layout commands (#814).
+        gate({
+          label: 'Split Editor Right',
+          accelerator: 'CmdOrCtrl+\\',
+          click: () => send(Channels.MENU_SPLIT_RIGHT),
+        }),
+        gate({
+          label: 'Split Editor Down',
+          accelerator: 'CmdOrCtrl+Shift+\\',
+          click: () => send(Channels.MENU_SPLIT_DOWN),
+        }),
+        gate({
+          label: 'Focus Next Group',
+          accelerator: 'CmdOrCtrl+Alt+Right',
+          click: () => send(Channels.MENU_FOCUS_NEXT_GROUP),
+        }),
+        gate({
+          label: 'Focus Previous Group',
+          accelerator: 'CmdOrCtrl+Alt+Left',
+          click: () => send(Channels.MENU_FOCUS_PREV_GROUP),
+        }),
+        gate({
+          label: 'Close Group',
+          accelerator: 'CmdOrCtrl+Shift+W',
+          click: () => send(Channels.MENU_CLOSE_GROUP),
+        }),
+        { type: 'separator' },
         {
           label: 'Cycle Theme (Dark/Light/Contrast/System)',
           accelerator: 'CmdOrCtrl+Shift+T',

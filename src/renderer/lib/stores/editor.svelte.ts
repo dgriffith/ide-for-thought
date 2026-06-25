@@ -169,6 +169,31 @@ export function getEditorStore() {
     if (groups.some((g) => g.id === id)) activeGroupId = id;
   }
 
+  /**
+   * Move focus to the next/previous pane in visual (left-to-right) order,
+   * wrapping around the ends (#814). `collectGroupIds(layout)` is the same
+   * order the panes render in, so cycling matches what the user sees. No-op
+   * with a single pane.
+   */
+  function cycleFocus(delta: 1 | -1): void {
+    const ids = collectGroupIds(layout);
+    if (ids.length <= 1) return;
+    const cur = ids.indexOf(activeGroupId);
+    const start = cur === -1 ? 0 : cur;
+    activeGroupId = ids[(start + delta + ids.length) % ids.length];
+  }
+  const focusNextGroup = () => cycleFocus(1);
+  const focusPreviousGroup = () => cycleFocus(-1);
+
+  /**
+   * Close the focused pane: drop all its tabs and collapse it, rebalancing the
+   * tree (#814). On the lone pane this just empties it (collapse no-ops), so the
+   * window always keeps one group — same contract as {@link closeAll}.
+   */
+  function closeActiveGroup(): void {
+    closeAll(activeGroupId);
+  }
+
   // ── Split layout (#813) ───────────────────────────────────────────────────
 
   /**
@@ -740,6 +765,9 @@ export function getEditorStore() {
     noteTabForGroup,
     addGroup,
     setActiveGroup,
+    focusNextGroup,
+    focusPreviousGroup,
+    closeActiveGroup,
     splitGroup,
     collapseGroup,
     openFile,

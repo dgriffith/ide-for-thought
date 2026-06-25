@@ -439,6 +439,21 @@ contextBridge.exposeInMainWorld('api', {
     onCycleTheme: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_CYCLE_THEME, () => cb());
     },
+    onSplitRight: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SPLIT_RIGHT, () => cb());
+    },
+    onSplitDown: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SPLIT_DOWN, () => cb());
+    },
+    onFocusNextGroup: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FOCUS_NEXT_GROUP, () => cb());
+    },
+    onFocusPrevGroup: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_FOCUS_PREV_GROUP, () => cb());
+    },
+    onCloseGroup: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_CLOSE_GROUP, () => cb());
+    },
     onFontIncrease: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_FONT_INCREASE, () => cb());
     },

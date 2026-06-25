@@ -288,4 +288,51 @@ describe('split layout ops (#813)', () => {
     expect(editor.groups).toHaveLength(2);
     expect(editor.noteTabForGroup(g2)?.relativePath).toBe('b.md');
   });
+
+  it('focusNextGroup / focusPreviousGroup cycle in visual order and wrap (#814)', async () => {
+    await editor.openFile('a.md');
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal'); // [g1, g2], g2 active
+    const g3 = editor.splitGroup(g2, 'horizontal'); // [g1, g2, g3], g3 active
+    expect(editor.activeGroupId).toBe(g3);
+
+    editor.focusNextGroup(); // g3 → wrap → g1
+    expect(editor.activeGroupId).toBe(g1);
+    editor.focusNextGroup(); // g1 → g2
+    expect(editor.activeGroupId).toBe(g2);
+    editor.focusPreviousGroup(); // g2 → g1
+    expect(editor.activeGroupId).toBe(g1);
+    editor.focusPreviousGroup(); // g1 → wrap → g3
+    expect(editor.activeGroupId).toBe(g3);
+  });
+
+  it('focus cycling is a no-op with a single pane', () => {
+    const only = editor.groups[0].id;
+    editor.focusNextGroup();
+    expect(editor.activeGroupId).toBe(only);
+    editor.focusPreviousGroup();
+    expect(editor.activeGroupId).toBe(only);
+  });
+
+  it('closeActiveGroup closes the focused pane and collapses it (#814)', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // into g2 (active)
+    expect(editor.activeGroupId).toBe(g2);
+
+    editor.closeActiveGroup(); // closes g2
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout).toEqual({ kind: 'leaf', groupId: g1 });
+    expect(editor.activeGroupId).toBe(g1);
+  });
+
+  it('closeActiveGroup on the lone pane empties it without collapsing', async () => {
+    await editor.openFile('a.md');
+    const only = editor.groups[0].id;
+    editor.closeActiveGroup();
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout).toEqual({ kind: 'leaf', groupId: only });
+    expect(editor.tabs).toHaveLength(0);
+  });
 });

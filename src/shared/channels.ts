@@ -149,6 +149,12 @@ export const Channels = {
   MENU_TOGGLE_CONVERSATIONS: 'menu:toggleConversations',
   MENU_NEW_CONVERSATION: 'menu:newConversation',
   MENU_CYCLE_THEME: 'menu:cycleTheme',
+  // Editor split — focus & pane commands (#814)
+  MENU_SPLIT_RIGHT: 'menu:splitRight',
+  MENU_SPLIT_DOWN: 'menu:splitDown',
+  MENU_FOCUS_NEXT_GROUP: 'menu:focusNextGroup',
+  MENU_FOCUS_PREV_GROUP: 'menu:focusPrevGroup',
+  MENU_CLOSE_GROUP: 'menu:closeGroup',
   MENU_FONT_INCREASE: 'menu:fontIncrease',
   MENU_FONT_DECREASE: 'menu:fontDecrease',
   MENU_FONT_RESET: 'menu:fontReset',
