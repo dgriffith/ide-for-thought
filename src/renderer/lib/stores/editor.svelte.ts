@@ -54,6 +54,26 @@ export interface PdfTab {
 
 export type Tab = NoteTab | QueryTab | SourceTab | PdfTab;
 
+/**
+ * Source / preview view mode. `'editor-preview'` = source editor + rendered
+ * preview side by side (#818). Lives per editor group (#811) — moved off the
+ * App.svelte global so each split pane can carry its own mode.
+ */
+export type ViewMode = 'source' | 'preview' | 'editor-preview';
+
+/**
+ * One editor group — an independent pane owning its own tab strip, active tab,
+ * and view mode (#811). Until pane-splitting lands (#813+) there is exactly one
+ * group, so every "active group" delegate below reproduces the old singleton
+ * behavior bit-for-bit.
+ */
+export interface EditorGroup {
+  id: string;
+  tabs: Tab[];
+  activeIndex: number;
+  viewMode: ViewMode;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function isNote(tab: Tab): tab is NoteTab { return tab.type === 'note'; }
@@ -62,11 +82,23 @@ function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
 function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
 
 let queryCounter = 0;
+let groupCounter = 0;
+
+function newGroupId(): string {
+  groupCounter++;
+  return `group-${groupCounter}`;
+}
 
 // ── State ───────────────────────────────────────────────────────────────────
 
-const tabs = $state<Tab[]>([]);
-let activeIndex = $state(-1);
+// The window starts with a single editor group; `activeGroupId` points at the
+// focused one. Tab state that used to be module-global (`tabs` / `activeIndex`)
+// and the view mode (formerly an App.svelte global) now live per group.
+const groups = $state<EditorGroup[]>([
+  { id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' },
+]);
+let activeGroupId = $state(groups[0].id);
+
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let tabPersistTimer: ReturnType<typeof setTimeout> | null = null;
 let onAutoSaved: (() => void) | null = null;
@@ -74,8 +106,27 @@ const AUTO_SAVE_DELAY = 1000;
 const TAB_PERSIST_DELAY = 500;
 
 export function getEditorStore() {
+  function activeGroup(): EditorGroup {
+    return groups.find((g) => g.id === activeGroupId) ?? groups[0];
+  }
+
+  /** Resolve an explicit group target, falling back to the active group. Lets
+   *  the store API target a specific pane while keeping every existing caller
+   *  (which omits the id) operating on the focused group. */
+  function resolveGroup(groupId?: string): EditorGroup {
+    if (!groupId) return activeGroup();
+    return groups.find((g) => g.id === groupId) ?? activeGroup();
+  }
+
+  /** Every tab across every group — for file-path operations (rename, delete,
+   *  dirty checks) that are inherently window-global, not pane-scoped. */
+  function allTabs(): Tab[] {
+    return groups.flatMap((g) => g.tabs);
+  }
+
   function activeTab(): Tab | null {
-    return activeIndex >= 0 && activeIndex < tabs.length ? tabs[activeIndex] : null;
+    const g = activeGroup();
+    return g.activeIndex >= 0 && g.activeIndex < g.tabs.length ? g.tabs[g.activeIndex] : null;
   }
 
   function activeNoteTab(): NoteTab | null {
@@ -93,14 +144,30 @@ export function getEditorStore() {
     return tab && isSource(tab) ? tab : null;
   }
 
+  // ── Group operations ──────────────────────────────────────────────────────
+
+  /** Append a new (empty) editor group and return its id. Pane-creation UI
+   *  lands in #813/#814; this is the store primitive they build on. */
+  function addGroup(viewMode: ViewMode = 'source'): string {
+    const id = newGroupId();
+    groups.push({ id, tabs: [], activeIndex: -1, viewMode });
+    return id;
+  }
+
+  function setActiveGroup(id: string): void {
+    if (groups.some((g) => g.id === id)) activeGroupId = id;
+  }
+
   // ── Source operations ───────────────────────────────────────────────────
 
-  function openSource(sourceId: string, opts?: { highlightExcerptId?: string }) {
-    const existing = tabs.findIndex((t) => isSource(t) && t.sourceId === sourceId);
+  function openSource(sourceId: string, opts?: { highlightExcerptId?: string; groupId?: string }) {
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    const existing = grp.tabs.findIndex((t) => isSource(t) && t.sourceId === sourceId);
     if (existing !== -1) {
-      const existingTab = tabs[existing] as SourceTab;
+      const existingTab = grp.tabs[existing] as SourceTab;
       existingTab.highlightExcerptId = opts?.highlightExcerptId;
-      activeIndex = existing;
+      grp.activeIndex = existing;
       schedulePersistTabs();
       return;
     }
@@ -109,17 +176,19 @@ export function getEditorStore() {
       sourceId,
       highlightExcerptId: opts?.highlightExcerptId,
     };
-    tabs.push(tab);
-    activeIndex = tabs.length - 1;
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
   }
 
-  function openPdf(sourceId: string, opts?: { page?: number }) {
-    const existing = tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
+  function openPdf(sourceId: string, opts?: { page?: number; groupId?: string }) {
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    const existing = grp.tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
     if (existing !== -1) {
-      const existingTab = tabs[existing] as PdfTab;
+      const existingTab = grp.tabs[existing] as PdfTab;
       if (opts?.page) existingTab.page = opts.page;
-      activeIndex = existing;
+      grp.activeIndex = existing;
       schedulePersistTabs();
       return;
     }
@@ -128,28 +197,33 @@ export function getEditorStore() {
       sourceId,
       page: opts?.page ?? 1,
     };
-    tabs.push(tab);
-    activeIndex = tabs.length - 1;
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
   }
 
-  /** Update the persisted current page on the active PDF tab so the
-   *  next reload of this source's PDF restores where the user was. */
+  /** Update the persisted current page on the PDF tab for this source so the
+   *  next reload restores where the user was. Searches all groups. */
   function setPdfPage(sourceId: string, page: number) {
-    const idx = tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
-    if (idx === -1) return;
-    const tab = tabs[idx] as PdfTab;
-    if (tab.page === page) return;
-    tab.page = page;
-    schedulePersistTabs();
+    for (const grp of groups) {
+      const idx = grp.tabs.findIndex((t) => isPdf(t) && t.sourceId === sourceId);
+      if (idx === -1) continue;
+      const tab = grp.tabs[idx] as PdfTab;
+      if (tab.page === page) return;
+      tab.page = page;
+      schedulePersistTabs();
+      return;
+    }
   }
 
   // ── Note operations ─────────────────────────────────────────────────────
 
-  async function openFile(relativePath: string) {
-    const existing = tabs.findIndex((t) => isNote(t) && t.relativePath === relativePath);
+  async function openFile(relativePath: string, groupId?: string) {
+    const grp = resolveGroup(groupId);
+    activeGroupId = grp.id;
+    const existing = grp.tabs.findIndex((t) => isNote(t) && t.relativePath === relativePath);
     if (existing !== -1) {
-      activeIndex = existing;
+      grp.activeIndex = existing;
       return;
     }
 
@@ -162,8 +236,8 @@ export function getEditorStore() {
       content: text,
       savedContent: text,
     };
-    tabs.push(tab);
-    activeIndex = tabs.length - 1;
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
   }
 
@@ -176,21 +250,23 @@ export function getEditorStore() {
 
   // ── External change handlers (rename / content rewrite on disk) ─────────
 
-  /** Return true if the tab for this path has unsaved local edits. */
+  /** Return true if the tab for this path has unsaved local edits — checked
+   *  across every group (a file lives in exactly one pane). */
   function isPathDirty(relativePath: string): boolean {
-    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    const tab = allTabs().find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
     return tab ? tab.content !== tab.savedContent : false;
   }
 
   /**
-   * Apply file renames (from the main process) to tab paths. Content is
-   * unchanged, so no reload is needed — the tab's buffer is still correct.
+   * Apply file renames (from the main process) to tab paths in every group.
+   * Content is unchanged, so no reload is needed — the tab's buffer is still
+   * correct.
    */
   function applyRenameTransitions(transitions: Array<{ old: string; new: string }>): void {
     if (transitions.length === 0) return;
     const byOld = new Map(transitions.map((t) => [t.old, t.new]));
     let touched = false;
-    for (const tab of tabs) {
+    for (const tab of allTabs()) {
       if (!isNote(tab)) continue;
       const newPath = byOld.get(tab.relativePath);
       if (newPath && newPath !== tab.relativePath) {
@@ -208,7 +284,7 @@ export function getEditorStore() {
    * prompt). Does nothing if no tab is open at that path.
    */
   async function reloadTabFromDisk(relativePath: string): Promise<void> {
-    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    const tab = allTabs().find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
     if (!tab) return;
     try {
       const text = await api.notebase.readFile(relativePath);
@@ -219,12 +295,19 @@ export function getEditorStore() {
     }
   }
 
-  function setContent(text: string) {
-    const tab = activeNoteTab();
+  function setContent(text: string, groupId?: string) {
+    const tab = groupId
+      ? noteTabOf(resolveGroup(groupId))
+      : activeNoteTab();
     if (tab) {
       tab.content = text;
       scheduleAutoSave();
     }
+  }
+
+  function noteTabOf(grp: EditorGroup): NoteTab | null {
+    const tab = grp.activeIndex >= 0 && grp.activeIndex < grp.tabs.length ? grp.tabs[grp.activeIndex] : null;
+    return tab && isNote(tab) ? tab : null;
   }
 
   function scheduleAutoSave() {
@@ -250,7 +333,7 @@ export function getEditorStore() {
     scrollTop: number,
     historyJson?: unknown,
   ) {
-    const tab = tabs.find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
+    const tab = allTabs().find((t) => isNote(t) && t.relativePath === relativePath) as NoteTab | undefined;
     if (tab) {
       tab.cursorOffset = cursorOffset;
       tab.scrollTop = scrollTop;
@@ -259,6 +342,19 @@ export function getEditorStore() {
       if (historyJson !== undefined) tab.historyJson = historyJson;
       schedulePersistTabs();
     }
+  }
+
+  // ── View mode (per group) ─────────────────────────────────────────────────
+
+  function setViewMode(mode: ViewMode, groupId?: string) {
+    resolveGroup(groupId).viewMode = mode;
+  }
+
+  function cycleViewMode(groupId?: string) {
+    const grp = resolveGroup(groupId);
+    if (grp.viewMode === 'source') grp.viewMode = 'preview';
+    else if (grp.viewMode === 'preview') grp.viewMode = 'editor-preview';
+    else grp.viewMode = 'source';
   }
 
   // ── Tab session persistence ────────────────────────────────────────────
@@ -272,7 +368,10 @@ export function getEditorStore() {
   }
 
   function persistTabs() {
-    const savedTabs: SavedTab[] = tabs.map((t): SavedTab => {
+    // Persistence shape is unchanged (#816 owns the multi-group layout format):
+    // serialise the active group's tabs + active index, exactly as before.
+    const grp = activeGroup();
+    const savedTabs: SavedTab[] = grp.tabs.map((t): SavedTab => {
       if (isNote(t)) {
         return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
       } else if (isQuery(t)) {
@@ -283,7 +382,7 @@ export function getEditorStore() {
         return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
       }
     });
-    const session: TabSession = { activeIndex, tabs: savedTabs };
+    const session: TabSession = { activeIndex: grp.activeIndex, tabs: savedTabs };
     void api.tabs.save(session);
   }
 
@@ -291,6 +390,7 @@ export function getEditorStore() {
     const session = await api.tabs.load();
     if (!session || session.tabs.length === 0) return;
 
+    const grp = activeGroup();
     for (const saved of session.tabs) {
       if (saved.type === 'note') {
         try {
@@ -305,7 +405,7 @@ export function getEditorStore() {
             cursorOffset: saved.cursorOffset,
             scrollTop: saved.scrollTop,
           };
-          tabs.push(tab);
+          grp.tabs.push(tab);
         } catch {
           // File may have been deleted since last session
         }
@@ -323,15 +423,15 @@ export function getEditorStore() {
           executing: false,
           executionTime: null,
         };
-        tabs.push(tab);
+        grp.tabs.push(tab);
       } else if (saved.type === 'pdf') {
-        tabs.push({
+        grp.tabs.push({
           type: 'pdf',
           sourceId: saved.sourceId,
           page: saved.page ?? 1,
         });
       } else {
-        tabs.push({
+        grp.tabs.push({
           type: 'source',
           sourceId: saved.sourceId,
           highlightExcerptId: saved.highlightExcerptId,
@@ -340,16 +440,18 @@ export function getEditorStore() {
     }
 
     // Clamp activeIndex to valid range
-    if (session.activeIndex >= 0 && session.activeIndex < tabs.length) {
-      activeIndex = session.activeIndex;
-    } else if (tabs.length > 0) {
-      activeIndex = 0;
+    if (session.activeIndex >= 0 && session.activeIndex < grp.tabs.length) {
+      grp.activeIndex = session.activeIndex;
+    } else if (grp.tabs.length > 0) {
+      grp.activeIndex = 0;
     }
   }
 
   // ── Query operations ────────────────────────────────────────────────────
 
-  function openQuery(initialQuery = '', language: QueryLanguage = 'sparql') {
+  function openQuery(initialQuery = '', language: QueryLanguage = 'sparql', groupId?: string) {
+    const grp = resolveGroup(groupId);
+    activeGroupId = grp.id;
     queryCounter++;
     const tab: QueryTab = {
       type: 'query',
@@ -363,8 +465,8 @@ export function getEditorStore() {
       executing: false,
       executionTime: null,
     };
-    tabs.push(tab);
-    activeIndex = tabs.length - 1;
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
   }
 
@@ -441,37 +543,40 @@ export function getEditorStore() {
 
   // ── Generic tab operations ──────────────────────────────────────────────
 
-  function closeTab(index: number) {
-    if (index < 0 || index >= tabs.length) return;
-    if (index === activeIndex) flushAutoSave();
-    tabs.splice(index, 1);
-    if (tabs.length === 0) {
-      activeIndex = -1;
-    } else if (index <= activeIndex) {
-      activeIndex = Math.max(0, activeIndex - 1);
+  function closeTab(index: number, groupId?: string) {
+    const grp = resolveGroup(groupId);
+    if (index < 0 || index >= grp.tabs.length) return;
+    if (index === grp.activeIndex && grp.id === activeGroupId) flushAutoSave();
+    grp.tabs.splice(index, 1);
+    if (grp.tabs.length === 0) {
+      grp.activeIndex = -1;
+    } else if (index <= grp.activeIndex) {
+      grp.activeIndex = Math.max(0, grp.activeIndex - 1);
     }
     schedulePersistTabs();
   }
 
-  function closeOthers(index: number) {
-    const kept = tabs[index];
-    tabs.length = 0;
-    tabs.push(kept);
-    activeIndex = 0;
+  function closeOthers(index: number, groupId?: string) {
+    const grp = resolveGroup(groupId);
+    const kept = grp.tabs[index];
+    grp.tabs.length = 0;
+    grp.tabs.push(kept);
+    grp.activeIndex = 0;
     schedulePersistTabs();
   }
 
-  function closeAll() {
+  function closeAll(groupId?: string) {
+    const grp = resolveGroup(groupId);
     flushAutoSave();
-    tabs.length = 0;
-    activeIndex = -1;
+    grp.tabs.length = 0;
+    grp.activeIndex = -1;
     schedulePersistTabs();
   }
 
   /**
    * Close every note tab whose file was deleted (or sat under a deleted
-   * directory). Drops dirty buffers without prompting — the file is gone
-   * on disk; preserving a stale buffer would just create a ghost.
+   * directory), across all groups. Drops dirty buffers without prompting — the
+   * file is gone on disk; preserving a stale buffer would just create a ghost.
    *
    * Path matching covers the file itself AND any descendant of a deleted
    * directory (`relativePath === deleted` or starts with `deleted + '/'`).
@@ -480,67 +585,75 @@ export function getEditorStore() {
   function closeTabsForDeletedPath(deleted: string): number {
     const isUnder = (p: string) => p === deleted || p.startsWith(deleted + '/');
     let closed = 0;
-    // Walk in reverse so each splice doesn't disturb pending indexes.
-    for (let i = tabs.length - 1; i >= 0; i--) {
-      const t = tabs[i];
-      if (isNote(t) && isUnder(t.relativePath)) {
-        tabs.splice(i, 1);
-        if (i === activeIndex) {
-          activeIndex = -1;
-        } else if (i < activeIndex) {
-          activeIndex--;
+    for (const grp of groups) {
+      // Walk in reverse so each splice doesn't disturb pending indexes.
+      for (let i = grp.tabs.length - 1; i >= 0; i--) {
+        const t = grp.tabs[i];
+        if (isNote(t) && isUnder(t.relativePath)) {
+          grp.tabs.splice(i, 1);
+          if (i === grp.activeIndex) {
+            grp.activeIndex = -1;
+          } else if (i < grp.activeIndex) {
+            grp.activeIndex--;
+          }
+          closed++;
         }
-        closed++;
       }
-    }
-    if (activeIndex < 0 && tabs.length > 0) {
-      activeIndex = Math.min(tabs.length - 1, Math.max(0, activeIndex));
+      if (grp.activeIndex < 0 && grp.tabs.length > 0) {
+        grp.activeIndex = Math.min(grp.tabs.length - 1, Math.max(0, grp.activeIndex));
+      }
     }
     if (closed > 0) schedulePersistTabs();
     return closed;
   }
 
   /** Close every tab bound to a source — both its detail view and its PDF
-   *  viewer — e.g. when the source is deleted, so neither is left pointing at
-   *  files that no longer exist. */
+   *  viewer, across all groups — e.g. when the source is deleted, so neither is
+   *  left pointing at files that no longer exist. */
   function closeTabsForSource(sourceId: string): number {
     let closed = 0;
-    for (let i = tabs.length - 1; i >= 0; i--) {
-      const t = tabs[i];
-      if ((isSource(t) || isPdf(t)) && t.sourceId === sourceId) {
-        tabs.splice(i, 1);
-        if (i === activeIndex) {
-          activeIndex = -1;
-        } else if (i < activeIndex) {
-          activeIndex--;
+    for (const grp of groups) {
+      for (let i = grp.tabs.length - 1; i >= 0; i--) {
+        const t = grp.tabs[i];
+        if ((isSource(t) || isPdf(t)) && t.sourceId === sourceId) {
+          grp.tabs.splice(i, 1);
+          if (i === grp.activeIndex) {
+            grp.activeIndex = -1;
+          } else if (i < grp.activeIndex) {
+            grp.activeIndex--;
+          }
+          closed++;
         }
-        closed++;
       }
-    }
-    if (activeIndex < 0 && tabs.length > 0) {
-      activeIndex = Math.min(tabs.length - 1, Math.max(0, activeIndex));
+      if (grp.activeIndex < 0 && grp.tabs.length > 0) {
+        grp.activeIndex = Math.min(grp.tabs.length - 1, Math.max(0, grp.activeIndex));
+      }
     }
     if (closed > 0) schedulePersistTabs();
     return closed;
   }
 
-  function switchTab(index: number) {
-    if (index >= 0 && index < tabs.length) {
+  function switchTab(index: number, groupId?: string) {
+    const grp = resolveGroup(groupId);
+    if (index >= 0 && index < grp.tabs.length) {
       flushAutoSave();
-      activeIndex = index;
+      activeGroupId = grp.id;
+      grp.activeIndex = index;
       schedulePersistTabs();
     }
   }
 
   function clear() {
     flushAutoSave();
-    tabs.length = 0;
-    activeIndex = -1;
+    // Collapse back to a single empty group — the start-of-session shape.
+    groups.length = 0;
+    groups.push({ id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' });
+    activeGroupId = groups[0].id;
   }
 
   return {
-    get tabs() { return tabs; },
-    get activeIndex() { return activeIndex; },
+    get tabs() { return activeGroup().tabs; },
+    get activeIndex() { return activeGroup().activeIndex; },
     get activeTab() { return activeTab(); },
     get activeNoteTab() { return activeNoteTab(); },
     get activeQueryTab() { return activeQueryTab(); },
@@ -548,11 +661,18 @@ export function getEditorStore() {
     get activeFilePath() { return activeNoteTab()?.relativePath ?? null; },
     get activeFileName() { return activeNoteTab()?.fileName ?? ''; },
     get content() { return activeNoteTab()?.content ?? ''; },
+    get viewMode() { return activeGroup().viewMode; },
     get isDirty() {
       const tab = activeNoteTab();
       return tab ? tab.content !== tab.savedContent : false;
     },
-    get hasAnyDirty() { return tabs.some((t) => isNote(t) && t.content !== t.savedContent); },
+    get hasAnyDirty() { return allTabs().some((t) => isNote(t) && t.content !== t.savedContent); },
+    // Editor-group surface (#811). Read-only views; pane creation/focus UI
+    // arrives in #813/#814.
+    get groups() { return groups; },
+    get activeGroupId() { return activeGroupId; },
+    addGroup,
+    setActiveGroup,
     openFile,
     openSource,
     openPdf,
@@ -572,6 +692,8 @@ export function getEditorStore() {
     switchTab,
     clear,
     saveEditorState,
+    setViewMode,
+    cycleViewMode,
     openQuery,
     setQueryText,
     setQueryLanguage,
