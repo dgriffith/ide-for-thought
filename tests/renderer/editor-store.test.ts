@@ -7,12 +7,13 @@
  * new group-scoped mutation surface.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { LayoutSession } from '../../src/shared/types';
 
 const h = vi.hoisted(() => ({
   readFile: vi.fn(async (p: string) => `# ${p}\nbody`),
   writeFile: vi.fn(async () => {}),
   tabsSave: vi.fn(async () => {}),
-  tabsLoad: vi.fn(async () => null),
+  tabsLoad: vi.fn(async (): Promise<unknown> => null),
 }));
 
 vi.mock('../../src/renderer/lib/ipc/client', () => ({
@@ -334,5 +335,153 @@ describe('split layout ops (#813)', () => {
     expect(editor.groups).toHaveLength(1);
     expect(editor.layout).toEqual({ kind: 'leaf', groupId: only });
     expect(editor.tabs).toHaveLength(0);
+  });
+});
+
+describe('session persistence — multi-group layout (#816)', () => {
+  it('persistTabs writes the versioned multi-group session', async () => {
+    await editor.openFile('a.md'); // g1
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'horizontal');
+    await editor.openFile('b.md'); // into g2 (active)
+
+    editor.persistTabs();
+    const saved = h.tabsSave.mock.calls.at(-1)?.[0] as LayoutSession;
+    expect(saved.version).toBe(2);
+    expect(saved.activeGroupId).toBe(g2);
+    expect(saved.groups).toHaveLength(2);
+    expect(saved.layout).toEqual({
+      kind: 'split',
+      direction: 'horizontal',
+      sizes: [0.5, 0.5],
+      children: [{ kind: 'leaf', groupId: g1 }, { kind: 'leaf', groupId: g2 }],
+    });
+    const sg2 = saved.groups.find((g) => g.id === g2);
+    expect(sg2?.tabs).toEqual([{ type: 'note', relativePath: 'b.md', cursorOffset: undefined, scrollTop: undefined }]);
+  });
+
+  it('persist → restore round-trips the split arrangement', async () => {
+    await editor.openFile('a.md');
+    const g1 = editor.groups[0].id;
+    const g2 = editor.splitGroup(g1, 'vertical');
+    editor.setViewMode('preview', g2);
+    await editor.openFile('b.md');
+    editor.persistTabs();
+    const saved = h.tabsSave.mock.calls.at(-1)?.[0] as LayoutSession;
+
+    h.tabsLoad.mockResolvedValueOnce(saved);
+    await editor.restoreTabs();
+
+    expect(editor.groups).toHaveLength(2);
+    expect(editor.layout).toEqual(saved.layout);
+    expect(editor.activeGroupId).toBe(g2);
+    expect(editor.noteTabForGroup(g1)?.relativePath).toBe('a.md');
+    expect(editor.noteTabForGroup(g2)?.relativePath).toBe('b.md');
+    expect(editor.groups.find((g) => g.id === g2)?.viewMode).toBe('preview');
+  });
+
+  it('restores a saved multi-group session, focus, and view modes', async () => {
+    h.tabsLoad.mockResolvedValueOnce({
+      version: 2,
+      activeGroupId: 'group-2',
+      groups: [
+        { id: 'group-1', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'a.md' }] },
+        { id: 'group-2', activeIndex: 0, viewMode: 'preview', tabs: [{ type: 'note', relativePath: 'b.md' }] },
+      ],
+      layout: {
+        kind: 'split', direction: 'horizontal', sizes: [0.4, 0.6],
+        children: [{ kind: 'leaf', groupId: 'group-1' }, { kind: 'leaf', groupId: 'group-2' }],
+      },
+    });
+    await editor.restoreTabs();
+
+    expect(editor.groups).toHaveLength(2);
+    expect(editor.activeGroupId).toBe('group-2');
+    expect((editor.layout as { sizes: number[] }).sizes).toEqual([0.4, 0.6]);
+    expect(editor.groups.find((g) => g.id === 'group-2')?.viewMode).toBe('preview');
+  });
+
+  it('migrates a legacy flat tabs.json into a single group', async () => {
+    h.tabsLoad.mockResolvedValueOnce({
+      activeIndex: 1,
+      tabs: [
+        { type: 'note', relativePath: 'a.md' },
+        { type: 'note', relativePath: 'b.md' },
+      ],
+    });
+    await editor.restoreTabs();
+
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout.kind).toBe('leaf');
+    expect(editor.tabs).toHaveLength(2);
+    expect(editor.activeIndex).toBe(1);
+  });
+
+  it('falls back to one merged pane when the saved layout does not match the groups', async () => {
+    h.tabsLoad.mockResolvedValueOnce({
+      version: 2,
+      activeGroupId: 'group-1',
+      groups: [
+        { id: 'group-1', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'a.md' }] },
+        { id: 'group-2', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'b.md' }] },
+      ],
+      // Orphaned leaf id — references no restored group → untrusted tree.
+      layout: { kind: 'leaf', groupId: 'group-99' },
+    });
+    await editor.restoreTabs();
+
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.layout.kind).toBe('leaf');
+    expect(editor.tabs).toHaveLength(2); // both recovered, no data loss
+  });
+
+  it('drops a note tab whose file no longer exists on restore', async () => {
+    h.readFile.mockImplementationOnce(async () => { throw new Error('ENOENT'); });
+    h.tabsLoad.mockResolvedValueOnce({
+      version: 2,
+      activeGroupId: 'group-1',
+      groups: [{
+        id: 'group-1', activeIndex: 0, viewMode: 'source',
+        tabs: [{ type: 'note', relativePath: 'gone.md' }, { type: 'note', relativePath: 'keep.md' }],
+      }],
+      layout: { kind: 'leaf', groupId: 'group-1' },
+    });
+    await editor.restoreTabs();
+
+    expect(editor.tabs).toHaveLength(1);
+    expect(editor.noteTabForGroup('group-1')?.relativePath).toBe('keep.md');
+  });
+
+  it('corrupt / empty session keeps the start-of-session empty group', async () => {
+    h.tabsLoad.mockResolvedValueOnce(null);
+    await editor.restoreTabs();
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.tabs).toHaveLength(0);
+
+    h.tabsLoad.mockResolvedValueOnce({ nonsense: true });
+    await editor.restoreTabs();
+    expect(editor.groups).toHaveLength(1);
+    expect(editor.tabs).toHaveLength(0);
+  });
+
+  it('advances the group-id counter past restored ids so later splits do not collide', async () => {
+    h.tabsLoad.mockResolvedValueOnce({
+      version: 2,
+      activeGroupId: 'group-3',
+      groups: [
+        { id: 'group-3', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'a.md' }] },
+        { id: 'group-4', activeIndex: 0, viewMode: 'source', tabs: [{ type: 'note', relativePath: 'b.md' }] },
+      ],
+      layout: {
+        kind: 'split', direction: 'horizontal', sizes: [0.5, 0.5],
+        children: [{ kind: 'leaf', groupId: 'group-3' }, { kind: 'leaf', groupId: 'group-4' }],
+      },
+    });
+    await editor.restoreTabs();
+
+    const newId = editor.splitGroup('group-3', 'horizontal');
+    expect(['group-3', 'group-4']).not.toContain(newId);
+    // The minted id is past the highest restored suffix, not a re-use of one.
+    expect(Number(newId.match(/\d+/)?.[0])).toBeGreaterThan(4);
   });
 });

@@ -7,6 +7,7 @@ import {
   splitLeaf,
   removeLeaf,
   collectGroupIds,
+  isLayoutNode,
   type LayoutNode,
 } from '../../src/renderer/lib/editor/layout-tree';
 
@@ -100,5 +101,42 @@ describe('collectGroupIds', () => {
     let root = splitLeaf(leaf('a'), 'a', 'horizontal', 'b');
     root = splitLeaf(root, 'b', 'vertical', 'c'); // a | (b/c)
     expect(collectGroupIds(root)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('isLayoutNode (restore validation, #816)', () => {
+  it('accepts a valid leaf and a valid nested split', () => {
+    expect(isLayoutNode(leaf('a'))).toBe(true);
+    let root = splitLeaf(leaf('a'), 'a', 'horizontal', 'b');
+    root = splitLeaf(root, 'b', 'vertical', 'c');
+    expect(isLayoutNode(root)).toBe(true);
+  });
+
+  it('rejects non-objects and unknown kinds', () => {
+    expect(isLayoutNode(null)).toBe(false);
+    expect(isLayoutNode('leaf')).toBe(false);
+    expect(isLayoutNode({})).toBe(false);
+    expect(isLayoutNode({ kind: 'frob' })).toBe(false);
+  });
+
+  it('rejects a leaf without a string groupId', () => {
+    expect(isLayoutNode({ kind: 'leaf' })).toBe(false);
+    expect(isLayoutNode({ kind: 'leaf', groupId: 7 })).toBe(false);
+  });
+
+  it('rejects a split with a bad direction, no children, or mismatched sizes', () => {
+    expect(isLayoutNode({ kind: 'split', direction: 'sideways', children: [leaf('a')], sizes: [1] })).toBe(false);
+    expect(isLayoutNode({ kind: 'split', direction: 'horizontal', children: [], sizes: [] })).toBe(false);
+    expect(isLayoutNode({
+      kind: 'split', direction: 'horizontal',
+      children: [leaf('a'), leaf('b')], sizes: [1], // sizes length ≠ children length
+    })).toBe(false);
+  });
+
+  it('rejects a split whose child is itself malformed', () => {
+    expect(isLayoutNode({
+      kind: 'split', direction: 'vertical',
+      children: [leaf('a'), { kind: 'leaf' }], sizes: [0.5, 0.5],
+    })).toBe(false);
   });
 });

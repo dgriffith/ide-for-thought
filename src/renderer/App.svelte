@@ -1042,14 +1042,18 @@
       // Inspections hidden for v1.0: count polling disabled so the status-bar
       // badge stays hidden (inspectionCount stays 0). Restore the
       // setTimeout/setInterval(refreshInspectionCount) to re-enable.
-      // Restore position for the active tab after tabs are rendered
-      const activeTab = editor.activeNoteTab;
-      if (activeTab?.cursorOffset != null) {
-        await tick();
-        requestAnimationFrame(() => {
-          editorComponent?.restorePosition(activeTab.cursorOffset!, activeTab.scrollTop);
-        });
-      }
+      // Restore cursor/scroll for every pane's active note tab after the
+      // split layout has rendered and each pane's Editor has mounted (#816 —
+      // restore is now multi-group, not just the focused pane).
+      await tick();
+      requestAnimationFrame(() => {
+        for (const grp of editor.groups) {
+          const noteTab = editor.noteTabForGroup(grp.id);
+          if (noteTab?.cursorOffset != null) {
+            editorComponents[grp.id]?.restorePosition(noteTab.cursorOffset, noteTab.scrollTop);
+          }
+        }
+      });
 
       // Offer the onboarding journey on empty thoughtbases. Files have
       // already been loaded by `notebase.openPath` above, so the count
@@ -1353,7 +1357,7 @@
           {/if}
         {/snippet}
 
-        <SplitContainer node={editor.layout} leaf={groupPane} />
+        <SplitContainer node={editor.layout} leaf={groupPane} onLayoutChange={() => editor.schedulePersistTabs()} />
 
         <!-- Window-level status + tool surfaces, reflecting the active group's
              note. (Per-group status bars are #817 polish.) -->
