@@ -30,6 +30,10 @@ export {
   getSourceDetail, getReadingQueueSourceIds, sourcesByReadStatus, citationsForNote, getExcerptSource,
 } from './queries';
 export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView } from './queries';
+export { neighborhood, expandNode } from './neighborhood';
+export type {
+  NeighborhoodResult, NeighborhoodNode, NeighborhoodEdge, NeighborhoodOptions, NeighborhoodHop,
+} from './neighborhood';
 
 // ── Public write / indexing API (#671) ───────────────────────────────────────
 // The write/indexing layer lives in ./indexers. Re-export its public surface so

@@ -77,6 +77,11 @@ export const Channels = {
   /** Safe-delete pre-flight (#429): given a set of .md paths slated
    *  for deletion, return every inbound edge from outside that set. */
   LINKS_EXTERNAL_INBOUND: 'links:externalInbound',
+  /** Depth-N link neighborhood of a note for the graph view (#846): a
+   *  deduped node+edge graph over typed links + cited/quoted sources. */
+  LINKS_NEIGHBORHOOD: 'links:neighborhood',
+  /** A single hop out of a node — for expand-on-demand in the graph (#846). */
+  LINKS_EXPAND_NODE: 'links:expandNode',
 
   // Saved queries
   QUERIES_LIST: 'queries:list',

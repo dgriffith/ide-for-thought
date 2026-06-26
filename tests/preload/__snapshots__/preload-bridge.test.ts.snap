@@ -125,7 +125,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "backlinks",
     "bundle",
     "citationsForNote",
+    "expandNode",
     "externalInbound",
+    "neighborhood",
     "outgoing",
   ],
   "menu": [
