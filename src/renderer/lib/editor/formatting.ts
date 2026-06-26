@@ -649,3 +649,22 @@ function makeInsertCallout(type: string): Command {
 /** Pre-built insert commands per callout type, for the editor menu. */
 export const insertCallouts: { type: string; label: string; command: Command }[] =
   CALLOUT_TYPES.map((c) => ({ ...c, command: makeInsertCallout(c.type) }));
+
+/**
+ * Insert a `[!card]` flashcard scaffold (#851): a callout with a front, the
+ * `---` divider, and a back. The "Front" placeholder is selected so the first
+ * keystroke replaces it.
+ */
+export const insertCardCallout: Command = (view: EditorView) => {
+  const { from } = view.state.selection.main;
+  const line = view.state.doc.lineAt(from);
+  const prefix = from === line.from ? '' : '\n';
+  const head = `${prefix}> [!card] \n> `;
+  const insert = `${head}Front\n> ---\n> Back\n`;
+  const anchor = from + head.length;
+  view.dispatch({
+    changes: { from, insert },
+    selection: { anchor, head: anchor + 'Front'.length },
+  });
+  return true;
+};

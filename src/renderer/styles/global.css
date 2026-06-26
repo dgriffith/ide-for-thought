@@ -250,6 +250,7 @@ details.callout[open] > summary.callout-title::after {
 .callout-quote    { --callout-color: var(--text-muted); }
 .callout-abstract { --callout-color: var(--iris); }
 .callout-todo     { --callout-color: var(--accent); }
+.callout-card     { --callout-color: var(--gold, var(--accent)); }
 .callout-unknown  { --callout-color: var(--accent); }
 
 .callout-note .callout-icon::before     { content: '\270E'; }
@@ -265,7 +266,18 @@ details.callout[open] > summary.callout-title::after {
 .callout-quote .callout-icon::before    { content: '\201C'; }
 .callout-abstract .callout-icon::before { content: '\2630'; }
 .callout-todo .callout-icon::before     { content: '\2610'; }
+.callout-card .callout-icon::before     { content: '\2706'; }
 .callout-unknown .callout-icon::before  { content: '\25CF'; }
+
+/* Flashcard callout (#851). The `---` divider inside the body renders as an
+   <hr> that separates the front (prompt) from the back (answer); tint it with
+   the callout color so the two halves read as a card. */
+.callout-card .callout-content > hr {
+  border: none;
+  border-top: 1px dashed var(--callout-color);
+  opacity: 0.5;
+  margin: 8px 0;
+}
 
 /* Highlights (#468). `==text==` and `==color:text==` from the markdown-it
    plugin render here as `<mark class="hl hl-{color}?">`. Lives in
