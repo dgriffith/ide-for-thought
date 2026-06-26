@@ -118,9 +118,29 @@ SQL / table (the project's CSV files are registered as DuckDB tables):
 - Table names come from the CSV path (`deriveTableName`) or a `table_name:` in
   the CSV's companion `.md`; the Tables view lists them.
 
-The remaining source — `data.cell` (a compute cell's output) — is planned
-(#884); until then it renders a short "not available yet" notice. Bound charts
-also don't yet render in **exports** (#885) — they degrade to the spec there.
+**Compute cell** — bind to the output of a runnable cell in the same note. Give
+the cell a stable id and reference it:
+
+````markdown
+```sql {id=sales}
+SELECT month, revenue FROM sales
+```
+
+```vega-lite
+{
+  "data": { "cell": "sales" },
+  "mark": "line",
+  "encoding": { "x": {"field":"month","type":"ordinal"}, "y": {"field":"revenue","type":"quantitative"} }
+}
+```
+````
+
+The chart reads the cell's stored `output` block, so **run the cell first**; its
+⟳ refresh button re-reads the latest output. A cell that hasn't run (or whose
+output isn't tabular) renders a clear notice.
+
+Bound charts don't yet render in **exports** (#885) — they degrade to the spec
+there.
 
 ## Export
 

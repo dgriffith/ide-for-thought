@@ -6,8 +6,10 @@
  * process needs `findRunnableFences` / `codeOf` / `FenceRange` to locate and
  * read executable fences when saving a cell's output as a note (#244). Main
  * must not import renderer code, so the language-agnostic fence scanning lives
- * here in `shared/` while the renderer-only output-block *editing* helpers
- * (`planOutputEdit`, `findAdjacentOutputBlock`, …) stay in the editor module.
+ * here in `shared/`. The pure output-block *reading* helpers
+ * (`findAdjacentOutputBlock`, `findCellOutput`) likewise live in shared
+ * (`cell-output.ts`); only the *editing* helpers (`planOutputEdit`) stay in the
+ * renderer's editor module.
  *
  * Operating on raw strings keeps them trivially unit-testable without a
  * CodeMirror view.
