@@ -21,6 +21,7 @@
   import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { hydrateVegaBlocks, invalidateVegaTheme } from '../markdown/vega-renderer';
+  import { detectDataSource } from '../../../shared/vega/data-binding';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
   import { normalizeSqlRows } from '../editor/sql-result';
@@ -363,10 +364,19 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // collapse toggle so a tall chart can be tucked away. The lazy hydrator
       // (vega-renderer.ts) swaps the placeholder for an embedded SVG chart.
       const block = `<div class="vega-block" data-vega-pending="1" data-vega-mode="${mode}">${escaped}</div>`;
+      // A data-bound chart (#832 — `data.sparql` etc.) gets a refresh button so
+      // the user can re-run the query after the graph changes without editing
+      // the note. Inline charts don't need it. Cheap parse — charts are few.
+      let isBound = false;
+      try { isBound = detectDataSource(JSON.parse(tok.content ?? '')) !== null; } catch { /* not bound */ }
       if (openingLine !== null) {
         const isCollapsed = collapsedFences.has(openingLine);
+        const refreshBtn = isBound
+          ? `<button class="fence-refresh-btn" data-fence-action="refresh-vega" type="button" title="Refresh chart data">⟳</button>`
+          : '';
         return `<div class="fence-block fence-vega${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
           + `<div class="fence-toolbar"><span class="fence-lang">${info}</span>`
+          + refreshBtn
           + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
           + `</div>`
           + `<div class="fence-body">${block}</div>`
@@ -1091,6 +1101,17 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       }
       if (action === 'run') {
         void runFenceAt(openingLine);
+        return;
+      }
+      if (action === 'refresh-vega') {
+        // Re-resolve a data-bound chart (#832): drop its rendered state and
+        // re-hydrate, which re-runs the query against the current graph.
+        const vegaBlock = block.querySelector<HTMLElement>('.vega-block');
+        if (vegaBlock) {
+          vegaBlock.removeAttribute('data-vega-rendered');
+          vegaBlock.innerHTML = '';
+          if (previewEl) void hydrateVegaBlocks(previewEl);
+        }
         return;
       }
     }
@@ -2131,6 +2152,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     margin-right: auto;
   }
   .preview :global(.fence-run-btn),
+  .preview :global(.fence-refresh-btn),
   .preview :global(.fence-collapse-btn) {
     border: 1px solid transparent;
     background: transparent;
@@ -2143,6 +2165,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     font-family: var(--font-mono, monospace);
   }
   .preview :global(.fence-run-btn:hover:not([disabled])),
+  .preview :global(.fence-refresh-btn:hover),
   .preview :global(.fence-collapse-btn:hover) {
     background: var(--bg-button);
     color: var(--text);
