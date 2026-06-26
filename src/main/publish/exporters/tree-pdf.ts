@@ -34,7 +34,7 @@ export interface BuildTreePdfHtmlResult {
  * exporter can be unit-tested without spinning up an Electron runtime
  * (Electron only kicks in inside `renderPdfFromHtml`).
  */
-export function buildTreePdfHtml(plan: ExportPlan): BuildTreePdfHtmlResult {
+export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHtmlResult> {
   const notes = plan.inputs.filter((f) => f.kind === 'note');
   if (notes.length === 0) {
     return { html: '', documentTitle: '', chapterCount: 0 };
@@ -51,7 +51,7 @@ export function buildTreePdfHtml(plan: ExportPlan): BuildTreePdfHtmlResult {
 
   for (const note of notes) {
     const renderer = chapterPlan.citations?.createRenderer();
-    const rawBody = renderNoteBody(note, chapterPlan, renderer);
+    const rawBody = await renderNoteBody(note, chapterPlan, renderer);
     const withFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
     const rewritten = rewriteInterChapterLinks(withFootnotes, notes, rootNote);
     chapters.push({ note, html: rewritten });
@@ -126,7 +126,7 @@ export const treePdfExporter: Exporter = {
   accepts: (input) => input.kind === 'tree',
   acceptedKinds: ['tree'],
   async run(plan) {
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     if (built.chapterCount === 0) {
       return { files: [], summary: 'Nothing to export in this tree.' };
     }

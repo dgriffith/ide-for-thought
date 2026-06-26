@@ -69,7 +69,8 @@
       "macos-alias"
     ],
     "overrides": {
-      "@codemirror/view": "6.43.1"
+      "@codemirror/view": "6.43.1",
+      "d3-path": "^3.1.0"
     }
   },
   "devDependencies": {

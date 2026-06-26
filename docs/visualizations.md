@@ -69,3 +69,21 @@ Under the hood:
 Binding charts to Minerva's own data (compute-cell outputs, CSV/DuckDB tables,
 inline SPARQL/SQL) is planned (#832) and will resolve through the same safe-path
 layer — never a raw fetch.
+
+## Export
+
+When you export a note, charts are rendered to **static SVG** so the published
+artifact actually shows the visualization instead of a wall of JSON:
+
+- **HTML / PDF** (and the static-site / bundle exporters): each ` ```vega-lite ` /
+  ` ```vega ` block is rendered headlessly in the main process (no browser
+  window) and embedded as an `<img>` (an inline SVG data URI). A neutral light
+  theme is applied so charts read on a white page.
+- **Markdown export** keeps the spec fence **verbatim** — a Vega spec is
+  portable to other Vega-aware tools, and a multi-kilobyte data URI would bloat
+  the file. Re-render it wherever it's opened next.
+
+The security policy holds at export too: a chart that references remote data is
+refused (no fetch from the export process), and any chart that can't render —
+bad spec, blocked data — degrades to its spec text plus a short note. One broken
+chart never fails the whole export.

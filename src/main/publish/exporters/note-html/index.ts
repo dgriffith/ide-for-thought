@@ -84,7 +84,7 @@ export const noteHtmlExporter: Exporter = {
       // section listing only what it cited. Tree-level consolidation
       // is a follow-up; this is the simple, correct v1.
       const renderer = plan.citations?.createRenderer();
-      const rawBody = renderNoteBody(f, plan, renderer);
+      const rawBody = await renderNoteBody(f, plan, renderer);
       const withReferences = renderer ? appendCitationsTail(rawBody, renderer) : rawBody;
       const body = await inlineImages(withReferences, f, rootPath, plan.assetPolicy);
       const html = wrapHtml({ title: f.title, body });

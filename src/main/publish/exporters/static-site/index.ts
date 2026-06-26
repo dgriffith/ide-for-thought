@@ -65,7 +65,7 @@ export const staticSiteExporter: Exporter = {
     for (const note of notes) {
       const renderer = plan.citations?.createRenderer() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
-      const html = renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer });
+      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer });
       files.push({ path: noteUrl(note.relativePath), contents: html });
       if (renderer) {
         for (const id of renderer.cited()) allCitedIds.add(id);
@@ -93,7 +93,7 @@ export const staticSiteExporter: Exporter = {
       : null;
     if (landingNote) {
       const renderer = plan.citations?.createRenderer() ?? null;
-      const html = renderNotePage({
+      const html = await renderNotePage({
         note: landingNote,
         plan,
         config,

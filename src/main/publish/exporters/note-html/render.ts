@@ -16,6 +16,7 @@ import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
 import { buildLinkResolverContext } from '../../link-resolver';
 import { installMath } from '../../../../shared/markdown/math-plugin';
+import { renderVegaBlocks } from '../../vega-render';
 import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
@@ -26,13 +27,16 @@ import type { CitationRenderer } from '../../csl';
  * to collect cited ids across multiple `renderNoteBody` invocations
  * (e.g. a bundle renderer aggregating a single References section).
  */
-export function renderNoteBody(
+export async function renderNoteBody(
   file: ExportPlanFile,
   plan: ExportPlan,
   renderer?: CitationRenderer,
-): string {
+): Promise<string> {
   const md = buildMd(plan, renderer);
-  const bodyMarkdown = stripFrontmatter(file.content);
+  // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
+  // before markdown rendering (md.render is sync; vega's toSVG is async).
+  // The result is `<img>` markdown, so it survives the `html: false` instance.
+  const bodyMarkdown = await renderVegaBlocks(stripFrontmatter(file.content));
   return md.render(bodyMarkdown);
 }
 
@@ -52,6 +56,14 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
       return `<pre><code>${escapeHtml(str)}</code></pre>`;
     },
   });
+  // Allow `data:image/svg+xml` image URIs (#831). markdown-it's default
+  // validateLink whitelists only gif/png/jpeg/webp data URIs (SVG can carry
+  // <script>), but an SVG referenced from an `<img src>` is rendered in a
+  // non-scripting context — the script never runs — so it's safe, and it's
+  // how the export pipeline embeds rendered Vega charts.
+  const defaultValidateLink = md.validateLink.bind(md);
+  md.validateLink = (url: string): boolean =>
+    url.trim().toLowerCase().startsWith('data:image/svg+xml') || defaultValidateLink(url);
   md.use(footnote);
   // `$…$` / `$$…$$` → KaTeX HTML (#327). Same plugin Preview uses so
   // the export and the editor preview render math identically.

@@ -27,6 +27,11 @@ const EXTERNAL_DEP_ROOTS = [
   `@duckdb/node-bindings-${process.platform}-${process.arch}`,
   '@mixmark-io/domino',
   'encoding', // node-fetch's optional charset path → require('encoding') → iconv-lite
+  // Headless chart export (#831). Externalized in vite.main.config (large ESM
+  // trees that break the single-file main bundle), so their runtime closure
+  // must be shipped for `require('vega')` / `require('vega-lite')` to resolve.
+  'vega',
+  'vega-lite',
 ];
 
 /** BFS the `dependencies` graph from each root; skips absent optionals. */
