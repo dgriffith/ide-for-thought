@@ -204,6 +204,33 @@
   }
 
   /**
+   * Imperative reveal for a file (note) — switches to the Notes panel,
+   * expands the note's ancestor folders, selects it, and scrolls it into
+   * view. Used by the tab context menu's "Reveal in Sidebar" (the in-app
+   * counterpart to "Reveal in Finder"). Doesn't open the note — it's
+   * already open if you're revealing its tab.
+   */
+  export async function revealFile(relativePath: string): Promise<void> {
+    if (!relativePath) return;
+    activePanel = 'notes';
+    if (rootName && !rootExpanded) rootExpanded = true;
+    // Expand every ANCESTOR folder — drop the filename itself (not a folder).
+    const parts = relativePath.split('/').filter(Boolean);
+    parts.pop();
+    const patch: Record<string, boolean> = {};
+    let acc = '';
+    for (const part of parts) {
+      acc = acc ? `${acc}/${part}` : part;
+      if (!expanded[acc]) patch[acc] = true;
+    }
+    if (Object.keys(patch).length > 0) {
+      expanded = { ...expanded, ...patch };
+    }
+    selectionStore.setSingle(relativePath);
+    await scrollPathIntoView(relativePath);
+  }
+
+  /**
    * Look up a node by its relative path. Linear walk; the tree is
    * small enough (typical thoughtbase < 5k notes) that the `Map`
    * variant in `sidebar-tree-utils` would be over-engineering for

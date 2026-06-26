@@ -852,7 +852,11 @@
   }
 
   function handleRevealInSidebar(relativePath: string) {
-    void api.shell.revealFile(relativePath);
+    // Reveal in the in-app file tree — switch to Notes, expand the note's
+    // ancestor folders, select + scroll it into view. (The separate "Reveal
+    // in Finder" menu item opens the OS file manager; this handler used to
+    // call that by mistake, duplicating it.)
+    void sidebar?.revealFile(relativePath);
   }
 
   // Refresh tags when notebase opens
