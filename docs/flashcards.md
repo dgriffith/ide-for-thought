@@ -45,9 +45,19 @@ where the note lives, while `> [!card]` with no name inherits the note's
 ## Card identity
 
 Each card gets a stable `^id` block-id so re-exporting **updates** the matching
-Anki card (preserving its review history) instead of duplicating it. Ids are
-assigned automatically at export time (#852) — you don't write them by hand,
-though you'll see them appended to the callout after the first export.
+Anki card (preserving its review history) instead of duplicating it.
+
+- Ids are assigned automatically on the first export — you don't write them by
+  hand, though you'll see ` ^id` appended to the callout afterward. Only notes
+  that gained an id are rewritten, and nothing else in the note changes.
+- The Anki **guid** is derived deterministically from the note's path plus the
+  card's `^id`. It depends only on identity, never on the card's text — so
+  **editing the front or back keeps the guid** (Anki updates the note in place
+  and keeps your scheduling), while deleting a card simply stops emitting it.
+- Duplicate ids within a note are reported, never silently exported.
+- Caveat: the guid currently keys off the note's path, so **renaming a note
+  re-keys its cards** (Anki treats them as new). A note-level stable id would
+  fix this and is a future improvement.
 
 ## Exporting to Anki
 

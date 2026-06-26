@@ -48,9 +48,11 @@ export const DEFAULT_DECK = 'Default';
 
 // A `[!card]` marker line (leading `>` already stripped). Captures the optional
 // collapse flag, then the title (deck + maybe a trailing `^id`).
-const CARD_MARKER_RE = /^\[!card\][+-]?(?:[ \t]+(.*))?$/i;
+// Exported (with TRAILING_ID_RE) so the identity layer (`guid.ts`) detects card
+// markers the exact same way the extractor does.
+export const CARD_MARKER_RE = /^\[!card\][+-]?(?:[ \t]+(.*))?$/i;
 // A trailing `^block-id` at the end of the title (deck optionally precedes it).
-const TRAILING_ID_RE = /^(.*?)\s*\^([\w-]+)\s*$/;
+export const TRAILING_ID_RE = /^(.*?)\s*\^([\w-]+)\s*$/;
 // A thematic-break divider line separating front from back.
 const DIVIDER_RE = /^-{3,}$/;
 
@@ -84,7 +86,7 @@ export function resolveDeck(
 }
 
 /** Strip a single leading blockquote marker (`>` or `> `) from a line. */
-function stripQuote(line: string): { quoted: boolean; rest: string } {
+export function stripQuote(line: string): { quoted: boolean; rest: string } {
   const m = /^>[ \t]?(.*)$/.exec(line);
   return m ? { quoted: true, rest: m[1] } : { quoted: false, rest: line };
 }
