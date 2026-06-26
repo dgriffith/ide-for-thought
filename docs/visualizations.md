@@ -29,10 +29,16 @@ Use a ` ```vega ` fence for a full Vega spec. Both render through
 [`vega-embed`](https://github.com/vega/vega-embed), which is lazy-loaded on first
 use, so notes without charts pay nothing.
 
-**Insert → Chart…** offers starter scaffolds (Bar, Line, Area, Scatter, Time
-Series, Pie) that drop a complete, valid, inline-data spec and render
-immediately — the cursor lands in the data array so your first edit is "replace
-my data". An **Empty Block** option is there for starting from scratch.
+**Insert → Chart…** offers starter scaffolds that drop a complete, valid spec
+with the cursor positioned for the first edit:
+
+- inline-data charts (Bar, Line, Area, Scatter, Time Series, Pie) that render
+  immediately — the cursor lands in the data array so your first edit is
+  "replace my data";
+- live-data charts (From SPARQL, From Table, From Cell) wired to Minerva's own
+  data (see [Binding charts to Minerva data](#binding-charts-to-minerva-data)) —
+  the cursor lands in the query / table / cell reference;
+- an **Empty Block** for starting from scratch.
 
 Each chart gets the built-in **"⋯" actions menu** (export PNG/SVG, view
 source/compiled spec) and a **collapse toggle** in the fence toolbar. Charts are

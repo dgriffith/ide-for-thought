@@ -538,6 +538,44 @@ const PIE_TEMPLATE = `{
   }
 }`;
 
+// Bound-data scaffolds (#886) — charts that draw from Minerva's own live data
+// (#832) instead of inline values. Cursor lands in the query / table / cell ref
+// so the first edit points it at the user's data. The SPARQL one is runnable
+// as-is on a tagged project; the table / cell ones carry placeholder names.
+
+const SPARQL_BOUND_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Bar chart from a SPARQL query",
+  "data": { "sparql": "${CURSOR}SELECT ?tag (COUNT(?n) AS ?count) WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName ?tag } GROUP BY ?tag" },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "tag", "type": "nominal" },
+    "y": { "field": "count", "type": "quantitative" }
+  }
+}`;
+
+const TABLE_BOUND_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Bar chart from a CSV / DuckDB table",
+  "data": { "table": "${CURSOR}my_table" },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "category", "type": "nominal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}`;
+
+const CELL_BOUND_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Bar chart from a compute cell's output",
+  "data": { "cell": "${CURSOR}cell-id" },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "category", "type": "nominal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}`;
+
 /** A bare ```vega-lite block — cursor on the empty body line (power users). */
 export const insertVegaLiteDiagram: Command = makeInsertFence('vega-lite');
 
@@ -548,8 +586,13 @@ export const insertVegaLiteScatter: Command = makeInsertTemplate('vega-lite', SC
 export const insertVegaLiteTimeSeries: Command = makeInsertTemplate('vega-lite', TIME_SERIES_TEMPLATE);
 export const insertVegaLitePie: Command = makeInsertTemplate('vega-lite', PIE_TEMPLATE);
 
-/** Chart-type chooser for the Insert menu, in a sensible order. The empty block
- *  trails the concrete scaffolds for users who'd rather start from scratch. */
+export const insertVegaLiteFromSparql: Command = makeInsertTemplate('vega-lite', SPARQL_BOUND_TEMPLATE);
+export const insertVegaLiteFromTable: Command = makeInsertTemplate('vega-lite', TABLE_BOUND_TEMPLATE);
+export const insertVegaLiteFromCell: Command = makeInsertTemplate('vega-lite', CELL_BOUND_TEMPLATE);
+
+/** Chart-type chooser for the Insert menu, in a sensible order: inline-data
+ *  scaffolds, then the live-data (#832) ones, then the empty block for users
+ *  who'd rather start from scratch. */
 export const vegaLiteInserts: { label: string; command: Command }[] = [
   { label: 'Bar', command: insertVegaLiteBar },
   { label: 'Line', command: insertVegaLiteLine },
@@ -557,6 +600,9 @@ export const vegaLiteInserts: { label: string; command: Command }[] = [
   { label: 'Scatter', command: insertVegaLiteScatter },
   { label: 'Time Series', command: insertVegaLiteTimeSeries },
   { label: 'Pie', command: insertVegaLitePie },
+  { label: 'From SPARQL', command: insertVegaLiteFromSparql },
+  { label: 'From Table', command: insertVegaLiteFromTable },
+  { label: 'From Cell', command: insertVegaLiteFromCell },
   { label: 'Empty Block', command: insertVegaLiteDiagram },
 ];
 

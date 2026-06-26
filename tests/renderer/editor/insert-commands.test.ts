@@ -56,10 +56,11 @@ describe('vega-lite chart scaffolds (#830)', () => {
     return m[1];
   }
 
-  it('offers a chart-type chooser ending in an empty-block option', () => {
-    expect(vegaLiteInserts.map((t) => t.label)).toEqual([
-      'Bar', 'Line', 'Area', 'Scatter', 'Time Series', 'Pie', 'Empty Block',
-    ]);
+  const INLINE = ['Bar', 'Line', 'Area', 'Scatter', 'Time Series', 'Pie'];
+  const BOUND = ['From SPARQL', 'From Table', 'From Cell'];
+
+  it('offers inline scaffolds, the live-data scaffolds, then the empty block', () => {
+    expect(vegaLiteInserts.map((t) => t.label)).toEqual([...INLINE, ...BOUND, 'Empty Block']);
   });
 
   it('the empty-block option inserts a bare fence with the cursor on the body line', () => {
@@ -69,25 +70,34 @@ describe('vega-lite chart scaffolds (#830)', () => {
     expect(v.state.selection.main.head).toBe('```vega-lite\n'.length);
   });
 
+  function cursorInBody(v: EditorView, doc: string) {
+    const head = v.state.selection.main.head;
+    expect(head).toBeGreaterThan('```vega-lite\n'.length);
+    expect(head).toBeLessThan(doc.length);
+  }
+
   for (const { label, command } of vegaLiteInserts) {
     if (label === 'Empty Block') continue;
-    it(`${label} scaffold inserts a valid inline-data spec, cursor inside the data`, () => {
+    const bound = BOUND.includes(label);
+    it(`${label} scaffold inserts a valid spec (${bound ? 'bound' : 'inline'}), cursor for the first edit`, () => {
       const v = mk('');
       command(v);
       const doc = v.state.doc.toString();
       const spec = JSON.parse(fenceBody(doc)) as Record<string, unknown>;
-      // Renders immediately → must be a complete spec with inline data and a mark.
       expect(spec.mark).toBeTruthy();
-      const data = spec.data as { values?: unknown[]; url?: string };
-      expect(Array.isArray(data.values)).toBe(true);
-      expect(data.values!.length).toBeGreaterThan(0);
-      // #829 posture: scaffolds never reference remote data.
+      const data = spec.data as { values?: unknown[]; sparql?: string; table?: string; cell?: string; url?: string };
+      if (bound) {
+        // A live-data form — exactly one of sparql / table / cell, no inline values.
+        expect([data.sparql, data.table, data.cell].filter(Boolean)).toHaveLength(1);
+        expect(data.values).toBeUndefined();
+      } else {
+        expect(Array.isArray(data.values)).toBe(true);
+        expect(data.values!.length).toBeGreaterThan(0);
+      }
+      // #829 posture: no scaffold references remote data.
       expect(data.url).toBeUndefined();
       expect(JSON.stringify(spec)).not.toContain('"url"');
-      // Cursor lands somewhere inside the body (the data array), not at column 0.
-      const head = v.state.selection.main.head;
-      expect(head).toBeGreaterThan('```vega-lite\n'.length);
-      expect(head).toBeLessThan(doc.length);
+      cursorInBody(v, doc);
     });
   }
 
