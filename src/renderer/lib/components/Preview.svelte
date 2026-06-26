@@ -21,6 +21,7 @@
   import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { hydrateVegaBlocks, invalidateVegaTheme } from '../markdown/vega-renderer';
+  import { hydrateCardCallouts } from '../markdown/card-callout';
   import { detectDataSource } from '../../../shared/vega/data-binding';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
@@ -172,6 +173,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       return '';
     },
   });
+  // Disable setext (underline) headings. Minerva is ATX-only by convention —
+  // the heading extractor deliberately skips `text\n---` — and leaving lheading
+  // on actively breaks `[!card]` flashcards: the front line plus a `---` divider
+  // parse as a setext `<h2>`, so the callout never forms and the raw
+  // `[!card] ^id` marker leaks out as heading text. Off, `---` is the thematic
+  // break the card syntax intends. (#850 polish)
+  md.disable('lheading');
   installMath(md);
   installCallouts(md);
   installDoiAutolink(md);
@@ -658,6 +666,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // lazy-loads vega-embed, replaces .vega-block placeholders with SVG
       // charts, surfaces parse / security errors inline.
       if (previewEl) void hydrateVegaBlocks(previewEl, content);
+      // Flashcard polish: tuck each [!card]'s answer (the part after `---`)
+      // behind a collapsed "Show answer" disclosure.
+      if (previewEl) hydrateCardCallouts(previewEl);
     });
   });
 

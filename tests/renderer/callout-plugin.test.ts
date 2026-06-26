@@ -4,6 +4,9 @@ import { installCallouts } from '../../src/renderer/lib/markdown/callout-plugin'
 
 function md(): MarkdownIt {
   const m = new MarkdownIt({ html: true });
+  // Mirror Preview.svelte: setext headings are disabled so a `[!card]` front
+  // plus a `---` divider doesn't parse as an `<h2>` underline (#850).
+  m.disable('lheading');
   installCallouts(m);
   return m;
 }
@@ -125,5 +128,35 @@ describe('callout-plugin: nesting', () => {
     // come before the outer one.
     const innerCloseIdx = html.lastIndexOf('callout-warning');
     expect(innerCloseIdx).toBeGreaterThan(0);
+  });
+});
+
+describe('callout-plugin: flashcard rendering (#850 polish)', () => {
+  it('renders a card as a callout with the divider intact (not a setext heading)', () => {
+    const html = md().render('> [!card] ^b54f7825\n> Q\n> ---\n> A\n');
+    expect(html).toContain('callout-card');
+    // The `---` divider must survive as an <hr>, not eat the front as an <h2>.
+    expect(html).toContain('<hr>');
+    expect(html).not.toContain('<h2');
+    expect(html).toContain('Q');
+    expect(html).toContain('A');
+  });
+
+  it('drops the trailing ^id block-id from a card header', () => {
+    const html = md().render('> [!card] ^b54f7825\n> Q\n> ---\n> A\n');
+    // The id is machinery — header falls back to the default "Card".
+    expect(html).toContain('class="callout-title-text">Card<');
+    expect(html).not.toContain('b54f7825');
+  });
+
+  it('keeps the deck name, dropping only the ^id', () => {
+    const html = md().render('> [!card] Spanish::Verbs ^abc123\n> Q\n> ---\n> A\n');
+    expect(html).toContain('class="callout-title-text">Spanish::Verbs<');
+    expect(html).not.toContain('abc123');
+  });
+
+  it('leaves a non-card callout title untouched', () => {
+    const html = md().render('> [!note] See ^anchor\n> Body.\n');
+    expect(html).toContain('See ^anchor');
   });
 });

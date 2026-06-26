@@ -27,6 +27,7 @@
 import type MarkdownIt from 'markdown-it';
 import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs';
 import type Token from 'markdown-it/lib/token.mjs';
+import { TRAILING_ID_RE } from '../../../shared/flashcards/cards';
 
 /**
  * First-line marker. Title whitespace is restricted to spaces/tabs so a
@@ -176,7 +177,14 @@ function tryCalloutOnBareParagraph(tokens: Token[], pIdx: number): void {
 function applyCalloutAttrs(blockquoteOpen: Token, m: RegExpMatchArray): void {
   const type = m[1].toLowerCase();
   const fold = m[2];
-  const titleRaw = (m[3] ?? '').trim();
+  let titleRaw = (m[3] ?? '').trim();
+  // A flashcard's marker line carries a trailing `^id` block-id (#852); it's
+  // machinery, not a label, so drop it from the rendered card header — leaving
+  // just the deck name, or the default "Card" when there's only an id.
+  if (type === 'card') {
+    const idMatch = TRAILING_ID_RE.exec(titleRaw);
+    if (idMatch) titleRaw = idMatch[1].trim();
+  }
   const title = titleRaw.length > 0
     ? titleRaw
     : (TITLE_DEFAULTS[type] ?? capitalize(type));
