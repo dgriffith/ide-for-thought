@@ -51,4 +51,18 @@ export function registerLinks(): void {
     if (!rootPath) return [];
     return graph.findExternalInboundLinks(projectContext(rootPath), paths);
   });
+
+  // Depth-N link neighborhood for the graph view (#846).
+  ipcMain.handle(Channels.LINKS_NEIGHBORHOOD, (e, relativePath: string, opts?: graph.NeighborhoodOptions) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { nodes: [], edges: [], truncated: false };
+    return graph.neighborhood(projectContext(rootPath), relativePath, opts ?? {});
+  });
+
+  // Single hop out of a node — expand-on-demand (#846).
+  ipcMain.handle(Channels.LINKS_EXPAND_NODE, (e, relativePath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return { nodes: [], edges: [], expandTo: [] };
+    return graph.expandNode(projectContext(rootPath), relativePath);
+  });
 }

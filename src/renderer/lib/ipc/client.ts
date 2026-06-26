@@ -116,6 +116,13 @@ export interface LinksApi {
   externalInbound(
     paths: string[],
   ): Promise<import('../../../shared/types').SafeDeleteBlocker[]>;
+  /** Depth-N link neighborhood for the graph view (#846). */
+  neighborhood(
+    relativePath: string,
+    opts?: import('../../../shared/types').NeighborhoodOptions,
+  ): Promise<import('../../../shared/types').NeighborhoodResult>;
+  /** A single hop out of a node — expand-on-demand (#846). */
+  expandNode(relativePath: string): Promise<import('../../../shared/types').NeighborhoodHop>;
 }
 
 export interface QueriesApi {

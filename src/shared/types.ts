@@ -65,6 +65,47 @@ export interface Backlink {
   linkColor: string;
 }
 
+// ── Link-neighborhood graph (View B, #846) ──────────────────────────────────
+
+export interface NeighborhoodNode {
+  /** relativePath for notes; `source:<sourceId>` for sources. */
+  id: string;
+  kind: 'note' | 'source';
+  label: string;
+  /** False for a note-typed wiki-link target with no file on disk. */
+  exists: boolean;
+}
+
+export interface NeighborhoodEdge {
+  /** Link origin id; the arrow points source → target. */
+  source: string;
+  target: string;
+  linkType: string;
+  linkLabel: string;
+  linkColor: string;
+  /** Relative to the node this edge was discovered from. */
+  direction: 'out' | 'in';
+}
+
+export interface NeighborhoodResult {
+  nodes: NeighborhoodNode[];
+  edges: NeighborhoodEdge[];
+  /** True when the node cap was hit — the UI shows "+N more". */
+  truncated: boolean;
+}
+
+export interface NeighborhoodOptions {
+  depth?: number;
+  cap?: number;
+}
+
+/** One hop's worth of graph plus the note ids worth expanding next (#846). */
+export interface NeighborhoodHop {
+  nodes: NeighborhoodNode[];
+  edges: NeighborhoodEdge[];
+  expandTo: string[];
+}
+
 export interface SearchResult {
   relativePath: string;
   title: string;

@@ -85,6 +85,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
     externalInbound: (paths: string[]) =>
       ipcRenderer.invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
+    neighborhood: (relativePath: string, opts?: unknown) =>
+      ipcRenderer.invoke(Channels.LINKS_NEIGHBORHOOD, relativePath, opts),
+    expandNode: (relativePath: string) =>
+      ipcRenderer.invoke(Channels.LINKS_EXPAND_NODE, relativePath),
   },
   queries: {
     list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
