@@ -25,6 +25,13 @@ A card is a `[!card]` callout with a `---` divider separating the **front**
 
 **Insert → Flashcard** drops a scaffold with the front placeholder selected.
 
+Or let an LLM draft them: **Learning → Propose Flashcards** (`/cards`) reads the
+active note and proposes atomic Q/A pairs for your review. You refine them in the
+conversation; on approval they're filed — through the standard approval engine,
+so nothing is written until you confirm — as a sibling note of `[!card]`
+callouts the exporter then packages. Review happens in Anki; authoring is the
+Minerva-native half.
+
 In the preview the card renders as a themed callout with the front and back
 separated by a divider rule.
 
