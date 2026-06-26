@@ -28,6 +28,7 @@
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
     insertWikiLink, insertTypedLinks, insertCallouts,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
+    vegaLiteInserts,
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
@@ -1070,6 +1071,14 @@
         </div>
         <button onclick={() => runCmd(insertPythonScript)}>Python Script</button>
         <button onclick={() => runCmd(insertMermaidDiagram)}>Mermaid Diagram</button>
+        <div class="submenu-item" onmouseenter={adjustSubmenu}>
+          <span class="submenu-trigger">Chart...<Icon name="chevronRight" size={10} /></span>
+          <div class="submenu">
+            {#each vegaLiteInserts as t (t.label)}
+              <button onclick={() => runCmd(t.command)}>{t.label}</button>
+            {/each}
+          </div>
+        </div>
         <div class="submenu-separator"></div>
         <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
       </div>

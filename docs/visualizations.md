@@ -29,6 +29,11 @@ Use a ` ```vega ` fence for a full Vega spec. Both render through
 [`vega-embed`](https://github.com/vega/vega-embed), which is lazy-loaded on first
 use, so notes without charts pay nothing.
 
+**Insert → Chart…** offers starter scaffolds (Bar, Line, Area, Scatter, Time
+Series, Pie) that drop a complete, valid, inline-data spec and render
+immediately — the cursor lands in the data array so your first edit is "replace
+my data". An **Empty Block** option is there for starting from scratch.
+
 Each chart gets the built-in **"⋯" actions menu** (export PNG/SVG, view
 source/compiled spec) and a **collapse toggle** in the fence toolbar. Charts are
 skinned to the active Catppuccin theme and re-skin automatically when you switch
@@ -47,7 +52,7 @@ posture as file-path access elsewhere in Minerva.
 silently phoning home. Put your data in the spec:
 
 ```json
-"data": { "values": [ { "x": 1, "y": 2 } ] }
+{ "data": { "values": [ { "x": 1, "y": 2 } ] }, "mark": "point" }
 ```
 
 Under the hood:

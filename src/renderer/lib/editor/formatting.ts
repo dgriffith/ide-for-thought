@@ -397,6 +397,169 @@ export const insertSqlQuery: Command = makeInsertFence('sql');
 export const insertPythonScript: Command = makeInsertFence('python');
 export const insertMermaidDiagram: Command = makeInsertFence('mermaid');
 
+// ── Vega-Lite chart scaffolds (#830) ───────────────────────────────────────
+//
+// Vega-Lite is intimidating JSON, so a bare empty fence is a poor starting
+// point. Each scaffold is a complete, valid, inline-data spec that renders
+// immediately; the cursor lands in the data array (marked by CURSOR) so the
+// first edit is "replace my data". A bare empty-block option remains for power
+// users (`insertVegaLiteDiagram`).
+
+/** Private-use sentinel marking where the cursor should land inside a template
+ *  body. Stripped before insertion; can't collide with real spec text. */
+const CURSOR = '';
+
+/** Insert a ```lang fenced block wrapping a complete `body`, placing the cursor
+ *  at the `CURSOR` sentinel (or the body start if absent). */
+function makeInsertTemplate(lang: string, bodyWithCursor: string): Command {
+  return (view: EditorView) => {
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    const prefix = pos === line.from ? '' : '\n';
+    const cursorInBody = bodyWithCursor.indexOf(CURSOR);
+    const body = bodyWithCursor.replace(CURSOR, '');
+    const open = `${prefix}\`\`\`${lang}\n`;
+    const anchor = pos + open.length + (cursorInBody >= 0 ? cursorInBody : 0);
+    view.dispatch({
+      changes: { from: pos, insert: `${open}${body}\n\`\`\`\n` },
+      selection: { anchor },
+    });
+    return true;
+  };
+}
+
+const SCHEMA = 'https://vega.github.io/schema/vega-lite/v5.json';
+
+const BAR_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Bar chart",
+  "data": {
+    "values": [
+      { "category": "${CURSOR}A", "value": 28 },
+      { "category": "B", "value": 55 },
+      { "category": "C", "value": 43 },
+      { "category": "D", "value": 91 }
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "category", "type": "nominal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}`;
+
+const LINE_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Line chart",
+  "data": {
+    "values": [
+      { "x": ${CURSOR}1, "y": 4 },
+      { "x": 2, "y": 7 },
+      { "x": 3, "y": 5 },
+      { "x": 4, "y": 9 }
+    ]
+  },
+  "mark": { "type": "line", "point": true },
+  "encoding": {
+    "x": { "field": "x", "type": "quantitative" },
+    "y": { "field": "y", "type": "quantitative" }
+  }
+}`;
+
+const AREA_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Area chart",
+  "data": {
+    "values": [
+      { "x": ${CURSOR}1, "y": 4 },
+      { "x": 2, "y": 7 },
+      { "x": 3, "y": 5 },
+      { "x": 4, "y": 9 }
+    ]
+  },
+  "mark": "area",
+  "encoding": {
+    "x": { "field": "x", "type": "quantitative" },
+    "y": { "field": "y", "type": "quantitative" }
+  }
+}`;
+
+const SCATTER_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Scatter plot",
+  "data": {
+    "values": [
+      { "x": ${CURSOR}1.2, "y": 3.4 },
+      { "x": 2.5, "y": 1.8 },
+      { "x": 3.1, "y": 4.6 },
+      { "x": 4.7, "y": 2.9 }
+    ]
+  },
+  "mark": "point",
+  "encoding": {
+    "x": { "field": "x", "type": "quantitative" },
+    "y": { "field": "y", "type": "quantitative" }
+  }
+}`;
+
+const TIME_SERIES_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Time series",
+  "data": {
+    "values": [
+      { "date": "${CURSOR}2024-01-01", "value": 120 },
+      { "date": "2024-02-01", "value": 145 },
+      { "date": "2024-03-01", "value": 138 },
+      { "date": "2024-04-01", "value": 172 }
+    ]
+  },
+  "mark": { "type": "line", "point": true },
+  "encoding": {
+    "x": { "field": "date", "type": "temporal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}`;
+
+const PIE_TEMPLATE = `{
+  "$schema": "${SCHEMA}",
+  "description": "Pie chart",
+  "data": {
+    "values": [
+      { "category": "${CURSOR}A", "value": 30 },
+      { "category": "B", "value": 25 },
+      { "category": "C", "value": 20 },
+      { "category": "D", "value": 25 }
+    ]
+  },
+  "mark": "arc",
+  "encoding": {
+    "theta": { "field": "value", "type": "quantitative" },
+    "color": { "field": "category", "type": "nominal" }
+  }
+}`;
+
+/** A bare ```vega-lite block — cursor on the empty body line (power users). */
+export const insertVegaLiteDiagram: Command = makeInsertFence('vega-lite');
+
+export const insertVegaLiteBar: Command = makeInsertTemplate('vega-lite', BAR_TEMPLATE);
+export const insertVegaLiteLine: Command = makeInsertTemplate('vega-lite', LINE_TEMPLATE);
+export const insertVegaLiteArea: Command = makeInsertTemplate('vega-lite', AREA_TEMPLATE);
+export const insertVegaLiteScatter: Command = makeInsertTemplate('vega-lite', SCATTER_TEMPLATE);
+export const insertVegaLiteTimeSeries: Command = makeInsertTemplate('vega-lite', TIME_SERIES_TEMPLATE);
+export const insertVegaLitePie: Command = makeInsertTemplate('vega-lite', PIE_TEMPLATE);
+
+/** Chart-type chooser for the Insert menu, in a sensible order. The empty block
+ *  trails the concrete scaffolds for users who'd rather start from scratch. */
+export const vegaLiteInserts: { label: string; command: Command }[] = [
+  { label: 'Bar', command: insertVegaLiteBar },
+  { label: 'Line', command: insertVegaLiteLine },
+  { label: 'Area', command: insertVegaLiteArea },
+  { label: 'Scatter', command: insertVegaLiteScatter },
+  { label: 'Time Series', command: insertVegaLiteTimeSeries },
+  { label: 'Pie', command: insertVegaLitePie },
+  { label: 'Empty Block', command: insertVegaLiteDiagram },
+];
+
 // ── Callout inserts ────────────────────────────────────────────────────────
 
 /** Callout types supported by the preview's callout plugin, in a sensible

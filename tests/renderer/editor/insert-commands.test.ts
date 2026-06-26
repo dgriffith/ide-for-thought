@@ -14,6 +14,8 @@ import {
   insertSparqlQuery,
   insertPythonScript,
   insertMermaidDiagram,
+  insertVegaLiteDiagram,
+  vegaLiteInserts,
   insertCallouts,
 } from '../../../src/renderer/lib/editor/formatting';
 
@@ -43,6 +45,56 @@ describe('fenced-block inserts', () => {
     const v = mk('text', 4);
     insertSqlQuery(v);
     expect(v.state.doc.toString()).toBe('text\n```sql\n\n```\n');
+  });
+});
+
+describe('vega-lite chart scaffolds (#830)', () => {
+  /** Pull the JSON body out of an inserted ```vega-lite … ``` block. */
+  function fenceBody(doc: string): string {
+    const m = doc.match(/^```vega-lite\n([\s\S]*?)\n```\n$/);
+    if (!m) throw new Error(`not a vega-lite fence:\n${doc}`);
+    return m[1];
+  }
+
+  it('offers a chart-type chooser ending in an empty-block option', () => {
+    expect(vegaLiteInserts.map((t) => t.label)).toEqual([
+      'Bar', 'Line', 'Area', 'Scatter', 'Time Series', 'Pie', 'Empty Block',
+    ]);
+  });
+
+  it('the empty-block option inserts a bare fence with the cursor on the body line', () => {
+    const v = mk('');
+    insertVegaLiteDiagram(v);
+    expect(v.state.doc.toString()).toBe('```vega-lite\n\n```\n');
+    expect(v.state.selection.main.head).toBe('```vega-lite\n'.length);
+  });
+
+  for (const { label, command } of vegaLiteInserts) {
+    if (label === 'Empty Block') continue;
+    it(`${label} scaffold inserts a valid inline-data spec, cursor inside the data`, () => {
+      const v = mk('');
+      command(v);
+      const doc = v.state.doc.toString();
+      const spec = JSON.parse(fenceBody(doc)) as Record<string, unknown>;
+      // Renders immediately → must be a complete spec with inline data and a mark.
+      expect(spec.mark).toBeTruthy();
+      const data = spec.data as { values?: unknown[]; url?: string };
+      expect(Array.isArray(data.values)).toBe(true);
+      expect(data.values!.length).toBeGreaterThan(0);
+      // #829 posture: scaffolds never reference remote data.
+      expect(data.url).toBeUndefined();
+      expect(JSON.stringify(spec)).not.toContain('"url"');
+      // Cursor lands somewhere inside the body (the data array), not at column 0.
+      const head = v.state.selection.main.head;
+      expect(head).toBeGreaterThan('```vega-lite\n'.length);
+      expect(head).toBeLessThan(doc.length);
+    });
+  }
+
+  it('adds a leading newline when not at the start of a line', () => {
+    const v = mk('text', 4);
+    vegaLiteInserts[0].command(v); // Bar
+    expect(v.state.doc.toString().startsWith('text\n```vega-lite\n')).toBe(true);
   });
 });
 
