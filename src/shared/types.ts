@@ -141,7 +141,15 @@ export interface SavedPdfTab {
   page?: number;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab;
+export interface SavedGraphTab {
+  type: 'graph';
+  /** The note whose link neighborhood the graph shows (#847). */
+  relativePath: string;
+  /** Traversal depth; restored on reload. */
+  depth?: number;
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab;
 
 /** Legacy flat session: one group's tabs + active index. Superseded by
  *  {@link LayoutSession} (#816); still read on load and migrated to a single

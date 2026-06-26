@@ -7,6 +7,7 @@
   import { dropZoneFromFraction, splitForZone, type DropZone } from './lib/editor/drop-zone';
   import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
+  import NeighborhoodGraph from './lib/components/NeighborhoodGraph.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
   import BreadcrumbsBar from './lib/components/BreadcrumbsBar.svelte';
@@ -199,9 +200,14 @@
   // sites (nav, goto-line, insert, theme re-skin) target the focused pane.
   let editorComponents = $state<Record<string, Editor | undefined>>({});
   let queryPanelComponents = $state<Record<string, QueryPanel | undefined>>({});
+  let neighborhoodGraphComponents = $state<Record<string, NeighborhoodGraph | undefined>>({});
   let previewComponents = $state<Record<string, Preview | undefined>>({});
+  // Bumped on save / auto-save so an open neighborhood graph re-fetches when
+  // links change (#847 live-update).
+  let graphRevision = $state(0);
   const editorComponent = $derived(editorComponents[editor.activeGroupId]);
   const queryPanelComponent = $derived(queryPanelComponents[editor.activeGroupId]);
+  const neighborhoodGraphComponent = $derived(neighborhoodGraphComponents[editor.activeGroupId]);
   const previewComponent = $derived(previewComponents[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
@@ -607,6 +613,7 @@
     editor.flushAutoSave(); // cancel pending auto-save, save immediately
     sidebar?.refreshTags();
     rightSidebar?.refresh();
+    graphRevision++;
     void refreshBacklinkCount();
     void refreshAliasMap();
   }
@@ -815,6 +822,7 @@
     editorComponent?.updateTheme();
     queryPanelComponent?.updateTheme();
     previewComponent?.updateTheme();
+    neighborhoodGraphComponent?.updateTheme();
     rightSidebar?.updateTheme();
   }
 
@@ -935,6 +943,7 @@
     editor.onAutoSaved = () => {
       sidebar?.refreshTags();
       rightSidebar?.refresh();
+      graphRevision++;
       void refreshBacklinkCount();
       void refreshAliasMap();
     };
@@ -1431,6 +1440,16 @@
                     />
                   {/await}
                 {/key}
+              {:else if active?.type === 'graph'}
+                {#key active.relativePath}
+                  <NeighborhoodGraph
+                    bind:this={neighborhoodGraphComponents[groupId]}
+                    relativePath={active.relativePath}
+                    depth={active.depth}
+                    revision={graphRevision}
+                    onOpenNote={(p) => handleFileSelect(p)}
+                  />
+                {/key}
               {:else if editor.groups.length > 1}
                 <!-- A freshly split pane is empty until a note lands in it.
                      It has no tab bar, so offer a way back out (#817). -->
@@ -1498,6 +1517,7 @@
           onOpenSource={handleOpenSource}
           onOpenExcerpt={handleOpenExcerpt}
           onContentChange={editor.setContent}
+          onOpenGraph={(p) => editor.openNeighborhood(p)}
         />
       {/if}
     {:else}
@@ -1692,6 +1712,7 @@
         editorComponent?.updateTheme();
         queryPanelComponent?.updateTheme();
         previewComponent?.updateTheme();
+        neighborhoodGraphComponent?.updateTheme();
         rightSidebar?.updateTheme();
       }}
       onClose={() => {

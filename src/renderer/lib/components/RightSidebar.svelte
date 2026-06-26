@@ -102,12 +102,14 @@
     onOpenSource: (sourceId: string) => void;
     onOpenExcerpt: (excerptId: string) => void;
     onContentChange?: (next: string) => void;
+    /** Open a note's link neighborhood as a graph (#847). */
+    onOpenGraph?: (relativePath: string) => void;
   }
 
   let {
     activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
-    onContentChange,
+    onContentChange, onOpenGraph,
   }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
@@ -242,9 +244,9 @@
         <div class="panel-disabled">No active note.</div>
       {/if}
     {:else if activePanel === 'outgoing'}
-      <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} />
+      <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
     {:else if activePanel === 'backlinks'}
-      <BacklinksPanel {activeFilePath} {revision} {onFileSelect} />
+      <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}
