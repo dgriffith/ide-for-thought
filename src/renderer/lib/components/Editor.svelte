@@ -26,7 +26,7 @@
     toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
     toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList,
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
-    insertWikiLink, insertTypedLinks, insertCallouts,
+    insertWikiLink, insertTypedLinks, insertCallouts, insertCardCallout,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
     vegaLiteInserts,
   } from '../editor/formatting';
@@ -1071,6 +1071,7 @@
         </div>
         <button onclick={() => runCmd(insertPythonScript)}>Python Script</button>
         <button onclick={() => runCmd(insertMermaidDiagram)}>Mermaid Diagram</button>
+        <button onclick={() => runCmd(insertCardCallout)}>Flashcard</button>
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Chart...<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">

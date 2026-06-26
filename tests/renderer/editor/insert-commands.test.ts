@@ -17,7 +17,9 @@ import {
   insertVegaLiteDiagram,
   vegaLiteInserts,
   insertCallouts,
+  insertCardCallout,
 } from '../../../src/renderer/lib/editor/formatting';
+import { collectCards } from '../../../src/shared/flashcards/cards';
 
 let view: EditorView;
 afterEach(() => view?.destroy());
@@ -105,6 +107,22 @@ describe('vega-lite chart scaffolds (#830)', () => {
     const v = mk('text', 4);
     vegaLiteInserts[0].command(v); // Bar
     expect(v.state.doc.toString().startsWith('text\n```vega-lite\n')).toBe(true);
+  });
+});
+
+describe('flashcard scaffold (#851)', () => {
+  it('inserts a valid [!card] callout that collectCards parses, "Front" selected', () => {
+    const v = mk('');
+    insertCardCallout(v);
+    const doc = v.state.doc.toString();
+    expect(doc).toBe('> [!card] \n> Front\n> ---\n> Back\n');
+    // The "Front" placeholder is selected so the first keystroke replaces it.
+    const sel = v.state.selection.main;
+    expect(v.state.sliceDoc(sel.from, sel.to)).toBe('Front');
+    // The scaffold round-trips through the extractor.
+    const { cards } = collectCards(doc, 'n.md');
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({ front: 'Front', back: 'Back' });
   });
 });
 

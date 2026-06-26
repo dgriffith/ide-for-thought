@@ -49,6 +49,7 @@ const TITLE_DEFAULTS: Record<string, string> = {
   quote: 'Quote',
   abstract: 'Abstract',
   todo: 'Todo',
+  card: 'Card',
 };
 
 const KNOWN_TYPES = new Set(Object.keys(TITLE_DEFAULTS));
