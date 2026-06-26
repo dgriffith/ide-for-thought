@@ -3,6 +3,15 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
   plugins: [svelte()],
+  optimizeDeps: {
+    // Scope the dev dependency-scan to the renderer entry. Vite otherwise
+    // auto-discovers every `*.html` in the project root — including the browser
+    // extension's `clipper/popup.html` / `clipper/options.html`, whose relative
+    // `popup.js` / `options.js` scripts (built separately by clipper/build.mjs)
+    // it can't resolve, producing a noisy "Failed to run dependency scan" on any
+    // re-optimize (e.g. after a lockfile change).
+    entries: ['index.html'],
+  },
   resolve: {
     // vega-embed pulls in d3-shape@3, which imports the `Path` class from
     // d3-path@3. mermaid (already a dep) drags in an old d3-path@1 via
