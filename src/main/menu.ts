@@ -427,8 +427,12 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
           click: () => send(Channels.MENU_FONT_RESET),
         }),
         { type: 'separator' },
-        { role: 'togglefullscreen' },
-        { type: 'separator' },
+        // macOS auto-injects its own "Enter/Exit Full Screen" item into the
+        // View menu, so adding `togglefullscreen` here produced a duplicate.
+        // Keep the explicit item only where the OS doesn't provide one.
+        ...(isMac
+          ? []
+          : [{ role: 'togglefullscreen' as const }, { type: 'separator' as const }]),
         { role: 'toggleDevTools', label: 'Developer Tools' },
       ],
     },
