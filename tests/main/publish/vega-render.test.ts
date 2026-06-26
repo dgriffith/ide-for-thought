@@ -75,12 +75,32 @@ describe('renderVegaBlocks', () => {
     expect(out).toContain('https://example.com/data.csv');
   });
 
-  it('degrades a data-bound chart (data.sparql) — not resolved in export yet (#885)', async () => {
+  it('degrades a query-bound chart with no project context, never a silent empty chart (#885)', async () => {
     const bound = '```vega-lite\n{ "data": { "sparql": "SELECT ?x WHERE { ?x a ?y }" }, "mark": "bar" }\n```';
-    const out = await renderVegaBlocks(bound);
-    expect(out).not.toContain('data:image'); // never rendered as an empty chart
-    expect(out.toLowerCase()).toContain('not resolved in exports yet');
+    const out = await renderVegaBlocks(bound); // no rootPath
+    expect(out).not.toContain('data:image');
+    expect(out.toLowerCase()).toContain('no project context');
     expect(out).toContain('```vega-lite'); // spec preserved
+  });
+
+  it('resolves a data.cell chart from the note output block and renders it (#885)', async () => {
+    // cell binding needs no project context — the output lives in the markdown.
+    const md = '```sql {id=sales}\nSELECT month, revenue FROM sales\n```\n\n'
+      + '```output\n{"type":"table","columns":["month","revenue"],"rows":[["Jan",30],["Feb",75]]}\n```\n\n'
+      + '```vega-lite\n{ "data": { "cell": "sales" }, "mark": "bar", '
+      + '"encoding": { "x": {"field":"month","type":"nominal"}, "y": {"field":"revenue","type":"quantitative"} } }\n```';
+    const out = await renderVegaBlocks(md);
+    expect(out).toContain('data:image/svg+xml;base64,'); // rendered from cell output
+    const m = out.match(/data:image\/svg\+xml;base64,([A-Za-z0-9+/=]+)/);
+    const svg = Buffer.from(m![1], 'base64').toString('utf8');
+    expect(svg).toContain('<svg');
+  });
+
+  it('degrades a data.cell chart whose cell never ran', async () => {
+    const md = '```sql {id=x}\nSELECT 1\n```\n\n```vega-lite\n{ "data": { "cell": "x" }, "mark": "bar" }\n```';
+    const out = await renderVegaBlocks(md);
+    expect(out).not.toContain('data:image');
+    expect(out.toLowerCase()).toContain('run it before exporting');
   });
 
   it('degrades invalid JSON to spec text + a note instead of throwing', async () => {

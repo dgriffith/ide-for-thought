@@ -139,9 +139,6 @@ The chart reads the cell's stored `output` block, so **run the cell first**; its
 ⟳ refresh button re-reads the latest output. A cell that hasn't run (or whose
 output isn't tabular) renders a clear notice.
 
-Bound charts don't yet render in **exports** (#885) — they degrade to the spec
-there.
-
 ## Export
 
 When you export a note, charts are rendered to **static SVG** so the published
@@ -154,6 +151,12 @@ artifact actually shows the visualization instead of a wall of JSON:
 - **Markdown export** keeps the spec fence **verbatim** — a Vega spec is
   portable to other Vega-aware tools, and a multi-kilobyte data URI would bloat
   the file. Re-render it wherever it's opened next.
+
+**Data-bound charts resolve at export too**: a `data.sparql` / `data.sql` /
+`data.table` / `data.cell` chart runs its query (or reads the cell output) in the
+main process and renders the result, so the exported artifact shows live data —
+not a binding stub. A binding that can't resolve (no project context, query
+error, a cell that never ran) degrades to the spec plus a note.
 
 The security policy holds at export too: a chart that references remote data is
 refused (no fetch from the export process), and any chart that can't render —
