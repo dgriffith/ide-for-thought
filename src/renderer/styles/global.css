@@ -328,6 +328,66 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   color: var(--text-muted);
 }
 
+/* Vega-Lite / Vega chart blocks (#827). Bordered inset panel matching the
+   mermaid / code-block editorial look; the embedded SVG sizes to fit. Errors
+   and the security notice render inline so one bad spec can't brick the doc. */
+.vega-block {
+  margin: 0 0 12px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-inset);
+  overflow-x: auto;
+  min-height: 40px;
+}
+.vega-block .vega-embed {
+  width: 100%;
+}
+.vega-block svg {
+  max-width: 100%;
+  height: auto;
+}
+.vega-block[data-vega-rendered="pending"]::before {
+  content: 'Rendering chart\2026';
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.vega-error {
+  width: 100%;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-button);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: left;
+}
+.vega-error pre {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.vega-notice {
+  width: 100%;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--bg-button);
+  color: var(--text);
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: left;
+}
+.vega-notice p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+.vega-notice code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
 /* Footnote hover preview tooltip in the editor (#484). CodeMirror
    tooltips mount outside the editor's scoped CSS, so the styling
    lives here alongside the other shared markdown surfaces. */

@@ -20,6 +20,7 @@
   import { installCallouts } from '../markdown/callout-plugin';
   import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
+  import { hydrateVegaBlocks, invalidateVegaTheme } from '../markdown/vega-renderer';
   import { slugify } from '../../../shared/slug';
   import { api } from '../ipc/client';
   import { normalizeSqlRows } from '../editor/sql-result';
@@ -352,6 +353,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       return `<div class="mermaid-block" data-mermaid-pending="1">${escaped}</div>\n`;
     }
 
+    if (info === 'vega-lite' || info === 'vega') {
+      const escaped = (tok.content ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const mode = info === 'vega' ? 'full' : 'lite';
+      // Like mermaid, charts auto-render on view (no run button) but get a
+      // collapse toggle so a tall chart can be tucked away. The lazy hydrator
+      // (vega-renderer.ts) swaps the placeholder for an embedded SVG chart.
+      const block = `<div class="vega-block" data-vega-pending="1" data-vega-mode="${mode}">${escaped}</div>`;
+      if (openingLine !== null) {
+        const isCollapsed = collapsedFences.has(openingLine);
+        return `<div class="fence-block fence-vega${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
+          + `<div class="fence-toolbar"><span class="fence-lang">${info}</span>`
+          + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
+          + `</div>`
+          + `<div class="fence-body">${block}</div>`
+          + `</div>\n`;
+      }
+      return `${block}\n`;
+    }
+
     // Runnable fences (python / sparql / sql) get a toolbar with a ▶
     // run button (when the host wired `onRunCell` + `onApplyCellOutputEdit`)
     // and a collapse toggle. The default highlighted-code body is
@@ -621,6 +644,10 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // replaces .mermaid-block placeholders with rendered SVG, surfaces
       // parse errors inline.
       if (previewEl) void hydrateMermaidBlocks(previewEl);
+      // Vega-Lite / Vega chart hydration (#827) — same shape as mermaid:
+      // lazy-loads vega-embed, replaces .vega-block placeholders with SVG
+      // charts, surfaces parse / security errors inline.
+      if (previewEl) void hydrateVegaBlocks(previewEl);
     });
   });
 
@@ -632,7 +659,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
    */
   export function updateTheme(): void {
     invalidateMermaidTheme();
-    if (previewEl) void hydrateMermaidBlocks(previewEl);
+    invalidateVegaTheme();
+    if (previewEl) {
+      void hydrateMermaidBlocks(previewEl);
+      void hydrateVegaBlocks(previewEl);
+    }
   }
 
   /**
