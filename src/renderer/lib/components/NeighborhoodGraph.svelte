@@ -13,8 +13,9 @@
   import GraphCanvas from './GraphCanvas.svelte';
   import { api } from '../ipc/client';
   import { getEditorStore } from '../stores/editor.svelte';
+  import { filterNeighborhood } from '../graph/filter-neighborhood';
   import type { LayoutOptions, ElementDefinition } from 'cytoscape';
-  import type { NeighborhoodResult, NeighborhoodNode } from '../../../shared/types';
+  import type { NeighborhoodResult, NeighborhoodNode, NeighborhoodEdge } from '../../../shared/types';
 
   interface Props {
     relativePath: string;
@@ -34,6 +35,8 @@
   let selected = $state<NeighborhoodNode | null>(null);
   let loading = $state(false);
   let graph = $state<GraphCanvas>();
+  // #848 — link types the user has hidden (display filter, not a re-traversal).
+  let hiddenTypes = $state<Set<string>>(new Set());
 
   const layout: LayoutOptions = {
     name: 'cose',
@@ -57,21 +60,20 @@
     });
   });
 
-  // Merge base + expanded, deduped by id/edge-key, into Cytoscape elements.
+  // Merge base + expanded (deduped), then apply the link-type filter (#848) —
+  // hidden-type edges drop out and orphaned nodes drop with them — and map the
+  // survivors to Cytoscape elements.
   const elements = $derived.by(() => {
     const nodeById = new Map<string, NeighborhoodNode>();
     for (const n of [...result.nodes, ...extra.nodes]) nodeById.set(n.id, n);
-    const edgeKeys = new Set<string>();
-    const edges: ElementDefinition[] = [];
+    const edgeByKey = new Map<string, NeighborhoodEdge>();
     for (const e of [...result.edges, ...extra.edges]) {
-      const key = `${e.source} ${e.target} ${e.linkType}`;
-      if (edgeKeys.has(key)) continue;
-      // Drop an edge whose endpoints aren't both present.
-      if (!nodeById.has(e.source) || !nodeById.has(e.target)) continue;
-      edgeKeys.add(key);
-      edges.push({ data: { id: `edge:${key}`, source: e.source, target: e.target, linkType: e.linkType, linkColor: e.linkColor } });
+      edgeByKey.set(`${e.source} ${e.target} ${e.linkType}`, e);
     }
-    const nodes: ElementDefinition[] = [...nodeById.values()].map((n) => ({
+
+    const filtered = filterNeighborhood([...nodeById.values()], [...edgeByKey.values()], relativePath, hiddenTypes);
+
+    const nodes: ElementDefinition[] = filtered.nodes.map((n) => ({
       data: {
         id: n.id,
         label: n.label,
@@ -80,8 +82,17 @@
         missing: n.exists ? undefined : true,
       },
     }));
+    const edges: ElementDefinition[] = filtered.edges.map((e) => ({
+      data: { id: `edge:${e.source} ${e.target} ${e.linkType}`, source: e.source, target: e.target, linkType: e.linkType, linkColor: e.linkColor },
+    }));
     return { nodes, edges };
   });
+
+  function toggleType(type: string): void {
+    const next = new Set(hiddenTypes);
+    if (next.has(type)) next.delete(type); else next.add(type);
+    hiddenTypes = next;
+  }
 
   // Legend: the distinct link types present, with their colors.
   const legend = $derived.by(() => {
@@ -140,9 +151,15 @@
     {#if legend.length > 0}
       <span class="legend">
         {#each legend as item (item.type)}
-          <span class="legend-item" title={item.label}>
+          <button
+            type="button"
+            class="legend-item"
+            class:off={hiddenTypes.has(item.type)}
+            onclick={() => toggleType(item.type)}
+            title={hiddenTypes.has(item.type) ? `Show ${item.label}` : `Hide ${item.label}`}
+          >
             <span class="swatch" style:background={item.color}></span>{item.label}
-          </span>
+          </button>
         {/each}
       </span>
     {/if}
@@ -192,9 +209,23 @@
   .step:disabled { opacity: 0.4; cursor: default; }
   .step:hover:not(:disabled), .expand-btn:hover { border-color: var(--accent); }
   .truncation { color: var(--rust, var(--accent)); }
-  .legend { display: inline-flex; gap: 10px; flex-wrap: wrap; }
-  .legend-item { display: inline-flex; align-items: center; gap: 4px; }
-  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .legend { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .legend-item:hover { border-color: var(--border); }
+  /* A hidden type reads as struck-through + dimmed. */
+  .legend-item.off { opacity: 0.45; text-decoration: line-through; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
   .canvas-wrap { position: relative; flex: 1; min-height: 0; }
   .status {
     position: absolute;
