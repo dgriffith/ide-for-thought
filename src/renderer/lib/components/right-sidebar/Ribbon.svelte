@@ -24,6 +24,8 @@
     onSort?: (id: string) => void;
     onExpandAll?: () => void;
     onCollapseAll?: () => void;
+    /** Open this note's link neighborhood as a graph (#847). */
+    onOpenGraph?: () => void;
   }
 
   let {
@@ -35,6 +37,7 @@
     onSort,
     onExpandAll,
     onCollapseAll,
+    onOpenGraph,
   }: Props = $props();
 </script>
 
@@ -65,6 +68,9 @@
   {/if}
   {#if onExpandAll}
     <button class="icon-btn" onclick={onExpandAll} title="Expand all"><Icon name="expandAll" size={12} /></button>
+  {/if}
+  {#if onOpenGraph}
+    <button class="icon-btn" onclick={onOpenGraph} title="Open as graph"><Icon name="graph" size={12} /></button>
   {/if}
 </div>
 

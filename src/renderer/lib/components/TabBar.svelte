@@ -102,7 +102,9 @@
           ? tab.title
           : tab.type === 'pdf'
             ? `PDF: ${sourceTabLabel(tab.sourceId)}`
-            : `Source: ${sourceTabLabel(tab.sourceId)}`}
+            : tab.type === 'graph'
+              ? `Graph: ${tab.relativePath}`
+              : `Source: ${sourceTabLabel(tab.sourceId)}`}
       role="tab"
       tabindex="0"
     >
@@ -117,6 +119,8 @@
           <Icon name="source" size={13} color="var(--text-faint)" />
         {:else if tab.type === 'pdf'}
           <Icon name="source" size={13} color="var(--text-faint)" />
+        {:else if tab.type === 'graph'}
+          <Icon name="graph" size={13} color="var(--text-faint)" />
         {:else}
           <Icon name="notes" size={13} color="var(--text-faint)" />
         {/if}
@@ -125,6 +129,7 @@
         {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
         {:else if tab.type === 'query'}{tab.title}
         {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
+        {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
         {:else}{sourceTabLabel(tab.sourceId)}{/if}
       </span>
       <button

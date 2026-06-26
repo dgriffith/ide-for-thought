@@ -9,9 +9,11 @@
     activeFilePath: string | null;
     revision: number;
     onFileSelect: (relativePath: string) => void;
+    /** Open this note's neighborhood as a graph (#847). */
+    onOpenGraph?: (relativePath: string) => void;
   }
 
-  let { activeFilePath, revision, onFileSelect }: Props = $props();
+  let { activeFilePath, revision, onFileSelect, onOpenGraph }: Props = $props();
   let links = $state<Backlink[]>([]);
   let search = $state('');
   let sortId = $state<'type' | 'title'>('type');
@@ -64,6 +66,7 @@
 
 <div class="links-panel">
   <Ribbon
+    onOpenGraph={activeFilePath ? () => onOpenGraph?.(activeFilePath) : undefined}
     {search}
     onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find mention…"

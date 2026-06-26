@@ -61,7 +61,15 @@ export interface PdfTab {
   page: number;
 }
 
-export type Tab = NoteTab | QueryTab | SourceTab | PdfTab;
+export interface GraphTab {
+  type: 'graph';
+  /** The note whose link neighborhood is shown (#847). */
+  relativePath: string;
+  /** Traversal depth (1–N). */
+  depth: number;
+}
+
+export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab;
 
 /**
  * Source / preview view mode. `'editor-preview'` = source editor + rendered
@@ -89,6 +97,7 @@ function isNote(tab: Tab): tab is NoteTab { return tab.type === 'note'; }
 function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
 function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
 function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
+function isGraph(tab: Tab): tab is GraphTab { return tab.type === 'graph'; }
 
 let queryCounter = 0;
 let groupCounter = 0;
@@ -334,6 +343,28 @@ export function getEditorStore() {
     schedulePersistTabs();
   }
 
+  /** Open (or refocus) the link-neighborhood graph for a note (#847). One graph
+   *  tab per note; reopening refocuses rather than duplicating. */
+  function openNeighborhood(relativePath: string, opts?: { depth?: number; groupId?: string }) {
+    const found = locateTab((t) => isGraph(t) && t.relativePath === relativePath);
+    if (found) { focusExistingTab(found); return; }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    const tab: GraphTab = { type: 'graph', relativePath, depth: opts?.depth ?? 1 };
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /** Update a graph tab's traversal depth (the depth control). */
+  function setGraphDepth(relativePath: string, depth: number) {
+    const found = locateTab((t) => isGraph(t) && t.relativePath === relativePath);
+    if (found) {
+      (found.group.tabs[found.index] as GraphTab).depth = Math.max(1, depth);
+      schedulePersistTabs();
+    }
+  }
+
   function openPdf(sourceId: string, opts?: { page?: number; groupId?: string }) {
     // Forbid duplicate open (#815): if this PDF is already open in any pane,
     // refocus it (jumping to the requested page) instead of opening a copy.
@@ -539,6 +570,8 @@ export function getEditorStore() {
       return { type: 'query', title: t.title, query: t.query, language: t.language };
     } else if (isPdf(t)) {
       return { type: 'pdf', sourceId: t.sourceId, page: t.page };
+    } else if (isGraph(t)) {
+      return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
     } else {
       return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
     }
@@ -599,6 +632,8 @@ export function getEditorStore() {
       };
     } else if (saved.type === 'pdf') {
       return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
+    } else if (saved.type === 'graph') {
+      return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
     } else {
       return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
     }
@@ -968,6 +1003,8 @@ export function getEditorStore() {
     openFile,
     openSource,
     openPdf,
+    openNeighborhood,
+    setGraphDepth,
     setPdfPage,
     save,
     isPathDirty,

@@ -23,6 +23,9 @@
     autoNavigate?: boolean;
     /** The view's navigate action, given the clicked node's data. */
     navigate?: (data: Record<string, unknown>) => void;
+    /** Fired on select (node data) / deselect (null) — drives per-view actions
+     *  like View B's expand affordance. */
+    onSelect?: (data: Record<string, unknown> | null) => void;
   }
 
   let {
@@ -30,6 +33,7 @@
     layout = { name: 'breadthfirst' },
     autoNavigate = false,
     navigate,
+    onSelect,
   }: Props = $props();
 
   let container = $state<HTMLDivElement>();
@@ -62,11 +66,14 @@
       cy.on('tap', 'node', (evt) => {
         const node = evt.target as NodeSingular;
         if (autoNavigate) { activate(node); return; }
+        onSelect?.(node.data() as Record<string, unknown>);
         const now = Date.now();
         if (lastTapId === node.id() && now - lastTapTime < 300) activate(node);
         lastTapId = node.id();
         lastTapTime = now;
       });
+      // A tap on empty canvas deselects.
+      cy.on('tap', (evt) => { if (evt.target === cy) onSelect?.(null); });
 
       // Re-fit when the container resizes (sidebar width / pane resize).
       ro = new ResizeObserver(() => { cy?.resize(); cy?.fit(undefined, 24); });
