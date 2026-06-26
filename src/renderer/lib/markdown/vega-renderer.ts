@@ -42,9 +42,11 @@ import {
   detectDataSource,
   resolveVegaData,
   tableQuerySql,
+  rowsFromTable,
   type DataSourceRef,
   type VegaRows,
 } from '../../../shared/vega/data-binding';
+import { findCellOutput } from '../../../shared/compute/cell-output';
 
 type VegaView = { finalize: () => void };
 type VegaEmbed = (
@@ -152,10 +154,11 @@ function findUrlRefs(node: unknown, acc: string[], depth = 0): void {
 
 /**
  * Resolve a Minerva data source to rows in the renderer (#832), running against
- * the open project via IPC. SPARQL (#882) hits the graph; SQL / table (#883) hit
- * DuckDB. `cell` (#884) lands in a later sub-issue and surfaces a clear notice.
+ * the open project. SPARQL (#882) hits the graph; SQL / table (#883) hit DuckDB;
+ * cell (#884) reads a compute cell's stored output block out of the note's
+ * source (`noteContent`).
  */
-async function rendererExecutor(ref: DataSourceRef): Promise<VegaRows> {
+async function rendererExecutor(ref: DataSourceRef, noteContent: string): Promise<VegaRows> {
   if (ref.kind === 'sparql') {
     const res = await api.graph.query(ref.query);
     if (res.error) throw new Error(res.error);
@@ -167,7 +170,12 @@ async function rendererExecutor(ref: DataSourceRef): Promise<VegaRows> {
     if (!res.ok) throw new Error(res.error);
     return res.rows;
   }
-  throw new Error(`Binding a chart to "${ref.kind}" data isn't available yet.`);
+  // ref.kind === 'cell'
+  const output = findCellOutput(noteContent, ref.id);
+  if (!output) throw new Error(`No output found for cell "${ref.id}" — run the cell first.`);
+  if (output.type === 'error') throw new Error(output.message);
+  if (output.type !== 'table') throw new Error(`Cell "${ref.id}" output isn't tabular.`);
+  return rowsFromTable(output.columns, output.rows);
 }
 
 /**
@@ -193,8 +201,11 @@ function makeBlockingLoader(): Record<string, unknown> {
  * Walk `root` for unrendered `.vega-block` placeholders and render each one.
  * Idempotent: blocks already marked `data-vega-rendered` are skipped, so the
  * post-render `$effect` firing repeatedly doesn't double-render.
+ *
+ * `noteContent` is the note's markdown source — needed to resolve `data.cell`
+ * bindings (#884), which read a compute cell's output block out of the source.
  */
-export async function hydrateVegaBlocks(root: HTMLElement): Promise<void> {
+export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Promise<void> {
   const blocks = Array.from(
     root.querySelectorAll<HTMLElement>('.vega-block:not([data-vega-rendered])'),
   );
@@ -248,7 +259,7 @@ export async function hydrateVegaBlocks(root: HTMLElement): Promise<void> {
     const ref = detectDataSource(spec);
     if (ref) {
       try {
-        spec = await resolveVegaData(spec as Record<string, unknown>, ref, rendererExecutor);
+        spec = await resolveVegaData(spec as Record<string, unknown>, ref, (r) => rendererExecutor(r, noteContent));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         el.innerHTML = renderNoticeHtml('Chart data unavailable', escapeHtml(msg));

@@ -657,7 +657,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // Vega-Lite / Vega chart hydration (#827) — same shape as mermaid:
       // lazy-loads vega-embed, replaces .vega-block placeholders with SVG
       // charts, surfaces parse / security errors inline.
-      if (previewEl) void hydrateVegaBlocks(previewEl);
+      if (previewEl) void hydrateVegaBlocks(previewEl, content);
     });
   });
 
@@ -672,7 +672,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     invalidateVegaTheme();
     if (previewEl) {
       void hydrateMermaidBlocks(previewEl);
-      void hydrateVegaBlocks(previewEl);
+      void hydrateVegaBlocks(previewEl, content);
     }
   }
 
@@ -1110,7 +1110,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (vegaBlock) {
           vegaBlock.removeAttribute('data-vega-rendered');
           vegaBlock.innerHTML = '';
-          if (previewEl) void hydrateVegaBlocks(previewEl);
+          if (previewEl) void hydrateVegaBlocks(previewEl, content);
         }
         return;
       }

@@ -25,6 +25,11 @@
  */
 
 import type { FenceRange } from '../../../shared/compute/fences';
+// The pure adjacent-output scan now lives in shared so the chart cell-binding
+// finder (#884) and the export pipeline (#885) reuse it. Re-exported here so the
+// editing helpers below — and existing importers / tests — keep their entry point.
+import { findAdjacentOutputBlock } from '../../../shared/compute/cell-output';
+export { findAdjacentOutputBlock };
 
 export type CellResultLike =
   | { ok: true; output: unknown }
@@ -63,62 +68,6 @@ export function planOutputEdit(
     to: fence.endOffset,
     insert: `\n${body}`,
   };
-}
-
-/**
- * Scan forward from `after` for an `output` fence that belongs to the
- * previous executable fence. "Adjacent" means: only whitespace (including
- * at most one blank line) between the previous fence's close and this
- * one's opening backticks. Anything else means the user wrote prose
- * between the two — treat the output as new, don't blow away content.
- */
-export function findAdjacentOutputBlock(
-  doc: string,
-  after: number,
-): { from: number; to: number } | null {
-  let i = after;
-  // Skip a single trailing newline + an optional blank line.
-  let blankLines = 0;
-  while (i < doc.length && (doc[i] === ' ' || doc[i] === '\t' || doc[i] === '\n')) {
-    if (doc[i] === '\n') {
-      blankLines++;
-      if (blankLines > 2) return null; // more than one blank line → not adjacent
-    }
-    i++;
-  }
-  // Must find the opening ``` here.
-  if (!doc.startsWith('```output', i)) return null;
-  const from = i;
-  // Opening line must end with a newline (possibly after whitespace).
-  const openEnd = doc.indexOf('\n', i + '```output'.length);
-  if (openEnd < 0) return null;
-  // Find the closing ``` line.
-  const closeLine = findClosingFence(doc, openEnd + 1);
-  if (closeLine < 0) return null;
-  // Include the trailing newline in the range so the replacement lines
-  // up cleanly with the insert path.
-  const to = closeLine + 3 + (doc[closeLine + 3] === '\n' ? 1 : 0);
-  return { from, to };
-}
-
-function findClosingFence(doc: string, searchStart: number): number {
-  let i = searchStart;
-  while (i < doc.length) {
-    // Closing ``` must start at column 0 of its own line.
-    if (doc.startsWith('```', i)) {
-      // Fence closes only when the ``` is followed by newline or EOF
-      // (otherwise it's the opening of a nested fence, which doesn't
-      // happen inside `output` blocks we emit, but be tolerant).
-      const after = i + 3;
-      if (after >= doc.length || doc[after] === '\n' || doc[after] === '\r') {
-        return i;
-      }
-    }
-    const nl = doc.indexOf('\n', i);
-    if (nl < 0) return -1;
-    i = nl + 1;
-  }
-  return -1;
 }
 
 /**
