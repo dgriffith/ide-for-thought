@@ -815,6 +815,7 @@
     editorComponent?.updateTheme();
     queryPanelComponent?.updateTheme();
     previewComponent?.updateTheme();
+    rightSidebar?.updateTheme();
   }
 
   async function handleSwitchTab(index: number, groupId?: string) {
@@ -1691,6 +1692,7 @@
         editorComponent?.updateTheme();
         queryPanelComponent?.updateTheme();
         previewComponent?.updateTheme();
+        rightSidebar?.updateTheme();
       }}
       onClose={() => {
         showSettings = false;
