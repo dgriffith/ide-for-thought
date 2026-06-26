@@ -1,0 +1,66 @@
+# Charts — Vega-Lite & Vega
+
+Minerva renders [Vega-Lite](https://vega.github.io/vega-lite/) and full
+[Vega](https://vega.github.io/vega/) specs in the Markdown preview, the same way
+it renders Mermaid diagrams: write a fenced block whose body is the JSON spec and
+it renders to a chart.
+
+````markdown
+```vega-lite
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "values": [
+      { "category": "A", "value": 28 },
+      { "category": "B", "value": 55 },
+      { "category": "C", "value": 43 }
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "category", "type": "nominal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}
+```
+````
+
+Use a ` ```vega ` fence for a full Vega spec. Both render through
+[`vega-embed`](https://github.com/vega/vega-embed), which is lazy-loaded on first
+use, so notes without charts pay nothing.
+
+Each chart gets the built-in **"⋯" actions menu** (export PNG/SVG, view
+source/compiled spec) and a **collapse toggle** in the fence toolbar. Charts are
+skinned to the active Catppuccin theme and re-skin automatically when you switch
+themes. A spec that sets its own colors keeps them — the theme is only the
+default layer.
+
+## Data: inline only (security)
+
+A chart spec can arrive from outside your control — via import, the web clipper,
+or a shared vault — so it is treated as partially-untrusted input, the same
+posture as file-path access elsewhere in Minerva.
+
+**Charts render from inline data only.** Any `url` reference in a spec — a
+`data.url` remote fetch, an image-mark `url`, a transform-lookup `url` — is
+**refused**, and the chart shows a clear "remote data disabled" notice instead of
+silently phoning home. Put your data in the spec:
+
+```json
+"data": { "values": [ { "x": 1, "y": 2 } ] }
+```
+
+Under the hood:
+
+- The Vega data **loader** is replaced with one that rejects every remote/file
+  fetch. Inline `data.values` never touch the loader.
+- Vega **expressions** run through the CSP-safe interpreter (the renderer's
+  Content-Security-Policy has no `unsafe-eval`). Pure data-transform expressions
+  — the point of Vega — keep working; nothing in the expression language can
+  reach the network or filesystem.
+- A spec's `usermeta.embedOptions` is stripped before rendering, so a spec can't
+  re-enable codegen or swap the loader through that channel.
+
+Binding charts to Minerva's own data (compute-cell outputs, CSV/DuckDB tables,
+inline SPARQL/SQL) is planned (#832) and will resolve through the same safe-path
+layer — never a raw fetch.
