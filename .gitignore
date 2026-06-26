@@ -38,3 +38,8 @@ tests/fixtures/sample-project/.minerva/sources/*
 !tests/fixtures/sample-project/.minerva/sources/url-ab2b069842d3/**
 !tests/fixtures/sample-project/.minerva/excerpts/
 !tests/fixtures/sample-project/.minerva/excerpts/**
+
+# Bundled embedding model (#834): the 23MB ONNX weights are fetched at
+# build/dev time, not vendored. The small tokenizer/vocab/config ARE committed
+# so the WordPiece ground-truth test runs in CI without a network fetch.
+resources/models/**/*.onnx
