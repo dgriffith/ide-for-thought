@@ -278,6 +278,35 @@ details.callout[open] > summary.callout-title::after {
   opacity: 0.5;
   margin: 8px 0;
 }
+/* Collapsible answer: the back of the card is tucked behind a "Show answer"
+   disclosure, collapsed by default, so the prompt reads alone first. */
+.callout-card .card-answer {
+  margin-top: 8px;
+  border-top: 1px dashed var(--callout-color);
+  padding-top: 6px;
+}
+.callout-card .card-answer-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--callout-color);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.callout-card .card-answer-summary::-webkit-details-marker { display: none; }
+.callout-card .card-answer-summary::before {
+  content: '\25B8'; /* ▸ */
+  font-size: 10px;
+  transition: transform 0.12s ease;
+}
+.callout-card .card-answer[open] .card-answer-summary::before { transform: rotate(90deg); }
+.callout-card .card-answer-summary:hover { text-decoration: underline; }
+.callout-card .card-answer-body { margin-top: 6px; }
+.callout-card .card-answer-body > :first-child { margin-top: 0; }
+.callout-card .card-answer-body > :last-child { margin-bottom: 0; }
 
 /* Highlights (#468). `==text==` and `==color:text==` from the markdown-it
    plugin render here as `<mark class="hl hl-{color}?">`. Lives in
