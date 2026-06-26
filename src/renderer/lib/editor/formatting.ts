@@ -396,6 +396,7 @@ export const insertSparqlQuery: Command = makeInsertFence('sparql');
 export const insertSqlQuery: Command = makeInsertFence('sql');
 export const insertPythonScript: Command = makeInsertFence('python');
 export const insertMermaidDiagram: Command = makeInsertFence('mermaid');
+export const insertYouTubeEmbed: Command = makeInsertFence('youtube');
 
 // ── Vega-Lite chart scaffolds (#830) ───────────────────────────────────────
 //

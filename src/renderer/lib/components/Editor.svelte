@@ -28,7 +28,7 @@
     insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
     insertWikiLink, insertTypedLinks, insertCallouts, insertCardCallout,
     insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
-    vegaLiteInserts,
+    insertYouTubeEmbed, vegaLiteInserts,
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
@@ -1071,6 +1071,7 @@
         </div>
         <button onclick={() => runCmd(insertPythonScript)}>Python Script</button>
         <button onclick={() => runCmd(insertMermaidDiagram)}>Mermaid Diagram</button>
+        <button onclick={() => runCmd(insertYouTubeEmbed)}>YouTube Video</button>
         <button onclick={() => runCmd(insertCardCallout)}>Flashcard</button>
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">Chart...<Icon name="chevronRight" size={10} /></span>
