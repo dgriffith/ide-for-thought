@@ -42,7 +42,7 @@ describe('tree-pdf builder (#290)', () => {
       '---\ntitle: Chapter Two\n---\n# Chapter Two\n\nThe second chapter.\n', 'utf-8');
 
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 3 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     expect(built.chapterCount).toBe(3);
     expect(built.documentTitle).toBe('The Thesis');
     // Title page + TOC + 3 chapter sections.
@@ -65,7 +65,7 @@ describe('tree-pdf builder (#290)', () => {
     await fsp.writeFile(path.join(root, 'chap.md'),
       '---\ntitle: A Chapter\n---\n# A Chapter\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 2 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     expect(built.html).toContain('href="#chapter-root"');
     expect(built.html).toContain('href="#chapter-chap"');
     expect(built.html).toContain('id="chapter-root"');
@@ -78,7 +78,7 @@ describe('tree-pdf builder (#290)', () => {
     await fsp.writeFile(path.join(root, 'chap.md'),
       '---\ntitle: A Chapter\n---\n# A Chapter\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 2 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     // No inter-note references that would fail in a single-file PDF.
     expect(built.html).not.toContain('href="chap.html"');
     expect(built.html).not.toContain('href="./chap.html"');
@@ -90,7 +90,7 @@ describe('tree-pdf builder (#290)', () => {
     await fsp.writeFile(path.join(root, 'r.md'), '# R\n[[c]]\n', 'utf-8');
     await fsp.writeFile(path.join(root, 'c.md'), '# C\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'r.md', maxDepth: 2 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     expect(built.html).toContain('.tree-pdf-chapter {');
     expect(built.html).toContain('page-break-before: always');
     expect(built.html).toContain('.tree-pdf-title-page');
@@ -101,7 +101,7 @@ describe('tree-pdf builder (#290)', () => {
     await fsp.writeFile(path.join(root, 'root.md'),
       '---\ntitle: From Frontmatter\n---\n# Different In Body\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 1 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     expect(built.documentTitle).toBe('From Frontmatter');
     // TOC entry uses frontmatter title.
     expect(built.html).toMatch(/<nav class="tree-pdf-toc">[\s\S]*?From Frontmatter[\s\S]*?<\/nav>/);
@@ -119,7 +119,7 @@ describe('tree-pdf builder (#290)', () => {
     await fsp.writeFile(path.join(root, 'a.md'),
       '# A\nAlso cites [[cite::foo-2020]]\n', 'utf-8');
     const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 2 });
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     expect(built.html).toContain('id="chapter-bibliography"');
     expect(built.html).toContain('References');
     // Bibliography lists Foo exactly once despite two cite references.
@@ -142,7 +142,7 @@ describe('tree-pdf builder (#290)', () => {
       { kind: 'tree', relativePath: 'root.md', maxDepth: 2 },
       { citationStyle: 'chicago-notes-bibliography' },
     );
-    const built = buildTreePdfHtml(plan);
+    const built = await buildTreePdfHtml(plan);
     // Each chapter's footnote counter starts at 1.
     expect(built.html).toContain('id="fn-1"');
     expect((built.html.match(/id="fnref-1"/g) ?? []).length).toBeGreaterThanOrEqual(2);
@@ -150,10 +150,10 @@ describe('tree-pdf builder (#290)', () => {
     expect(built.html).toContain('Bibliography');
   });
 
-  it('builder returns an empty result when the plan has no notes', () => {
+  it('builder returns an empty result when the plan has no notes', async () => {
     // Hand-roll a synthetic empty plan rather than going through
     // resolvePlan (which requires a real root note).
-    const built = buildTreePdfHtml({
+    const built = await buildTreePdfHtml({
       inputKind: 'tree',
       inputs: [],
       excluded: [],

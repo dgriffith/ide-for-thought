@@ -29,9 +29,17 @@ export default defineConfig({
       // - DuckDB bindings: Rollup can't bundle the `.node` binary. The plugin
       //   ships no node_modules, so forge.config's `afterPrune` hook copies the
       //   binding's runtime closure into the packaged app.
+      // - `vega` / `vega-lite` (#831, headless chart export): the plugin builds
+      //   main as a single-file CJS lib, and bundling these large ESM trees
+      //   (with their internal dynamic imports) makes rollup code-split the
+      //   entry so `main.js` is never emitted and packaging fails. Externalize
+      //   them — Electron 42 / Node 22 can `require()` ESM — and ship their
+      //   closure via forge.config's `EXTERNAL_DEP_ROOTS`.
       external: [
         'canvas',
         /^@duckdb\/node-bindings/,
+        'vega',
+        'vega-lite',
       ],
     },
   },

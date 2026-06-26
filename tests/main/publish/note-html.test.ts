@@ -37,6 +37,29 @@ describe('noteHtmlExporter (#248)', () => {
   beforeEach(() => { root = mkTempProject(); });
   afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
+  it('renders a ```vega-lite chart to a static SVG <img> (#831), not raw JSON', async () => {
+    const content = '# Chart\n\n```vega-lite\n'
+      + '{ "data": { "values": [ { "a": "A", "b": 1 } ] }, "mark": "bar", '
+      + '"encoding": { "x": { "field": "a", "type": "nominal" }, "y": { "field": "b", "type": "quantitative" } } }\n'
+      + '```\n';
+    const plan = planWithNote({ content, title: 'Chart' });
+    const output = await noteHtmlExporter.run(plan);
+    const html = String(output.files[0].contents);
+    expect(html).toContain('<img');
+    expect(html).toContain('src="data:image/svg+xml;base64,');
+    // The raw spec JSON must not survive as a code block.
+    expect(html).not.toContain('class="hljs language-vega-lite"');
+    expect(html).not.toContain('"encoding"');
+  });
+
+  it('a remote-data chart degrades to a notice during export, never fetched (#829/#831)', async () => {
+    const content = '```vega-lite\n{ "data": { "url": "https://example.com/x.csv" }, "mark": "line" }\n```\n';
+    const plan = planWithNote({ content, title: 'Remote' });
+    const html = String((await noteHtmlExporter.run(plan)).files[0].contents);
+    expect(html).not.toContain('data:image'); // never rendered
+    expect(html.toLowerCase()).toContain('remote data is disabled');
+  });
+
   it('emits a self-contained HTML file with inline stylesheet + article body', async () => {
     const plan = planWithNote({ content: '# Hello\n\nA paragraph.\n', title: 'Hello' });
     const output = await noteHtmlExporter.run(plan);

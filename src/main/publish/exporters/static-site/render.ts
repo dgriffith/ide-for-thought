@@ -32,7 +32,7 @@ export interface RenderPageInput {
 }
 
 /** Render a complete HTML page for a note. */
-export function renderNotePage(input: RenderPageInput): string {
+export async function renderNotePage(input: RenderPageInput): Promise<string> {
   const { note, plan, config, index, rootRelative, renderer } = input;
 
   // Body via the existing markdown→HTML pipeline. The link policy is
@@ -40,7 +40,7 @@ export function renderNotePage(input: RenderPageInput): string {
   // bundle ships every note as an .html sibling — readers want
   // working cross-links inside the site.
   const sitePlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file' };
-  const rawBody = renderNoteBody(note, sitePlan, renderer ?? undefined);
+  const rawBody = await renderNoteBody(note, sitePlan, renderer ?? undefined);
   const bodyWithFootnotes = renderer ? `${rawBody}${renderFootnotesSection(renderer)}` : rawBody;
   const bodyWithBroken = markBrokenWikiLinks(bodyWithFootnotes);
 

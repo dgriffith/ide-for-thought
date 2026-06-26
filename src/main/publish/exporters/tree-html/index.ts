@@ -63,7 +63,7 @@ export const treeHtmlExporter: Exporter = {
     const files: ExportOutput['files'] = [];
     for (const note of notes) {
       const renderer = bundlePlan.citations?.createRenderer();
-      const rawBody = renderNoteBody(note, bundlePlan, renderer);
+      const rawBody = await renderNoteBody(note, bundlePlan, renderer);
       // Note styles: append the per-note footnotes (the inline `<sup>`
       // markers anchor to them). In-text styles: nothing here — the
       // bundle-level References page below carries the bibliography.
