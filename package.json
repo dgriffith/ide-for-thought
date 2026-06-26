@@ -54,6 +54,7 @@
     "pdfjs-dist": "^6.0.227",
     "rdflib": "^2.3.9",
     "sql-formatter": "^15.8.1",
+    "sql.js": "^1.14.1",
     "tesseract.js": "^7.0.0",
     "tslib": "^2.8.1",
     "turndown": "^7.2.4",

@@ -18,6 +18,7 @@ import { staticSiteExporter } from './exporters/static-site';
 import { annotatedReadingExporter } from './exporters/annotated-reading';
 import { pandocExporter } from './exporters/pandoc';
 import { bibtexExporter } from './exporters/bibtex';
+import { ankiDeckExporter } from './exporters/anki/anki-deck';
 
 export function registerBuiltinExporters(): void {
   registerExporter(markdownExporter);
@@ -31,6 +32,7 @@ export function registerBuiltinExporters(): void {
   registerExporter(annotatedReadingExporter);
   registerExporter(pandocExporter);
   registerExporter(bibtexExporter);
+  registerExporter(ankiDeckExporter);
 }
 
 export * from './types';

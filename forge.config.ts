@@ -32,6 +32,9 @@ const EXTERNAL_DEP_ROOTS = [
   // must be shipped for `require('vega')` / `require('vega-lite')` to resolve.
   'vega',
   'vega-lite',
+  // Anki .apkg writer (#853). sql.js reads its `sql-wasm.wasm` from disk, so
+  // the package (incl. the .wasm) must ship for `import('sql.js')` to resolve.
+  'sql.js',
 ];
 
 /** BFS the `dependencies` graph from each root; skips absent optionals. */

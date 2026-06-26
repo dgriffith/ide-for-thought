@@ -40,6 +40,10 @@ export default defineConfig({
         /^@duckdb\/node-bindings/,
         'vega',
         'vega-lite',
+        // sql.js (#853, Anki .apkg writer): loads its own `sql-wasm.wasm` from
+        // disk at runtime, so it must resolve from the shipped node_modules
+        // (forge `EXTERNAL_DEP_ROOTS`) rather than being bundled.
+        'sql.js',
       ],
     },
   },
