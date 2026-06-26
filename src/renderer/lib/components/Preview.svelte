@@ -21,6 +21,7 @@
   import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { hydrateVegaBlocks, invalidateVegaTheme } from '../markdown/vega-renderer';
+  import { renderYouTubeFence } from '../markdown/youtube-embed';
   import { hydrateCardCallouts } from '../markdown/card-callout';
   import { detectDataSource } from '../../../shared/vega/data-binding';
   import { slugify } from '../../../shared/slug';
@@ -391,6 +392,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
           + `</div>\n`;
       }
       return `${block}\n`;
+    }
+
+    // A `youtube` fence renders a click-to-open poster card (#904) — thumbnail
+    // + ▶, opens in the browser on click. No live iframe, so no CSP change; the
+    // card is self-explanatory, so it skips the code-fence toolbar wrapper.
+    if (info === 'youtube') {
+      return `${renderYouTubeFence(tok.content ?? '')}\n`;
     }
 
     // Runnable fences (python / sparql / sql) get a toolbar with a ▶
@@ -1125,6 +1133,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }
         return;
       }
+    }
+
+    // YouTube poster card (#904) — open the video in the real browser rather
+    // than navigating the renderer. `data-youtube-url` is a normalized
+    // youtube.com watch URL; openExternal's main-process handler re-validates
+    // it's http(s) before handing off to the OS.
+    const ytEmbed = el.closest<HTMLElement>('.youtube-embed');
+    if (ytEmbed) {
+      e.preventDefault();
+      const url = ytEmbed.getAttribute('data-youtube-url');
+      if (url) void api.shell.openExternal(url);
+      return;
     }
 
     // DOI link click — the doi-plugin auto-linker rendered this. The
