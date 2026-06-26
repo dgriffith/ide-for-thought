@@ -36,7 +36,7 @@ export async function renderNoteBody(
   // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
   // before markdown rendering (md.render is sync; vega's toSVG is async).
   // The result is `<img>` markdown, so it survives the `html: false` instance.
-  const bodyMarkdown = await renderVegaBlocks(stripFrontmatter(file.content));
+  const bodyMarkdown = await renderVegaBlocks(stripFrontmatter(file.content), { rootPath: plan.rootPath });
   return md.render(bodyMarkdown);
 }
 

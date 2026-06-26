@@ -27,7 +27,18 @@
  * verbatim, which stays portable to other Vega-aware tools.
  */
 
-import { detectDataSource } from '../../shared/vega/data-binding';
+import {
+  detectDataSource,
+  resolveVegaData,
+  tableQuerySql,
+  rowsFromTable,
+  type DataSourceRef,
+  type VegaRows,
+} from '../../shared/vega/data-binding';
+import { findCellOutput } from '../../shared/compute/cell-output';
+import { queryGraph } from '../graph/queries';
+import { runQuery } from '../sources/tables';
+import { projectContext } from '../project-context-types';
 
 // Catppuccin-derived categorical palette, shared in spirit with the renderer
 // (#828) and the Chart.js adapter so all three charting paths feel consistent.
@@ -106,13 +117,21 @@ export function hasVegaBlocks(markdown: string): boolean {
   return VEGA_FENCE_RE.test(markdown);
 }
 
+/** Options carrying the project context export-time data binding needs (#885). */
+export interface RenderVegaOptions {
+  /** Project root, so `data.sparql` / `data.sql` / `data.table` can run against
+   *  the live graph / DuckDB. Absent (e.g. headless with no project) → bound
+   *  charts degrade gracefully. */
+  rootPath?: string;
+}
+
 /**
  * Replace every ```vega-lite / ```vega fence in `markdown` with a rendered SVG
  * image (`![chart](data:image/svg+xml;base64,…)`). A chart that can't render
  * degrades to its original spec fence plus an italic note. Returns the markdown
  * unchanged when it contains no charts (no library load).
  */
-export async function renderVegaBlocks(markdown: string): Promise<string> {
+export async function renderVegaBlocks(markdown: string, opts: RenderVegaOptions = {}): Promise<string> {
   if (!hasVegaBlocks(markdown)) return markdown;
 
   VEGA_FENCE_RE.lastIndex = 0;
@@ -123,14 +142,45 @@ export async function renderVegaBlocks(markdown: string): Promise<string> {
   let last = 0;
   for (const m of matches) {
     out += markdown.slice(last, m.index);
-    out += await renderOne(m[1] === 'vega' ? 'vega' : 'vega-lite', m[2]);
+    out += await renderOne(m[1] === 'vega' ? 'vega' : 'vega-lite', m[2], markdown, opts);
     last = m.index + m[0].length;
   }
   out += markdown.slice(last);
   return out;
 }
 
-async function renderOne(mode: 'vega' | 'vega-lite', specText: string): Promise<string> {
+/**
+ * Resolve a Minerva data source to rows in the export (main) process (#885) —
+ * the same sources the renderer binds (#882/#883/#884), run headlessly here.
+ * cell output is read from the note `markdown` being exported.
+ */
+async function exportExecutor(ref: DataSourceRef, markdown: string, rootPath?: string): Promise<VegaRows> {
+  if (ref.kind === 'cell') {
+    const output = findCellOutput(markdown, ref.id);
+    if (!output) throw new Error(`no output for cell "${ref.id}" — run it before exporting`);
+    if (output.type === 'error') throw new Error(output.message);
+    if (output.type !== 'table') throw new Error(`cell "${ref.id}" output isn't tabular`);
+    return rowsFromTable(output.columns, output.rows);
+  }
+  if (!rootPath) throw new Error('no project context to resolve the query against');
+  const ctx = projectContext(rootPath);
+  if (ref.kind === 'sparql') {
+    const res = await queryGraph(ctx, ref.query);
+    if (res.error) throw new Error(res.error);
+    return (res.results as VegaRows) ?? [];
+  }
+  const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;
+  const res = await runQuery(ctx, sql);
+  if (!res.ok) throw new Error(res.error);
+  return res.rows;
+}
+
+async function renderOne(
+  mode: 'vega' | 'vega-lite',
+  specText: string,
+  markdown: string,
+  opts: RenderVegaOptions,
+): Promise<string> {
   let spec: unknown;
   try {
     spec = JSON.parse(specText);
@@ -138,17 +188,22 @@ async function renderOne(mode: 'vega' | 'vega-lite', specText: string): Promise<
     return degrade(mode, specText, `invalid JSON: ${msgOf(err)}`);
   }
 
+  // #885 — resolve a Minerva data binding to inline values before anything else,
+  // so the url-scan below still only ever sees inline data. A resolution failure
+  // (no project, query error, empty cell) degrades to the spec + a note.
+  const ref = detectDataSource(spec);
+  if (ref) {
+    try {
+      spec = await resolveVegaData(spec as Record<string, unknown>, ref, (r) => exportExecutor(r, markdown, opts.rootPath));
+    } catch (err) {
+      return degrade(mode, specText, `data binding: ${msgOf(err)}`);
+    }
+  }
+
   const urls: string[] = [];
   findUrlRefs(spec, urls);
   if (urls.length > 0) {
     return degrade(mode, specText, `remote data is disabled (${urls[0]})`);
-  }
-
-  // A chart bound to live Minerva data (#832 — data.sparql / sql / table / cell)
-  // isn't resolved at export time yet (#885 wires that). Degrade to the spec +
-  // a clear note rather than letting vega-lite render a silent empty chart.
-  if (detectDataSource(spec)) {
-    return degrade(mode, specText, 'data binding is not resolved in exports yet');
   }
 
   try {
