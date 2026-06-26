@@ -12,6 +12,8 @@ import {
   rowsFromTable,
   coerceRows,
   resolveVegaData,
+  normalizeRows,
+  tableQuerySql,
   type DataSourceRef,
 } from '../../../src/shared/vega/data-binding';
 
@@ -74,6 +76,37 @@ describe('coerceRows', () => {
 
   it('handles empty input', () => {
     expect(coerceRows([])).toEqual([]);
+  });
+});
+
+describe('normalizeRows', () => {
+  it('converts DuckDB BigInt to number and Date to ISO string', () => {
+    const rows = [{ n: 100n, d: new Date('2024-01-02T03:04:05.000Z'), s: 'x' }];
+    expect(normalizeRows(rows)).toEqual([{ n: 100, d: '2024-01-02T03:04:05.000Z', s: 'x' }]);
+  });
+
+  it('leaves plain rows untouched (same reference when nothing changes)', () => {
+    const rows = [{ a: 1, b: 'x' }];
+    expect(normalizeRows(rows)[0]).toBe(rows[0]);
+  });
+
+  it('feeds coercion — resolveVegaData turns a BigInt column into chart numbers', async () => {
+    const out = await resolveVegaData(
+      { data: { sql: 'SELECT …' } },
+      { kind: 'sql', query: 'SELECT …' },
+      async () => [{ k: 'A', v: 10n }, { k: 'B', v: 25n }],
+    );
+    expect(out.data).toEqual({ values: [{ k: 'A', v: 10 }, { k: 'B', v: 25 }] });
+  });
+});
+
+describe('tableQuerySql', () => {
+  it('builds a SELECT over the double-quoted table identifier', () => {
+    expect(tableQuerySql('sales_data')).toBe('SELECT * FROM "sales_data"');
+  });
+
+  it('escapes embedded quotes so a crafted name can\'t break out', () => {
+    expect(tableQuerySql('evil" ; DROP TABLE x --')).toBe('SELECT * FROM "evil"" ; DROP TABLE x --"');
   });
 });
 

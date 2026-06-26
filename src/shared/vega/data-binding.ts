@@ -63,6 +63,26 @@ export function rowsFromTable(columns: string[], rows: unknown[][]): VegaRows {
 }
 
 /**
+ * Normalize cell values that Vega/JSON can't handle. DuckDB returns BigInt for
+ * integer columns and Date objects for date/timestamp columns; vega-embed
+ * throws trying to serialize a BigInt and mishandles Dates. Convert BigInt →
+ * number (fine for chart ranges) and Date → ISO string (Vega parses `temporal`
+ * from it). Everything else passes through untouched.
+ */
+export function normalizeRows(rows: VegaRows): VegaRows {
+  return rows.map((row) => {
+    let changed = false;
+    const out: VegaRow = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (typeof v === 'bigint') { out[k] = Number(v); changed = true; }
+      else if (v instanceof Date) { out[k] = v.toISOString(); changed = true; }
+      else out[k] = v;
+    }
+    return changed ? out : row;
+  });
+}
+
+/**
  * Best-effort numeric coercion. SPARQL returns every value as a string, which
  * breaks Vega's `quantitative` encodings ("10" sorts lexically, won't sum). For
  * each column whose every non-empty value parses as a finite number, convert
@@ -102,6 +122,15 @@ export function coerceRows(rows: VegaRows): VegaRows {
 }
 
 /**
+ * Build the SQL for a `data.table` reference. The table name is a DuckDB
+ * identifier, double-quoted with embedded quotes escaped so a crafted name
+ * can't break out of the identifier (`evil"; DROP …`).
+ */
+export function tableQuerySql(name: string): string {
+  return `SELECT * FROM "${name.replace(/"/g, '""')}"`;
+}
+
+/**
  * Resolve a detected source to inline values and return a NEW spec with
  * `data: { values }`. Throws with a clear message when the executor can't
  * handle the kind or the query fails — callers render that inline.
@@ -112,5 +141,5 @@ export async function resolveVegaData(
   exec: SourceExecutor,
 ): Promise<Record<string, unknown>> {
   const rows = await exec(ref);
-  return { ...spec, data: { values: coerceRows(rows) } };
+  return { ...spec, data: { values: coerceRows(normalizeRows(rows)) } };
 }
