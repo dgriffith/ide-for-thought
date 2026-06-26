@@ -14,6 +14,7 @@
   import { api } from '../ipc/client';
   import { getEditorStore } from '../stores/editor.svelte';
   import { filterNeighborhood } from '../graph/filter-neighborhood';
+  import { getGraphSettings } from '../stores/graph-settings.svelte';
   import type { LayoutOptions, ElementDefinition } from 'cytoscape';
   import type { NeighborhoodResult, NeighborhoodNode, NeighborhoodEdge } from '../../../shared/types';
 
@@ -28,6 +29,7 @@
   let { relativePath, depth, revision = 0, onOpenNote }: Props = $props();
 
   const editor = getEditorStore();
+  const settings = getGraphSettings();
 
   let result = $state<NeighborhoodResult>({ nodes: [], edges: [], truncated: false });
   // Nodes pulled in via expand-on-demand, merged over the base fetch.
@@ -136,6 +138,17 @@
       <button class="step" disabled={depth >= 5} onclick={() => changeDepth(depth + 1)} title="Deeper">+</button>
     </span>
 
+    <button
+      class="toggle"
+      class:on={settings.autoNavigate}
+      onclick={() => settings.toggleAutoNavigate()}
+      title={settings.autoNavigate
+        ? 'Click opens the node. Switch to: click selects'
+        : 'Click selects (double-click opens). Switch to: click opens'}
+    >
+      {settings.autoNavigate ? 'Click: open' : 'Click: select'}
+    </button>
+
     {#if selected && selected.kind === 'note'}
       <button class="expand-btn" onclick={expandSelected} title="Pull in this node's links">
         Expand “{selected.label}”
@@ -171,7 +184,7 @@
     {:else if result.nodes.length <= 1 && extra.nodes.length === 0}
       <div class="status">No links to or from this note yet.</div>
     {/if}
-    <GraphCanvas bind:this={graph} {elements} {layout} {navigate} {onSelect} />
+    <GraphCanvas bind:this={graph} {elements} {layout} {navigate} {onSelect} autoNavigate={settings.autoNavigate} />
   </div>
 </div>
 
@@ -207,7 +220,18 @@
     line-height: 1.4;
   }
   .step:disabled { opacity: 0.4; cursor: default; }
-  .step:hover:not(:disabled), .expand-btn:hover { border-color: var(--accent); }
+  .step:hover:not(:disabled), .expand-btn:hover, .toggle:hover { border-color: var(--accent); }
+  .toggle {
+    border: 1px solid var(--border);
+    background: var(--bg-button);
+    color: var(--text-muted);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 1px 8px;
+  }
+  /* "Click opens" mode is the live-navigator state — accented so it's obvious. */
+  .toggle.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
   .truncation { color: var(--rust, var(--accent)); }
   .legend { display: inline-flex; gap: 6px; flex-wrap: wrap; }
   .legend-item {

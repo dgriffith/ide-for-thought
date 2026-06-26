@@ -10,6 +10,7 @@
   import GraphCanvas from '../GraphCanvas.svelte';
   import { extractHeadings } from '../../markdown/headings';
   import { buildHeadingElements } from '../../graph/heading-graph';
+  import { getGraphSettings } from '../../stores/graph-settings.svelte';
   import type { LayoutOptions } from 'cytoscape';
 
   interface Props {
@@ -20,6 +21,8 @@
   }
 
   let { content, title = 'Note', onScrollToLine }: Props = $props();
+
+  const settings = getGraphSettings();
 
   const headings = $derived(extractHeadings(content));
   const elements = $derived(buildHeadingElements(headings, title));
@@ -48,7 +51,19 @@
   {#if headings.length === 0}
     <div class="empty">No headings to map</div>
   {:else}
-    <GraphCanvas bind:this={graph} {elements} {layout} {navigate} />
+    <div class="hg-toolbar">
+      <button
+        class="hg-toggle"
+        class:on={settings.autoNavigate}
+        onclick={() => settings.toggleAutoNavigate()}
+        title={settings.autoNavigate
+          ? 'Click scrolls to the heading. Switch to: click selects'
+          : 'Click selects (double-click scrolls). Switch to: click scrolls'}
+      >
+        {settings.autoNavigate ? 'Click: open' : 'Click: select'}
+      </button>
+    </div>
+    <GraphCanvas bind:this={graph} {elements} {layout} {navigate} autoNavigate={settings.autoNavigate} />
   {/if}
 </div>
 
@@ -66,4 +81,22 @@
     color: var(--text-muted);
     text-align: center;
   }
+  .hg-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .hg-toggle {
+    border: 1px solid var(--border);
+    background: var(--bg-button);
+    color: var(--text-muted);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 1px 6px;
+  }
+  .hg-toggle:hover { border-color: var(--accent); }
+  .hg-toggle.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 </style>
