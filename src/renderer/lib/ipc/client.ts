@@ -253,7 +253,7 @@ export type ExportInputKind = 'single-note' | 'folder' | 'project' | 'tree' | 's
 
 /** Format family metadata for the format-first export menu (#: export-menu-redesign). */
 export type ExportGroupId =
-  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'bibtex' | 'pandoc';
+  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'anki' | 'bibtex' | 'pandoc';
 export interface ExportGroupMeta {
   id: ExportGroupId;
   label: string;

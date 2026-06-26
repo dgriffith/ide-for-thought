@@ -61,6 +61,17 @@ Anki card (preserving its review history) instead of duplicating it.
 
 ## Exporting to Anki
 
-The Anki `.apkg` exporter (#853) is a follow-up; once it lands, **Export → Anki
-deck** will package the cards in the selected scope (note / folder / tree /
-whole base) into a file you import into Anki.
+**Export → Anki Deck** packages the `[!card]` callouts in the selected scope
+(note / folder / tree / whole base) into a `.apkg` file you import into Anki.
+
+- Cards become Basic (Front/Back) notes; the front/back markdown is rendered to
+  HTML so formatting survives.
+- Decks come from the deck precedence above; Anki rebuilds the `::` hierarchy on
+  import.
+- Each note carries its stable guid, so **re-importing after edits updates the
+  matching cards and preserves their scheduling** instead of duplicating them.
+- The summary reports the card count and per-deck breakdown; malformed cards and
+  duplicate ids are reported, never silently dropped. An empty scope says "no
+  flashcards found" rather than writing an empty file.
+
+Media (images) in cards is a planned follow-up — export is text-first today.

@@ -141,7 +141,7 @@ export interface ExportOutput {
  * `(group + scope [+ variant])` back to one concrete exporter.
  */
 export type ExportGroupId =
-  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'bibtex' | 'pandoc';
+  | 'markdown' | 'html' | 'pdf' | 'site' | 'annotated' | 'anki' | 'bibtex' | 'pandoc';
 
 /** Menu section a group sits in — drives the separators between families. */
 export type ExportGroupCategory = 'document' | 'publication' | 'citation';
@@ -161,8 +161,9 @@ export const EXPORT_GROUPS: Record<ExportGroupId, ExportGroupMeta> = {
   pdf:       { id: 'pdf',       label: 'PDF',              category: 'document',    order: 3 },
   site:      { id: 'site',      label: 'Static Site',      category: 'publication', order: 4 },
   annotated: { id: 'annotated', label: 'Annotated Source', category: 'publication', order: 5 },
-  bibtex:    { id: 'bibtex',    label: 'BibTeX',           category: 'citation',    order: 6 },
-  pandoc:    { id: 'pandoc',    label: 'Pandoc',           category: 'citation',    order: 7 },
+  anki:      { id: 'anki',      label: 'Anki Deck',        category: 'publication', order: 6 },
+  bibtex:    { id: 'bibtex',    label: 'BibTeX',           category: 'citation',    order: 7 },
+  pandoc:    { id: 'pandoc',    label: 'Pandoc',           category: 'citation',    order: 8 },
 };
 
 export interface Exporter {
