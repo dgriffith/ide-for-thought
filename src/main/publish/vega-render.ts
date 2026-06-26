@@ -27,6 +27,8 @@
  * verbatim, which stays portable to other Vega-aware tools.
  */
 
+import { detectDataSource } from '../../shared/vega/data-binding';
+
 // Catppuccin-derived categorical palette, shared in spirit with the renderer
 // (#828) and the Chart.js adapter so all three charting paths feel consistent.
 const CATEGORY_PALETTE = [
@@ -140,6 +142,13 @@ async function renderOne(mode: 'vega' | 'vega-lite', specText: string): Promise<
   findUrlRefs(spec, urls);
   if (urls.length > 0) {
     return degrade(mode, specText, `remote data is disabled (${urls[0]})`);
+  }
+
+  // A chart bound to live Minerva data (#832 — data.sparql / sql / table / cell)
+  // isn't resolved at export time yet (#885 wires that). Degrade to the spec +
+  // a clear note rather than letting vega-lite render a silent empty chart.
+  if (detectDataSource(spec)) {
+    return degrade(mode, specText, 'data binding is not resolved in exports yet');
   }
 
   try {

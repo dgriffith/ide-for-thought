@@ -75,6 +75,14 @@ describe('renderVegaBlocks', () => {
     expect(out).toContain('https://example.com/data.csv');
   });
 
+  it('degrades a data-bound chart (data.sparql) — not resolved in export yet (#885)', async () => {
+    const bound = '```vega-lite\n{ "data": { "sparql": "SELECT ?x WHERE { ?x a ?y }" }, "mark": "bar" }\n```';
+    const out = await renderVegaBlocks(bound);
+    expect(out).not.toContain('data:image'); // never rendered as an empty chart
+    expect(out.toLowerCase()).toContain('not resolved in exports yet');
+    expect(out).toContain('```vega-lite'); // spec preserved
+  });
+
   it('degrades invalid JSON to spec text + a note instead of throwing', async () => {
     const bad = '```vega-lite\n{ not valid json }\n```';
     const out = await renderVegaBlocks(bad);

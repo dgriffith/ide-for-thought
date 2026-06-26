@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment happy-dom
+ *
  * Vega security guardrail (#829) — the spec-scan that refuses charts which
  * reach out to the network / filesystem. Inline `data.values` are the only
  * supported data source until #832 adds safe-path local-vault resolution, so

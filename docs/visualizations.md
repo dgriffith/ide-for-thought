@@ -66,9 +66,41 @@ Under the hood:
 - A spec's `usermeta.embedOptions` is stripped before rendering, so a spec can't
   re-enable codegen or swap the loader through that channel.
 
-Binding charts to Minerva's own data (compute-cell outputs, CSV/DuckDB tables,
-inline SPARQL/SQL) is planned (#832) and will resolve through the same safe-path
-layer — never a raw fetch.
+## Binding charts to Minerva data
+
+A chart can draw from the knowledge base's own live data instead of inlining
+values. Name a source in `data` and Minerva resolves it to rows before
+rendering — the chart still only ever sees inline values, so the security
+posture above is unchanged.
+
+**SPARQL** (against the knowledge graph) is supported today:
+
+````markdown
+```vega-lite
+{
+  "data": { "sparql": "SELECT ?tag (COUNT(?n) AS ?count) WHERE { ?n minerva:hasTag ?t . ?t minerva:tagName ?tag } GROUP BY ?tag" },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "tag", "type": "nominal" },
+    "y": { "field": "count", "type": "quantitative" }
+  }
+}
+```
+````
+
+- The standard prefixes (`minerva`, `thought`, `dc`, `rdf`, `rdfs`, `xsd`,
+  `csvw`, `owl`, `prov`, …) are auto-injected — no need to declare them.
+- SPARQL returns every value as a string; a column whose values are all numeric
+  is coerced to numbers so `quantitative` encodings work. Columns with dates or
+  labels stay strings (Vega infers `temporal` / `nominal`).
+- A data-bound chart shows a **⟳ refresh** button in its toolbar to re-run the
+  query after the graph changes; it also re-resolves whenever the note
+  re-renders.
+- A query error renders a clear inline notice, never a silent empty chart.
+
+Other sources — `data.sql` / `data.table` (DuckDB) and `data.cell` (a compute
+cell's output) — are planned (#832) and resolve through the same safe-path
+layer; until then they render a short "not available yet" notice.
 
 ## Export
 

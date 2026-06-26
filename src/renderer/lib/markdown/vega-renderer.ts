@@ -37,6 +37,13 @@
  */
 
 import { getEffectiveTheme, getThemeMode } from '../theme';
+import { api } from '../ipc/client';
+import {
+  detectDataSource,
+  resolveVegaData,
+  type DataSourceRef,
+  type VegaRows,
+} from '../../../shared/vega/data-binding';
 
 type VegaView = { finalize: () => void };
 type VegaEmbed = (
@@ -143,6 +150,20 @@ function findUrlRefs(node: unknown, acc: string[], depth = 0): void {
 }
 
 /**
+ * Resolve a Minerva data source to rows in the renderer (#832). SPARQL (#882)
+ * runs against the open project's graph via IPC; the other kinds land in later
+ * sub-issues (#883 sql/table, #884 cell) and surface a clear notice until then.
+ */
+async function rendererExecutor(ref: DataSourceRef): Promise<VegaRows> {
+  if (ref.kind === 'sparql') {
+    const res = await api.graph.query(ref.query);
+    if (res.error) throw new Error(res.error);
+    return (res.results as VegaRows) ?? [];
+  }
+  throw new Error(`Binding a chart to "${ref.kind}" data isn't available yet.`);
+}
+
+/**
  * A Vega `Loader` that refuses every fetch. Inline `data.values` never touch
  * the loader, so only remote / file references hit these rejections. Passes
  * vega-embed's `isLoader` check (it tests for a `load` method), so it's used
@@ -212,6 +233,21 @@ export async function hydrateVegaBlocks(root: HTMLElement): Promise<void> {
       el.innerHTML = renderErrorHtml(`Invalid JSON: ${msg}`);
       el.setAttribute('data-vega-rendered', 'error');
       return;
+    }
+
+    // #832 — a Minerva data form (`data.sparql` / `data.sql` / `data.table` /
+    // `data.cell`) is resolved to inline `data.values` before embedding, so the
+    // #829 guardrail below still only ever sees inline data.
+    const ref = detectDataSource(spec);
+    if (ref) {
+      try {
+        spec = await resolveVegaData(spec as Record<string, unknown>, ref, rendererExecutor);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        el.innerHTML = renderNoticeHtml('Chart data unavailable', escapeHtml(msg));
+        el.setAttribute('data-vega-rendered', 'error');
+        return;
+      }
     }
 
     // #829 — refuse specs that reach out to the network / filesystem, with a
