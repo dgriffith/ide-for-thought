@@ -1,5 +1,6 @@
 <script lang="ts">
   import OutlinePanel from './right-sidebar/OutlinePanel.svelte';
+  import HeadingGraphPanel from './right-sidebar/HeadingGraphPanel.svelte';
   import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
   import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
@@ -14,7 +15,7 @@
   import type { IconName } from './icons/registry';
 
   type PanelType =
-    | 'outline' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
 
   type PanelGroupId = 'note' | 'links' | 'activity';
@@ -42,6 +43,7 @@
       label: 'Note',
       items: [
         { id: 'outline',    label: 'Outline',    icon: 'outline' },
+        { id: 'headingGraph', label: 'Heading Map', icon: 'graph' },
         { id: 'properties', label: 'Properties', icon: 'properties' },
         { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
         // Tags and Tables describe what's *inside* the active note's
@@ -110,6 +112,18 @@
 
   let activePanel = $state<PanelType>('outline');
   let revision = $state(0);
+
+  // View A (#845) root label — the note's filename stem.
+  const noteTitle = $derived(
+    activeFilePath ? (activeFilePath.split('/').pop() ?? activeFilePath).replace(/\.md$/i, '') : 'Note',
+  );
+  let headingGraphPanel = $state<HeadingGraphPanel>();
+
+  /** Re-skin the graph panel on theme switch (called from App.svelte). The
+   *  cytoscape graph re-styles live; other panels are plain DOM. */
+  export function updateTheme(): void {
+    headingGraphPanel?.updateTheme();
+  }
 
   /** Group is derived from the active panel — keeps `showPanel(p)` as
    *  the single way to switch the right sidebar's state. Clicking a
@@ -217,6 +231,8 @@
   <div class="panel-content">
     {#if activePanel === 'outline'}
       <OutlinePanel {content} {onScrollToLine} />
+    {:else if activePanel === 'headingGraph'}
+      <HeadingGraphPanel bind:this={headingGraphPanel} {content} title={noteTitle} {onScrollToLine} />
     {:else if activePanel === 'footnotes'}
       <FootnotesPanel {content} {onScrollToLine} />
     {:else if activePanel === 'properties'}
