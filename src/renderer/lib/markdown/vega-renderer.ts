@@ -41,6 +41,7 @@ import { api } from '../ipc/client';
 import {
   detectDataSource,
   resolveVegaData,
+  tableQuerySql,
   type DataSourceRef,
   type VegaRows,
 } from '../../../shared/vega/data-binding';
@@ -150,15 +151,21 @@ function findUrlRefs(node: unknown, acc: string[], depth = 0): void {
 }
 
 /**
- * Resolve a Minerva data source to rows in the renderer (#832). SPARQL (#882)
- * runs against the open project's graph via IPC; the other kinds land in later
- * sub-issues (#883 sql/table, #884 cell) and surface a clear notice until then.
+ * Resolve a Minerva data source to rows in the renderer (#832), running against
+ * the open project via IPC. SPARQL (#882) hits the graph; SQL / table (#883) hit
+ * DuckDB. `cell` (#884) lands in a later sub-issue and surfaces a clear notice.
  */
 async function rendererExecutor(ref: DataSourceRef): Promise<VegaRows> {
   if (ref.kind === 'sparql') {
     const res = await api.graph.query(ref.query);
     if (res.error) throw new Error(res.error);
     return (res.results as VegaRows) ?? [];
+  }
+  if (ref.kind === 'sql' || ref.kind === 'table') {
+    const sql = ref.kind === 'table' ? tableQuerySql(ref.name) : ref.query;
+    const res = await api.tables.query(sql);
+    if (!res.ok) throw new Error(res.error);
+    return res.rows;
   }
   throw new Error(`Binding a chart to "${ref.kind}" data isn't available yet.`);
 }

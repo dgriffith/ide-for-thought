@@ -73,7 +73,10 @@ values. Name a source in `data` and Minerva resolves it to rows before
 rendering — the chart still only ever sees inline values, so the security
 posture above is unchanged.
 
-**SPARQL** (against the knowledge graph) is supported today:
+**SPARQL** (against the knowledge graph) and **SQL** (against the project's
+CSV/DuckDB tables) are supported today.
+
+SPARQL:
 
 ````markdown
 ```vega-lite
@@ -98,9 +101,26 @@ posture above is unchanged.
   re-renders.
 - A query error renders a clear inline notice, never a silent empty chart.
 
-Other sources — `data.sql` / `data.table` (DuckDB) and `data.cell` (a compute
-cell's output) — are planned (#832) and resolve through the same safe-path
-layer; until then they render a short "not available yet" notice.
+SQL / table (the project's CSV files are registered as DuckDB tables):
+
+````markdown
+```vega-lite
+{
+  "data": { "sql": "SELECT month, revenue FROM sales ORDER BY month" },
+  "mark": "line",
+  "encoding": { "x": {"field":"month","type":"ordinal"}, "y": {"field":"revenue","type":"quantitative"} }
+}
+```
+````
+
+- `"data": { "table": "sales" }` is sugar for `SELECT * FROM "sales"` (the name
+  is quoted as a DuckDB identifier).
+- Table names come from the CSV path (`deriveTableName`) or a `table_name:` in
+  the CSV's companion `.md`; the Tables view lists them.
+
+The remaining source — `data.cell` (a compute cell's output) — is planned
+(#884); until then it renders a short "not available yet" notice. Bound charts
+also don't yet render in **exports** (#885) — they degrade to the spec there.
 
 ## Export
 
