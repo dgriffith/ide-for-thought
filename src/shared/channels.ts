@@ -106,6 +106,8 @@ export const Channels = {
   GRAPH_QUERY: 'graph:query',
   /** Main→renderer: embedding backfill progress `{ done, total, running }` (#836). */
   EMBEDDINGS_BACKFILL_PROGRESS: 'embeddings:backfillProgress',
+  /** Notes semantically related to a note, for the Related sidebar panel (#838). */
+  EMBEDDINGS_RELATED: 'embeddings:related',
   /** Snapshot of the live graph's predicates + classes for SPARQL autocomplete (#198). */
   GRAPH_SCHEMA_FOR_COMPLETION: 'graph:schemaForCompletion',
   GRAPH_SOURCE_DETAIL: 'graph:sourceDetail',

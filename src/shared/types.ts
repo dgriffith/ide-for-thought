@@ -65,6 +65,24 @@ export interface Backlink {
   linkColor: string;
 }
 
+// ── Semantic "Related" panel (#838) ─────────────────────────────────────────
+
+export interface RelatedNote {
+  relativePath: string;
+  title: string;
+  /** Heading breadcrumb of the best-matching section (`Parent > Child`). */
+  sectionHeading: string;
+  snippet: string;
+  /** Cosine similarity in [0, 1]; higher is closer. */
+  score: number;
+}
+
+export interface RelatedNotesResult {
+  /** False when the vector store isn't initialized for this project. */
+  enabled: boolean;
+  notes: RelatedNote[];
+}
+
 // ── Link-neighborhood graph (View B, #846) ──────────────────────────────────
 
 export interface NeighborhoodNode {

@@ -481,6 +481,16 @@ function existsPredicateFor(lt: LinkType) {
   return MINERVA('relativePath');
 }
 
+/** A note's display title from the graph (`dc:title`), falling back to its
+ *  filename stem. Used by the semantic Related panel (#838). */
+export function noteTitle(ctx: ProjectContext, relativePath: string): string {
+  const state = getState(ctx);
+  const stem = relativePath.replace(/\.md$/i, '').split('/').pop() ?? relativePath;
+  if (!state) return stem;
+  const titleStmts = state.store.statementsMatching(noteUri(state, relativePath), DC('title'), undefined);
+  return titleStmts[0]?.object.value ?? stem;
+}
+
 export function outgoingLinks(ctx: ProjectContext, relativePath: string): OutgoingLink[] {
   const state = getState(ctx);
   if (!state) return [];
