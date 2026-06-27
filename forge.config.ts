@@ -35,6 +35,10 @@ const EXTERNAL_DEP_ROOTS = [
   // Anki .apkg writer (#853). sql.js reads its `sql-wasm.wasm` from disk, so
   // the package (incl. the .wasm) must ship for `import('sql.js')` to resolve.
   'sql.js',
+  // Local embeddings (#834). onnxruntime-web is externalized in vite.main.config
+  // (it loads its ORT `.wasm` from disk), so its closure — incl. the `.wasm` —
+  // must ship for the bundled `embed-worker.js` to `import('onnxruntime-web')`.
+  'onnxruntime-web',
 ];
 
 /** BFS the `dependencies` graph from each root; skips absent optionals. */
@@ -150,6 +154,14 @@ const config: ForgeConfig = {
           entry: 'src/preload/preload.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',
+        },
+        {
+          // Off-thread embedder (#834). Emitted as `embed-worker.js` beside
+          // `main.js` so it shares the externalized node_modules; spawned by
+          // embedder-service.ts via `new Worker(__dirname/embed-worker.js)`.
+          entry: 'src/main/embeddings/embed-worker.ts',
+          config: 'vite.main.config.ts',
+          target: 'main',
         },
       ],
       renderer: [

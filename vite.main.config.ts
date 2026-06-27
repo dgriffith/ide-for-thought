@@ -44,6 +44,12 @@ export default defineConfig({
         // disk at runtime, so it must resolve from the shipped node_modules
         // (forge `EXTERNAL_DEP_ROOTS`) rather than being bundled.
         'sql.js',
+        // onnxruntime-web (#834, local embeddings): loads its own ORT `.wasm`
+        // from its dist dir at runtime, so — like sql.js — it must resolve from
+        // the shipped node_modules rather than being bundled. The WASM build,
+        // not onnxruntime-node, so no native binary ships.
+        /^onnxruntime-web/,
+        /^onnxruntime-common/,
       ],
     },
   },
