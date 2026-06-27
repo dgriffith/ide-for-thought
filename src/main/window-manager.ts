@@ -14,6 +14,7 @@ import { addRecentProject } from './recent-projects';
 import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
+import { runBackfill } from './embeddings/backfill';
 import { installNavigationGuards } from './security';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
@@ -163,6 +164,16 @@ export function windowsForProject(rootPath: string): BrowserWindow[] {
   return hits;
 }
 
+/** Stream embedding-backfill progress to every window on a project (#836). */
+export function broadcastBackfillProgress(
+  rootPath: string,
+  progress: { done: number; total: number; running: boolean },
+): void {
+  for (const win of windowsForProject(rootPath)) {
+    if (!win.isDestroyed()) win.webContents.send(Channels.EMBEDDINGS_BACKFILL_PROGRESS, progress);
+  }
+}
+
 /**
  * Which thoughtbase a clipped page lands in: the focused window's project if
  * it has one, else the first open project. When the clip arrives Minerva isn't
@@ -240,6 +251,13 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   }
   addRecentProject(rootPath);
   rebuildMenu();
+
+  // Background embedding backfill (#836): embed any not-yet-embedded notes so
+  // semantic search works on an existing thoughtbase, not just on edited notes.
+  // Resumable + deduped (one run per project), and non-blocking — embedding is
+  // off-thread. Progress streams to every window on this project; a final
+  // running:false tick clears the indicator. project-close aborts it.
+  void runBackfill(projectCtx, { onProgress: (p) => broadcastBackfillProgress(rootPath, p) });
 
   // Deduplication: IPC handlers mark paths they've already indexed
   // (see `notebase/path-dedup.ts`).

@@ -123,6 +123,10 @@ contextBridge.exposeInMainWorld('api', {
     aliasEntries: () => ipcRenderer.invoke(Channels.GRAPH_ALIAS_ENTRIES),
     frontmatterKeys: () => ipcRenderer.invoke(Channels.GRAPH_FRONTMATTER_KEYS),
   },
+  embeddings: {
+    onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
+      subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
+  },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
     list: () => ipcRenderer.invoke(Channels.TABLES_LIST),

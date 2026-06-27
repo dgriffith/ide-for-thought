@@ -192,6 +192,11 @@ export interface TablesApi {
   onNameCollision(cb: (collision: import('../../../shared/types').CsvTableCollision) => void): void;
 }
 
+export interface EmbeddingsApi {
+  /** Fires as the semantic-index backfill progresses; `running: false` on completion (#836). */
+  onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): void;
+}
+
 export interface TagsApi {
   list(): Promise<TagInfo[]>;
   notesByTag(tag: string): Promise<TaggedNote[]>;
@@ -679,6 +684,7 @@ export interface IdeApi {
   git: GitApi;
   graph: GraphApi;
   tables: TablesApi;
+  embeddings: EmbeddingsApi;
   tags: TagsApi;
   templates: TemplatesApi;
   export: ExportApi;

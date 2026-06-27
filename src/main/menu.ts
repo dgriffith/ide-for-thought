@@ -2,7 +2,8 @@ import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { getRecentProjects } from './recent-projects';
-import { createWindow, openProjectInWindow, getRootPath } from './window-manager';
+import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress } from './window-manager';
+import { runBackfill } from './embeddings/backfill';
 import * as graph from './graph/index';
 import { projectContext } from './project-context-types';
 import * as search from './search/index';
@@ -233,6 +234,23 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
             ]);
             await tables.registerAllCsvs(ctx);
             if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          },
+        }),
+        gate({
+          label: 'Rebuild Semantic Index',
+          // Force a full re-embed of the corpus (#836) — useful after suspected
+          // corruption or to repopulate from scratch. Non-blocking; progress
+          // shows in the status bar. Normal model-change / new-note backfill is
+          // automatic on project open, so this is the explicit escape hatch.
+          click: async () => {
+            const win = BrowserWindow.getFocusedWindow();
+            if (!win) return;
+            const rootPath = getRootPath(win.id);
+            if (!rootPath) return;
+            await runBackfill(projectContext(rootPath), {
+              force: true,
+              onProgress: (p) => broadcastBackfillProgress(rootPath, p),
+            });
           },
         }),
         gate({
