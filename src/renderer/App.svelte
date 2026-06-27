@@ -121,6 +121,8 @@
   // badge never shows. See the disabled polling in the project-open handler.
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
+  /** Semantic-index backfill progress, or null when idle (#836). */
+  let embeddingProgress = $state<{ done: number; total: number } | null>(null);
   /** Frontmatter alias → relativePath snapshot (#469). Refreshed on
    *  graph changes so wiki-link nav resolves new aliases without a
    *  full project reload. */
@@ -886,6 +888,12 @@
     sidebar?.refreshTables();
   });
 
+  // Semantic-index backfill progress (#836): a quiet status-bar indicator while
+  // the corpus embeds in the background. Cleared on completion (running:false).
+  api.embeddings.onBackfillProgress((p) => {
+    embeddingProgress = p.running && p.total > 0 ? { done: p.done, total: p.total } : null;
+  });
+
   // CSV table-name collision (#354): two CSVs would land on the
   // same DuckDB table name; the second was skipped. Show a
   // suppressible toast pointing at `table_name:` as the fix.
@@ -1489,6 +1497,7 @@
             theme={themeLabel}
             {inspectionCount}
             {backlinkCount}
+            backfill={embeddingProgress}
             isDirty={editor.isDirty}
             hasActiveNote={editor.activeTab?.type === 'note'}
             onGotoLine={() => { showGotoLine = true; }}

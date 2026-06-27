@@ -90,6 +90,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "removeLocale",
     "removeStyle",
   ],
+  "embeddings": [
+    "onBackfillProgress",
+  ],
   "export": [
     "csv",
   ],

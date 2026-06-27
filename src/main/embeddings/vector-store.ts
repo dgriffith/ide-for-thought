@@ -153,6 +153,31 @@ export async function indexNote(ctx: ProjectContext, relativePath: string, conte
   });
 }
 
+/** The set of note paths that already have chunks under the *current* model —
+ *  the backfill's skip set (#836). A note absent here needs embedding (never
+ *  indexed, or only has stale-model rows from a previous model). */
+export async function embeddedNotePaths(ctx: ProjectContext): Promise<Set<string>> {
+  const state = states.get(ctx.rootPath);
+  if (!state) return new Set();
+  const reader = await state.connection.runAndReadAll(
+    `SELECT DISTINCT note_path FROM ${TABLE} WHERE embedding_model = ${lit(state.model)}`,
+  );
+  const out = new Set<string>();
+  for (const r of reader.getRowObjectsJS() as Record<string, unknown>[]) {
+    out.add(String(r.note_path));
+  }
+  return out;
+}
+
+/** Wipe every chunk (manual "Rebuild Semantic Index" — force a full re-embed). */
+export async function clear(ctx: ProjectContext): Promise<void> {
+  const state = states.get(ctx.rootPath);
+  if (!state) return;
+  return runLocked(state, async () => {
+    await state.connection.run(`DELETE FROM ${TABLE}`);
+  });
+}
+
 /** Drop a note's chunks (deletion / pre-rename). */
 export async function removeNote(ctx: ProjectContext, relativePath: string): Promise<void> {
   const state = states.get(ctx.rootPath);

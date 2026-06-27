@@ -15,6 +15,7 @@ import * as search from './search/index';
 import * as tables from './sources/tables';
 import * as vectors from './embeddings/vector-store';
 import { getSharedEmbedder } from './embeddings/shared-embedder';
+import { abortBackfill } from './embeddings/backfill';
 import * as healthChecks from './graph/health-checks';
 import * as conversation from './llm/conversation';
 import { projectContext, type ProjectContext } from './project-context-types';
@@ -109,6 +110,7 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   if (rec.acquirers.size > 0) return;
 
   // Last window closed for this project — dispose.
+  abortBackfill(rootPath); // stop any in-flight embedding backfill (#836)
   healthChecks.stopPeriodicChecks(rec.ctx);
   // Best-effort final persist before tearing down state. A failure here
   // shouldn't block disposal — the on-disk graph is already up to date

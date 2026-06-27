@@ -24,6 +24,8 @@
     /** Click handler for the backlink-count item — App reveals + focuses
      *  the right-sidebar Backlinks panel. */
     onShowBacklinks?: () => void;
+    /** Semantic-index backfill progress (#836); null hides the indicator. */
+    backfill?: { done: number; total: number } | null;
   }
 
   let {
@@ -31,6 +33,7 @@
     inspectionCount = 0, backlinkCount = 0,
     isDirty = false, hasActiveNote = false,
     onGotoLine, onCycleTheme, onShowInspections, onShowBacklinks,
+    backfill = null,
   }: Props = $props();
 </script>
 
@@ -57,6 +60,13 @@
     {/if}
   </div>
   <div class="status-right">
+    {#if backfill}
+      <span class="status-item faint" title="Building semantic search index in the background">
+        <Icon name="sparkle" size={12} />
+        <span class="nums">Embedding {backfill.done}/{backfill.total}…</span>
+      </span>
+      <span class="rule" aria-hidden="true"></span>
+    {/if}
     {#if backlinkCount > 0}
       <button
         class="status-item clickable"
