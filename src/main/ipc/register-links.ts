@@ -3,7 +3,7 @@ import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
 import * as vectors from '../embeddings/vector-store';
-import { topRelatedNotes } from '../embeddings/related';
+import { topRelatedNotes, markAlreadyLinked } from '../embeddings/related';
 import { projectContext } from '../project-context-types';
 import { rootPathFromEvent } from './helpers';
 import type { RelatedNotesResult } from '../../shared/types';
@@ -21,7 +21,7 @@ export function registerLinks(): void {
     // Over-fetch chunk hits so best-per-ref de-dup still yields ~n results.
     // Span all kinds — notes, source bodies, and excerpts (#839).
     const hits = await vectors.relatedToNote(ctx, relativePath, { limit: n * 5 });
-    const notes = topRelatedNotes(hits, {
+    const ranked = topRelatedNotes(hits, {
       limit: n,
       titleOf: (h) => {
         if (h.kind === 'source') return graph.sourceTitle(ctx, h.ref);
@@ -29,7 +29,13 @@ export function registerLinks(): void {
         return graph.noteTitle(ctx, h.ref);
       },
     });
-    return { enabled: true, notes };
+    // Flag note hits already wiki-linked to the active note (either direction),
+    // so the panel offers "suggest link" only on unlinked-but-related ones (#840).
+    const linked = new Set<string>([
+      ...graph.outgoingLinks(ctx, relativePath).map((l) => l.target),
+      ...graph.backlinks(ctx, relativePath).map((l) => l.source),
+    ]);
+    return { enabled: true, notes: markAlreadyLinked(ranked, linked) };
   });
   // Links
   ipcMain.handle(Channels.LINKS_OUTGOING, (e, relativePath: string) => {

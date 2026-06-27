@@ -240,6 +240,8 @@ export const Channels = {
   REFACTOR_AUTO_LINK_SUGGEST: 'refactor:autoLinkSuggest',
   /** Apply accepted Auto-link suggestions to the active note. */
   REFACTOR_AUTO_LINK_APPLY: 'refactor:autoLinkApply',
+  /** Accept a semantic suggested link — file `[[target]]` under "See also" (#840). */
+  REFACTOR_APPLY_SUGGESTED_LINK: 'refactor:applySuggestedLink',
   /** LLM-suggested inbound wiki-links from other notes to the active note. */
   REFACTOR_AUTO_LINK_INBOUND_SUGGEST: 'refactor:autoLinkInboundSuggest',
   /** Apply accepted inbound Auto-link suggestions (writes to multiple source notes). */

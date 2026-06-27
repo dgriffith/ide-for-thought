@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { topRelatedNotes } from '../../../src/main/embeddings/related';
+import { topRelatedNotes, markAlreadyLinked } from '../../../src/main/embeddings/related';
 import type { RelatedHit, RefKind } from '../../../src/main/embeddings/vector-store';
+import type { RelatedNote } from '../../../src/shared/types';
 
 const hit = (ref: string, sectionHeading: string, score: number, chunkText = 'body text', kind: RefKind = 'note'): RelatedHit =>
   ({ kind, ref, sectionHeading, chunkText, score });
@@ -52,5 +53,24 @@ describe('topRelatedNotes', () => {
 
   it('returns [] for no hits', () => {
     expect(topRelatedNotes([], { limit: 5, titleOf })).toEqual([]);
+  });
+});
+
+describe('markAlreadyLinked (#840)', () => {
+  const note = (kind: RelatedNote['kind'], ref: string): RelatedNote =>
+    ({ kind, ref, title: ref, sectionHeading: '', snippet: '', score: 0.6 });
+
+  it('flags note hits in the linked set and leaves the rest false', () => {
+    const out = markAlreadyLinked(
+      [note('note', 'a.md'), note('note', 'b.md')],
+      new Set(['a.md']),
+    );
+    expect(out.find((n) => n.ref === 'a.md')!.alreadyLinked).toBe(true);
+    expect(out.find((n) => n.ref === 'b.md')!.alreadyLinked).toBe(false);
+  });
+
+  it('does not touch source/excerpt hits (not wiki-link targets)', () => {
+    const out = markAlreadyLinked([note('source', 'arxiv-1'), note('excerpt', 'x-1')], new Set());
+    expect(out.every((n) => n.alreadyLinked === undefined)).toBe(true);
   });
 });
