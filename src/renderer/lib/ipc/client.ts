@@ -195,6 +195,8 @@ export interface TablesApi {
 export interface EmbeddingsApi {
   /** Fires as the semantic-index backfill progresses; `running: false` on completion (#836). */
   onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): void;
+  /** Notes semantically related to `relativePath`, for the Related panel (#838). */
+  related(relativePath: string, limit?: number): Promise<import('../../../shared/types').RelatedNotesResult>;
 }
 
 export interface TagsApi {

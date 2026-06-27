@@ -92,6 +92,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "embeddings": [
     "onBackfillProgress",
+    "related",
   ],
   "export": [
     "csv",

@@ -1531,6 +1531,7 @@
           onOpenExcerpt={handleOpenExcerpt}
           onContentChange={editor.setContent}
           onOpenGraph={(p) => editor.openNeighborhood(p)}
+          indexing={embeddingProgress !== null}
         />
       {/if}
     {:else}

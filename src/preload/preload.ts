@@ -126,6 +126,8 @@ contextBridge.exposeInMainWorld('api', {
   embeddings: {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
       subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
+    related: (relativePath: string, limit?: number) =>
+      ipcRenderer.invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),

@@ -5,6 +5,7 @@
   import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
+  import RelatedPanel from './right-sidebar/RelatedPanel.svelte';
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
   import BookmarksPanel from './right-sidebar/BookmarksPanel.svelte';
   import InspectionsPanel from './right-sidebar/InspectionsPanel.svelte';
@@ -15,7 +16,7 @@
   import type { IconName } from './icons/registry';
 
   type PanelType =
-    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections' | 'proposals';
 
   type PanelGroupId = 'note' | 'links' | 'activity';
@@ -60,6 +61,7 @@
       items: [
         { id: 'outgoing',  label: 'Outgoing',  icon: 'outgoing' },
         { id: 'backlinks', label: 'Backlinks', icon: 'backlinks' },
+        { id: 'related',   label: 'Related',   icon: 'sparkle' },
         { id: 'citations', label: 'Citations', icon: 'citations' },
         { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
       ],
@@ -104,12 +106,14 @@
     onContentChange?: (next: string) => void;
     /** Open a note's link neighborhood as a graph (#847). */
     onOpenGraph?: (relativePath: string) => void;
+    /** True while the semantic-index backfill is running (#836/#838). */
+    indexing?: boolean;
   }
 
   let {
     activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
-    onContentChange, onOpenGraph,
+    onContentChange, onOpenGraph, indexing = false,
   }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
@@ -247,6 +251,8 @@
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
     {:else if activePanel === 'backlinks'}
       <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
+    {:else if activePanel === 'related'}
+      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {onNavigate} />
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}

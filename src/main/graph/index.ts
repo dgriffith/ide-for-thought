@@ -26,7 +26,7 @@ export {
   findNotesCitingSource, findNotesQuotingExcerpt, findNotesLinkingToAnchor, allNotePaths,
   injectSparqlPrefixes, schemaForCompletion, queryGraph,
   listTags, notesByTagPrefix, notesByTag, sourcesByTag, listAllSources, allTags,
-  outgoingLinks, findDerivedNoteForCell, findNotesLinkingTo, backlinks, findExternalInboundLinks,
+  outgoingLinks, findDerivedNoteForCell, findNotesLinkingTo, backlinks, findExternalInboundLinks, noteTitle,
   getSourceDetail, getReadingQueueSourceIds, sourcesByReadStatus, citationsForNote, getExcerptSource,
 } from './queries';
 export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView } from './queries';
