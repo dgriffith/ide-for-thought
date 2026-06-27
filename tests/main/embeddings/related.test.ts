@@ -1,22 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { topRelatedNotes } from '../../../src/main/embeddings/related';
-import type { RelatedHit } from '../../../src/main/embeddings/vector-store';
+import type { RelatedHit, RefKind } from '../../../src/main/embeddings/vector-store';
 
-const hit = (notePath: string, sectionHeading: string, score: number, chunkText = 'body text'): RelatedHit =>
-  ({ notePath, sectionHeading, chunkText, score });
+const hit = (ref: string, sectionHeading: string, score: number, chunkText = 'body text', kind: RefKind = 'note'): RelatedHit =>
+  ({ kind, ref, sectionHeading, chunkText, score });
 
 describe('topRelatedNotes', () => {
-  const titleOf = (p: string) => p.replace(/\.md$/, '').toUpperCase();
+  const titleOf = (h: RelatedHit) => h.ref.replace(/\.md$/, '').toUpperCase();
 
-  it('keeps one row per note — the best-scoring section', () => {
+  it('keeps one row per ref — the best-scoring section', () => {
     const out = topRelatedNotes(
       [hit('a.md', 'Intro', 0.4), hit('a.md', 'Deep', 0.8), hit('b.md', 'X', 0.6)],
       { limit: 10, titleOf },
     );
     expect(out).toHaveLength(2);
-    const a = out.find((n) => n.relativePath === 'a.md')!;
+    const a = out.find((n) => n.ref === 'a.md')!;
     expect(a.score).toBe(0.8);
     expect(a.sectionHeading).toBe('Deep');
+  });
+
+  it('does not merge a note and a source that share an id string', () => {
+    const out = topRelatedNotes(
+      [hit('x', 'h', 0.5, 'note body', 'note'), hit('x', 'h', 0.9, 'source body', 'source')],
+      { limit: 10, titleOf },
+    );
+    expect(out).toHaveLength(2);
+    expect(out.map((n) => n.kind).sort()).toEqual(['note', 'source']);
   });
 
   it('ranks by score descending and caps at the limit', () => {
@@ -24,16 +33,15 @@ describe('topRelatedNotes', () => {
       [hit('a.md', 'h', 0.3), hit('b.md', 'h', 0.9), hit('c.md', 'h', 0.6)],
       { limit: 2, titleOf },
     );
-    expect(out.map((n) => n.relativePath)).toEqual(['b.md', 'c.md']);
+    expect(out.map((n) => n.ref)).toEqual(['b.md', 'c.md']);
   });
 
-  it('enriches with title and a collapsed snippet', () => {
+  it('carries kind through and enriches with title + collapsed snippet', () => {
     const out = topRelatedNotes(
-      [hit('notes/topic.md', 'Sec', 0.5, '  multi\n  line   text  ')],
-      { limit: 1, titleOf },
+      [hit('arxiv-1234', 'Sec', 0.5, '  multi\n  line   text  ', 'source')],
+      { limit: 1, titleOf: () => 'A Paper Title' },
     );
-    expect(out[0].title).toBe('NOTES/TOPIC');
-    expect(out[0].snippet).toBe('multi line text');
+    expect(out[0]).toMatchObject({ kind: 'source', ref: 'arxiv-1234', title: 'A Paper Title', snippet: 'multi line text' });
   });
 
   it('truncates a long snippet to 160 chars', () => {

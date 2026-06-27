@@ -18,9 +18,17 @@ export function registerLinks(): void {
     const ctx = projectContext(rootPath);
     if (!vectors.isEnabled(ctx)) return { enabled: false, notes: [] };
     const n = Math.min(Math.max(Math.floor(limit ?? 8), 1), 25);
-    // Over-fetch chunk hits so best-per-note still yields ~n notes.
+    // Over-fetch chunk hits so best-per-ref de-dup still yields ~n results.
+    // Span all kinds — notes, source bodies, and excerpts (#839).
     const hits = await vectors.relatedToNote(ctx, relativePath, { limit: n * 5 });
-    const notes = topRelatedNotes(hits, { limit: n, titleOf: (p) => graph.noteTitle(ctx, p) });
+    const notes = topRelatedNotes(hits, {
+      limit: n,
+      titleOf: (h) => {
+        if (h.kind === 'source') return graph.sourceTitle(ctx, h.ref);
+        if (h.kind === 'excerpt') return 'Excerpt';
+        return graph.noteTitle(ctx, h.ref);
+      },
+    });
     return { enabled: true, notes };
   });
   // Links

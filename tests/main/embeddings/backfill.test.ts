@@ -99,6 +99,27 @@ describe('runBackfill', () => {
     expect((await store.embeddedNotePaths(ctx())).has('good.md')).toBe(true);
   });
 
+  it('backfills sources and excerpts alongside notes (#839)', async () => {
+    await writeNote('note.md', '# Note\nphotosynthesis');
+    // A source with a body.md and a metadata-only source (no body → skipped).
+    await fsp.mkdir(path.join(root, '.minerva', 'sources', 'arxiv-1', ), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva', 'sources', 'arxiv-1', 'body.md'), '# Paper\nmarine biology');
+    await fsp.mkdir(path.join(root, '.minerva', 'sources', 'meta-only'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva', 'sources', 'meta-only', 'meta.ttl'), 'this: a thought:Source .');
+    // An excerpt.
+    await fsp.mkdir(path.join(root, '.minerva', 'excerpts'), { recursive: true });
+    await fsp.writeFile(
+      path.join(root, '.minerva', 'excerpts', 'arxiv-1-deadbeef.ttl'),
+      'this: a thought:Excerpt ;\n    thought:fromSource sources:arxiv-1 ;\n    thought:citedText "a quoted passage about reefs" .\n',
+    );
+
+    const res = await runBackfill(ctx());
+    expect(res.embedded).toBe(3); // note + source-with-body + excerpt (meta-only skipped)
+    expect((await store.embeddedRefs(ctx(), 'source')).has('arxiv-1')).toBe(true);
+    expect((await store.embeddedRefs(ctx(), 'source')).has('meta-only')).toBe(false);
+    expect((await store.embeddedRefs(ctx(), 'excerpt')).has('arxiv-1-deadbeef')).toBe(true);
+  });
+
   it('can be aborted mid-run and resumed', async () => {
     for (const n of ['a', 'b', 'c', 'd']) await writeNote(`${n}.md`, `# ${n}\nbody ${n}`);
     // Abort after the first note completes.

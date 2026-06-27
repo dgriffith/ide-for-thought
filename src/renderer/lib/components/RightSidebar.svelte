@@ -252,7 +252,7 @@
     {:else if activePanel === 'backlinks'}
       <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
     {:else if activePanel === 'related'}
-      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {onNavigate} />
+      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {onNavigate} onOpenSource={onOpenSource} onOpenExcerpt={onOpenExcerpt} />
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}

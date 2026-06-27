@@ -93,6 +93,21 @@ export function excerptIdFor(sourceId: string, citedText: string): string {
   return `${sourceId}-${shortHash(citedText.trim())}`;
 }
 
+/**
+ * Pull `thought:citedText` back out of an excerpt's TTL (the inverse of
+ * `ttlString`), for embedding the excerpt (#839). Returns null if absent.
+ */
+export function citedTextFromTtl(ttl: string): string | null {
+  const m = ttl.match(/thought:citedText\s+"((?:[^"\\]|\\.)*)"/);
+  if (!m) return null;
+  return m[1]
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\');
+}
+
 function ttlString(s: string): string {
   const escaped = s
     .replace(/\\/g, '\\\\')

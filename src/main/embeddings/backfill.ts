@@ -24,7 +24,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { ProjectContext } from '../project-context-types';
 import { isIndexable } from '../notebase/indexable-files';
+import { citedTextFromTtl } from '../sources/create-excerpt';
 import * as store from './vector-store';
+import type { RefKind } from './vector-store';
 
 export interface BackfillProgress {
   done: number;
@@ -75,28 +77,26 @@ export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {
   try {
     if (opts.force) await store.clear(ctx);
 
-    const notes = await (opts.listNotes ?? listMarkdownNotes)(ctx.rootPath);
-    const alreadyDone = opts.force ? new Set<string>() : await store.embeddedNotePaths(ctx);
-    const pending = notes.filter((p) => !alreadyDone.has(p));
-    const total = pending.length;
+    const { items, skipped } = await collectWork(ctx, opts);
+    const total = items.length;
 
     let done = 0;
     let embedded = 0;
     emit(opts, { done, total, running: true });
-    for (const rel of pending) {
-      if (signal.aborted) return { embedded, skipped: total - done, aborted: true };
+    for (const item of items) {
+      if (signal.aborted) return { embedded, skipped: skipped + (total - done), aborted: true };
       try {
-        const content = await fs.readFile(path.join(ctx.rootPath, rel), 'utf-8');
-        await store.indexNote(ctx, rel, content);
+        const content = await item.load();
+        await store.indexChunks(ctx, item.kind, item.ref, content);
         embedded++;
       } catch (err) {
-        // A single unreadable / oversized note must not abort the whole pass.
-        console.warn(`[backfill] skipped ${rel}:`, err);
+        // A single unreadable / oversized item must not abort the whole pass.
+        console.warn(`[backfill] skipped ${item.kind}:${item.ref}:`, err);
       }
       done++;
       emit(opts, { done, total, running: true });
     }
-    return { embedded, skipped: notes.length - total, aborted: false };
+    return { embedded, skipped, aborted: false };
   } finally {
     running.delete(ctx.rootPath);
     // Final tick so listeners can clear the indicator.
@@ -106,6 +106,79 @@ export async function runBackfill(ctx: ProjectContext, opts: BackfillOptions = {
 
 function emit(opts: BackfillOptions, p: BackfillProgress): void {
   try { opts.onProgress?.(p); } catch { /* a listener throwing must not derail the walk */ }
+}
+
+interface WorkItem {
+  kind: RefKind;
+  ref: string;
+  /** Lazily loads the text to embed (note body / source body / excerpt text). */
+  load: () => Promise<string>;
+}
+
+/** Assemble the not-yet-embedded work across all three corpora (#839): notes,
+ *  source bodies, and excerpts. The per-kind skip set makes this resumable +
+ *  cheap on re-run; `force` clears the skip sets so everything is reprocessed. */
+async function collectWork(ctx: ProjectContext, opts: BackfillOptions): Promise<{ items: WorkItem[]; skipped: number }> {
+  const rootPath = ctx.rootPath;
+  const notePaths = await (opts.listNotes ?? listMarkdownNotes)(rootPath);
+  const sourceIds = await listSourcesWithBody(rootPath);
+  const excerptIds = await listExcerptIds(rootPath);
+  const candidates = notePaths.length + sourceIds.length + excerptIds.length;
+
+  const [doneNotes, doneSources, doneExcerpts] = opts.force
+    ? [new Set<string>(), new Set<string>(), new Set<string>()]
+    : await Promise.all([
+        store.embeddedRefs(ctx, 'note'),
+        store.embeddedRefs(ctx, 'source'),
+        store.embeddedRefs(ctx, 'excerpt'),
+      ]);
+
+  const items: WorkItem[] = [];
+  for (const ref of notePaths) {
+    if (!doneNotes.has(ref)) items.push({ kind: 'note', ref, load: () => fs.readFile(path.join(rootPath, ref), 'utf-8') });
+  }
+  for (const ref of sourceIds) {
+    if (!doneSources.has(ref)) {
+      items.push({ kind: 'source', ref, load: () => fs.readFile(path.join(rootPath, '.minerva', 'sources', ref, 'body.md'), 'utf-8') });
+    }
+  }
+  for (const ref of excerptIds) {
+    if (!doneExcerpts.has(ref)) {
+      items.push({
+        kind: 'excerpt', ref,
+        load: async () => citedTextFromTtl(await fs.readFile(path.join(rootPath, '.minerva', 'excerpts', `${ref}.ttl`), 'utf-8')) ?? '',
+      });
+    }
+  }
+  return { items, skipped: candidates - items.length };
+}
+
+/** Source ids that have a `body.md` to embed (metadata-only sources are skipped —
+ *  their title/abstract still live in the graph for structural search). */
+async function listSourcesWithBody(rootPath: string): Promise<string[]> {
+  const dir = path.join(rootPath, '.minerva', 'sources');
+  const out: string[] = [];
+  let entries: import('node:fs').Dirent[];
+  try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return out; }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    try {
+      await fs.access(path.join(dir, entry.name, 'body.md'));
+      out.push(entry.name);
+    } catch { /* no body — skip */ }
+  }
+  return out;
+}
+
+/** Every excerpt id (`.minerva/excerpts/<id>.ttl`). */
+async function listExcerptIds(rootPath: string): Promise<string[]> {
+  const dir = path.join(rootPath, '.minerva', 'excerpts');
+  try {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    return entries.filter((e) => e.isFile() && e.name.endsWith('.ttl')).map((e) => e.name.slice(0, -'.ttl'.length));
+  } catch {
+    return [];
+  }
 }
 
 /** Default walker: every indexable markdown note under the root, skipping

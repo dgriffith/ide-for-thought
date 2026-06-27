@@ -491,6 +491,15 @@ export function noteTitle(ctx: ProjectContext, relativePath: string): string {
   return titleStmts[0]?.object.value ?? stem;
 }
 
+/** A source's display title from the graph (`dc:title`), falling back to its id.
+ *  Used by the semantic Related panel for source/excerpt hits (#839). */
+export function sourceTitle(ctx: ProjectContext, sourceId: string): string {
+  const state = getState(ctx);
+  if (!state) return sourceId;
+  const titleStmts = state.store.statementsMatching(sourceUri(state, sourceId), DC('title'), undefined);
+  return titleStmts[0]?.object.value ?? sourceId;
+}
+
 export function outgoingLinks(ctx: ProjectContext, relativePath: string): OutgoingLink[] {
   const state = getState(ctx);
   if (!state) return [];

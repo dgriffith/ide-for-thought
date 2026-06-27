@@ -15,6 +15,8 @@ import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
+import * as vectors from './embeddings/vector-store';
+import { citedTextFromTtl } from './sources/create-excerpt';
 import { installNavigationGuards } from './security';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
@@ -429,12 +431,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
           bodyContent = await notebaseFs.readFile(rootPath, `.minerva/sources/${sourceId}/body.md`);
         } catch { /* body optional */ }
         graph.indexSource(projectCtx, sourceId, metaContent, bodyContent);
+        void vectors.indexSource(projectCtx, sourceId, bodyContent ?? ''); // #839
         debouncedPersist();
         if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
       } catch { /* meta.ttl may have been deleted between events */ }
     },
     onSourceMetaDeleted: (sourceId) => {
       graph.removeSource(projectCtx, sourceId);
+      void vectors.removeSource(projectCtx, sourceId); // #839
       debouncedPersist();
       if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     },
@@ -443,12 +447,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const relPath = `.minerva/excerpts/${excerptId}.ttl`;
         const content = await notebaseFs.readFile(rootPath, relPath);
         graph.indexExcerpt(projectCtx, excerptId, content);
+        void vectors.indexExcerpt(projectCtx, excerptId, citedTextFromTtl(content) ?? ''); // #839
         debouncedPersist();
         if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
       } catch { /* file may have been deleted between events */ }
     },
     onExcerptDeleted: (excerptId) => {
       graph.removeExcerpt(projectCtx, excerptId);
+      void vectors.removeExcerpt(projectCtx, excerptId); // #839
       debouncedPersist();
       if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
     },

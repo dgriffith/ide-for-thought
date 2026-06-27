@@ -1,8 +1,8 @@
 /**
- * Pure transform from raw chunk hits to the Related panel's note list (#838).
+ * Pure transform from raw chunk hits to the Related panel's list (#838, #839).
  *
- * `relatedToNote` returns chunk-level hits that can repeat a note across its
- * sections; the panel wants one row per note (its best-matching section), ranked
+ * `relatedToRef` returns chunk-level hits that can repeat a ref across its
+ * sections; the panel wants one row per ref (its best-matching section), ranked
  * by score, capped, and enriched with a display title + snippet. Kept separate
  * from the electron-coupled IPC handler so it's unit-testable.
  */
@@ -12,19 +12,22 @@ import type { RelatedNote } from '../../shared/types';
 
 export function topRelatedNotes(
   hits: RelatedHit[],
-  opts: { limit: number; titleOf: (relativePath: string) => string },
+  opts: { limit: number; titleOf: (hit: RelatedHit) => string },
 ): RelatedNote[] {
+  // Best section per (kind, ref).
   const best = new Map<string, RelatedHit>();
   for (const h of hits) {
-    const prev = best.get(h.notePath);
-    if (!prev || h.score > prev.score) best.set(h.notePath, h);
+    const key = `${h.kind}:${h.ref}`;
+    const prev = best.get(key);
+    if (!prev || h.score > prev.score) best.set(key, h);
   }
   return [...best.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, opts.limit)
     .map((h) => ({
-      relativePath: h.notePath,
-      title: opts.titleOf(h.notePath),
+      kind: h.kind,
+      ref: h.ref,
+      title: opts.titleOf(h),
       sectionHeading: h.sectionHeading,
       snippet: h.chunkText.replace(/\s+/g, ' ').trim().slice(0, 160),
       score: h.score,
