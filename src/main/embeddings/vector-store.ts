@@ -208,6 +208,40 @@ export function _connectionForTest(ctx: ProjectContext): DuckDBConnection {
   return state.connection;
 }
 
+/**
+ * "Find chunks related to this note" — rank every other note's chunks by their
+ * nearest distance to *any* of `notePath`'s own stored chunks. Reuses the
+ * already-stored vectors (no re-embedding). Returns chunk-level hits (the caller
+ * de-dups to best-per-note); `[]` if the note has no embedded chunks yet.
+ */
+export async function relatedToNote(
+  ctx: ProjectContext,
+  notePath: string,
+  opts: { limit?: number } = {},
+): Promise<RelatedHit[]> {
+  const state = states.get(ctx.rootPath);
+  if (!state) return [];
+  const limit = Math.floor(opts.limit ?? 10);
+  const model = lit(state.model);
+  const sql =
+    `WITH q AS (SELECT embedding FROM ${TABLE} ` +
+    `WHERE note_path = ${lit(notePath)} AND embedding_model = ${model}) ` +
+    `SELECT t.note_path, t.section_heading, t.chunk_text, ` +
+    `MIN(array_cosine_distance(t.embedding, q.embedding)) AS dist ` +
+    `FROM ${TABLE} t, q ` +
+    `WHERE t.note_path <> ${lit(notePath)} AND t.embedding_model = ${model} ` +
+    `GROUP BY t.note_path, t.section_heading, t.chunk_text ` +
+    `ORDER BY dist ASC LIMIT ${limit}`;
+  const reader = await state.connection.runAndReadAll(sql);
+  const rows = reader.getRowObjectsJS() as Record<string, unknown>[];
+  return rows.map((r) => ({
+    notePath: String(r.note_path),
+    sectionHeading: String(r.section_heading),
+    chunkText: String(r.chunk_text),
+    score: 1 - Number(r.dist),
+  }));
+}
+
 // ── internals ───────────────────────────────────────────────────────────────
 
 async function readExisting(state: StoreState, relativePath: string): Promise<Map<string, Float32Array>> {

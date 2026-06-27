@@ -135,6 +135,25 @@ describe('vector-store', () => {
     expect(hits.some((h) => h.notePath === 'b.md')).toBe(true);
   });
 
+  it('relatedToNote ranks other notes by nearest chunk, excluding the source', async () => {
+    const embedder = fakeEmbedder();
+    await store.init(ctx(), { dbPath, embedder });
+    await store.indexNote(ctx(), 'src.md', '# Source\nfeline animals purr and hunt');
+    await store.indexNote(ctx(), 'near.md', '# Near\nfeline animals that purr');
+    await store.indexNote(ctx(), 'far.md', '# Far\nquarterly earnings and revenue');
+    const hits = await store.relatedToNote(ctx(), 'src.md', { limit: 5 });
+    expect(hits.every((h) => h.notePath !== 'src.md')).toBe(true);
+    expect(hits[0].notePath).toBe('near.md');
+    expect(hits[0].score).toBeGreaterThan(hits[hits.length - 1].score);
+  });
+
+  it('relatedToNote returns [] for a note with no embedded chunks', async () => {
+    const embedder = fakeEmbedder();
+    await store.init(ctx(), { dbPath, embedder });
+    await store.indexNote(ctx(), 'other.md', '# Other\nsome content');
+    expect(await store.relatedToNote(ctx(), 'missing.md', { limit: 5 })).toEqual([]);
+  });
+
   it('persists across reopen', async () => {
     const embedder = fakeEmbedder();
     await store.init(ctx(), { dbPath, embedder });
