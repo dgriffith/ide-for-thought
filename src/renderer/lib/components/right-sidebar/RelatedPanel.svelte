@@ -13,9 +13,14 @@
     onFileSelect: (relativePath: string) => void;
     /** Opens a note and scrolls to a heading anchor (`path#slug`). */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** Route source / excerpt hits to the source viewer (#839). */
+    onOpenSource?: (sourceId: string) => void;
+    onOpenExcerpt?: (excerptId: string) => void;
   }
 
-  let { activeFilePath, revision, indexing = false, onFileSelect, onNavigate }: Props = $props();
+  let { activeFilePath, revision, indexing = false, onFileSelect, onNavigate, onOpenSource, onOpenExcerpt }: Props = $props();
+
+  const KIND_ICON = { note: 'notes', source: 'source', excerpt: 'citations' } as const;
 
   let notes = $state<RelatedNote[]>([]);
   let enabled = $state(true);
@@ -35,13 +40,16 @@
     });
   });
 
-  /** Open the related note, scrolling to its matched section when there is one. */
+  /** Route a hit by kind: notes scroll to the matched section; sources/excerpts
+   *  open the source viewer (with the excerpt highlighted). */
   function open(note: RelatedNote) {
+    if (note.kind === 'source') { onOpenSource?.(note.ref); return; }
+    if (note.kind === 'excerpt') { onOpenExcerpt?.(note.ref); return; }
     const leaf = note.sectionHeading.split('>').pop()?.trim();
     if (leaf && onNavigate) {
-      void onNavigate(`${note.relativePath}#${slugify(leaf)}`);
+      void onNavigate(`${note.ref}#${slugify(leaf)}`);
     } else {
-      onFileSelect(note.relativePath);
+      onFileSelect(note.ref);
     }
   }
 
@@ -64,10 +72,10 @@
       {/if}
     {:else}
       <div class="related-count">{notes.length} related note{notes.length !== 1 ? 's' : ''}</div>
-      {#each notes as note (note.relativePath)}
-        <button class="related-item" onclick={() => open(note)} title={note.relativePath}>
+      {#each notes as note (note.kind + ':' + note.ref)}
+        <button class="related-item" onclick={() => open(note)} title={note.kind === 'note' ? note.ref : `${note.kind}: ${note.ref}`}>
           <div class="row-top">
-            <Icon name="sparkle" size={11} color="var(--text-faint)" />
+            <Icon name={KIND_ICON[note.kind]} size={11} color="var(--text-faint)" />
             <span class="related-title">{note.title}</span>
             <span class="score" title="{pct(note.score)}% similar">
               <span class="score-bar" style:width="{pct(note.score)}%"></span>

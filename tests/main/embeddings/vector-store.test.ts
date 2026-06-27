@@ -56,7 +56,7 @@ describe('vector-store', () => {
 
     const hits = await store.searchRelated(ctx(), 'feline predators purr', { limit: 1 });
     expect(hits).toHaveLength(1);
-    expect(hits[0].notePath).toBe('animals.md');
+    expect(hits[0].ref).toBe('animals.md');
     expect(hits[0].sectionHeading).toBe('Animals > Cats');
     expect(hits[0].score).toBeGreaterThan(0.3);
   });
@@ -89,7 +89,7 @@ describe('vector-store', () => {
     expect(embedder.calls.flat()).toHaveLength(0);
 
     const after = await store.searchRelated(ctx(), 'cats and dogs', { limit: 1 });
-    expect(after[0].notePath).toBe(before[0].notePath);
+    expect(after[0].ref).toBe(before[0].ref);
     expect(after[0].score).toBeCloseTo(before[0].score, 6); // reused vectors identical
   });
 
@@ -101,11 +101,11 @@ describe('vector-store', () => {
     // different embedding_model so it's detectably stale.
     const conn = store._connectionForTest(ctx());
     await conn.run(
-      `INSERT INTO note_chunks SELECT note_path || '-old', chunk_index, section_heading, ` +
+      `INSERT INTO note_chunks SELECT kind, ref_id || '-old', chunk_index, section_heading, ` +
       `chunk_text, content_hash, 'old-model-v0', embedding, updated_at FROM note_chunks`,
     );
     const hits = await store.searchRelated(ctx(), 'relevant words here', { limit: 10 });
-    expect(hits.every((h) => !h.notePath.endsWith('-old'))).toBe(true);
+    expect(hits.every((h) => !h.ref.endsWith('-old'))).toBe(true);
   });
 
   it('removes a note\'s chunks on removeNote', async () => {
@@ -125,14 +125,14 @@ describe('vector-store', () => {
     expect(await store.searchRelated(ctx(), 'content', { limit: 5 })).toHaveLength(0);
   });
 
-  it('honours excludePath', async () => {
+  it('honours the exclude option', async () => {
     const embedder = fakeEmbedder();
     await store.init(ctx(), { dbPath, embedder });
     await store.indexNote(ctx(), 'a.md', '# A\nshared topic words');
     await store.indexNote(ctx(), 'b.md', '# B\nshared topic words');
-    const hits = await store.searchRelated(ctx(), 'shared topic words', { limit: 5, excludePath: 'a.md' });
-    expect(hits.every((h) => h.notePath !== 'a.md')).toBe(true);
-    expect(hits.some((h) => h.notePath === 'b.md')).toBe(true);
+    const hits = await store.searchRelated(ctx(), 'shared topic words', { limit: 5, exclude: { kind: 'note', ref: 'a.md' } });
+    expect(hits.every((h) => h.ref !== 'a.md')).toBe(true);
+    expect(hits.some((h) => h.ref === 'b.md')).toBe(true);
   });
 
   it('relatedToNote ranks other notes by nearest chunk, excluding the source', async () => {
@@ -142,9 +142,42 @@ describe('vector-store', () => {
     await store.indexNote(ctx(), 'near.md', '# Near\nfeline animals that purr');
     await store.indexNote(ctx(), 'far.md', '# Far\nquarterly earnings and revenue');
     const hits = await store.relatedToNote(ctx(), 'src.md', { limit: 5 });
-    expect(hits.every((h) => h.notePath !== 'src.md')).toBe(true);
-    expect(hits[0].notePath).toBe('near.md');
+    expect(hits.every((h) => h.ref !== 'src.md')).toBe(true);
+    expect(hits[0].ref).toBe('near.md');
     expect(hits[0].score).toBeGreaterThan(hits[hits.length - 1].score);
+  });
+
+  it('embeds notes, sources, and excerpts together and can filter by kind (#839)', async () => {
+    const embedder = fakeEmbedder();
+    await store.init(ctx(), { dbPath, embedder });
+    await store.indexNote(ctx(), 'note.md', '# Note\nphotosynthesis converts sunlight to energy');
+    await store.indexSource(ctx(), 'arxiv-9999', '# Paper\nphotosynthesis in marine algae and sunlight');
+    await store.indexExcerpt(ctx(), 'arxiv-9999-abc', 'photosynthesis sunlight chlorophyll');
+
+    const all = await store.searchRelated(ctx(), 'photosynthesis sunlight', { limit: 10 });
+    expect(new Set(all.map((h) => h.kind))).toEqual(new Set(['note', 'source', 'excerpt']));
+
+    const onlyExcerpts = await store.searchRelated(ctx(), 'photosynthesis sunlight', { limit: 10, kinds: ['excerpt'] });
+    expect(onlyExcerpts.length).toBeGreaterThan(0);
+    expect(onlyExcerpts.every((h) => h.kind === 'excerpt')).toBe(true);
+
+    // embeddedRefs is per-kind.
+    expect((await store.embeddedRefs(ctx(), 'source')).has('arxiv-9999')).toBe(true);
+    expect((await store.embeddedRefs(ctx(), 'note')).has('arxiv-9999')).toBe(false);
+  });
+
+  it('relatedToNote spans kinds and can be scoped to one', async () => {
+    const embedder = fakeEmbedder();
+    await store.init(ctx(), { dbPath, embedder });
+    await store.indexNote(ctx(), 'q.md', '# Q\nquantum entanglement and superposition');
+    await store.indexSource(ctx(), 'src-q', '# Src\nquantum entanglement experiments');
+    await store.indexNote(ctx(), 'other.md', '# Other\nquantum superposition states');
+
+    const all = await store.relatedToNote(ctx(), 'q.md', { limit: 10 });
+    expect(all.some((h) => h.kind === 'source' && h.ref === 'src-q')).toBe(true);
+
+    const notesOnly = await store.relatedToNote(ctx(), 'q.md', { limit: 10, kinds: ['note'] });
+    expect(notesOnly.every((h) => h.kind === 'note')).toBe(true);
   });
 
   it('relatedToNote returns [] for a note with no embedded chunks', async () => {
@@ -152,6 +185,29 @@ describe('vector-store', () => {
     await store.init(ctx(), { dbPath, embedder });
     await store.indexNote(ctx(), 'other.md', '# Other\nsome content');
     expect(await store.relatedToNote(ctx(), 'missing.md', { limit: 5 })).toEqual([]);
+  });
+
+  it('migrates a pre-#839 (note_path) store by rebuilding it', async () => {
+    // Hand-create the original note-centric schema, as a store from before #839
+    // would have on disk.
+    const { DuckDBInstance } = await import('@duckdb/node-api');
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    const inst = await DuckDBInstance.create(dbPath);
+    const conn = await inst.connect();
+    await conn.run(`CREATE TABLE note_chunks (note_path VARCHAR, chunk_index INTEGER, ` +
+      `section_heading VARCHAR, chunk_text VARCHAR, content_hash VARCHAR, embedding_model VARCHAR, ` +
+      `embedding FLOAT[${MODEL.dim}], updated_at TIMESTAMP)`);
+    await conn.run(`INSERT INTO note_chunks VALUES ('stale.md', 0, 'h', 't', 'hash', 'old', ` +
+      `[${new Array(MODEL.dim).fill(0).join(',')}]::FLOAT[${MODEL.dim}], now())`);
+    conn.closeSync(); inst.closeSync();
+
+    // Opening the store must not throw on the old shape; it rebuilds the table.
+    await store.init(ctx(), { dbPath, embedder: fakeEmbedder() });
+    // New-schema writes work, and the stale note_path row is gone.
+    await store.indexNote(ctx(), 'fresh.md', '# Fresh\nbrand new content');
+    const hits = await store.searchRelated(ctx(), 'brand new content', { limit: 5 });
+    expect(hits.some((h) => h.ref === 'fresh.md')).toBe(true);
+    expect(hits.some((h) => h.ref === 'stale.md')).toBe(false);
   });
 
   it('persists across reopen', async () => {
@@ -163,7 +219,7 @@ describe('vector-store', () => {
     // Reopen the same on-disk DB with a fresh embedder.
     await store.init(ctx(), { dbPath, embedder: fakeEmbedder() });
     const hits = await store.searchRelated(ctx(), 'durable turtles', { limit: 1 });
-    expect(hits[0]?.notePath).toBe('keep.md');
+    expect(hits[0]?.ref).toBe('keep.md');
   });
 });
 
@@ -181,7 +237,7 @@ realDescribe('vector-store with the real WASM embedder', () => {
       await store.indexNote(ctx(), 'fin.md', '# Markets\nQuarterly revenue exceeded analyst forecasts.');
 
       const hits = await store.searchRelated(ctx(), 'a kitten meowing', { limit: 2 });
-      expect(hits[0].notePath).toBe('cat.md');
+      expect(hits[0].ref).toBe('cat.md');
       expect(hits[0].score).toBeGreaterThan(hits[1].score);
     } finally {
       await embedder.dispose();

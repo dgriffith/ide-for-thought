@@ -67,8 +67,13 @@ export interface Backlink {
 
 // ── Semantic "Related" panel (#838) ─────────────────────────────────────────
 
+export type RelatedKind = 'note' | 'source' | 'excerpt';
+
 export interface RelatedNote {
-  relativePath: string;
+  /** Routes the click: open a note / the source viewer / a highlighted excerpt. */
+  kind: RelatedKind;
+  /** note relativePath, sourceId, or excerptId. */
+  ref: string;
   title: string;
   /** Heading breadcrumb of the best-matching section (`Parent > Child`). */
   sectionHeading: string;
