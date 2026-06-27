@@ -6,6 +6,7 @@ import * as notebaseFs from '../notebase/fs';
 import { isIndexable } from '../notebase/indexable-files';
 import * as graph from '../graph/index';
 import * as search from '../search/index';
+import * as vectors from '../embeddings/vector-store';
 import { projectContext } from '../project-context-types';
 import { getRootPath, markPathHandled, windowsForProject } from '../window-manager';
 import type { WritePipelineHooks } from '../notebase/write-pipeline';
@@ -26,6 +27,7 @@ export async function reindexFile(rootPath: string, relativePath: string): Promi
   await graph.indexNote(ctx, relativePath, content);
   if (relativePath.endsWith('.md')) {
     search.indexNote(ctx, relativePath, content);
+    void vectors.indexNote(ctx, relativePath, content); // #835; no-op when disabled
   }
 }
 
@@ -34,6 +36,7 @@ export function removeFromIndexes(rootPath: string, relativePath: string): void 
   const ctx = projectContext(rootPath);
   search.removeNote(ctx, relativePath);
   graph.removeNote(ctx, relativePath);
+  void vectors.removeNote(ctx, relativePath); // #835; no-op when disabled
 }
 
 export async function listIndexableFiles(rootPath: string, relDir: string): Promise<string[]> {

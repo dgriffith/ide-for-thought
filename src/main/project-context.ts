@@ -13,6 +13,8 @@
 import * as graph from './graph/index';
 import * as search from './search/index';
 import * as tables from './sources/tables';
+import * as vectors from './embeddings/vector-store';
+import { getSharedEmbedder } from './embeddings/shared-embedder';
 import * as healthChecks from './graph/health-checks';
 import * as conversation from './llm/conversation';
 import { projectContext, type ProjectContext } from './project-context-types';
@@ -52,6 +54,16 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
     const initPromise = (async () => {
       await graph.initGraph(ctx);
       await tables.initTablesDb(ctx);
+      // Vector store (#835): open the persisted embeddings DB + schema. Cheap —
+      // no model load (the embedder is lazy). Existing notes are embedded
+      // incrementally on save, or in bulk by the backfill (#836); opening a
+      // project doesn't eagerly embed the corpus. Non-fatal: semantic search is
+      // an enhancement, so a store-open failure must never block project open.
+      try {
+        await vectors.init(ctx, { embedder: getSharedEmbedder() });
+      } catch (err) {
+        console.warn(`[project-context] vector store init failed for ${rootPath}:`, err);
+      }
       conversation.initConversations(rootPath);
       // graph.indexAllNotes resets the rdflib store (`state.store = $rdf.graph()`)
       // then rebuilds it; registerAllCsvs writes the CSV table-schema overlay to
@@ -109,6 +121,7 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   tables.disposeProject(rec.ctx);
   search.disposeProject(rec.ctx);
   graph.disposeProject(rec.ctx);
+  await vectors.dispose(rec.ctx); // flush + close the embeddings DB (#835)
   projects.delete(rootPath);
 }
 

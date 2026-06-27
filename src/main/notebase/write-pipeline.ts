@@ -24,6 +24,7 @@
 import * as notebaseFs from './fs';
 import * as graph from '../graph/index';
 import * as search from '../search/index';
+import * as vectors from '../embeddings/vector-store';
 import { projectContext } from '../project-context-types';
 import type { HeadingRenameCandidate } from '../graph/index';
 
@@ -68,6 +69,9 @@ export async function writeAndReindex(
   await notebaseFs.writeFile(rootPath, relativePath, content);
   const { headingRenameCandidate } = await graph.indexNote(ctx, relativePath, content);
   search.indexNote(ctx, relativePath, content);
+  // Embeddings reindex (#835) — fire-and-forget so a save never blocks on the
+  // model. No-op when the vector store isn't initialized; resilient internally.
+  if (relativePath.endsWith('.md')) void vectors.indexNote(ctx, relativePath, content);
   if (!opts.skipPersist) {
     await search.persist(ctx);
   }

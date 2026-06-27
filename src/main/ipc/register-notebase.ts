@@ -11,6 +11,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { writeAndReindex } from '../notebase/write-pipeline';
 import * as search from '../search/index';
+import * as vectors from '../embeddings/vector-store';
 import { clearRecentProjects } from '../recent-projects';
 import { rebuildMenu } from '../menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandled, windowsForProject } from '../window-manager';
@@ -205,9 +206,15 @@ export function registerNotebase(): void {
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
       reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
+        if (relPath.endsWith(".md")) {
+          search.indexNote(ctx, relPath, content);
+          void vectors.indexNote(ctx, relPath, content); // #835
+        }
       },
-      removeHook: (relPath) => search.removeNote(ctx, relPath),
+      removeHook: (relPath) => {
+        search.removeNote(ctx, relPath);
+        void vectors.removeNote(ctx, relPath); // #835
+      },
     });
 
     // Broadcast to every window showing this project so their editor tabs
@@ -238,9 +245,15 @@ export function registerNotebase(): void {
       separator,
       markPathHandled,
       reindexHook: (relPath, content) => {
-        if (relPath.endsWith('.md')) search.indexNote(ctx, relPath, content);
+        if (relPath.endsWith(".md")) {
+          search.indexNote(ctx, relPath, content);
+          void vectors.indexNote(ctx, relPath, content); // #835
+        }
       },
-      removeHook: (relPath) => search.removeNote(ctx, relPath),
+      removeHook: (relPath) => {
+        search.removeNote(ctx, relPath);
+        void vectors.removeNote(ctx, relPath); // #835
+      },
     });
     // Broadcast: source disappeared (RENAMED with one transition signals
     // editor tabs to drop / reroute) plus the rewritten set so other
