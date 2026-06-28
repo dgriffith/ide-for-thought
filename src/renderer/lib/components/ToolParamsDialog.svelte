@@ -24,6 +24,8 @@
 
   const params = $derived(tool.parameters ?? []);
 
+  // Intentional one-time seed from `tool`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let paramValues = $state<Record<string, string>>(
     Object.fromEntries((tool.parameters ?? []).map((p) => [p.id, p.defaultValue ?? ''])),
   );

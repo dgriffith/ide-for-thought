@@ -17,6 +17,8 @@
   }
 
   let { message, onConfirm, onCancel, suggestions = [], initial = '' }: Props = $props();
+  // Intentional one-time seed from `initial`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let value = $state(initial);
   let inputEl = $state<HTMLInputElement>();
   // Stable id so multiple PromptDialogs (rare, but possible during

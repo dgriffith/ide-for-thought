@@ -66,6 +66,8 @@
     return acc;
   }
 
+  // Intentional one-time snapshot of `files`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   const allNotes = flattenNotes(files).filter((n) => n.relativePath !== excludePath);
   const allSources = $derived(sources ?? []);
   const allQueries = $derived(savedQueries ?? []);

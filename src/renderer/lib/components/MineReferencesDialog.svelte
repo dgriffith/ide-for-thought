@@ -22,6 +22,8 @@
 
   let { parentTitle, refs, onApply, onCancel }: Props = $props();
 
+  // Intentional one-time seed from `refs`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let selected = $state<boolean[]>(refs.map(() => true));
   let saving = $state(false);
 

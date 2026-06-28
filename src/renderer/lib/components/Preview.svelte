@@ -797,8 +797,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }
 
     const RENDER_DEBOUNCE_MS = 120;
+    // Intentional initial seed; the $effect below tracks content/notePath
+    // reactively and reconciles on change (debounced).
+    // svelte-ignore state_referenced_locally
     let rendered = $state(renderContent(content));
+    // svelte-ignore state_referenced_locally
     let lastRendered = content;
+    // svelte-ignore state_referenced_locally
     let lastRenderedNotePath = notePath;
     let renderTimer: ReturnType<typeof setTimeout> | null = null;
 

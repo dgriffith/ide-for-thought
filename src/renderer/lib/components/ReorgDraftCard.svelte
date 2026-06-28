@@ -18,6 +18,8 @@
   let { draft, onApprove, onDiscard }: Props = $props();
 
   // Everything selected by default; the user opts items out.
+  // Intentional one-time seed from `draft`; card is keyed to the draft.
+  // svelte-ignore state_referenced_locally
   let selected = $state<Set<string>>(new Set(draft.items.map((i) => i.fromPath)));
   let expanded = $state<Set<string>>(new Set());
 

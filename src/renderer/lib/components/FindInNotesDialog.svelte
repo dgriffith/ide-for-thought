@@ -29,6 +29,8 @@
 
   let { initialMode, onJumpTo, onClose }: Props = $props();
 
+  // Intentional one-time seed from `initialMode`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let mode = $state<Mode>(initialMode);
   let pattern = $state('');
   let replacement = $state('');

@@ -189,6 +189,8 @@
   let orphanSuppressedKeys = $derived(
     [...confirmSuppression.suppressed].filter((k) => !confirmRegistryEntry(k))
   );
+  // Intentional one-time seed from `initialTab`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let activeTab = $state<TabId>(initialTab ?? 'editor');
 
   // Editor settings

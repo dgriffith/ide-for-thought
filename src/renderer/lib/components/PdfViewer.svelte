@@ -64,6 +64,8 @@
   let loadError = $state<string | null>(null);
   let loading = $state(true);
 
+  // Intentional one-time seed from `initialPage`; viewer is keyed per source.
+  // svelte-ignore state_referenced_locally
   let page = $state(initialPage);
   let numPages = $state(0);
   let scale = $state(DEFAULT_SCALE);

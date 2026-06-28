@@ -39,6 +39,8 @@
 
   let { onConfirm, onCancel, initialExt = '.md' }: Props = $props();
 
+  // Intentional one-time seed from `initialExt`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let ext = $state<NoteExt>(initialExt);
   let name = $state('');
   let inputEl = $state<HTMLInputElement>();
