@@ -11,6 +11,8 @@
 
   let { suggestions, activeStem, onApply, onCancel }: Props = $props();
 
+  // Intentional one-time seed from `suggestions`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let selected = $state<boolean[]>(suggestions.map(() => true));
 
   const selectedCount = $derived(selected.filter(Boolean).length);

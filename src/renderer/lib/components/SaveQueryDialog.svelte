@@ -20,7 +20,10 @@
 
   let { projectOpen, initialName = '', initialScope, onConfirm, onCancel }: Props = $props();
 
+  // Intentional one-time seed from props; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let name = $state(initialName);
+  // svelte-ignore state_referenced_locally
   let scope = $state<'project' | 'global'>(
     !projectOpen ? 'global' : (initialScope ?? 'project'),
   );

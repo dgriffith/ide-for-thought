@@ -23,6 +23,8 @@
   // Rough estimate — ~3s/page on a modern laptop at 2× scale. Users
   // with huge scans will see the real rate once it starts.
   const estSecondsPerPage = 3;
+  // Intentional one-time estimate from `pageCount`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   const totalEstSeconds = pageCount * estSecondsPerPage;
 
   type Stage = 'confirm' | 'running' | 'error';

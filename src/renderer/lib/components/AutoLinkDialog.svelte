@@ -12,6 +12,8 @@
   let { suggestions, activeNoteBody, onApply, onCancel }: Props = $props();
 
   // Each suggestion is selected by default. Track selection by index.
+  // Intentional one-time seed from `suggestions`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let selected = $state<boolean[]>(suggestions.map(() => true));
 
   const selectedCount = $derived(selected.filter(Boolean).length);

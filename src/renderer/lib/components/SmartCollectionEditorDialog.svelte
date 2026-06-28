@@ -34,13 +34,18 @@
   let { editing, onSave, onCancel }: Props = $props();
 
   const mode = $derived<'create' | 'edit'>(editing ? 'edit' : 'create');
+  // Intentional one-time seed from `editing`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let name = $state(editing?.name ?? '');
+  // svelte-ignore state_referenced_locally
   let kind = $state<PredicateKind>(editing?.predicate.kind ?? 'tags');
   /** Picked tags (allOf), preserved as a Set for O(1) lookup in the
    *  template. Initialised from the editing predicate when present. */
+  // svelte-ignore state_referenced_locally
   let selectedTags = $state<Set<string>>(new Set(
     editing && editing.predicate.kind === 'tags' ? editing.predicate.allOf : [],
   ));
+  // svelte-ignore state_referenced_locally
   let selectedStatuses = $state<Set<ReadStatus>>(new Set(
     editing && editing.predicate.kind === 'readStatus' ? editing.predicate.status : [],
   ));

@@ -16,6 +16,8 @@
 
   let { stubTitle, candidates, onApply, onCancel }: Props = $props();
 
+  // Intentional one-time seed from `candidates`; dialog is short-lived and keyed.
+  // svelte-ignore state_referenced_locally
   let selectedDoi = $state<string | null>(candidates[0]?.doi ?? null);
   let applying = $state(false);
 
