@@ -37,6 +37,7 @@ export interface CommandDeps {
   saveAsTemplate(): void;
   // ── Edit ──
   insertTemplate(): void;
+  dictate(): void;
   find(): void;
   findReplace(): void;
   findInNotes(): void;
@@ -111,6 +112,9 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
     { id: 'edit.insertTemplate', title: 'Insert Template…', category: 'Edit',
       keybinding: null, enabled: hasActiveNoteTab,
       run: () => deps.insertTemplate() },
+    { id: 'edit.dictate', title: 'Dictate (Voice to Text)', category: 'Edit',
+      keybinding: formatAccelerator('CmdOrCtrl+Shift+V'),
+      enabled: hasActiveNoteTab, run: () => deps.dictate() },
     // ── Edit / search ──
     { id: 'edit.find', title: 'Find', category: 'Edit',
       keybinding: formatAccelerator('CmdOrCtrl+F'),

@@ -12,8 +12,13 @@ import { createTranscriber, type Transcriber } from './transcriber';
 import { voiceSettings } from './voice-settings.svelte';
 
 export type VoiceStatus = 'idle' | 'recording' | 'transcribing';
+/** Which UI initiated the current capture. The engine is a singleton (one
+ *  mic), so this lets the composer and the editor each show only their own
+ *  state instead of both lighting up. */
+export type VoiceSurface = 'composer' | 'editor';
 
 let status = $state<VoiceStatus>('idle');
+let surface = $state<VoiceSurface>('composer');
 let error = $state<string | null>(null);
 /** Human-readable model-download progress, or null when not downloading. */
 let modelProgress = $state<string | null>(null);
@@ -42,8 +47,9 @@ function ensureTranscriber(): Transcriber {
   return transcriber;
 }
 
-async function start(): Promise<void> {
+async function start(initiator: VoiceSurface = 'composer'): Promise<void> {
   if (status !== 'idle') return;
+  surface = initiator;
   error = null;
   try {
     session = await startRecording();
@@ -103,6 +109,9 @@ export function getVoiceStore() {
   return {
     get status() {
       return status;
+    },
+    get surface() {
+      return surface;
     },
     get error() {
       return error;

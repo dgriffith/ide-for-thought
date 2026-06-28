@@ -15,7 +15,7 @@ import { buildCommandRegistry, type CommandDeps } from '../../../src/renderer/li
 function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
   const actionNames = [
     'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'print',
-    'saveAsTemplate', 'insertTemplate', 'find', 'findReplace', 'findInNotes',
+    'saveAsTemplate', 'insertTemplate', 'dictate', 'find', 'findReplace', 'findInNotes',
     'replaceInNotes', 'gotoLine', 'sortLines', 'toggleSidebar', 'toggleRightSidebar',
     'togglePreview', 'toggleConversations', 'newConversation', 'cycleTheme', 'fontIncrease', 'fontDecrease',
     'fontReset', 'quickOpen', 'navBack', 'navForward', 'renameActive', 'moveActive',
@@ -41,6 +41,7 @@ describe('buildCommandRegistry', () => {
     expect(ids).toEqual([
       'file.newNote', 'file.save', 'file.openProject', 'file.newProject',
       'file.closeProject', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
+      'edit.dictate',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
       'view.togglePreview', 'view.toggleConversations', 'view.newConversation', 'view.cycleTheme',
@@ -108,7 +109,7 @@ describe('buildCommandRegistry', () => {
       'file.newNote': 'newNote', 'file.save': 'save', 'file.openProject': 'openProject',
       'file.newProject': 'newProject', 'file.closeProject': 'closeProject',
       'file.print': 'print', 'file.saveAsTemplate': 'saveAsTemplate',
-      'edit.insertTemplate': 'insertTemplate', 'edit.find': 'find',
+      'edit.insertTemplate': 'insertTemplate', 'edit.dictate': 'dictate', 'edit.find': 'find',
       'edit.findReplace': 'findReplace', 'edit.findInNotes': 'findInNotes',
       'edit.replaceInNotes': 'replaceInNotes', 'edit.gotoLine': 'gotoLine',
       'edit.sortLines': 'sortLines', 'view.toggleSidebar': 'toggleSidebar',
