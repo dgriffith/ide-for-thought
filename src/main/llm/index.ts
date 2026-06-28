@@ -14,6 +14,7 @@ import type { ConversationDraft } from '../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../shared/conversation-source-drafts';
 import type { ConversationPropertyDraft } from '../../shared/conversation-property-drafts';
 import type { ConversationComputeDraft } from '../../shared/conversation-compute-drafts';
+import type { ConversationRefactorDraft, ConversationReorgDraft } from '../../shared/conversation-refactor-drafts';
 import type { ConversationSourcePropertyDraft } from '../../shared/conversation-source-property-drafts';
 import type { ConversationClaimsDraft } from '../../shared/conversation-claims-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
@@ -60,12 +61,43 @@ export interface StreamCallbacks {
    */
   onComputeDraft?: (draft: ConversationComputeDraft) => void;
   /**
+   * Counterparts to `onDraft` for the note-refactor tools (#912/#914):
+   * propose_note_rename / propose_note_move produce a refactor draft, and
+   * propose_reorganization a batch reorg plan. Forwarded to the renderer via
+   * CONVERSATION_REFACTOR_DRAFT / CONVERSATION_REORG_DRAFT. Without these the
+   * tools report "only available in conversation contexts."
+   */
+  onRefactorDraft?: (draft: ConversationRefactorDraft) => void;
+  onReorgDraft?: (draft: ConversationReorgDraft) => void;
+  /**
    * Wired by the conversation IPC handler when a template declares the
    * `ask_user` tool. The agent's call to `ask_user` resolves with the
    * user's reply. Without this callback the tool reports an error and
    * the agent must continue without the answer.
    */
   askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
+}
+
+/** The conversation callbacks that pass through to tool execution. When a tool
+ *  (propose_*, ask_user) needs a renderer surface, its callback must be in this
+ *  list or the tool reports "only available in conversation contexts." Add a new
+ *  draft callback here when you add one to StreamCallbacks + ToolCallbacks. */
+const TOOL_CALLBACK_KEYS = [
+  'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
+  'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'askUser',
+] as const;
+
+/** Project a conversation's `StreamCallbacks` down to the `ToolCallbacks` the
+ *  tool executor expects, carrying every tool-facing callback that's set.
+ *  Exported for the regression test that guards against a dropped callback. */
+export function toToolCallbacks(callbacks?: StreamCallbacks): ToolCallbacks {
+  const out: ToolCallbacks = {};
+  if (!callbacks) return out;
+  for (const key of TOOL_CALLBACK_KEYS) {
+    const fn = callbacks[key];
+    if (fn) (out as Record<string, unknown>)[key] = fn;
+  }
+  return out;
 }
 
 export interface ChatMessage {
@@ -418,33 +450,11 @@ export async function completeWithTools(
         textPieces.push(indicator);
         if (callbacks) callbacks.onChunk(indicator);
       }
-      const toolCallbacks: ToolCallbacks = {};
-      if (callbacks?.onDraft) {
-        toolCallbacks.onDraft = callbacks.onDraft;
-      }
-      if (callbacks?.onSourceDraft) {
-        toolCallbacks.onSourceDraft = callbacks.onSourceDraft;
-      }
-      if (callbacks?.onPropertyDraft) {
-        toolCallbacks.onPropertyDraft = callbacks.onPropertyDraft;
-      }
-      if (callbacks?.onSourcePropertyDraft) {
-        toolCallbacks.onSourcePropertyDraft = callbacks.onSourcePropertyDraft;
-      }
-      if (callbacks?.onClaimsDraft) {
-        toolCallbacks.onClaimsDraft = callbacks.onClaimsDraft;
-      }
-      if (callbacks?.onComputeDraft) {
-        toolCallbacks.onComputeDraft = callbacks.onComputeDraft;
-      }
-      if (callbacks?.askUser) {
-        toolCallbacks.askUser = callbacks.askUser;
-      }
       const { content, isError } = await executeNotebaseTool(
         toolContext,
         use.name,
         use.input,
-        toolCallbacks,
+        toToolCallbacks(callbacks),
       );
       if (isError) {
         console.warn(`[conv] tool ${use.name} returned error:`, content.slice(0, 300));
