@@ -453,6 +453,10 @@ export const Channels = {
   CONVERSATION_REFACTOR_DRAFT: 'conversation:refactorDraft',
   /** renderer → main: user approved a refactor draft — file + apply the note-refactor proposal (#912). */
   CONVERSATION_FILE_REFACTOR_DRAFT: 'conversation:fileRefactorDraft',
+  /** main → renderer: a propose_reorganization tool call produced a batch plan for review (#914). Payload is ConversationReorgDraft. */
+  CONVERSATION_REORG_DRAFT: 'conversation:reorgDraft',
+  /** renderer → main: user approved a reorg plan — file + apply the selected items as one ordered bundle (#914). */
+  CONVERSATION_FILE_REORG_DRAFT: 'conversation:fileReorgDraft',
   /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */
   CONVERSATION_RUN_COMPUTE_DRAFT: 'conversation:runComputeDraft',
   /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */

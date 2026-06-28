@@ -42,7 +42,8 @@
   import DraftCard from './DraftCard.svelte';
   import ComputeDraftCard from './ComputeDraftCard.svelte';
   import RefactorDraftCard from './RefactorDraftCard.svelte';
-  import type { ConversationRefactorDraft } from '../../../shared/conversation-refactor-drafts';
+  import ReorgDraftCard from './ReorgDraftCard.svelte';
+  import type { ConversationRefactorDraft, ConversationReorgDraft } from '../../../shared/conversation-refactor-drafts';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../conversations/slash-commands';
   import {
@@ -401,6 +402,22 @@
     store.discardRefactorDraft(tabId, draftId);
   }
 
+  async function handleApproveReorg(
+    tabId: string, draft: ConversationReorgDraft, selected: Array<{ fromPath: string; toPath: string }>,
+  ) {
+    try {
+      await store.approveReorgDraft(tabId, draft, selected);
+      // Land on the first moved note at its new path.
+      if (selected.length > 0) void editor.openFile(selected[0].toPath);
+    } catch (e) {
+      console.error('[conv-panel] approve reorg failed:', e);
+    }
+  }
+
+  function handleDiscardReorg(tabId: string, draftId: string) {
+    store.discardReorgDraft(tabId, draftId);
+  }
+
   async function handleApproveSource(tabId: string, draft: ConversationSourceDraft) {
     try {
       await store.approveSourceDraft(tabId, draft);
@@ -602,6 +619,13 @@
   function orphanRefactorDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.refactorDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function reorgDraftsAt(tab: TabT, i: number) {
+    return tab.reorgDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function orphanReorgDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.reorgDrafts.filter((d) => d.afterMessageIndex >= max);
   }
 </script>
 
@@ -1037,6 +1061,13 @@
                 onDiscard={() => handleDiscardRefactor(tab.id, draft.draftId)}
               />
             {/each}
+            {#each reorgDraftsAt(tab, i) as draft (draft.draftId)}
+              <ReorgDraftCard
+                {draft}
+                onApprove={(selected) => handleApproveReorg(tab.id, draft, selected)}
+                onDiscard={() => handleDiscardReorg(tab.id, draft.draftId)}
+              />
+            {/each}
           {/each}
 
           {#if tab.streaming}
@@ -1142,6 +1173,13 @@
               {draft}
               onApprove={() => handleApproveRefactor(tab.id, draft)}
               onDiscard={() => handleDiscardRefactor(tab.id, draft.draftId)}
+            />
+          {/each}
+          {#each orphanReorgDrafts(tab) as draft (draft.draftId)}
+            <ReorgDraftCard
+              {draft}
+              onApprove={(selected) => handleApproveReorg(tab.id, draft, selected)}
+              onDiscard={() => handleDiscardReorg(tab.id, draft.draftId)}
             />
           {/each}
         </div>

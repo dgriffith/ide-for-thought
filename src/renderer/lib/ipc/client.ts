@@ -538,6 +538,15 @@ export interface ConversationsApi {
   fileRefactorDraft(
     draft: import('../../../shared/conversation-refactor-drafts').ConversationRefactorDraft,
   ): Promise<{ proposalUri: string | null; applied: boolean }>;
+  /** Subscribe to batch reorganization plans from propose_reorganization (#914). */
+  onReorgDraft(
+    cb: (draft: import('../../../shared/conversation-refactor-drafts').ConversationReorgDraft) => void,
+  ): void;
+  /** Approve a reorg plan — file + apply the selected items as one ordered bundle (#914). */
+  fileReorgDraft(
+    draft: import('../../../shared/conversation-refactor-drafts').ConversationReorgDraft,
+    selected: Array<{ fromPath: string; toPath: string }>,
+  ): Promise<{ proposalUri: string | null; applied: boolean }>;
 }
 
 export interface ProposalsApi {

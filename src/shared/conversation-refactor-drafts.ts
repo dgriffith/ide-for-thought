@@ -34,3 +34,28 @@ export interface ConversationRefactorDraft {
   affectedNotes: RefactorAffectedNote[];
   createdAt: string;
 }
+
+/** One move/rename within a batch reorganization plan (#914). */
+export interface ReorgDraftItem {
+  fromPath: string;
+  toPath: string;
+  affectedNotes: RefactorAffectedNote[];
+}
+
+/**
+ * A batch reorganization plan from `propose_reorganization` (#914) — many
+ * moves/renames reviewed as one card with per-item toggles. On Approve, the
+ * renderer sends back the SELECTED items via `CONVERSATION_FILE_REORG_DRAFT`,
+ * which files them as one ordered note-refactor bundle (atomic — partial failure
+ * rolls the whole bundle back).
+ */
+export interface ConversationReorgDraft {
+  draftId: string;
+  conversationId: string;
+  note: string;
+  items: ReorgDraftItem[];
+  /** Plan-level problems surfaced before apply (collisions, cycles, skips). */
+  warnings: string[];
+  createdAt: string;
+}
+
