@@ -5,6 +5,14 @@ import {
   toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList, toggleTaskList,
   insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage, insertWikiLink,
 } from './formatting';
+import { toggleEditorDictation } from './dictation';
+
+/** Voice dictation toggle (#voice). Fires the async start/stop+insert against
+ *  the focused view; returns true so the key isn't typed into the doc. */
+const dictate: Command = (view) => {
+  void toggleEditorDictation(view);
+  return true;
+};
 
 export interface CommandEntry {
   id: string;
@@ -43,6 +51,9 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
   { id: 'editor.toggleBulletList', label: 'Bulleted List', defaultKey: '', command: toggleBulletList },
   { id: 'editor.toggleNumberedList', label: 'Numbered List', defaultKey: '', command: toggleNumberedList },
   { id: 'editor.toggleTaskList', label: 'Task List', defaultKey: '', command: toggleTaskList },
+
+  // Voice
+  { id: 'editor.dictate', label: 'Dictate (Voice to Text)', defaultKey: 'Mod-Shift-v', command: dictate },
 
   // Insert
   { id: 'editor.insertLink', label: 'Insert Link', defaultKey: 'Mod-k', command: insertLink },

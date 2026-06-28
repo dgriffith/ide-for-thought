@@ -1251,21 +1251,23 @@
               {/if}
               <span class="composer-spacer"></span>
               {#if voiceSettings.enabled}
-                {#if voice.status === 'transcribing'}
-                  <span class="composer-voice">Transcribing…</span>
-                {:else if voice.modelProgress}
-                  <span class="composer-voice">{voice.modelProgress}</span>
-                {:else if voice.error}
-                  <span class="composer-voice" title={voice.error}>Mic unavailable</span>
-                {:else if voice.recording}
-                  <span class="composer-voice">Listening…</span>
+                {#if voice.surface === 'composer'}
+                  {#if voice.status === 'transcribing'}
+                    <span class="composer-voice">Transcribing…</span>
+                  {:else if voice.modelProgress}
+                    <span class="composer-voice">{voice.modelProgress}</span>
+                  {:else if voice.error}
+                    <span class="composer-voice" title={voice.error}>Mic unavailable</span>
+                  {:else if voice.recording}
+                    <span class="composer-voice">Listening…</span>
+                  {/if}
                 {/if}
                 <button
                   type="button"
                   class="mic-btn"
-                  class:recording={voice.recording}
+                  class:recording={voice.recording && voice.surface === 'composer'}
                   onclick={toggleDictation}
-                  disabled={tab.streaming || voice.status === 'transcribing'}
+                  disabled={tab.streaming || voice.status === 'transcribing' || (voice.busy && voice.surface !== 'composer')}
                   title={voice.recording ? 'Stop & transcribe' : 'Dictate'}
                   aria-label={voice.recording ? 'Stop dictation and transcribe' : 'Start dictation'}
                 >

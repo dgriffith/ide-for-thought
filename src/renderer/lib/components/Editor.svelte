@@ -31,6 +31,8 @@
     insertYouTubeEmbed, vegaLiteInserts,
   } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
+  import { toggleEditorDictation } from '../editor/dictation';
+  import { voiceSettings } from '../voice/voice-settings.svelte';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { highlightDecorations } from '../editor/highlight-decorations';
   import { computeCellsExtension } from '../editor/compute-cells';
@@ -1162,6 +1164,9 @@
       <div class="separator"></div>
     {/if}
     <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
+    {#if voiceSettings.enabled}
+      <button onclick={() => handleMenuAction(() => void toggleEditorDictation(view))}>Dictate…</button>
+    {/if}
     <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
     {#if onBookmarkSection}
       <button onclick={() => handleMenuAction(() => onBookmarkSection?.())}>Bookmark Section</button>

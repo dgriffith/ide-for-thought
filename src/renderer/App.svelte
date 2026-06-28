@@ -41,6 +41,8 @@
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
+  import DictationIndicator from './lib/components/DictationIndicator.svelte';
+  import { toggleEditorDictation } from './lib/editor/dictation';
   import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import AboutDialog from './lib/components/AboutDialog.svelte';
@@ -540,6 +542,7 @@
     print: () => window.print(),
     saveAsTemplate: () => { void handleSaveAsTemplate(); },
     insertTemplate: () => { void handleInsertTemplate(); },
+    dictate: () => { void toggleEditorDictation(editorComponent?.getView() ?? null); },
     find: () => editorComponent?.openFind(),
     findReplace: () => editorComponent?.openFindReplace(),
     findInNotes: () => { findInNotesMode = 'find'; },
@@ -1673,6 +1676,7 @@
       onClose={() => { showCommandPalette = false; }}
     />
   {/if}
+  <DictationIndicator />
   {#if showAbout}
     <AboutDialog onClose={() => { showAbout = false; }} />
   {/if}
