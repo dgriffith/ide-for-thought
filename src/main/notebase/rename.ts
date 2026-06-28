@@ -53,6 +53,90 @@ async function listAllFiles(rootPath: string, relDir: string): Promise<string[]>
   return results;
 }
 
+/** A note refactor (move/rename) that can't proceed — collision, no-op, an
+ *  unsupported folder move, etc. Carries a user-facing reason (#911). */
+export class RefactorError extends Error {
+  constructor(message: string) { super(message); this.name = 'RefactorError'; }
+}
+
+export interface AffectedNote {
+  /** Pre-apply path of the note whose content changes. */
+  path: string;
+  before: string;
+  after: string;
+  /** True for the note being moved itself (relative links re-relativized). */
+  isMoved: boolean;
+}
+
+export interface RenamePlan {
+  fromPath: string;
+  toPath: string;
+  /** Every note whose content changes if this refactor is applied — the moved
+   *  note (re-relativized links) plus other notes (inbound link rewrites). */
+  affectedNotes: AffectedNote[];
+  warnings: string[];
+}
+
+/**
+ * Compute what a note move/rename would do — the destination, and every note
+ * whose links would be rewritten, with before/after — **without writing
+ * anything** (#911). Drives the proposal preview's blast radius, and is the
+ * pre-flight guardrail check. Uses the same rewriter helpers as
+ * `renameWithLinkRewrites`, so the preview matches the commit.
+ *
+ * Notes only (folder moves are out of scope for the proposal path).
+ */
+export async function planRename(rootPath: string, fromPath: string, toPath: string): Promise<RenamePlan> {
+  if (fromPath === toPath) throw new RefactorError('The source and destination are the same.');
+  if (!isIndexable(fromPath) || !fromPath.endsWith('.md')) {
+    throw new RefactorError('Only note (.md) files can be moved or renamed this way.');
+  }
+  if (!toPath.endsWith('.md')) throw new RefactorError('The destination must be a .md note path.');
+
+  // Safe-path (throws on traversal / hidden / ignored dirs). Same check the
+  // commit performs via notebaseFs.rename.
+  notebaseFs.assertSafePath(rootPath, fromPath);
+  notebaseFs.assertSafePath(rootPath, toPath);
+
+  let stat: import('node:fs').Stats;
+  try {
+    stat = await fs.stat(path.join(rootPath, fromPath));
+  } catch {
+    throw new RefactorError(`The note to move no longer exists: ${fromPath}`);
+  }
+  if (stat.isDirectory()) throw new RefactorError('Folder moves are not supported here — move a single note.');
+  if (await notebaseFs.fileExists(rootPath, toPath)) {
+    throw new RefactorError(`A file already exists at the destination: ${toPath}`);
+  }
+
+  const ctx = projectContext(rootPath);
+  const rewrites = new Map([[normalizeLinkPath(fromPath), normalizeLinkPath(toPath)]]);
+  const mdRewrites = new Map([[fromPath, toPath]]);
+  const referringNotes = new Set(graph.findNotesLinkingTo(ctx, `${normalizeLinkPath(fromPath)}.md`));
+
+  const affectedNotes: AffectedNote[] = [];
+  for (const currentPath of await listIndexableFiles(rootPath, '')) {
+    const isMoved = currentPath === fromPath;
+    let content: string;
+    try { content = await notebaseFs.readFile(rootPath, currentPath); } catch { continue; }
+
+    let rewritten = content;
+    if (!isMoved && referringNotes.has(currentPath)) {
+      rewritten = rewriteWikiLinks(rewritten, rewrites);
+    }
+    rewritten = rewriteRelativeMarkdownLinks(
+      rewritten,
+      isMoved ? fromPath : currentPath,
+      isMoved ? toPath : currentPath,
+      mdRewrites,
+    );
+    if (rewritten !== content) {
+      affectedNotes.push({ path: currentPath, before: content, after: rewritten, isMoved });
+    }
+  }
+  return { fromPath, toPath, affectedNotes, warnings: [] };
+}
+
 export interface RenameWithLinksOptions {
   /** Called for every relative path we're about to touch so the watcher can dedupe. Optional. */
   markPathHandled?: (relativePath: string) => void;

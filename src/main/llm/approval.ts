@@ -1,6 +1,10 @@
 import * as $rdf from 'rdflib';
 import * as graph from '../graph/index';
 import * as notebaseFs from '../notebase/fs';
+import * as search from '../search/index';
+import * as vectors from '../embeddings/vector-store';
+import { markPathHandled } from '../notebase/path-dedup';
+import { planRename, renameWithLinkRewrites } from '../notebase/rename';
 import type { ProjectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 
@@ -15,7 +19,8 @@ export type OperationType =
   | 'tag_addition'
   | 'staleness_flag'
   | 'component_creation'
-  | 'status_change';
+  | 'status_change'
+  | 'note_refactor';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -74,6 +79,13 @@ export type ProposalPayload =
       query: string;
       language: 'sparql' | 'sql';
       group?: string | null;
+    }
+  | {
+      kind: 'note-refactor';
+      /** Move/rename a single note. Inbound links are rewritten by
+       *  `renameWithLinkRewrites`; rollback restores captured pre-images (#911). */
+      fromPath: string;
+      toPath: string;
     };
 
 export interface ProposedWrite {
@@ -118,6 +130,9 @@ const DEFAULT_POLICY: Record<OperationType, ApprovalTier> = {
   status_change: 'notify_only',
   tag_addition: 'autonomous',
   staleness_flag: 'autonomous',
+  // A move/rename restructures the vault + rewrites links across notes — always
+  // reviewed (#911).
+  note_refactor: 'requires_approval',
 };
 
 let policyOverrides: Partial<Record<OperationType, ApprovalTier>> = {};
@@ -181,7 +196,7 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
 /** Payload kinds that `dispatchApply` actually knows how to apply. Keep in
  *  sync with the `switch` in dispatchApply — the `source` / `saved-query`
  *  kinds are defined on the type but not yet wired to a dispatcher. */
-const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt']);
+const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor']);
 
 /**
  * Reject a bundle containing a payload kind that has no apply dispatcher (#665).
@@ -527,6 +542,34 @@ async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<u
       graph.indexExcerpt(ctx, p.excerptId, p.excerptTtl);
       return { excerptPath: relativePath };
     }
+    case 'note-refactor': {
+      // Capture pre-images of every file the refactor will touch BEFORE applying,
+      // so rollback can restore them verbatim (a reverse rename can mis-rewrite a
+      // note that already linked to the destination). planRename also runs the
+      // guardrails (collision / no-op / unsafe / folder) — it throws on violation.
+      const plan = await planRename(ctx.rootPath, p.fromPath, p.toPath);
+      const preImages: Record<string, string> = {
+        [p.fromPath]: await notebaseFs.readFile(ctx.rootPath, p.fromPath),
+      };
+      for (const a of plan.affectedNotes) {
+        if (!(a.path in preImages)) preImages[a.path] = a.before;
+      }
+
+      const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
+        markPathHandled,
+        reindexHook: (relPath, content) => {
+          if (relPath.endsWith('.md')) {
+            search.indexNote(ctx, relPath, content);
+            void vectors.indexNote(ctx, relPath, content);
+          }
+        },
+        removeHook: (relPath) => {
+          search.removeNote(ctx, relPath);
+          void vectors.removeNote(ctx, relPath);
+        },
+      });
+      return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
+    }
     case 'source':
     case 'saved-query':
       throw new Error(
@@ -555,6 +598,29 @@ async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<
       catch { /* file may already be gone */ }
       // No graph.removeExcerpt today; rollback is best-effort and a reindex
       // reconciles any drift (same posture as the triples-last convention).
+      return;
+    }
+    case 'note-refactor': {
+      const data = a.rollbackData as { fromPath: string; toPath: string; preImages: Record<string, string> };
+      // Move the note back: drop the destination, then restore every captured
+      // pre-image (the moved file at its original path + each rewritten note's
+      // verbatim original content). Reindex each across graph/search/vectors.
+      markPathHandled(data.toPath);
+      try { await notebaseFs.deleteFile(ctx.rootPath, data.toPath); } catch { /* already gone */ }
+      graph.removeNote(ctx, data.toPath);
+      search.removeNote(ctx, data.toPath);
+      void vectors.removeNote(ctx, data.toPath);
+      for (const [relPath, content] of Object.entries(data.preImages)) {
+        try {
+          markPathHandled(relPath);
+          await notebaseFs.writeFile(ctx.rootPath, relPath, content);
+          await graph.indexNote(ctx, relPath, content);
+          search.indexNote(ctx, relPath, content);
+          void vectors.indexNote(ctx, relPath, content);
+        } catch (err) {
+          console.warn(`[approval] note-refactor rollback restore failed for ${relPath}:`, err);
+        }
+      }
       return;
     }
     case 'source':
