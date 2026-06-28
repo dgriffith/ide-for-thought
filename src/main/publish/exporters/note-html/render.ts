@@ -18,6 +18,7 @@ import { buildLinkResolverContext } from '../../link-resolver';
 import { installMath } from '../../../../shared/markdown/math-plugin';
 import { renderVegaBlocks } from '../../vega-render';
 import { renderYouTubeBlocks } from '../../youtube-render';
+import { linkifyLocalMedia } from '../../media-export';
 import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
@@ -41,7 +42,10 @@ export async function renderNoteBody(
   // #904 — degrade `youtube` fences to a linked thumbnail (an `<img>` in a
   // link, so it survives `html: false`). Sync; order vs. Vega is irrelevant —
   // the two operate on disjoint fence languages.
-  const bodyMarkdown = renderYouTubeBlocks(withCharts);
+  const withYouTube = renderYouTubeBlocks(withCharts);
+  // #908 — degrade local audio/video image-refs to links (inlining media into a
+  // single-file export isn't sensible; keep the reference).
+  const bodyMarkdown = linkifyLocalMedia(withYouTube);
   return md.render(bodyMarkdown);
 }
 
