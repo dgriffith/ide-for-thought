@@ -296,6 +296,42 @@ before referencing thought-ontology types), the read-only `search_notes` /
 `read_note` / `query_graph`, and `web_search` / `web_fetch` (set `web: true` to
 default them on).
 
+## Whole-vault skills (reorganization)
+
+Most skills operate on the active note (`context: [fullNote]`). A skill can also
+operate on the **whole thoughtbase** — set no `context` at all (it defaults to
+empty) so the menu item is always enabled, and have the agent discover what it
+needs with read-only tools:
+
+- **`list_notes`** — every note's path + title (the structure, compactly). The
+  starting point for any reorg.
+- **`search_related`** — semantically-near notes/sources/excerpts.
+- `search_notes` / `read_note` / `query_graph` for content, tags, and links.
+
+To restructure the vault, the agent proposes file refactors — and, per the trust
+principle, **only proposes**. The mutation tools:
+
+- **`propose_note_rename`** `{ path, newName }` and **`propose_note_move`**
+  `{ path, destFolder }` — a single move/rename, reviewed as a card showing every
+  note whose links would be rewritten.
+- **`propose_reorganization`** `{ operations: [{ path, newPath }] }` — a **batch**
+  plan: many moves/renames reviewed as one card with per-item checkboxes (the user
+  approves a subset). Inbound wiki-links are rewritten automatically on approval;
+  nothing moves until then.
+
+Stock examples: **Reorganize by Topic** (`organize-by-topic.md`) clusters loose
+notes into topic folders; **Tidy Filenames** (`tidy-filenames.md`) renames toward
+a consistent convention. Both are propose-only — the agent's body must never claim
+to move files itself.
+
+**Worked example.** A flat vault with `raft.md` ↔ `paxos.md` (linking each other)
+and `risotto.md` → `stock.md`, all at the root. "Reorganize by Topic" calls
+`list_notes`, clusters by title, and proposes
+`propose_reorganization([{raft.md → distributed-systems/raft.md}, … ])`. The user
+reviews the plan, ticks the moves they like, and approves — the notes land in
+their folders and every `[[…]]` is rewritten (`[[paxos]]` → `[[distributed-systems/paxos]]`),
+all through the approval engine.
+
 <a name="grouping"></a>
 ## Grouping (thematic sub-menus)
 
