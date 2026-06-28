@@ -14,6 +14,7 @@ import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
 import { patchFrontmatterProperties } from '../../shared/refactor/frontmatter-patch';
 import * as approval from '../llm/approval';
+import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
 import {
@@ -261,6 +262,11 @@ export function registerConversation(): void {
             win.webContents.send(Channels.CONVERSATION_REFACTOR_DRAFT, draft);
           }
         },
+        onReorgDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationReorgDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_REORG_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -430,6 +436,36 @@ export function registerConversation(): void {
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_refactor',
         payloads: [{ kind: 'note-refactor', fromPath: draft.fromPath, toPath: draft.toPath }],
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      if (proposal) await approval.approveProposal(ctx, proposal.uri);
+      return { proposalUri: proposal?.uri ?? null, applied: true };
+    },
+  );
+
+  // Approve a reorganization plan (#914): file + apply the SELECTED items as one
+  // ordered note-refactor bundle. applyBundle applies in order and rolls the whole
+  // bundle back on any failure, so the vault never lands half-reorganized. Each
+  // item re-plans at apply time (picking up earlier moves in the same bundle).
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_REORG_DRAFT,
+    async (
+      e,
+      draft: import('../../shared/conversation-refactor-drafts').ConversationReorgDraft,
+      selected: Array<{ fromPath: string; toPath: string }>,
+    ) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!Array.isArray(selected) || selected.length === 0) {
+        return { proposalUri: null, applied: false };
+      }
+      const { ordered } = orderRefactors(selected);
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'note_refactor',
+        payloads: ordered.map((i) => ({ kind: 'note-refactor' as const, fromPath: i.fromPath, toPath: i.toPath })),
         note: draft.note,
         conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
         proposedBy: `llm:conversation:${draft.conversationId}`,

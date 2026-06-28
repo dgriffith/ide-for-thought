@@ -14,7 +14,7 @@ const h = vi.hoisted(() => {
     conversations: {
       // subscriptions used by ensureSubscriptions()
       onStream: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
-      onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop, onRefactorDraft: noop, onAskUser: noop,
+      onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop, onRefactorDraft: noop, onReorgDraft: noop, onAskUser: noop,
       saveUIState: vi.fn().mockResolvedValue(undefined),
       archive: vi.fn().mockResolvedValue(undefined),
       create: vi.fn(async (contextBundle: unknown, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) => {
