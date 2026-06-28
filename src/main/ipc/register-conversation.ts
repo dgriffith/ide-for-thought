@@ -256,6 +256,11 @@ export function registerConversation(): void {
             win.webContents.send(Channels.CONVERSATION_COMPUTE_DRAFT, draft);
           }
         },
+        onRefactorDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_REFACTOR_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -409,6 +414,28 @@ export function registerConversation(): void {
         applied: true,
         filedPaths,
       };
+    },
+  );
+
+  // Approve a refactor draft (#912): file + auto-apply a note-refactor proposal
+  // (the user already reviewed the card). The blast radius is recomputed at apply
+  // time by planRename, so only fromPath/toPath go onto the payload.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_REFACTOR_DRAFT,
+    async (e, draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!draft?.fromPath || !draft?.toPath) throw new Error('FILE_REFACTOR_DRAFT: draft is missing fromPath/toPath');
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'note_refactor',
+        payloads: [{ kind: 'note-refactor', fromPath: draft.fromPath, toPath: draft.toPath }],
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      if (proposal) await approval.approveProposal(ctx, proposal.uri);
+      return { proposalUri: proposal?.uri ?? null, applied: true };
     },
   );
 

@@ -449,6 +449,10 @@ export const Channels = {
   CONVERSATION_FILE_CLAIMS_DRAFT: 'conversation:fileClaimsDraft',
   /** main → renderer: a propose_compute tool call produced a code-cell draft for review (#245). Payload is ConversationComputeDraft. */
   CONVERSATION_COMPUTE_DRAFT: 'conversation:computeDraft',
+  /** main → renderer: a propose_note_rename/move tool call produced a refactor draft for review (#912). Payload is ConversationRefactorDraft. */
+  CONVERSATION_REFACTOR_DRAFT: 'conversation:refactorDraft',
+  /** renderer → main: user approved a refactor draft — file + apply the note-refactor proposal (#912). */
+  CONVERSATION_FILE_REFACTOR_DRAFT: 'conversation:fileRefactorDraft',
   /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */
   CONVERSATION_RUN_COMPUTE_DRAFT: 'conversation:runComputeDraft',
   /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */

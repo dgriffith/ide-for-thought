@@ -530,6 +530,14 @@ export interface ConversationsApi {
   insertComputeDraft(
     input: import('../../../shared/conversation-compute-drafts').InsertComputeDraftInput,
   ): Promise<import('../../../shared/conversation-compute-drafts').InsertComputeDraftResult>;
+  /** Subscribe to note move/rename drafts from propose_note_rename/move (#912). */
+  onRefactorDraft(
+    cb: (draft: import('../../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => void,
+  ): void;
+  /** Approve a refactor draft — file + apply the note-refactor proposal (#912). */
+  fileRefactorDraft(
+    draft: import('../../../shared/conversation-refactor-drafts').ConversationRefactorDraft,
+  ): Promise<{ proposalUri: string | null; applied: boolean }>;
 }
 
 export interface ProposalsApi {
