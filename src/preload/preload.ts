@@ -276,6 +276,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_SUGGEST, relativePath),
     autoLinkApply: (relativePath: string, accepted: unknown) =>
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_APPLY, relativePath, accepted),
+    applySuggestedLink: (activeRelPath: string, targetRelPath: string) =>
+      ipcRenderer.invoke(Channels.REFACTOR_APPLY_SUGGESTED_LINK, activeRelPath, targetRelPath),
     autoLinkInboundSuggest: (relativePath: string) =>
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, relativePath),
     autoLinkInboundApply: (relativePath: string, accepted: unknown) =>

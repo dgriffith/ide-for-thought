@@ -33,3 +33,10 @@ export function topRelatedNotes(
       score: h.score,
     }));
 }
+
+/** Flag note hits that are already wiki-linked to the active note (#840), so the
+ *  panel can offer a "suggest link" only on unlinked-but-related ones. Non-note
+ *  hits are left untouched (they aren't wiki-link targets). */
+export function markAlreadyLinked(notes: RelatedNote[], linkedRefs: ReadonlySet<string>): RelatedNote[] {
+  return notes.map((n) => (n.kind === 'note' ? { ...n, alreadyLinked: linkedRefs.has(n.ref) } : n));
+}

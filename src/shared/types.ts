@@ -80,6 +80,9 @@ export interface RelatedNote {
   snippet: string;
   /** Cosine similarity in [0, 1]; higher is closer. */
   score: number;
+  /** Note hits only: already wiki-linked to the active note (either direction).
+   *  Drives the unlinked-but-related "suggest link" affordance (#840). */
+  alreadyLinked?: boolean;
 }
 
 export interface RelatedNotesResult {

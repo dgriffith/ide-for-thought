@@ -560,6 +560,8 @@ export interface RefactorApi {
     applied: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
     skipped: import('../../../shared/refactor/auto-link').AutoLinkSuggestion[];
   }>;
+  /** Accept a semantic suggested link — file `[[target]]` under "See also" (#840). */
+  applySuggestedLink(activeRelPath: string, targetRelPath: string): Promise<{ changed: boolean }>;
   autoLinkInboundSuggest(relativePath: string): Promise<{
     suggestions: import('../../../shared/refactor/auto-link-inbound').AutoLinkInboundSuggestion[];
     candidateCount: number;

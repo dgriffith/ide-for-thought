@@ -19,6 +19,8 @@ import {
 import type { FormatSettings } from '../../shared/formatter/engine';
 import type { AutoLinkSuggestion } from '../../shared/refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from '../../shared/refactor/auto-link-inbound';
+import { appendSeeAlsoLink } from '../../shared/refactor/see-also';
+import * as notebaseFs from '../notebase/fs';
 import { rootPathFromEvent, persistIndexes, broadcastRewritten, hooks } from './helpers';
 
 export function registerRefactor(): void {
@@ -40,6 +42,18 @@ export function registerRefactor(): void {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return suggestLinksTo(rootPath, activeRelPath);
+  });
+
+  // Accept a semantic "suggested link" (#840): file `[[target]]` under the
+  // active note's "See also" section. Unlike AutoLink, semantic neighbors share
+  // no anchor word, so it appends rather than inlining. Idempotent.
+  ipcMain.handle(Channels.REFACTOR_APPLY_SUGGESTED_LINK, async (e, activeRelPath: string, targetRelPath: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    const content = await notebaseFs.readFile(rootPath, activeRelPath);
+    const { content: next, changed } = appendSeeAlsoLink(content, targetRelPath);
+    if (changed) await writeAndReindex(rootPath, activeRelPath, next, hooks);
+    return { changed };
   });
 
   ipcMain.handle(
