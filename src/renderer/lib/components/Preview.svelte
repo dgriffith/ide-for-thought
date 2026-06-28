@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import Icon from './Icon.svelte';
   import MarkdownIt from 'markdown-it';
   // The Token *value* (used below for `new Token(...)` to inject a
@@ -36,6 +37,7 @@
   import type { CellResult } from '../ipc/client';
   import { escapeHtml, escapeAttr, stripFrontmatter, countFrontmatterLines } from '../preview/text';
   import { resolveRelativeImagePath, mimeFromPath } from '../preview/image-paths';
+  import { mediaKind, mediaMime } from '../../../shared/media';
   import { type CiteMeta, type QuoteMeta, collapseCiteRows, buildCiteTooltip, buildQuoteTooltip, buildFootnoteTooltip } from '../preview/cite-meta';
   import { findSourceFenceBefore, renderComputeOutput, tableToCsv, outputToMarkdownClipboard } from '../preview/compute-output-render';
 
@@ -315,6 +317,15 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     const alt = altIdx >= 0 ? tok.attrs![altIdx][1] : (tok.content ?? '');
     const titleIdx = tok.attrIndex('title');
     const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx][1])}"` : '';
+    // Local audio/video (#908): emit a player placeholder hydrated to a blob URL
+    // by the post-render pass (videos are too large to base64-inline like images).
+    const kind = mediaKind(rel);
+    if (kind === 'video') {
+      return `<video class="local-media" data-rel="${escapeAttr(rel)}" controls preload="metadata"${title}></video>`;
+    }
+    if (kind === 'audio') {
+      return `<audio class="local-media" data-rel="${escapeAttr(rel)}" controls preload="metadata"${title}></audio>`;
+    }
     return `<img class="local-image" data-rel="${escapeAttr(rel)}" alt="${escapeAttr(alt)}"${title} />`;
   };
 
@@ -492,6 +503,43 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }));
   }
 
+  /**
+   * Blob-URL cache for local audio/video (#908). Unlike images (base64 data
+   * URLs), media is held as `blob:` URLs — a 200 MB video can't be base64-inlined.
+   * Keyed by rel path so a re-render reuses the same blob; revoked on unmount.
+   * (Large-library seeking would want a streaming `app://` protocol — a follow-up.)
+   */
+  const mediaBlobCache = new Map<string, string>();
+
+  /** Post-render hydration for `.local-media[data-rel]` players — fetch the bytes
+   *  and point the element at a blob URL. Mirrors hydrateLocalImages. */
+  async function hydrateLocalMedia(): Promise<void> {
+    const root = previewEl;
+    if (!root) return;
+    const els = Array.from(root.querySelectorAll<HTMLMediaElement>('.local-media[data-rel]'));
+    await Promise.all(els.map(async (el) => {
+      const rel = el.dataset.rel;
+      if (!rel) return;
+      const cached = mediaBlobCache.get(rel);
+      if (cached) { if (el.src !== cached) el.src = cached; return; }
+      try {
+        const bytes = await api.notebase.readBinary(rel);
+        const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        const url = URL.createObjectURL(new Blob([view as BlobPart], { type: mediaMime(rel) }));
+        mediaBlobCache.set(rel, url);
+        el.src = url;
+      } catch (err) {
+        console.warn('[preview] media hydration failed for', rel, err);
+        el.classList.add('local-media-broken');
+      }
+    }));
+  }
+
+  onDestroy(() => {
+    for (const url of mediaBlobCache.values()) URL.revokeObjectURL(url);
+    mediaBlobCache.clear();
+  });
+
   // Query directive plugin: :::query-list ... :::
   md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
     const startPos = state.bMarks[startLine] + state.tShift[startLine];
@@ -666,6 +714,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // binary IPC, swap in a data URL. Cached per-path so re-renders
       // skip the round-trip.
       void hydrateLocalImages();
+      void hydrateLocalMedia();
       // Mermaid hydration (#467) — lazy-loads the library on first use,
       // replaces .mermaid-block placeholders with rendered SVG, surfaces
       // parse errors inline.
@@ -2008,6 +2057,30 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     font-size: 11px;
     font-style: italic;
   }
+  /* Local audio/video players (#908). */
+  .preview :global(video.local-media) {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 6px;
+    display: block;
+    margin: 8px 0;
+    background: #000;
+  }
+  .preview :global(audio.local-media) {
+    width: 100%;
+    margin: 8px 0;
+  }
+  .preview :global(.local-media-broken) {
+    display: inline-block;
+    outline: 1px dashed var(--accent);
+    background: var(--bg-button);
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-style: italic;
+  }
+  .preview :global(.local-media-broken)::after { content: 'media not found'; }
   .preview :global(.compute-output-image.zoomed) {
     cursor: zoom-out;
     max-width: none;

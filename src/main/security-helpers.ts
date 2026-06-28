@@ -45,6 +45,9 @@ export function buildCsp(opts: CspOptions = {}): string {
     ],
     // pdf.js + tesseract spawn workers from blob URLs.
     'worker-src': ["'self'", 'blob:'],
+    // Local audio/video (#908) is hydrated to `blob:` URLs from vault bytes —
+    // local-only; no external media origins (no phone-home).
+    'media-src': ["'self'", 'blob:'],
     // No <object>/<embed>; no <iframe> embed targets either.
     'object-src': ["'none'"],
     'frame-src': ["'none'"],
