@@ -111,6 +111,11 @@ export const ICONS = {
     '<path d="M8 2.5v3M8 10.5v3M2.5 8h3M10.5 8h3"/>' +
     '<path d="m4.5 4.5 1.5 1.5M10 10l1.5 1.5M11.5 4.5 10 6M6 10l-1.5 1.5"/>',
   send: '<path d="M2.5 8 13.5 3 11 13.5 7.5 9.5z"/>',
+  // Dictation (#voice): a capsule mic over a curved stand.
+  mic:
+    '<rect x="6" y="2.5" width="4" height="7" rx="2"/>' +
+    '<path d="M4 7.5a4 4 0 0 0 8 0"/>' +
+    '<path d="M8 11.5V13.5M6 13.5h4"/>',
 
   // ── Note types (sidebar + New Note picker) ───────────────────────
   // `notes` (page-with-fold) is the markdown default; `tables` (grid)

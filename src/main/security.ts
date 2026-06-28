@@ -42,6 +42,32 @@ export function installCsp(): void {
 }
 
 /**
+ * Grant microphone access to the app's own renderer for dictation (#voice),
+ * and deny everything else. Chromium gates `getUserMedia` behind both an async
+ * request handler and a sync check handler; we approve `media` only when the
+ * request originates from our own origin (file:// in prod, the Vite dev server
+ * in dev). The OS-level mic prompt still applies on macOS — this only governs
+ * the in-app Chromium permission layer. No other permission (geolocation,
+ * notifications, …) is ever auto-granted.
+ */
+export function installMediaPermissions(): void {
+  const ownOrigin = (url: string | undefined): boolean =>
+    !!url && isOwnOrigin(url, MAIN_WINDOW_VITE_DEV_SERVER_URL);
+
+  session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
+    if (permission === 'media' && ownOrigin(wc?.getURL())) {
+      callback(true);
+      return;
+    }
+    callback(false);
+  });
+
+  session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
+    return permission === 'media' && ownOrigin(requestingOrigin);
+  });
+}
+
+/**
  * Install the per-WebContents navigation guards. Called once per window
  * from window-manager.createWindow, after the BrowserWindow is built.
  */

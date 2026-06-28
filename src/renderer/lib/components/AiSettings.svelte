@@ -12,6 +12,7 @@
    */
   import { MODEL_OPTIONS } from '../../../shared/tools/models';
   import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
+  import { voiceSettings, VOICE_MODEL_OPTIONS } from '../voice/voice-settings.svelte';
 
   interface Props {
     model: string;
@@ -103,6 +104,30 @@
   {/if}
 </div>
 
+<!-- Voice/dictation (#voice). Unlike the model/key above (saved by the dialog
+     on Done), these are renderer-local prefs persisted immediately to
+     localStorage by the voiceSettings store — the transcriber runs entirely in
+     the renderer, so main never needs them. -->
+<div class="field">
+  <label class="checkbox-row">
+    <input type="checkbox" bind:checked={voiceSettings.enabled} />
+    Enable voice dictation
+  </label>
+  <p class="hint">
+    Shows a microphone in the conversation composer. Speech is transcribed
+    on-device with Whisper — your audio never leaves your computer. The model
+    (tens of MB) downloads once on first use.
+  </p>
+</div>
+<div class="field" class:disabled={!voiceSettings.enabled}>
+  <label for="voice-model">Voice model</label>
+  <select id="voice-model" bind:value={voiceSettings.model} disabled={!voiceSettings.enabled}>
+    {#each VOICE_MODEL_OPTIONS as m}
+      <option value={m.value}>{m.label} — {m.note}</option>
+    {/each}
+  </select>
+</div>
+
 <style>
   /* Shared form vocabulary, scoped to this panel (app's per-dialog convention). */
   .field {
@@ -113,6 +138,14 @@
     font-size: 12px;
   }
   .field label { color: var(--text); }
+  .field.disabled { opacity: 0.5; }
+  .checkbox-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .checkbox-row input { cursor: pointer; }
   .field input[type="password"],
   .field select {
     padding: 5px 8px;

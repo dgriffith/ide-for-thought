@@ -12,5 +12,9 @@
        runtime's library validation would refuse to load them without this. -->
   <key>com.apple.security.cs.disable-library-validation</key>
   <true/>
+  <!-- Microphone access for local dictation (#voice). Required under the
+       hardened runtime for getUserMedia({audio}) to reach the input device. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
 </dict>
 </plist>

@@ -12,10 +12,22 @@ export interface CspOptions {
  *  adapters (Crossref, arXiv, PubMed, Anthropic) talk to their endpoints
  *  in main, so renderer connect-src stays narrow. */
 export const RENDERER_FETCH_HOSTS = [
-  // tesseract.js core/wasm + worker glue. Keep both so a tesseract
-  // upgrade that switches CDN doesn't break OCR silently.
+  // tesseract.js core/wasm + worker glue, and transformers.js's
+  // onnxruntime-web WASM. Keep both so a CDN switch in either doesn't
+  // break OCR / voice silently.
   'https://cdn.jsdelivr.net',
   'https://unpkg.com',
+  // Local Whisper model weights for dictation (#voice) are fetched once
+  // from the HF hub and then cached by the browser. The hub redirects the
+  // actual file bytes to its LFS / Xet CDN, whose hostnames are regional and
+  // drift (cdn-lfs.huggingface.co, us.aws.cdn.hf.co, cas-bridge.xethub.hf.co,
+  // …) — so we allow the hub plus wildcard subdomains of its two CDN apexes
+  // rather than chase individual hosts. CSP `*.hf.co` matches multi-level
+  // subdomains like `us.aws.cdn.hf.co`. Only model weights traverse the
+  // network — captured audio never leaves the renderer.
+  'https://huggingface.co',
+  'https://*.huggingface.co',
+  'https://*.hf.co',
 ];
 
 export function buildCsp(opts: CspOptions = {}): string {
@@ -27,7 +39,9 @@ export function buildCsp(opts: CspOptions = {}): string {
     'default-src': ["'self'"],
     // 'wasm-unsafe-eval' for tesseract.js's bundled wasm. In dev,
     // allow the Vite origin so the bootstrap script + HMR client load.
-    'script-src': ["'self'", "'wasm-unsafe-eval'", ...(dev ? [devServerOrigin!] : [])],
+    // 'blob:' so onnxruntime-web (the Whisper voice backend, #voice) can
+    // load its WASM proxy glue, which it dynamically imports from a blob URL.
+    'script-src': ["'self'", "'wasm-unsafe-eval'", 'blob:', ...(dev ? [devServerOrigin!] : [])],
     // Svelte component styles compile to inline-style attributes; KaTeX
     // also writes inline styles. 'unsafe-inline' for style-src is the
     // accepted compromise — it doesn't apply to script-src.

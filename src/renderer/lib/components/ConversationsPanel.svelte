@@ -3,6 +3,8 @@
   import Icon from './Icon.svelte';
   import { getConversationsStore } from '../stores/conversations.svelte';
   import { getEditorStore } from '../stores/editor.svelte';
+  import { getVoiceStore } from '../voice/voice.svelte';
+  import { voiceSettings } from '../voice/voice-settings.svelte';
   import { api } from '../ipc/client';
   import MarkdownIt from 'markdown-it';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
@@ -93,6 +95,7 @@
 
   const store = getConversationsStore();
   const editor = getEditorStore();
+  const voice = getVoiceStore();
 
   let composerEl = $state<HTMLTextAreaElement>();
   let scrollEl = $state<HTMLDivElement>();
@@ -268,6 +271,27 @@
     if (!tab) return;
     const text = tab.composer;
     await store.send(text, currentNotePath ?? undefined);
+  }
+
+  // ── Dictation (#voice) ──────────────────────────────────────────────────
+  // The mic toggles recording; stopping transcribes the clip locally (Whisper
+  // in a renderer worker) and appends the text to the composer. Audio never
+  // leaves the process — only the model weights are fetched, once.
+  async function toggleDictation() {
+    if (voice.recording) {
+      const text = await voice.stopAndTranscribe();
+      if (text) {
+        const tab = store.activeTab;
+        if (tab) {
+          const sep = tab.composer && !/\s$/.test(tab.composer) ? ' ' : '';
+          store.setComposer(tab.composer + sep + text);
+          await tick();
+          composerEl?.focus();
+        }
+      }
+    } else {
+      await voice.start();
+    }
   }
 
   // ── Slash-command launcher (#648, #822) ─────────────────────────────────
@@ -1226,6 +1250,28 @@
                 <span class="composer-context">{tab.conversation.contextBundle.notePath}</span>
               {/if}
               <span class="composer-spacer"></span>
+              {#if voiceSettings.enabled}
+                {#if voice.status === 'transcribing'}
+                  <span class="composer-voice">Transcribing…</span>
+                {:else if voice.modelProgress}
+                  <span class="composer-voice">{voice.modelProgress}</span>
+                {:else if voice.error}
+                  <span class="composer-voice" title={voice.error}>Mic unavailable</span>
+                {:else if voice.recording}
+                  <span class="composer-voice">Listening…</span>
+                {/if}
+                <button
+                  type="button"
+                  class="mic-btn"
+                  class:recording={voice.recording}
+                  onclick={toggleDictation}
+                  disabled={tab.streaming || voice.status === 'transcribing'}
+                  title={voice.recording ? 'Stop & transcribe' : 'Dictate'}
+                  aria-label={voice.recording ? 'Stop dictation and transcribe' : 'Start dictation'}
+                >
+                  <Icon name="mic" size={13} />
+                </button>
+              {/if}
               {#if costBadge}
                 <span
                   class="composer-cost"
@@ -1916,6 +1962,37 @@
     font-variant-numeric: tabular-nums;
     margin-right: 10px;
     cursor: default;
+  }
+
+  .composer-voice {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-right: 8px;
+  }
+  .mic-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    margin-right: 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .mic-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-button); }
+  .mic-btn:disabled { opacity: 0.4; cursor: default; }
+  /* Recording: tint with the accent and breathe so it's clearly live —
+     no red/danger styling, per the house rules. */
+  .mic-btn.recording {
+    color: var(--accent);
+    animation: mic-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
   }
 
   .send-btn {
