@@ -241,6 +241,10 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
     runComputeDraft: (input: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_RUN_COMPUTE_DRAFT, input),
+    onRefactorDraft: (cb: (draft: unknown) => void) =>
+      subscribeIpc(Channels.CONVERSATION_REFACTOR_DRAFT, cb),
+    fileRefactorDraft: (draft: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, draft),
     insertComputeDraft: (input: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>

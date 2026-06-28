@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readdir } from 'node:fs/promises';
+import nodePath from 'node:path';
 import type Anthropic from '@anthropic-ai/sdk';
 import * as fs from '../notebase/fs';
 import * as graph from '../graph/index';
@@ -32,6 +34,8 @@ import type {
   ConversationSourcePropertyDraft,
   ProposeSourcePropertiesInput,
 } from '../../shared/conversation-source-property-drafts';
+import type { ConversationRefactorDraft } from '../../shared/conversation-refactor-drafts';
+import { planRename, RefactorError } from '../notebase/rename';
 import { scanPythonSafety } from '../../shared/python-safety';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
 import { fixupBundleLinks } from '../../shared/refactor/bundle-link-fixup';
@@ -88,6 +92,9 @@ export interface ToolCallbacks {
    *  Forwards SPARQL / SQL / Python cell drafts to the renderer for
    *  inline review. The user clicks Run / Insert / Discard. */
   onComputeDraft?: (draft: ConversationComputeDraft) => void;
+  /** Counterpart to `onDraft` for `propose_note_rename` / `propose_note_move`
+   *  (#912). Forwards a note move/rename + its blast radius for inline review. */
+  onRefactorDraft?: (draft: ConversationRefactorDraft) => void;
   askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
 }
 
@@ -200,6 +207,49 @@ export const NOTEBASE_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ['sparql'],
+    },
+  },
+  {
+    name: 'list_notes',
+    description:
+      'List the thoughtbase structure: every note\'s relative path, title, and ' +
+      'folder. Read-only. Use this to understand the current layout before ' +
+      'proposing a reorganization (which folders exist, which notes are loose at ' +
+      'the root, naming inconsistencies) — search_notes is for finding by ' +
+      'keyword, this is for seeing the shape.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'propose_note_rename',
+    description:
+      'Propose renaming a note (keep its folder, change the filename). The user ' +
+      'reviews a card showing the new name and every other note whose links ' +
+      'would be rewritten, then approves or discards — nothing moves until then. ' +
+      'Inbound wiki-links are updated automatically on approval.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'The note\'s current thoughtbase-relative path (e.g. "notes/raft.md").' },
+        newName: { type: 'string', description: 'The new filename, with or without ".md" (e.g. "raft-consensus").' },
+      },
+      required: ['path', 'newName'],
+    },
+  },
+  {
+    name: 'propose_note_move',
+    description:
+      'Propose moving a note to a different folder (keep its filename). The user ' +
+      'reviews a card showing the destination and every note whose links would ' +
+      'be rewritten, then approves or discards. Inbound wiki-links and relative ' +
+      'paths are updated automatically on approval. Use list_notes first to see ' +
+      'the folder structure.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'The note\'s current thoughtbase-relative path.' },
+        destFolder: { type: 'string', description: 'Destination folder, relative to the root (e.g. "notes/algorithms"). Empty string = move to the root.' },
+      },
+      required: ['path', 'destFolder'],
     },
   },
   {
@@ -801,6 +851,12 @@ export async function executeNotebaseTool(
         return runQuery(ctx, input);
       case 'search_related':
         return await runSearchRelated(ctx, input);
+      case 'list_notes':
+        return { content: await runListNotes(ctx), isError: false };
+      case 'propose_note_rename':
+        return await runProposeNoteRename(ctx, input, callbacks);
+      case 'propose_note_move':
+        return await runProposeNoteMove(ctx, input, callbacks);
       case 'describe_graph_schema':
         return { content: runDescribeSchema(), isError: false };
       case 'describe_tables':
@@ -916,6 +972,104 @@ function bestPerRef(hits: RelatedHit[]): RelatedHit[] {
     if (!prev || h.score > prev.score) best.set(key, h);
   }
   return [...best.values()].sort((a, b) => b.score - a.score);
+}
+
+// ── Note-refactor proposals (#912) ──────────────────────────────────────────
+
+async function runListNotes(ctx: ToolContext): Promise<string> {
+  const pctx = projectContext(ctx.rootPath);
+  const notes = (await listProjectNotes(ctx.rootPath)).sort();
+  if (notes.length === 0) return 'No notes in this thoughtbase.';
+  const lines = notes.map((p) => `${p} — ${graph.noteTitle(pctx, p)}`);
+  return `${notes.length} notes:\n${lines.join('\n')}`;
+}
+
+/** Every indexable `.md` note under the root, skipping hidden + ignored dirs. */
+async function listProjectNotes(rootPath: string): Promise<string[]> {
+  const out: string[] = [];
+  async function walk(dir: string): Promise<void> {
+    let entries: import('node:fs').Dirent[];
+    try { entries = await readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const full = nodePath.join(dir, entry.name);
+      if (entry.isDirectory()) await walk(full);
+      else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) out.push(nodePath.relative(rootPath, full));
+    }
+  }
+  await walk(rootPath);
+  return out;
+}
+
+async function runProposeNoteRename(
+  ctx: ToolContext, input: unknown, callbacks: ToolCallbacks,
+): Promise<{ content: string; isError: boolean }> {
+  const { path: notePath, newName } = input as { path?: string; newName?: string };
+  if (typeof notePath !== 'string' || !notePath.trim()) return { content: 'path is required.', isError: true };
+  if (typeof newName !== 'string' || !newName.trim()) return { content: 'newName is required.', isError: true };
+  const from = notePath.trim();
+  const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '';
+  let base = newName.trim().split('/').pop()!; // a filename, never a path
+  if (!base.endsWith('.md')) base += '.md';
+  const to = dir ? `${dir}/${base}` : base;
+  return runProposeRefactor(ctx, from, to, callbacks, 'Rename');
+}
+
+async function runProposeNoteMove(
+  ctx: ToolContext, input: unknown, callbacks: ToolCallbacks,
+): Promise<{ content: string; isError: boolean }> {
+  const { path: notePath, destFolder } = input as { path?: string; destFolder?: string };
+  if (typeof notePath !== 'string' || !notePath.trim()) return { content: 'path is required.', isError: true };
+  if (typeof destFolder !== 'string') return { content: 'destFolder is required (use "" to move to the root).', isError: true };
+  const from = notePath.trim();
+  const base = from.split('/').pop()!;
+  const folder = destFolder.trim().replace(/^\/+|\/+$/g, '');
+  const to = folder ? `${folder}/${base}` : base;
+  return runProposeRefactor(ctx, from, to, callbacks, 'Move');
+}
+
+/** Shared core: dry-run the rename (validates guardrails + computes the blast
+ *  radius), then emit a refactor draft for review. Never moves the note. */
+async function runProposeRefactor(
+  ctx: ToolContext, fromPath: string, toPath: string, callbacks: ToolCallbacks, verb: 'Rename' | 'Move',
+): Promise<{ content: string; isError: boolean }> {
+  if (!callbacks.onRefactorDraft) {
+    return { content: `propose_note_${verb.toLowerCase()} is only available in conversation contexts.`, isError: true };
+  }
+  if (!ctx.conversationId) {
+    return { content: `propose_note_${verb.toLowerCase()} requires a bound conversation id.`, isError: true };
+  }
+  let plan: Awaited<ReturnType<typeof planRename>>;
+  try {
+    plan = await planRename(ctx.rootPath, fromPath, toPath);
+  } catch (e) {
+    if (e instanceof RefactorError) return { content: `Cannot ${verb.toLowerCase()}: ${e.message}`, isError: true };
+    throw e;
+  }
+
+  const draft: ConversationRefactorDraft = {
+    draftId: `refactor-${randomUUID()}`,
+    conversationId: ctx.conversationId,
+    note: `${verb} ${fromPath} → ${toPath}`,
+    fromPath,
+    toPath,
+    affectedNotes: plan.affectedNotes.map((a) => ({ path: a.path, before: a.before, after: a.after, isMoved: a.isMoved })),
+    createdAt: new Date().toISOString(),
+  };
+  callbacks.onRefactorDraft(draft);
+
+  return {
+    content: JSON.stringify({
+      status: 'drafted',
+      draftId: draft.draftId,
+      fromPath,
+      toPath,
+      notesWithLinkRewrites: plan.affectedNotes.filter((a) => !a.isMoved).length,
+      hint: 'STOP. The move/rename is queued for the user to review and approve — nothing has changed yet. ' +
+        'End the turn with one short acknowledgement and do NOT call this tool again this turn.',
+    }),
+    isError: false,
+  };
 }
 
 async function runRead(ctx: ToolContext, input: unknown): Promise<string> {
