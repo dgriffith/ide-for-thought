@@ -12,7 +12,7 @@ const h = vi.hoisted(() => {
   const api = {
     conversations: {
       onStream: noop, onDraft: noop, onSourceDraft: noop, onPropertyDraft: noop,
-      onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop, onAskUser: noop,
+      onSourcePropertyDraft: noop, onClaimsDraft: noop, onComputeDraft: noop, onRefactorDraft: noop, onAskUser: noop,
       saveUIState: vi.fn().mockResolvedValue(undefined),
       create: vi.fn(async (contextBundle: unknown) => ({
         id: `conv-${nextId++}`,

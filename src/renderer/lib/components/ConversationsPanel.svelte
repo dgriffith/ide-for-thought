@@ -41,6 +41,8 @@
   import MessageCitations from './MessageCitations.svelte';
   import DraftCard from './DraftCard.svelte';
   import ComputeDraftCard from './ComputeDraftCard.svelte';
+  import RefactorDraftCard from './RefactorDraftCard.svelte';
+  import type { ConversationRefactorDraft } from '../../../shared/conversation-refactor-drafts';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../conversations/slash-commands';
   import {
@@ -385,6 +387,20 @@
     store.discardDraft(tabId, draftId);
   }
 
+  async function handleApproveRefactor(tabId: string, draft: ConversationRefactorDraft) {
+    try {
+      await store.approveRefactorDraft(tabId, draft);
+      // Land the user on the note at its new path.
+      void editor.openFile(draft.toPath);
+    } catch (e) {
+      console.error('[conv-panel] approve refactor failed:', e);
+    }
+  }
+
+  function handleDiscardRefactor(tabId: string, draftId: string) {
+    store.discardRefactorDraft(tabId, draftId);
+  }
+
   async function handleApproveSource(tabId: string, draft: ConversationSourceDraft) {
     try {
       await store.approveSourceDraft(tabId, draft);
@@ -579,6 +595,13 @@
   function orphanComputeDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.computeDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function refactorDraftsAt(tab: TabT, i: number) {
+    return tab.refactorDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function orphanRefactorDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.refactorDrafts.filter((d) => d.afterMessageIndex >= max);
   }
 </script>
 
@@ -1007,6 +1030,13 @@
                 onOpenInserted={openInsertedNote}
               />
             {/each}
+            {#each refactorDraftsAt(tab, i) as draft (draft.draftId)}
+              <RefactorDraftCard
+                {draft}
+                onApprove={() => handleApproveRefactor(tab.id, draft)}
+                onDiscard={() => handleDiscardRefactor(tab.id, draft.draftId)}
+              />
+            {/each}
           {/each}
 
           {#if tab.streaming}
@@ -1105,6 +1135,13 @@
               onInsert={onInsertCompute}
               onDiscard={onDiscardCompute}
               onOpenInserted={openInsertedNote}
+            />
+          {/each}
+          {#each orphanRefactorDrafts(tab) as draft (draft.draftId)}
+            <RefactorDraftCard
+              {draft}
+              onApprove={() => handleApproveRefactor(tab.id, draft)}
+              onDiscard={() => handleDiscardRefactor(tab.id, draft.draftId)}
             />
           {/each}
         </div>
