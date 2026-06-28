@@ -18,7 +18,9 @@
   import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
   import { installHighlight } from '../../../shared/markdown/highlight-plugin';
   import { installCallouts } from '../markdown/callout-plugin';
-  import { installWikiLinks, installNoteTags } from '../markdown/inline-tokens-plugin';
+  import { installWikiLinks, installNoteTags, installTransclusions } from '../markdown/inline-tokens-plugin';
+  import { parseTransclusionTarget, sliceTransclusion } from '../../../shared/transclusion';
+  import { resolveWikiLinkTarget, flattenNoteFiles } from '../../../shared/wiki-link-resolver';
   import { hydrateMermaidBlocks, invalidateMermaidTheme } from '../markdown/mermaid-renderer';
   import { hydrateVegaBlocks, invalidateVegaTheme } from '../markdown/vega-renderer';
   import { renderYouTubeFence } from '../markdown/youtube-embed';
@@ -161,6 +163,12 @@ PREFIX csvw: <http://www.w3.org/ns/csvw#>
 PREFIX prov: <http://www.w3.org/ns/prov#>
 `;
 
+  // When rendering a transcluded fragment (#906), relative image paths inside
+  // it resolve against the *embedded* note's location, not the host's. md.render
+  // is synchronous, so a module-scoped override set just before the fragment
+  // render (and cleared after) threads that context into the image rule below.
+  let renderPathOverride: string | null = null;
+
   const md = new MarkdownIt({
     html: true,
     linkify: true,
@@ -289,6 +297,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   // Wiki-link plugin: [[type::target|display]], [[type::target]], [[target|display]], [[target]]
   installWikiLinks(md);
   installNoteTags(md);
+  installTransclusions(md);
 
   /**
    * Image rule (#244). markdown-it would normally emit `<img src="…">`
@@ -310,7 +319,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // Absolute / data URL — render normally.
       return self.renderToken(tokens, idx, options);
     }
-    const rel = resolveRelativeImagePath(src, notePath);
+    const rel = resolveRelativeImagePath(src, renderPathOverride ?? notePath);
     const altIdx = tok.attrIndex('alt');
     const alt = altIdx >= 0 ? tok.attrs![altIdx][1] : (tok.content ?? '');
     const titleIdx = tok.attrIndex('title');
@@ -492,6 +501,101 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }));
   }
 
+  /**
+   * Transclusion hydration (#906). Walk `.transclusion[data-embed]`
+   * placeholders, resolve each `![[target]]` to a note, slice out the
+   * requested section/block, render it through this same markdown
+   * pipeline, and inject it inline. Nested embeds resolve over repeated
+   * passes; a per-placeholder ancestry chain (seeded with the host note)
+   * catches loops, and a depth cap stops runaway nesting. Missing notes /
+   * headings / blocks degrade to a visible inline notice.
+   */
+  const TRANSCLUSION_MAX_DEPTH = 5;
+  async function hydrateTransclusions(): Promise<void> {
+    const root = previewEl;
+    if (!root) return;
+    if (!root.querySelector('.transclusion[data-embed]:not([data-resolved])')) return;
+
+    let flat: { relativePath: string; isDirectory: boolean }[] = [];
+    let aliasMap: Record<string, string> = {};
+    try {
+      const tree = await api.notebase.listFiles();
+      flat = flattenNoteFiles(tree).map((f) => ({ relativePath: f.relativePath, isDirectory: false }));
+    } catch { /* tree not ready — every embed will degrade to a notice */ }
+    try { aliasMap = await api.graph.aliasMap(); } catch { /* no aliases */ }
+
+    const hostChain = notePath ? [notePath] : [];
+    const notice = (ph: HTMLElement, text: string, cls: string) => {
+      ph.innerHTML = `<div class="transclusion-notice ${cls}"></div>`;
+      (ph.firstElementChild as HTMLElement).textContent = text;
+      ph.dataset.resolved = '1';
+    };
+
+    let injected = false;
+    for (let pass = 0; pass <= TRANSCLUSION_MAX_DEPTH; pass++) {
+      const todo = Array.from(
+        root.querySelectorAll<HTMLElement>('.transclusion[data-embed]:not([data-resolved])'),
+      );
+      if (todo.length === 0) break;
+
+      for (const ph of todo) {
+        const embed = ph.dataset.embed ?? '';
+        const target = parseTransclusionTarget(embed);
+        // Ancestry: nearest already-resolved transclusion above us carries the
+        // chain of source paths; top-level embeds inherit the host note's.
+        const ancestor = ph.parentElement?.closest<HTMLElement>('.transclusion[data-chain]');
+        const chain = ancestor?.dataset.chain ? JSON.parse(ancestor.dataset.chain) as string[] : hostChain;
+
+        const rel = resolveWikiLinkTarget(target.path, flat, aliasMap);
+        if (!rel) { notice(ph, `Note “${target.path}” not found`, 'transclusion-missing'); continue; }
+        if (chain.includes(rel)) { notice(ph, `Transclusion loop: ${target.path}`, 'transclusion-loop'); continue; }
+        if (chain.length > TRANSCLUSION_MAX_DEPTH) { notice(ph, 'Transclusion nested too deep', 'transclusion-loop'); continue; }
+
+        let fileContent: string;
+        try { fileContent = await api.notebase.readFile(rel); }
+        catch { notice(ph, `Could not read “${target.path}”`, 'transclusion-missing'); continue; }
+
+        const slice = sliceTransclusion(fileContent, target);
+        if (!slice.ok) { notice(ph, slice.reason ?? 'Embedded content unavailable', 'transclusion-missing'); continue; }
+
+        renderPathOverride = rel;
+        let html: string;
+        try { html = md.render(slice.text); } finally { renderPathOverride = null; }
+
+        const label = target.heading ? `${target.path} › ${target.heading}`
+          : target.blockId ? `${target.path} › ^${target.blockId}` : target.path;
+        const header = document.createElement('a');
+        header.className = 'transclusion-open';
+        header.dataset.target = target.path;
+        header.textContent = label;
+        const body = document.createElement('div');
+        body.className = 'transclusion-body';
+        body.innerHTML = html;
+        ph.replaceChildren(header, body);
+        ph.dataset.chain = JSON.stringify([...chain, rel]);
+        ph.dataset.resolved = '1';
+        injected = true;
+      }
+    }
+
+    // Anything still unresolved bottomed out at the depth cap.
+    root.querySelectorAll<HTMLElement>('.transclusion[data-embed]:not([data-resolved])')
+      .forEach((ph) => notice(ph, 'Transclusion nested too deep', 'transclusion-loop'));
+
+    // Embedded fragments carry their own images / charts / cards / cite links —
+    // run the same post-render battery over the freshly injected subtree.
+    if (injected) {
+      void hydrateLocalImages();
+      const cites = root.querySelectorAll('.cite-link');
+      cites.forEach((el) => resolveCiteLabel(el as HTMLElement));
+      const quotes = root.querySelectorAll('.quote-link');
+      quotes.forEach((el) => resolveQuoteLabel(el as HTMLElement));
+      void hydrateMermaidBlocks(root);
+      void hydrateVegaBlocks(root, content);
+      hydrateCardCallouts(root);
+    }
+  }
+
   // Query directive plugin: :::query-list ... :::
   md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
     const startPos = state.bMarks[startLine] + state.tShift[startLine];
@@ -666,6 +770,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       // binary IPC, swap in a data URL. Cached per-path so re-renders
       // skip the round-trip.
       void hydrateLocalImages();
+      // Transclusion hydration (#906) — resolve `![[note]]` / `![[note#H]]` /
+      // `![[note^block]]` embeds, slicing + re-rendering the target inline.
+      void hydrateTransclusions();
       // Mermaid hydration (#467) — lazy-loads the library on first use,
       // replaces .mermaid-block placeholders with rendered SVG, surfaces
       // parse errors inline.
@@ -1060,6 +1167,15 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
       e.preventDefault();
       const linkTarget = wikiLink.dataset.target;
       if (linkTarget) onNavigate(linkTarget);
+      return;
+    }
+
+    // Transclusion header → open the embedded note (#906).
+    const transclusionOpen = el.closest<HTMLElement>('.transclusion-open');
+    if (transclusionOpen) {
+      e.preventDefault();
+      const t = transclusionOpen.dataset.target;
+      if (t) onNavigate(t);
       return;
     }
 
@@ -1689,6 +1805,54 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
   .preview :global(.wiki-link:hover) {
     background: color-mix(in oklch, var(--accent) 18%, transparent);
     text-decoration: none;
+  }
+
+  /* Transclusion embeds (#906) — a framed, slightly inset block so the
+     reader can tell embedded content from the host note's own prose. */
+  .preview :global(.transclusion) {
+    margin: 0.75em 0;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--accent) 4%, transparent);
+    overflow: hidden;
+  }
+  .preview :global(.transclusion-loading) {
+    padding: 8px 12px;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.9em;
+    opacity: 0.7;
+  }
+  .preview :global(.transclusion-open) {
+    display: block;
+    padding: 4px 12px;
+    font-family: var(--font-sans);
+    font-size: 0.8em;
+    color: var(--text-muted);
+    background: color-mix(in oklch, var(--accent) 8%, transparent);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .preview :global(.transclusion-open:hover) {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .preview :global(.transclusion-body) {
+    padding: 2px 14px;
+  }
+  /* Collapse the embedded body's outer margins so it sits flush in the frame. */
+  .preview :global(.transclusion-body > :first-child) { margin-top: 0; }
+  .preview :global(.transclusion-body > :last-child) { margin-bottom: 0; }
+  .preview :global(.transclusion-notice) {
+    padding: 8px 12px;
+    font-family: var(--font-sans);
+    font-size: 0.85em;
+    color: var(--text-muted);
+  }
+  .preview :global(.transclusion-loop) {
+    border-left-color: var(--text-muted);
   }
 
   .preview :global(.typed-link) {

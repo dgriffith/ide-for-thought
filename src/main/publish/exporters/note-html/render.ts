@@ -18,6 +18,7 @@ import { buildLinkResolverContext } from '../../link-resolver';
 import { installMath } from '../../../../shared/markdown/math-plugin';
 import { renderVegaBlocks } from '../../vega-render';
 import { renderYouTubeBlocks } from '../../youtube-render';
+import { resolveTransclusions } from '../../transclusion-resolve';
 import type { ExportPlanFile, ExportPlan } from '../../types';
 import type { CitationRenderer } from '../../csl';
 
@@ -34,10 +35,14 @@ export async function renderNoteBody(
   renderer?: CitationRenderer,
 ): Promise<string> {
   const md = buildMd(plan, renderer);
+  // #906 — inline `![[note]]` / `![[note#H]]` / `![[note^block]]` embeds before
+  // anything else, so the embedded content's own charts / links get processed
+  // by the passes below. Resolved against the export's note set (in memory).
+  const inlined = resolveTransclusions(stripFrontmatter(file.content), file.relativePath, plan.inputs);
   // #831 — pre-render ```vega-lite / ```vega fences to static SVG images
   // before markdown rendering (md.render is sync; vega's toSVG is async).
   // The result is `<img>` markdown, so it survives the `html: false` instance.
-  const withCharts = await renderVegaBlocks(stripFrontmatter(file.content), { rootPath: plan.rootPath });
+  const withCharts = await renderVegaBlocks(inlined, { rootPath: plan.rootPath });
   // #904 — degrade `youtube` fences to a linked thumbnail (an `<img>` in a
   // link, so it survives `html: false`). Sync; order vs. Vega is irrelevant —
   // the two operate on disjoint fence languages.

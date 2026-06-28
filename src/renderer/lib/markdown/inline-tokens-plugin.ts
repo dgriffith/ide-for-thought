@@ -10,8 +10,39 @@
  */
 
 import type MarkdownIt from 'markdown-it';
+import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
 import { getLinkType } from '../../../shared/link-types';
 import { escapeHtml, escapeAttr } from '../preview/text';
+
+/**
+ * Transclusion embeds (#906) — a line that is solely `![[target]]`,
+ * `![[target#Heading]]`, or `![[target^block]]` becomes a block-level
+ * placeholder the Preview's post-render pass fills with the embedded
+ * content. A block rule (not inline) so the embedded content isn't
+ * trapped inside a `<p>`, and so mid-sentence `![[x]]` is left alone.
+ */
+export function installTransclusions(md: MarkdownIt): void {
+  md.block.ruler.before('fence', 'transclusion', (state: StateBlock, startLine: number, _endLine: number, silent: boolean) => {
+    const pos = state.bMarks[startLine] + state.tShift[startLine];
+    const max = state.eMarks[startLine];
+    const line = state.src.slice(pos, max).trim();
+    const match = line.match(/^!\[\[([^\]]+?)\]\]$/);
+    if (!match) return false;
+    if (silent) return true;
+    state.line = startLine + 1;
+    const token = state.push('transclusion', 'div', 0);
+    token.map = [startLine, state.line];
+    token.meta = { embed: match[1].trim() };
+    token.block = true;
+    return true;
+  });
+
+  md.renderer.rules.transclusion = (tokens, idx) => {
+    const { embed } = tokens[idx].meta as { embed: string };
+    return `<div class="transclusion" data-embed="${escapeAttr(embed)}">`
+      + `<div class="transclusion-loading">${escapeHtml(embed)}</div></div>\n`;
+  };
+}
 
 /** `[[…]]` wiki links — plain, with display override, and typed (`type::`). */
 export function installWikiLinks(md: MarkdownIt): void {
