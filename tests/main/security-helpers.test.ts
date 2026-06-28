@@ -11,18 +11,25 @@ describe('buildCsp (#339)', () => {
   it('production CSP: strict default-src self, no external script-src, no inline script', () => {
     const csp = buildCsp();
     expect(csp).toMatch(/default-src 'self'/);
-    // 'self' + 'wasm-unsafe-eval' for tesseract; nothing else for scripts.
-    expect(csp).toMatch(/script-src 'self' 'wasm-unsafe-eval'/);
+    // 'self' + 'wasm-unsafe-eval' for tesseract; 'blob:' for onnxruntime-web's
+    // WASM proxy glue (#voice); nothing else for scripts.
+    expect(csp).toMatch(/script-src 'self' 'wasm-unsafe-eval' blob:/);
     // Crucially, no 'unsafe-inline' for script-src.
     const scriptSrc = csp.match(/script-src ([^;]+)/)![1];
     expect(scriptSrc).not.toContain("'unsafe-inline'");
-    // No external host in script-src in prod.
+    // No external host in script-src in prod (blob: is a local scheme, not a host).
     expect(scriptSrc).not.toMatch(/https?:/);
   });
 
   it('connect-src allows the renderer-direct hosts but is otherwise tight', () => {
     const csp = buildCsp();
     expect(csp).toMatch(/connect-src 'self' https:\/\/cdn\.jsdelivr\.net https:\/\/unpkg\.com/);
+    // Whisper model weights for voice dictation (#voice) come from the HF hub,
+    // whose file bytes redirect to regional LFS/Xet CDN subdomains.
+    const connectSrc = csp.match(/connect-src ([^;]+)/)![1];
+    expect(connectSrc).toContain('https://huggingface.co');
+    expect(connectSrc).toContain('https://*.huggingface.co');
+    expect(connectSrc).toContain('https://*.hf.co');
     // No leakage to the main-process API hosts (those are server-side calls).
     expect(csp).not.toContain('api.crossref.org');
     expect(csp).not.toContain('api.anthropic.com');
@@ -56,7 +63,7 @@ describe('buildCsp (#339)', () => {
 
   it('dev mode adds the Vite origin to script-src and connect-src + ws to connect-src', () => {
     const csp = buildCsp({ devServerOrigin: 'http://localhost:5173' });
-    expect(csp).toMatch(/script-src 'self' 'wasm-unsafe-eval' http:\/\/localhost:5173/);
+    expect(csp).toMatch(/script-src 'self' 'wasm-unsafe-eval' blob: http:\/\/localhost:5173/);
     const connectSrc = csp.match(/connect-src ([^;]+)/)![1];
     expect(connectSrc).toContain('http://localhost:5173');
     expect(connectSrc).toContain('ws://localhost:5173');

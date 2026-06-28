@@ -123,6 +123,13 @@ const config: ForgeConfig = {
     // `.icns` on macOS and `.ico` on Windows. Linux has no embedded app icon,
     // so the window/taskbar icon is set at runtime from resources/icons.
     icon: path.resolve(process.cwd(), 'assets', 'Minerva'),
+    // macOS shows this string in the system microphone-permission prompt the
+    // first time dictation (#voice) calls getUserMedia. Without it, the
+    // hardened-runtime app is denied the mic outright.
+    extendInfo: {
+      NSMicrophoneUsageDescription:
+        'Minerva uses the microphone for on-device voice dictation. Audio is transcribed locally and never leaves your computer.',
+    },
     // Stage `resources/python/minerva_kernel.py` (and anything else
     // we drop under `resources/`) next to the main bundle in the
     // packaged app, so process.resourcesPath finds it (#241).

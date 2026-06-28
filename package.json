@@ -38,6 +38,7 @@
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/ibm-plex-serif": "^5.2.7",
+    "@huggingface/transformers": "^4.2.0",
     "@mozilla/readability": "^0.6.0",
     "@retorquere/bibtex-parser": "^9.0.29",
     "@types/markdown-it-footnote": "^3.0.4",

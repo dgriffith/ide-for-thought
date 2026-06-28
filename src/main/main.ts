@@ -9,7 +9,7 @@ import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
 import { registerBuiltinExporters } from './publish';
-import { installCsp } from './security';
+import { installCsp, installMediaPermissions } from './security';
 import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { stopClipperServer } from './clipper/lifecycle';
@@ -38,6 +38,7 @@ void app.whenReady().then(async () => {
     app.dock?.setIcon(appIconPath());
   }
   installCsp();
+  installMediaPermissions();
   boot('csp installed');
   registerIpcHandlers();
   boot('ipc handlers registered');
