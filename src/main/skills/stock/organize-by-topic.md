@@ -24,11 +24,12 @@ You are proposing a tidier **folder organization** for a thoughtbase: cluster re
 2. **Find the clusters.** Group notes by what they're *about*, reading from titles first. When a title is ambiguous and would change which cluster a note belongs to, use `read_note` on that one note — don't read the whole vault (it's slow and rarely needed). `query_graph` can surface tags / link structure if titles aren't enough.
 3. **Design a conservative structure.** Propose topic folders only for clusters that are genuinely cohesive (≈3+ related notes). Prefer a shallow tree — one level of topic folders is usually right; don't over-nest. **Leave a note where it is** when it's already well-placed or doesn't clearly belong to a cluster — a half-organized vault the user trusts beats an over-organized one they don't.
 4. **Propose the plan.** Call `propose_reorganization` ONCE. Each operation is `{ path: <current path>, newPath: <topic-folder>/<same filename> }`. **Move only — keep each note's filename unchanged** (renaming for consistency is a separate skill). Use clear, lowercase folder names (e.g. `notes/distributed-systems/`).
-5. **Explain briefly, then stop.** After `propose_reorganization` returns, end the turn with one or two sentences naming the topic folders you proposed and how many notes each gathers. Do NOT call the tool again this turn, and do NOT claim anything has moved — it hasn't until the user approves.
+5. **Optionally, propose deletions — sparingly.** If the survey turns up notes that are genuinely worthless to keep — empty stubs, exact duplicates, or notes whose entire content you're folding into another — you may call `propose_note_delete` with their paths. It queues a deletion the user reviews per-note (with each note's inbound-link blast radius) and approves or rejects, exactly like a move. Use it only for clearly redundant notes; when in doubt, move rather than delete. **Never** tell the user to delete notes by hand or hand them a shell script — that's what this tool is for.
+6. **Explain briefly, then stop.** After proposing, end the turn with one or two sentences naming the topic folders (and any deletions) you proposed. Do NOT call the tools again this turn, and do NOT claim anything has changed — it hasn't until the user approves.
 
 ## Constraints
 
-- **Propose, never apply.** Your only mutation tool is `propose_reorganization`, which queues a plan for review. You cannot and must not move files yourself.
+- **Propose, never apply.** Your mutation tools are `propose_reorganization` (moves/renames) and `propose_note_delete` (removals) — both queue for review. You cannot and must not move or delete files yourself.
 - Keep filenames identical — only the folder changes.
 - Don't propose moving a note that's already in a sensible folder.
 - If the vault is already well-organized, say so and propose little or nothing rather than inventing churn.

@@ -20,7 +20,8 @@ export type OperationType =
   | 'staleness_flag'
   | 'component_creation'
   | 'status_change'
-  | 'note_refactor';
+  | 'note_refactor'
+  | 'note_delete';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -86,6 +87,14 @@ export type ProposalPayload =
        *  `renameWithLinkRewrites`; rollback restores captured pre-images (#911). */
       fromPath: string;
       toPath: string;
+    }
+  | {
+      kind: 'note-delete';
+      /** Delete a single note. Apply captures the file's content as a
+       *  pre-image so rollback can recreate it verbatim. Inbound wiki-links
+       *  are intentionally left dangling (matching the manual-delete path),
+       *  with the blast radius shown on the review card. */
+      path: string;
     };
 
 export interface ProposedWrite {
@@ -133,6 +142,8 @@ const DEFAULT_POLICY: Record<OperationType, ApprovalTier> = {
   // A move/rename restructures the vault + rewrites links across notes — always
   // reviewed (#911).
   note_refactor: 'requires_approval',
+  // Deleting a note is destructive — always reviewed, never autonomous.
+  note_delete: 'requires_approval',
 };
 
 let policyOverrides: Partial<Record<OperationType, ApprovalTier>> = {};
@@ -196,7 +207,7 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
 /** Payload kinds that `dispatchApply` actually knows how to apply. Keep in
  *  sync with the `switch` in dispatchApply — the `source` / `saved-query`
  *  kinds are defined on the type but not yet wired to a dispatcher. */
-const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor']);
+const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor', 'note-delete']);
 
 /**
  * Reject a bundle containing a payload kind that has no apply dispatcher (#665).
@@ -570,6 +581,20 @@ async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<u
       });
       return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
     }
+    case 'note-delete': {
+      // Capture the file content before deleting so rollback can recreate it
+      // verbatim. markPathHandled suppresses the watcher's re-index of the
+      // unlink (it still broadcasts NOTEBASE_FILE_DELETED so the renderer
+      // closes the tab + refreshes the tree). De-index across graph/search/
+      // vectors mirrors the manual delete path.
+      const content = await notebaseFs.readFile(ctx.rootPath, p.path);
+      markPathHandled(p.path);
+      await notebaseFs.deleteFile(ctx.rootPath, p.path);
+      graph.removeNote(ctx, p.path);
+      search.removeNote(ctx, p.path);
+      void vectors.removeNote(ctx, p.path);
+      return { path: p.path, content };
+    }
     case 'source':
     case 'saved-query':
       throw new Error(
@@ -620,6 +645,21 @@ async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<
         } catch (err) {
           console.warn(`[approval] note-refactor rollback restore failed for ${relPath}:`, err);
         }
+      }
+      return;
+    }
+    case 'note-delete': {
+      // Recreate the deleted note from its captured pre-image and reindex.
+      const data = a.rollbackData as { path: string; content: string };
+      try {
+        markPathHandled(data.path);
+        await notebaseFs.createFile(ctx.rootPath, data.path);
+        await notebaseFs.writeFile(ctx.rootPath, data.path, data.content);
+        await graph.indexNote(ctx, data.path, data.content);
+        search.indexNote(ctx, data.path, data.content);
+        void vectors.indexNote(ctx, data.path, data.content);
+      } catch (err) {
+        console.warn(`[approval] note-delete rollback restore failed for ${data.path}:`, err);
       }
       return;
     }

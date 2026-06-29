@@ -249,6 +249,10 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.CONVERSATION_REORG_DRAFT, cb),
     fileReorgDraft: (draft: unknown, selected: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_FILE_REORG_DRAFT, draft, selected),
+    onDeleteDraft: (cb: (draft: unknown) => void) =>
+      subscribeIpc(Channels.CONVERSATION_DELETE_DRAFT, cb),
+    fileDeleteDraft: (draft: unknown, selected: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
     insertComputeDraft: (input: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>

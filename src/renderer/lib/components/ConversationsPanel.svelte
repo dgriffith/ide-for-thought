@@ -45,7 +45,8 @@
   import ComputeDraftCard from './ComputeDraftCard.svelte';
   import RefactorDraftCard from './RefactorDraftCard.svelte';
   import ReorgDraftCard from './ReorgDraftCard.svelte';
-  import type { ConversationRefactorDraft, ConversationReorgDraft } from '../../../shared/conversation-refactor-drafts';
+  import DeleteDraftCard from './DeleteDraftCard.svelte';
+  import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../conversations/slash-commands';
   import {
@@ -442,6 +443,20 @@
     store.discardReorgDraft(tabId, draftId);
   }
 
+  async function handleApproveDelete(
+    tabId: string, draft: ConversationDeleteDraft, selected: string[],
+  ) {
+    try {
+      await store.approveDeleteDraft(tabId, draft, selected);
+    } catch (e) {
+      console.error('[conv-panel] approve delete failed:', e);
+    }
+  }
+
+  function handleDiscardDelete(tabId: string, draftId: string) {
+    store.discardDeleteDraft(tabId, draftId);
+  }
+
   async function handleApproveSource(tabId: string, draft: ConversationSourceDraft) {
     try {
       await store.approveSourceDraft(tabId, draft);
@@ -650,6 +665,13 @@
   function orphanReorgDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.reorgDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function deleteDraftsAt(tab: TabT, i: number) {
+    return tab.deleteDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function orphanDeleteDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.deleteDrafts.filter((d) => d.afterMessageIndex >= max);
   }
 </script>
 
@@ -1092,6 +1114,13 @@
                 onDiscard={() => handleDiscardReorg(tab.id, draft.draftId)}
               />
             {/each}
+            {#each deleteDraftsAt(tab, i) as draft (draft.draftId)}
+              <DeleteDraftCard
+                {draft}
+                onApprove={(selected) => handleApproveDelete(tab.id, draft, selected)}
+                onDiscard={() => handleDiscardDelete(tab.id, draft.draftId)}
+              />
+            {/each}
           {/each}
 
           {#if tab.streaming}
@@ -1204,6 +1233,13 @@
               {draft}
               onApprove={(selected) => handleApproveReorg(tab.id, draft, selected)}
               onDiscard={() => handleDiscardReorg(tab.id, draft.draftId)}
+            />
+          {/each}
+          {#each orphanDeleteDrafts(tab) as draft (draft.draftId)}
+            <DeleteDraftCard
+              {draft}
+              onApprove={(selected) => handleApproveDelete(tab.id, draft, selected)}
+              onDiscard={() => handleDiscardDelete(tab.id, draft.draftId)}
             />
           {/each}
         </div>

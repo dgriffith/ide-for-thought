@@ -59,3 +59,34 @@ export interface ConversationReorgDraft {
   createdAt: string;
 }
 
+/** One note proposed for deletion within a `propose_note_delete` batch
+ *  (#voice-adjacent reorg cleanup). The card surfaces `inbound` so the user
+ *  sees what will be left with dangling links before they approve. */
+export interface DeleteDraftItem {
+  path: string;
+  /** Note title (frontmatter / first heading), falling back to the path. */
+  title: string;
+  /** Notes OUTSIDE the deletion set that link into this note — i.e. links
+   *  that will dangle once it's gone. Empty when nothing points here. */
+  inbound: { source: string; sourceTitle: string; linkCount: number }[];
+}
+
+/**
+ * A batch note-deletion proposed by `propose_note_delete`. Like every other
+ * conversation draft, the tool NEVER deletes — it forwards this for review via
+ * `Channels.CONVERSATION_DELETE_DRAFT`. On Approve the renderer sends the
+ * SELECTED paths back through `Channels.CONVERSATION_FILE_DELETE_DRAFT`, which
+ * files + auto-approves a `note_delete` proposal (deletion is recoverable from
+ * git, per the project's "delete is a normal operation" stance, but it is
+ * always gated on explicit approval).
+ */
+export interface ConversationDeleteDraft {
+  draftId: string;
+  conversationId: string;
+  note: string;
+  items: DeleteDraftItem[];
+  /** Per-note problems surfaced before apply (missing file, not a note). */
+  warnings: string[];
+  createdAt: string;
+}
+

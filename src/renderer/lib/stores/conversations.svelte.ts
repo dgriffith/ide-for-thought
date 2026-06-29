@@ -5,7 +5,7 @@ import type {
   ConversationsUIState,
 } from '../../../shared/types';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
-import type { ConversationRefactorDraft, ConversationReorgDraft } from '../../../shared/conversation-refactor-drafts';
+import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
 import type {
   ConversationSourceDraft,
   SourceIngestOutcome,
@@ -91,6 +91,7 @@ interface NoteDraftResultEntry {
 type AnchoredComputeDraft = ConversationComputeDraft & { afterMessageIndex: number };
 type AnchoredRefactorDraft = ConversationRefactorDraft & { afterMessageIndex: number };
 type AnchoredReorgDraft = ConversationReorgDraft & { afterMessageIndex: number };
+type AnchoredDeleteDraft = ConversationDeleteDraft & { afterMessageIndex: number };
 /** Per-draft state for compute proposals (#245). `result` holds the
  *  output of the most recent Run; `insertedAt` records the destination
  *  path when the user chose Insert into notebook. Both are optional —
@@ -147,6 +148,8 @@ interface TabRuntime {
   refactorDrafts: AnchoredRefactorDraft[];
   /** propose_reorganization batch plans awaiting Approve/Discard (#914). */
   reorgDrafts: AnchoredReorgDraft[];
+  /** propose_note_delete batch deletions awaiting Approve/Discard. */
+  deleteDrafts: AnchoredDeleteDraft[];
   /** Per-draft Run / Insert state. Stays alive after Run so the user
    *  can see the cell + output in the transcript; only Discard removes
    *  the draft entirely (which also drops the state entry). */
@@ -192,6 +195,7 @@ let claimsDraftSubscribed = false;
 let computeDraftSubscribed = false;
 let refactorDraftSubscribed = false;
 let reorgDraftSubscribed = false;
+let deleteDraftSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
 
@@ -312,6 +316,15 @@ function ensureSubscriptions(): void {
     });
     reorgDraftSubscribed = true;
   }
+  if (!deleteDraftSubscribed) {
+    api.conversations.onDeleteDraft((draft) => {
+      const t = tabs.find((tab) => tab.id === draft.conversationId);
+      if (!t) return;
+      const afterMessageIndex = t.conversation.messages.length;
+      t.deleteDrafts = [...t.deleteDrafts, { ...draft, afterMessageIndex }];
+    });
+    deleteDraftSubscribed = true;
+  }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
       const t = tabs.find((tab) => tab.id === req.conversationId);
@@ -361,6 +374,7 @@ async function init(): Promise<void> {
       computeDrafts: [],
       refactorDrafts: [],
       reorgDrafts: [],
+      deleteDrafts: [],
       computeDraftState: {},
       pendingQuestion: null,
       composer: '',
@@ -456,6 +470,7 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
     computeDrafts: [],
     refactorDrafts: [],
     reorgDrafts: [],
+    deleteDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
     composer: '',
@@ -518,6 +533,7 @@ async function openConversationTab(opts: {
     computeDrafts: [],
     refactorDrafts: [],
     reorgDrafts: [],
+    deleteDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
     composer: '',
@@ -701,6 +717,7 @@ function blankTabRuntime(conv: Conversation, extraTools: ConversationToolKey[]):
     computeDrafts: [],
     refactorDrafts: [],
     reorgDrafts: [],
+    deleteDrafts: [],
     computeDraftState: {},
     pendingQuestion: null,
     composer: '',
@@ -822,6 +839,26 @@ function discardReorgDraft(tabId: string, draftId: string): void {
   const tab = findTab(tabId);
   if (!tab) return;
   tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draftId);
+}
+
+async function approveDeleteDraft(
+  tabId: string,
+  draft: ConversationDeleteDraft,
+  selected: string[],
+): Promise<void> {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  const snapshot = $state.snapshot(draft);
+  await api.conversations.fileDeleteDraft(snapshot, selected);
+  // Drop the card. The deletions land via the approval engine, and the
+  // NOTEBASE_FILE_DELETED broadcasts close any open editors + refresh the tree.
+  tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draft.draftId);
+}
+
+function discardDeleteDraft(tabId: string, draftId: string): void {
+  const tab = findTab(tabId);
+  if (!tab) return;
+  tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draftId);
 }
 
 async function approveSourceDraft(
@@ -1088,6 +1125,8 @@ export function getConversationsStore() {
     discardRefactorDraft,
     approveReorgDraft,
     discardReorgDraft,
+    approveDeleteDraft,
+    discardDeleteDraft,
     approveSourceDraft,
     discardSourceDraft,
     dismissSourceDraftResult,

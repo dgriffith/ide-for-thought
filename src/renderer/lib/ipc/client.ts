@@ -547,6 +547,15 @@ export interface ConversationsApi {
     draft: import('../../../shared/conversation-refactor-drafts').ConversationReorgDraft,
     selected: Array<{ fromPath: string; toPath: string }>,
   ): Promise<{ proposalUri: string | null; applied: boolean }>;
+  /** Subscribe to batch deletions from propose_note_delete. */
+  onDeleteDraft(
+    cb: (draft: import('../../../shared/conversation-refactor-drafts').ConversationDeleteDraft) => void,
+  ): void;
+  /** Approve a deletion — file + apply the selected notes as one note-delete bundle. */
+  fileDeleteDraft(
+    draft: import('../../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
+    selected: string[],
+  ): Promise<{ proposalUri: string | null; applied: boolean }>;
 }
 
 export interface ProposalsApi {
