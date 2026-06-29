@@ -457,6 +457,10 @@ export const Channels = {
   CONVERSATION_REORG_DRAFT: 'conversation:reorgDraft',
   /** renderer → main: user approved a reorg plan — file + apply the selected items as one ordered bundle (#914). */
   CONVERSATION_FILE_REORG_DRAFT: 'conversation:fileReorgDraft',
+  /** main → renderer: a propose_note_delete tool call produced a batch deletion for review. Payload is ConversationDeleteDraft. */
+  CONVERSATION_DELETE_DRAFT: 'conversation:deleteDraft',
+  /** renderer → main: user approved a deletion — file + apply the selected note-delete proposals as one bundle. */
+  CONVERSATION_FILE_DELETE_DRAFT: 'conversation:fileDeleteDraft',
   /** renderer → main: user clicked Run on a compute draft. Executes via the existing compute registry and appends the result to the conversation log. */
   CONVERSATION_RUN_COMPUTE_DRAFT: 'conversation:runComputeDraft',
   /** renderer → main: user clicked Insert into notebook on a compute draft. Appends the cell to a destination note with provenance frontmatter. */

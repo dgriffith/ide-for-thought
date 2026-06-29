@@ -267,6 +267,11 @@ export function registerConversation(): void {
             win.webContents.send(Channels.CONVERSATION_REORG_DRAFT, draft);
           }
         },
+        onDeleteDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_DELETE_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -466,6 +471,35 @@ export function registerConversation(): void {
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_refactor',
         payloads: ordered.map((i) => ({ kind: 'note-refactor' as const, fromPath: i.fromPath, toPath: i.toPath })),
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      if (proposal) await approval.approveProposal(ctx, proposal.uri);
+      return { proposalUri: proposal?.uri ?? null, applied: true };
+    },
+  );
+
+  // Approve a deletion: file + apply the SELECTED notes as one note-delete bundle.
+  // applyBundle is atomic — if any unlink fails, the already-deleted notes are
+  // restored from their captured pre-images. The user reviewed the card (per-note
+  // blast radius), so this auto-approves once the selection comes back.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_DELETE_DRAFT,
+    async (
+      e,
+      draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
+      selected: string[],
+    ) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!Array.isArray(selected) || selected.length === 0) {
+        return { proposalUri: null, applied: false };
+      }
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'note_delete',
+        payloads: selected.map((path) => ({ kind: 'note-delete' as const, path })),
         note: draft.note,
         conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
         proposedBy: `llm:conversation:${draft.conversationId}`,

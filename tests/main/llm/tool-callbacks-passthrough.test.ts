@@ -21,6 +21,7 @@ describe('toToolCallbacks', () => {
     onComputeDraft: noop,
     onRefactorDraft: noop,
     onReorgDraft: noop,
+    onDeleteDraft: noop,
     askUser: async () => '',
   };
 
@@ -28,7 +29,7 @@ describe('toToolCallbacks', () => {
     const out = toToolCallbacks(all) as Record<string, unknown>;
     for (const key of [
       'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
-      'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'askUser',
+      'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'askUser',
     ]) {
       expect(out[key], `${key} must reach the tool executor`).toBe((all as Record<string, unknown>)[key]);
     }
