@@ -150,7 +150,25 @@ When reviewing PRs that touch LLM integration or graph write paths:
 
 ### Write Guard
 
-The graph module exposes `enterLLMContext()` / `exitLLMContext()` to mark call paths originating from LLM operations. Any direct `store.add()` call while in LLM context that doesn't go through the approval engine will log a warning. This is a development-time guardrail, not a runtime security boundary — the goal is to catch accidental bypasses during development.
+The graph module exposes `enterLLMContext()` / `exitLLMContext()` (and the
+`withLLMContext(fn)` wrapper) to mark call paths originating from LLM operations.
+Any graph write while in LLM context that doesn't go through the approval engine
+(which marks its own writes with `enterTrustedContext()`, applied across the
+whole `applyBundle`) trips `checkLLMWriteGuard`.
+
+**The guard is fatal under test and non-fatal in dev/prod (#944):** under the
+test runner it **throws**, so an accidental approval-engine bypass fails CI —
+the invariant "every LLM-originated write goes through
+`proposeWrite()`/`approveProposal()`" is *enforced*, not merely observed. In dev
+and production it stays a `console.warn` (a development guardrail must never
+crash the user's app; it's not a runtime security boundary).
+
+For the guard to catch a bypass, the offending write must run in LLM context.
+The converged LLM apply paths — auto-tag, auto-link (out/inbound),
+`set_properties`, `propose_source_properties`, and the note-body rewrite — wrap
+themselves in `withLLMContext` (or `enterLLMContext`) so a regression that writes
+directly instead of via the approval engine is caught. **Wrap any new
+LLM-originated apply path the same way.**
 
 ### Integrity Query
 

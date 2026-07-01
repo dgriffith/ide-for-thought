@@ -90,23 +90,27 @@ export async function applyAutoTag(
   relativePath: string,
   acceptedTags: string[],
 ): Promise<AutoTagApplyResult> {
-  const content = await notebaseFs.readFile(rootPath, relativePath);
-  const { content: next, addedTags } = mergeTagsIntoContent(content, acceptedTags);
-  if (addedTags.length === 0) return { applied: [], rewrittenPaths: [] };
+  // Armed with the trust guard (#944): this is LLM-originated, so any graph
+  // write here that doesn't go through the approval engine trips the guard.
+  return graph.withLLMContext(async () => {
+    const content = await notebaseFs.readFile(rootPath, relativePath);
+    const { content: next, addedTags } = mergeTagsIntoContent(content, acceptedTags);
+    if (addedTags.length === 0) return { applied: [], rewrittenPaths: [] };
 
-  const ctx = projectContext(rootPath);
-  const proposal = await proposeWrite(ctx, {
-    operationType: 'note_rewrite',
-    payloads: [{ kind: 'note-rewrite', path: relativePath, content: next }],
-    note: `Auto-tag: add ${addedTags.length} tag${addedTags.length === 1 ? '' : 's'} to ${relativePath}`,
-    proposedBy: 'llm:auto-tag',
+    const ctx = projectContext(rootPath);
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: [{ kind: 'note-rewrite', path: relativePath, content: next }],
+      note: `Auto-tag: add ${addedTags.length} tag${addedTags.length === 1 ? '' : 's'} to ${relativePath}`,
+      proposedBy: 'llm:auto-tag',
+    });
+    // note_rewrite is requires_approval, so proposeWrite returns a pending
+    // proposal; the user already reviewed the tags on the card, so approve now.
+    let rewrittenPaths: string[] = [];
+    if (proposal) {
+      const result = await approveProposal(ctx, proposal.uri);
+      rewrittenPaths = result.rewrittenPaths;
+    }
+    return { applied: addedTags, rewrittenPaths };
   });
-  // note_rewrite is requires_approval, so proposeWrite returns a pending
-  // proposal; the user already reviewed the tags on the card, so approve it now.
-  let rewrittenPaths: string[] = [];
-  if (proposal) {
-    const result = await approveProposal(ctx, proposal.uri);
-    rewrittenPaths = result.rewrittenPaths;
-  }
-  return { applied: addedTags, rewrittenPaths };
 }
