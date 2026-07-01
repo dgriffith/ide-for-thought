@@ -11,6 +11,7 @@ const h = vi.hoisted(() => {
   const api = {
     refactor: {
       autoTag: vi.fn(),
+      autoTagApply: vi.fn(),
       autoLinkSuggest: vi.fn(),
       autoLinkInboundSuggest: vi.fn(),
       autoLinkApply: vi.fn(),
@@ -59,6 +60,8 @@ function resetFlow() {
   flow.setAutoLinkReview(null);
   flow.setAutoLinkInboundReview(null);
   flow.setAutoLinkBusy(false);
+  flow.setAutoTagReview(null);
+  flow.setAutoTagBusy(false);
 }
 
 beforeEach(() => {
@@ -78,18 +81,24 @@ beforeEach(() => {
   ops = createRefactorOps(ctx);
 });
 
-describe('handleAutoTag', () => {
-  it('calls api.refactor.autoTag on the success path', async () => {
-    h.api.refactor.autoTag.mockResolvedValue({ added: ['x'] });
+describe('handleAutoTag (SUGGEST phase, #940)', () => {
+  it('opens the review dialog with the suggested tags and writes nothing', async () => {
+    h.api.refactor.autoTag.mockResolvedValue({ added: ['x', 'y'] });
     await ops.handleAutoTag('note.md');
     expect(h.api.refactor.autoTag).toHaveBeenCalledWith('note.md');
+    // Review state is set — apply hasn't run, so nothing was written.
+    expect(flow.autoTagReview?.relativePath).toBe('note.md');
+    expect(flow.autoTagReview?.tags).toEqual(['x', 'y']);
+    expect(h.api.refactor.autoTagApply).not.toHaveBeenCalled();
     expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+    expect(flow.autoTagBusy).toBe(false);
   });
 
-  it('shows a notice when nothing was added', async () => {
+  it('shows a notice and leaves review null when nothing was suggested', async () => {
     h.api.refactor.autoTag.mockResolvedValue({ added: [] });
     await ops.handleAutoTag('note.md');
     expect(h.dialog.showConfirm).toHaveBeenCalled();
+    expect(flow.autoTagReview).toBeNull();
   });
 
   it('skips the failure dialog when the error is a missing API key', async () => {
@@ -98,6 +107,21 @@ describe('handleAutoTag', () => {
     await ops.handleAutoTag('note.md');
     expect(maybeMissing).toHaveBeenCalled();
     expect(h.dialog.showConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleAutoTagApply (APPLY phase, #940)', () => {
+  it('clears the review and files the accepted tags through approval', async () => {
+    flow.setAutoTagReview({ relativePath: 'note.md', tags: ['x', 'y'] });
+    h.api.refactor.autoTagApply.mockResolvedValue({ applied: ['x'] });
+    await ops.handleAutoTagApply(['x']);
+    expect(flow.autoTagReview).toBeNull();
+    expect(h.api.refactor.autoTagApply).toHaveBeenCalledWith('note.md', ['x']);
+  });
+
+  it('does nothing when there is no pending review', async () => {
+    await ops.handleAutoTagApply(['x']);
+    expect(h.api.refactor.autoTagApply).not.toHaveBeenCalled();
   });
 });
 

@@ -21,9 +21,10 @@ const { completeMock, getSettingsMock } = vi.hoisted(() => ({
 vi.mock('../../../src/main/llm/index', () => ({ complete: completeMock }));
 vi.mock('../../../src/main/llm/settings', () => ({ getSettings: getSettingsMock }));
 
-import { runAutoTag } from '../../../src/main/llm/auto-tag';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { runAutoTag, applyAutoTag } from '../../../src/main/llm/auto-tag';
+import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
+import { extractTagsFromContent } from '../../../src/shared/refactor/auto-tag';
 
 describe('runAutoTag() integration (#342)', () => {
   let root: string;
@@ -104,5 +105,61 @@ describe('runAutoTag() integration (#342)', () => {
     // doesn't dedupe across them, and that's fine for the prompt).
     expect(prompt).toContain('other-tag');
     expect(prompt).toContain('shared-tag');
+  });
+});
+
+describe('applyAutoTag() routes through the approval engine (#940)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-autotag-apply-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  async function plant(rel: string, content: string): Promise<void> {
+    const full = path.join(root, rel);
+    await fsp.mkdir(path.dirname(full), { recursive: true });
+    await fsp.writeFile(full, content, 'utf-8');
+    await indexNote(ctx, rel, content);
+  }
+
+  /** Count of approved note_rewrite proposals in the store — proof the write
+   *  went through the approval engine rather than bypassing it. */
+  async function approvedRewriteProposals(): Promise<number> {
+    const r = await queryGraph(ctx, `
+      PREFIX thought: <https://minerva.dev/ontology/thought#>
+      SELECT ?p WHERE {
+        ?p a thought:Proposal ;
+           thought:operationType "note_rewrite" ;
+           thought:proposalStatus thought:approved .
+      }`);
+    return r.results.length;
+  }
+
+  it('merges accepted tags into the note AND files an approved note_rewrite proposal', async () => {
+    await plant('notes/x.md', '# X\n\nBody.\n');
+    const result = await applyAutoTag(root, 'notes/x.md', ['alpha', 'beta']);
+
+    expect(result.applied.sort()).toEqual(['alpha', 'beta']);
+    expect(result.rewrittenPaths).toEqual(['notes/x.md']);
+
+    // The file on disk actually carries the tags now.
+    const onDisk = await fsp.readFile(path.join(root, 'notes/x.md'), 'utf-8');
+    expect(extractTagsFromContent(onDisk).sort()).toEqual(['alpha', 'beta']);
+
+    // Trust principle: the write left an approved proposal behind (not a bypass).
+    expect(await approvedRewriteProposals()).toBe(1);
+  });
+
+  it('recomputes against current disk content and no-ops when tags already present', async () => {
+    await plant('notes/y.md', '---\ntags:\n  - kept\n---\n# Y\n');
+    const result = await applyAutoTag(root, 'notes/y.md', ['kept']);
+    expect(result.applied).toEqual([]);
+    expect(result.rewrittenPaths).toEqual([]);
+    // No pointless proposal filed for a no-op.
+    expect(await approvedRewriteProposals()).toBe(0);
   });
 });

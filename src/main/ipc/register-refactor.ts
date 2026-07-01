@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import { writeAndReindex } from '../notebase/write-pipeline';
 import { markPathHandled } from '../window-manager';
-import { runAutoTag } from '../llm/auto-tag';
+import { runAutoTag, applyAutoTag } from '../llm/auto-tag';
 import {
   suggestLinksTo,
   applyAutoLinkToSuggestions,
@@ -24,19 +24,30 @@ import * as notebaseFs from '../notebase/fs';
 import { rootPathFromEvent, persistIndexes, broadcastRewritten, hooks } from './helpers';
 
 export function registerRefactor(): void {
-  ipcMain.handle(Channels.REFACTOR_AUTO_TAG, async (e, relativePath: string) => {
+  // Auto-tag is two-phase (#940): SUGGEST asks the LLM for tags and writes
+  // NOTHING; the renderer shows a review dialog; APPLY routes the accepted tags
+  // through the approval engine. This closes the historical bypass where the
+  // one-shot handler wrote directly with no proposal record.
+  ipcMain.handle(Channels.REFACTOR_AUTO_TAG_SUGGEST, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
-
     const plan = await runAutoTag(rootPath, relativePath);
-    if (!plan.content) return { added: [] };
-
-    // Route through the canonical 6-step write pipeline so heading-rename
-    // detection fires uniformly with direct edits (#341 — this site
-    // historically open-coded a 5-step variant that skipped step 6).
-    await writeAndReindex(rootPath, relativePath, plan.content, hooks);
     return { added: plan.added };
   });
+
+  ipcMain.handle(
+    Channels.REFACTOR_AUTO_TAG_APPLY,
+    async (e, relativePath: string, acceptedTags: string[]) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!Array.isArray(acceptedTags) || acceptedTags.length === 0) return { applied: [] };
+      const { applied, rewrittenPaths } = await applyAutoTag(rootPath, relativePath, acceptedTags);
+      // The approval engine wrote the note; broadcast so an open editor reloads
+      // the new frontmatter (approval.ts stays Electron-free and returns paths).
+      broadcastRewritten(rootPath, rewrittenPaths);
+      return { applied };
+    },
+  );
 
   ipcMain.handle(Channels.REFACTOR_AUTO_LINK_SUGGEST, async (e, activeRelPath: string) => {
     const rootPath = rootPathFromEvent(e);

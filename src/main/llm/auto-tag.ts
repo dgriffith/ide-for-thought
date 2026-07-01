@@ -4,6 +4,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { complete } from './index';
 import { getSettings } from './settings';
+import { proposeWrite, approveProposal } from './approval';
 import {
   buildAutoTagPrompt,
   parseAutoTagResponse,
@@ -61,4 +62,51 @@ export async function runAutoTag(
   } finally {
     graph.exitLLMContext();
   }
+}
+
+export interface AutoTagApplyResult {
+  /** Tags actually merged into the note (may be a subset of what was accepted —
+   *  a tag the note already has is a no-op). Empty when nothing changed. */
+  applied: string[];
+  /** Path overwritten in place, for the caller's NOTEBASE_REWRITTEN broadcast.
+   *  Empty when nothing changed. */
+  rewrittenPaths: string[];
+}
+
+/**
+ * Apply the tags the user accepted from the Auto-tag review (#940). Unlike the
+ * old one-shot path, this routes the frontmatter change through the approval
+ * engine's `note-rewrite` payload (#936) rather than writing directly — so the
+ * Trust Principle holds (there's a `thought:Proposal` audit record) and the
+ * write is unified with every other LLM-originated note mutation.
+ *
+ * Recomputes the merge against the note's CURRENT on-disk content (not a
+ * snapshot from suggest time) so edits made between suggest and apply aren't
+ * clobbered. Electron-free: returns the rewritten path for the IPC layer to
+ * broadcast, mirroring the approval engine's own seam.
+ */
+export async function applyAutoTag(
+  rootPath: string,
+  relativePath: string,
+  acceptedTags: string[],
+): Promise<AutoTagApplyResult> {
+  const content = await notebaseFs.readFile(rootPath, relativePath);
+  const { content: next, addedTags } = mergeTagsIntoContent(content, acceptedTags);
+  if (addedTags.length === 0) return { applied: [], rewrittenPaths: [] };
+
+  const ctx = projectContext(rootPath);
+  const proposal = await proposeWrite(ctx, {
+    operationType: 'note_rewrite',
+    payloads: [{ kind: 'note-rewrite', path: relativePath, content: next }],
+    note: `Auto-tag: add ${addedTags.length} tag${addedTags.length === 1 ? '' : 's'} to ${relativePath}`,
+    proposedBy: 'llm:auto-tag',
+  });
+  // note_rewrite is requires_approval, so proposeWrite returns a pending
+  // proposal; the user already reviewed the tags on the card, so approve it now.
+  let rewrittenPaths: string[] = [];
+  if (proposal) {
+    const result = await approveProposal(ctx, proposal.uri);
+    rewrittenPaths = result.rewrittenPaths;
+  }
+  return { applied: addedTags, rewrittenPaths };
 }

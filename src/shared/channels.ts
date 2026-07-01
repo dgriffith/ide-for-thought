@@ -234,8 +234,10 @@ export const Channels = {
    */
   CITATION_RENDER_INLINE: 'citation:renderInline',
 
-  /** Renderer-initiated LLM Auto-tag of a note (#174). */
-  REFACTOR_AUTO_TAG: 'refactor:autoTag',
+  /** LLM-suggested tags for a note — review before applying (#174, #940). */
+  REFACTOR_AUTO_TAG_SUGGEST: 'refactor:autoTagSuggest',
+  /** Apply accepted Auto-tag tags — routes through the note_rewrite approval payload (#940). */
+  REFACTOR_AUTO_TAG_APPLY: 'refactor:autoTagApply',
   /** LLM-suggested outbound wiki-links for a note (#175). */
   REFACTOR_AUTO_LINK_SUGGEST: 'refactor:autoLinkSuggest',
   /** Apply accepted Auto-link suggestions to the active note. */
