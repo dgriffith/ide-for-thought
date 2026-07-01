@@ -307,6 +307,91 @@ describe('payload-kind validation at proposeWrite time (#665)', () => {
   });
 });
 
+describe('note-rewrite payload (#936)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-rewrite-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    resetPolicy();
+  });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  const REL = 'notes/stub.md';
+
+  async function seedNote(content: string): Promise<void> {
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fsp.writeFile(path.join(root, REL), content, 'utf-8');
+  }
+
+  function rewriteWrite(pathRel: string, content: string) {
+    return {
+      operationType: 'note_rewrite' as OperationType,
+      payloads: [{ kind: 'note-rewrite' as const, path: pathRel, content }],
+      note: 'fill out the note',
+      proposedBy: 'unit-test',
+    };
+  }
+
+  it('note_rewrite defaults to requires_approval', () => {
+    expect(getApprovalTier('note_rewrite')).toBe('requires_approval');
+  });
+
+  it('is gated: the file is unchanged until approved, then holds the new content', async () => {
+    await seedNote('# Stub\n\nrough idea.\n');
+    const proposal = await proposeWrite(ctx, rewriteWrite(REL, '# Stub\n\nA fully fleshed-out idea.\n'));
+    expect(proposal).not.toBeNull();
+    // Not applied yet.
+    expect(await fsp.readFile(path.join(root, REL), 'utf-8')).toBe('# Stub\n\nrough idea.\n');
+
+    const result = await approveProposal(ctx, proposal!.uri);
+    expect(result.ok).toBe(true);
+    expect(result.rewrittenPaths).toEqual([REL]);
+    expect(result.filedPaths).toEqual([]);
+    expect(await fsp.readFile(path.join(root, REL), 'utf-8')).toBe('# Stub\n\nA fully fleshed-out idea.\n');
+  });
+
+  it('rejecting a rewrite leaves the original content untouched', async () => {
+    await seedNote('original\n');
+    const proposal = await proposeWrite(ctx, rewriteWrite(REL, 'replaced\n'));
+    expect(await rejectProposal(ctx, proposal!.uri)).toBe(true);
+    expect(await fsp.readFile(path.join(root, REL), 'utf-8')).toBe('original\n');
+  });
+
+  it('rolls back to the pre-image when a later payload in the bundle fails', async () => {
+    await seedNote('keep me\n');
+    // A rewrite followed by a deliberately-malformed graph-triples payload:
+    // the triples parse blows up at apply time, and the reverse-order rollback
+    // must restore the note's original bytes.
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: [
+        { kind: 'note-rewrite', path: REL, content: 'clobbered\n' },
+        { kind: 'graph-triples', turtle: 'this is not valid turtle @@@', affectsNodeUris: [] },
+      ],
+      note: 'rewrite + bad triples',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow();
+    // The rewrite landed then rolled back — original content restored.
+    expect(await fsp.readFile(path.join(root, REL), 'utf-8')).toBe('keep me\n');
+  });
+
+  it('rejects a rewrite of a non-markdown path', async () => {
+    // Guardrail check runs at apply time; the proposal files fine, approval fails.
+    await fsp.writeFile(path.join(root, 'data.txt'), 'x', 'utf-8');
+    const proposal = await proposeWrite(ctx, rewriteWrite('data.txt', 'y'));
+    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow(/non-markdown/);
+  });
+
+  it('fails (and rolls back) when the target note does not exist', async () => {
+    const proposal = await proposeWrite(ctx, rewriteWrite('notes/ghost.md', 'content'));
+    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow();
+  });
+});
+
 describe('tier store effects (#666)', () => {
   let root: string;
   let ctx: ProjectContext;
