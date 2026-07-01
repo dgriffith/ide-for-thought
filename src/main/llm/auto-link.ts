@@ -6,6 +6,7 @@ import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { complete } from './index';
 import { getSettings } from './settings';
+import { proposeWrite, approveProposal } from './approval';
 import {
   buildAutoLinkToPrompt,
   parseAutoLinkResponse,
@@ -144,6 +145,43 @@ export async function applyAutoLinkToSuggestions(
   } finally {
     graph.exitLLMContext();
   }
+}
+
+export interface FileAutoLinkResult {
+  applied: AutoLinkSuggestion[];
+  skipped: AutoLinkSuggestion[];
+  /** Paths overwritten in place, for the caller's NOTEBASE_REWRITTEN broadcast. */
+  rewrittenPaths: string[];
+}
+
+/**
+ * File the accepted outbound links through the approval engine (#941). Inserts
+ * the `[[target]]` links into the active note, then routes the rewrite through
+ * the `note-rewrite` payload (#936) instead of writing directly — so the Trust
+ * Principle holds (there's a `thought:Proposal` audit record). Electron-free:
+ * returns the rewritten path for the IPC layer to broadcast.
+ */
+export async function fileAutoLinkOutbound(
+  rootPath: string,
+  activeRelPath: string,
+  accepted: AutoLinkSuggestion[],
+): Promise<FileAutoLinkResult> {
+  const { content, applied, skipped } = await applyAutoLinkToSuggestions(rootPath, activeRelPath, accepted);
+  if (applied.length === 0) return { applied, skipped, rewrittenPaths: [] };
+
+  const ctx = projectContext(rootPath);
+  const proposal = await proposeWrite(ctx, {
+    operationType: 'note_rewrite',
+    payloads: [{ kind: 'note-rewrite', path: activeRelPath, content }],
+    note: `Auto-link: add ${applied.length} link${applied.length === 1 ? '' : 's'} to ${activeRelPath}`,
+    proposedBy: 'llm:auto-link',
+  });
+  let rewrittenPaths: string[] = [];
+  if (proposal) {
+    const result = await approveProposal(ctx, proposal.uri);
+    rewrittenPaths = result.rewrittenPaths;
+  }
+  return { applied, skipped, rewrittenPaths };
 }
 
 // ── Inbound mode (#175 follow-up) ─────────────────────────────────────────
@@ -363,4 +401,45 @@ async function applyInboundSuggestionsInner(
   }
 
   return { applied, skipped, touchedPaths, updatedContents };
+}
+
+/**
+ * File the accepted inbound links through the approval engine (#941). Inbound
+ * touches MANY source notes, so it files them as ONE proposal carrying a
+ * `note-rewrite` payload per touched note — the engine applies the bundle
+ * atomically (a partial failure rolls the whole batch back), and one approval
+ * gates the lot. Electron-free: returns the rewritten paths to broadcast.
+ */
+export async function fileAutoLinkInbound(
+  rootPath: string,
+  activeRelPath: string,
+  accepted: AutoLinkInboundSuggestion[],
+): Promise<FileAutoLinkInboundResult> {
+  const { applied, skipped, updatedContents } = await applyInboundSuggestions(rootPath, activeRelPath, accepted);
+  if (updatedContents.size === 0) return { applied, skipped, rewrittenPaths: [] };
+
+  const ctx = projectContext(rootPath);
+  const payloads = [...updatedContents].map(([path, content]) => ({
+    kind: 'note-rewrite' as const,
+    path,
+    content,
+  }));
+  const proposal = await proposeWrite(ctx, {
+    operationType: 'note_rewrite',
+    payloads,
+    note: `Auto-link inbound: link ${payloads.length} note${payloads.length === 1 ? '' : 's'} to ${activeRelPath}`,
+    proposedBy: 'llm:auto-link-inbound',
+  });
+  let rewrittenPaths: string[] = [];
+  if (proposal) {
+    const result = await approveProposal(ctx, proposal.uri);
+    rewrittenPaths = result.rewrittenPaths;
+  }
+  return { applied, skipped, rewrittenPaths };
+}
+
+export interface FileAutoLinkInboundResult {
+  applied: AutoLinkInboundSuggestion[];
+  skipped: AutoLinkInboundSuggestion[];
+  rewrittenPaths: string[];
 }
