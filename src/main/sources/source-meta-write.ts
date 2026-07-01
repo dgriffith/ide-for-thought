@@ -226,6 +226,17 @@ export async function setSourceProperties(
 }
 
 /**
+ * Overwrite a source's meta.ttl verbatim and reindex. Used to roll back an
+ * approved `source-meta` proposal to its captured pre-image (#943) — the apply
+ * path upserts predicates, so rollback needs a whole-file restore, not an
+ * inverse upsert.
+ */
+export async function restoreSourceMeta(rootPath: string, sourceId: string, ttl: string): Promise<void> {
+  await fs.writeFile(sourceMetaPath(rootPath, sourceId), ttl, 'utf-8');
+  await reindexSource(rootPath, sourceId);
+}
+
+/**
  * Rename a source by upserting its `dc:title` (#765). A source's display name
  * is its `dc:title`; `displaySourceTitle` falls back to URI/DOI/"Untitled" only
  * when it's absent, so renaming is just a single-predicate upsert + reindex —

@@ -392,6 +392,62 @@ describe('note-rewrite payload (#936)', () => {
   });
 });
 
+describe('source-meta payload (#943)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+  const sourceId = 'smith-2023';
+  const META = `this: a thought:Article ;
+    dc:title "Test paper" ;
+    thought:accessedAt "2026-05-01T00:00:00Z"^^xsd:dateTime .
+`;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-approval-sourcemeta-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    resetPolicy();
+    const dir = path.join(root, '.minerva', 'sources', sourceId);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'meta.ttl'), META);
+  });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  function metaOnDisk(): string {
+    return fs.readFileSync(path.join(root, '.minerva', 'sources', sourceId, 'meta.ttl'), 'utf-8');
+  }
+
+  it('source_properties defaults to requires_approval', () => {
+    expect(getApprovalTier('source_properties')).toBe('requires_approval');
+  });
+
+  it('applies the predicate upsert on approval', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'source_properties',
+      payloads: [{ kind: 'source-meta', sourceId, updates: [{ predicate: 'dc:abstract', value: '"An abstract."' }] }],
+      note: 'summary',
+      proposedBy: 'unit-test',
+    });
+    expect(metaOnDisk()).not.toContain('dc:abstract'); // gated
+    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect(metaOnDisk()).toContain('dc:abstract "An abstract." ;');
+  });
+
+  it('rolls back the meta.ttl to its pre-image when a later payload fails', async () => {
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'source_properties',
+      payloads: [
+        { kind: 'source-meta', sourceId, updates: [{ predicate: 'dc:abstract', value: '"clobber"' }] },
+        { kind: 'graph-triples', turtle: 'not valid turtle @@@', affectsNodeUris: [] },
+      ],
+      note: 'source-meta + bad triples',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow();
+    // The upsert landed then rolled back — meta.ttl restored verbatim.
+    expect(metaOnDisk()).toBe(META);
+  });
+});
+
 describe('tier store effects (#666)', () => {
   let root: string;
   let ctx: ProjectContext;

@@ -5,6 +5,7 @@ import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
 import { markPathHandled } from '../notebase/path-dedup';
 import { planRename, renameWithLinkRewrites } from '../notebase/rename';
+import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
 import type { ProjectContext } from '../project-context-types';
 import { escapeTurtleLiteral } from './turtle';
 
@@ -22,7 +23,8 @@ export type OperationType =
   | 'status_change'
   | 'note_refactor'
   | 'note_delete'
-  | 'note_rewrite';
+  | 'note_rewrite'
+  | 'source_properties';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -68,6 +70,16 @@ export type ProposalPayload =
       metaTtl: string;
       bodyMd?: string;
       original?: { mimeType: string; bytes: Uint8Array };
+    }
+  | {
+      kind: 'source-meta';
+      /** Upsert single-valued predicates into an existing source's meta.ttl
+       *  (e.g. dc:abstract, thought:tldr — #103/#943). Distinct from the full
+       *  `source` ingest kind: this patches specific predicates in place, and
+       *  rollback restores the captured pre-image meta.ttl verbatim. `value` is
+       *  a ready Turtle term (literal/IRI); null deletes the predicate line. */
+      sourceId: string;
+      updates: { predicate: string; value: string | null }[];
     }
   | {
       kind: 'excerpt';
@@ -160,6 +172,9 @@ const DEFAULT_POLICY: Record<OperationType, ApprovalTier> = {
   // Rewriting a note's body in place replaces human-authored content — always
   // reviewed via the diff card (#936).
   note_rewrite: 'requires_approval',
+  // Upserting LLM-proposed source metadata (abstract / TL;DR) — reviewed via the
+  // source-property card (#943).
+  source_properties: 'requires_approval',
 };
 
 let policyOverrides: Partial<Record<OperationType, ApprovalTier>> = {};
@@ -230,7 +245,7 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
 /** Payload kinds that `dispatchApply` actually knows how to apply. Keep in
  *  sync with the `switch` in dispatchApply — the `source` / `saved-query`
  *  kinds are defined on the type but not yet wired to a dispatcher. */
-const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor', 'note-delete', 'note-rewrite']);
+const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor', 'note-delete', 'note-rewrite', 'source-meta']);
 
 /**
  * Reject a bundle containing a payload kind that has no apply dispatcher (#665).
@@ -647,6 +662,15 @@ async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<u
       void vectors.indexNote(ctx, p.path, p.content);
       return { path: p.path, before };
     }
+    case 'source-meta': {
+      // Upsert the proposed predicates into the source's meta.ttl (#943).
+      // Capture the whole meta.ttl as a pre-image so rollback restores it
+      // verbatim. setSourceProperties writes + reindexes; the .minerva/sources
+      // watcher notifies the renderer (same path the direct write used).
+      const before = await readMeta(sourceMetaPath(ctx.rootPath, p.sourceId));
+      await setSourceProperties(ctx.rootPath, p.sourceId, p.updates);
+      return { sourceId: p.sourceId, before };
+    }
     case 'source':
     case 'saved-query':
       throw new Error(
@@ -728,6 +752,16 @@ async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<
         void vectors.indexNote(ctx, data.path, data.before);
       } catch (err) {
         console.warn(`[approval] note-rewrite rollback restore failed for ${data.path}:`, err);
+      }
+      return;
+    }
+    case 'source-meta': {
+      // Restore the source's captured pre-image meta.ttl and reindex (#943).
+      const data = a.rollbackData as { sourceId: string; before: string };
+      try {
+        await restoreSourceMeta(ctx.rootPath, data.sourceId, data.before);
+      } catch (err) {
+        console.warn(`[approval] source-meta rollback restore failed for ${data.sourceId}:`, err);
       }
       return;
     }
