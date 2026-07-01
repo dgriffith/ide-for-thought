@@ -7,9 +7,9 @@ import { markPathHandled } from '../window-manager';
 import { runAutoTag, applyAutoTag } from '../llm/auto-tag';
 import {
   suggestLinksTo,
-  applyAutoLinkToSuggestions,
+  fileAutoLinkOutbound,
   suggestLinksInbound,
-  applyInboundSuggestions,
+  fileAutoLinkInbound,
 } from '../llm/auto-link';
 import {
   formatNoteContent,
@@ -73,15 +73,15 @@ export function registerRefactor(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
 
-      const { content, applied, skipped } = await applyAutoLinkToSuggestions(
+      // Route the rewrite through the approval engine (#941) rather than
+      // writing directly. broadcastRewritten reloads an open editor from the
+      // paths the approval apply returns.
+      const { applied, skipped, rewrittenPaths } = await fileAutoLinkOutbound(
         rootPath,
         activeRelPath,
         accepted,
       );
-      if (applied.length === 0) return { applied, skipped };
-
-      // 6-step pipeline (#341).
-      await writeAndReindex(rootPath, activeRelPath, content, hooks);
+      broadcastRewritten(rootPath, rewrittenPaths);
       return { applied, skipped };
     },
   );
@@ -163,28 +163,17 @@ export function registerRefactor(): void {
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
 
-      const { applied, skipped, touchedPaths, updatedContents } = await applyInboundSuggestions(
+      // Route through the approval engine (#941): all touched source notes are
+      // filed as ONE note_rewrite proposal (atomic — a partial failure rolls the
+      // whole batch back) and applied. broadcastRewritten emits a single
+      // NOTEBASE_REWRITTEN for every rewritten source so open editors reload.
+      const { applied, skipped, rewrittenPaths } = await fileAutoLinkInbound(
         rootPath,
         activeRelPath,
         accepted,
       );
-
-      // 6-step pipeline (#341), batched: each touched source goes through
-      // writeAndReindex with broadcast/persist suppressed so the loop emits
-      // a single NOTEBASE_REWRITTEN at the end. Heading-rename detection
-      // still fires per-file via the hooks.
-      for (const [source, content] of updatedContents) {
-        await writeAndReindex(rootPath, source, content, hooks, {
-          suppressRewrittenBroadcast: true,
-          skipPersist: true,
-        });
-      }
-      if (touchedPaths.length > 0) {
-        await persistIndexes(rootPath);
-        broadcastRewritten(rootPath, touchedPaths);
-      }
-
-      return { applied, skipped, touchedPaths };
+      broadcastRewritten(rootPath, rewrittenPaths);
+      return { applied, skipped, touchedPaths: rewrittenPaths };
     },
   );
 }

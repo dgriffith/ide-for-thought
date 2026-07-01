@@ -26,10 +26,12 @@ vi.mock('../../../src/main/llm/settings', () => ({ getSettings: getSettingsMock 
 import {
   suggestLinksTo,
   applyAutoLinkToSuggestions,
+  fileAutoLinkOutbound,
   suggestLinksInbound,
   applyInboundSuggestions,
+  fileAutoLinkInbound,
 } from '../../../src/main/llm/auto-link';
-import { initGraph, indexNote } from '../../../src/main/graph/index';
+import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 describe('Auto-link integration (#342)', () => {
@@ -176,6 +178,68 @@ describe('Auto-link integration (#342)', () => {
       expect(result.skipped).toHaveLength(1);
       expect(result.touchedPaths).toEqual([]);
       expect(result.updatedContents.size).toBe(0);
+    });
+  });
+
+  describe('approval routing (#941)', () => {
+    /** Approved note_rewrite proposals in the store — proof the write went
+     *  through the approval engine rather than bypassing it. */
+    async function approvedRewriteProposals(): Promise<Array<Record<string, string>>> {
+      const r = await queryGraph(ctx, `
+        PREFIX thought: <https://minerva.dev/ontology/thought#>
+        SELECT ?p ?payload WHERE {
+          ?p a thought:Proposal ;
+             thought:operationType "note_rewrite" ;
+             thought:proposalStatus thought:approved ;
+             thought:payloadJson ?payload .
+        }`);
+      return r.results as Array<Record<string, string>>;
+    }
+
+    it('outbound: files the link rewrite as an approved note_rewrite proposal', async () => {
+      await plant('notes/active.md', '# Active\n\nThis mentions cognitive bias here.\n');
+      await plant('notes/cognitive-bias.md', '# Cognitive Bias\n');
+      const accepted = [
+        { anchorText: 'cognitive bias', target: 'notes/cognitive-bias.md', rationale: 'r.' },
+      ];
+
+      const result = await fileAutoLinkOutbound(root, 'notes/active.md', accepted);
+      expect(result.applied).toHaveLength(1);
+      expect(result.rewrittenPaths).toEqual(['notes/active.md']);
+
+      // The link actually landed on disk.
+      const onDisk = await fsp.readFile(path.join(root, 'notes/active.md'), 'utf-8');
+      expect(onDisk).toContain('[[notes/cognitive-bias|cognitive bias]]');
+
+      // Trust principle: a single approved note_rewrite proposal backs the write.
+      const proposals = await approvedRewriteProposals();
+      expect(proposals).toHaveLength(1);
+    });
+
+    it('inbound: files ALL touched sources as ONE atomic note_rewrite proposal', async () => {
+      await plant('notes/active.md', '# Widgets\n');
+      await plant('notes/source-a.md', '# A\n\nWe use widgets daily.\n');
+      await plant('notes/source-b.md', '# B\n\nMore widgets discussion.\n');
+      const accepted = [
+        { source: 'notes/source-a.md', anchorText: 'widgets', rationale: 'r.', contextSnippet: '' },
+        { source: 'notes/source-b.md', anchorText: 'widgets', rationale: 'r.', contextSnippet: '' },
+      ];
+
+      const result = await fileAutoLinkInbound(root, 'notes/active.md', accepted);
+      expect(result.applied).toHaveLength(2);
+      expect(result.rewrittenPaths.sort()).toEqual(['notes/source-a.md', 'notes/source-b.md']);
+
+      // Both sources got the link on disk.
+      expect(await fsp.readFile(path.join(root, 'notes/source-a.md'), 'utf-8')).toContain('[[notes/active|widgets]]');
+      expect(await fsp.readFile(path.join(root, 'notes/source-b.md'), 'utf-8')).toContain('[[notes/active|widgets]]');
+
+      // ONE proposal (atomic batch), carrying a note-rewrite payload per source.
+      const proposals = await approvedRewriteProposals();
+      expect(proposals).toHaveLength(1);
+      const payloads = JSON.parse(proposals[0].payload) as Array<{ kind: string; path: string }>;
+      expect(payloads).toHaveLength(2);
+      expect(payloads.every((p) => p.kind === 'note-rewrite')).toBe(true);
+      expect(payloads.map((p) => p.path).sort()).toEqual(['notes/source-a.md', 'notes/source-b.md']);
     });
   });
 });
