@@ -8,7 +8,8 @@ import { writeAndReindex } from '../notebase/write-pipeline';
 import { ingestUrl } from '../sources/ingest';
 import { ingestIdentifier } from '../sources/ingest-identifier';
 import { privilegedFetch } from '../privileged-sites';
-import { setSourceProperties, ttlString } from '../sources/source-meta-write';
+import { ttlString } from '../sources/source-meta-write';
+import { fileSourceProperties } from '../llm/source-properties';
 import { runCell as runComputeCell } from '../compute/registry';
 import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
@@ -789,7 +790,10 @@ export function registerConversation(): void {
         const updates: { predicate: string; value: string }[] = [];
         if (draft.abstract) updates.push({ predicate: 'dc:abstract', value: ttlString(draft.abstract) });
         if (draft.tldr) updates.push({ predicate: 'thought:tldr', value: ttlString(draft.tldr) });
-        const changedPredicates = await setSourceProperties(rootPath, sourceId, updates);
+        // Route through the approval engine's source-meta payload (#943) rather
+        // than writing meta.ttl directly — leaves a thought:Proposal audit
+        // record. The user already reviewed the source-property card.
+        const { changedPredicates } = await fileSourceProperties(rootPath, sourceId, updates);
         return { outcome: { sourceId, changedPredicates } };
       } catch (err) {
         console.warn('[conv] FILE_SOURCE_PROPERTY_DRAFT failed for', sourceId, err);
