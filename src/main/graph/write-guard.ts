@@ -34,6 +34,23 @@ export function isInLLMContext(): boolean {
 }
 
 /**
+ * Run an LLM-originated operation with the guard armed (#944). Exception-safe:
+ * the context is always exited. Any graph write inside `fn` that doesn't route
+ * through the approval engine (trusted context) trips checkLLMWriteGuard — so
+ * the converged apply helpers (auto-tag/-link, set/source properties, note-body)
+ * are wrapped in this, and a regression that writes directly instead of via
+ * proposeWrite() fails CI.
+ */
+export async function withLLMContext<T>(fn: () => Promise<T>): Promise<T> {
+  enterLLMContext();
+  try {
+    return await fn();
+  } finally {
+    exitLLMContext();
+  }
+}
+
+/**
  * Mark the start of a trusted graph mutation — i.e. one going through the
  * approval engine. Used by approval.ts to wrap its own parseIntoStore /
  * removeMatchingTriples calls so the write guard doesn't flag them.
@@ -51,17 +68,31 @@ export function isInTrustedContext(): boolean {
   return trustedContextDepth > 0;
 }
 
-/** Dev-time guard. Logs once per offending call when an LLM-originated
- *  call path mutates the graph without going through the approval engine.
- *  No-op in trusted context (proposeWrite / approveProposal / approval-only
- *  mutators) and outside LLM context. */
+/** True when running under the test runner, where the guard is FATAL (throws)
+ *  so an accidental approval-engine bypass fails CI instead of scrolling past in
+ *  a warning. In dev + production it stays a non-fatal warning — a development
+ *  guardrail must never crash the user's app (per CLAUDE.md). */
+function guardIsFatal(): boolean {
+  return process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
+}
+
+/**
+ * Trust guard. Fires when an LLM-originated call path mutates the graph without
+ * going through the approval engine. No-op in trusted context (proposeWrite /
+ * approveProposal / approval-only mutators) and outside LLM context.
+ *
+ * Under test it THROWS — the invariant "every LLM-originated write goes through
+ * proposeWrite()/approveProposal()" (#935) is enforced, not merely observed, so
+ * a sixth bypass can't be added silently. In dev/prod it warns (#671).
+ */
 export function checkLLMWriteGuard(operation: string): void {
   if (!isInLLMContext()) return;
   if (trustedContextDepth > 0) return;
-  console.warn(
+  const message =
     `[trust-guard] ${operation} called from LLM context outside the approval engine. ` +
-    `LLM-originated writes must go through proposeWrite()/approveProposal().`,
-  );
+    `LLM-originated writes must go through proposeWrite()/approveProposal().`;
+  if (guardIsFatal()) throw new Error(message);
+  console.warn(message);
 }
 
 /** Test-only: reset both counters between cases. */

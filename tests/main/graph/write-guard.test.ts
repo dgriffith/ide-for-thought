@@ -3,7 +3,7 @@
  * write-guard module, including the actual guard *behaviour* (does it warn?),
  * which the previous version only gestured at (QA #657 / Q-C1).
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   enterLLMContext,
   exitLLMContext,
@@ -61,40 +61,31 @@ describe('trusted context counter', () => {
   });
 });
 
-describe('checkLLMWriteGuard behaviour', () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>;
-  beforeEach(() => { warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {}); });
-  afterEach(() => warnSpy.mockRestore());
+describe('checkLLMWriteGuard behaviour (fatal under test, #944)', () => {
+  // These run under vitest, where the guard is FATAL — it throws rather than
+  // warns, so an accidental approval-engine bypass fails CI. (In dev/prod it
+  // stays a non-fatal console.warn; that branch isn't exercised here.)
 
   it('stays silent outside LLM context', () => {
-    checkLLMWriteGuard('indexNote');
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(() => checkLLMWriteGuard('indexNote')).not.toThrow();
   });
 
-  it('WARNS when a graph write happens in LLM context outside the approval engine', () => {
+  it('THROWS when a graph write happens in LLM context outside the approval engine', () => {
     enterLLMContext();
-    checkLLMWriteGuard('indexNote');
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const msg = String(warnSpy.mock.calls[0][0]);
-    expect(msg).toContain('[trust-guard]');
-    expect(msg).toContain('indexNote');
-    expect(msg).toContain('proposeWrite');
+    expect(() => checkLLMWriteGuard('indexNote')).toThrow(/\[trust-guard\].*indexNote.*proposeWrite/s);
   });
 
   it('stays silent in LLM context when the write is inside a trusted (approval-engine) context', () => {
     enterLLMContext();
     enterTrustedContext();
-    checkLLMWriteGuard('indexSource');
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(() => checkLLMWriteGuard('indexSource')).not.toThrow();
   });
 
-  it('re-warns once the trusted context is exited but LLM context remains', () => {
+  it('re-arms once the trusted context is exited but LLM context remains', () => {
     enterLLMContext();
     enterTrustedContext();
-    checkLLMWriteGuard('indexSource');
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(() => checkLLMWriteGuard('indexSource')).not.toThrow();
     exitTrustedContext();
-    checkLLMWriteGuard('indexSource');
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(() => checkLLMWriteGuard('indexSource')).toThrow(/\[trust-guard\]/);
   });
 });

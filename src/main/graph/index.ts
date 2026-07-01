@@ -63,6 +63,7 @@ export {
   enterLLMContext,
   exitLLMContext,
   isInLLMContext,
+  withLLMContext,
   enterTrustedContext,
   exitTrustedContext,
 } from './write-guard';

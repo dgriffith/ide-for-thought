@@ -12,6 +12,7 @@
  * Lives in `llm/` (not `sources/`) to avoid a cycle: approval.ts imports the
  * source-meta write primitives, and this imports approval.ts.
  */
+import { withLLMContext } from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { proposeWrite, approveProposal } from './approval';
 import {
@@ -36,25 +37,28 @@ export async function fileSourceProperties(
   sourceId: string,
   updates: SourceMetaUpdate[],
 ): Promise<FileSourcePropertiesResult> {
-  const before = await readMeta(sourceMetaPath(rootPath, sourceId));
-  let probe = before;
-  const changedPredicates: string[] = [];
-  for (const u of updates) {
-    const next = upsertSingleValuedPredicate(probe, u.predicate, u.value);
-    if (next !== probe) {
-      changedPredicates.push(u.predicate);
-      probe = next;
+  // Armed with the trust guard (#944).
+  return withLLMContext(async () => {
+    const before = await readMeta(sourceMetaPath(rootPath, sourceId));
+    let probe = before;
+    const changedPredicates: string[] = [];
+    for (const u of updates) {
+      const next = upsertSingleValuedPredicate(probe, u.predicate, u.value);
+      if (next !== probe) {
+        changedPredicates.push(u.predicate);
+        probe = next;
+      }
     }
-  }
-  if (changedPredicates.length === 0) return { changedPredicates: [] };
+    if (changedPredicates.length === 0) return { changedPredicates: [] };
 
-  const ctx = projectContext(rootPath);
-  const proposal = await proposeWrite(ctx, {
-    operationType: 'source_properties',
-    payloads: [{ kind: 'source-meta', sourceId, updates }],
-    note: `Set source properties on ${sourceId}: ${changedPredicates.join(', ')}`,
-    proposedBy: 'llm:source-properties',
+    const ctx = projectContext(rootPath);
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'source_properties',
+      payloads: [{ kind: 'source-meta', sourceId, updates }],
+      note: `Set source properties on ${sourceId}: ${changedPredicates.join(', ')}`,
+      proposedBy: 'llm:source-properties',
+    });
+    if (proposal) await approveProposal(ctx, proposal.uri);
+    return { changedPredicates };
   });
-  if (proposal) await approveProposal(ctx, proposal.uri);
-  return { changedPredicates };
 }

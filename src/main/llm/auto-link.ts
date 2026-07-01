@@ -166,22 +166,26 @@ export async function fileAutoLinkOutbound(
   activeRelPath: string,
   accepted: AutoLinkSuggestion[],
 ): Promise<FileAutoLinkResult> {
-  const { content, applied, skipped } = await applyAutoLinkToSuggestions(rootPath, activeRelPath, accepted);
-  if (applied.length === 0) return { applied, skipped, rewrittenPaths: [] };
+  // Armed with the trust guard (#944) — a direct graph write here (not via the
+  // approval engine) trips checkLLMWriteGuard.
+  return graph.withLLMContext(async () => {
+    const { content, applied, skipped } = await applyAutoLinkToSuggestions(rootPath, activeRelPath, accepted);
+    if (applied.length === 0) return { applied, skipped, rewrittenPaths: [] };
 
-  const ctx = projectContext(rootPath);
-  const proposal = await proposeWrite(ctx, {
-    operationType: 'note_rewrite',
-    payloads: [{ kind: 'note-rewrite', path: activeRelPath, content }],
-    note: `Auto-link: add ${applied.length} link${applied.length === 1 ? '' : 's'} to ${activeRelPath}`,
-    proposedBy: 'llm:auto-link',
+    const ctx = projectContext(rootPath);
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: [{ kind: 'note-rewrite', path: activeRelPath, content }],
+      note: `Auto-link: add ${applied.length} link${applied.length === 1 ? '' : 's'} to ${activeRelPath}`,
+      proposedBy: 'llm:auto-link',
+    });
+    let rewrittenPaths: string[] = [];
+    if (proposal) {
+      const result = await approveProposal(ctx, proposal.uri);
+      rewrittenPaths = result.rewrittenPaths;
+    }
+    return { applied, skipped, rewrittenPaths };
   });
-  let rewrittenPaths: string[] = [];
-  if (proposal) {
-    const result = await approveProposal(ctx, proposal.uri);
-    rewrittenPaths = result.rewrittenPaths;
-  }
-  return { applied, skipped, rewrittenPaths };
 }
 
 // ── Inbound mode (#175 follow-up) ─────────────────────────────────────────
@@ -415,27 +419,30 @@ export async function fileAutoLinkInbound(
   activeRelPath: string,
   accepted: AutoLinkInboundSuggestion[],
 ): Promise<FileAutoLinkInboundResult> {
-  const { applied, skipped, updatedContents } = await applyInboundSuggestions(rootPath, activeRelPath, accepted);
-  if (updatedContents.size === 0) return { applied, skipped, rewrittenPaths: [] };
+  // Armed with the trust guard (#944).
+  return graph.withLLMContext(async () => {
+    const { applied, skipped, updatedContents } = await applyInboundSuggestions(rootPath, activeRelPath, accepted);
+    if (updatedContents.size === 0) return { applied, skipped, rewrittenPaths: [] };
 
-  const ctx = projectContext(rootPath);
-  const payloads = [...updatedContents].map(([path, content]) => ({
-    kind: 'note-rewrite' as const,
-    path,
-    content,
-  }));
-  const proposal = await proposeWrite(ctx, {
-    operationType: 'note_rewrite',
-    payloads,
-    note: `Auto-link inbound: link ${payloads.length} note${payloads.length === 1 ? '' : 's'} to ${activeRelPath}`,
-    proposedBy: 'llm:auto-link-inbound',
+    const ctx = projectContext(rootPath);
+    const payloads = [...updatedContents].map(([path, content]) => ({
+      kind: 'note-rewrite' as const,
+      path,
+      content,
+    }));
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads,
+      note: `Auto-link inbound: link ${payloads.length} note${payloads.length === 1 ? '' : 's'} to ${activeRelPath}`,
+      proposedBy: 'llm:auto-link-inbound',
+    });
+    let rewrittenPaths: string[] = [];
+    if (proposal) {
+      const result = await approveProposal(ctx, proposal.uri);
+      rewrittenPaths = result.rewrittenPaths;
+    }
+    return { applied, skipped, rewrittenPaths };
   });
-  let rewrittenPaths: string[] = [];
-  if (proposal) {
-    const result = await approveProposal(ctx, proposal.uri);
-    rewrittenPaths = result.rewrittenPaths;
-  }
-  return { applied, skipped, rewrittenPaths };
 }
 
 export interface FileAutoLinkInboundResult {

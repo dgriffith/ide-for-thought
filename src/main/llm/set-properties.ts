@@ -13,6 +13,7 @@
  * (NOTEBASE_REWRITTEN), mirroring the approval engine's own seam.
  */
 import * as notebaseFs from '../notebase/fs';
+import { enterLLMContext, exitLLMContext } from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { proposeWrite, approveProposal } from './approval';
 import { patchFrontmatterProperties } from '../../shared/refactor/frontmatter-patch';
@@ -37,6 +38,11 @@ export async function applyPropertyUpdates(
   const outcomes: PropertyUpdateOutcome[] = [];
   const rewrittenPaths: string[] = [];
 
+  // Arm the trust guard (#944): a direct graph write below that skips the
+  // approval engine trips checkLLMWriteGuard (surfaced per-note as an error
+  // outcome via the existing try/catch, which the tests assert against).
+  enterLLMContext();
+  try {
   for (const u of updates) {
     try {
       if (!u.properties || typeof u.properties !== 'object' || Object.keys(u.properties).length === 0) {
@@ -83,6 +89,9 @@ export async function applyPropertyUpdates(
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+  } finally {
+    exitLLMContext();
   }
 
   return { outcomes, rewrittenPaths };

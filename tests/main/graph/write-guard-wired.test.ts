@@ -1,25 +1,30 @@
 /**
- * Integration coverage for the LLM write guard (#657 / QA Q-C1).
+ * Integration coverage for the LLM write guard (#657, hardened in #944).
  *
  * write-guard.test.ts unit-tests the guard primitive (checkLLMWriteGuard). This
  * file proves the guard is actually WIRED INTO the real graph write path: it
  * drives the genuine `parseIntoStore` / `removeMatchingTriples` and asserts that
  *   - a direct write in LLM context (i.e. bypassing the approval engine) is
- *     caught (warned), and
+ *     caught, and
  *   - the same write inside the approval engine's *trusted* context is exempt.
  *
  * That's the "verify the approval gate cannot be skipped" check CLAUDE.md's
- * LLM/Graph checklist asks for — the previous test only exercised the counter
- * and never touched a real write.
+ * LLM/Graph checklist asks for.
+ *
+ * #944 made the guard FATAL under test (it throws), so the invariant "every
+ * LLM-originated write goes through proposeWrite()/approveProposal()" is
+ * enforced in CI, not merely observed in a warning. In dev/prod it stays a
+ * non-fatal warning (a dev guardrail must never crash the user's app).
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { parseIntoStore, removeMatchingTriples, queryGraph } from '../../../src/main/graph/index';
 import {
   enterLLMContext,
   exitLLMContext,
   enterTrustedContext,
   exitTrustedContext,
+  withLLMContext,
   __resetWriteGuardForTests,
 } from '../../../src/main/graph/write-guard';
 import { type ProjectContext } from '../../../src/main/project-context-types';
@@ -34,32 +39,33 @@ async function objectsOf(ctx: ProjectContext): Promise<string[]> {
   return (r.results as Array<{ o: string }>).map((x) => x.o);
 }
 
-describe('LLM write guard wired into the graph write path (#657)', () => {
+describe('LLM write guard wired into the graph write path (#657, fatal #944)', () => {
   const project = useGraphProject('minerva-guard-wired-');
   let ctx: ProjectContext;
-  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     ctx = project.ctx; // fresh per test (useGraphProject's beforeEach ran first)
     __resetWriteGuardForTests();
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    warnSpy.mockRestore();
+    // A thrown guard skips the paired exitLLMContext(); reset so the counter
+    // doesn't leak into the next test.
     __resetWriteGuardForTests();
   });
 
-  it('a direct parseIntoStore in LLM context (bypassing approval) trips the guard', () => {
+  it('a direct parseIntoStore in LLM context (bypassing approval) throws — and the write is rejected', async () => {
     enterLLMContext();
-    parseIntoStore(ctx, TRIPLE);
+    expect(() => parseIntoStore(ctx, TRIPLE)).toThrow(/\[trust-guard\].*parseIntoStore/);
     exitLLMContext();
+    // Fatal means blocked: the triple never landed.
+    expect(await objectsOf(ctx)).not.toContain('guarded');
+  });
 
-    expect(warnSpy).toHaveBeenCalled();
-    const msg = String(warnSpy.mock.calls[0][0]);
-    expect(msg).toContain('[trust-guard]');
-    expect(msg).toContain('parseIntoStore');
-    expect(msg).toContain('proposeWrite'); // the message tells you the right path
+  it('the trust-guard message names the right path (proposeWrite/approveProposal)', () => {
+    enterLLMContext();
+    expect(() => parseIntoStore(ctx, TRIPLE)).toThrow(/proposeWrite\(\)\/approveProposal\(\)/);
+    exitLLMContext();
   });
 
   it('the SAME write inside the approval engine\'s trusted context is exempt', async () => {
@@ -68,41 +74,33 @@ describe('LLM write guard wired into the graph write path (#657)', () => {
     // legitimate.
     enterLLMContext();
     enterTrustedContext();
-    parseIntoStore(ctx, TRIPLE);
+    expect(() => parseIntoStore(ctx, TRIPLE)).not.toThrow();
     exitTrustedContext();
     exitLLMContext();
-
-    expect(warnSpy).not.toHaveBeenCalled();
     expect(await objectsOf(ctx)).toContain('guarded'); // and it actually landed
   });
 
   it('a normal write outside any LLM context is silent', async () => {
-    parseIntoStore(ctx, TRIPLE);
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(() => parseIntoStore(ctx, TRIPLE)).not.toThrow();
     expect(await objectsOf(ctx)).toContain('guarded');
   });
 
   it('removeMatchingTriples is guarded on the same path', () => {
     parseIntoStore(ctx, TRIPLE); // seed outside LLM context
-    warnSpy.mockClear();
-
     enterLLMContext();
-    removeMatchingTriples(ctx, S, P);
+    expect(() => removeMatchingTriples(ctx, S, P)).toThrow(/\[trust-guard\].*removeMatchingTriples/);
     exitLLMContext();
-
-    expect(warnSpy).toHaveBeenCalled();
-    expect(String(warnSpy.mock.calls[0][0])).toContain('removeMatchingTriples');
   });
 
-  it('warns but does NOT block — a dev guardrail, not a hard gate (per CLAUDE.md)', async () => {
-    // The guard's documented contract: it surfaces a bypass, it doesn't reject
-    // the write. Pinning that so a future "make it throw" is a conscious change,
-    // not an accidental one.
-    enterLLMContext();
-    parseIntoStore(ctx, TRIPLE);
-    exitLLMContext();
-
-    expect(warnSpy).toHaveBeenCalled();
-    expect(await objectsOf(ctx)).toContain('guarded');
+  it('withLLMContext arms the guard — a bypass write inside it is rejected (#944)', async () => {
+    // This is exactly what the converged apply helpers (auto-tag/-link, set/
+    // source properties, note-body) wrap themselves in. A regression that writes
+    // to the graph directly instead of via proposeWrite() fails here.
+    await expect(
+      withLLMContext(async () => parseIntoStore(ctx, TRIPLE)),
+    ).rejects.toThrow(/\[trust-guard\]/);
+    expect(await objectsOf(ctx)).not.toContain('guarded'); // rejected, never landed
+    // The wrapper still exited LLM context despite the throw.
+    expect(() => parseIntoStore(ctx, TRIPLE)).not.toThrow();
   });
 });

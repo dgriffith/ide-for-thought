@@ -535,20 +535,24 @@ export function registerConversation(): void {
         );
       }
       const ctx = projectContext(rootPath);
-      const proposal = await approval.proposeWrite(ctx, {
-        operationType: 'note_rewrite',
-        payloads: [{ kind: 'note-rewrite', path: draft.relativePath, content: draft.afterContent }],
-        note: draft.note,
-        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-        proposedBy: `llm:conversation:${draft.conversationId}`,
+      // Arm the trust guard (#944): LLM-originated, so a direct write here that
+      // skips the approval engine trips checkLLMWriteGuard.
+      return graph.withLLMContext(async () => {
+        const proposal = await approval.proposeWrite(ctx, {
+          operationType: 'note_rewrite',
+          payloads: [{ kind: 'note-rewrite', path: draft.relativePath, content: draft.afterContent }],
+          note: draft.note,
+          conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+          proposedBy: `llm:conversation:${draft.conversationId}`,
+        });
+        let applied = false;
+        if (proposal) {
+          const result = await approval.approveProposal(ctx, proposal.uri);
+          applied = result.ok;
+          hooks.broadcastRewritten(rootPath, result.rewrittenPaths);
+        }
+        return { proposalUri: proposal?.uri ?? null, applied };
       });
-      let applied = false;
-      if (proposal) {
-        const result = await approval.approveProposal(ctx, proposal.uri);
-        applied = result.ok;
-        hooks.broadcastRewritten(rootPath, result.rewrittenPaths);
-      }
-      return { proposalUri: proposal?.uri ?? null, applied };
     },
   );
 

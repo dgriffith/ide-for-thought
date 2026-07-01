@@ -548,6 +548,12 @@ async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Pr
     ...payloads.filter((p) => p.kind === 'graph-triples'),
   ];
 
+  // Everything a bundle applies is a *trusted* mutation. Wrapping the whole
+  // apply (not just applyTurtle) means the graph writes inside dispatchApply —
+  // indexNote / indexSource / indexExcerpt — are exempt from the trust guard
+  // even when the caller is in LLM context (e.g. an approve-handler wrapped in
+  // enterLLMContext so the guard is armed on its non-approval writes, #944).
+  graph.enterTrustedContext();
   const applied: AppliedRecord[] = [];
   try {
     for (const p of ordered) {
@@ -563,6 +569,8 @@ async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Pr
       catch (rollbackErr) { console.warn(`[approval] rollback of ${a.kind} failed:`, rollbackErr); }
     }
     throw err;
+  } finally {
+    graph.exitTrustedContext();
   }
 }
 
