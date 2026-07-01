@@ -46,7 +46,9 @@
   import RefactorDraftCard from './RefactorDraftCard.svelte';
   import ReorgDraftCard from './ReorgDraftCard.svelte';
   import DeleteDraftCard from './DeleteDraftCard.svelte';
+  import NoteBodyDraftCard from './NoteBodyDraftCard.svelte';
   import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../../shared/conversation-refactor-drafts';
+  import type { ConversationNoteBodyDraft } from '../../../shared/conversation-note-body-drafts';
   import { getSlashCommands } from '../tools/tool-registry';
   import { slashQueryFromComposer, buildSlashMenu, type SlashMenuItem } from '../conversations/slash-commands';
   import {
@@ -457,6 +459,18 @@
     store.discardDeleteDraft(tabId, draftId);
   }
 
+  async function handleApproveNoteBody(tabId: string, draft: ConversationNoteBodyDraft) {
+    try {
+      await store.approveNoteBodyDraft(tabId, draft);
+    } catch (e) {
+      console.error('[conv-panel] approve note-body rewrite failed:', e);
+    }
+  }
+
+  function handleDiscardNoteBody(tabId: string, draftId: string) {
+    store.discardNoteBodyDraft(tabId, draftId);
+  }
+
   async function handleApproveSource(tabId: string, draft: ConversationSourceDraft) {
     try {
       await store.approveSourceDraft(tabId, draft);
@@ -672,6 +686,13 @@
   function orphanDeleteDrafts(tab: TabT) {
     const max = tab.conversation.messages.length;
     return tab.deleteDrafts.filter((d) => d.afterMessageIndex >= max);
+  }
+  function noteBodyDraftsAt(tab: TabT, i: number) {
+    return tab.noteBodyDrafts.filter((d) => d.afterMessageIndex === i);
+  }
+  function orphanNoteBodyDrafts(tab: TabT) {
+    const max = tab.conversation.messages.length;
+    return tab.noteBodyDrafts.filter((d) => d.afterMessageIndex >= max);
   }
 </script>
 
@@ -1121,6 +1142,13 @@
                 onDiscard={() => handleDiscardDelete(tab.id, draft.draftId)}
               />
             {/each}
+            {#each noteBodyDraftsAt(tab, i) as draft (draft.draftId)}
+              <NoteBodyDraftCard
+                {draft}
+                onApprove={() => handleApproveNoteBody(tab.id, draft)}
+                onDiscard={() => handleDiscardNoteBody(tab.id, draft.draftId)}
+              />
+            {/each}
           {/each}
 
           {#if tab.streaming}
@@ -1240,6 +1268,13 @@
               {draft}
               onApprove={(selected) => handleApproveDelete(tab.id, draft, selected)}
               onDiscard={() => handleDiscardDelete(tab.id, draft.draftId)}
+            />
+          {/each}
+          {#each orphanNoteBodyDrafts(tab) as draft (draft.draftId)}
+            <NoteBodyDraftCard
+              {draft}
+              onApprove={() => handleApproveNoteBody(tab.id, draft)}
+              onDiscard={() => handleDiscardNoteBody(tab.id, draft.draftId)}
             />
           {/each}
         </div>
