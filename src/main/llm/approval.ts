@@ -21,7 +21,8 @@ export type OperationType =
   | 'component_creation'
   | 'status_change'
   | 'note_refactor'
-  | 'note_delete';
+  | 'note_delete'
+  | 'note_rewrite';
 
 /**
  * One side-effect a proposal applies to the thoughtbase. The approval
@@ -29,13 +30,14 @@ export type OperationType =
  * bundle as one proposal in the diff view and approves / rejects
  * atomically (#418).
  *
- * Five kinds defined; only `graph-triples` and `note` are wired to a
- * dispatcher today. The other three are reserved for the Research
- * tools that will need them (#415 wants `source`, #414 wants
- * `excerpt` for cited passages, the metacognitive cluster wants
- * `saved-query` for "watch this" queries). Apply attempts on an
- * un-wired kind throw `NotImplementedError` so the type stays
- * accurate without forcing the runtime cost up front.
+ * Most kinds are wired to a dispatcher (`graph-triples`, `note`,
+ * `excerpt`, `note-refactor`, `note-delete`, `note-rewrite`). `source`
+ * and `saved-query` are defined but not yet wired — reserved for the
+ * Research tools that will need them (#415 wants `source`, the
+ * metacognitive cluster wants `saved-query` for "watch this" queries).
+ * Apply attempts on an un-wired kind throw `NotImplementedError` so the
+ * type stays accurate without forcing the runtime cost up front; see
+ * `WIRED_PAYLOAD_KINDS` for the authoritative set.
  */
 export type ProposalPayload =
   | {
@@ -95,6 +97,17 @@ export type ProposalPayload =
        *  are intentionally left dangling (matching the manual-delete path),
        *  with the blast radius shown on the review card. */
       path: string;
+    }
+  | {
+      kind: 'note-rewrite';
+      /** Overwrite an existing note's full content in place (#936). Apply
+       *  captures the prior content as a pre-image so rollback can restore it
+       *  verbatim. The note must already exist — this rewrites, it does not
+       *  create (that's the `note` kind). The resolved path is surfaced on
+       *  ApproveResult.rewrittenPaths so the IPC layer can fire a
+       *  NOTEBASE_REWRITTEN broadcast that reloads an open editor. */
+      path: string;
+      content: string;
     };
 
 export interface ProposedWrite {
@@ -144,6 +157,9 @@ const DEFAULT_POLICY: Record<OperationType, ApprovalTier> = {
   note_refactor: 'requires_approval',
   // Deleting a note is destructive — always reviewed, never autonomous.
   note_delete: 'requires_approval',
+  // Rewriting a note's body in place replaces human-authored content — always
+  // reviewed via the diff card (#936).
+  note_rewrite: 'requires_approval',
 };
 
 let policyOverrides: Partial<Record<OperationType, ApprovalTier>> = {};
@@ -178,6 +194,13 @@ function collectAffectsNodes(ctx: ProjectContext, payloads: ProposalPayload[]): 
     } else if (p.kind === 'note') {
       const uri = graph.noteUriFor(ctx, p.relativePath);
       if (uri) out.add(uri);
+    } else if (p.kind === 'note-rewrite') {
+      // The rewritten note already exists, so it has a stable IRI. Tie it to
+      // the proposal so the trust-integrity query can join an LLM-attributed
+      // rewrite back to its approval, and so an established-note rewrite is
+      // covered by the escalation check (#936).
+      const uri = graph.noteUriFor(ctx, p.path);
+      if (uri) out.add(uri);
     }
   }
   return [...out];
@@ -207,7 +230,7 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
 /** Payload kinds that `dispatchApply` actually knows how to apply. Keep in
  *  sync with the `switch` in dispatchApply — the `source` / `saved-query`
  *  kinds are defined on the type but not yet wired to a dispatcher. */
-const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor', 'note-delete']);
+const WIRED_PAYLOAD_KINDS = new Set<ProposalPayload['kind']>(['graph-triples', 'note', 'excerpt', 'note-refactor', 'note-delete', 'note-rewrite']);
 
 /**
  * Reject a bundle containing a payload kind that has no apply dispatcher (#665).
@@ -292,11 +315,16 @@ export interface ApproveResult {
    *  — collisions are dedup'd at apply time so the resolved path can
    *  differ from `p.relativePath`. */
   filedPaths: string[];
+  /** Project-relative paths of existing notes overwritten in place by
+   *  `note-rewrite` payloads in this bundle (#936). The IPC caller broadcasts
+   *  NOTEBASE_REWRITTEN for these so an open editor reloads the new content —
+   *  the approval engine stays Electron-free and only returns the paths. */
+  rewrittenPaths: string[];
 }
 
 export async function approveProposal(ctx: ProjectContext, uri: string): Promise<ApproveResult> {
   const proposal = await getProposal(ctx, uri);
-  if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [] };
+  if (!proposal || proposal.status !== 'pending') return { ok: false, filedPaths: [], rewrittenPaths: [] };
 
   if (proposal.payloads.length === 0) {
     // Don't quietly flip status to approved on an empty bundle — that's
@@ -317,7 +345,10 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
   const filedPaths = applied
     .filter((a): a is AppliedRecord & { kind: 'note' } => a.kind === 'note')
     .map((a) => (a.rollbackData as { resolvedPath: string }).resolvedPath);
-  return { ok: true, filedPaths };
+  const rewrittenPaths = applied
+    .filter((a): a is AppliedRecord & { kind: 'note-rewrite' } => a.kind === 'note-rewrite')
+    .map((a) => (a.rollbackData as { path: string }).path);
+  return { ok: true, filedPaths, rewrittenPaths };
 }
 
 /**
@@ -595,6 +626,27 @@ async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<u
       void vectors.removeNote(ctx, p.path);
       return { path: p.path, content };
     }
+    case 'note-rewrite': {
+      // Overwrite an existing note in place (#936). Guardrails: must be a .md
+      // note that already exists — readFile throws ENOENT for a missing file,
+      // which propagates and rolls the bundle back (a rewrite of a nonexistent
+      // note is a bug in the caller, not a note to create). Capture the prior
+      // content as a pre-image for rollback, then write + reindex inline.
+      // markPathHandled dedups the watcher's re-index of our own write; the
+      // renderer refresh is driven by the IPC layer via NOTEBASE_REWRITTEN
+      // (which consumes ApproveResult.rewrittenPaths), mirroring how the
+      // bypassing auto-tag/set_properties paths broadcast today.
+      if (!p.path.endsWith('.md')) {
+        throw new Error(`note-rewrite: refusing to rewrite non-markdown path "${p.path}".`);
+      }
+      const before = await notebaseFs.readFile(ctx.rootPath, p.path);
+      markPathHandled(p.path);
+      await notebaseFs.writeFile(ctx.rootPath, p.path, p.content);
+      await graph.indexNote(ctx, p.path, p.content);
+      search.indexNote(ctx, p.path, p.content);
+      void vectors.indexNote(ctx, p.path, p.content);
+      return { path: p.path, before };
+    }
     case 'source':
     case 'saved-query':
       throw new Error(
@@ -660,6 +712,22 @@ async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<
         void vectors.indexNote(ctx, data.path, data.content);
       } catch (err) {
         console.warn(`[approval] note-delete rollback restore failed for ${data.path}:`, err);
+      }
+      return;
+    }
+    case 'note-rewrite': {
+      // Restore the note's captured pre-image and reindex (#936). Same posture
+      // as note-delete rollback: best-effort, markPathHandled dedups the
+      // watcher, reindex across graph/search/vectors.
+      const data = a.rollbackData as { path: string; before: string };
+      try {
+        markPathHandled(data.path);
+        await notebaseFs.writeFile(ctx.rootPath, data.path, data.before);
+        await graph.indexNote(ctx, data.path, data.before);
+        search.indexNote(ctx, data.path, data.before);
+        void vectors.indexNote(ctx, data.path, data.before);
+      } catch (err) {
+        console.warn(`[approval] note-rewrite rollback restore failed for ${data.path}:`, err);
       }
       return;
     }
