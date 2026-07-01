@@ -272,6 +272,11 @@ export function registerConversation(): void {
             win.webContents.send(Channels.CONVERSATION_DELETE_DRAFT, draft);
           }
         },
+        onNoteBodyDraft: (draft: import('../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(Channels.CONVERSATION_NOTE_BODY_DRAFT, draft);
+          }
+        },
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {
@@ -506,6 +511,43 @@ export function registerConversation(): void {
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
+    },
+  );
+
+  // Counterpart to CONVERSATION_FILE_DELETE_DRAFT for propose_note_body (#937).
+  // Files + auto-approves a single note_rewrite proposal (the user already
+  // reviewed the before/after diff on the card), then broadcasts
+  // NOTEBASE_REWRITTEN for the overwritten path so an open editor reloads the
+  // new content — approval.ts stays Electron-free and just returns the paths.
+  ipcMain.handle(
+    Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT,
+    async (
+      e,
+      draft: import('../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft,
+    ): Promise<import('../../shared/conversation-note-body-drafts').FileNoteBodyDraftResult> => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      if (!draft?.relativePath || typeof draft.afterContent !== 'string') {
+        throw new Error(
+          `FILE_NOTE_BODY_DRAFT: draft missing relativePath/afterContent (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+        );
+      }
+      const ctx = projectContext(rootPath);
+      const proposal = await approval.proposeWrite(ctx, {
+        operationType: 'note_rewrite',
+        payloads: [{ kind: 'note-rewrite', path: draft.relativePath, content: draft.afterContent }],
+        note: draft.note,
+        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
+        proposedBy: `llm:conversation:${draft.conversationId}`,
+      });
+      let applied = false;
+      if (proposal) {
+        const result = await approval.approveProposal(ctx, proposal.uri);
+        applied = result.ok;
+        hooks.broadcastRewritten(rootPath, result.rewrittenPaths);
+      }
+      return { proposalUri: proposal?.uri ?? null, applied };
     },
   );
 

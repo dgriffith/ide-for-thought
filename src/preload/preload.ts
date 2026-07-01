@@ -253,6 +253,10 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.CONVERSATION_DELETE_DRAFT, cb),
     fileDeleteDraft: (draft: unknown, selected: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
+    onNoteBodyDraft: (cb: (draft: unknown) => void) =>
+      subscribeIpc(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
+    fileNoteBodyDraft: (draft: unknown) =>
+      ipcRenderer.invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
     insertComputeDraft: (input: unknown) =>
       ipcRenderer.invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>
