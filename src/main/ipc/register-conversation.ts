@@ -12,7 +12,7 @@ import { setSourceProperties, ttlString } from '../sources/source-meta-write';
 import { runCell as runComputeCell } from '../compute/registry';
 import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
-import { patchFrontmatterProperties } from '../../shared/refactor/frontmatter-patch';
+import { applyPropertyUpdates } from '../llm/set-properties';
 import * as approval from '../llm/approval';
 import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
@@ -741,55 +741,15 @@ export function registerConversation(): void {
           `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
         );
       }
-      const outcomes: import('../../shared/conversation-property-drafts').PropertyUpdateOutcome[] = [];
-      for (const u of draft.updates) {
-        try {
-          if (!u.properties || typeof u.properties !== 'object' || Object.keys(u.properties).length === 0) {
-            // Don't silently produce a no-op outcome — that's what hid
-            // the original cross-IPC serialization bug. Surface it as
-            // an explicit error so the user sees something on the
-            // Filed line and the log captures the bad payload.
-            outcomes.push({
-              relativePath: u.relativePath,
-              changedKeys: [],
-              deletedKeys: [],
-              error: 'properties payload arrived empty across IPC — frontmatter not written.',
-            });
-            continue;
-          }
-          const before = await notebaseFs.readFile(rootPath, u.relativePath);
-          const result = patchFrontmatterProperties(before, u.properties);
-          if (result.changedKeys.length > 0) {
-            // Route through the standard write pipeline rather than
-            // bare `notebaseFs.writeFile`. Without this the file lands
-            // on disk but the renderer's open editor + right-sidebar
-            // Properties panel don't refresh until the note is closed
-            // and reopened — the pipeline marks the watcher dedup,
-            // reindexes the graph + search, AND emits the
-            // NOTEBASE_REWRITTEN broadcast that triggers the in-place
-            // reload. Same flow auto-tag/auto-link use after their
-            // frontmatter mutations.
-            await writeAndReindex(rootPath, u.relativePath, result.content, hooks);
-          }
-          outcomes.push({
-            relativePath: u.relativePath,
-            changedKeys: result.changedKeys,
-            deletedKeys: result.deletedKeys,
-          });
-        } catch (err) {
-          console.warn(`[conv] FILE_PROPERTY_DRAFT patch failed for`, u.relativePath, err);
-          outcomes.push({
-            relativePath: u.relativePath,
-            changedKeys: [],
-            deletedKeys: [],
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-      // The graph indexer watches for file changes, so reindexing
-      // happens automatically. We don't broadcast a separate event
-      // here — the file watcher's NOTEBASE_FILE_CHANGED event is
-      // what the renderer already listens for to refresh views.
+      // Apply each per-note frontmatter patch through the approval engine's
+      // note_rewrite payload (#942) — see applyPropertyUpdates. broadcastRewritten
+      // reloads open editors + the Properties panel from the rewritten paths.
+      const { outcomes, rewrittenPaths } = await applyPropertyUpdates(
+        rootPath,
+        draft.updates,
+        draft.conversationId,
+      );
+      hooks.broadcastRewritten(rootPath, rewrittenPaths);
       return { outcomes };
     },
   );
