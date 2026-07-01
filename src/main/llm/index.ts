@@ -15,6 +15,7 @@ import type { ConversationSourceDraft } from '../../shared/conversation-source-d
 import type { ConversationPropertyDraft } from '../../shared/conversation-property-drafts';
 import type { ConversationComputeDraft } from '../../shared/conversation-compute-drafts';
 import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from '../../shared/conversation-refactor-drafts';
+import type { ConversationNoteBodyDraft } from '../../shared/conversation-note-body-drafts';
 import type { ConversationSourcePropertyDraft } from '../../shared/conversation-source-property-drafts';
 import type { ConversationClaimsDraft } from '../../shared/conversation-claims-drafts';
 import type { ConversationToolKey } from '../../shared/conversation-tools';
@@ -76,6 +77,12 @@ export interface StreamCallbacks {
    */
   onDeleteDraft?: (draft: ConversationDeleteDraft) => void;
   /**
+   * Counterpart for `propose_note_body` (#937): an in-place note rewrite
+   * forwarded to the renderer via CONVERSATION_NOTE_BODY_DRAFT. Without it the
+   * tool reports "only available in conversation contexts."
+   */
+  onNoteBodyDraft?: (draft: ConversationNoteBodyDraft) => void;
+  /**
    * Wired by the conversation IPC handler when a template declares the
    * `ask_user` tool. The agent's call to `ask_user` resolves with the
    * user's reply. Without this callback the tool reports an error and
@@ -90,7 +97,7 @@ export interface StreamCallbacks {
  *  draft callback here when you add one to StreamCallbacks + ToolCallbacks. */
 const TOOL_CALLBACK_KEYS = [
   'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
-  'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'askUser',
+  'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'onNoteBodyDraft', 'askUser',
 ] as const;
 
 /** Project a conversation's `StreamCallbacks` down to the `ToolCallbacks` the

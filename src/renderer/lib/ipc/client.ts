@@ -556,6 +556,14 @@ export interface ConversationsApi {
     draft: import('../../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
     selected: string[],
   ): Promise<{ proposalUri: string | null; applied: boolean }>;
+  /** Subscribe to in-place note rewrites from propose_note_body (#937). */
+  onNoteBodyDraft(
+    cb: (draft: import('../../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft) => void,
+  ): void;
+  /** Approve a body rewrite — file + apply a note_rewrite proposal, then reload the open editor. */
+  fileNoteBodyDraft(
+    draft: import('../../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft,
+  ): Promise<import('../../../shared/conversation-note-body-drafts').FileNoteBodyDraftResult>;
 }
 
 export interface ProposalsApi {
