@@ -1683,6 +1683,24 @@ const SQL_READONLY_FIRST_WORDS = new Set([
 ]);
 const QUERY_SQL_ROW_CAP = 200;
 
+/**
+ * JSON.stringify replacer that survives DuckDB's integer columns. The node-api
+ * returns BIGINT/HUGEINT (and COUNT(*), which SUMMARIZE is full of) as JS
+ * `bigint`, which plain JSON.stringify refuses to serialize ("Do not know how to
+ * serialize a BigInt"). Render a bigint as a real number when it fits in a
+ * double without precision loss, else as a string so a 19-digit id isn't
+ * silently rounded. (Date columns are already handled — Date.toJSON emits ISO
+ * before the replacer sees them.)
+ */
+function bigintSafeReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number(value)
+      : value.toString();
+  }
+  return value;
+}
+
 /** query_sql (#781): immediate read-only SQL over the project's DuckDB. */
 async function runQuerySql(ctx: ToolContext, input: unknown): Promise<{ content: string; isError: boolean }> {
   const { sql } = input as { sql: string };
@@ -1718,7 +1736,7 @@ async function runQuerySql(ctx: ToolContext, input: unknown): Promise<{ content:
     return { content: 'No rows.', isError: false };
   }
   const shown = response.rows.slice(0, QUERY_SQL_ROW_CAP);
-  const body = JSON.stringify(shown, null, 2);
+  const body = JSON.stringify(shown, bigintSafeReplacer, 2);
   const note =
     response.rows.length > QUERY_SQL_ROW_CAP
       ? `\n\n(${response.rows.length} rows total; showing the first ${QUERY_SQL_ROW_CAP}. Add LIMIT or aggregate to narrow.)`

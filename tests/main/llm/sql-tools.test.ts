@@ -56,6 +56,31 @@ describe('LLM SQL tools — describe_tables (#780) + query_sql (#781)', () => {
     expect(rows.map((r) => r.name)).toEqual(['Alpha', 'Beta']);
   });
 
+  it('query_sql serializes integer columns without a BigInt crash (regression)', async () => {
+    // DuckDB returns BIGINT columns as JS bigint; plain JSON.stringify throws
+    // "Do not know how to serialize a BigInt". The Find Correlations / Find
+    // Outliers skills hit this on their first real query.
+    await writeCsv('stations.csv', 'id,name\n1,Alpha\n2,Beta\n');
+    const res = await executeNotebaseTool({ rootPath: root }, 'query_sql', {
+      sql: 'SELECT id, name FROM stations ORDER BY id',
+    });
+    expect(res.isError).toBe(false);
+    const rows = JSON.parse(res.content) as Array<{ id: number; name: string }>;
+    expect(rows).toEqual([{ id: 1, name: 'Alpha' }, { id: 2, name: 'Beta' }]);
+  });
+
+  it('query_sql handles SUMMARIZE (all-BigInt count columns) — the reported failure', async () => {
+    await writeCsv('mandolin_models.csv', 'id,price\n1,1200\n2,3400\n3,900\n');
+    const res = await executeNotebaseTool({ rootPath: root }, 'query_sql', {
+      sql: 'SUMMARIZE "mandolin_models"',
+    });
+    expect(res.isError).toBe(false);
+    // Parses (no BigInt throw) and carries the profiling columns SUMMARIZE emits.
+    const rows = JSON.parse(res.content) as Array<Record<string, unknown>>;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((r) => r.column_name === 'price')).toBe(true);
+  });
+
   it('query_sql rejects non-read-only statements', async () => {
     await writeCsv('stations.csv', 'id,name\n1,Alpha\n');
     for (const sql of ['DELETE FROM stations', 'CREATE TABLE x (a int)', 'DROP TABLE stations']) {
