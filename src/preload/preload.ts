@@ -287,7 +287,9 @@ contextBridge.exposeInMainWorld('api', {
     load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
   },
   refactor: {
-    autoTag: (relativePath: string) => ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG, relativePath),
+    autoTag: (relativePath: string) => ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
+    autoTagApply: (relativePath: string, acceptedTags: unknown) =>
+      ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG_APPLY, relativePath, acceptedTags),
     autoLinkSuggest: (relativePath: string) =>
       ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_SUGGEST, relativePath),
     autoLinkApply: (relativePath: string, accepted: unknown) =>

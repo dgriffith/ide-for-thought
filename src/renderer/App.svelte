@@ -55,6 +55,7 @@
   import ToolPanel from './lib/components/ToolPanel.svelte';
   import ConversationsPanel from './lib/components/ConversationsPanel.svelte';
   import AutoLinkDialog from './lib/components/AutoLinkDialog.svelte';
+  import AutoTagDialog from './lib/components/AutoTagDialog.svelte';
   import AutoLinkInboundDialog from './lib/components/AutoLinkInboundDialog.svelte';
   import BusyOverlay from './lib/components/BusyOverlay.svelte';
   import CsvTable from './lib/components/CsvTable.svelte';
@@ -789,7 +790,7 @@
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleToggleEntrypoint,
-    handleFormat, handleBibliography, handleAutoTag,
+    handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   } = createRefactorOps(refactorOpsCtx);
 
   // Template / note-creation handler cluster (#670): new-note-from-conversation
@@ -1717,6 +1718,14 @@
       activeStem={refactorFlow.autoLinkInboundReview.relativePath.replace(/\.md$/i, '')}
       onApply={handleAutoLinkInboundApply}
       onCancel={() => refactorFlow.setAutoLinkInboundReview(null)}
+    />
+  {/if}
+  {#if refactorFlow.autoTagReview}
+    <AutoTagDialog
+      tags={refactorFlow.autoTagReview.tags}
+      relativePath={refactorFlow.autoTagReview.relativePath}
+      onApply={handleAutoTagApply}
+      onCancel={() => refactorFlow.setAutoTagReview(null)}
     />
   {/if}
   {#if busy.label}

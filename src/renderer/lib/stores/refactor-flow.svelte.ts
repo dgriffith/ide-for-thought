@@ -25,8 +25,15 @@ let autoLinkInboundReview = $state<{
   relativePath: string;
   suggestions: AutoLinkInboundSuggestion[];
 } | null>(null);
+/** Pending Auto-tag suggestions to review (#940). Non-null = the AutoTagDialog is shown. */
+let autoTagReview = $state<{
+  relativePath: string;
+  tags: string[];
+} | null>(null);
 /** Whether the Auto-link suggest request is currently in flight. Keeps the menu from re-triggering. */
 let autoLinkBusy = $state(false);
+/** Whether the Auto-tag suggest request is in flight — keeps the menu from re-triggering. */
+let autoTagBusy = $state(false);
 
 export function getRefactorFlowStore() {
   return {
@@ -36,5 +43,9 @@ export function getRefactorFlowStore() {
     setAutoLinkInboundReview(s: { relativePath: string; suggestions: AutoLinkInboundSuggestion[] } | null) { autoLinkInboundReview = s; },
     get autoLinkBusy() { return autoLinkBusy; },
     setAutoLinkBusy(b: boolean) { autoLinkBusy = b; },
+    get autoTagReview() { return autoTagReview; },
+    setAutoTagReview(s: { relativePath: string; tags: string[] } | null) { autoTagReview = s; },
+    get autoTagBusy() { return autoTagBusy; },
+    setAutoTagBusy(b: boolean) { autoTagBusy = b; },
   };
 }

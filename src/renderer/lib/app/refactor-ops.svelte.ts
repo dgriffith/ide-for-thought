@@ -582,8 +582,11 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   }
 
   async function handleAutoTag(relativePath: string) {
-    if (!notebase.meta) return;
+    if (!notebase.meta || flow.autoTagBusy) return;
+    flow.setAutoTagBusy(true);
     try {
+      // SUGGEST phase (#940): the LLM proposes tags and writes NOTHING. The user
+      // reviews them in the dialog; Apply routes through the approval engine.
       const result = await busy.withBusy('Auto-tagging…', () =>
         api.refactor.autoTag(relativePath),
       );
@@ -593,11 +596,32 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
           CONFIRM_KEYS.autoTagNoSuggestions,
           'OK',
         );
+        return;
       }
-      // On success, the NOTEBASE_REWRITTEN listener reloads the note so the
-      // user sees the new frontmatter tags appear in the editor.
+      flow.setAutoTagReview({ relativePath, tags: result.added });
     } catch (err) {
       if (await ctx.maybeHandleMissingApiKey(err)) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
+    } finally {
+      flow.setAutoTagBusy(false);
+    }
+  }
+
+  async function handleAutoTagApply(accepted: string[]) {
+    const review = flow.autoTagReview;
+    if (!review) return;
+    flow.setAutoTagReview(null);
+    try {
+      // Plain strings, but snapshot for symmetry with the auto-link apply path
+      // (the array came out of $state).
+      const plain = $state.snapshot(accepted);
+      await busy.withBusy('Applying tags…', () =>
+        api.refactor.autoTagApply(review.relativePath, plain),
+      );
+      // On success the note_rewrite approval broadcasts NOTEBASE_REWRITTEN, which
+      // reloads the note so the new frontmatter tags appear in the editor.
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Auto-tag failed: ${msg}`, CONFIRM_KEYS.autoTagFailed, 'OK');
     }
@@ -607,6 +631,6 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
     handleAddTag, handleRemoveTag, handleToggleEntrypoint,
-    handleFormat, handleBibliography, handleAutoTag,
+    handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
 }
