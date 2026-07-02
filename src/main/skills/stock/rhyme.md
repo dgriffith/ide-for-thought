@@ -6,7 +6,7 @@ menu: Analysis
 group: Pattern
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the rhymes."
 longDescription: >-

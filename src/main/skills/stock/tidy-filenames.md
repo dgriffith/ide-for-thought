@@ -5,7 +5,7 @@ description: Propose renaming notes toward a consistent filename convention
 menu: Analysis
 group: Organization
 outputMode: openConversation
-model: claude-opus-4-8
+model: claude-sonnet-5
 web: false
 firstMessage: "Look over this thoughtbase's filenames and propose renames toward a consistent, tidy convention. Show me the plan to review."
 longDescription: >-

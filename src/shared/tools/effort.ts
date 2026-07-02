@@ -6,13 +6,15 @@
  * model-gated, so the picker must only offer levels the selected model accepts,
  * or the request 400s:
  *
- *   | Model       | Supported effort                    |
- *   |-------------|-------------------------------------|
- *   | Haiku 4.5   | none (sending effort 400s)          |
- *   | Sonnet 4.6  | low / medium / high / max           |
- *   | Opus 4.8    | low / medium / high / xhigh / max   |
+ *   | Model            | Supported effort                    |
+ *   |------------------|-------------------------------------|
+ *   | Haiku 4.5        | none (sending effort 400s)          |
+ *   | Sonnet 4.6 / 5   | low / medium / high / max           |
+ *   | Opus 4.8         | low / medium / high / xhigh / max   |
+ *   | Fable 5          | low / medium / high / xhigh / max   |
  *
- * The UI label "Extra" maps to `xhigh`, which is Opus-only.
+ * The UI label "Extra" maps to `xhigh`, which is Opus/Fable-tier only (Sonnet
+ * tops out at `max`). Sonnet 5 mirrors Sonnet 4.6's set; both default to `high`.
  *
  * Kept in `shared/` so the renderer picker, the Settings default, and the
  * main-side guard all gate from one source of truth.
@@ -39,7 +41,9 @@ export const DEFAULT_EFFORT: Effort = 'medium';
  * yields `[]` — we send no effort rather than risk a 400.
  */
 const SUPPORT: Record<string, Effort[]> = {
+  'claude-fable-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-opus-4-8': ['low', 'medium', 'high', 'xhigh', 'max'],
+  'claude-sonnet-5': ['low', 'medium', 'high', 'max'],
   'claude-sonnet-4-6': ['low', 'medium', 'high', 'max'],
   'claude-haiku-4-5': [],
 };

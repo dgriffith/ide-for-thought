@@ -6,7 +6,7 @@ menu: Research
 group: Decomposition
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: false
 firstMessage: |-
   {{#if selection}}Decompose this passage into individual claims. List each one with its kind so I can confirm or adjust before you file.

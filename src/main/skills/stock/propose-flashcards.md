@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /cards
-model: claude-opus-4-8
+model: claude-sonnet-5
 firstMessage: "Propose flashcards from this note for my review."
 longDescription: >-
   Reads the active note and drafts atomic, well-formed question/answer flashcards — one fact per card —

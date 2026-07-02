@@ -6,7 +6,7 @@ menu: Research
 group: Decomposition
 outputMode: openConversation
 context: [fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: false
 firstMessage: "{{#if note.path}}Crystallize `{{note.path}}` as components.{{else}}Crystallize this note as components.{{/if}}"
 longDescription: >-

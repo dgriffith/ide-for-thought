@@ -7,7 +7,7 @@ group: Verification
 outputMode: openConversation
 context: [claimUnderCursor, selectedText, fullNote]
 slashCommand: /currency
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if claim.label}}Check whether this claim is still current and whether it ever held in the form stated:

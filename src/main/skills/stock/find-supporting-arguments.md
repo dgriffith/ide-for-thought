@@ -6,7 +6,7 @@ menu: Research
 group: Argumentation
 outputMode: openConversation
 context: [claimUnderCursor]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if claim.label}}Find the strongest arguments that support this claim:

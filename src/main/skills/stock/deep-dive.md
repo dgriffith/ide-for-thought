@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [selectedText, fullNote]
 slashCommand: /deep-dive
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 requiresSelection: true
 firstMessage: "Explain \"{{selection | trim}}\" in depth."

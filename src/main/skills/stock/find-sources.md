@@ -7,7 +7,7 @@ group: Discovery
 outputMode: openConversation
 context: [selectedText, fullNote]
 slashCommand: /find-sources
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if selection}}Build me a reading list on this:

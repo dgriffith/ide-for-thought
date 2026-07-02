@@ -6,7 +6,7 @@ menu: Analysis
 group: Diagnostic
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: false
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, map the rhetorical spin-space."
 longDescription: >-

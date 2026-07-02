@@ -7,7 +7,7 @@ group: Verification
 outputMode: openConversation
 context: [claimUnderCursor, selectedText, fullNote]
 slashCommand: /magnitude
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if claim.label}}Re-ground the magnitude in this claim — base rate, normalisation, baseline:
