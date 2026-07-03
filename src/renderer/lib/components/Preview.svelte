@@ -36,6 +36,7 @@
     import mdFootnote from 'markdown-it-footnote';
     import {planOutputEdit} from '../editor/output-block';
     import {findRunnableFences, codeOf} from '../../../shared/compute/fences';
+    import {runAllCellsInContent} from '../compute/run-all-cells';
     import type {CellResult} from '../ipc/client';
     import {escapeHtml, escapeAttr, stripFrontmatter, countFrontmatterLines} from '../preview/text';
     import {resolveRelativeImagePath, mimeFromPath} from '../preview/image-paths';
@@ -1446,6 +1447,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         } finally {
             runningFences.delete(openingLine);
         }
+    }
+
+    /**
+     * Re-run every runnable fence in the note, top to bottom — the
+     * preview-mode counterpart to the editor's Run-all, so the toolbar
+     * button works when no editor is mounted. The sequential/stop-on-error
+     * loop lives in `runAllCellsInContent`; here we just wire it to the
+     * host's run + apply callbacks and the per-cell running indicator.
+     */
+    export async function runAllCells(): Promise<void> {
+        if (!onRunCell || !onApplyCellOutputEdit || !notePath) return;
+        const runCell = onRunCell;
+        const apply = onApplyCellOutputEdit;
+        const np = notePath;
+        await runAllCellsInContent(content, RUNNABLE_LANGS, {
+            runCell: (language, code) => runCell(language, code, np),
+            apply,
+            setRunning: (line, running) => {
+                if (running) runningFences.add(line);
+                else runningFences.delete(line);
+            },
+        });
     }
 
     // ── Note context menu (read-only mirror of Editor's right-click menu) ──────
