@@ -1312,10 +1312,17 @@
                 {@const hasRunnableFences =
                   findRunnableFences(note.content, RUNNABLE_LANGUAGE_SET).length > 0}
                 <div class="toolbar">
-                  {#if hasRunnableFences && group.viewMode !== 'preview'}
+                  {#if hasRunnableFences}
                     <button
                       class="nav-btn run-all-btn"
-                      onclick={() => void editorComponents[groupId]?.runAllCells()}
+                      onclick={() => {
+                        // Prefer the editor (writes through CodeMirror so the
+                        // edit lands in undo history / cursor state); fall back
+                        // to the preview when it's the only surface mounted
+                        // (preview-only view mode).
+                        const surface = editorComponents[groupId] ?? previewComponents[groupId];
+                        void surface?.runAllCells();
+                      }}
                       title="Recompute all cells (top to bottom, stops on error)"
                     ><Icon name="run-all" size={12} /></button>
                   {/if}
