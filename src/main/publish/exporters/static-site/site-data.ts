@@ -12,7 +12,9 @@
  */
 
 import { extractWikiLinkTargets } from '../../tree-resolver';
+import { scanCitations } from '../../../bibliography/scan-citations';
 import type { ExportPlanFile } from '../../types';
+import type { CitationAssets } from '../../csl';
 
 export interface SiteIndex {
   /** Backlinks per note: relativePath → [{ relativePath, title }, …]. */
@@ -75,6 +77,42 @@ export function buildSiteIndex(notes: ExportPlanFile[]): SiteIndex {
  */
 export function noteUrl(relativePath: string): string {
   return relativePath.replace(/\.md$/i, '.html');
+}
+
+/** Site URL for a source's page (#252 follow-up). Kept beside `noteUrl` as the
+ *  single place a pretty-URL change would need to touch. */
+export function sourceUrl(sourceId: string): string {
+  return `sources/${sourceId}.html`;
+}
+
+/**
+ * Which published notes cite each source — the "Cited by" backlinks for
+ * source pages, and the set of sources worth publishing (only those a
+ * published note actually references, so uncited sources don't leak).
+ *
+ * Computed by a cheap `[[cite::…]]` / `[[quote::…]]` scan (quotes resolve to
+ * their source via the excerpt map) so it's available *before* rendering —
+ * which lets the nav gate the "Sources" link correctly on every page.
+ * Sources with no metadata entry are skipped.
+ */
+export function collectCitedSources(
+  notes: ExportPlanFile[],
+  citations: CitationAssets,
+): Map<string, Array<{ relativePath: string; title: string }>> {
+  const citedBy = new Map<string, Array<{ relativePath: string; title: string }>>();
+  for (const note of notes) {
+    const seen = new Set<string>(); // a note citing a source twice lists once
+    for (const c of scanCitations(note.content)) {
+      const sourceId = c.kind === 'cite' ? c.id : citations.excerpts.get(c.id)?.sourceId;
+      if (!sourceId || !citations.items.has(sourceId) || seen.has(sourceId)) continue;
+      seen.add(sourceId);
+      const list = citedBy.get(sourceId) ?? [];
+      list.push({ relativePath: note.relativePath, title: note.title });
+      citedBy.set(sourceId, list);
+    }
+  }
+  for (const list of citedBy.values()) list.sort((a, b) => a.title.localeCompare(b.title));
+  return citedBy;
 }
 
 function resolveLinkTarget(

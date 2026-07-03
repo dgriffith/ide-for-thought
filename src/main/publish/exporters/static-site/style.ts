@@ -205,6 +205,23 @@ article .wikilink-broken { text-decoration: line-through; color: var(--strike); 
 }
 .footnotes ol, .references ol { padding-left: 1.7em; }
 
+/* Source pages (#252 follow-up) */
+.source-citation { margin: 0 0 1em; font-size: 1.02em; }
+.source-links { margin: 0 0 1.5em; font-size: 0.92em; word-break: break-all; }
+.source-abstract h2, .cited-by h2, .source-excerpts h2 {
+  font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--fg-muted); margin: 1.6em 0 0.6em;
+}
+.source-abstract p { color: var(--fg); }
+.cited-by ul { list-style: none; padding: 0; margin: 0; }
+.cited-by li { margin-bottom: 0.3em; }
+.excerpt {
+  margin: 0 0 1em; padding: 0.4em 0 0.4em 1em;
+  border-left: 3px solid var(--border); color: var(--fg);
+}
+.excerpt .loc { display: block; font-size: 0.8em; color: var(--fg-faint); font-style: normal; margin-bottom: 0.2em; }
+.excerpt-notes { font-size: 0.85em; color: var(--fg-muted); margin-top: 0.3em; }
+
 /* highlight.js minimal light scheme — same as note-html exporter. */
 .hljs-comment, .hljs-quote { color: #7a8288; font-style: italic; }
 .hljs-keyword, .hljs-selector-tag, .hljs-addition { color: #8959a8; }

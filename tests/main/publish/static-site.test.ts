@@ -273,3 +273,108 @@ describe('buildSiteIndex (#252) — index-builder unit tests', () => {
     expect(snippet).toContain('more prose');
   });
 });
+
+describe('static-site source pages (#252 follow-up)', () => {
+  let root: string;
+  beforeEach(() => { root = mkProject(); });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  it('emits a source page + sources index + Sources nav for a cited source', async () => {
+    await fsp.mkdir(path.join(root, '.minerva/sources/foo-2020'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/foo-2020/meta.ttl'),
+      `this: a thought:Article ;
+  dc:title "Foo Studies" ;
+  dc:creator "Foo, Alice" ;
+  dc:abstract "A study of foos." ;
+  dc:issued "2020"^^xsd:gYear .\n`, 'utf-8');
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: Note A\n---\n# A\n[[cite::foo-2020]]\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const byPath = new Map(output.files.map((f) => [f.path, String(f.contents)]));
+
+    const page = byPath.get('sources/foo-2020.html');
+    expect(page).toBeDefined();
+    expect(page!).toContain('Foo Studies');
+    expect(page!).toContain('A study of foos.');      // abstract
+    expect(page!).toContain('Cited by');
+    expect(page!).toContain('../a.html');             // backlink to the citing note
+
+    expect(byPath.get('sources/index.html')).toContain('foo-2020.html');
+    expect(byPath.get('a.html')).toContain('sources/index.html'); // nav link present
+  });
+
+  it('omits source pages and the Sources nav link when nothing is cited', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '# A\nno cites\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const paths = output.files.map((f) => f.path);
+    expect(paths.some((p) => p.startsWith('sources/'))).toBe(false);
+    const a = String(output.files.find((f) => f.path === 'a.html')!.contents);
+    expect(a).not.toContain('sources/index.html');
+  });
+
+  it('shows the user excerpts and resolves quote-only citations to a source page', async () => {
+    await fsp.mkdir(path.join(root, '.minerva/sources/brooks-1986'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/sources/brooks-1986/meta.ttl'),
+      `this: a thought:Book ;
+  dc:title "No Silver Bullet" ;
+  dc:creator "Brooks, Fred" .\n`, 'utf-8');
+    await fsp.mkdir(path.join(root, '.minerva/excerpts'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/excerpts/brooks-essence.ttl'),
+      `this: a thought:Excerpt ;
+  thought:fromSource sources:brooks-1986 ;
+  thought:page 11 ;
+  thought:citedText "essence of a software entity" .\n`, 'utf-8');
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: Note A\n---\n# A\nSee [[quote::brooks-essence]]\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const page = String(output.files.find((f) => f.path === 'sources/brooks-1986.html')!.contents);
+    expect(page).toContain('No Silver Bullet');
+    expect(page).toContain('Excerpts');
+    expect(page).toContain('essence of a software entity');
+  });
+});
+
+describe('static-site link + nav fixes (live GitHub Pages bugs)', () => {
+  let root: string;
+  beforeEach(() => { root = mkProject(); });
+  afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
+
+  it('body links are relative to the linking note folder (no doubled directory)', async () => {
+    await fsp.mkdir(path.join(root, 'sub'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'sub/a.md'), '---\ntitle: A\n---\n# A\nSee [[sub/b]] and [[top]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'sub/b.md'), '---\ntitle: B\n---\n# B\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'top.md'), '---\ntitle: Top\n---\n# Top\n[[sub/a]]\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const byPath = new Map(output.files.map((f) => [f.path, String(f.contents)]));
+
+    const aPage = byPath.get('sub/a.html')!;
+    expect(aPage).toContain('href="b.html"');          // same folder → bare filename
+    expect(aPage).not.toContain('href="sub/b.html"');  // NOT root-relative (would double)
+    expect(aPage).toContain('href="../top.html"');     // climb to root
+
+    expect(byPath.get('top.html')!).toContain('href="sub/a.html"'); // root → nested
+  });
+
+  it('nav omits Tags/References/Sources links when those pages are not emitted', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: A\n---\n# A\nplain note\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const a = String(output.files.find((f) => f.path === 'a.html')!.contents);
+    expect(a).not.toContain('tags/index.html');
+    expect(a).not.toContain('references.html');
+    expect(a).not.toContain('sources/index.html');
+  });
+
+  it('nav includes the Tags link only when the site has tags', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: A\ntags: [x]\n---\n# A\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const a = String(output.files.find((f) => f.path === 'a.html')!.contents);
+    expect(a).toContain('tags/index.html');
+  });
+});

@@ -21,17 +21,21 @@
  *   - incremental rebuild
  */
 
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { Exporter, ExportOutput, ExportPlanFile } from '../../types';
 import { loadSiteConfig, type SiteConfig } from './site-config';
-import { buildSiteIndex, noteUrl } from './site-data';
+import { buildSiteIndex, noteUrl, sourceUrl, collectCitedSources } from './site-data';
 import {
   renderNotePage,
   renderTagCloud,
   renderTagPage,
   renderAllNotesIndex,
   renderReferencesPage,
+  renderSourcePage,
+  renderSourcesIndex,
 } from './render';
+import { resolveAnnotatedReading } from '../annotated-reading/resolve';
 import { STATIC_SITE_STYLE } from './style';
 import { SITE_SEARCH_SCRIPT } from './search-script';
 
@@ -56,6 +60,21 @@ export const staticSiteExporter: Exporter = {
     const index = buildSiteIndex(notes);
     const files: ExportOutput['files'] = [];
 
+    // Which published notes cite each source (#252 follow-up). Computed
+    // up front from a cheap citation scan so per-source pages can be built
+    // AND the "Sources" nav link can be gated on every page — including the
+    // note pages rendered below, before per-note citation state exists.
+    const citedBy = plan.citations
+      ? collectCitedSources(notes, plan.citations)
+      : new Map<string, Array<{ relativePath: string; title: string }>>();
+    const hasSources = citedBy.size > 0;
+
+    // Nav flags gate the header links so they never point at a page we don't
+    // emit (the live-site 404s). References + Sources both derive from cited
+    // sources, so they co-exist; Tags is its own condition. Computed up front
+    // because note pages — rendered first — carry the same nav.
+    const nav = { hasTags: index.tags.size > 0, hasReferences: hasSources, hasSources };
+
     // Track citations bundle-wide so the consolidated References /
     // Bibliography page de-dupes across the whole site (same shape as
     // the tree-html bundle bibliography from #300).
@@ -65,7 +84,7 @@ export const staticSiteExporter: Exporter = {
     for (const note of notes) {
       const renderer = plan.citations?.createRenderer() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
-      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer });
+      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, nav });
       files.push({ path: noteUrl(note.relativePath), contents: html });
       if (renderer) {
         for (const id of renderer.cited()) allCitedIds.add(id);
@@ -77,12 +96,12 @@ export const staticSiteExporter: Exporter = {
     if (index.tags.size > 0) {
       files.push({
         path: 'tags/index.html',
-        contents: renderTagCloud(config, index, '../'),
+        contents: renderTagCloud(config, index, '../', nav),
       });
       for (const [tag, taggedNotes] of index.tags) {
         files.push({
           path: `tags/${encodeFilename(tag)}.html`,
-          contents: renderTagPage(tag, taggedNotes, config, '../'),
+          contents: renderTagPage(tag, taggedNotes, config, '../', nav),
         });
       }
     }
@@ -100,6 +119,7 @@ export const staticSiteExporter: Exporter = {
         index,
         rootRelative: '',
         renderer,
+        nav,
       });
       files.push({ path: 'index.html', contents: html });
       if (renderer) {
@@ -107,7 +127,7 @@ export const staticSiteExporter: Exporter = {
         if (renderer.isNoteStyle) isNoteStyle = true;
       }
     } else {
-      files.push({ path: 'index.html', contents: renderAllNotesIndex(notes, config) });
+      files.push({ path: 'index.html', contents: renderAllNotesIndex(notes, config, nav) });
     }
 
     // Consolidated bibliography.
@@ -117,9 +137,48 @@ export const staticSiteExporter: Exporter = {
       if (bib.entries.length > 0) {
         files.push({
           path: 'references.html',
-          contents: renderReferencesPage(bib.entries, isNoteStyle, config),
+          contents: renderReferencesPage(bib.entries, isNoteStyle, config, nav),
         });
       }
+    }
+
+    // Per-source pages + sources index (#252 follow-up). One page per source
+    // a published note cites — metadata + formatted reference + who cites it +
+    // the user's excerpts. Sorted by title for a stable, browseable index.
+    if (hasSources && plan.citations) {
+      const citations = plan.citations;
+      const sourceList: Array<{ sourceId: string; title: string }> = [];
+      for (const sourceId of citedBy.keys()) {
+        const item = citations.items.get(sourceId);
+        const title = item?.title ?? sourceId;
+        const citationHtml = citations.createRenderer().renderBibliographyFor([sourceId]).entries[0] ?? '';
+        // Excerpts anchored to this source (body isn't republished — only the
+        // user's own excerpts). Missing body / excerpts degrade to empty.
+        const body = await fs
+          .readFile(path.join(rootPath, '.minerva', 'sources', sourceId, 'body.md'), 'utf-8')
+          .catch(() => '');
+        const annotated = await resolveAnnotatedReading(rootPath, sourceId, body, notes);
+        files.push({
+          path: sourceUrl(sourceId),
+          contents: renderSourcePage({
+            sourceId,
+            item,
+            citationHtml,
+            citedBy: citedBy.get(sourceId) ?? [],
+            excerpts: annotated.excerpts,
+            config,
+            nav,
+          }),
+        });
+        sourceList.push({ sourceId, title });
+        index.searchRecords.push({
+          url: sourceUrl(sourceId),
+          title,
+          snippet: item?.abstract ?? '',
+        });
+      }
+      sourceList.sort((a, b) => a.title.localeCompare(b.title));
+      files.push({ path: 'sources/index.html', contents: renderSourcesIndex(sourceList, config, nav) });
     }
 
     // Search index — a flat array of {url, title, snippet}. Loaded
@@ -133,9 +192,11 @@ export const staticSiteExporter: Exporter = {
     files.push({ path: 'style.css', contents: STATIC_SITE_STYLE });
 
     const dropped = allNotes.length - notes.length + plan.excluded.length;
+    const noteCount = `${notes.length} note${notes.length === 1 ? '' : 's'}`;
+    const sourceCount = hasSources ? ` + ${citedBy.size} source${citedBy.size === 1 ? '' : 's'}` : '';
     const summary = dropped > 0
-      ? `Site of ${notes.length} note${notes.length === 1 ? '' : 's'} (${dropped} filtered).`
-      : `Site of ${notes.length} note${notes.length === 1 ? '' : 's'}.`;
+      ? `Site of ${noteCount}${sourceCount} (${dropped} filtered).`
+      : `Site of ${noteCount}${sourceCount}.`;
     return { files, summary };
   },
 };
