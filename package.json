@@ -12,6 +12,7 @@
     "dev": "electron-forge start",
     "build": "electron-forge make",
     "package": "electron-forge package",
+    "release:tag": "node scripts/tag-release.mjs",
     "lint": "tsc --noEmit && svelte-check --threshold error && eslint .",
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
