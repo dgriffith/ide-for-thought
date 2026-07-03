@@ -7,7 +7,7 @@ group: Summarize
 scope: source
 outputMode: openConversation
 context: [sourceMetadata, sourceBody]
-model: claude-opus-4-8
+model: claude-sonnet-5
 firstMessage: |-
   {{#if source}}{{#if source.body}}Summarize "{{source.title}}" — propose an abstract and a one-paragraph TL;DR for my review.{{else}}This source has no extracted body text to summarize yet — ingest or add its body.md first.{{/if}}{{else}}Open a source first, then run Propose Summary from its Tools menu.{{/if}}
 longDescription: >-

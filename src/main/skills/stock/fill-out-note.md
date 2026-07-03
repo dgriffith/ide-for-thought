@@ -6,7 +6,7 @@ menu: Analysis
 group: Generation
 outputMode: openConversation
 context: [fullNote]
-model: claude-opus-4-8
+model: claude-sonnet-5
 web: false
 slashCommand: /flesh-out
 firstMessage: "{{#if note}}Flesh out this note.{{/if}}"

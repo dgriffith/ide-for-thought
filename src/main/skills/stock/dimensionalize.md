@@ -6,7 +6,7 @@ menu: Analysis
 group: Semantic
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: false
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, extract the dimensions."
 longDescription: >-

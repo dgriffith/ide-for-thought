@@ -5,11 +5,14 @@ import type { LLMSettings, WebSettings } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
 ]);
+// Note: claude-sonnet-4-6 is intentionally NOT deprecated — it's still active
+// and remains in the picker, so a user who explicitly selected it keeps it. Only
+// the default for fresh installs / unset configs moves to Sonnet 5.
 
 function resolveModel(stored: unknown): string {
   if (typeof stored !== 'string' || !stored) return DEFAULT_MODEL;

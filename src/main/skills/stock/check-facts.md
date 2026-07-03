@@ -7,7 +7,7 @@ group: Verification
 outputMode: openConversation
 context: [claimUnderCursor, selectedText, fullNote]
 slashCommand: /check-facts
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if claim.label}}Fact-check this claim against the web:

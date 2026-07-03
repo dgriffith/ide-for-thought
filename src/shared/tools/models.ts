@@ -13,10 +13,14 @@ export interface ModelOption {
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
-  // Opus 4.8 and Sonnet 4.6 ship with a 1M-token context window by default —
-  // there is no separate "1M context" model ID at the Anthropic API, so we
-  // don't list duplicate entries for it.
+  // Fable 5, Opus 4.8, and Sonnet 5 all ship with a 1M-token context window by
+  // default — there is no separate "1M context" model ID at the Anthropic API,
+  // so we don't list duplicate entries for it. Ordered most→least capable.
+  // Sonnet 4.6 is kept (still active) so users who selected it aren't reset to
+  // the default; Sonnet 5 is its successor tier.
+  { value: 'claude-fable-5', label: 'Claude Fable 5' },
   { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+  { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
 ];
@@ -41,7 +45,13 @@ export interface ModelPrice {
  * cost degrades to a token count with no dollar figure rather than a guess.
  */
 export const MODEL_PRICING: Record<string, ModelPrice> = {
+  'claude-fable-5': { input: 10, output: 50 },
   'claude-opus-4-8': { input: 5, output: 25 },
+  // Sonnet 5 standard rate. It has introductory pricing of $2/$10 through
+  // 2026-08-31, but this map has no expiry mechanism — using the standard rate
+  // slightly over-estimates cost during the intro window rather than silently
+  // under-reporting after it ends. Revisit if we add time-aware pricing.
+  'claude-sonnet-5': { input: 3, output: 15 },
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-haiku-4-5': { input: 1, output: 5 },
 };

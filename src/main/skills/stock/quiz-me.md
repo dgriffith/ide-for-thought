@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /quiz
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: "Quiz me."
 longDescription: >-

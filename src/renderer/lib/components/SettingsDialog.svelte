@@ -250,7 +250,7 @@
   let clipper = $state<import('../../../shared/clipper-pairing').ClipperState | null>(null);
   let clipperRevealed = $state(false);
   let clipperCopied = $state(false);
-  let model = $state('claude-sonnet-4-6');
+  let model = $state('claude-sonnet-5');
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');

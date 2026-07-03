@@ -7,7 +7,7 @@ group: Verification
 outputMode: openConversation
 context: [claimUnderCursor, selectedText, fullNote]
 slashCommand: /primary-sources
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if claim.label}}Find the primary source behind this claim — not the citation chain, the original:

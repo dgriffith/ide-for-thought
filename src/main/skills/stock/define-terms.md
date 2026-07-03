@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /define-terms
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: "{{#if note}}Define the terms in this note.{{/if}}"
 longDescription: >-

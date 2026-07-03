@@ -6,7 +6,7 @@ menu: Research
 group: Argumentation
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: |-
   {{#if selection}}Find the load-bearing claim in this passage.

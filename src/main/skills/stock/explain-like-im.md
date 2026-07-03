@@ -6,7 +6,7 @@ menu: Learning
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /eli
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 web: true
 firstMessage: "{{#if note}}Explain this like I’m {{param.audience}}.{{/if}}"
 longDescription: >-
