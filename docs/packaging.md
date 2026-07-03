@@ -27,20 +27,20 @@ open out/Minerva-darwin-arm64/Minerva.app          # first launch
 
 ### 1. Gatekeeper (macOS)
 
-The build is **not code-signed or notarized** — there's no `osxSign` /
-`osxNotarize` block in `forge.config.ts`. First launch will throw:
+**Release builds from CI are signed + notarized** (`osxSign` / `osxNotarize`
+in `forge.config.ts`, wired into `release.yml` — #841/#959), so a DMG from a
+published Release opens without a Gatekeeper prompt.
+
+A **local** `pnpm build` is only signed if you have a Developer ID cert in your
+keychain and the notarization env vars set; otherwise it takes the unsigned
+path and first launch will throw:
 
 > "Minerva" cannot be opened because the developer cannot be verified.
 
-**Workaround:** right-click the `.app` → **Open** → confirm in the
-dialog. Subsequent launches don't prompt. If you'll be running on a
-borrowed or unfamiliar machine, do this once during setup, not in
-front of an audience.
+**Workaround for an unsigned local build:** right-click the `.app` → **Open** →
+confirm in the dialog. Subsequent launches don't prompt.
 
-**Fix (future):** add `osxSign` + `osxNotarize` to `packagerConfig` in
-`forge.config.ts`. Needs an Apple Developer ID certificate and
-notarytool credentials. See
-[electron-forge docs](https://www.electronforge.io/guides/code-signing/code-signing-macos).
+To cut a real signed release, follow [`releasing.md`](./releasing.md).
 
 ### 2. Python interpreter resolution
 
