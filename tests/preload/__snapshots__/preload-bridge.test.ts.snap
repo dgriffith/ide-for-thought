@@ -181,6 +181,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onOpenStockQuery",
     "onPrint",
     "onProjectOpened",
+    "onPublish",
     "onQuickOpen",
     "onRefactorAutoLink",
     "onRefactorAutoLinkInbound",
@@ -250,8 +251,12 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "publish": [
     "listExporters",
+    "listTargets",
+    "removeTarget",
     "resolvePlan",
     "runExport",
+    "toGit",
+    "upsertTarget",
   ],
   "queries": [
     "delete",

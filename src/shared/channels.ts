@@ -536,8 +536,18 @@ export const Channels = {
   PUBLISH_RESOLVE_PLAN: 'publish:resolvePlan',
   /** Publication: run an exporter end-to-end, writing files under the chosen output dir. */
   PUBLISH_RUN_EXPORT: 'publish:runExport',
+  /** Publication: list configured git-push targets for this thoughtbase (#254). */
+  PUBLISH_LIST_TARGETS: 'publish:listTargets',
+  /** Publication: add or replace a git-push target (#254). */
+  PUBLISH_UPSERT_TARGET: 'publish:upsertTarget',
+  /** Publication: remove a git-push target by id (#254). */
+  PUBLISH_REMOVE_TARGET: 'publish:removeTarget',
+  /** Publication: export + commit + push to a target (dryRun previews the diff) (#254). */
+  PUBLISH_TO_GIT: 'publish:toGit',
   /** Menu → "Export…" — opens the preview dialog for a specific exporter id (payload). */
   MENU_EXPORT: 'menu:export',
+  /** Menu → "Publish to Web…" — opens the git-publish dialog (#254). */
+  MENU_PUBLISH: 'menu:publish',
 
   // Renderer → main (for menu-triggered main-process actions)
   APP_GET_INFO: 'app:getInfo',

@@ -1,9 +1,15 @@
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, app } from 'electron';
 import { Channels } from '../../shared/channels';
 import { DEFAULT_STYLE } from '../publish/csl/assets';
 import { buildCitationAudit } from '../publish/csl/audit';
 import { getMergedStyles, getMergedLocales } from '../publish/csl/user-assets';
 import * as publish from '../publish';
+import {
+  getPublishTargets,
+  upsertPublishTarget,
+  removePublishTarget,
+  type PublishTarget,
+} from '../project-config';
 import { rootPathFromEvent, winFromEvent } from './helpers';
 
 export function registerPublish(): void {
@@ -98,4 +104,47 @@ export function registerPublish(): void {
     }
     return await publish.runExport(rootPath, { ...args, outputDir });
   });
+
+  // ── Publish → git remote (#254) ────────────────────────────────────────────
+
+  ipcMain.handle(Channels.PUBLISH_LIST_TARGETS, (e) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return getPublishTargets(rootPath);
+  });
+
+  ipcMain.handle(Channels.PUBLISH_UPSERT_TARGET, (e, target: PublishTarget) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    upsertPublishTarget(rootPath, target);
+    return getPublishTargets(rootPath);
+  });
+
+  ipcMain.handle(Channels.PUBLISH_REMOVE_TARGET, (e, id: string) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    removePublishTarget(rootPath, id);
+    return getPublishTargets(rootPath);
+  });
+
+  // Export + commit + push (or dry-run preview). Errors — auth, network,
+  // non-fast-forward — come back as `{ ok: false, error }` carrying the raw
+  // git message, so the dialog can show it verbatim rather than a stringified
+  // rejection (#254 acceptance).
+  ipcMain.handle(
+    Channels.PUBLISH_TO_GIT,
+    async (e, targetId: string, opts?: { dryRun?: boolean }) => {
+      const rootPath = rootPathFromEvent(e);
+      if (!rootPath) throw new Error('No project open');
+      try {
+        const result = await publish.publishToGit(rootPath, targetId, {
+          dryRun: opts?.dryRun ?? false,
+          version: app.getVersion(),
+        });
+        return { ok: true as const, result };
+      } catch (err) {
+        return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+  );
 }

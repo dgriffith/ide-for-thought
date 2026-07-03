@@ -696,6 +696,13 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
             }
           },
         }));
+        // Publish → git remote (#254): Export writes to a folder; Publish
+        // pushes an exporter's output to a configured remote (GitHub Pages, …).
+        items.push({ type: 'separator' });
+        items.push(gate({
+          label: 'Publish to Web…',
+          click: () => send(Channels.MENU_PUBLISH),
+        }));
         return items;
       })(),
     },
