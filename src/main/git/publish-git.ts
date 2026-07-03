@@ -13,7 +13,12 @@
  */
 
 import git from 'isomorphic-git';
-import http from 'isomorphic-git/http/node';
+// The `http/web` transport uses the standard WHATWG `fetch` (built into
+// Electron's Node). We use it instead of `http/node` because the latter pulls
+// in `simple-get`, which calls the deprecated `url.parse()` and prints a
+// DEP0169 warning on every publish. `fetch` handles our auth headers + body
+// the same way (bodies are buffered, so no `duplex` needed).
+import http from 'isomorphic-git/http/web';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
