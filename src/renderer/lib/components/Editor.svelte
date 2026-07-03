@@ -35,7 +35,7 @@
   import { voiceSettings } from '../voice/voice-settings.svelte';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { highlightDecorations } from '../editor/highlight-decorations';
-  import { computeCellsExtension } from '../editor/compute-cells';
+  import { computeCellsExtension, type RunAllRef } from '../editor/compute-cells';
   import {
     bookmarkGutterExtension,
     applyBookmarkOffsets,
@@ -209,6 +209,8 @@
 
   let editorContainer: HTMLDivElement;
   let view: EditorView;
+  // Populated by computeCellsExtension; lets the host trigger Run-all.
+  const runAllRef: RunAllRef = { run: null };
   let ignoreNextUpdate = false;
   let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null; claimUri: string | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -502,6 +504,7 @@
           ? onRunCell(language, code, filePath)
           : api.compute.runCell(language, code, filePath)
       ),
+      runAllRef,
     }),
     footnotePreview(),
     footnoteDecorations(),
@@ -699,6 +702,16 @@
 
   export function getView(): EditorView | undefined {
     return view;
+  }
+
+  /**
+   * Re-run every runnable code fence in the note, top to bottom
+   * (the "Recompute all" toolbar action). Sequential, halts on the
+   * first error — see `runAll` in compute-cells.ts.
+   */
+  export async function runAllCells(): Promise<void> {
+    if (!view || !runAllRef.run) return;
+    await runAllRef.run(view);
   }
 
   export function getSelectionRange(): { from: number; to: number } | null {

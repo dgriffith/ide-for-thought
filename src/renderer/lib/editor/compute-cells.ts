@@ -25,6 +25,9 @@ import {
 } from '../../../shared/compute/fences';
 import type { CellResult } from '../ipc/client';
 
+/** Fence languages that show the run affordance unless the host overrides. */
+export const DEFAULT_RUNNABLE_LANGUAGES = ['sparql', 'sql', 'python'] as const;
+
 // ── Running state ──────────────────────────────────────────────────────────
 
 /** Effect marking a fence at `fenceStart` as running (`true`) or idle (`false`). */
@@ -74,6 +77,16 @@ class RunMarker extends GutterMarker {
 
 // ── Extension factory ──────────────────────────────────────────────────────
 
+/**
+ * Handle the host holds to trigger a Run-all from outside the editor
+ * (e.g. a toolbar button). The extension populates `.run` once built; the
+ * host calls it with the live `EditorView`. Null until wired / after the
+ * view is torn down.
+ */
+export interface RunAllRef {
+  run: ((view: EditorView) => Promise<void>) | null;
+}
+
 export interface ComputeCellsOptions {
   /**
    * Dispatch a cell to the backend and return the result. The extension
@@ -83,14 +96,24 @@ export interface ComputeCellsOptions {
   runCell: (language: string, code: string) => Promise<CellResult>;
   /** Allow-list of fence languages that show the run affordance. */
   runnableLanguages?: Iterable<string>;
+  /**
+   * Optional handle populated with the batch runner so the host can
+   * trigger "Recompute all" from a toolbar/menu.
+   */
+  runAllRef?: RunAllRef;
 }
 
 export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
   const allowed = new Set<string>(
-    [...(opts.runnableLanguages ?? ['sparql', 'sql', 'python'])].map((s) => s.toLowerCase()),
+    [...(opts.runnableLanguages ?? DEFAULT_RUNNABLE_LANGUAGES)].map((s) => s.toLowerCase()),
   );
 
-  async function runFence(view: EditorView, fence: FenceRange): Promise<void> {
+  /**
+   * Run a single fence and write its output block. Returns the result so
+   * callers (e.g. Run-all) can decide whether to continue. The doc may
+   * shift while we await, so we re-find the fence before writing.
+   */
+  async function runFence(view: EditorView, fence: FenceRange): Promise<CellResult> {
     const doc = view.state.doc.toString();
     const code = codeOf(doc, fence);
     view.dispatch({ effects: setRunning.of({ fenceStart: fence.startOffset, running: true }) });
@@ -113,7 +136,33 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
       changes: { from: edit.from, to: edit.to, insert: edit.insert },
       effects: setRunning.of({ fenceStart: target.startOffset, running: false }),
     });
+    return result;
   }
+
+  /**
+   * Re-run every runnable fence in the note, top to bottom. Cells can
+   * depend on prior cells' state (a Python fence building on an earlier
+   * one's namespace), so runs are strictly sequential and the batch
+   * **halts on the first error** — a failed cell invalidates anything
+   * downstream that leaned on it.
+   *
+   * We re-scan the doc each iteration and take the i-th fence rather than
+   * caching ranges: writing an output block shifts every offset below it.
+   * Output blocks use the `output` language, which isn't runnable, so the
+   * fence *count* stays stable and index-based iteration is safe even when
+   * two fences share identical code.
+   */
+  async function runAll(view: EditorView): Promise<void> {
+    const count = findRunnableFences(view.state.doc.toString(), allowed).length;
+    for (let i = 0; i < count; i++) {
+      const fence = findRunnableFences(view.state.doc.toString(), allowed)[i];
+      if (!fence) break; // doc was edited out from under us; stop cleanly
+      const result = await runFence(view, fence);
+      if (!result.ok) break; // halt the batch; the error is already written
+    }
+  }
+
+  if (opts.runAllRef) opts.runAllRef.run = runAll;
 
   function fenceAtCursor(view: EditorView): FenceRange | null {
     const doc = view.state.doc.toString();

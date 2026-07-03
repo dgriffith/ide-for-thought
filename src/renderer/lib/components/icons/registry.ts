@@ -142,6 +142,13 @@ export const ICONS = {
     '<rect x="2.5" y="3" width="11" height="10" rx="1"/>' +
     '<path d="M2.5 8h11"/>',
 
+  // ── Compute (#238) ────────────────────────────────────────────────
+  // "Recompute all": a fast-forward double-triangle — run every runnable
+  // fence top to bottom. Echoes the gutter's ▶ single-cell run marker.
+  'run-all':
+    '<path d="M3 4 7.5 8 3 12z" fill="currentColor" stroke="none"/>' +
+    '<path d="M8.5 4 13 8 8.5 12z" fill="currentColor" stroke="none"/>',
+
   // ── Brand ─────────────────────────────────────────────────────────
   minervaMark:
     '<circle cx="8" cy="8" r="6"/>' +

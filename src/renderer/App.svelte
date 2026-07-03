@@ -80,10 +80,18 @@
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
+  import { findRunnableFences } from '../shared/compute/fences';
+  import { DEFAULT_RUNNABLE_LANGUAGES } from './lib/editor/compute-cells';
   import { loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { registerSkillInfos } from './lib/tools/tool-registry';
   import { applyMenuConfig } from '../shared/skills/menu-config';
+
+  // Lower-cased once so the "Recompute all" button's reactive
+  // has-runnable-fences check matches the editor extension's allow-list.
+  const RUNNABLE_LANGUAGE_SET = new Set(
+    DEFAULT_RUNNABLE_LANGUAGES.map((s) => s.toLowerCase()),
+  );
 
 
   const notebase = getNotebaseStore();
@@ -1301,7 +1309,16 @@
                 <CsvTable relativePath={active.relativePath} content={active.content} />
               {:else if active?.type === 'note'}
                 {@const note = active}
+                {@const hasRunnableFences =
+                  findRunnableFences(note.content, RUNNABLE_LANGUAGE_SET).length > 0}
                 <div class="toolbar">
+                  {#if hasRunnableFences && group.viewMode !== 'preview'}
+                    <button
+                      class="nav-btn run-all-btn"
+                      onclick={() => void editorComponents[groupId]?.runAllCells()}
+                      title="Recompute all cells (top to bottom, stops on error)"
+                    ><Icon name="run-all" size={12} /></button>
+                  {/if}
                   <div class="view-toggle">
                     <button
                       class:active={group.viewMode === 'source'}
@@ -1847,6 +1864,16 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
+    /* Breathing room before the split buttons that follow. */
+    margin-right: 8px;
+  }
+
+  /* Separate the Recompute-all button from the view toggle to its right.
+     The margin lives on the button (not the toggle) so a note without
+     runnable fences — where the button is absent — keeps the toggle flush
+     against the toolbar's left padding. */
+  .run-all-btn {
+    margin-right: 8px;
   }
 
   .view-toggle button {
