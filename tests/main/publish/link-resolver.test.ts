@@ -84,3 +84,32 @@ describe('rewriteWikiLinksInContent', () => {
     expect(out).toBe('See the old one.');
   });
 });
+
+describe('resolveWikiLink — fromPath relativization (tree exports)', () => {
+  const ctx = buildLinkResolverContext(mkPlan('follow-to-file'));
+
+  it('same-folder link → bare filename (no doubled directory)', () => {
+    expect(resolveWikiLink('notes/foo', null, null, ctx, 'notes/other.md'))
+      .toBe('[Foo Title](foo.md)');
+  });
+
+  it('keeps the anchor when relativizing', () => {
+    expect(resolveWikiLink('notes/foo', 'sec', 'display', ctx, 'notes/other.md'))
+      .toBe('[display](foo.md#sec)');
+  });
+
+  it('climbs with ../ from a deeper folder', () => {
+    expect(resolveWikiLink('notes/foo', null, null, ctx, 'a/b/c.md'))
+      .toBe('[Foo Title](../../notes/foo.md)');
+  });
+
+  it('from a root note the target path is unchanged', () => {
+    expect(resolveWikiLink('notes/foo', null, null, ctx, 'top.md'))
+      .toBe('[Foo Title](notes/foo.md)');
+  });
+
+  it('rewriteWikiLinksInContent threads fromPath to every link', () => {
+    const out = rewriteWikiLinksInContent('See [[notes/foo]] and [[notes/bar]].', ctx, 'notes/here.md');
+    expect(out).toBe('See [Foo Title](foo.md) and [Bar Title](bar.md).');
+  });
+});

@@ -52,8 +52,9 @@ export const treeMarkdownExporter: Exporter = {
       //    or References. The same single-note `note-markdown`
       //    pipeline does this; we share that helper.
       const cleaned = rewriteCitationsAndCleanup(content, renderer, bundlePlan.citations);
-      // 2. Wiki-link rewrite — `[[other]]` → `[Title](other.md)`.
-      content = rewriteWikiLinksInContent(cleaned, ctx);
+      // 2. Wiki-link rewrite — `[[other]]` → `[Title](other.md)`, relative to
+      //    this note's folder so nested-note cross-links don't double the dir.
+      content = rewriteWikiLinksInContent(cleaned, ctx, note.relativePath);
       zip.file(note.relativePath, content);
       if (renderer) {
         for (const id of renderer.cited()) allCitedIds.add(id);

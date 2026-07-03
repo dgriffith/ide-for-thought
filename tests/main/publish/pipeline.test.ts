@@ -120,7 +120,10 @@ describe('markdownExporter end-to-end (#246)', () => {
     expect(plan.excluded.map((e) => e.relativePath)).toEqual(['private/secret.md']);
 
     const publicOut = output.files.find((f) => f.path === 'notes/public.md')!;
-    expect(publicOut.contents).toContain('See [Other](notes/other.md) for details.');
+    // Link is relative to the linking note's folder: both are in notes/, so
+    // the href is the bare filename (a root-relative `notes/other.md` would
+    // resolve to `notes/notes/other.md` from this page — the doubling bug).
+    expect(publicOut.contents).toContain('See [Other](other.md) for details.');
     expect(publicOut.contents).toContain('---');
     expect(publicOut.contents).toContain('title: Public');
   });
