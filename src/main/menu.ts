@@ -15,6 +15,12 @@ import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import { groupToolsByGroup, hasNamedGroups } from '../shared/tools/grouping';
 import { isSourceScoped } from '../shared/tools/types';
+import {
+  checkForUpdatesNow,
+  isUpdateDownloaded,
+  quitAndInstallUpdate,
+  getUpdateState,
+} from './auto-update';
 
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
@@ -74,6 +80,17 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
             label: 'Minerva',
             submenu: [
               { label: 'About Minerva', click: () => send(Channels.MENU_ABOUT) },
+              { type: 'separator' as const },
+              {
+                // "Checking\u2026" (disabled) while a check is in flight (#963).
+                label: getUpdateState() === 'checking' ? 'Checking for Updates\u2026' : 'Check for Updates\u2026',
+                enabled: getUpdateState() !== 'checking',
+                click: () => checkForUpdatesNow(),
+              },
+              // Only present once a build is staged; installs on confirm+restart.
+              ...(isUpdateDownloaded()
+                ? [{ label: 'Restart to Install Update', click: () => quitAndInstallUpdate() }]
+                : []),
               { type: 'separator' as const },
               {
                 label: 'Preferences\u2026',

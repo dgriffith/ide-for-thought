@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
-import { buildMenu } from './menu';
+import { buildMenu, rebuildMenu } from './menu';
 import { createWindow, openProjectInWindow } from './window-manager';
 import { appIconPath } from './app-icon';
 import { loadSession } from './session';
@@ -14,7 +14,7 @@ import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { stopClipperServer } from './clipper/lifecycle';
 import { registerSkillsAtStartup } from './skills/register';
-import { initAutoUpdate } from './auto-update';
+import { initAutoUpdate, setUpdateStateListener } from './auto-update';
 
 app.setName('Minerva');
 
@@ -50,6 +50,9 @@ void app.whenReady().then(async () => {
 
   // In-app auto-update via the hosted update.electronjs.org feed (#662).
   // No-ops in dev (unpackaged); only a signed packaged build polls + applies.
+  // Rebuild the menu on state changes so the "Restart to Install Update" item
+  // appears once a build is staged (#963).
+  setUpdateStateListener(() => rebuildMenu());
   initAutoUpdate();
   boot('auto-update initialized');
 
