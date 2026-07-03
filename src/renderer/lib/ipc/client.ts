@@ -330,7 +330,51 @@ export interface PublishApi {
    * picker modally and the call resolves to `null` if the user cancels.
    */
   runExport(args: Omit<RunExportInput, 'outputDir'> & { outputDir?: string }): Promise<RunExportResult | null>;
+
+  // ── Publish → git remote (#254) ───────────────────────────────────────────
+  /** Configured git-push targets for the open thoughtbase. */
+  listTargets(): Promise<PublishTarget[]>;
+  /** Add or replace a target by id; resolves to the updated list. */
+  upsertTarget(target: PublishTarget): Promise<PublishTarget[]>;
+  /** Remove a target by id; resolves to the updated list. */
+  removeTarget(id: string): Promise<PublishTarget[]>;
+  /** Export + commit + push (or, with `dryRun`, preview the diff only). */
+  toGit(targetId: string, opts?: { dryRun?: boolean }): Promise<PublishGitResponse>;
 }
+
+/** A configured "Publish → git remote" destination (#254). */
+export interface PublishTarget {
+  id: string;
+  label: string;
+  exporter: string;
+  gitRemote: string;
+  gitBranch: string;
+  subdir?: string;
+  commitMessageTemplate?: string;
+}
+
+export interface PublishChange {
+  path: string;
+  status: 'added' | 'modified' | 'deleted';
+}
+
+export interface PublishGitResult {
+  targetId: string;
+  dryRun: boolean;
+  branch: string;
+  branchCreated: boolean;
+  changes: PublishChange[];
+  committed: boolean;
+  pushed: boolean;
+  sha?: string;
+  commitMessage?: string;
+}
+
+/** Publish returns a result-or-error union so the dialog can show the raw
+ *  git message (auth / non-fast-forward / network) verbatim. */
+export type PublishGitResponse =
+  | { ok: true; result: PublishGitResult }
+  | { ok: false; error: string };
 
 export interface ComputeApi {
   /** Dispatch a cell to its language's executor (#238). */
@@ -713,6 +757,7 @@ export interface MenuApi {
   onIngestIdentifier(cb: () => void): void;
   onIngestFile(cb: () => void): void;
   onExport(cb: (exporterId: string) => void): void;
+  onPublish(cb: () => void): void;
   onImportBibtex(cb: () => void): void;
   onImportZoteroRdf(cb: () => void): void;
 }

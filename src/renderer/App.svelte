@@ -45,6 +45,7 @@
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
+  import PublishDialog from './lib/components/PublishDialog.svelte';
   import AboutDialog from './lib/components/AboutDialog.svelte';
   import ShortcutsDialog from './lib/components/ShortcutsDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
@@ -321,6 +322,7 @@
   const { showPrompt, showConfirm } = dialogs;
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);
+  let publishDialogOpen = $state(false);
   let showAbout = $state(false);
   let showShortcuts = $state(false);
 
@@ -1056,6 +1058,7 @@
     api.menu.onImportBibtex(() => handleImportBibtex());
     api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
     api.menu.onExport((groupId) => { exportDialogGroup = groupId; });
+    api.menu.onPublish(() => { publishDialogOpen = true; });
 
     // Progress updates during a bulk import — rewrites the busy-overlay
     // label in place so the user sees running counts on large imports.
@@ -1720,6 +1723,9 @@
         );
       }}
     />
+  {/if}
+  {#if publishDialogOpen}
+    <PublishDialog onClose={() => { publishDialogOpen = false; }} />
   {/if}
   {#if refactorFlow.autoLinkReview}
     <AutoLinkDialog

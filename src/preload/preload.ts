@@ -186,6 +186,11 @@ contextBridge.exposeInMainWorld('api', {
     resolvePlan: (input: unknown, opts: unknown) =>
       ipcRenderer.invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
     runExport: (args: unknown) => ipcRenderer.invoke(Channels.PUBLISH_RUN_EXPORT, args),
+    listTargets: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_TARGETS),
+    upsertTarget: (target: unknown) => ipcRenderer.invoke(Channels.PUBLISH_UPSERT_TARGET, target),
+    removeTarget: (id: string) => ipcRenderer.invoke(Channels.PUBLISH_REMOVE_TARGET, id),
+    toGit: (targetId: string, opts?: unknown) =>
+      ipcRenderer.invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
   },
   app: {
     getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
@@ -611,6 +616,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.MENU_INGEST_FILE, () => cb());
     },
     onExport: (cb: (exporterId: string) => void) => subscribeIpc(Channels.MENU_EXPORT, cb),
+    onPublish: (cb: () => void) => subscribeIpc(Channels.MENU_PUBLISH, cb),
     onImportBibtex: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
     },
