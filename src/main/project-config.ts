@@ -41,6 +41,33 @@ export interface ProjectConfigShape {
      *  Empty string means the project root. */
     noteFolder?: string;
   };
+  /** Git-push publish destinations (#254). */
+  publish?: {
+    targets?: PublishTarget[];
+  };
+}
+
+/**
+ * A configured "Publish → git remote" destination (#254): an exporter
+ * paired with a git remote/branch to push its output to (e.g. a static
+ * site → GitHub Pages). Stored in `.minerva/config.json`, which is
+ * gitignored, so a remote URL never rides along in the thoughtbase repo.
+ */
+export interface PublishTarget {
+  /** Stable id — names the publish-cache workspace and the config entry. */
+  id: string;
+  /** Human label shown in the Publish menu/dialog. */
+  label: string;
+  /** Exporter id whose directory-tree output gets pushed (e.g. 'static-site'). */
+  exporter: string;
+  /** Remote URL. SSH forms are normalized to HTTPS at push time (#254 auth). */
+  gitRemote: string;
+  /** Branch to publish to, e.g. 'gh-pages'. */
+  gitBranch: string;
+  /** Repo-relative subdirectory the output lands in. '' / '.' = repo root. */
+  subdir?: string;
+  /** Commit message, with `{{date}}` / `{{version}}` placeholders. */
+  commitMessageTemplate?: string;
 }
 
 function configPath(rootPath: string): string {
@@ -119,4 +146,27 @@ export function setExcerptNoteFolder(rootPath: string, folder: string): void {
     .trim();
   const existing = readProjectConfig(rootPath).excerpt ?? {};
   patchProjectConfig(rootPath, { excerpt: { ...existing, noteFolder: cleaned } });
+}
+
+/** All configured git-push publish targets (#254). Empty when unset. */
+export function getPublishTargets(rootPath: string): PublishTarget[] {
+  return readProjectConfig(rootPath).publish?.targets ?? [];
+}
+
+export function getPublishTarget(rootPath: string, id: string): PublishTarget | null {
+  return getPublishTargets(rootPath).find((t) => t.id === id) ?? null;
+}
+
+/** Insert or replace a target by id, preserving the rest of the list. */
+export function upsertPublishTarget(rootPath: string, target: PublishTarget): void {
+  const targets = getPublishTargets(rootPath);
+  const idx = targets.findIndex((t) => t.id === target.id);
+  if (idx >= 0) targets[idx] = target;
+  else targets.push(target);
+  patchProjectConfig(rootPath, { publish: { targets } });
+}
+
+export function removePublishTarget(rootPath: string, id: string): void {
+  const targets = getPublishTargets(rootPath).filter((t) => t.id !== id);
+  patchProjectConfig(rootPath, { publish: { targets } });
 }

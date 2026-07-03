@@ -13,6 +13,11 @@ import {
   setBibliographyStyleId,
   getPythonTrust,
   setPythonTrust,
+  getPublishTargets,
+  getPublishTarget,
+  upsertPublishTarget,
+  removePublishTarget,
+  type PublishTarget,
 } from '../../src/main/project-config';
 import { useTempDir } from '../helpers/temp-project';
 
@@ -101,5 +106,46 @@ describe('getPythonTrust / setPythonTrust (#373)', () => {
     setBibliographyStyleId(root, 'mla');
     setPythonTrust(root, true);
     expect(getBibliographyStyleId(root)).toBe('mla');
+  });
+});
+
+describe('publish targets (#254)', () => {
+  const target: PublishTarget = {
+    id: 'gh-pages',
+    label: 'GitHub Pages',
+    exporter: 'static-site',
+    gitRemote: 'git@github.com:dgriffith/garden.git',
+    gitBranch: 'gh-pages',
+    subdir: '.',
+    commitMessageTemplate: 'Publish {{date}} from Minerva',
+  };
+
+  it('returns [] when none are configured', () => {
+    expect(getPublishTargets(root)).toEqual([]);
+    expect(getPublishTarget(root, 'gh-pages')).toBeNull();
+  });
+
+  it('upsert appends then replaces by id', () => {
+    upsertPublishTarget(root, target);
+    expect(getPublishTargets(root)).toHaveLength(1);
+    expect(getPublishTarget(root, 'gh-pages')?.gitBranch).toBe('gh-pages');
+
+    upsertPublishTarget(root, { ...target, gitBranch: 'main' });
+    expect(getPublishTargets(root)).toHaveLength(1); // replaced, not duplicated
+    expect(getPublishTarget(root, 'gh-pages')?.gitBranch).toBe('main');
+  });
+
+  it('preserves other config slices when writing targets', () => {
+    setPythonTrust(root, true);
+    upsertPublishTarget(root, target);
+    expect(getPythonTrust(root)).toBe(true);
+    expect(getPublishTargets(root)).toHaveLength(1);
+  });
+
+  it('remove drops the target by id', () => {
+    upsertPublishTarget(root, target);
+    upsertPublishTarget(root, { ...target, id: 'other', label: 'Other' });
+    removePublishTarget(root, 'gh-pages');
+    expect(getPublishTargets(root).map((t) => t.id)).toEqual(['other']);
   });
 });
