@@ -10,10 +10,18 @@
 # exercised by CI (a maker regression stayed invisible until release day), and
 # there was no tag→downloadable-build flow.
 #
-# NOTE: builds are currently UNSIGNED + un-notarized — Gatekeeper will quarantine
-# them on other Macs. Code signing + notarization is #661 (blocked on Apple
-# Developer Program enrollment); it layers onto this pipeline once a Developer ID
-# certificate exists.
+# Signing + notarization (#959): when the Apple secrets below are configured,
+# the "Prepare macOS signing" step imports the Developer ID cert into a throwaway
+# keychain and exports the App Store Connect API-key env vars, so forge.config.ts
+# takes its signed + notarized + stapled path. Without the secrets (e.g. a fork)
+# the build still succeeds, unsigned — forge falls back automatically.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   APPLE_CERTIFICATE_P12_BASE64  — `base64 -i DeveloperIDApp.p12` (Developer ID Application cert + key)
+#   APPLE_CERTIFICATE_PASSWORD    — the .p12 export password
+#   APPLE_API_KEY_BASE64          — `base64 -i AuthKey_XXXXXXXXXX.p8` (App Store Connect key)
+#   APPLE_API_KEY_ID              — the key's 10-char Key ID
+#   APPLE_API_ISSUER              — the App Store Connect Issuer ID (UUID)
 
 name: Release
 
@@ -38,6 +46,10 @@ jobs:
       # electron-forge package OOMs on the default heap when bundling the
       # renderer + native deps — match build:e2e (#373).
       NODE_OPTIONS: --max-old-space-size=4096
+      # 'true' only when the signing cert secret is configured. `secrets` isn't
+      # allowed directly in step `if:`, so we hoist the presence check to an env
+      # flag the signing/cleanup steps gate on. A secretless run builds unsigned.
+      HAS_SIGNING: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +67,52 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Import the Developer ID cert into a throwaway keychain and stage the
+      # App Store Connect API key, then export the paths/ids forge.config.ts
+      # reads (APPLE_API_KEY / _KEY_ID / _ISSUER) via $GITHUB_ENV so the build
+      # step below picks up the signed path. Secrets are decoded to files under
+      # $RUNNER_TEMP and never echoed. Skipped (build stays unsigned) when the
+      # signing secrets aren't configured.
+      - name: Prepare macOS signing
+        if: env.HAS_SIGNING == 'true'
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/developer_id.p12"
+          API_KEY_PATH="$RUNNER_TEMP/apple_api_key.p8"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+
+          # Decode the secrets to files (base64 -D on macOS runners).
+          echo "$APPLE_CERTIFICATE_P12_BASE64" | base64 -D > "$CERT_PATH"
+          echo "$APPLE_API_KEY_BASE64" | base64 -D > "$API_KEY_PATH"
+
+          # Throwaway keychain holding just the Developer ID identity. Add it to
+          # the search list so codesign / find-identity can see the cert.
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | sed s/\"//g)
+          rm -f "$CERT_PATH"
+
+          # Hand forge the notarization creds + keychain path (for cleanup).
+          {
+            echo "APPLE_API_KEY=$API_KEY_PATH"
+            echo "APPLE_API_KEY_ID=$APPLE_API_KEY_ID"
+            echo "APPLE_API_ISSUER=$APPLE_API_ISSUER"
+            echo "SIGNING_KEYCHAIN=$KEYCHAIN_PATH"
+          } >> "$GITHUB_ENV"
 
       - name: Build distributables (electron-forge make)
         run: pnpm build
@@ -83,3 +141,11 @@ jobs:
           files: dist-artifacts/*
           draft: true
           generate_release_notes: true
+
+      # Always remove the throwaway keychain + staged API key, even if the build
+      # failed, so signing material never lingers on a (reused) runner.
+      - name: Clean up signing material
+        if: always() && env.SIGNING_KEYCHAIN != ''
+        run: |
+          security delete-keychain "$SIGNING_KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/apple_api_key.p8" || true
