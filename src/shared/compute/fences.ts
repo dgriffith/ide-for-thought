@@ -15,6 +15,23 @@
  * CodeMirror view.
  */
 
+/**
+ * Fence languages the compute shell can execute — the single source of truth
+ * for "which fences get a run affordance", shared by the editor gutter, the
+ * preview run buttons, the Recompute-all button's visibility check, and the
+ * cell-output scanners. `py` / `python3` are aliases the backend maps to the
+ * Python executor.
+ *
+ * Must stay in sync with the executors registered in
+ * `main/compute/executors/index.ts`; `tests/main/compute/registry.test.ts`
+ * asserts the two match so this list can't silently drift from what the
+ * backend can actually run.
+ */
+export const RUNNABLE_LANGUAGES = ['sparql', 'sql', 'python', 'py', 'python3'] as const;
+
+/** Lower-cased set form for `findRunnableFences` and membership checks. */
+export const RUNNABLE_LANGUAGE_SET: ReadonlySet<string> = new Set(RUNNABLE_LANGUAGES);
+
 export interface FenceRange {
   /** Byte offset where the opening triple-backtick line begins. */
   startOffset: number;

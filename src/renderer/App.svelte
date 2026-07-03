@@ -80,18 +80,11 @@
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
-  import { findRunnableFences } from '../shared/compute/fences';
-  import { DEFAULT_RUNNABLE_LANGUAGES } from './lib/editor/compute-cells';
+  import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
   import { loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
   import { registerSkillInfos } from './lib/tools/tool-registry';
   import { applyMenuConfig } from '../shared/skills/menu-config';
-
-  // Lower-cased once so the "Recompute all" button's reactive
-  // has-runnable-fences check matches the editor extension's allow-list.
-  const RUNNABLE_LANGUAGE_SET = new Set(
-    DEFAULT_RUNNABLE_LANGUAGES.map((s) => s.toLowerCase()),
-  );
 
 
   const notebase = getNotebaseStore();

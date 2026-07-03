@@ -13,14 +13,12 @@
  */
 
 import { parseFenceInfo } from './cell-id';
+import { RUNNABLE_LANGUAGE_SET } from './fences';
 import type { CellOutput } from './types';
 
 /** What's stored in an ```output block: a CellOutput, or the `{type:'error'}`
  *  shape a failed cell serializes (`resultToJson`). */
 export type StoredCellOutput = CellOutput | { type: 'error'; message: string };
-
-/** Languages whose fences can be compute cells (and thus carry an output). */
-const CELL_LANGS: ReadonlySet<string> = new Set(['python', 'py', 'python3', 'sparql', 'sql']);
 
 /**
  * Scan forward from `after` for an `output` fence belonging to the cell that
@@ -81,7 +79,7 @@ export function findCellOutput(content: string, cellId: string): StoredCellOutpu
     if (!m) continue;
     const info = m[1];
     const parsed = parseFenceInfo(info);
-    if (!CELL_LANGS.has(parsed.language) || parsed.attrs.id !== cellId) continue;
+    if (!RUNNABLE_LANGUAGE_SET.has(parsed.language) || parsed.attrs.id !== cellId) continue;
 
     // Found the cell's opening fence. Find its closing ``` then the output block.
     const closeLine = findClosingFence(content, lineStart + line.length + 1);

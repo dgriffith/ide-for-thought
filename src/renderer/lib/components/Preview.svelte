@@ -35,7 +35,7 @@
     import {getToolInfosByCategory} from '../tools/tool-registry';
     import mdFootnote from 'markdown-it-footnote';
     import {planOutputEdit} from '../editor/output-block';
-    import {findRunnableFences, codeOf} from '../../../shared/compute/fences';
+    import {findRunnableFences, codeOf, RUNNABLE_LANGUAGE_SET} from '../../../shared/compute/fences';
     import {runAllCellsInContent} from '../compute/run-all-cells';
     import type {CellResult} from '../ipc/client';
     import {escapeHtml, escapeAttr, stripFrontmatter, countFrontmatterLines} from '../preview/text';
@@ -153,8 +153,6 @@
     // a cell is in flight so a double-click can't fire two parallel
     // executions.
     const runningFences = $state<Set<number>>(new Set());
-
-    const RUNNABLE_LANGS = new Set(['python', 'py', 'python3', 'sparql', 'sql']);
 
     // Tool lists for the right-click menu's Learning / Analysis submenus.
     // Loaded once at mount — the registry is project-stable.
@@ -445,7 +443,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // run button (when the host wired `onRunCell` + `onApplyCellOutputEdit`)
         // and a collapse toggle. The default highlighted-code body is
         // wrapped inside `.fence-body` so the toggle can hide it.
-        const isRunnable = RUNNABLE_LANGS.has(info);
+        const isRunnable = RUNNABLE_LANGUAGE_SET.has(info);
         if (isRunnable && openingLine !== null) {
             const isCollapsed = collapsedFences.has(openingLine);
             const isRunning = runningFences.has(openingLine);
@@ -1429,7 +1427,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // number from markdown-it, but the doc may have been edited since
         // last render — re-scanning is cheap and rules out stale-token
         // bugs.
-        const fences = findRunnableFences(content, RUNNABLE_LANGS);
+        const fences = findRunnableFences(content, RUNNABLE_LANGUAGE_SET);
         const fence = fences.find((f) => f.openingLine === openingLine);
         if (!fence) {
             console.warn(`[preview] runFenceAt: no fence at line ${openingLine}`);
@@ -1461,7 +1459,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         const runCell = onRunCell;
         const apply = onApplyCellOutputEdit;
         const np = notePath;
-        await runAllCellsInContent(content, RUNNABLE_LANGS, {
+        await runAllCellsInContent(content, RUNNABLE_LANGUAGE_SET, {
             runCell: (language, code) => runCell(language, code, np),
             apply,
             setRunning: (line, running) => {
