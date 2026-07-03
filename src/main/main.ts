@@ -14,6 +14,7 @@ import { flushAllProjects } from './project-context';
 import { shutdownAllKernels } from './compute/python-kernel';
 import { stopClipperServer } from './clipper/lifecycle';
 import { registerSkillsAtStartup } from './skills/register';
+import { initAutoUpdate } from './auto-update';
 
 app.setName('Minerva');
 
@@ -46,6 +47,11 @@ void app.whenReady().then(async () => {
   boot('executors registered');
   registerBuiltinExporters();
   boot('exporters registered');
+
+  // In-app auto-update via the hosted update.electronjs.org feed (#662).
+  // No-ops in dev (unpackaged); only a signed packaged build polls + applies.
+  initAutoUpdate();
+  boot('auto-update initialized');
 
   // Load + register skill files (#625) before any menu is built, so the
   // dynamic Learning/Analysis menus include them on first paint. Failure to

@@ -6,6 +6,10 @@
     "node": ">=24"
   },
   "description": "Minerva — an integrated knowledge management environment",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dgriffith/ide-for-thought.git"
+  },
   "main": ".vite/build/main.js",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -66,6 +70,7 @@
     "tslib": "^2.8.1",
     "turndown": "^7.2.4",
     "unpdf": "^1.6.2",
+    "update-electron-app": "^3.3.0",
     "vega-embed": "^7.1.0",
     "yaml": "^2.9.0"
   },
