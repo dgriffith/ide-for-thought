@@ -6,6 +6,8 @@ import {
   runCell,
   _clearRegistry,
 } from '../../../src/main/compute/registry';
+import { registerBuiltinExecutors } from '../../../src/main/compute/executors';
+import { RUNNABLE_LANGUAGES } from '../../../src/shared/compute/fences';
 
 describe('compute registry (#238)', () => {
   beforeEach(() => {
@@ -57,6 +59,15 @@ describe('compute registry (#238)', () => {
     registerExecutor('sql', async () => ({ ok: true, output: { type: 'text', value: 'v2' } }));
     const result = await runCell('sql', 'x', { rootPath: '/tmp' });
     expect(result.ok && result.output.type === 'text' && result.output.value).toBe('v2');
+  });
+
+  it('builtin registrations match the shared RUNNABLE_LANGUAGES list', () => {
+    // Drift guard: the renderer decides which fences show a run affordance
+    // from RUNNABLE_LANGUAGES (shared/compute/fences.ts). If it and the
+    // backend's registered executors disagree, a fence can show a ▶ the
+    // backend can't run (or vice versa). Keep the two in lockstep.
+    registerBuiltinExecutors();
+    expect(registeredLanguages()).toEqual([...RUNNABLE_LANGUAGES].sort());
   });
 
   it('passes the ExecutorContext through to the executor', async () => {

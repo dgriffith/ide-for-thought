@@ -11,6 +11,7 @@ import type Token from 'markdown-it/lib/token.mjs';
 import { escapeHtml, escapeAttr } from './text';
 import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
 import type { CellOutput } from '../../../shared/compute/types';
+import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 
 /**
  * Walk backwards from the output fence token to find the executable
@@ -20,12 +21,11 @@ import type { CellOutput } from '../../../shared/compute/types';
  * paste an isolated output block.
  */
 export function findSourceFenceBefore(tokens: Token[], idx: number): { language: string; code: string } | null {
-  const RUNNABLE = new Set(['sparql', 'sql', 'python']);
   for (let i = idx - 1; i >= 0; i--) {
     const t = tokens[i];
     if (t.type === 'fence') {
       const lang = (t.info ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-      if (RUNNABLE.has(lang)) {
+      if (RUNNABLE_LANGUAGE_SET.has(lang)) {
         return { language: lang, code: (t.content ?? '').replace(/\n$/, '') };
       }
       return null;

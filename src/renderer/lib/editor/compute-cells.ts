@@ -21,12 +21,10 @@ import { planOutputEdit } from './output-block';
 import {
   findRunnableFences,
   codeOf,
+  RUNNABLE_LANGUAGES,
   type FenceRange,
 } from '../../../shared/compute/fences';
 import type { CellResult } from '../ipc/client';
-
-/** Fence languages that show the run affordance unless the host overrides. */
-export const DEFAULT_RUNNABLE_LANGUAGES = ['sparql', 'sql', 'python'] as const;
 
 // ── Running state ──────────────────────────────────────────────────────────
 
@@ -105,7 +103,7 @@ export interface ComputeCellsOptions {
 
 export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
   const allowed = new Set<string>(
-    [...(opts.runnableLanguages ?? DEFAULT_RUNNABLE_LANGUAGES)].map((s) => s.toLowerCase()),
+    [...(opts.runnableLanguages ?? RUNNABLE_LANGUAGES)].map((s) => s.toLowerCase()),
   );
 
   /**
