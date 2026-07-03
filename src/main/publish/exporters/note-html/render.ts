@@ -35,7 +35,7 @@ export async function renderNoteBody(
   plan: ExportPlan,
   renderer?: CitationRenderer,
 ): Promise<string> {
-  const md = buildMd(plan, renderer);
+  const md = buildMd(plan, renderer, file.relativePath);
   // #906 — inline `![[note]]` / `![[note#H]]` / `![[note^block]]` embeds before
   // anything else, so the embedded content's own charts / links get processed
   // by the passes below. Resolved against the export's note set (in memory).
@@ -54,7 +54,7 @@ export async function renderNoteBody(
   return md.render(bodyMarkdown);
 }
 
-function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
+function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: string): MarkdownIt {
   const md = new MarkdownIt({
     html: false,        // drop raw HTML in notes — export is for trust-limited readers
     linkify: true,
@@ -82,7 +82,7 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
   // `$…$` / `$$…$$` → KaTeX HTML (#327). Same plugin Preview uses so
   // the export and the editor preview render math identically.
   installMath(md);
-  installWikiLinkRule(md, plan);
+  installWikiLinkRule(md, plan, fromPath);
   installTagRule(md);
   installCiteStubRule(md, plan, renderer);
   return md;
@@ -94,8 +94,14 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer): MarkdownIt {
  * linkPolicy. `[[cite::…]]` and `[[quote::…]]` are left to the cite
  * stub rule (below).
  */
-function installWikiLinkRule(md: MarkdownIt, plan: ExportPlan): void {
+function installWikiLinkRule(md: MarkdownIt, plan: ExportPlan, fromPath?: string): void {
   const ctx = buildLinkResolverContext(plan);
+  // Directory of the note being rendered. `follow-to-file` hrefs are made
+  // relative to it so a link resolves correctly from a nested page — a
+  // root-relative href like `fm/x.html` doubles the folder when the page
+  // itself lives under `fm/` (#252 follow-up: multi-page sites mirror the
+  // note folder tree). Absent fromPath keeps the old root-relative shape.
+  const fromDir = fromPath ? path.posix.dirname(fromPath) : null;
 
   md.inline.ruler.before('emphasis', 'wiki_link', (state, silent) => {
     const src = state.src;
@@ -129,7 +135,9 @@ function installWikiLinkRule(md: MarkdownIt, plan: ExportPlan): void {
       const asMd = target.endsWith('.md') ? target : `${target}.md`;
       if (ctx.includedPaths.has(asMd)) {
         const label = display ?? title ?? target;
-        const href = anchor ? `${asMd.replace(/\.md$/, '.html')}#${anchor}` : asMd.replace(/\.md$/, '.html');
+        const targetHtml = asMd.replace(/\.md$/, '.html');
+        const rel = relativeHref(fromDir, targetHtml);
+        const href = anchor ? `${rel}#${anchor}` : rel;
         token.content = `<a href="${escapeAttr(href)}">${escapeHtml(label)}</a>`;
       } else {
         token.content = `<em class="wikilink-unresolved">${escapeHtml(title ?? display ?? target)}</em>`;
@@ -144,6 +152,18 @@ function installWikiLinkRule(md: MarkdownIt, plan: ExportPlan): void {
     state.pos = close + 2;
     return true;
   });
+}
+
+/**
+ * A note-relative href for a `follow-to-file` link. `fromDir` is the directory
+ * of the linking note (null → single-file / flat output, keep root-relative).
+ * `path.posix.relative` gives `../` climbs and same-dir shortening; an empty
+ * result (self-link) falls back to the bare filename.
+ */
+function relativeHref(fromDir: string | null, targetHtml: string): string {
+  if (fromDir === null) return targetHtml;
+  const rel = path.posix.relative(fromDir, targetHtml);
+  return rel === '' ? path.posix.basename(targetHtml) : rel;
 }
 
 /**

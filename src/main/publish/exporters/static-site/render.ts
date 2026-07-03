@@ -30,13 +30,13 @@ export interface RenderPageInput {
   rootRelative: string;
   /** Per-note CSL renderer; null when the project has no citation assets. */
   renderer: CitationRenderer | null;
-  /** Whether the site emits source pages (gates the "Sources" nav link). */
-  hasSources: boolean;
+  /** Which section pages exist — gates the nav links. */
+  nav: NavFlags;
 }
 
 /** Render a complete HTML page for a note. */
 export async function renderNotePage(input: RenderPageInput): Promise<string> {
-  const { note, plan, config, index, rootRelative, renderer, hasSources } = input;
+  const { note, plan, config, index, rootRelative, renderer, nav } = input;
 
   // Body via the existing markdown→HTML pipeline. The link policy is
   // forced to `follow-to-file` here (same as tree-html does) since the
@@ -71,12 +71,12 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
     rootRelative,
     pageTitle: note.title,
     bodyHtml: `<article>${bodyWithBroken}${backlinksHtml}</article>${sidebar}`,
-    hasSources,
+    nav,
   });
 }
 
 /** Render the tag-cloud landing page (`tags/index.html`). */
-export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelative: string, hasSources: boolean): string {
+export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelative: string, nav: NavFlags): string {
   const sorted = [...index.tags.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const items = sorted.map(([tag, notes]) => (
     `<li><a href="${encodeURIComponent(tag)}.html">#${escapeHtml(tag)}<span class="count">${notes.length}</span></a></li>`
@@ -84,7 +84,7 @@ export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelativ
   const body = `<article><h1>Tags</h1>${
     sorted.length === 0 ? '<p>No tags in this thoughtbase.</p>' : `<ul class="tag-cloud">${items}</ul>`
   }</article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative, pageTitle: 'Tags', bodyHtml: body, hasSources });
+  return shell({ config, rootRelative, pageTitle: 'Tags', bodyHtml: body, nav });
 }
 
 /** Render an individual tag page (`tags/<tag>.html`). */
@@ -93,23 +93,23 @@ export function renderTagPage(
   notes: Array<{ relativePath: string; title: string }>,
   config: SiteConfig,
   rootRelative: string,
-  hasSources: boolean,
+  nav: NavFlags,
 ): string {
   const items = notes.map((n) => (
     `<li><a href="${rootRelative}${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a></li>`
   )).join('');
   const body = `<article><h1>#${escapeHtml(tag)}</h1><ul>${items}</ul></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative, pageTitle: `#${tag}`, bodyHtml: body, hasSources });
+  return shell({ config, rootRelative, pageTitle: `#${tag}`, bodyHtml: body, nav });
 }
 
 /** Render an "All Notes" landing page when site-config.landing is empty. */
-export function renderAllNotesIndex(notes: ExportPlanFile[], config: SiteConfig, hasSources: boolean): string {
+export function renderAllNotesIndex(notes: ExportPlanFile[], config: SiteConfig, nav: NavFlags): string {
   const sorted = [...notes].sort((a, b) => a.title.localeCompare(b.title));
   const items = sorted.map((n) => (
     `<li><a href="${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a></li>`
   )).join('');
   const body = `<article><h1>${escapeHtml(config.title)}</h1><ul>${items}</ul></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative: '', pageTitle: config.title, bodyHtml: body, hasSources });
+  return shell({ config, rootRelative: '', pageTitle: config.title, bodyHtml: body, nav });
 }
 
 /** Render the consolidated bibliography page (`references.html`). */
@@ -117,12 +117,12 @@ export function renderReferencesPage(
   entries: string[],
   isNote: boolean,
   config: SiteConfig,
-  hasSources: boolean,
+  nav: NavFlags,
 ): string {
   const heading = isNote ? 'Bibliography' : 'References';
   const items = entries.map((e) => `<li>${e}</li>`).join('');
   const body = `<article><h1>${heading}</h1><section class="references"><ol>${items}</ol></section></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative: '', pageTitle: heading, bodyHtml: body, hasSources });
+  return shell({ config, rootRelative: '', pageTitle: heading, bodyHtml: body, nav });
 }
 
 // ── Source pages (#252 follow-up) ───────────────────────────────────────────
@@ -138,13 +138,14 @@ export interface RenderSourcePageInput {
   /** The user's anchored excerpts from this source. */
   excerpts: AnnotatedExcerpt[];
   config: SiteConfig;
+  nav: NavFlags;
 }
 
 /** Render a single source's page: reference + links + who cites it + excerpts.
  *  Deliberately does NOT republish the source body — only the user's own
  *  excerpts — so a public site stays bibliographic, not a re-host. */
 export function renderSourcePage(input: RenderSourcePageInput): string {
-  const { sourceId, item, citationHtml, citedBy, excerpts, config } = input;
+  const { sourceId, item, citationHtml, citedBy, excerpts, config, nav } = input;
   const rootRelative = '../'; // sources/<id>.html → one level deep
   const title = item?.title ?? sourceId;
 
@@ -182,13 +183,14 @@ export function renderSourcePage(input: RenderSourcePageInput): string {
     : '';
 
   const body = `<article><h1>${escapeHtml(title)}</h1>${citation}${linksHtml}${abstract}${citedByHtml}${excerptsHtml}</article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative, pageTitle: title, bodyHtml: body, hasSources: true });
+  return shell({ config, rootRelative, pageTitle: title, bodyHtml: body, nav });
 }
 
 /** Render the sources index (`sources/index.html`). */
 export function renderSourcesIndex(
   sources: Array<{ sourceId: string; title: string }>,
   config: SiteConfig,
+  nav: NavFlags,
 ): string {
   const items = sources.map((s) => (
     `<li><a href="${escapeAttr(`${s.sourceId}.html`)}">${escapeHtml(s.title)}</a></li>`
@@ -196,7 +198,18 @@ export function renderSourcesIndex(
   const body = `<article><h1>Sources</h1>${
     sources.length === 0 ? '<p>No sources cited.</p>' : `<ul>${items}</ul>`
   }</article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative: '../', pageTitle: 'Sources', bodyHtml: body, hasSources: true });
+  return shell({ config, rootRelative: '../', pageTitle: 'Sources', bodyHtml: body, nav });
+}
+
+/**
+ * Which section pages the site actually emits — so the nav only links to
+ * pages that exist. An always-on "Tags"/"References" link 404s on a site
+ * without tags or citations, which is what a live GitHub Pages run hit.
+ */
+export interface NavFlags {
+  hasTags: boolean;
+  hasReferences: boolean;
+  hasSources: boolean;
 }
 
 interface ShellInput {
@@ -204,17 +217,17 @@ interface ShellInput {
   rootRelative: string;
   pageTitle: string;
   bodyHtml: string;
-  /** Whether the site has any source pages — gates the "Sources" nav link. */
-  hasSources: boolean;
+  nav: NavFlags;
 }
 
 function shell(input: ShellInput): string {
-  const { config, rootRelative, pageTitle, bodyHtml, hasSources } = input;
-  const tagsHref = `${rootRelative}tags/index.html`;
-  const refsHref = `${rootRelative}references.html`;
-  const sourcesLink = hasSources
-    ? `\n  <a href="${escapeAttr(`${rootRelative}sources/index.html`)}">Sources</a>`
-    : '';
+  const { config, rootRelative, pageTitle, bodyHtml, nav } = input;
+  const navLink = (present: boolean, href: string, label: string): string =>
+    present ? `\n  <a href="${escapeAttr(`${rootRelative}${href}`)}">${label}</a>` : '';
+  const links =
+    navLink(nav.hasTags, 'tags/index.html', 'Tags') +
+    navLink(nav.hasReferences, 'references.html', 'References') +
+    navLink(nav.hasSources, 'sources/index.html', 'Sources');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -225,9 +238,7 @@ function shell(input: ShellInput): string {
 </head>
 <body data-search-root="${escapeAttr(rootRelative)}">
 <nav class="site-nav">
-  <a class="site-title" href="${rootRelative}index.html">${escapeHtml(config.title)}</a>
-  <a href="${escapeAttr(tagsHref)}">Tags</a>
-  <a href="${escapeAttr(refsHref)}">References</a>${sourcesLink}
+  <a class="site-title" href="${rootRelative}index.html">${escapeHtml(config.title)}</a>${links}
   <input class="site-search" type="search" placeholder="Search notes…" autocomplete="off">
 </nav>
 <div id="search-results" class="hidden"></div>

@@ -69,6 +69,12 @@ export const staticSiteExporter: Exporter = {
       : new Map<string, Array<{ relativePath: string; title: string }>>();
     const hasSources = citedBy.size > 0;
 
+    // Nav flags gate the header links so they never point at a page we don't
+    // emit (the live-site 404s). References + Sources both derive from cited
+    // sources, so they co-exist; Tags is its own condition. Computed up front
+    // because note pages — rendered first — carry the same nav.
+    const nav = { hasTags: index.tags.size > 0, hasReferences: hasSources, hasSources };
+
     // Track citations bundle-wide so the consolidated References /
     // Bibliography page de-dupes across the whole site (same shape as
     // the tree-html bundle bibliography from #300).
@@ -78,7 +84,7 @@ export const staticSiteExporter: Exporter = {
     for (const note of notes) {
       const renderer = plan.citations?.createRenderer() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
-      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, hasSources });
+      const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, nav });
       files.push({ path: noteUrl(note.relativePath), contents: html });
       if (renderer) {
         for (const id of renderer.cited()) allCitedIds.add(id);
@@ -90,12 +96,12 @@ export const staticSiteExporter: Exporter = {
     if (index.tags.size > 0) {
       files.push({
         path: 'tags/index.html',
-        contents: renderTagCloud(config, index, '../', hasSources),
+        contents: renderTagCloud(config, index, '../', nav),
       });
       for (const [tag, taggedNotes] of index.tags) {
         files.push({
           path: `tags/${encodeFilename(tag)}.html`,
-          contents: renderTagPage(tag, taggedNotes, config, '../', hasSources),
+          contents: renderTagPage(tag, taggedNotes, config, '../', nav),
         });
       }
     }
@@ -113,7 +119,7 @@ export const staticSiteExporter: Exporter = {
         index,
         rootRelative: '',
         renderer,
-        hasSources,
+        nav,
       });
       files.push({ path: 'index.html', contents: html });
       if (renderer) {
@@ -121,7 +127,7 @@ export const staticSiteExporter: Exporter = {
         if (renderer.isNoteStyle) isNoteStyle = true;
       }
     } else {
-      files.push({ path: 'index.html', contents: renderAllNotesIndex(notes, config, hasSources) });
+      files.push({ path: 'index.html', contents: renderAllNotesIndex(notes, config, nav) });
     }
 
     // Consolidated bibliography.
@@ -131,7 +137,7 @@ export const staticSiteExporter: Exporter = {
       if (bib.entries.length > 0) {
         files.push({
           path: 'references.html',
-          contents: renderReferencesPage(bib.entries, isNoteStyle, config, hasSources),
+          contents: renderReferencesPage(bib.entries, isNoteStyle, config, nav),
         });
       }
     }
@@ -161,6 +167,7 @@ export const staticSiteExporter: Exporter = {
             citedBy: citedBy.get(sourceId) ?? [],
             excerpts: annotated.excerpts,
             config,
+            nav,
           }),
         });
         sourceList.push({ sourceId, title });
@@ -171,7 +178,7 @@ export const staticSiteExporter: Exporter = {
         });
       }
       sourceList.sort((a, b) => a.title.localeCompare(b.title));
-      files.push({ path: 'sources/index.html', contents: renderSourcesIndex(sourceList, config) });
+      files.push({ path: 'sources/index.html', contents: renderSourcesIndex(sourceList, config, nav) });
     }
 
     // Search index — a flat array of {url, title, snippet}. Loaded
