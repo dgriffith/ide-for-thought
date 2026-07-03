@@ -78,6 +78,25 @@ describe('tree-markdown zip exporter (#291)', () => {
     expect(rootContent).not.toContain('[[ch1]]');
   });
 
+  it('cross-links from a nested note climb with ../ (no doubled directory)', async () => {
+    await fsp.mkdir(path.join(root, 'sub'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'root.md'),
+      '---\ntitle: Root\n---\n# Root\n\nSee [[sub/deep]].\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'sub/deep.md'),
+      '---\ntitle: Deep\n---\n# Deep\n\nBack to [[root]].\n', 'utf-8');
+
+    const plan = await resolvePlan(root, { kind: 'tree', relativePath: 'root.md', maxDepth: 2 });
+    const output = await runExporter(treeMarkdownExporter, plan);
+    const unzipped = await loadZip(output.files[0].contents as Uint8Array);
+
+    // root (dir '.') → nested: path unchanged.
+    expect(unzipped.get('root.md')).toContain('[Deep](sub/deep.md)');
+    // nested (dir 'sub') → root: climbs, does NOT stay root-relative (which
+    // would resolve to sub/root.md from the deep page).
+    expect(unzipped.get('sub/deep.md')).toContain('[Root](../root.md)');
+    expect(unzipped.get('sub/deep.md')).not.toContain('[Root](root.md)');
+  });
+
   it('drops embedded turtle blocks but preserves other fenced blocks', async () => {
     await fsp.writeFile(path.join(root, 'root.md'),
       '# Root\n\n```turtle\n@prefix ex: <http://x.com/> .\n```\n\n```python\nprint("hi")\n```\n', 'utf-8');

@@ -37,7 +37,10 @@ export const markdownExporter: Exporter = {
       .filter((f) => f.kind === 'note')
       .map((f) => ({
         path: f.relativePath,
-        contents: rewriteWikiLinksInContent(f.content, ctx),
+        // fromPath makes cross-links relative to this note's folder: a tree
+        // export mirrors the note folders, so a root-relative href would
+        // double the directory from a nested note.
+        contents: rewriteWikiLinksInContent(f.content, ctx, f.relativePath),
       }));
     const dropped = plan.excluded.length;
     const summary = dropped > 0

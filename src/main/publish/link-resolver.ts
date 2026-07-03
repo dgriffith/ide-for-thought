@@ -12,6 +12,7 @@
  * decide.
  */
 
+import path from 'node:path';
 import type { ExportPlan, LinkPolicy } from './types';
 
 export interface LinkResolverContext {
@@ -53,6 +54,7 @@ export function resolveWikiLink(
   anchor: string | null,
   display: string | null,
   ctx: LinkResolverContext,
+  fromPath?: string,
 ): string {
   const title = titleFor(target, ctx);
   switch (ctx.linkPolicy) {
@@ -64,7 +66,8 @@ export function resolveWikiLink(
       const asMd = target.endsWith('.md') ? target : `${target}.md`;
       if (ctx.includedPaths.has(asMd)) {
         const label = display ?? title ?? target;
-        const href = anchor ? `${asMd}#${anchor}` : asMd;
+        const rel = relativeTarget(fromPath, asMd);
+        const href = anchor ? `${rel}#${anchor}` : rel;
         return `[${label}](${href})`;
       }
       return title ?? display ?? target;
@@ -73,11 +76,28 @@ export function resolveWikiLink(
 }
 
 /**
+ * A link href relative to the linking note's folder. `fromPath` is the note
+ * being rendered; without it (single-file exports) the target's project-root-
+ * relative path is kept. For directory-tree exports that mirror the note
+ * folders (markdown / tree-markdown), a root-relative href would double the
+ * folder when the linking note itself sits in a subfolder — so relativize.
+ */
+function relativeTarget(fromPath: string | undefined, asMd: string): string {
+  if (!fromPath) return asMd;
+  const rel = path.posix.relative(path.posix.dirname(fromPath), asMd);
+  return rel === '' ? path.posix.basename(asMd) : rel;
+}
+
+/**
  * Rewrite every wiki-link in `content` using the given resolver context.
  * `[[cite::…]]` and `[[quote::…]]` pass through verbatim — those are
  * source references, resolved by a separate mechanism.
  */
-export function rewriteWikiLinksInContent(content: string, ctx: LinkResolverContext): string {
+export function rewriteWikiLinksInContent(
+  content: string,
+  ctx: LinkResolverContext,
+  fromPath?: string,
+): string {
   // [[target]], [[target|display]], [[type::target]], [[type::target|display]]
   // with optional #anchor inside the target. Lazy target/display captures
   // to keep away from nested brackets in link text.
@@ -93,7 +113,7 @@ export function rewriteWikiLinksInContent(content: string, ctx: LinkResolverCont
     const target = hashIdx >= 0 ? untyped.slice(0, hashIdx).trim() : untyped.trim();
     const anchor = hashIdx >= 0 ? untyped.slice(hashIdx + 1).trim() : null;
     if (!target) return full;
-    return resolveWikiLink(target, anchor, display ? display.trim() : null, ctx);
+    return resolveWikiLink(target, anchor, display ? display.trim() : null, ctx, fromPath);
   });
 }
 
