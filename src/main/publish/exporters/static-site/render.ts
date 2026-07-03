@@ -11,7 +11,8 @@
 import path from 'node:path';
 import { renderNoteBody } from '../note-html/render';
 import type { ExportPlanFile, ExportPlan } from '../../types';
-import type { CitationRenderer } from '../../csl';
+import type { CitationRenderer, CslItem } from '../../csl';
+import type { AnnotatedExcerpt } from '../annotated-reading/resolve';
 import type { SiteConfig } from './site-config';
 import { noteUrl, type SiteIndex } from './site-data';
 import { renderFootnotesSection } from '../note-html';
@@ -29,11 +30,13 @@ export interface RenderPageInput {
   rootRelative: string;
   /** Per-note CSL renderer; null when the project has no citation assets. */
   renderer: CitationRenderer | null;
+  /** Whether the site emits source pages (gates the "Sources" nav link). */
+  hasSources: boolean;
 }
 
 /** Render a complete HTML page for a note. */
 export async function renderNotePage(input: RenderPageInput): Promise<string> {
-  const { note, plan, config, index, rootRelative, renderer } = input;
+  const { note, plan, config, index, rootRelative, renderer, hasSources } = input;
 
   // Body via the existing markdown→HTML pipeline. The link policy is
   // forced to `follow-to-file` here (same as tree-html does) since the
@@ -68,11 +71,12 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
     rootRelative,
     pageTitle: note.title,
     bodyHtml: `<article>${bodyWithBroken}${backlinksHtml}</article>${sidebar}`,
+    hasSources,
   });
 }
 
 /** Render the tag-cloud landing page (`tags/index.html`). */
-export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelative: string): string {
+export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelative: string, hasSources: boolean): string {
   const sorted = [...index.tags.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const items = sorted.map(([tag, notes]) => (
     `<li><a href="${encodeURIComponent(tag)}.html">#${escapeHtml(tag)}<span class="count">${notes.length}</span></a></li>`
@@ -80,7 +84,7 @@ export function renderTagCloud(config: SiteConfig, index: SiteIndex, rootRelativ
   const body = `<article><h1>Tags</h1>${
     sorted.length === 0 ? '<p>No tags in this thoughtbase.</p>' : `<ul class="tag-cloud">${items}</ul>`
   }</article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative, pageTitle: 'Tags', bodyHtml: body });
+  return shell({ config, rootRelative, pageTitle: 'Tags', bodyHtml: body, hasSources });
 }
 
 /** Render an individual tag page (`tags/<tag>.html`). */
@@ -89,22 +93,23 @@ export function renderTagPage(
   notes: Array<{ relativePath: string; title: string }>,
   config: SiteConfig,
   rootRelative: string,
+  hasSources: boolean,
 ): string {
   const items = notes.map((n) => (
     `<li><a href="${rootRelative}${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a></li>`
   )).join('');
   const body = `<article><h1>#${escapeHtml(tag)}</h1><ul>${items}</ul></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative, pageTitle: `#${tag}`, bodyHtml: body });
+  return shell({ config, rootRelative, pageTitle: `#${tag}`, bodyHtml: body, hasSources });
 }
 
 /** Render an "All Notes" landing page when site-config.landing is empty. */
-export function renderAllNotesIndex(notes: ExportPlanFile[], config: SiteConfig): string {
+export function renderAllNotesIndex(notes: ExportPlanFile[], config: SiteConfig, hasSources: boolean): string {
   const sorted = [...notes].sort((a, b) => a.title.localeCompare(b.title));
   const items = sorted.map((n) => (
     `<li><a href="${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a></li>`
   )).join('');
   const body = `<article><h1>${escapeHtml(config.title)}</h1><ul>${items}</ul></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative: '', pageTitle: config.title, bodyHtml: body });
+  return shell({ config, rootRelative: '', pageTitle: config.title, bodyHtml: body, hasSources });
 }
 
 /** Render the consolidated bibliography page (`references.html`). */
@@ -112,11 +117,86 @@ export function renderReferencesPage(
   entries: string[],
   isNote: boolean,
   config: SiteConfig,
+  hasSources: boolean,
 ): string {
   const heading = isNote ? 'Bibliography' : 'References';
   const items = entries.map((e) => `<li>${e}</li>`).join('');
   const body = `<article><h1>${heading}</h1><section class="references"><ol>${items}</ol></section></article><aside class="note-meta"></aside>`;
-  return shell({ config, rootRelative: '', pageTitle: heading, bodyHtml: body });
+  return shell({ config, rootRelative: '', pageTitle: heading, bodyHtml: body, hasSources });
+}
+
+// ── Source pages (#252 follow-up) ───────────────────────────────────────────
+
+export interface RenderSourcePageInput {
+  sourceId: string;
+  /** Structured metadata; may be undefined if the source has no meta.ttl. */
+  item: CslItem | undefined;
+  /** Formatted CSL reference (one bibliography entry) as HTML. */
+  citationHtml: string;
+  /** Published notes that cite this source. */
+  citedBy: Array<{ relativePath: string; title: string }>;
+  /** The user's anchored excerpts from this source. */
+  excerpts: AnnotatedExcerpt[];
+  config: SiteConfig;
+}
+
+/** Render a single source's page: reference + links + who cites it + excerpts.
+ *  Deliberately does NOT republish the source body — only the user's own
+ *  excerpts — so a public site stays bibliographic, not a re-host. */
+export function renderSourcePage(input: RenderSourcePageInput): string {
+  const { sourceId, item, citationHtml, citedBy, excerpts, config } = input;
+  const rootRelative = '../'; // sources/<id>.html → one level deep
+  const title = item?.title ?? sourceId;
+
+  const citation = citationHtml
+    ? `<section class="source-citation">${citationHtml}</section>`
+    : '';
+
+  const links: string[] = [];
+  if (item?.DOI) links.push(`<a href="https://doi.org/${escapeAttr(item.DOI)}">doi.org/${escapeHtml(item.DOI)}</a>`);
+  if (item?.URL) links.push(`<a href="${escapeAttr(item.URL)}">${escapeHtml(item.URL)}</a>`);
+  const linksHtml = links.length > 0 ? `<p class="source-links">${links.join(' · ')}</p>` : '';
+
+  const abstract = item?.abstract
+    ? `<section class="source-abstract"><h2>Abstract</h2><p>${escapeHtml(item.abstract)}</p></section>`
+    : '';
+
+  const citedByHtml = citedBy.length > 0
+    ? `<section class="cited-by"><h2>Cited by</h2><ul>${
+      citedBy.map((n) => `<li><a href="${rootRelative}${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a></li>`).join('')
+    }</ul></section>`
+    : '';
+
+  const excerptsHtml = excerpts.length > 0
+    ? `<section class="source-excerpts"><h2>Excerpts</h2>${
+      excerpts.map((ex) => {
+        const loc = ex.locator ? `<cite class="loc">${escapeHtml(ex.locator)}</cite>` : '';
+        const via = ex.linkedNotes.length > 0
+          ? `<div class="excerpt-notes">In: ${
+            ex.linkedNotes.map((n) => `<a href="${rootRelative}${escapeAttr(noteUrl(n.relativePath))}">${escapeHtml(n.title)}</a>`).join(', ')
+          }</div>`
+          : '';
+        return `<blockquote class="excerpt">${loc}<p>${escapeHtml(ex.citedText)}</p>${via}</blockquote>`;
+      }).join('')
+    }</section>`
+    : '';
+
+  const body = `<article><h1>${escapeHtml(title)}</h1>${citation}${linksHtml}${abstract}${citedByHtml}${excerptsHtml}</article><aside class="note-meta"></aside>`;
+  return shell({ config, rootRelative, pageTitle: title, bodyHtml: body, hasSources: true });
+}
+
+/** Render the sources index (`sources/index.html`). */
+export function renderSourcesIndex(
+  sources: Array<{ sourceId: string; title: string }>,
+  config: SiteConfig,
+): string {
+  const items = sources.map((s) => (
+    `<li><a href="${escapeAttr(`${s.sourceId}.html`)}">${escapeHtml(s.title)}</a></li>`
+  )).join('');
+  const body = `<article><h1>Sources</h1>${
+    sources.length === 0 ? '<p>No sources cited.</p>' : `<ul>${items}</ul>`
+  }</article><aside class="note-meta"></aside>`;
+  return shell({ config, rootRelative: '../', pageTitle: 'Sources', bodyHtml: body, hasSources: true });
 }
 
 interface ShellInput {
@@ -124,12 +204,17 @@ interface ShellInput {
   rootRelative: string;
   pageTitle: string;
   bodyHtml: string;
+  /** Whether the site has any source pages — gates the "Sources" nav link. */
+  hasSources: boolean;
 }
 
 function shell(input: ShellInput): string {
-  const { config, rootRelative, pageTitle, bodyHtml } = input;
+  const { config, rootRelative, pageTitle, bodyHtml, hasSources } = input;
   const tagsHref = `${rootRelative}tags/index.html`;
   const refsHref = `${rootRelative}references.html`;
+  const sourcesLink = hasSources
+    ? `\n  <a href="${escapeAttr(`${rootRelative}sources/index.html`)}">Sources</a>`
+    : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -142,7 +227,7 @@ function shell(input: ShellInput): string {
 <nav class="site-nav">
   <a class="site-title" href="${rootRelative}index.html">${escapeHtml(config.title)}</a>
   <a href="${escapeAttr(tagsHref)}">Tags</a>
-  <a href="${escapeAttr(refsHref)}">References</a>
+  <a href="${escapeAttr(refsHref)}">References</a>${sourcesLink}
   <input class="site-search" type="search" placeholder="Search notes…" autocomplete="off">
 </nav>
 <div id="search-results" class="hidden"></div>
