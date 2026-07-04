@@ -18,6 +18,7 @@ import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandle
 import { getOnboardingDismissed, setOnboardingDismissed } from '../project-config';
 import { dropImport } from '../notebase/drop-import';
 import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from '../notebase/search-in-notes';
+import { handle } from './typed-ipc';
 import {
   winFromEvent,
   rootPathFromEvent,
@@ -30,7 +31,7 @@ import {
 } from './helpers';
 
 export function registerNotebase(): void {
-  ipcMain.handle(Channels.NOTEBASE_OPEN, async (e) => {
+  handle(Channels.NOTEBASE_OPEN, async (e) => {
     const meta = await notebaseFs.openNotebase();
     if (meta) {
       const win = winFromEvent(e);
@@ -39,13 +40,13 @@ export function registerNotebase(): void {
     return meta;
   });
 
-  ipcMain.handle(Channels.NOTEBASE_OPEN_PATH, async (e, rootPath: string) => {
+  handle(Channels.NOTEBASE_OPEN_PATH, async (e, rootPath: string) => {
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle(Channels.NOTEBASE_NEW_PROJECT, async (e) => {
+  handle(Channels.NOTEBASE_NEW_PROJECT, async (e) => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
       title: 'Choose location for new thoughtbase',
@@ -59,7 +60,7 @@ export function registerNotebase(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle(Channels.NOTEBASE_CLOSE, (e) => {
+  handle(Channels.NOTEBASE_CLOSE, (e) => {
     const win = winFromEvent(e);
     closeProjectInWindow(win.id);
     return null;
@@ -71,7 +72,7 @@ export function registerNotebase(): void {
   // invoking window for focus; the fresh window is created once the user
   // commits to a path.
 
-  ipcMain.handle(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW, async (e) => {
+  handle(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW, async (e) => {
     const parentWin = winFromEvent(e);
     const result = await dialog.showOpenDialog(parentWin, {
       properties: ['openDirectory'],
@@ -87,7 +88,7 @@ export function registerNotebase(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW, async (e) => {
+  handle(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW, async (e) => {
     const parentWin = winFromEvent(e);
     const result = await dialog.showOpenDialog(parentWin, {
       properties: ['openDirectory', 'createDirectory'],
@@ -104,7 +105,7 @@ export function registerNotebase(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, (_e, rootPath: string) => {
+  handle(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, (_e, rootPath: string) => {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
@@ -113,24 +114,24 @@ export function registerNotebase(): void {
     return { rootPath, name: path.basename(rootPath) };
   });
 
-  ipcMain.handle(Channels.RECENT_CLEAR, () => {
+  handle(Channels.RECENT_CLEAR, () => {
     clearRecentProjects();
     rebuildMenu();
   });
 
-  ipcMain.handle(Channels.NOTEBASE_LIST_FILES, async (e) => {
+  handle(Channels.NOTEBASE_LIST_FILES, async (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return [];
     return notebaseFs.listFiles(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_READ_FILE, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_READ_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return notebaseFs.readFile(rootPath, relativePath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_READ_BINARY, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_READ_BINARY, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     // Pass the bytes back as a Buffer; Electron's structured-clone
@@ -138,7 +139,7 @@ export function registerNotebase(): void {
     return notebaseFs.readBinaryFile(rootPath, relativePath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_WRITE_BINARY, async (e, relativePath: string, bytes: Uint8Array) => {
+  handle(Channels.NOTEBASE_WRITE_BINARY, async (e, relativePath: string, bytes: Uint8Array) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     // The renderer wraps payload as a Uint8Array; structured-clone
@@ -148,13 +149,13 @@ export function registerNotebase(): void {
     await notebaseFs.writeBinaryFile(rootPath, relativePath, view);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return false;
     return notebaseFs.fileExists(rootPath, relativePath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
+  handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     // Renderer-initiated save — it already has the content, so suppress
@@ -164,7 +165,7 @@ export function registerNotebase(): void {
     });
   });
 
-  ipcMain.handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
@@ -174,7 +175,7 @@ export function registerNotebase(): void {
     search.indexNote(ctx, relativePath, '');
   });
 
-  ipcMain.handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     markPathHandled(relativePath);
@@ -183,13 +184,13 @@ export function registerNotebase(): void {
     await persistIndexes(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.createFolder(rootPath, relativePath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_DELETE_FOLDER, async (e, relativePath: string) => {
+  handle(Channels.NOTEBASE_DELETE_FOLDER, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const files = await listIndexableFiles(rootPath, relativePath);
@@ -198,7 +199,7 @@ export function registerNotebase(): void {
     await persistIndexes(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
+  handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
 
@@ -231,13 +232,13 @@ export function registerNotebase(): void {
     await persistIndexes(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_MERGE_PREVIEW, async (e, sourceRelPath: string, targetRelPath: string) => {
+  handle(Channels.NOTEBASE_MERGE_PREVIEW, async (e, sourceRelPath: string, targetRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     return previewMergeNotes(rootPath, sourceRelPath, targetRelPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_MERGE, async (e, sourceRelPath: string, targetRelPath: string, separator?: string) => {
+  handle(Channels.NOTEBASE_MERGE, async (e, sourceRelPath: string, targetRelPath: string, separator?: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const ctx = projectContext(rootPath);
@@ -275,7 +276,7 @@ export function registerNotebase(): void {
     return result;
   });
 
-  ipcMain.handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
+  handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const ctx = projectContext(rootPath);
@@ -290,7 +291,7 @@ export function registerNotebase(): void {
     return { rewrittenPaths };
   });
 
-  ipcMain.handle(Channels.NOTEBASE_RENAME_EXCERPT, async (e, oldId: string, newId: string) => {
+  handle(Channels.NOTEBASE_RENAME_EXCERPT, async (e, oldId: string, newId: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     const ctx = projectContext(rootPath);
@@ -332,7 +333,7 @@ export function registerNotebase(): void {
     },
   );
 
-  ipcMain.handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
+  handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
@@ -346,13 +347,13 @@ export function registerNotebase(): void {
     await persistIndexes(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
+  handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return [];
     return searchInNotes(rootPath, opts);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_REPLACE_IN_NOTES, async (e, opts: SearchOptions & { replacement: string; selections: ReplaceSelection[] }) => {
+  handle(Channels.NOTEBASE_REPLACE_IN_NOTES, async (e, opts: SearchOptions & { replacement: string; selections: ReplaceSelection[] }) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return { changedPaths: [], replacedCount: 0 };
     const result = await replaceInNotes(rootPath, opts);
@@ -366,13 +367,13 @@ export function registerNotebase(): void {
     return result;
   });
 
-  ipcMain.handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, (e) => {
+  handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) return false;
     return getOnboardingDismissed(rootPath);
   });
 
-  ipcMain.handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, (e, dismissed: boolean) => {
+  handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, (e, dismissed: boolean) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
     setOnboardingDismissed(rootPath, dismissed === true);
