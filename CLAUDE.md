@@ -53,7 +53,7 @@ This is a **professional tool**. Design accordingly:
 To add a new main-process operation:
 1. Add channel constant to `src/shared/channels.ts`
 2. Implement the operation in `src/main/notebase/fs.ts` (or appropriate module)
-3. Register the handler in `src/main/ipc.ts`
+3. Register the handler in the appropriate `src/main/ipc/register-*.ts` module (`src/main/ipc.ts` is just the orchestrator that calls each `register*()`)
 4. Expose it in `src/preload/preload.ts`
 5. Add the type to the API interface in `src/renderer/lib/ipc/client.ts`
 
