@@ -195,16 +195,9 @@ let needsApiKey = $state(false);
 // resize, every visibility toggle) and we don't want to fan out a write
 // per change. Debounced via a single timeout that re-arms.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let draftSubscribed = false;
-let sourceDraftSubscribed = false;
-let propertyDraftSubscribed = false;
-let sourcePropertyDraftSubscribed = false;
-let claimsDraftSubscribed = false;
-let computeDraftSubscribed = false;
-let refactorDraftSubscribed = false;
-let reorgDraftSubscribed = false;
-let deleteDraftSubscribed = false;
-let noteBodyDraftSubscribed = false;
+// One flag guards the whole uniform draft-subscription block below — the 10
+// per-kind subscriptions are all wired together in a single pass (#980).
+let draftsSubscribed = false;
 let streamSubscribed = false;
 let askUserSubscribed = false;
 
@@ -229,6 +222,25 @@ function scheduleSave(): void {
   }, 250);
 }
 
+/**
+ * Build a uniform draft handler (#980): find the tab by conversationId, anchor
+ * the draft at `afterMessageIndex` — the slot the streaming assistant message
+ * will land in post-reload (`messages.length` already counts the optimistic
+ * user turn `send()` pushed before awaiting the IPC) — and hand the anchored
+ * draft to `append`, which does the per-kind array push (and, for compute
+ * drafts, seeds the state entry).
+ */
+function draftHandler<T extends { conversationId: string; draftId: string }>(
+  append: (tab: TabRuntime, anchored: T & { afterMessageIndex: number }) => void,
+): (draft: T) => void {
+  return (draft) => {
+    const t = findTab(draft.conversationId);
+    if (!t) return;
+    const afterMessageIndex = t.conversation.messages.length;
+    append(t, { ...draft, afterMessageIndex });
+  };
+}
+
 function ensureSubscriptions(): void {
   if (!streamSubscribed) {
     api.conversations.onStream((chunk) => {
@@ -238,110 +250,31 @@ function ensureSubscriptions(): void {
     });
     streamSubscribed = true;
   }
-  if (!draftSubscribed) {
-    api.conversations.onDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      // Anchor to the slot the streaming assistant message will land in
-      // post-reload. `messages.length` already counts the optimistic
-      // user turn `send()` pushed before awaiting the IPC, so it points
-      // at where the assistant turn will be appended.
-      const afterMessageIndex = t.conversation.messages.length;
-      t.drafts = [...t.drafts, { ...draft, afterMessageIndex }];
-    });
-    draftSubscribed = true;
-  }
-  if (!sourceDraftSubscribed) {
-    api.conversations.onSourceDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.sourceDrafts = [...t.sourceDrafts, { ...draft, afterMessageIndex }];
-    });
-    sourceDraftSubscribed = true;
-  }
-  if (!propertyDraftSubscribed) {
-    api.conversations.onPropertyDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.propertyDrafts = [...t.propertyDrafts, { ...draft, afterMessageIndex }];
-    });
-    propertyDraftSubscribed = true;
-  }
-  if (!sourcePropertyDraftSubscribed) {
-    api.conversations.onSourcePropertyDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.sourcePropertyDrafts = [...t.sourcePropertyDrafts, { ...draft, afterMessageIndex }];
-    });
-    sourcePropertyDraftSubscribed = true;
-  }
-  if (!claimsDraftSubscribed) {
-    api.conversations.onClaimsDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.claimsDrafts = [...t.claimsDrafts, { ...draft, afterMessageIndex }];
-    });
-    claimsDraftSubscribed = true;
-  }
-  if (!computeDraftSubscribed) {
-    api.conversations.onComputeDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.computeDrafts = [...t.computeDrafts, { ...draft, afterMessageIndex }];
+  if (!draftsSubscribed) {
+    api.conversations.onDraft(draftHandler((t, d) => { t.drafts = [...t.drafts, d]; }));
+    api.conversations.onSourceDraft(draftHandler((t, d) => { t.sourceDrafts = [...t.sourceDrafts, d]; }));
+    api.conversations.onPropertyDraft(draftHandler((t, d) => { t.propertyDrafts = [...t.propertyDrafts, d]; }));
+    api.conversations.onSourcePropertyDraft(draftHandler((t, d) => { t.sourcePropertyDrafts = [...t.sourcePropertyDrafts, d]; }));
+    api.conversations.onClaimsDraft(draftHandler((t, d) => { t.claimsDrafts = [...t.claimsDrafts, d]; }));
+    api.conversations.onComputeDraft(draftHandler((t, d) => {
+      t.computeDrafts = [...t.computeDrafts, d];
       // Seed the state entry so the panel can render a pristine card
       // immediately (no Run yet, no Insert yet).
       t.computeDraftState = {
         ...t.computeDraftState,
-        [draft.draftId]: {
+        [d.draftId]: {
           result: null,
           running: false,
           insertedAt: null,
-          afterMessageIndex,
+          afterMessageIndex: d.afterMessageIndex,
         },
       };
-    });
-    computeDraftSubscribed = true;
-  }
-  if (!refactorDraftSubscribed) {
-    api.conversations.onRefactorDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.refactorDrafts = [...t.refactorDrafts, { ...draft, afterMessageIndex }];
-    });
-    refactorDraftSubscribed = true;
-  }
-  if (!reorgDraftSubscribed) {
-    api.conversations.onReorgDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.reorgDrafts = [...t.reorgDrafts, { ...draft, afterMessageIndex }];
-    });
-    reorgDraftSubscribed = true;
-  }
-  if (!deleteDraftSubscribed) {
-    api.conversations.onDeleteDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.deleteDrafts = [...t.deleteDrafts, { ...draft, afterMessageIndex }];
-    });
-    deleteDraftSubscribed = true;
-  }
-  if (!noteBodyDraftSubscribed) {
-    api.conversations.onNoteBodyDraft((draft) => {
-      const t = tabs.find((tab) => tab.id === draft.conversationId);
-      if (!t) return;
-      const afterMessageIndex = t.conversation.messages.length;
-      t.noteBodyDrafts = [...t.noteBodyDrafts, { ...draft, afterMessageIndex }];
-    });
-    noteBodyDraftSubscribed = true;
+    }));
+    api.conversations.onRefactorDraft(draftHandler((t, d) => { t.refactorDrafts = [...t.refactorDrafts, d]; }));
+    api.conversations.onReorgDraft(draftHandler((t, d) => { t.reorgDrafts = [...t.reorgDrafts, d]; }));
+    api.conversations.onDeleteDraft(draftHandler((t, d) => { t.deleteDrafts = [...t.deleteDrafts, d]; }));
+    api.conversations.onNoteBodyDraft(draftHandler((t, d) => { t.noteBodyDrafts = [...t.noteBodyDrafts, d]; }));
+    draftsSubscribed = true;
   }
   if (!askUserSubscribed) {
     api.conversations.onAskUser((req) => {
