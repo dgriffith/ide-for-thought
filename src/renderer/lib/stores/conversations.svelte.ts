@@ -172,6 +172,10 @@ interface TabRuntime {
 }
 
 const DEFAULT_HEIGHT = 320;
+/** Panel-height clamp bounds. MIN mirrors the hard min the renderer enforces
+ *  via CSS; MAX keeps the panel from growing past the editor area. */
+const MIN_PANEL_HEIGHT = 120;
+const MAX_PANEL_HEIGHT = 1200;
 const DEFAULT_UI: ConversationsUIState = {
   visible: false,
   height: DEFAULT_HEIGHT,
@@ -446,9 +450,8 @@ function toggle(): void {
 
 function setHeight(px: number): void {
   // Clamp to a sane range so the panel can't be dragged to invisibility
-  // or larger than the editor area. Renderer enforces a hard min via CSS,
-  // but we also belt-and-suspender it here.
-  const next = Math.max(120, Math.min(1200, Math.round(px)));
+  // or larger than the editor area (belt-and-suspenders alongside the CSS min).
+  const next = Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, Math.round(px)));
   if (next !== height) {
     height = next;
     scheduleSave();

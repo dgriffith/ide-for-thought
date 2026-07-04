@@ -233,7 +233,6 @@ async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<
   if (uris.length === 0) return false;
   const values = uris.map((u) => `<${u}>`).join(' ');
   const r = await graph.queryGraph(ctx, `
-    PREFIX thought: <${THOUGHT}>
     SELECT ?n WHERE {
       VALUES ?n { ${values} }
       ?n thought:hasStatus thought:established .
@@ -382,7 +381,6 @@ export async function rejectProposal(ctx: ProjectContext, uri: string): Promise<
  */
 export async function expireProposals(ctx: ProjectContext): Promise<number> {
   const results = await graph.queryGraph(ctx, `
-    PREFIX thought: <${THOUGHT}>
     SELECT ?proposal ?expires WHERE {
       ?proposal a thought:Proposal .
       ?proposal thought:proposalStatus thought:pending .
@@ -411,7 +409,6 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
     : '';
 
   const results = await graph.queryGraph(ctx, `
-    PREFIX thought: <${THOUGHT}>
     SELECT ?proposal ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson
            (GROUP_CONCAT(DISTINCT ?affectsNode; separator="\\u001f") AS ?affectsNodes)
            ?conversation WHERE {
@@ -432,7 +429,7 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
     ORDER BY DESC(?proposedAt)
   `);
 
-  return (results.results as Record<string, string>[]).map(r => proposalFromRow(r));
+  return (results.results as Record<string, string>[]).map(row => proposalFromRow(row));
 }
 
 /**
@@ -440,7 +437,6 @@ export async function listProposals(ctx: ProjectContext, status?: string): Promi
  */
 export async function getProposal(ctx: ProjectContext, uri: string): Promise<Proposal | null> {
   const results = await graph.queryGraph(ctx, `
-    PREFIX thought: <${THOUGHT}>
     SELECT ?status ?operationType ?note ?proposedBy ?proposedAt ?autoExpires ?payloadJson ?affectsNode ?conversation WHERE {
       <${uri}> a thought:Proposal .
       <${uri}> thought:proposalStatus ?statusNode .
@@ -458,36 +454,36 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
 
   const rows = results.results as Record<string, string>[];
   if (rows.length === 0) return null;
-  const r = rows[0];
+  const firstRow = rows[0];
   const affectsNodeUris = Array.from(
     new Set(rows.map(row => row.affectsNode).filter((u): u is string => Boolean(u))),
   );
   return {
     uri,
-    status: r.status as Proposal['status'],
-    operationType: r.operationType,
-    payloads: parsePayloads(r.payloadJson),
-    note: r.note,
+    status: firstRow.status as Proposal['status'],
+    operationType: firstRow.operationType,
+    payloads: parsePayloads(firstRow.payloadJson),
+    note: firstRow.note,
     affectsNodeUris,
-    conversationUri: r.conversation,
-    proposedBy: r.proposedBy,
-    proposedAt: r.proposedAt,
-    autoExpires: r.autoExpires,
+    conversationUri: firstRow.conversation,
+    proposedBy: firstRow.proposedBy,
+    proposedAt: firstRow.proposedAt,
+    autoExpires: firstRow.autoExpires,
   };
 }
 
-function proposalFromRow(r: Record<string, string>): Proposal {
+function proposalFromRow(row: Record<string, string>): Proposal {
   return {
-    uri: r.proposal,
-    status: r.status as Proposal['status'],
-    operationType: r.operationType,
-    payloads: parsePayloads(r.payloadJson),
-    note: r.note,
-    affectsNodeUris: splitAffectsNodes(r.affectsNodes),
-    conversationUri: r.conversation,
-    proposedBy: r.proposedBy,
-    proposedAt: r.proposedAt,
-    autoExpires: r.autoExpires,
+    uri: row.proposal,
+    status: row.status as Proposal['status'],
+    operationType: row.operationType,
+    payloads: parsePayloads(row.payloadJson),
+    note: row.note,
+    affectsNodeUris: splitAffectsNodes(row.affectsNodes),
+    conversationUri: row.conversation,
+    proposedBy: row.proposedBy,
+    proposedAt: row.proposedAt,
+    autoExpires: row.autoExpires,
   };
 }
 
