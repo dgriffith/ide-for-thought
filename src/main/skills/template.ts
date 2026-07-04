@@ -252,6 +252,20 @@ export interface RenderResult {
   errors: string[];
 }
 
+// Parsing a template (tokenize → structural parse) depends only on its string,
+// and the resulting AST is walked read-only at render time — so memoize it.
+// Every skill invocation re-rendered the body from scratch before (#984); skill
+// bodies are a fixed, small set, so the cache is naturally bounded.
+const astCache = new Map<string, Node[]>();
+function parseTemplate(template: string): Node[] {
+  let nodes = astCache.get(template);
+  if (nodes === undefined) {
+    nodes = parse(trimStandalone(tokenize(template)));
+    astCache.set(template, nodes);
+  }
+  return nodes;
+}
+
 /** Render with diagnostics — never throws on unknown vars/filters; collects
  *  them in `errors`. Use for skill validation. */
 export function renderTemplateDiagnostic(
@@ -259,7 +273,7 @@ export function renderTemplateDiagnostic(
   ctx: SkillRenderContext,
 ): RenderResult {
   const errors: string[] = [];
-  const nodes = parse(trimStandalone(tokenize(template)));
+  const nodes = parseTemplate(template);
 
   function render(ns: Node[]): string {
     let out = '';

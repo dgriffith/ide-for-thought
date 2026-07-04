@@ -23,6 +23,19 @@ describe('renderTemplate — interpolation', () => {
       .toBe('A sel B PX C');
   });
 
+  it('reuses the parsed AST across contexts without bleeding state (#984 cache)', () => {
+    // The template's tokenize→parse result is memoized by string; rendering the
+    // SAME template against different contexts must still yield each context's
+    // own result (the cached AST is walked read-only; vars/errors are per-call).
+    const tpl = 'X {{selection}} {{#if param.flag}}on{{else}}off{{/if}} Y';
+    expect(renderTemplate(tpl, ctx({ selection: 'first', param: { flag: 'y' } }))).toBe('X first on Y');
+    expect(renderTemplate(tpl, ctx({ selection: 'second', param: {} }))).toBe('X second off Y');
+    // Diagnostics stay per-call — the unknown var isn't accumulated across renders.
+    const t2 = '{{selection}} {{missing}}';
+    expect(renderTemplateDiagnostic(t2, ctx({ selection: 's' })).errors).toEqual(['unknown variable "missing"']);
+    expect(renderTemplateDiagnostic(t2, ctx({ selection: 's' })).errors).toEqual(['unknown variable "missing"']);
+  });
+
   it('renders unknown variables as empty (lenient)', () => {
     expect(renderTemplate('[{{nope}}]', ctx())).toBe('[]');
   });
