@@ -33,6 +33,17 @@ export function createSourceOps(ctx: SourceOpsCtx) {
   const { showPrompt, showConfirm } = dialogs;
 
   /**
+   * Open a source tab, but only after the file watcher's `indexSource` pass has
+   * had a beat to land — otherwise the detail panel's graph query returns empty
+   * and the tab renders as "unknown source." `WATCHER_SETTLE_MS` is the settle
+   * delay every ingest path shares (#988).
+   */
+  const WATCHER_SETTLE_MS = 150;
+  function openSourceAfterIndex(sourceId: string): void {
+    setTimeout(() => ctx.openSource(sourceId), WATCHER_SETTLE_MS);
+  }
+
+  /**
    * Shared completion for "Ingest URL/File as Source". A URL or file can resolve
    * to a web page, a PDF (possibly needing OCR), or a text doc — branch on the
    * result the same way regardless of where it came from.
@@ -41,7 +52,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     result: { sourceId: string; title: string; duplicate: boolean; needsOcr?: boolean; pageCount?: number },
   ) {
     if (result.duplicate) {
-      setTimeout(() => ctx.openSource(result.sourceId), 150);
+      openSourceAfterIndex(result.sourceId);
       await showConfirm(
         `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
         CONFIRM_KEYS.ingestDuplicate,
@@ -57,10 +68,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
       flow.setOcrPdfBytes(await api.sources.readPdf(result.sourceId));
       return;
     }
-    // Wait a beat so the file watcher's indexSource pass finishes before we
-    // open the source tab — otherwise the detail panel's graph query returns
-    // empty and the tab renders as "unknown source."
-    setTimeout(() => ctx.openSource(result.sourceId), 150);
+    openSourceAfterIndex(result.sourceId);
   }
 
   async function handleIngestUrlAsSource() {
@@ -93,11 +101,10 @@ export function createSourceOps(ctx: SourceOpsCtx) {
         api.files.dropImport(destFolder, localPaths),
       );
       // Open the first newly-ingested PDF source tab, matching the menu-
-      // triggered Ingest PDF flow. setTimeout waits for the watcher to
-      // finish reindexing the source so the detail panel has data.
+      // triggered Ingest PDF flow.
       const openablePdf = result.ingestedPdfs.find((p) => !p.duplicate) ?? result.ingestedPdfs[0];
       if (openablePdf) {
-        setTimeout(() => ctx.openSource(openablePdf.sourceId), 150);
+        openSourceAfterIndex(openablePdf.sourceId);
       }
       if (result.rejected.length > 0) {
         const lines = result.rejected
@@ -198,7 +205,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
       await showConfirm(`OCR save failed: ${msg}`, CONFIRM_KEYS.ingestPdfFailed, 'OK');
       return;
     }
-    setTimeout(() => ctx.openSource(sourceId), 150);
+    openSourceAfterIndex(sourceId);
   }
 
   function handleOcrCancel() {
@@ -208,7 +215,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     const { sourceId } = flow.ocrSession;
     flow.setOcrSession(null);
     flow.setOcrPdfBytes(null);
-    setTimeout(() => ctx.openSource(sourceId), 150);
+    openSourceAfterIndex(sourceId);
   }
 
   /**
@@ -348,7 +355,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     if (!confirmed) return;
     try {
       const result = await busy.withBusy('Looking up…', () => api.sources.ingestIdentifier(doi));
-      setTimeout(() => ctx.openSource(result.sourceId), 150);
+      openSourceAfterIndex(result.sourceId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await showConfirm(`Ingest failed: ${msg}`, CONFIRM_KEYS.ingestFailed, 'OK');
@@ -363,7 +370,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
     if (!identifier) return;
     try {
       const result = await busy.withBusy('Looking up…', () => api.sources.ingestIdentifier(identifier));
-      setTimeout(() => ctx.openSource(result.sourceId), 150);
+      openSourceAfterIndex(result.sourceId);
       if (result.duplicate) {
         await showConfirm(
           `Already ingested: "${result.title || result.sourceId}". Opened the existing source.`,
