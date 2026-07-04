@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Channels } from '../shared/channels';
+import { invoke } from './typed-invoke';
+import type { SearchInNotesOptions, ReplaceInNotesOptions } from '../shared/types';
 
 /**
  * Subscribe to an IPC channel and forward the typed payload to `cb`.
@@ -15,43 +17,43 @@ function subscribeIpc<T>(channel: string, cb: (payload: T) => void): () => void 
 
 contextBridge.exposeInMainWorld('api', {
   notebase: {
-    open: () => ipcRenderer.invoke(Channels.NOTEBASE_OPEN),
-    openPath: (rootPath: string) => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_PATH, rootPath),
-    newProject: () => ipcRenderer.invoke(Channels.NOTEBASE_NEW_PROJECT),
-    openInNewWindow: () => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW),
-    newProjectInNewWindow: () => ipcRenderer.invoke(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW),
-    openPathInNewWindow: (rootPath: string) => ipcRenderer.invoke(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, rootPath),
-    close: () => ipcRenderer.invoke(Channels.NOTEBASE_CLOSE),
-    clearRecent: () => ipcRenderer.invoke(Channels.RECENT_CLEAR),
-    listFiles: () => ipcRenderer.invoke(Channels.NOTEBASE_LIST_FILES),
+    open: () => invoke(Channels.NOTEBASE_OPEN),
+    openPath: (rootPath: string) => invoke(Channels.NOTEBASE_OPEN_PATH, rootPath),
+    newProject: () => invoke(Channels.NOTEBASE_NEW_PROJECT),
+    openInNewWindow: () => invoke(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW),
+    newProjectInNewWindow: () => invoke(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW),
+    openPathInNewWindow: (rootPath: string) => invoke(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, rootPath),
+    close: () => invoke(Channels.NOTEBASE_CLOSE),
+    clearRecent: () => invoke(Channels.RECENT_CLEAR),
+    listFiles: () => invoke(Channels.NOTEBASE_LIST_FILES),
     readFile: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_READ_FILE, relativePath),
+      invoke(Channels.NOTEBASE_READ_FILE, relativePath),
     readBinary: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_READ_BINARY, relativePath),
+      invoke(Channels.NOTEBASE_READ_BINARY, relativePath),
     writeBinary: (relativePath: string, bytes: Uint8Array) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_WRITE_BINARY, relativePath, bytes),
+      invoke(Channels.NOTEBASE_WRITE_BINARY, relativePath, bytes),
     fileExists: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_FILE_EXISTS, relativePath),
+      invoke(Channels.NOTEBASE_FILE_EXISTS, relativePath),
     writeFile: (relativePath: string, content: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_WRITE_FILE, relativePath, content),
+      invoke(Channels.NOTEBASE_WRITE_FILE, relativePath, content),
     createFile: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_CREATE_FILE, relativePath),
+      invoke(Channels.NOTEBASE_CREATE_FILE, relativePath),
     deleteFile: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_DELETE_FILE, relativePath),
+      invoke(Channels.NOTEBASE_DELETE_FILE, relativePath),
     createFolder: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_CREATE_FOLDER, relativePath),
+      invoke(Channels.NOTEBASE_CREATE_FOLDER, relativePath),
     deleteFolder: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_DELETE_FOLDER, relativePath),
+      invoke(Channels.NOTEBASE_DELETE_FOLDER, relativePath),
     rename: (oldRelPath: string, newRelPath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_RENAME, oldRelPath, newRelPath),
+      invoke(Channels.NOTEBASE_RENAME, oldRelPath, newRelPath),
     mergePreview: (sourceRelPath: string, targetRelPath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_MERGE_PREVIEW, sourceRelPath, targetRelPath),
+      invoke(Channels.NOTEBASE_MERGE_PREVIEW, sourceRelPath, targetRelPath),
     merge: (sourceRelPath: string, targetRelPath: string, separator?: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_MERGE, sourceRelPath, targetRelPath, separator),
+      invoke(Channels.NOTEBASE_MERGE, sourceRelPath, targetRelPath, separator),
     copy: (srcRelPath: string, destRelPath: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
-    searchInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),
-    replaceInNotes: (opts: unknown) => ipcRenderer.invoke(Channels.NOTEBASE_REPLACE_IN_NOTES, opts),
+      invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
+    searchInNotes: (opts: SearchInNotesOptions) => invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),
+    replaceInNotes: (opts: ReplaceInNotesOptions) => invoke(Channels.NOTEBASE_REPLACE_IN_NOTES, opts),
     onFileChanged: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CHANGED, cb),
     onFileCreated: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CREATED, cb),
     onFileDeleted: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_DELETED, cb),
@@ -67,15 +69,15 @@ contextBridge.exposeInMainWorld('api', {
       incomingLinkCount: number;
     }) => void) => subscribeIpc(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, cb),
     renameAnchor: (targetRelativePath: string, oldSlug: string, newSlug: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
+      invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
     renameSource: (oldId: string, newId: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_SOURCE, oldId, newId),
+      invoke(Channels.NOTEBASE_RENAME_SOURCE, oldId, newId),
     renameExcerpt: (oldId: string, newId: string) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_RENAME_EXCERPT, oldId, newId),
+      invoke(Channels.NOTEBASE_RENAME_EXCERPT, oldId, newId),
     getOnboardingDismissed: () =>
-      ipcRenderer.invoke(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED),
+      invoke(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED),
     setOnboardingDismissed: (dismissed: boolean) =>
-      ipcRenderer.invoke(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, dismissed),
+      invoke(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, dismissed),
   },
   links: {
     outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),

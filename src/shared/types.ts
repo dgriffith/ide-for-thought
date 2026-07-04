@@ -15,6 +15,50 @@ export interface NotebaseMeta {
   name: string;
 }
 
+export interface SearchInNotesOptions {
+  pattern: string;
+  caseSensitive: boolean;
+  regex: boolean;
+}
+
+export interface SearchInNotesMatch {
+  line: number;
+  startCol: number;
+  endCol: number;
+  lineText: string;
+}
+
+export interface SearchInNotesFileResult {
+  relativePath: string;
+  matches: SearchInNotesMatch[];
+}
+
+export interface ReplaceInNotesSelection {
+  relativePath: string;
+  line: number;
+  startCol: number;
+  endCol: number;
+}
+
+export interface ReplaceInNotesOptions extends SearchInNotesOptions {
+  replacement: string;
+  selections: ReplaceInNotesSelection[];
+}
+
+export interface ReplaceInNotesResult {
+  changedPaths: string[];
+  replacedCount: number;
+}
+
+export interface HeadingRenameCandidate {
+  relativePath: string;
+  oldSlug: string;
+  oldText: string;
+  newSlug: string;
+  newText: string;
+  incomingLinkCount: number;
+}
+
 export interface TagInfo {
   tag: string;
   /** Notes carrying this tag (deduped by note). */

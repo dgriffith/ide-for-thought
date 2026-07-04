@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 
@@ -58,49 +58,15 @@ export interface NotebaseApi {
   setOnboardingDismissed(dismissed: boolean): Promise<void>;
 }
 
-export interface SearchInNotesOptions {
-  pattern: string;
-  caseSensitive: boolean;
-  regex: boolean;
-}
-
-export interface SearchInNotesMatch {
-  line: number;
-  startCol: number;
-  endCol: number;
-  lineText: string;
-}
-
-export interface SearchInNotesFileResult {
-  relativePath: string;
-  matches: SearchInNotesMatch[];
-}
-
-export interface ReplaceInNotesSelection {
-  relativePath: string;
-  line: number;
-  startCol: number;
-  endCol: number;
-}
-
-export interface ReplaceInNotesOptions extends SearchInNotesOptions {
-  replacement: string;
-  selections: ReplaceInNotesSelection[];
-}
-
-export interface ReplaceInNotesResult {
-  changedPaths: string[];
-  replacedCount: number;
-}
-
-export interface HeadingRenameCandidate {
-  relativePath: string;
-  oldSlug: string;
-  oldText: string;
-  newSlug: string;
-  newText: string;
-  incomingLinkCount: number;
-}
+export type {
+  SearchInNotesOptions,
+  SearchInNotesMatch,
+  SearchInNotesFileResult,
+  ReplaceInNotesSelection,
+  ReplaceInNotesOptions,
+  ReplaceInNotesResult,
+  HeadingRenameCandidate,
+} from '../../../shared/types';
 
 export interface LinksApi {
   outgoing(relativePath: string): Promise<OutgoingLink[]>;
