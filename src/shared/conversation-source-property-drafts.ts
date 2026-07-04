@@ -19,11 +19,9 @@
  * closes — same lifecycle as note / source / property drafts.
  */
 
-export interface ConversationSourcePropertyDraft {
-  /** Stable id used to wire Approve/Discard buttons back to the cached bundle. */
-  draftId: string;
-  /** Conversation that produced the draft. Used by the renderer to bucket. */
-  conversationId: string;
+import type { ConversationDraftBase } from './conversation-draft-base';
+
+export interface ConversationSourcePropertyDraft extends ConversationDraftBase {
   /** Bundle-level "why I'm proposing this" note from the LLM. */
   note: string;
   /** The source whose meta.ttl is being patched. */
@@ -32,8 +30,6 @@ export interface ConversationSourcePropertyDraft {
   abstract?: string;
   /** Proposed one-paragraph plain-language summary (`thought:tldr`). */
   tldr?: string;
-  /** ISO timestamp when the draft was created. */
-  createdAt: string;
 }
 
 /** Per-predicate result returned by `CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT`. */

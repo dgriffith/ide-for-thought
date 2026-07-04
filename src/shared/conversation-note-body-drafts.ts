@@ -14,9 +14,9 @@
  * NOTEBASE_REWRITTEN so an open editor reloads the new content.
  */
 
-export interface ConversationNoteBodyDraft {
-  draftId: string;
-  conversationId: string;
+import type { ConversationDraftBase } from './conversation-draft-base';
+
+export interface ConversationNoteBodyDraft extends ConversationDraftBase {
   /** One-line summary for the card header (e.g. "Fill out notes/stub.md"). */
   note: string;
   /** Thoughtbase-relative path of the existing note being rewritten. */
@@ -26,7 +26,6 @@ export interface ConversationNoteBodyDraft {
   beforeContent: string;
   /** The proposed replacement content — REPLACES the whole file on approve. */
   afterContent: string;
-  createdAt: string;
 }
 
 /** Result of approving (or discarding) a note-body rewrite. */

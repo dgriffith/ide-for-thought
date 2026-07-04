@@ -222,62 +222,32 @@ export function registerConversation(): void {
         throw new Error('No thoughtbase is open — cannot send conversation message.');
       }
 
+      // Forward a draft to this window's renderer. Every draft kind shares this
+      // send — the divergent per-kind work is in the CONVERSATION_FILE_*_DRAFT
+      // handlers below, not here (#980).
+      const draftEmit =
+        (channel: string) =>
+        (draft: import('../../shared/conversation-draft-base').ConversationDraftBase) => {
+          if (!win.isDestroyed()) {
+            win.webContents.send(channel, draft);
+          }
+        };
       const streamCallbacks = {
         onChunk: (chunk: string) => {
           if (!win.isDestroyed()) {
             win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
           }
         },
-        onDraft: (draft: import('../../shared/conversation-drafts').ConversationDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_DRAFT, draft);
-          }
-        },
-        onSourceDraft: (draft: import('../../shared/conversation-source-drafts').ConversationSourceDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_SOURCE_DRAFT, draft);
-          }
-        },
-        onPropertyDraft: (draft: import('../../shared/conversation-property-drafts').ConversationPropertyDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_PROPERTY_DRAFT, draft);
-          }
-        },
-        onSourcePropertyDraft: (draft: import('../../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, draft);
-          }
-        },
-        onClaimsDraft: (draft: import('../../shared/conversation-claims-drafts').ConversationClaimsDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_CLAIMS_DRAFT, draft);
-          }
-        },
-        onComputeDraft: (draft: import('../../shared/conversation-compute-drafts').ConversationComputeDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_COMPUTE_DRAFT, draft);
-          }
-        },
-        onRefactorDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_REFACTOR_DRAFT, draft);
-          }
-        },
-        onReorgDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationReorgDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_REORG_DRAFT, draft);
-          }
-        },
-        onDeleteDraft: (draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_DELETE_DRAFT, draft);
-          }
-        },
-        onNoteBodyDraft: (draft: import('../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_NOTE_BODY_DRAFT, draft);
-          }
-        },
+        onDraft: draftEmit(Channels.CONVERSATION_DRAFT),
+        onSourceDraft: draftEmit(Channels.CONVERSATION_SOURCE_DRAFT),
+        onPropertyDraft: draftEmit(Channels.CONVERSATION_PROPERTY_DRAFT),
+        onSourcePropertyDraft: draftEmit(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT),
+        onClaimsDraft: draftEmit(Channels.CONVERSATION_CLAIMS_DRAFT),
+        onComputeDraft: draftEmit(Channels.CONVERSATION_COMPUTE_DRAFT),
+        onRefactorDraft: draftEmit(Channels.CONVERSATION_REFACTOR_DRAFT),
+        onReorgDraft: draftEmit(Channels.CONVERSATION_REORG_DRAFT),
+        onDeleteDraft: draftEmit(Channels.CONVERSATION_DELETE_DRAFT),
+        onNoteBodyDraft: draftEmit(Channels.CONVERSATION_NOTE_BODY_DRAFT),
         askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
           const questionId = randomUUID();
           return new Promise<string>((resolve, reject) => {

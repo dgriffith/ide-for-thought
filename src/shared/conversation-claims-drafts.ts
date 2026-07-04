@@ -18,6 +18,8 @@
  * Drafts live in renderer memory and drop when the tab closes.
  */
 
+import type { ConversationDraftBase } from './conversation-draft-base';
+
 export type ClaimKind = 'factual' | 'evaluative' | 'definitional' | 'predictive';
 
 export const CLAIM_KINDS: readonly ClaimKind[] = [
@@ -43,16 +45,12 @@ export interface DraftClaim {
   quoteFound: boolean;
 }
 
-export interface ConversationClaimsDraft {
-  /** Stable id used to wire Approve/Discard back to the cached bundle. */
-  draftId: string;
-  conversationId: string;
+export interface ConversationClaimsDraft extends ConversationDraftBase {
   /** Bundle-level "why I'm proposing these" note from the LLM. */
   note: string;
   /** The source the claims were extracted from. */
   sourceId: string;
   claims: DraftClaim[];
-  createdAt: string;
 }
 
 /** Result returned by `CONVERSATION_FILE_CLAIMS_DRAFT`. */

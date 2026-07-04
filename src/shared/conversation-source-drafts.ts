@@ -25,6 +25,8 @@
  * when the conversation tab closes. Persistence is a follow-up.
  */
 
+import type { ConversationDraftBase } from './conversation-draft-base';
+
 /**
  * One proposed source. Exactly one of `identifier` / `url` is present;
  * the tool validates that constraint server-side before emitting the
@@ -37,16 +39,10 @@ export interface DraftSource {
   url?: string;
 }
 
-export interface ConversationSourceDraft {
-  /** Stable id used to wire Approve/Discard buttons back to the cached bundle. */
-  draftId: string;
-  /** Conversation that produced the draft. */
-  conversationId: string;
+export interface ConversationSourceDraft extends ConversationDraftBase {
   /** Bundle-level "why I'm proposing these" note from the LLM. */
   note: string;
   sources: DraftSource[];
-  /** ISO timestamp when the draft was created. */
-  createdAt: string;
 }
 
 /** Per-source result returned by `CONVERSATION_FILE_SOURCE_DRAFT`. */

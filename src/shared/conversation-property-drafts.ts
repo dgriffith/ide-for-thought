@@ -20,6 +20,7 @@
  * tab closes — same lifecycle as note/source drafts.
  */
 
+import type { ConversationDraftBase } from './conversation-draft-base';
 import type { PropertyPatch } from './refactor/frontmatter-patch';
 
 /** A single per-note frontmatter patch. */
@@ -32,16 +33,10 @@ export interface PropertyUpdate {
   properties: PropertyPatch;
 }
 
-export interface ConversationPropertyDraft {
-  /** Stable id used to wire Approve/Discard buttons back to the cached bundle. */
-  draftId: string;
-  /** Conversation that produced the draft. Used by the renderer to bucket. */
-  conversationId: string;
+export interface ConversationPropertyDraft extends ConversationDraftBase {
   /** Bundle-level "why I'm proposing this" note from the LLM. */
   note: string;
   updates: PropertyUpdate[];
-  /** ISO timestamp when the draft was created. */
-  createdAt: string;
 }
 
 /** Per-update result returned by `CONVERSATION_FILE_PROPERTY_DRAFT`. */

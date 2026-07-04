@@ -21,6 +21,7 @@
  *      user-role message so the LLM's next inference call sees it
  *      naturally — same shape as a propose_notes 'Filed:' line.
  */
+import type { ConversationDraftBase } from './conversation-draft-base';
 import type { CellResult } from './compute/types';
 
 /** Languages the proposer can target. Mirrors the compute registry's
@@ -39,10 +40,7 @@ export interface ComputeSafetyFlag {
   message: string;
 }
 
-export interface ConversationComputeDraft {
-  /** Stable id used to wire action buttons back to the cached bundle. */
-  draftId: string;
-  conversationId: string;
+export interface ConversationComputeDraft extends ConversationDraftBase {
   language: ComputeLanguage;
   /** Cell body, exactly as the LLM produced it. Edited code from the
    *  renderer is sent back through CONVERSATION_RUN_COMPUTE_DRAFT in
@@ -54,7 +52,6 @@ export interface ConversationComputeDraft {
   /** Empty for sparql/sql; populated for python by the safety scan.
    *  Renderer requires an extra confirm to Run when this is non-empty. */
   safetyFlags: ComputeSafetyFlag[];
-  createdAt: string;
 }
 
 /** Input shape for `propose_compute`. */
