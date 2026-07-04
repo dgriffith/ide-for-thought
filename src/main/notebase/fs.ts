@@ -9,7 +9,9 @@ const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
 export async function openNotebase(): Promise<NotebaseMeta | null> {
   const result = await dialog.showOpenDialog({
-    properties: ['openDirectory'],
+    // `createDirectory` (macOS) adds a New Folder button so the user can make a
+    // fresh directory to open as a thoughtbase without leaving the app (#1036).
+    properties: ['openDirectory', 'createDirectory'],
     title: 'Open Thoughtbase',
   });
 
