@@ -334,36 +334,10 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
         }),
         { type: 'separator' },
         gate({
-          label: 'Toggle Case',
-          accelerator: 'CmdOrCtrl+Shift+U',
-          click: () => send(Channels.MENU_TOGGLE_CASE),
-        }),
-        gate({
           label: 'Insert Template…',
           click: () => send(Channels.MENU_INSERT_TEMPLATE),
         }),
         { type: 'separator' },
-        gate({
-          label: 'Extend Selection',
-          accelerator: 'Alt+Up',
-          click: () => send(Channels.MENU_EXTEND_SELECTION),
-        }),
-        gate({
-          label: 'Shrink Selection',
-          accelerator: 'Alt+Down',
-          click: () => send(Channels.MENU_SHRINK_SELECTION),
-        }),
-        { type: 'separator' },
-        gate({
-          label: 'Join Lines',
-          accelerator: 'Ctrl+Shift+J',
-          click: () => send(Channels.MENU_JOIN_LINES),
-        }),
-        gate({
-          label: 'Duplicate Line',
-          accelerator: 'CmdOrCtrl+D',
-          click: () => send(Channels.MENU_DUPLICATE_LINE),
-        }),
         gate({
           label: 'Sort Lines',
           click: () => send(Channels.MENU_SORT_LINES),

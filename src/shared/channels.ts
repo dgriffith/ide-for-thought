@@ -175,11 +175,6 @@ export const Channels = {
   MENU_FIND_REPLACE: 'menu:findReplace',
   MENU_FIND_IN_NOTES: 'menu:findInNotes',
   MENU_REPLACE_IN_NOTES: 'menu:replaceInNotes',
-  MENU_TOGGLE_CASE: 'menu:toggleCase',
-  MENU_EXTEND_SELECTION: 'menu:extendSelection',
-  MENU_SHRINK_SELECTION: 'menu:shrinkSelection',
-  MENU_JOIN_LINES: 'menu:joinLines',
-  MENU_DUPLICATE_LINE: 'menu:duplicateLine',
   MENU_SORT_LINES: 'menu:sortLines',
   MENU_OPEN_SETTINGS: 'menu:openSettings',
 
