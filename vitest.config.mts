@@ -66,6 +66,37 @@ export default defineConfig({
           statements: 78,
           branches: 65,
         },
+        // Feature trees — well-tested today but previously unfenced (#999).
+        // Floors set ~10 points below the measured-at-floor-time numbers (in
+        // parens) so a small refactor won't flap, but new untested code fails.
+        // publish ~93% L / 92% F / 89% S / 75% B.
+        'src/main/publish/**': {
+          lines: 82,
+          functions: 82,
+          statements: 80,
+          branches: 65,
+        },
+        // sources ~89% L / 91% F / 87% S / 75% B.
+        'src/main/sources/**': {
+          lines: 80,
+          functions: 80,
+          statements: 78,
+          branches: 65,
+        },
+        // graph ~90% L / 90% F / 86% S / 73% B.
+        'src/main/graph/**': {
+          lines: 80,
+          functions: 80,
+          statements: 78,
+          branches: 62,
+        },
+        // compute ~86% L / 83% F / 83% S / 70% B.
+        'src/main/compute/**': {
+          lines: 75,
+          functions: 74,
+          statements: 74,
+          branches: 60,
+        },
       },
     },
   },
