@@ -22,8 +22,8 @@ import {
   USER_STYLES_DIR,
   USER_LOCALES_DIR,
 } from '../publish/csl/user-assets';
-import { renderInlineCitations, type InlineCiteRequest } from '../citations/render-inline';
-import { rootPathFromEvent, winFromEvent, hooks } from './helpers';
+import { renderInlineCitations, type InlineCiteRequest, type InlineCiteResponse } from '../citations/render-inline';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, hooks } from './helpers';
 
 export function registerBibliography(): void {
   // Bibliography (#113)
@@ -40,39 +40,33 @@ export function registerBibliography(): void {
       isUser: merged.userIds.has(id),
     }));
   });
-  ipcMain.handle(Channels.BIBLIOGRAPHY_GET_STYLE, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return DEFAULT_STYLE;
+  ipcMain.handle(Channels.BIBLIOGRAPHY_GET_STYLE, withRootPathOr(DEFAULT_STYLE, (rootPath) => {
     return getBibliographyStyleId(rootPath) ?? DEFAULT_STYLE;
-  });
-  ipcMain.handle(Channels.BIBLIOGRAPHY_SET_STYLE, async (e, styleId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  }));
+  ipcMain.handle(Channels.BIBLIOGRAPHY_SET_STYLE, withRootPath(async (rootPath, styleId: string) => {
     const merged = await getMergedStyles(rootPath);
     if (!Object.prototype.hasOwnProperty.call(merged.styles, styleId)) {
       throw new Error(`Unknown CSL style: ${styleId}`);
     }
     setBibliographyStyleId(rootPath, styleId);
-  });
+  }));
 
   // User-imported CSL styles + locales (#302)
-  ipcMain.handle(Channels.CSL_LIST_USER_STYLES, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
+  type UserStyleInfo = { id: string; label: string; filePath: string };
+  ipcMain.handle(Channels.CSL_LIST_USER_STYLES, withRootPathOr<[], UserStyleInfo[] | Promise<UserStyleInfo[]>>([], async (rootPath) => {
     return (await loadUserStyles(rootPath)).map((s) => ({
       id: s.id,
       label: s.label,
       filePath: s.filePath,
     }));
-  });
-  ipcMain.handle(Channels.CSL_LIST_USER_LOCALES, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
+  }));
+  type UserLocaleInfo = { id: string; filePath: string };
+  ipcMain.handle(Channels.CSL_LIST_USER_LOCALES, withRootPathOr<[], UserLocaleInfo[] | Promise<UserLocaleInfo[]>>([], async (rootPath) => {
     return (await loadUserLocales(rootPath)).map((l) => ({
       id: l.id,
       filePath: l.filePath,
     }));
-  });
+  }));
   ipcMain.handle(Channels.CSL_IMPORT_STYLE, async (e) => {
     const rootPath = rootPathFromEvent(e);
     if (!rootPath) throw new Error('No project open');
@@ -121,31 +115,21 @@ export function registerBibliography(): void {
     await fs.writeFile(destPath, xml, 'utf-8');
     return { id, filePath: destPath };
   });
-  ipcMain.handle(Channels.CSL_REMOVE_STYLE, async (e, id: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
     if (!/^[a-z0-9_-]+$/i.test(id)) throw new Error('Invalid style id.');
     const target = path.join(rootPath, USER_STYLES_DIR, `${id}.csl`);
     await fs.unlink(target).catch(() => undefined);
-  });
-  ipcMain.handle(Channels.CSL_REMOVE_LOCALE, async (e, id: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  }));
+  ipcMain.handle(Channels.CSL_REMOVE_LOCALE, withRootPath(async (rootPath, id: string) => {
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid locale id.');
     const target = path.join(rootPath, USER_LOCALES_DIR, `${id}.xml`);
     await fs.unlink(target).catch(() => undefined);
-  });
-  ipcMain.handle(Channels.CITATION_RENDER_INLINE, async (e, refs: InlineCiteRequest[]) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) {
-      return { markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE };
-    }
+  }));
+  ipcMain.handle(Channels.CITATION_RENDER_INLINE, withRootPathOr<[InlineCiteRequest[]], InlineCiteResponse | Promise<InlineCiteResponse>>({ markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE }, async (rootPath, refs: InlineCiteRequest[]) => {
     return await renderInlineCitations(rootPath, refs ?? []);
-  });
+  }));
 
-  ipcMain.handle(Channels.BIBLIOGRAPHY_GENERATE, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.BIBLIOGRAPHY_GENERATE, withRootPath(async (rootPath, relativePath: string) => {
     const original = await notebaseFs.readFile(rootPath, relativePath);
     const result = await generateBibliography(rootPath, original);
     if (result.changed) {
@@ -159,5 +143,5 @@ export function registerBibliography(): void {
       changed: result.changed,
       styleId: result.styleId,
     };
-  });
+  }));
 }

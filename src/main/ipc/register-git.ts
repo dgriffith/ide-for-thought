@@ -1,20 +1,17 @@
 import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
 import * as gitOps from '../git/index';
-import { rootPathFromEvent } from './helpers';
+import type { GitStatus } from '../git/index';
+import { withRootPath, withRootPathOr } from './helpers';
 
 export function registerGit(): void {
   // Git
-  ipcMain.handle(Channels.GIT_STATUS, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { isRepo: false, branch: null, files: [] };
+  ipcMain.handle(Channels.GIT_STATUS, withRootPathOr<[], GitStatus | Promise<GitStatus>>({ isRepo: false, branch: null, files: [] }, async (rootPath) => {
     return gitOps.getStatus(rootPath);
-  });
+  }));
 
-  ipcMain.handle(Channels.GIT_COMMIT, async (e, message: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.GIT_COMMIT, withRootPath(async (rootPath, message: string) => {
     const sha = await gitOps.commitAll(rootPath, message);
     return { success: true, sha };
-  });
+  }));
 }

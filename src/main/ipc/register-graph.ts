@@ -4,82 +4,49 @@ import { Channels } from '../../shared/channels';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
+import type { QueryResult, TableInfo } from '../sources/tables';
 import * as healthChecks from '../graph/health-checks';
-import { rootPathFromEvent } from './helpers';
+import type { Inspection } from '../graph/health-checks';
+import { withRootPath, withRootPathOr } from './helpers';
 
 export function registerGraph(): void {
   // Graph
-  ipcMain.handle(Channels.GRAPH_QUERY, async (e, sparql: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
-    return graph.queryGraph(projectContext(rootPath), sparql);
-  });
+  ipcMain.handle(Channels.GRAPH_QUERY, withRootPath((rootPath, sparql: string) =>
+    graph.queryGraph(projectContext(rootPath), sparql)));
 
   // Tables (DuckDB)
-  ipcMain.handle(Channels.TABLES_QUERY, async (e, sql: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { ok: false, error: 'No project open' };
-    return tables.runQuery(projectContext(rootPath), sql);
-  });
+  ipcMain.handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, (rootPath, sql: string) =>
+    tables.runQuery(projectContext(rootPath), sql)));
 
-  ipcMain.handle(Channels.TABLES_LIST, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return tables.listTables(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
+    tables.listTables(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return null;
-    return graph.schemaForCompletion(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, withRootPathOr(null, (rootPath) =>
+    graph.schemaForCompletion(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, (e, sourceId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return null;
-    return graph.getSourceDetail(projectContext(rootPath), sourceId);
-  });
+  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, withRootPathOr(null, (rootPath, sourceId: string) =>
+    graph.getSourceDetail(projectContext(rootPath), sourceId)));
 
-  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, (e, excerptId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return null;
-    return graph.getExcerptSource(projectContext(rootPath), excerptId);
-  });
+  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPathOr(null, (rootPath, excerptId: string) =>
+    graph.getExcerptSource(projectContext(rootPath), excerptId)));
 
-  ipcMain.handle(Channels.GRAPH_ALIAS_MAP, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return {};
-    return graph.getAliasMap(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.GRAPH_ALIAS_MAP, withRootPathOr({}, (rootPath) =>
+    graph.getAliasMap(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_ALIAS_ENTRIES, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return graph.getAliasEntries(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.GRAPH_ALIAS_ENTRIES, withRootPathOr([], (rootPath) =>
+    graph.getAliasEntries(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_FRONTMATTER_KEYS, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return graph.getAllFrontmatterKeys(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.GRAPH_FRONTMATTER_KEYS, withRootPathOr([], (rootPath) =>
+    graph.getAllFrontmatterKeys(projectContext(rootPath))));
 
   // Inspections
-  ipcMain.handle(Channels.INSPECTIONS_LIST, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return healthChecks.getInspections(projectContext(rootPath));
-  });
-  ipcMain.handle(Channels.INSPECTIONS_RUN, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return healthChecks.runAllChecks(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
+    healthChecks.getInspections(projectContext(rootPath))));
+  ipcMain.handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], (rootPath) =>
+    healthChecks.runAllChecks(projectContext(rootPath))));
 
   // Grounding check — fuzzy match a claim against graph labels
-  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, async (e, claimText: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
+  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, withRootPathOr<[string], unknown[] | Promise<unknown[]>>([], async (rootPath, claimText: string) => {
     const escaped = claimText.replace(/"/g, '\\"').replace(/\n/g, ' ');
     const results = await graph.queryGraph(projectContext(rootPath), `
       PREFIX dc: <http://purl.org/dc/terms/>
@@ -93,12 +60,10 @@ export function registerGraph(): void {
       } LIMIT 5
     `);
     return results.results;
-  });
+  }));
 
   // Graph management
-  ipcMain.handle(Channels.GRAPH_EXPORT, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return;
+  ipcMain.handle(Channels.GRAPH_EXPORT, withRootPathOr(undefined, async (rootPath) => {
     const result = await dialog.showSaveDialog({
       title: 'Export Graph',
       defaultPath: 'graph.ttl',
@@ -110,5 +75,5 @@ export function registerGraph(): void {
       const srcPath = path.join(rootPath, '.minerva', 'graph.ttl');
       await fs.copyFile(srcPath, result.filePath);
     }
-  });
+  }));
 }

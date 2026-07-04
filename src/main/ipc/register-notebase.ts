@@ -22,6 +22,8 @@ import { handle } from './typed-ipc';
 import {
   winFromEvent,
   rootPathFromEvent,
+  withRootPath,
+  withRootPathOr,
   reindexFile,
   removeFromIndexes,
   listIndexableFiles,
@@ -125,29 +127,23 @@ export function registerNotebase(): void {
     return notebaseFs.listFiles(rootPath);
   });
 
-  handle(Channels.NOTEBASE_READ_FILE, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_READ_FILE, withRootPath(async (rootPath, relativePath: string) => {
     return notebaseFs.readFile(rootPath, relativePath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_READ_BINARY, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_READ_BINARY, withRootPath(async (rootPath, relativePath: string) => {
     // Pass the bytes back as a Buffer; Electron's structured-clone
     // bridge wraps it in a Uint8Array on the renderer side.
     return notebaseFs.readBinaryFile(rootPath, relativePath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_WRITE_BINARY, async (e, relativePath: string, bytes: Uint8Array) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_WRITE_BINARY, withRootPath(async (rootPath, relativePath: string, bytes: Uint8Array) => {
     // The renderer wraps payload as a Uint8Array; structured-clone
     // hands us a Buffer at this end. Either way `writeBinaryFile`
     // re-wraps as a strict Uint8Array view.
     const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     await notebaseFs.writeBinaryFile(rootPath, relativePath, view);
-  });
+  }));
 
   handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {
     const rootPath = rootPathFromEvent(e);
@@ -155,54 +151,41 @@ export function registerNotebase(): void {
     return notebaseFs.fileExists(rootPath, relativePath);
   });
 
-  handle(Channels.NOTEBASE_WRITE_FILE, async (e, relativePath: string, content: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_WRITE_FILE, withRootPath(async (rootPath, relativePath: string, content: string) => {
     // Renderer-initiated save — it already has the content, so suppress
     // the rewritten broadcast (no need to tell the renderer it just wrote).
     await writeAndReindex(rootPath, relativePath, content, hooks, {
       suppressRewrittenBroadcast: true,
     });
-  });
+  }));
 
-  handle(Channels.NOTEBASE_CREATE_FILE, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_CREATE_FILE, withRootPath(async (rootPath, relativePath: string) => {
     markPathHandled(relativePath);
     await notebaseFs.createFile(rootPath, relativePath);
     const ctx = projectContext(rootPath);
     await graph.indexNote(ctx, relativePath, '');
     search.indexNote(ctx, relativePath, '');
-  });
+  }));
 
-  handle(Channels.NOTEBASE_DELETE_FILE, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_DELETE_FILE, withRootPath(async (rootPath, relativePath: string) => {
     markPathHandled(relativePath);
     await notebaseFs.deleteFile(rootPath, relativePath);
     removeFromIndexes(rootPath, relativePath);
     await persistIndexes(rootPath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_CREATE_FOLDER, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_CREATE_FOLDER, withRootPath(async (rootPath, relativePath: string) => {
     await notebaseFs.createFolder(rootPath, relativePath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_DELETE_FOLDER, async (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_DELETE_FOLDER, withRootPath(async (rootPath, relativePath: string) => {
     const files = await listIndexableFiles(rootPath, relativePath);
     await notebaseFs.deleteFolder(rootPath, relativePath);
     for (const f of files) removeFromIndexes(rootPath, f);
     await persistIndexes(rootPath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_RENAME, async (e, oldRelPath: string, newRelPath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
-
+  handle(Channels.NOTEBASE_RENAME, withRootPath(async (rootPath, oldRelPath: string, newRelPath: string) => {
     const ctx = projectContext(rootPath);
     const { transitions, rewrittenPaths } = await renameWithLinkRewrites(rootPath, oldRelPath, newRelPath, {
       markPathHandled,
@@ -230,17 +213,13 @@ export function registerNotebase(): void {
     }
 
     await persistIndexes(rootPath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_MERGE_PREVIEW, async (e, sourceRelPath: string, targetRelPath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_MERGE_PREVIEW, withRootPath(async (rootPath, sourceRelPath: string, targetRelPath: string) => {
     return previewMergeNotes(rootPath, sourceRelPath, targetRelPath);
-  });
+  }));
 
-  handle(Channels.NOTEBASE_MERGE, async (e, sourceRelPath: string, targetRelPath: string, separator?: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_MERGE, withRootPath(async (rootPath, sourceRelPath: string, targetRelPath: string, separator?: string) => {
     const ctx = projectContext(rootPath);
     const result = await mergeNotes(rootPath, sourceRelPath, targetRelPath, {
       separator,
@@ -274,11 +253,9 @@ export function registerNotebase(): void {
     }
     await persistIndexes(rootPath);
     return result;
-  });
+  }));
 
-  handle(Channels.NOTEBASE_RENAME_SOURCE, async (e, oldId: string, newId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_RENAME_SOURCE, withRootPath(async (rootPath, oldId: string, newId: string) => {
     const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameSource(rootPath, oldId, newId, {
       markPathHandled,
@@ -289,11 +266,9 @@ export function registerNotebase(): void {
     broadcastRewritten(rootPath, rewrittenPaths);
     await persistIndexes(rootPath);
     return { rewrittenPaths };
-  });
+  }));
 
-  handle(Channels.NOTEBASE_RENAME_EXCERPT, async (e, oldId: string, newId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_RENAME_EXCERPT, withRootPath(async (rootPath, oldId: string, newId: string) => {
     const ctx = projectContext(rootPath);
     const { rewrittenPaths } = await renameExcerpt(rootPath, oldId, newId, {
       markPathHandled,
@@ -304,14 +279,11 @@ export function registerNotebase(): void {
     broadcastRewritten(rootPath, rewrittenPaths);
     await persistIndexes(rootPath);
     return { rewrittenPaths };
-  });
+  }));
 
   ipcMain.handle(
     Channels.NOTEBASE_RENAME_ANCHOR,
-    async (e, targetRelativePath: string, oldSlug: string, newSlug: string) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
-
+    withRootPath(async (rootPath, targetRelativePath: string, oldSlug: string, newSlug: string) => {
       const ctx = projectContext(rootPath);
       const { rewrittenPaths } = await renameAnchor(rootPath, targetRelativePath, oldSlug, newSlug, {
         markPathHandled,
@@ -330,12 +302,10 @@ export function registerNotebase(): void {
 
       await persistIndexes(rootPath);
       return { rewrittenPaths };
-    },
+    }),
   );
 
-  handle(Channels.NOTEBASE_COPY, async (e, srcRelPath: string, destRelPath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_COPY, withRootPath(async (rootPath, srcRelPath: string, destRelPath: string) => {
     await notebaseFs.copyItem(rootPath, srcRelPath, destRelPath);
     const stat = await fs.stat(path.join(rootPath, destRelPath));
     if (stat.isDirectory()) {
@@ -345,7 +315,7 @@ export function registerNotebase(): void {
       await reindexFile(rootPath, destRelPath);
     }
     await persistIndexes(rootPath);
-  });
+  }));
 
   handle(Channels.NOTEBASE_SEARCH_IN_NOTES, async (e, opts: SearchOptions) => {
     const rootPath = rootPathFromEvent(e);
@@ -367,21 +337,14 @@ export function registerNotebase(): void {
     return result;
   });
 
-  handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
-    return getOnboardingDismissed(rootPath);
-  });
+  handle(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED, withRootPathOr(false, (rootPath) =>
+    getOnboardingDismissed(rootPath)));
 
-  handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, (e, dismissed: boolean) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, withRootPath((rootPath, dismissed: boolean) => {
     setOnboardingDismissed(rootPath, dismissed === true);
-  });
+  }));
 
-  ipcMain.handle(Channels.FILES_DROP_IMPORT, async (e, targetFolder: string, localPaths: string[]) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, localPaths: string[]) => {
     return await dropImport(rootPath, targetFolder ?? '', localPaths ?? []);
-  });
+  }));
 }
