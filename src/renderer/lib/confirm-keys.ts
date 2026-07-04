@@ -12,6 +12,9 @@ export const CONFIRM_KEYS = {
   delete: 'confirm-delete',
   deletePartialFailure: 'delete-partial-failure',
   deleteSource: 'delete-source',
+  /** Closing a conversation archives it, and there's no reopen UI — so it's
+   *  effectively gone. Confirm before discarding the thread (#1033). */
+  closeConversation: 'close-conversation',
   rewriteConflict: 'confirm-rewrite-conflict',
   headingRenameSuggestion: 'heading-rename-suggestion',
   /** "Bookmark Section" invoked with the cursor above the first heading —
@@ -104,6 +107,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Delete: partial failure',
     description:
       'Shown after a multi-select Delete when some items could not be removed (e.g. permissions, file in use). Lists the failures so the user can investigate without re-issuing the whole delete.',
+  },
+  {
+    key: CONFIRM_KEYS.closeConversation,
+    title: 'Close conversation',
+    description:
+      'Prompt before closing a conversation. Closing archives the thread and there is no way to reopen it, so this guards against losing a conversation to a stray click.',
   },
   {
     key: CONFIRM_KEYS.deleteSource,
