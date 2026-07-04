@@ -675,15 +675,19 @@
   }
 
   async function handleNewThoughtbase(): Promise<void> {
-    const choice = await askOpenTarget('A thoughtbase is already open in this window. Create the new one in:');
-    if (choice === 'cancel') return;
-    if (choice === 'new') {
-      // New-window path emits `project:opened`, so the onProjectOpened
-      // handler in onMount fires maybeShowOnboarding there.
-      await api.notebase.newProjectInNewWindow();
-      return;
+    // Only ask "this window vs. new window" when a thoughtbase is already open —
+    // from the welcome screen (nothing open) go straight to the picker (#1036).
+    if (notebase.meta) {
+      const choice = await askOpenTarget('A thoughtbase is already open in this window. Create the new one in:');
+      if (choice === 'cancel') return;
+      if (choice === 'new') {
+        // New-window path emits `project:opened`, so the onProjectOpened
+        // handler in onMount fires maybeShowOnboarding there.
+        await api.notebase.newProjectInNewWindow();
+        return;
+      }
+      editor.clear();
     }
-    editor.clear();
     // Guard on the IPC result — a cancelled directory picker leaves
     // the previous project in place; we don't want to re-trigger the
     // onboarding modal on a thoughtbase the user already declined.
@@ -1562,7 +1566,10 @@
       <div class="welcome">
         <h1>Minerva</h1>
         <p>An integrated knowledge management environment</p>
-        <button onclick={notebase.open}>Open Thoughtbase</button>
+        <div class="welcome-actions">
+          <button onclick={handleNewThoughtbase}>New Thoughtbase</button>
+          <button onclick={notebase.open}>Open Thoughtbase</button>
+        </div>
       </div>
     {/if}
   </div>
@@ -1997,5 +2004,15 @@
 
   .welcome button:hover {
     background: var(--bg-button-hover);
+  }
+
+  .welcome-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  /* New Thoughtbase is the primary action for a first-time user. */
+  .welcome-actions button:first-child {
+    border-color: var(--accent);
   }
 </style>
