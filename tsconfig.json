@@ -4,6 +4,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // Beyond `strict`: flag switch cases that fall through without an explicit
+    // break/return/throw (#1007). Zero fallout at adoption time.
+    "noFallthroughCasesInSwitch": true,
     // Incremental typecheck: cache results so a repeat `pnpm lint` only
     // re-checks what changed (#664). DX-only — CI always starts cold. The
     // buildinfo lives under node_modules/.cache (gitignored); tsconfig.eslint
