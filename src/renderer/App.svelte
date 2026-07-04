@@ -1354,6 +1354,11 @@
                     title="Split down"
                   ><Icon name="split-v" size={12} /></button>
                   <button
+                    class="nav-btn new-conversation-btn"
+                    onclick={() => { void newConversation(); }}
+                    title="New Conversation"
+                  ><Icon name="conversation" size={12} /><span>New Conversation</span></button>
+                  <button
                     class="nav-btn sidebar-toggle"
                     class:active={rightSidebarVisible}
                     onclick={() => { rightSidebarVisible = !rightSidebarVisible; }}
@@ -1863,12 +1868,33 @@
     flex-shrink: 0;
   }
 
-  .sidebar-toggle {
-    margin-left: auto;
-  }
-
   .sidebar-toggle.active {
     color: var(--accent);
+  }
+
+  /* New Conversation is a primary action — a labeled, accent-tinted button
+     pinned to the right of the toolbar (always visible while editing) rather
+     than a bare "+" buried in the conversations panel header (#1035). */
+  .new-conversation-btn {
+    -webkit-app-region: no-drag;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: auto;
+    padding: 3px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .new-conversation-btn:hover {
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
   }
 
   .view-toggle {
