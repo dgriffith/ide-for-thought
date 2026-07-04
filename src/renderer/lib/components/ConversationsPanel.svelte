@@ -569,131 +569,55 @@
   // position as the old "everything at panel bottom" behavior but only
   // for the narrow window before reload lands.
   type TabT = NonNullable<typeof store.activeTab>;
-  function draftsAt(tab: TabT, i: number) {
-    return tab.drafts.filter((d) => d.afterMessageIndex === i);
+  // Draft/result cards are anchored to a message index. Four generic filters
+  // capture the only shapes the panel renders by (#980 H5); the per-kind
+  // helpers below are thin, typed adapters so the template stays unchanged.
+  // `*At` → cards for message `i`; `orphan*` → cards anchored past the current
+  // message list (in-flight turn or post-cancel), rendered at the bottom.
+  function atIndex<T extends { afterMessageIndex: number }>(arr: T[], i: number): T[] {
+    return arr.filter((d) => d.afterMessageIndex === i);
   }
-  function sourceDraftsAt(tab: TabT, i: number) {
-    return tab.sourceDrafts.filter((d) => d.afterMessageIndex === i);
+  function orphansOf<T extends { afterMessageIndex: number }>(tab: TabT, arr: T[]): T[] {
+    return arr.filter((d) => d.afterMessageIndex >= tab.conversation.messages.length);
   }
-  function sourceResultsAt(tab: TabT, i: number) {
-    return Object.entries(tab.sourceDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex === i,
-    );
+  function resultsAtIndex<E extends { afterMessageIndex: number }>(rec: Record<string, E>, i: number): [string, E][] {
+    return Object.entries(rec).filter(([, entry]) => entry.afterMessageIndex === i);
   }
-  function noteResultsAt(tab: TabT, i: number) {
-    return Object.entries(tab.noteDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex === i,
-    );
+  function orphanResultsOf<E extends { afterMessageIndex: number }>(tab: TabT, rec: Record<string, E>): [string, E][] {
+    return Object.entries(rec).filter(([, entry]) => entry.afterMessageIndex >= tab.conversation.messages.length);
   }
-  function propertyDraftsAt(tab: TabT, i: number) {
-    return tab.propertyDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function propertyResultsAt(tab: TabT, i: number) {
-    return Object.entries(tab.propertyDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex === i,
-    );
-  }
-  function sourcePropertyDraftsAt(tab: TabT, i: number) {
-    return tab.sourcePropertyDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function sourcePropertyResultsAt(tab: TabT, i: number) {
-    return Object.entries(tab.sourcePropertyDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex === i,
-    );
-  }
-  function claimsDraftsAt(tab: TabT, i: number) {
-    return tab.claimsDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function claimsResultsAt(tab: TabT, i: number) {
-    return Object.entries(tab.claimsDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex === i,
-    );
-  }
-  function computeDraftsAt(tab: TabT, i: number) {
-    return tab.computeDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function orphanDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.drafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function orphanSourceDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.sourceDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function orphanSourceResults(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return Object.entries(tab.sourceDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex >= max,
-    );
-  }
-  function orphanNoteResults(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return Object.entries(tab.noteDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex >= max,
-    );
-  }
-  function orphanPropertyDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.propertyDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function orphanPropertyResults(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return Object.entries(tab.propertyDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex >= max,
-    );
-  }
-  function orphanSourcePropertyDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.sourcePropertyDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function orphanSourcePropertyResults(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return Object.entries(tab.sourcePropertyDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex >= max,
-    );
-  }
-  function orphanClaimsDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.claimsDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function orphanClaimsResults(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return Object.entries(tab.claimsDraftResults).filter(
-      ([, entry]) => entry.afterMessageIndex >= max,
-    );
-  }
-  function orphanComputeDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.computeDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function refactorDraftsAt(tab: TabT, i: number) {
-    return tab.refactorDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function orphanRefactorDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.refactorDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function reorgDraftsAt(tab: TabT, i: number) {
-    return tab.reorgDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function orphanReorgDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.reorgDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function deleteDraftsAt(tab: TabT, i: number) {
-    return tab.deleteDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function orphanDeleteDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.deleteDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
-  function noteBodyDraftsAt(tab: TabT, i: number) {
-    return tab.noteBodyDrafts.filter((d) => d.afterMessageIndex === i);
-  }
-  function orphanNoteBodyDrafts(tab: TabT) {
-    const max = tab.conversation.messages.length;
-    return tab.noteBodyDrafts.filter((d) => d.afterMessageIndex >= max);
-  }
+
+  function draftsAt(tab: TabT, i: number) { return atIndex(tab.drafts, i); }
+  function sourceDraftsAt(tab: TabT, i: number) { return atIndex(tab.sourceDrafts, i); }
+  function sourceResultsAt(tab: TabT, i: number) { return resultsAtIndex(tab.sourceDraftResults, i); }
+  function noteResultsAt(tab: TabT, i: number) { return resultsAtIndex(tab.noteDraftResults, i); }
+  function propertyDraftsAt(tab: TabT, i: number) { return atIndex(tab.propertyDrafts, i); }
+  function propertyResultsAt(tab: TabT, i: number) { return resultsAtIndex(tab.propertyDraftResults, i); }
+  function sourcePropertyDraftsAt(tab: TabT, i: number) { return atIndex(tab.sourcePropertyDrafts, i); }
+  function sourcePropertyResultsAt(tab: TabT, i: number) { return resultsAtIndex(tab.sourcePropertyDraftResults, i); }
+  function claimsDraftsAt(tab: TabT, i: number) { return atIndex(tab.claimsDrafts, i); }
+  function claimsResultsAt(tab: TabT, i: number) { return resultsAtIndex(tab.claimsDraftResults, i); }
+  function computeDraftsAt(tab: TabT, i: number) { return atIndex(tab.computeDrafts, i); }
+  function refactorDraftsAt(tab: TabT, i: number) { return atIndex(tab.refactorDrafts, i); }
+  function reorgDraftsAt(tab: TabT, i: number) { return atIndex(tab.reorgDrafts, i); }
+  function deleteDraftsAt(tab: TabT, i: number) { return atIndex(tab.deleteDrafts, i); }
+  function noteBodyDraftsAt(tab: TabT, i: number) { return atIndex(tab.noteBodyDrafts, i); }
+
+  function orphanDrafts(tab: TabT) { return orphansOf(tab, tab.drafts); }
+  function orphanSourceDrafts(tab: TabT) { return orphansOf(tab, tab.sourceDrafts); }
+  function orphanSourceResults(tab: TabT) { return orphanResultsOf(tab, tab.sourceDraftResults); }
+  function orphanNoteResults(tab: TabT) { return orphanResultsOf(tab, tab.noteDraftResults); }
+  function orphanPropertyDrafts(tab: TabT) { return orphansOf(tab, tab.propertyDrafts); }
+  function orphanPropertyResults(tab: TabT) { return orphanResultsOf(tab, tab.propertyDraftResults); }
+  function orphanSourcePropertyDrafts(tab: TabT) { return orphansOf(tab, tab.sourcePropertyDrafts); }
+  function orphanSourcePropertyResults(tab: TabT) { return orphanResultsOf(tab, tab.sourcePropertyDraftResults); }
+  function orphanClaimsDrafts(tab: TabT) { return orphansOf(tab, tab.claimsDrafts); }
+  function orphanClaimsResults(tab: TabT) { return orphanResultsOf(tab, tab.claimsDraftResults); }
+  function orphanComputeDrafts(tab: TabT) { return orphansOf(tab, tab.computeDrafts); }
+  function orphanRefactorDrafts(tab: TabT) { return orphansOf(tab, tab.refactorDrafts); }
+  function orphanReorgDrafts(tab: TabT) { return orphansOf(tab, tab.reorgDrafts); }
+  function orphanDeleteDrafts(tab: TabT) { return orphansOf(tab, tab.deleteDrafts); }
+  function orphanNoteBodyDrafts(tab: TabT) { return orphansOf(tab, tab.noteBodyDrafts); }
 </script>
 
 {#if store.visible}
