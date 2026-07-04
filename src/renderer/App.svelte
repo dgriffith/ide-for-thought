@@ -1878,6 +1878,8 @@
   .new-conversation-btn {
     -webkit-app-region: no-drag;
     margin-left: auto;
+    /* Breathing room before the right-sidebar toggle that follows. */
+    margin-right: 6px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
