@@ -3,6 +3,8 @@
   import Icon from './Icon.svelte';
   import { getConversationsStore } from '../stores/conversations.svelte';
   import { getEditorStore } from '../stores/editor.svelte';
+  import { getDialogStore } from '../stores/dialogs.svelte';
+  import { CONFIRM_KEYS } from '../confirm-keys';
   import { getVoiceStore } from '../voice/voice.svelte';
   import { voiceSettings } from '../voice/voice-settings.svelte';
   import { api } from '../ipc/client';
@@ -98,6 +100,7 @@
 
   const store = getConversationsStore();
   const editor = getEditorStore();
+  const { showConfirm } = getDialogStore();
   const voice = getVoiceStore();
 
   let composerEl = $state<HTMLTextAreaElement>();
@@ -266,6 +269,14 @@
 
   async function handleCloseTab(id: string, e: Event) {
     e.stopPropagation();
+    // Closing archives the conversation and there's no reopen UI, so guard it
+    // with a dismissable confirm (#1033).
+    const ok = await showConfirm(
+      "Close this conversation? You won't be able to reopen it.",
+      CONFIRM_KEYS.closeConversation,
+      'Close',
+    );
+    if (!ok) return;
     await store.closeTab(id);
   }
 
