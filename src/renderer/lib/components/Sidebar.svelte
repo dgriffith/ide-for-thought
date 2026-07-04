@@ -11,7 +11,7 @@
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
 
   type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'bookmarks';
 
@@ -161,13 +161,23 @@
     if (!path) return;
     if (!autoReveal) return;
     if (activePanel !== 'notes') return;
-    if (rootName && !rootExpanded) rootExpanded = true;
-    expandAncestors(path);
-    void scrollPathIntoView(path);
-    // Selection follows the revealed file: single-select it so a stale
-    // selection from before the active file changed (via tab switch, a link,
-    // the command palette, …) doesn't stay highlighted alongside it.
-    selectionStore.setSingle(path);
+    // Reveal is driven by the ACTIVE FILE changing (the deps read above), not by
+    // the user toggling folders. `expandAncestors` reads `expanded` and
+    // `setSingle` touches the selection, so without `untrack` this effect would
+    // take a dependency on both — and a plain folder click (which writes
+    // `expanded` via toggleDir + `selected` via setSingle) would re-run it,
+    // re-expanding the ancestor and re-selecting the active file, i.e. instantly
+    // reverting the click. That made the folder containing the active file
+    // impossible to select/collapse (#1034).
+    untrack(() => {
+      if (rootName && !rootExpanded) rootExpanded = true;
+      expandAncestors(path);
+      void scrollPathIntoView(path);
+      // Selection follows the revealed file: single-select it so a stale
+      // selection from before the active file changed (via tab switch, a link,
+      // the command palette, …) doesn't stay highlighted alongside it.
+      selectionStore.setSingle(path);
+    });
   });
 
   async function scrollPathIntoView(path: string): Promise<void> {
@@ -290,9 +300,10 @@
       return;
     }
     selectionStore.setSingle(path);
-    if (isDirectory) {
-      toggleDir(path);
-    } else {
+    // A plain click selects. Folders no longer expand/collapse on a row click —
+    // that's the chevron's job (#1034 follow-up) — so selecting a folder doesn't
+    // disturb what's open. Files still open on click.
+    if (!isDirectory) {
       onFileSelect(path);
     }
   }
