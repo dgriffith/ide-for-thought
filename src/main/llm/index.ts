@@ -95,10 +95,22 @@ export interface StreamCallbacks {
  *  (propose_*, ask_user) needs a renderer surface, its callback must be in this
  *  list or the tool reports "only available in conversation contexts." Add a new
  *  draft callback here when you add one to StreamCallbacks + ToolCallbacks. */
-const TOOL_CALLBACK_KEYS = [
+export const TOOL_CALLBACK_KEYS = [
   'onDraft', 'onSourceDraft', 'onPropertyDraft', 'onSourcePropertyDraft',
   'onClaimsDraft', 'onComputeDraft', 'onRefactorDraft', 'onReorgDraft', 'onDeleteDraft', 'onNoteBodyDraft', 'askUser',
-] as const;
+] as const satisfies readonly (keyof ToolCallbacks)[];
+
+// Completeness guard (#1003). `satisfies` above rejects a stale/typo'd key; this
+// catches the opposite, silent foot-gun: a callback added to `ToolCallbacks`
+// (and wired in the conversation IPC handler) but *not* listed here never
+// reaches the tool executor, so the tool reports "only available in conversation
+// contexts" at runtime with nothing failing at build. If any `ToolCallbacks` key
+// is missing from the list, `_UnlistedToolCallbacks` stops being `never` and
+// this assignment fails `tsc` (run by `pnpm lint`).
+type _UnlistedToolCallbacks = Exclude<keyof ToolCallbacks, (typeof TOOL_CALLBACK_KEYS)[number]>;
+const _allToolCallbacksListed: _UnlistedToolCallbacks extends never
+  ? true
+  : { readonly ERROR: 'key missing from TOOL_CALLBACK_KEYS'; readonly missing: _UnlistedToolCallbacks } = true;
 
 /** Project a conversation's `StreamCallbacks` down to the `ToolCallbacks` the
  *  tool executor expects, carrying every tool-facing callback that's set.
