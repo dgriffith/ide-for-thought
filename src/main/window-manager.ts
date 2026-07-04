@@ -17,7 +17,7 @@ import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
 import * as vectors from './embeddings/vector-store';
 import { citedTextFromTtl } from './sources/create-excerpt';
-import { installNavigationGuards } from './security';
+import { installNavigationGuards, HARDENED_WEB_PREFERENCES } from './security';
 import { ensureClipperRunning, stopClipperServer, isClipperEnabled } from './clipper/lifecycle';
 import type { ProjectContext } from './project-context-types';
 
@@ -75,12 +75,11 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      // The preload imports only `electron` + the pure `shared/channels`
-      // module (no Node builtins), so the renderer never needs Node — run it
-      // sandboxed, matching the privileged-site and PDF-render windows (#684).
-      sandbox: true,
+      // contextIsolation on / nodeIntegration off / sandbox on. The preload
+      // imports only `electron` + the pure `shared/channels` module (no Node
+      // builtins), so the renderer never needs Node — run it sandboxed,
+      // matching the privileged-site and PDF-render windows (#339, #684).
+      ...HARDENED_WEB_PREFERENCES,
     },
   });
 
