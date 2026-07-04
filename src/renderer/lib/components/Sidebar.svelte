@@ -300,9 +300,10 @@
       return;
     }
     selectionStore.setSingle(path);
-    if (isDirectory) {
-      toggleDir(path);
-    } else {
+    // A plain click selects. Folders no longer expand/collapse on a row click —
+    // that's the chevron's job (#1034 follow-up) — so selecting a folder doesn't
+    // disturb what's open. Files still open on click.
+    if (!isDirectory) {
       onFileSelect(path);
     }
   }

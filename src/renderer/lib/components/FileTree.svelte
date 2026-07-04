@@ -186,7 +186,15 @@
           class:kb-focused={focusedPath === file.relativePath}
           data-relative-path={file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
-          onclick={(e) => onItemClick(file.relativePath, true, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
+          onclick={(e) => {
+            // Clicking the disclosure arrow expands/collapses; clicking anywhere
+            // else on the row just selects the folder (#1034 follow-up).
+            if ((e.target as HTMLElement).closest('[data-chevron]')) {
+              onToggleDir(file.relativePath);
+              return;
+            }
+            onItemClick(file.relativePath, true, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey });
+          }}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
           draggable={true}
           ondragstart={(e) => handleDragStart(e, file.relativePath)}
@@ -194,7 +202,7 @@
           ondragleave={handleDragLeave}
           ondrop={(e) => handleDrop(e, file.relativePath)}
         >
-          <span class="chev">
+          <span class="chev chev-toggle" data-chevron aria-label={expanded[file.relativePath] ? 'Collapse folder' : 'Expand folder'}>
             <Icon name={expanded[file.relativePath] ? 'chevronDown' : 'chevronRight'} size={11} />
           </span>
           <Icon name={expanded[file.relativePath] ? 'folderOpen' : 'folder'} size={14} />
@@ -408,6 +416,20 @@
     align-items: center;
     justify-content: center;
     color: var(--text-faint);
+  }
+
+  /* The disclosure arrow is the only expand/collapse control now, so give it a
+     pointer + a full-row-height hit area (vertical only — no horizontal shift
+     that would misalign file rows) and a hover cue. */
+  .chev-toggle {
+    cursor: pointer;
+    align-self: stretch;
+    border-radius: 3px;
+  }
+
+  .chev-toggle:hover {
+    color: var(--text);
+    background: color-mix(in oklch, var(--text) 8%, transparent);
   }
 
   .row-label {
