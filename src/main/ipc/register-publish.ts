@@ -10,7 +10,7 @@ import {
   removePublishTarget,
   type PublishTarget,
 } from '../project-config';
-import { rootPathFromEvent, winFromEvent } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath } from './helpers';
 
 export function registerPublish(): void {
   // ── Publication (#282) ─────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ export function registerPublish(): void {
     })),
   );
 
-  ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, async (e, input: publish.ExportInput, opts?: {
+  ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, withRootPath(async (rootPath, input: publish.ExportInput, opts?: {
     exporterId?: string;
     linkPolicy?: publish.LinkPolicy;
     citationStyle?: string;
@@ -40,8 +40,6 @@ export function registerPublish(): void {
     forceInclude?: string[];
     forceExclude?: string[];
   }) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
     const plan = await publish.resolvePlan(rootPath, input, {
       linkPolicy: opts?.linkPolicy,
       citationStyle: opts?.citationStyle,
@@ -83,7 +81,7 @@ export function registerPublish(): void {
         missing: audit.missing,
       },
     };
-  });
+  }));
 
   ipcMain.handle(Channels.PUBLISH_RUN_EXPORT, async (e, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
     const rootPath = rootPathFromEvent(e);
@@ -107,25 +105,19 @@ export function registerPublish(): void {
 
   // ── Publish → git remote (#254) ────────────────────────────────────────────
 
-  ipcMain.handle(Channels.PUBLISH_LIST_TARGETS, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.PUBLISH_LIST_TARGETS, withRootPath((rootPath) => {
     return getPublishTargets(rootPath);
-  });
+  }));
 
-  ipcMain.handle(Channels.PUBLISH_UPSERT_TARGET, (e, target: PublishTarget) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.PUBLISH_UPSERT_TARGET, withRootPath((rootPath, target: PublishTarget) => {
     upsertPublishTarget(rootPath, target);
     return getPublishTargets(rootPath);
-  });
+  }));
 
-  ipcMain.handle(Channels.PUBLISH_REMOVE_TARGET, (e, id: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.PUBLISH_REMOVE_TARGET, withRootPath((rootPath, id: string) => {
     removePublishTarget(rootPath, id);
     return getPublishTargets(rootPath);
-  });
+  }));
 
   // Export + commit + push (or dry-run preview). Errors — auth, network,
   // non-fast-forward — come back as `{ ok: false, error }` carrying the raw
@@ -133,9 +125,7 @@ export function registerPublish(): void {
   // rejection (#254 acceptance).
   ipcMain.handle(
     Channels.PUBLISH_TO_GIT,
-    async (e, targetId: string, opts?: { dryRun?: boolean }) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
+    withRootPath(async (rootPath, targetId: string, opts?: { dryRun?: boolean }) => {
       try {
         const result = await publish.publishToGit(rootPath, targetId, {
           dryRun: opts?.dryRun ?? false,
@@ -145,6 +135,6 @@ export function registerPublish(): void {
       } catch (err) {
         return { ok: false as const, error: err instanceof Error ? err.message : String(err) };
       }
-    },
+    }),
   );
 }

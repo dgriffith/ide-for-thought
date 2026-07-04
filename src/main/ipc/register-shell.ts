@@ -2,7 +2,7 @@ import { ipcMain, shell, dialog } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { Channels } from '../../shared/channels';
-import { rootPathFromEvent, winFromEvent } from './helpers';
+import { winFromEvent, withRootPathOr } from './helpers';
 
 export function registerShell(): void {
   // Export
@@ -20,24 +20,18 @@ export function registerShell(): void {
   });
 
   // Shell
-  ipcMain.handle(Channels.SHELL_REVEAL_FILE, (e, relativePath?: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return;
+  ipcMain.handle(Channels.SHELL_REVEAL_FILE, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
     const fullPath = relativePath
       ? path.join(rootPath, relativePath)
       : rootPath;
     shell.showItemInFolder(fullPath);
-  });
+  }));
 
-  ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, (e, relativePath: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return;
+  ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string) => {
     void shell.openPath(path.join(rootPath, relativePath));
-  });
+  }));
 
-  ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, (e, relativePath?: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return;
+  ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
     const dir = relativePath
       ? path.join(rootPath, path.dirname(relativePath))
       : rootPath;
@@ -63,7 +57,7 @@ export function registerShell(): void {
       });
       child.unref();
     }
-  });
+  }));
 
   ipcMain.handle(Channels.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
     // Only http(s) — don't let anyone (or the LLM) coerce us into opening

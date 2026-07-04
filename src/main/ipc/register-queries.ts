@@ -4,7 +4,7 @@ import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
 import * as savedQueries from '../saved-queries';
 import { rebuildMenu } from '../menu';
-import { rootPathFromEvent } from './helpers';
+import { rootPathFromEvent, withRootPathOr } from './helpers';
 
 export function registerQueries(): void {
   // Saved queries
@@ -57,9 +57,6 @@ export function registerQueries(): void {
   });
 
   // Search
-  ipcMain.handle(Channels.SEARCH_QUERY, (e, query: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return search.search(projectContext(rootPath), query);
-  });
+  ipcMain.handle(Channels.SEARCH_QUERY, withRootPathOr([], (rootPath, query: string) =>
+    search.search(projectContext(rootPath), query)));
 }

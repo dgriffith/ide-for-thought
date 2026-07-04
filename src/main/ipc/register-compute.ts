@@ -11,7 +11,7 @@ import {
   type PythonSettings,
 } from '../compute/python-settings';
 import { saveCellOutput, type SaveCellOutputInput } from '../compute/save-cell-output';
-import { rootPathFromEvent, winFromEvent } from './helpers';
+import { winFromEvent, withRootPath, withRootPathOr } from './helpers';
 
 // propose_compute helpers (#245) now live in ../compute/proposal-helpers (#676,
 // extracted so they're unit-testable without electron). Re-exported here for
@@ -23,25 +23,18 @@ export {
 } from '../compute/proposal-helpers';
 
 export function registerCompute(): void {
-  ipcMain.handle(Channels.COMPUTE_RUN_CELL, async (e, language: string, code: string, notePath?: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
     return await runComputeCell(language, code, { rootPath, notePath });
-  });
+  }));
 
   ipcMain.handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
 
-  ipcMain.handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return;
+  ipcMain.handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPathOr(undefined, async (rootPath) => {
     await restartPythonKernel(rootPath);
-  });
+  }));
 
-  ipcMain.handle(Channels.COMPUTE_INTERRUPT_PYTHON, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { ok: false, reason: 'no-kernel' };
-    return interruptPythonKernel(rootPath);
-  });
+  ipcMain.handle(Channels.COMPUTE_INTERRUPT_PYTHON, withRootPathOr({ ok: false, reason: 'no-kernel' }, (rootPath) =>
+    interruptPythonKernel(rootPath)));
 
   ipcMain.handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
     return await getPythonSettings();
@@ -61,17 +54,12 @@ export function registerCompute(): void {
     return await probePythonInterpreter(target);
   });
 
-  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_TRUST, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
-    return getPythonTrust(rootPath);
-  });
+  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_TRUST, withRootPathOr(false, (rootPath) =>
+    getPythonTrust(rootPath)));
 
-  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_TRUST, (e, trusted: boolean) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_TRUST, withRootPath((rootPath, trusted: boolean) => {
     setPythonTrust(rootPath, trusted === true);
-  });
+  }));
 
   ipcMain.handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
     const win = winFromEvent(e);
@@ -88,9 +76,7 @@ export function registerCompute(): void {
     return result.filePaths[0];
   });
 
-  ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, async (e, input: SaveCellOutputInput) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {
     return await saveCellOutput(rootPath, input);
-  });
+  }));
 }

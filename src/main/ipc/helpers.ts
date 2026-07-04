@@ -20,6 +20,38 @@ export function rootPathFromEvent(e: Electron.IpcMainInvokeEvent): string | null
   return getRootPath(win.id);
 }
 
+/**
+ * Wrap an invoke handler so it runs only with an open project, receiving the
+ * resolved `rootPath` as its first argument. Throws "No project open"
+ * otherwise — collapsing the guard the throw-style handlers hand-rolled 86×
+ * (#990). Use for handlers whose contract is "there must be a project".
+ */
+export function withRootPath<A extends unknown[], R>(
+  fn: (rootPath: string, ...args: A) => R,
+): (e: Electron.IpcMainInvokeEvent, ...args: A) => R {
+  return (e, ...args) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return fn(rootPath, ...args);
+  };
+}
+
+/**
+ * Like {@link withRootPath}, but returns `fallback` — each handler's own
+ * project-less empty value (`[]`, `null`, `false`, `{ ok: false }`, …) —
+ * instead of throwing when no project is open (#990).
+ */
+export function withRootPathOr<A extends unknown[], R>(
+  fallback: R,
+  fn: (rootPath: string, ...args: A) => R,
+): (e: Electron.IpcMainInvokeEvent, ...args: A) => R {
+  return (e, ...args) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) return fallback;
+    return fn(rootPath, ...args);
+  };
+}
+
 export async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);

@@ -15,6 +15,7 @@ import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
 import { applyPropertyUpdates } from '../llm/set-properties';
 import * as approval from '../llm/approval';
+import type { Proposal } from '../llm/approval';
 import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
@@ -23,7 +24,7 @@ import {
   recordComputeProposalRun,
   buildComputeProposalNoteBlock,
 } from './register-compute';
-import { rootPathFromEvent, winFromEvent, reindexFile, persistIndexes, hooks } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, reindexFile, persistIndexes, hooks } from './helpers';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
@@ -125,32 +126,18 @@ function buildClaimNoteContent(
 
 export function registerConversation(): void {
   // Proposals
-  ipcMain.handle(Channels.PROPOSAL_LIST, (e, status?: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return approval.listProposals(projectContext(rootPath), status);
-  });
-  ipcMain.handle(Channels.PROPOSAL_DETAIL, (e, uri: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return null;
-    return approval.getProposal(projectContext(rootPath), uri);
-  });
-  ipcMain.handle(Channels.PROPOSAL_APPROVE, async (e, uri: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
+  ipcMain.handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
+    approval.listProposals(projectContext(rootPath), status)));
+  ipcMain.handle(Channels.PROPOSAL_DETAIL, withRootPathOr(null, (rootPath, uri: string) =>
+    approval.getProposal(projectContext(rootPath), uri)));
+  ipcMain.handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
     const result = await approval.approveProposal(projectContext(rootPath), uri);
     return result.ok;
-  });
-  ipcMain.handle(Channels.PROPOSAL_REJECT, (e, uri: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
-    return approval.rejectProposal(projectContext(rootPath), uri);
-  });
-  ipcMain.handle(Channels.PROPOSAL_EXPIRE, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return 0;
-    return approval.expireProposals(projectContext(rootPath));
-  });
+  }));
+  ipcMain.handle(Channels.PROPOSAL_REJECT, withRootPathOr<[string], boolean | Promise<boolean>>(false, (rootPath, uri: string) =>
+    approval.rejectProposal(projectContext(rootPath), uri)));
+  ipcMain.handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
+    approval.expireProposals(projectContext(rootPath))));
 
   // Conversations
   ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
@@ -409,9 +396,7 @@ export function registerConversation(): void {
   // time by planRename, so only fromPath/toPath go onto the payload.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_REFACTOR_DRAFT,
-    async (e, draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
+    withRootPath(async (rootPath, draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
       if (!draft?.fromPath || !draft?.toPath) throw new Error('FILE_REFACTOR_DRAFT: draft is missing fromPath/toPath');
       const ctx = projectContext(rootPath);
       const proposal = await approval.proposeWrite(ctx, {
@@ -423,7 +408,7 @@ export function registerConversation(): void {
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
-    },
+    }),
   );
 
   // Approve a reorganization plan (#914): file + apply the SELECTED items as one
@@ -432,13 +417,11 @@ export function registerConversation(): void {
   // item re-plans at apply time (picking up earlier moves in the same bundle).
   ipcMain.handle(
     Channels.CONVERSATION_FILE_REORG_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-refactor-drafts').ConversationReorgDraft,
       selected: Array<{ fromPath: string; toPath: string }>,
     ) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       if (!Array.isArray(selected) || selected.length === 0) {
         return { proposalUri: null, applied: false };
       }
@@ -453,7 +436,7 @@ export function registerConversation(): void {
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
-    },
+    }),
   );
 
   // Approve a deletion: file + apply the SELECTED notes as one note-delete bundle.
@@ -462,13 +445,11 @@ export function registerConversation(): void {
   // blast radius), so this auto-approves once the selection comes back.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_DELETE_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
       selected: string[],
     ) => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       if (!Array.isArray(selected) || selected.length === 0) {
         return { proposalUri: null, applied: false };
       }
@@ -482,7 +463,7 @@ export function registerConversation(): void {
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
-    },
+    }),
   );
 
   // Counterpart to CONVERSATION_FILE_DELETE_DRAFT for propose_note_body (#937).
@@ -492,12 +473,10 @@ export function registerConversation(): void {
   // new content — approval.ts stays Electron-free and just returns the paths.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-note-body-drafts').ConversationNoteBodyDraft,
     ): Promise<import('../../shared/conversation-note-body-drafts').FileNoteBodyDraftResult> => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       if (!draft?.relativePath || typeof draft.afterContent !== 'string') {
         throw new Error(
           `FILE_NOTE_BODY_DRAFT: draft missing relativePath/afterContent (received ${JSON.stringify(draft).slice(0, 200)}). ` +
@@ -523,7 +502,7 @@ export function registerConversation(): void {
         }
         return { proposalUri: proposal?.uri ?? null, applied };
       });
-    },
+    }),
   );
 
   // Counterpart to CONVERSATION_FILE_DRAFT for the propose_claims tool (#104).
@@ -533,12 +512,10 @@ export function registerConversation(): void {
   // payloads go first so the node exists before the note's quotes edge resolves.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_CLAIMS_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-claims-drafts').ConversationClaimsDraft,
     ): Promise<import('../../shared/conversation-claims-drafts').FileClaimsDraftResult> => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       const sourceId = draft?.sourceId;
       if (!sourceId || !Array.isArray(draft.claims) || draft.claims.length === 0) {
         throw new Error(
@@ -601,7 +578,7 @@ export function registerConversation(): void {
           },
         };
       }
-    },
+    }),
   );
 
   // Counterpart to CONVERSATION_FILE_DRAFT for source-ingest drafts. The
@@ -735,12 +712,10 @@ export function registerConversation(): void {
   // LLM-originated source-metadata write.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-source-property-drafts').ConversationSourcePropertyDraft,
     ): Promise<import('../../shared/conversation-source-property-drafts').FileSourcePropertyDraftResult> => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       const sourceId = draft?.sourceId;
       if (!sourceId) {
         throw new Error(
@@ -779,7 +754,7 @@ export function registerConversation(): void {
           },
         };
       }
-    },
+    }),
   );
 
   // Counterpart for propose_compute draft cells (#245). The user
@@ -789,12 +764,10 @@ export function registerConversation(): void {
   // turn sees it as user-role context.
   ipcMain.handle(
     Channels.CONVERSATION_RUN_COMPUTE_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       input: import('../../shared/conversation-compute-drafts').RunComputeDraftInput,
     ): Promise<import('../../shared/conversation-compute-drafts').RunComputeDraftResult> => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       const { draft, editedCode } = input;
       if (!draft || !draft.language || !draft.code) {
         throw new Error('RUN_COMPUTE_DRAFT: draft is missing language or code.');
@@ -821,7 +794,7 @@ export function registerConversation(): void {
         console.warn('[conv] failed to record ComputeProposal in graph:', err);
       }
       return { result };
-    },
+    }),
   );
 
   // Insert a compute-draft cell into a notebook with provenance
@@ -830,12 +803,10 @@ export function registerConversation(): void {
   // override via the destinationPath argument.
   ipcMain.handle(
     Channels.CONVERSATION_INSERT_COMPUTE_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       input: import('../../shared/conversation-compute-drafts').InsertComputeDraftInput,
     ): Promise<import('../../shared/conversation-compute-drafts').InsertComputeDraftResult> => {
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       const { draft, editedCode, destinationPath } = input;
       if (!draft || !draft.language || !draft.code) {
         throw new Error('INSERT_COMPUTE_DRAFT: draft is missing language or code.');
@@ -857,7 +828,7 @@ export function registerConversation(): void {
         : `# Conversation: ${draft.conversationId}\n\n${block}\n`;
       await writeAndReindex(rootPath, dest, next, hooks);
       return { destinationPath: dest };
-    },
+    }),
   );
 
   ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {

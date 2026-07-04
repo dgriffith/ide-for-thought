@@ -19,7 +19,7 @@ import { ingestSmart } from '../sources/ingest-smart';
 import { mineSourceReferences, type ParsedReference } from '../sources/mine-references';
 import { createReferenceStubs } from '../sources/create-reference-stubs';
 import { resolveStub, applyStubResolution } from '../sources/resolve-stub';
-import type { ReadStatus } from '../../shared/types';
+import type { ReadStatus, SourceMetadata, CollectionsFile } from '../../shared/types';
 import type { ReadingQueueView } from '../graph/index';
 import {
   loadCollections,
@@ -39,44 +39,36 @@ import { importBibtex } from '../sources/import-bibtex';
 import { importZoteroRdf } from '../sources/import-zotero-rdf';
 import { getExcerptNoteFolder, setExcerptNoteFolder } from '../project-config';
 import { createExcerpt } from '../sources/create-excerpt';
-import { rootPathFromEvent, winFromEvent, reindexFile, persistIndexes } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, reindexFile, persistIndexes } from './helpers';
 
 export function registerSources(): void {
-  ipcMain.handle(Channels.SOURCES_INGEST_URL, async (e, url: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_INGEST_URL, withRootPath(async (rootPath, url: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestUrl(rootPath, url, {
       fetchImpl: privilegedFetch,
       importUpstreamTags: ingestSettings.importUpstreamTags,
     });
-  });
+  }));
 
-  ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, async (e, identifier: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, withRootPath(async (rootPath, identifier: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestIdentifier(rootPath, identifier, {
       fetchImpl: privilegedFetch,
       importUpstreamTags: ingestSettings.importUpstreamTags,
     });
-  });
+  }));
 
-  ipcMain.handle(Channels.SOURCES_INGEST_SMART, async (e, rawInput: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_INGEST_SMART, withRootPath(async (rootPath, rawInput: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestSmart(rootPath, rawInput, {
       fetchImpl: privilegedFetch,
       importUpstreamTags: ingestSettings.importUpstreamTags,
     });
-  });
+  }));
 
-  ipcMain.handle(Channels.SOURCES_MINE_REFERENCES, async (e, sourceId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_MINE_REFERENCES, withRootPath(async (rootPath, sourceId: string) => {
     return await mineSourceReferences(rootPath, sourceId);
-  });
+  }));
 
   ipcMain.handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, async (e, params: { sourceId: string; refs: ParsedReference[] }) => {
     const rootPath = rootPathFromEvent(e);
@@ -88,11 +80,9 @@ export function registerSources(): void {
     return result;
   });
 
-  ipcMain.handle(Channels.SOURCES_RESOLVE_STUB, async (e, sourceId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_RESOLVE_STUB, withRootPath(async (rootPath, sourceId: string) => {
     return await resolveStub(rootPath, sourceId, { fetchImpl: privilegedFetch });
-  });
+  }));
 
   ipcMain.handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, async (e, params: { sourceId: string; doi: string }) => {
     const rootPath = rootPathFromEvent(e);
@@ -172,34 +162,25 @@ export function registerSources(): void {
 
   // Read the raw PDF bytes of a previously-persisted source, for the
   // renderer-side OCR worker (#95).
-  ipcMain.handle(Channels.SOURCES_READ_PDF, async (e, sourceId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.SOURCES_READ_PDF, withRootPath(async (rootPath, sourceId: string) => {
     return await readOriginalPdf(rootPath, sourceId);
-  });
+  }));
 
-  ipcMain.handle(Channels.SOURCES_HAS_PDF, async (e, sourceId: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return false;
+  ipcMain.handle(Channels.SOURCES_HAS_PDF, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, sourceId: string) => {
     try {
       await fs.stat(path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf'));
       return true;
     } catch {
       return false;
     }
-  });
+  }));
 
   // Excerpt → Note flow defaults (#101).
-  ipcMain.handle(Channels.EXCERPT_GET_NOTE_FOLDER, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return '';
-    return getExcerptNoteFolder(rootPath);
-  });
-  ipcMain.handle(Channels.EXCERPT_SET_NOTE_FOLDER, (e, folder: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.EXCERPT_GET_NOTE_FOLDER, withRootPathOr('', (rootPath) =>
+    getExcerptNoteFolder(rootPath)));
+  ipcMain.handle(Channels.EXCERPT_SET_NOTE_FOLDER, withRootPath((rootPath, folder: string) => {
     setExcerptNoteFolder(rootPath, folder);
-  });
+  }));
 
   // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
   // back the per-page text. We rewrite body.md + stamp meta.ttl with
@@ -214,11 +195,8 @@ export function registerSources(): void {
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   });
 
-  ipcMain.handle(Channels.SOURCES_LIST_ALL, (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
-    return graph.listAllSources(projectContext(rootPath));
-  });
+  ipcMain.handle(Channels.SOURCES_LIST_ALL, withRootPathOr([], (rootPath) =>
+    graph.listAllSources(projectContext(rootPath))));
 
   ipcMain.handle(Channels.SOURCES_DELETE, async (e, sourceId: string) => {
     const rootPath = rootPathFromEvent(e);
@@ -313,14 +291,12 @@ export function registerSources(): void {
     return result;
   });
 
-  ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, (e, view: ReadingQueueView) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
+  ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, withRootPathOr([], (rootPath, view: ReadingQueueView) => {
     const ctx = projectContext(rootPath);
     const ids = new Set(graph.getReadingQueueSourceIds(ctx, view));
     if (ids.size === 0) return [];
     return graph.listAllSources(ctx).filter((s) => ids.has(s.sourceId));
-  });
+  }));
 
   // ── Collections (#470) ────────────────────────────────────────────────────
   const broadcastCollectionsChanged = (e: Electron.IpcMainInvokeEvent) => {
@@ -328,11 +304,9 @@ export function registerSources(): void {
     if (!win.isDestroyed()) win.webContents.send(Channels.COLLECTIONS_CHANGED);
   };
 
-  ipcMain.handle(Channels.COLLECTIONS_LIST, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return { collections: [] };
+  ipcMain.handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {
     return await loadCollections(rootPath);
-  });
+  }));
 
   ipcMain.handle(Channels.COLLECTIONS_CREATE, async (e, args: { name: string; parent?: string | null }) => {
     const rootPath = rootPathFromEvent(e);
@@ -399,9 +373,7 @@ export function registerSources(): void {
     broadcastCollectionsChanged(e);
   });
 
-  ipcMain.handle(Channels.COLLECTIONS_SMART_MEMBERS, async (e, id: string) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) return [];
+  ipcMain.handle(Channels.COLLECTIONS_SMART_MEMBERS, withRootPathOr<[string], SourceMetadata[] | Promise<SourceMetadata[]>>([], async (rootPath, id: string) => {
     const data = await loadCollections(rootPath);
     const smart = data.smartCollections.find((s) => s.id === id);
     if (!smart) return [];
@@ -416,17 +388,15 @@ export function registerSources(): void {
     if (matchingIds.size === 0) return [];
     const all = graph.listAllSources(ctx);
     return all.filter((s) => matchingIds.has(s.sourceId));
-  });
+  }));
 
-  ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, async (e, params: {
+  ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, withRootPath(async (rootPath, params: {
     sourceId: string;
     citedText: string;
     page?: number | null;
     pageRange?: string | null;
     locationText?: string | null;
   }) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
     return await createExcerpt(rootPath, params);
-  });
+  }));
 }
