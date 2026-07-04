@@ -12,6 +12,8 @@
  * `note-refactor` proposal (#911).
  */
 
+import type { ConversationDraftBase } from './conversation-draft-base';
+
 /** One note whose content changes if the refactor is applied — carried so the
  *  review card can show the diff without recomputing the plan. */
 export interface RefactorAffectedNote {
@@ -23,16 +25,13 @@ export interface RefactorAffectedNote {
   isMoved: boolean;
 }
 
-export interface ConversationRefactorDraft {
-  draftId: string;
-  conversationId: string;
+export interface ConversationRefactorDraft extends ConversationDraftBase {
   /** One-line description ("Move a.md → b/a.md"). */
   note: string;
   fromPath: string;
   toPath: string;
   /** The dry-run blast radius — every note whose links would be rewritten. */
   affectedNotes: RefactorAffectedNote[];
-  createdAt: string;
 }
 
 /** One move/rename within a batch reorganization plan (#914). */
@@ -49,14 +48,11 @@ export interface ReorgDraftItem {
  * which files them as one ordered note-refactor bundle (atomic — partial failure
  * rolls the whole bundle back).
  */
-export interface ConversationReorgDraft {
-  draftId: string;
-  conversationId: string;
+export interface ConversationReorgDraft extends ConversationDraftBase {
   note: string;
   items: ReorgDraftItem[];
   /** Plan-level problems surfaced before apply (collisions, cycles, skips). */
   warnings: string[];
-  createdAt: string;
 }
 
 /** One note proposed for deletion within a `propose_note_delete` batch
@@ -80,13 +76,10 @@ export interface DeleteDraftItem {
  * git, per the project's "delete is a normal operation" stance, but it is
  * always gated on explicit approval).
  */
-export interface ConversationDeleteDraft {
-  draftId: string;
-  conversationId: string;
+export interface ConversationDeleteDraft extends ConversationDraftBase {
   note: string;
   items: DeleteDraftItem[];
   /** Per-note problems surfaced before apply (missing file, not a note). */
   warnings: string[];
-  createdAt: string;
 }
 

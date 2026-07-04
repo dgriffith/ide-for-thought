@@ -19,6 +19,8 @@
  * dialog closes. Persistence across reload is a follow-up.
  */
 
+import type { ConversationDraftBase } from './conversation-draft-base';
+
 export interface DraftNotePayload {
   kind: 'note';
   /** Project-relative target path. The approval engine handles collision dedup at apply time. */
@@ -28,16 +30,10 @@ export interface DraftNotePayload {
 
 export type DraftPayload = DraftNotePayload;
 
-export interface ConversationDraft {
-  /** Stable id used to wire Approve/Reject buttons back to the cached bundle. */
-  draftId: string;
-  /** Conversation that produced the draft. Used by the renderer to bucket. */
-  conversationId: string;
+export interface ConversationDraft extends ConversationDraftBase {
   /** One-line description the LLM provided when calling propose_notes ("why I'm proposing this"). */
   note: string;
   payloads: DraftPayload[];
-  /** ISO timestamp when the draft was created. */
-  createdAt: string;
 }
 
 /** Tool input parsed by the propose_notes execution. Shape exposed to the LLM. */
