@@ -4,6 +4,7 @@
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import Icon from './Icon.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
@@ -87,8 +88,7 @@
   function showContextMenu(e: MouseEvent, node: BookmarkNode) {
     e.preventDefault();
     contextMenu = { x: e.clientX, y: e.clientY, nodeId: node.id, nodeType: node.type };
-    const close = () => { contextMenu = null; window.removeEventListener('click', close); };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 
   async function handleRename(id: string) {

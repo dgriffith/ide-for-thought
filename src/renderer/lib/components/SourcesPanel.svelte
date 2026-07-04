@@ -3,6 +3,7 @@
   import type { SourceMetadata, Collection, SmartCollection, SmartCollectionPredicate, ReadStatus } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import SourcePickerDialog from './SourcePickerDialog.svelte';
   import CollectionPickerDialog from './CollectionPickerDialog.svelte';
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
@@ -193,8 +194,7 @@
     e.preventDefault();
     e.stopPropagation();
     contextMenu = { x: e.clientX, y: e.clientY, source };
-    const close = () => { contextMenu = null; window.removeEventListener('click', close); };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 
   async function handleDelete(source: SourceMetadata) {
@@ -449,8 +449,7 @@
     e.preventDefault();
     e.stopPropagation();
     collectionMenu = { x: e.clientX, y: e.clientY, collection };
-    const close = () => { collectionMenu = null; window.removeEventListener('click', close); };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { collectionMenu = null; });
   }
 
   let smartMenu = $state<{ x: number; y: number; smart: SmartCollection } | null>(null);
@@ -467,8 +466,7 @@
     e.preventDefault();
     e.stopPropagation();
     smartMenu = { x: e.clientX, y: e.clientY, smart };
-    const close = () => { smartMenu = null; window.removeEventListener('click', close); };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { smartMenu = null; });
   }
 
   function openNewCollectionMenu(e: MouseEvent) {
@@ -476,8 +474,7 @@
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     newCollectionMenu = { x: rect.right, y: rect.bottom + 2 };
-    const close = () => { newCollectionMenu = null; window.removeEventListener('click', close); };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { newCollectionMenu = null; });
   }
 
   function smartHoverHint(s: SmartCollection): string {

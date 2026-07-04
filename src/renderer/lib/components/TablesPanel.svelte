@@ -2,6 +2,7 @@
   import { api } from '../ipc/client';
   import type { TableInfo } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
 
   interface Props {
     onTableClick: (tableName: string) => void;
@@ -45,11 +46,7 @@
     e.preventDefault();
     e.stopPropagation();
     contextMenu = { x: e.clientX, y: e.clientY, table };
-    const close = () => {
-      contextMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 </script>
 

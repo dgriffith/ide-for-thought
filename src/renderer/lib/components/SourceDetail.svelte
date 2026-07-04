@@ -10,6 +10,7 @@
   import { groupToolsByGroup } from '../../../shared/tools/grouping';
   import { getAllToolInfos } from '../tools/tool-registry';
   import { displaySourceTitle } from '../../../shared/source-display';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
     { value: 'unread', label: 'Unread' },
@@ -290,11 +291,7 @@
     e.preventDefault();
     excerptMenu = { x: e.clientX, y: e.clientY, text };
     excerptError = null;
-    const close = () => {
-      excerptMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { excerptMenu = null; });
   }
 
   async function saveExcerpt(): Promise<void> {

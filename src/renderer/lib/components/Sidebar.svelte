@@ -7,6 +7,7 @@
   import BookmarksPanel from './BookmarksPanel.svelte';
   import Icon from './Icon.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
@@ -435,11 +436,7 @@
 
   function openRootContextMenu(x: number, y: number) {
     contextMenu = { x, y };
-    const close = () => {
-      contextMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 
   function handleContextMenu(e: MouseEvent) {

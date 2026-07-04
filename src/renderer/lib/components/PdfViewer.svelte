@@ -18,6 +18,7 @@
   import type { SourceExcerpt } from '../../../shared/types';
   import { getEditorStore } from '../stores/editor.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import {
     MIN_SCALE, MAX_SCALE, DEFAULT_SCALE,
     zoomInScale, zoomOutScale,
@@ -250,11 +251,7 @@
     e.preventDefault();
     excerptMenu = { x: e.clientX, y: e.clientY, text };
     saveError = null;
-    const close = () => {
-      excerptMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { excerptMenu = null; });
   }
 
   async function saveExcerpt(): Promise<void> {

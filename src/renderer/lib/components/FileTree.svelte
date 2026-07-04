@@ -5,6 +5,7 @@
   import { formatRelativeTime } from '../utils/format-relative-time';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
   import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
   import type { IconName } from './icons/registry';
@@ -169,12 +170,8 @@
         }
       })();
     }
-    const close = () => {
-      contextMenu = null;
-      window.removeEventListener('click', close);
-    };
-    // Close on next click anywhere
-    setTimeout(() => window.addEventListener('click', close), 0);
+    // Close on next click anywhere.
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 </script>
 
