@@ -778,6 +778,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         return md.render(stripped, {lineOffset});
     }
 
+    // Turtle syntax-highlight patterns (applied in order — see renderTurtle).
+    const TTL_COMMENT_RE = /^([ \t]*#.*)$/gm;
+    const TTL_DIRECTIVE_RE = /(@(?:prefix|base|keywords)\b)/g;
+    const TTL_IRI_RE = /(&lt;[^&\s]*?&gt;)/g;
+
     function renderTurtle(c: string): string {
         // Escape HTML first so the IRI regex below can match the now-
         // safe `&lt; … &gt;` tokens without risking double-application.
@@ -790,9 +795,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // because directives don't start with `#`); then IRIs (which
         // can appear inside non-comment lines).
         const highlighted = escaped
-            .replace(/^([ \t]*#.*)$/gm, '<span class="ttl-comment">$1</span>')
-            .replace(/(@(?:prefix|base|keywords)\b)/g, '<span class="ttl-directive">$1</span>')
-            .replace(/(&lt;[^&\s]*?&gt;)/g, '<span class="ttl-iri">$1</span>');
+            .replace(TTL_COMMENT_RE, '<span class="ttl-comment">$1</span>')
+            .replace(TTL_DIRECTIVE_RE, '<span class="ttl-directive">$1</span>')
+            .replace(TTL_IRI_RE, '<span class="ttl-iri">$1</span>');
         return `<pre class="ttl-source">${highlighted}</pre>`;
     }
 
