@@ -28,6 +28,20 @@ import { buildCsp, externalNavTarget, isOwnOrigin } from './security-helpers';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
+/**
+ * Renderer hardening spread into every BrowserWindow's `webPreferences`. The
+ * renderer is treated as untrusted: `contextIsolation` + `sandbox` on,
+ * `nodeIntegration` off — all privileged work goes through the preload's
+ * contextBridge + IPC (#339, #684). Kept here (not inline at the window
+ * construction site) so the security boundary is asserted in one place and
+ * can't silently drift.
+ */
+export const HARDENED_WEB_PREFERENCES = {
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true,
+} as const;
+
 /** Install the CSP for every response served to the default session. */
 export function installCsp(): void {
   const csp = buildCsp({ devServerOrigin: MAIN_WINDOW_VITE_DEV_SERVER_URL });
