@@ -4,6 +4,7 @@
   import { displaySourceTitle } from '../../../shared/source-display';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -69,11 +70,7 @@
   function handleContextMenu(e: MouseEvent, index: number) {
     e.preventDefault();
     contextMenu = { x: e.clientX, y: e.clientY, index };
-    const close = () => {
-      contextMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { contextMenu = null; });
   }
 
   function handleMiddleClick(e: MouseEvent, index: number) {

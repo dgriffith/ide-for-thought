@@ -15,6 +15,7 @@
   import { sql, PostgreSQL } from '@codemirror/lang-sql';
   import { oneDark } from '@codemirror/theme-one-dark';
   import { getEffectiveTheme, getThemeMode } from '../theme';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import type { QueryTab, QueryLanguage } from '../stores/editor.svelte';
   import { api } from '../ipc/client';
   import { formatSparql } from '../../../shared/sparql-format';
@@ -90,16 +91,8 @@
   function toggleCopyMenu(): void {
     copyMenuOpen = !copyMenuOpen;
     if (copyMenuOpen) {
-      // Close on the next outside click. setTimeout so the current click
-      // that opened the menu doesn't immediately re-close it.
-      const close = (e: MouseEvent) => {
-        const target = e.target as HTMLElement | null;
-        if (!target?.closest('.copy-as-wrap')) {
-          copyMenuOpen = false;
-          window.removeEventListener('click', close);
-        }
-      };
-      setTimeout(() => window.addEventListener('click', close), 0);
+      // Close on the next outside click, ignoring clicks inside the picker.
+      installDismissOnClickOutside(() => { copyMenuOpen = false; }, '.copy-as-wrap');
     }
   }
 

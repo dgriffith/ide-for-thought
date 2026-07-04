@@ -1,6 +1,7 @@
 <script lang="ts">
     import {onDestroy} from 'svelte';
     import Icon from './Icon.svelte';
+    import {installDismissOnClickOutside} from '../dismiss-menu';
     import MarkdownIt from 'markdown-it';
     // The Token *value* (used below for `new Token(...)` to inject a
     // task-list checkbox) is now recovered from `inlineTok.constructor`
@@ -1496,13 +1497,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (!onToolInvoke && !onOpenConversation && !onBookmark && !notePath) return;
         e.preventDefault();
         noteMenu = {x: e.clientX, y: e.clientY};
-        const close = (ev: MouseEvent) => {
-            const t = ev.target as HTMLElement | null;
-            if (t?.closest('.note-context-menu')) return;
-            noteMenu = null;
-            window.removeEventListener('click', close);
-        };
-        setTimeout(() => window.addEventListener('click', close), 0);
+        installDismissOnClickOutside(() => { noteMenu = null; }, '.note-context-menu');
     }
 
     function runMenuAction(fn: (() => void) | undefined): void {
@@ -1538,13 +1533,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                 source: {language, code},
                 output,
             };
-            const close = (ev: MouseEvent) => {
-                const target = ev.target as HTMLElement | null;
-                if (target?.closest('.compute-output-menu')) return;
-                outputMenu = null;
-                window.removeEventListener('click', close);
-            };
-            setTimeout(() => window.addEventListener('click', close), 0);
+            installDismissOnClickOutside(() => { outputMenu = null; }, '.compute-output-menu');
         } catch {
             outputMenu = null;
         }

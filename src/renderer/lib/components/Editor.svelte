@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from './Icon.svelte';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
   import { EditorView, keymap } from '@codemirror/view';
   import { basicSetup } from 'codemirror';
   import { markdown } from '@codemirror/lang-markdown';
@@ -335,11 +336,7 @@
       }
     }
     contextMenu = { x: e.clientX, y: e.clientY, link, hasSelection, docPos, claimUri };
-    const close = () => {
-      closeMenu();
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(closeMenu);
   }
 
   function closeMenu() {
@@ -356,11 +353,7 @@
     e.stopPropagation();
     const current = getEditorSettings();
     gutterMenu = { x: e.clientX, y: e.clientY, lineNumbers: current.lineNumbers };
-    const close = () => {
-      gutterMenu = null;
-      window.removeEventListener('click', close);
-    };
-    setTimeout(() => window.addEventListener('click', close), 0);
+    installDismissOnClickOutside(() => { gutterMenu = null; });
   }
 
   function toggleLineNumbers() {
