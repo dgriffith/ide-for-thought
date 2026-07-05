@@ -22,6 +22,7 @@
     "lint:eslint:fix": "eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench": "vitest bench --run --config vitest.bench.config.ts",
     "coverage": "vitest run --coverage --test-timeout=30000",
     "build:e2e": "NODE_OPTIONS=--max-old-space-size=4096 electron-forge package",
     "test:e2e": "pnpm build:e2e && playwright test",
