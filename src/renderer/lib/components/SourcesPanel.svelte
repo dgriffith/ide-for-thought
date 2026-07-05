@@ -9,6 +9,7 @@
   import SmartCollectionEditorDialog from './SmartCollectionEditorDialog.svelte';
   import SourceListItem from './SourceListItem.svelte';
   import { formatDueStamp } from '../sources/source-display';
+  import { renameSource, deleteSource, addSourceTag, sourceTagSuggestions } from '../sources/source-actions';
   import {
     collectionSubtree,
     membersInSubtree,
@@ -199,48 +200,27 @@
 
   async function handleDelete(source: SourceMetadata) {
     contextMenu = null;
-    const label = displaySourceTitle(source);
-    const confirmed = await onShowConfirm(
-      `Delete source "${label}"? Any excerpts from this source will also be removed.`,
-      'delete-source',
-      'Delete',
-    );
-    if (!confirmed) return;
-    await api.sources.delete(source.sourceId);
-    onSourceDeleted?.(source.sourceId);
-    await refresh();
+    await deleteSource(source, onShowConfirm, () => {
+      onSourceDeleted?.(source.sourceId);
+      return refresh();
+    });
   }
 
   async function handleRenameSource(source: SourceMetadata): Promise<void> {
     contextMenu = null;
-    const current = displaySourceTitle(source);
-    const name = await onShowPrompt('Rename source:', current);
-    if (!name || name.trim() === current) return;
-    try {
-      await api.sources.setTitle(source.sourceId, name.trim());
-      // setTitle broadcasts SOURCES_CHANGED → host refreshes the sidebar.
-    } catch (err) {
-      console.error('[minerva] Rename source failed:', err);
-    }
+    // No onDone: setTitle broadcasts SOURCES_CHANGED → host refreshes the sidebar.
+    await renameSource(source, onShowPrompt);
   }
 
   async function handleAddTag(source: SourceMetadata): Promise<void> {
     contextMenu = null;
     // Offer the project tag vocabulary (minus what this source already has) as
     // autocomplete, so tags get reused rather than re-spelled.
-    let suggestions: string[] = [];
-    try {
-      const have = new Set(source.tags);
-      suggestions = (await api.tags.list()).map((t) => t.tag).filter((t) => !have.has(t));
-    } catch { /* fall back to a plain prompt */ }
+    const suggestions = await sourceTagSuggestions(source);
     const tag = await onShowPrompt('Add tag to source:', { suggestions });
     if (!tag || !tag.trim()) return;
-    try {
-      await api.sources.addTag(source.sourceId, tag.trim());
-      // addTag broadcasts SOURCES_CHANGED → host refreshes the sidebar.
-    } catch (err) {
-      console.error('[minerva] Add source tag failed:', err);
-    }
+    // No onDone: addTag broadcasts SOURCES_CHANGED → host refreshes the sidebar.
+    await addSourceTag(source.sourceId, tag);
   }
 
   function handleMergeStart(source: SourceMetadata) {

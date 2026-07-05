@@ -10,6 +10,7 @@
   import { groupToolsByGroup } from '../../../shared/tools/grouping';
   import { getAllToolInfos } from '../tools/tool-registry';
   import { displaySourceTitle } from '../../../shared/source-display';
+  import { renameSource, deleteSource, addSourceTag, sourceTagSuggestions } from '../sources/source-actions';
   import { installDismissOnClickOutside } from '../dismiss-menu';
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
@@ -116,28 +117,12 @@
 
   async function handleRename() {
     if (!detail) return;
-    const current = displaySourceTitle(detail.metadata);
-    const name = await onShowPrompt('Rename source:', current);
-    if (!name || name.trim() === current) return;
-    try {
-      await api.sources.setTitle(sourceId, name.trim());
-      await load(sourceId);
-    } catch (err) {
-      console.error('[minerva] Rename source failed:', err);
-    }
+    await renameSource(detail.metadata, onShowPrompt, () => load(sourceId));
   }
 
   async function handleDelete() {
     if (!detail) return;
-    const label = displaySourceTitle(detail.metadata);
-    const confirmed = await onShowConfirm(
-      `Delete source "${label}"? Any excerpts from this source will also be removed.`,
-      'delete-source',
-      'Delete',
-    );
-    if (!confirmed) return;
-    await api.sources.delete(sourceId);
-    onDeleted?.(sourceId);
+    await deleteSource(detail.metadata, onShowConfirm, () => onDeleted?.(sourceId));
   }
 
   // ── Tags (#766) ──────────────────────────────────────────────────────────
@@ -159,25 +144,14 @@
   }
 
   async function loadTagVocab() {
-    try {
-      const have = new Set(detail?.metadata.tags ?? []);
-      tagVocab = (await api.tags.list()).map((t) => t.tag).filter((t) => !have.has(t));
-    } catch {
-      tagVocab = [];
-    }
+    tagVocab = await sourceTagSuggestions(detail?.metadata);
   }
 
   async function commitAddTag() {
     const t = newTagText.trim();
     addingTag = false;
     newTagText = '';
-    if (!t) return;
-    try {
-      await api.sources.addTag(sourceId, t);
-      await load(sourceId);
-    } catch (err) {
-      console.error('[minerva] add source tag failed:', err);
-    }
+    await addSourceTag(sourceId, t, () => load(sourceId));
   }
 
   function tagInputKeydown(e: KeyboardEvent) {
