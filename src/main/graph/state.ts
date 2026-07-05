@@ -118,7 +118,12 @@ export interface GraphState {
   rootPath: string;
   baseUri: string;
   store: $rdf.IndexedFormula;
-  /** N3.Store mirror cached for Comunica; rebuilt on demand by queryGraph. */
+  /** N3.Store mirror cached for Comunica; rebuilt on demand by queryGraph.
+   *  rdflib is the mutable source of truth; this is a derived RDF/JS mirror the
+   *  SPARQL engine can read, invalidated (nulled) on every write and fully
+   *  rebuilt on the next query. Why two stores — and why rdflib isn't retired
+   *  for n3-only — is recorded in docs/architecture/rdf-and-dom-libraries.md
+   *  (#987 / #1013). */
   n3Cache: N3.Store | null;
   /** Cached parsed ontology triples; reloaded fresh on init, stripped before persist. */
   ontologyStatements: $rdf.Statement[];
