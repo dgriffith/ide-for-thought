@@ -1,11 +1,10 @@
 /**
- * Manual benchmark for the N3 store cache (#334). Not run by `pnpm test` —
- * invoke with:
+ * Graph query-latency benchmark for the N3 store cache (#334, #1004). Not run
+ * by `pnpm test` (that includes only `*.test.ts`) — invoke with `pnpm bench`.
  *
- *     pnpm vitest run --config vitest.bench.config.ts tests/main/graph/n3-cache.bench.ts
- *
- * (or just port the script body to a one-shot tsx call). Kept here as
- * documentation of the relative cost we paid before vs. after.
+ * Measures SPARQL query cost once the N3 mirror is warm (cache hit) — the
+ * common case behind panel refreshes — documenting the cost the cache buys and
+ * guarding a regression in it.
  */
 
 import { describe, bench, beforeAll } from 'vitest';
@@ -15,7 +14,7 @@ import os from 'node:os';
 import { initGraph, indexNote, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
-describe.skip('N3 cache benchmark', () => {
+describe('N3 cache query benchmark', () => {
   let root: string;
   let ctx: ProjectContext;
 

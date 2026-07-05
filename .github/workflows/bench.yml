@@ -1,0 +1,39 @@
+# Non-gating performance benchmarks (#1004).
+#
+# Runs the `*.bench.ts` suite — graph index/query latency and embedding
+# throughput — to make scale regressions visible as a knowledge base grows.
+#
+# Deliberately NOT on `pull_request` / `push`: micro-benchmarks are noisy on
+# shared CI runners, so gating a PR on them would flap. Trigger it by hand
+# (workflow_dispatch) or let the weekly schedule run it, and read the numbers in
+# the job log. macos-latest matches ci.yml and the dev machine.
+name: Bench
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+
+jobs:
+  bench:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run benchmarks
+        run: pnpm bench
