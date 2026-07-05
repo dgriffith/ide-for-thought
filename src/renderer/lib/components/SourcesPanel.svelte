@@ -1144,7 +1144,7 @@
     color: var(--text-faint);
     letter-spacing: 0.06em;
   }
-  .queue-row { /* re-uses .coll-row look */ }
+  /* .queue-row re-uses the .coll-row look — no rules of its own. */
 
   /* Subtle separator inside the context menu. */
   .context-divider {

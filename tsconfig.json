@@ -3,6 +3,9 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // All checked sources live under src/ (see `include`); pin rootDir so TS
+    // stops warning that it's inferring the common source directory.
+    "rootDir": "./src",
     "strict": true,
     // Beyond `strict`: flag switch cases that fall through without an explicit
     // break/return/throw (#1007). Zero fallout at adoption time.

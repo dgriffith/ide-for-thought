@@ -105,9 +105,15 @@
   function onBackdrop(e: MouseEvent): void {
     if (e.target === e.currentTarget) onClose();
   }
+
+  // Keyboard parity for the backdrop dismiss (matches ConfirmDialog/PromptDialog).
+  function onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') onClose();
+  }
 </script>
 
-<div class="publish-backdrop" onclick={onBackdrop}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="publish-backdrop" onmousedown={onBackdrop} onkeydown={onKeydown}>
   <div class="publish-dialog" role="dialog" aria-labelledby="publish-title">
     <h2 id="publish-title">Publish to Web</h2>
     <p class="sub">Push an export to a git remote — e.g. a static site to GitHub Pages.
