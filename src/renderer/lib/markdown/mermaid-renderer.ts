@@ -15,6 +15,7 @@
  */
 
 import { getEffectiveTheme, getThemeMode } from '../theme';
+import { normalizeColor } from '../utils/oklch';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -70,7 +71,12 @@ function readThemeTokens(): {
   text: string; textMuted: string; border: string; accent: string;
 } {
   const cs = getComputedStyle(document.documentElement);
-  const get = (name: string) => cs.getPropertyValue(name).trim() || '';
+  // Our theme tokens are authored in `oklch()` (CSS Color 4). The browser
+  // renders them fine, but mermaid's color lib (khroma) can't parse `oklch()`
+  // and throws "Unsupported color format", bricking every diagram. Convert
+  // each oklch token to an sRGB hex string khroma accepts (non-oklch tokens,
+  // e.g. the contrast theme's hex values, pass through untouched).
+  const get = (name: string) => normalizeColor(cs.getPropertyValue(name).trim());
   return {
     bg: get('--bg'),
     bgTitlebar: get('--bg-titlebar'),
