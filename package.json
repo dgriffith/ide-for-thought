@@ -106,7 +106,7 @@
     "@vitest/coverage-v8": "^4.1.8",
     "axe-core": "^4.10.3",
     "codemirror": "^6.0.2",
-    "electron": "^42.4.0",
+    "electron": "^43.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
     "eslint-plugin-svelte": "^3.19.0",
