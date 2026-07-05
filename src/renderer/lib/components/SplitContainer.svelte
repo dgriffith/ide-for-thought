@@ -21,7 +21,7 @@
     leaf: Snippet<[string]>;
     /** Notified after a divider drag changes pane sizes, so the layout can be
      *  persisted (#816). Threaded through the recursion unchanged. */
-    onLayoutChange?: () => void;
+    onLayoutChange?: (() => void) | undefined;
   }
 
   let { node, leaf, onLayoutChange }: Props = $props();

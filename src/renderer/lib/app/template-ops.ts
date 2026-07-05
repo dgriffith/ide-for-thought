@@ -174,7 +174,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     const built = buildExcerptNoteContent({
       sourceId,
       excerpt,
-      source: detail?.metadata,
+      ...(detail?.metadata !== undefined ? { source: detail.metadata } : {}),
     });
     const name = await showPrompt('Note name:', built.suggestedTitle);
     if (!name) return null;
@@ -186,7 +186,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     const finalContent = buildExcerptNoteContent({
       sourceId,
       excerpt,
-      source: detail?.metadata,
+      ...(detail?.metadata !== undefined ? { source: detail.metadata } : {}),
       titleOverride: stem,
     }).content;
     await api.notebase.writeFile(relativePath, finalContent);

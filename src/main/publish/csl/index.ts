@@ -16,8 +16,8 @@ export { CitationRenderer } from './renderer';
 export type { CslItem, ExcerptInfo } from './source-to-csl';
 
 export interface BuildRendererOptions {
-  styleId?: string;
-  localeId?: string;
+  styleId?: string | undefined;
+  localeId?: string | undefined;
 }
 
 /**
@@ -36,7 +36,7 @@ export interface CitationAssets {
   /** Raw locale XML. */
   locale: string;
   items: Map<string, CslItem>;
-  excerpts: Map<string, { sourceId: string; locator?: string }>;
+  excerpts: Map<string, { sourceId: string; locator?: string | undefined }>;
   knownSourceIds: string[];
   /**
    * Factory for a fresh renderer — one per note for per-note
@@ -70,7 +70,7 @@ export async function loadCitationAssets(
   const locale = availableLocales[localeId]!;
 
   const items = new Map<string, CslItem>();
-  const excerpts = new Map<string, { sourceId: string; locator?: string }>();
+  const excerpts = new Map<string, { sourceId: string; locator?: string | undefined }>();
 
   const sourcesDir = path.join(rootPath, '.minerva', 'sources');
   const excerptsDir = path.join(rootPath, '.minerva', 'excerpts');

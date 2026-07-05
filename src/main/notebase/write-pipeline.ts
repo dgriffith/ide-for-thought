@@ -54,7 +54,7 @@ export interface WritePipelineOpts {
 }
 
 export interface WriteAndReindexResult {
-  headingRenameCandidate?: HeadingRenameCandidate;
+  headingRenameCandidate?: HeadingRenameCandidate | undefined;
 }
 
 export async function writeAndReindex(

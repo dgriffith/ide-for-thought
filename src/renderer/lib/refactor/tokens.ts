@@ -19,7 +19,7 @@ export interface TokenContext {
   new_note_content?: string;
   source?: string;
   /** Allow callers to pin the date — tests rely on this. */
-  now?: Date;
+  now?: Date | undefined;
 }
 
 const TOKEN_RE = /\{\{([^}]+?)\}\}/g;

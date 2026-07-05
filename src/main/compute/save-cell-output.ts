@@ -146,7 +146,7 @@ export async function saveCellOutput(
   }
 
   const { markdown, assets } = buildDerivedNote({
-    title: input.title,
+    ...(input.title !== undefined ? { title: input.title } : {}),
     output: input.output,
     sourcePath: input.sourcePath,
     cellId,

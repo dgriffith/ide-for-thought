@@ -42,7 +42,7 @@ function asciiSlug(s: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-function familyOnly(name: { family?: string; given?: string; literal?: string }): string {
+function familyOnly(name: { family?: string | undefined; given?: string | undefined; literal?: string | undefined }): string {
   const family = name.family ?? name.literal ?? '';
   // Take only the trailing token of a multi-word family name (e.g.
   // "van der Berg" → "berg") — biblatex convention, and what most

@@ -35,7 +35,7 @@ registerRule<Config>({
           item.value = prefix === 'hash' ? `#${stripped}` : stripped;
           // Discard any quoting hint the parser retained from the original
           // `"#foo"` source; yaml v2 will then emit the shortest valid form.
-          item.type = undefined;
+          delete item.type;
         }
       }
     });

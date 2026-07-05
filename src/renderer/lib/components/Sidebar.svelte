@@ -626,17 +626,17 @@
       {/if}
     {:else if activePanel === 'sites'}
       {#if onSourceSelect && onShowConfirm && onShowPrompt}
-        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {onSourceDeleted} {onShowConfirm} {onShowPrompt} {onMineReferences} onSourceOpened={onSourceSelect} />
+        <SourcesPanel bind:this={sourcesPanel} {onSourceSelect} {...(onSourceDeleted !== undefined ? { onSourceDeleted } : {})} {onShowConfirm} {onShowPrompt} {...(onMineReferences !== undefined ? { onMineReferences } : {})} onSourceOpened={onSourceSelect} />
       {/if}
     {:else if activePanel === 'tags'}
-      <TagPanel bind:this={tagPanel} {onFileSelect} {onSourceSelect} />
+      <TagPanel bind:this={tagPanel} {onFileSelect} {...(onSourceSelect !== undefined ? { onSourceSelect } : {})} />
     {:else if activePanel === 'tables'}
       {#if onTableClick && onOpenCsv}
         <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
       {/if}
     {:else if activePanel === 'bookmarks'}
       {#if onShowPrompt}
-        <BookmarksPanel {onFileSelect} {onNavigate} {onOpenAtOffset} {onShowPrompt} />
+        <BookmarksPanel {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} {onShowPrompt} />
       {/if}
     {/if}
   </div>

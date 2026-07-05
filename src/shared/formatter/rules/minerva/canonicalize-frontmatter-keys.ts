@@ -47,7 +47,7 @@ registerRule({
         // rather no-op than risk corrupting it.
         if (YAML.isScalar(pair.key)) {
           pair.key.value = canonical;
-          pair.key.type = undefined;
+          delete pair.key.type;
         }
         existingKeys.add(canonical);
       }

@@ -80,8 +80,8 @@ const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, Anthropic.Tool> = {
  * either independently.
  */
 export function buildWebTools(opts: {
-  allowedDomains?: string[];
-  blockedDomains?: string[];
+  allowedDomains?: string[] | undefined;
+  blockedDomains?: string[] | undefined;
 }): Anthropic.Messages.ToolUnion[] {
   const webSearch: Anthropic.Messages.WebSearchTool20260209 = {
     type: 'web_search_20260209',
@@ -111,7 +111,7 @@ export interface ConversationToolOptions {
     blockedDomains?: string[];
   };
   /** Template-scoped tools to add on top of the default set. */
-  extraTools?: ConversationToolKey[];
+  extraTools?: ConversationToolKey[] | undefined;
 }
 
 export function buildConversationTools(

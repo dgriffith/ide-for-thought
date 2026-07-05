@@ -52,7 +52,7 @@
     /** Tab to land on when the dialog opens. Defaults to 'editor'. The
      *  missing-API-key flow passes 'ai' so the user lands on the key
      *  field directly instead of hunting through tabs. */
-    initialTab?: TabId;
+    initialTab?: TabId | undefined;
   }
 
   let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();

@@ -39,8 +39,8 @@ function runProposeSourceProperties(
     conversationId: ctx.conversationId,
     note: parsed.note,
     sourceId: parsed.sourceId,
-    abstract: parsed.abstract,
-    tldr: parsed.tldr,
+    ...(parsed.abstract !== undefined ? { abstract: parsed.abstract } : {}),
+    ...(parsed.tldr !== undefined ? { tldr: parsed.tldr } : {}),
     createdAt: new Date().toISOString(),
   };
   callbacks.onSourcePropertyDraft(draft);

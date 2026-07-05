@@ -866,7 +866,7 @@
 
 {#if smartEditor}
   <SmartCollectionEditorDialog
-    editing={smartEditor.mode === 'edit' ? smartEditor.collection : undefined}
+    {...(smartEditor.mode === 'edit' ? { editing: smartEditor.collection } : {})}
     onSave={handleSmartEditorSave}
     onCancel={() => { smartEditor = null; }}
   />

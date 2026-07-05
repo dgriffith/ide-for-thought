@@ -58,7 +58,7 @@ export interface ClipperIngestOutcome {
   relativePath: string;
   duplicate: boolean;
   title?: string;
-  kind?: string;
+  kind?: string | undefined;
   /** Set when a selection was supplied and an excerpt was filed. */
   excerptId?: string;
   excerptDuplicate?: boolean;

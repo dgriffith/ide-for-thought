@@ -31,11 +31,11 @@ import type {
 } from './types';
 
 export interface ResolvePlanOptions {
-  linkPolicy?: LinkPolicy;
-  assetPolicy?: AssetPolicy;
-  citationStyle?: string;
-  citationLocale?: string;
-  outputDir?: string;
+  linkPolicy?: LinkPolicy | undefined;
+  assetPolicy?: AssetPolicy | undefined;
+  citationStyle?: string | undefined;
+  citationLocale?: string | undefined;
+  outputDir?: string | undefined;
   /**
    * Manual per-export exclusion override (#283). Paths in this set are
    * force-included even when the exclusion rules would otherwise drop
@@ -43,13 +43,13 @@ export interface ResolvePlanOptions {
    * The plan's `inputs` row for an overridden file carries
    * `overridden: true` so the preview dialog can render the badge.
    */
-  forceInclude?: string[];
+  forceInclude?: string[] | undefined;
   /**
    * Manual per-export deselection via the preview dialog (#293). Paths
    * in this set are removed from `inputs` and surfaced in `excluded`
    * with reason "manually excluded", regardless of the default rules.
    */
-  forceExclude?: string[];
+  forceExclude?: string[] | undefined;
 }
 
 export async function resolvePlan(

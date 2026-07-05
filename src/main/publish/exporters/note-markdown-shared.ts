@@ -98,7 +98,7 @@ function renderCiteRun(
   citations: NonNullable<ExportPlan['citations']>,
 ): string {
   type Resolved =
-    | { ok: true; sourceId: string; locator?: string; label?: string }
+    | { ok: true; sourceId: string; locator?: string | undefined; label?: string | undefined }
     | { ok: false; missingMarker: string };
   const resolved: Resolved[] = items.map((item) => {
     if (item.kind === 'quote') {

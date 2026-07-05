@@ -20,7 +20,7 @@ export interface PdfRenderOptions {
   /** Include page-number footer + title header. Both are off by default. */
   headerFooter: boolean;
   /** Visible in header/footer when `headerFooter` is on. */
-  title?: string;
+  title?: string | undefined;
 }
 
 /**

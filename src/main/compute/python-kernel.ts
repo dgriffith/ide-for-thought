@@ -31,7 +31,7 @@ interface PendingCell {
   stdout: string[];
   stderr: string[];
   result?: unknown;
-  error?: { ename: string; evalue: string; traceback: string[] };
+  error?: { ename: string; evalue: string; traceback: string[] } | undefined;
 }
 
 interface KernelEvent {

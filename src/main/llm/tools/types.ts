@@ -65,7 +65,7 @@ export interface ToolCallbacks {
    *  existing note, reviewed as a before/after diff card before anything is
    *  written. */
   onNoteBodyDraft?: (draft: ConversationNoteBodyDraft) => void;
-  askUser?: (input: { question: string; choices?: string[] }) => Promise<string>;
+  askUser?: (input: { question: string; choices?: string[] | undefined }) => Promise<string>;
 }
 
 export interface ToolResult {

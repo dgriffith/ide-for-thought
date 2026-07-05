@@ -20,8 +20,8 @@ export interface CrossrefSearchCandidate {
 }
 
 export interface CrossrefSearchOptions {
-  rows?: number;
-  fetchImpl?: typeof fetch;
+  rows?: number | undefined;
+  fetchImpl?: typeof fetch | undefined;
 }
 
 /**

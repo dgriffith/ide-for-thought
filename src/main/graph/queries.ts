@@ -1031,7 +1031,7 @@ function collectSourceBacklinks(
       relativePath,
       title: titleStmts[0]?.object.value ?? relativePath,
       kind,
-      viaExcerptId,
+      ...(viaExcerptId !== undefined ? { viaExcerptId } : {}),
     });
   };
 

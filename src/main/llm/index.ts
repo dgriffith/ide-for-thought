@@ -23,7 +23,7 @@ import { formatToolCall } from './format-tool-call';
 
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
   /**
    * Fired when the propose_notes tool produces a ConversationDraft. The
    * conversation IPC handler forwards drafts to the renderer via
@@ -137,7 +137,7 @@ export interface CompleteOptions {
   messages?: ChatMessage[];
   callbacks?: StreamCallbacks;
   /** Override the global default model for this call only. */
-  model?: string;
+  model?: string | undefined;
   /**
    * Per-call reasoning-effort override (#825). Resolved over the global default
    * and clamped to the model; omitted entirely for models without effort
@@ -162,12 +162,12 @@ export interface CompleteWithToolsOptions {
   /** Hard cap on tool-use iterations. Defaults to 10. */
   maxIterations?: number;
   /** Override the global default model for this call only. */
-  model?: string;
+  model?: string | undefined;
   /** Per-call reasoning-effort override (#825); resolved over the global
    *  default and clamped to the model. Sent as `output_config.effort`. */
-  effort?: Effort;
+  effort?: Effort | undefined;
   /** Template-scoped tools to enable in addition to the default toolset. */
-  extraTools?: ConversationToolKey[];
+  extraTools?: ConversationToolKey[] | undefined;
   /**
    * Code-execution sandbox id from a prior agent turn for the same
    * conversation. Must be echoed back whenever the `messages` history
@@ -530,7 +530,7 @@ function collectCitations(
     if (acc.has(c.url)) continue;
     acc.set(c.url, {
       url: c.url,
-      title: c.title ?? undefined,
+      ...(c.title != null ? { title: c.title } : {}),
       citedText: c.cited_text,
     });
   }

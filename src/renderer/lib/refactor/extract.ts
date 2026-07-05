@@ -215,7 +215,7 @@ function wikiLinkTarget(relativePath: string): string {
 export function renderLinkBack(
   newNotePath: string,
   settings: RefactorSettings,
-  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date },
+  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date | undefined },
 ): string {
   const target = wikiLinkTarget(newNotePath);
   if (settings.linkTemplate) {
@@ -238,7 +238,7 @@ export function renderLinkBack(
 export function renderExtractedBody(
   rawBody: string,
   settings: RefactorSettings,
-  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date },
+  ctx: { sourceRelativePath: string; sourceTitle: string; newNoteTitle: string; now?: Date | undefined },
 ): string {
   if (!settings.refactoredNoteTemplate) return rawBody;
   return renderTemplate(settings.refactoredNoteTemplate, {

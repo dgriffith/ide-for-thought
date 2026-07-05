@@ -243,16 +243,16 @@
       <FootnotesPanel {content} {onScrollToLine} />
     {:else if activePanel === 'properties'}
       {#if onContentChange}
-        <PropertiesPanel {content} {onContentChange} {onNavigate} />
+        <PropertiesPanel {content} {onContentChange} {...(onNavigate !== undefined ? { onNavigate } : {})} />
       {:else}
         <div class="panel-disabled">No active note.</div>
       {/if}
     {:else if activePanel === 'outgoing'}
-      <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
+      <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'backlinks'}
-      <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {onOpenGraph} />
+      <BacklinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'related'}
-      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {onNavigate} onOpenSource={onOpenSource} onOpenExcerpt={onOpenExcerpt} />
+      <RelatedPanel {activeFilePath} {revision} {indexing} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} onOpenSource={onOpenSource} onOpenExcerpt={onOpenExcerpt} />
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}
@@ -260,9 +260,9 @@
     {:else if activePanel === 'citations'}
       <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
-      <BookmarksPanel {activeFilePath} {onFileSelect} {onNavigate} {onOpenAtOffset} />
+      <BookmarksPanel {activeFilePath} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} />
     {:else if activePanel === 'inspections'}
-      <InspectionsPanel {revision} {onOpenConversation} />
+      <InspectionsPanel {revision} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} />
     {:else if activePanel === 'proposals'}
       <ProposalsPanel {revision} />
     {/if}

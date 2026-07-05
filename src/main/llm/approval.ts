@@ -148,7 +148,7 @@ export interface Proposal {
    *  payload. Surfaced so the trust-integrity stock query can join
    *  the LLM-attributed components back to this proposal. */
   affectsNodeUris: string[];
-  conversationUri?: string;
+  conversationUri?: string | undefined;
   proposedBy: string;
   proposedAt: string;
   autoExpires: string;

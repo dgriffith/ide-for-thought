@@ -27,8 +27,8 @@ import { slugify } from '../../../shared/slug';
 
 /** The position-bearing fields of a bookmark, as the editor needs them. */
 export interface BookmarkRef {
-  cursorOffset?: number;
-  anchor?: string;
+  cursorOffset?: number | undefined;
+  anchor?: string | undefined;
 }
 
 /**

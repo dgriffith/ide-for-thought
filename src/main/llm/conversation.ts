@@ -91,7 +91,7 @@ export async function create(
   const now = new Date().toISOString();
   const conv: Conversation = {
     id: generateId(),
-    triggerNodeUri,
+    ...(triggerNodeUri !== undefined ? { triggerNodeUri } : {}),
     contextBundle,
     messages: [],
     status: 'active',

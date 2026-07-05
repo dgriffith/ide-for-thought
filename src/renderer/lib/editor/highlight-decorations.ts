@@ -36,7 +36,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         m.to,
         Decoration.mark({
           class: m.color ? `cm-highlight cm-highlight-${m.color}` : 'cm-highlight',
-          attributes: m.color ? { 'data-hl-color': m.color } : undefined,
+          ...(m.color ? { attributes: { 'data-hl-color': m.color } } : {}),
         }),
       );
     }

@@ -76,15 +76,15 @@ export interface SkillInfo {
   description: string;
   longDescription: string;
   menu: SkillMenu;
-  group?: string;
+  group?: string | undefined;
   scope: ToolScope;
   outputMode: OutputMode;
   context: ContextRequirement[];
   parameters: ToolParameter[];
-  model?: string;
+  model?: string | undefined;
   web: boolean;
-  slashCommand?: string;
-  outputNotePrefix?: string;
+  slashCommand?: string | undefined;
+  outputNotePrefix?: string | undefined;
   requiresSelection: boolean;
   source: SkillSource;
 }

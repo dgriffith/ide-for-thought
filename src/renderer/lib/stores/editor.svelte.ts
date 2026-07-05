@@ -19,8 +19,8 @@ export interface NoteTab {
   fileName: string;
   content: string;
   savedContent: string;
-  cursorOffset?: number;
-  scrollTop?: number;
+  cursorOffset?: number | undefined;
+  scrollTop?: number | undefined;
   /**
    * Serialised CodeMirror `EditorState` (doc + selection + history
    * stacks) captured on Editor unmount. Used to restore undo/redo across
@@ -50,7 +50,7 @@ export interface SourceTab {
   type: 'source';
   sourceId: string;
   /** If the user arrived via a [[quote::id]] click, highlight this excerpt in the detail view. */
-  highlightExcerptId?: string;
+  highlightExcerptId?: string | undefined;
 }
 
 export interface PdfTab {
@@ -322,7 +322,7 @@ export function getEditorStore() {
 
   // ── Source operations ───────────────────────────────────────────────────
 
-  function openSource(sourceId: string, opts?: { highlightExcerptId?: string; groupId?: string }) {
+  function openSource(sourceId: string, opts?: { highlightExcerptId?: string | undefined; groupId?: string }) {
     // Forbid duplicate open (#815): if this source is already open in any pane,
     // refocus it (refreshing the excerpt highlight) instead of opening a copy.
     const found = locateTab((t) => isSource(t) && t.sourceId === sourceId);
@@ -565,7 +565,12 @@ export function getEditorStore() {
 
   function toSavedTab(t: Tab): SavedTab {
     if (isNote(t)) {
-      return { type: 'note', relativePath: t.relativePath, cursorOffset: t.cursorOffset, scrollTop: t.scrollTop };
+      return {
+        type: 'note',
+        relativePath: t.relativePath,
+        ...(t.cursorOffset !== undefined ? { cursorOffset: t.cursorOffset } : {}),
+        ...(t.scrollTop !== undefined ? { scrollTop: t.scrollTop } : {}),
+      };
     } else if (isQuery(t)) {
       return { type: 'query', title: t.title, query: t.query, language: t.language };
     } else if (isPdf(t)) {
@@ -573,7 +578,11 @@ export function getEditorStore() {
     } else if (isGraph(t)) {
       return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
     } else {
-      return { type: 'source', sourceId: t.sourceId, highlightExcerptId: t.highlightExcerptId };
+      return {
+        type: 'source',
+        sourceId: t.sourceId,
+        ...(t.highlightExcerptId !== undefined ? { highlightExcerptId: t.highlightExcerptId } : {}),
+      };
     }
   }
 

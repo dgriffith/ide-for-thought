@@ -72,8 +72,8 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
         cellLanguage: payload.cellLanguage,
         cellCode: payload.cellCode,
         output: payload.output,
-        destPath,
-        pin: payload.pin,
+        ...(destPath !== undefined ? { destPath } : {}),
+        ...(payload.pin !== undefined ? { pin: payload.pin } : {}),
       });
       // Confirm-on-diff (#244): the destination exists with different
       // content. Ask the user before overwriting; on yes, retry with
@@ -92,7 +92,7 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
           cellCode: payload.cellCode,
           output: payload.output,
           destPath: result.derivedPath,
-          pin: payload.pin,
+          ...(payload.pin !== undefined ? { pin: payload.pin } : {}),
           forceOverwrite: true,
         });
         if (result.status !== 'written') return;

@@ -1094,13 +1094,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             const response = await api.graph.query(QUERY_PREFIXES + sparql);
             const row = response.results[0] as Record<string, string> | undefined;
             const meta: QuoteMeta = row ? {
-                citedText: row.citedText,
-                sourceTitle: row.sourceTitle,
-                sourceCreator: row.sourceCreator,
-                sourceYear: row.sourceIssued?.slice(0, 4),
-                page: row.page,
-                pageRange: row.pageRange,
-                locationText: row.locationText,
+                ...(row.citedText !== undefined ? { citedText: row.citedText } : {}),
+                ...(row.sourceTitle !== undefined ? { sourceTitle: row.sourceTitle } : {}),
+                ...(row.sourceCreator !== undefined ? { sourceCreator: row.sourceCreator } : {}),
+                ...(row.sourceIssued !== undefined ? { sourceYear: row.sourceIssued.slice(0, 4) } : {}),
+                ...(row.page !== undefined ? { page: row.page } : {}),
+                ...(row.pageRange !== undefined ? { pageRange: row.pageRange } : {}),
+                ...(row.locationText !== undefined ? { locationText: row.locationText } : {}),
             } : {};
             quoteMetaCache.set(excerptId, meta);
             applyQuoteMeta(el, displayEl, excerptId, meta);
@@ -1265,7 +1265,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }));
 
         const chartConfig: ChartConfig = {
-            title: config.title,
+            ...(config.title !== undefined ? { title: config.title } : {}),
             type: chartType,
             height,
             series,
