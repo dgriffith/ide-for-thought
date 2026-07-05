@@ -31,16 +31,23 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 // without a product-a11y sweep. NEW rule ids fail the test. Tracked for a
 // follow-up fix — see #1005 / the PR.
 const KNOWN_WELCOME = new Set<string>([
-  'color-contrast', // faint Quick-Open placeholder (--text-faint) ~3.4:1 vs AA 4.5
+  // Clean: --text-faint was lifted to WCAG AA, so no tolerated violations here.
 ]);
 const KNOWN_WORKSPACE = new Set<string>([
-  'color-contrast',        // faint secondary text (status bar, link-type badges)
-  'nested-interactive',    // editor tab (role=tab) wraps a close <button>
-  'aria-required-parent',  // role=tab not contained by a role=tablist
-  'aria-input-field-name', // an unlabeled ARIA input in the workspace
+  // Remaining color-contrast is EDITOR-INTERNAL only: CodeMirror's oneDark
+  // theme syntax colors (e.g. its red #e06c75 at 4.38:1) + our link-type badge
+  // decorations (--text-faint) layered on oneDark's #282c34 background. The app
+  // chrome's faint text was lifted to AA (the welcome test enforces it, no
+  // allowlist there). Making the editor fully AA means retuning/replacing the
+  // oneDark theme — its own change; tracked as follow-up.
+  'color-contrast',
   // CodeMirror's `.cm-scroller` (tabindex=-1); its `.cm-content` editable IS
   // keyboard-focusable, so this axe finding is a known CM quirk, not a real trap.
   'scrollable-region-focusable',
+  // Fixed in this pass (kept out of the allowlist so a regression fails):
+  //   aria-input-field-name — CM content now has an aria-label
+  //   nested-interactive / aria-required-parent — editor tabs are plain
+  //     buttons (switch + sibling close), no half-applied role=tab widget.
 ]);
 
 /** Serious/critical violations whose rule id isn't in the tolerated set. */

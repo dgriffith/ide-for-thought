@@ -446,6 +446,9 @@
 
   const extensions = [
     basicSetup,
+    // Give the `role="textbox"` content DOM an accessible name (#1005 a11y) —
+    // CodeMirror's editable div is otherwise unlabeled (axe aria-input-field-name).
+    EditorView.contentAttributes.of({ 'aria-label': 'Note editor' }),
     markdown({ codeLanguages: languages }),
     // Pin the frontmatter fold's gutter arrow to line 1 by claiming the
     // foldable range there ourselves. Without this, the markdown
