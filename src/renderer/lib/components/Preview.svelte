@@ -1239,174 +1239,198 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         activeCharts.push(handle);
     }
 
+    // Click routing (#993). handleClick walks a [selector, handler] table and
+    // dispatches to the first branch whose `.closest(selector)` matches the
+    // click target. Each handler receives the matched element + the event and
+    // returns true once it has consumed the click (false = "not mine, keep
+    // looking" — used by the branches that only conditionally handle). The
+    // task-checkbox case tests the target element itself, not an ancestor, so
+    // it can't ride the `.closest()` table and runs first as a pre-check.
+    type ClickRouteHandler = (matched: HTMLElement, e: MouseEvent) => boolean;
+    const clickRoutes: [selector: string, handler: ClickRouteHandler][] = [
+        ['.cite-link', handleCiteLinkClick],
+        ['.quote-link', handleQuoteLinkClick],
+        ['.wiki-link', handleWikiLinkClick],
+        ['.transclusion-open', handleTransclusionOpenClick],
+        ['.note-tag', handleTagClick],
+        ['.compute-output-menu-btn', handleComputeMenuBtnClick],
+        ['.compute-output-image', handleOutputImageClick],
+        ['[data-fence-action]', handleFenceActionClick],
+        ['.youtube-embed', handleYouTubeEmbedClick],
+        ['a[href^="https://doi.org/"]', handleDoiAnchorClick],
+        ['a[href^="#"]', handleInternalAnchorClick],
+    ];
+
     function handleClick(e: MouseEvent) {
         const el = e.target as HTMLElement;
+        if (handleTaskCheckboxClick(el)) return;
+        for (const [selector, handler] of clickRoutes) {
+            const matched = el.closest<HTMLElement>(selector);
+            if (matched && handler(matched, e)) return;
+        }
+    }
 
+    function handleTaskCheckboxClick(el: HTMLElement): boolean {
         if (
-            el instanceof HTMLInputElement &&
-            el.type === 'checkbox' &&
-            el.dataset.taskLine !== undefined
+            !(el instanceof HTMLInputElement) ||
+            el.type !== 'checkbox' ||
+            el.dataset.taskLine === undefined
         ) {
-            const line = parseInt(el.dataset.taskLine, 10);
-            if (!Number.isNaN(line)) onTaskToggle?.(line);
-            // Don't preventDefault — the native toggle gives an instant flicker-free
-            // response. The content re-render will land the DOM in the same state.
-            return;
+            return false;
         }
+        const line = parseInt(el.dataset.taskLine, 10);
+        if (!Number.isNaN(line)) onTaskToggle?.(line);
+        // Don't preventDefault — the native toggle gives an instant flicker-free
+        // response. The content re-render will land the DOM in the same state.
+        return true;
+    }
 
-        const citeLink = el.closest<HTMLElement>('.cite-link');
-        if (citeLink) {
-            e.preventDefault();
-            const sourceId = citeLink.dataset.sourceId;
-            if (sourceId && onOpenSource) onOpenSource(sourceId);
-            return;
-        }
+    function handleCiteLinkClick(citeLink: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const sourceId = citeLink.dataset.sourceId;
+        if (sourceId && onOpenSource) onOpenSource(sourceId);
+        return true;
+    }
 
-        const quoteLink = el.closest<HTMLElement>('.quote-link');
-        if (quoteLink) {
-            e.preventDefault();
-            const excerptId = quoteLink.dataset.excerptId;
-            if (excerptId && onOpenExcerpt) onOpenExcerpt(excerptId);
-            return;
-        }
+    function handleQuoteLinkClick(quoteLink: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const excerptId = quoteLink.dataset.excerptId;
+        if (excerptId && onOpenExcerpt) onOpenExcerpt(excerptId);
+        return true;
+    }
 
-        const wikiLink = el.closest<HTMLElement>('.wiki-link');
-        if (wikiLink) {
-            e.preventDefault();
-            const linkTarget = wikiLink.dataset.target;
-            if (linkTarget) onNavigate(linkTarget);
-            return;
-        }
+    function handleWikiLinkClick(wikiLink: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const linkTarget = wikiLink.dataset.target;
+        if (linkTarget) onNavigate(linkTarget);
+        return true;
+    }
 
-        // Transclusion header → open the embedded note (#906).
-        const transclusionOpen = el.closest<HTMLElement>('.transclusion-open');
-        if (transclusionOpen) {
-            e.preventDefault();
-            const t = transclusionOpen.dataset.target;
-            if (t) onNavigate(t);
-            return;
-        }
+    // Transclusion header → open the embedded note (#906).
+    function handleTransclusionOpenClick(transclusionOpen: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const t = transclusionOpen.dataset.target;
+        if (t) onNavigate(t);
+        return true;
+    }
 
-        const tagEl = el.closest<HTMLElement>('.note-tag');
-        if (tagEl) {
-            e.preventDefault();
-            const tag = tagEl.dataset.tag;
-            if (tag && onTagSelect) onTagSelect(tag);
-            return;
-        }
+    function handleTagClick(tagEl: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const tag = tagEl.dataset.tag;
+        if (tag && onTagSelect) onTagSelect(tag);
+        return true;
+    }
 
-        // Compute-output overflow menu (#244).
-        const menuBtn = el.closest<HTMLElement>('.compute-output-menu-btn');
-        if (menuBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            const wrap = menuBtn.closest<HTMLElement>('.compute-output-wrap');
-            if (!wrap) return;
-            openOutputMenu(menuBtn, wrap);
-            return;
-        }
+    // Compute-output overflow menu (#244).
+    function handleComputeMenuBtnClick(menuBtn: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        e.stopPropagation();
+        const wrap = menuBtn.closest<HTMLElement>('.compute-output-wrap');
+        if (!wrap) return true;
+        openOutputMenu(menuBtn, wrap);
+        return true;
+    }
 
-        // Click-to-zoom on inline compute output images (#243). Toggles
-        // a `.zoomed` class so the stylesheet flips between thumbnail and
-        // full-size views without a modal dialog.
-        const outputImg = el.closest<HTMLElement>('.compute-output-image');
-        if (outputImg && outputImg instanceof HTMLImageElement) {
-            e.preventDefault();
-            outputImg.classList.toggle('zoomed');
-            return;
-        }
+    // Click-to-zoom on inline compute output images (#243). Toggles a `.zoomed`
+    // class so the stylesheet flips between thumbnail and full-size views
+    // without a modal dialog. Not an image element → fall through to the next
+    // route (matches the original guard).
+    function handleOutputImageClick(outputImg: HTMLElement, e: MouseEvent): boolean {
+        if (!(outputImg instanceof HTMLImageElement)) return false;
+        e.preventDefault();
+        outputImg.classList.toggle('zoomed');
+        return true;
+    }
 
-        // Fence toolbar — collapse toggle + run button.
-        const fenceBtn = el.closest<HTMLElement>('[data-fence-action]');
-        if (fenceBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            const action = fenceBtn.getAttribute('data-fence-action');
-            const block = fenceBtn.closest<HTMLElement>('.fence-block');
-            const lineAttr = block?.getAttribute('data-fence-line');
-            const openingLine = lineAttr ? parseInt(lineAttr, 10) : NaN;
-            if (!block || Number.isNaN(openingLine)) return;
-            if (action === 'collapse') {
-                // Pure UI toggle — flip the class on the live DOM instead of
-                // forcing a markdown re-render. The collapsedFences set stays
-                // in sync so the next real re-render (e.g. after an edit)
-                // honors the current state.
-                if (collapsedFences.has(openingLine)) {
-                    collapsedFences.delete(openingLine);
-                    block.classList.remove('fence-collapsed');
-                } else {
-                    collapsedFences.add(openingLine);
-                    block.classList.add('fence-collapsed');
-                }
-                const tBtn = block.querySelector<HTMLElement>('.fence-collapse-btn');
-                if (tBtn) tBtn.textContent = collapsedFences.has(openingLine) ? '▸' : '▾';
-                return;
+    // Fence toolbar — collapse toggle + run button.
+    function handleFenceActionClick(fenceBtn: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        e.stopPropagation();
+        const action = fenceBtn.getAttribute('data-fence-action');
+        const block = fenceBtn.closest<HTMLElement>('.fence-block');
+        const lineAttr = block?.getAttribute('data-fence-line');
+        const openingLine = lineAttr ? parseInt(lineAttr, 10) : NaN;
+        if (!block || Number.isNaN(openingLine)) return true;
+        if (action === 'collapse') {
+            // Pure UI toggle — flip the class on the live DOM instead of
+            // forcing a markdown re-render. The collapsedFences set stays
+            // in sync so the next real re-render (e.g. after an edit)
+            // honors the current state.
+            if (collapsedFences.has(openingLine)) {
+                collapsedFences.delete(openingLine);
+                block.classList.remove('fence-collapsed');
+            } else {
+                collapsedFences.add(openingLine);
+                block.classList.add('fence-collapsed');
             }
-            if (action === 'run') {
-                void runFenceAt(openingLine);
-                return;
+            const tBtn = block.querySelector<HTMLElement>('.fence-collapse-btn');
+            if (tBtn) tBtn.textContent = collapsedFences.has(openingLine) ? '▸' : '▾';
+            return true;
+        }
+        if (action === 'run') {
+            void runFenceAt(openingLine);
+            return true;
+        }
+        if (action === 'refresh-vega') {
+            // Re-resolve a data-bound chart (#832): drop its rendered state and
+            // re-hydrate, which re-runs the query against the current graph.
+            const vegaBlock = block.querySelector<HTMLElement>('.vega-block');
+            if (vegaBlock) {
+                vegaBlock.removeAttribute('data-vega-rendered');
+                vegaBlock.innerHTML = '';
+                if (previewEl) void hydrateVegaBlocks(previewEl, content);
             }
-            if (action === 'refresh-vega') {
-                // Re-resolve a data-bound chart (#832): drop its rendered state and
-                // re-hydrate, which re-runs the query against the current graph.
-                const vegaBlock = block.querySelector<HTMLElement>('.vega-block');
-                if (vegaBlock) {
-                    vegaBlock.removeAttribute('data-vega-rendered');
-                    vegaBlock.innerHTML = '';
-                    if (previewEl) void hydrateVegaBlocks(previewEl, content);
-                }
-                return;
+            return true;
+        }
+        return true;
+    }
+
+    // YouTube poster card (#904) — open the video in the real browser rather
+    // than navigating the renderer. `data-youtube-url` is a normalized
+    // youtube.com watch URL; openExternal's main-process handler re-validates
+    // it's http(s) before handing off to the OS.
+    function handleYouTubeEmbedClick(ytEmbed: HTMLElement, e: MouseEvent): boolean {
+        e.preventDefault();
+        const url = ytEmbed.getAttribute('data-youtube-url');
+        if (url) void api.shell.openExternal(url);
+        return true;
+    }
+
+    // DOI link click — the doi-plugin auto-linker rendered this. The host
+    // decides between "open existing source" and "offer to ingest" based on
+    // whether the DOI matches a known source. (#473) Without an onDoiClick
+    // handler, leave the click alone (fall through to the next route).
+    function handleDoiAnchorClick(doiAnchor: HTMLElement, e: MouseEvent): boolean {
+        if (!onDoiClick) return false;
+        e.preventDefault();
+        const href = doiAnchor.getAttribute('href') ?? '';
+        const doi = href.replace(/^https:\/\/doi\.org\//, '');
+        if (doi) onDoiClick(doi);
+        return true;
+    }
+
+    // Internal anchor click (footnote ref ↔ body, heading anchor jumps,
+    // etc.). The browser's native handling would scroll instantly and
+    // also tack `#fn1` onto the URL hash — neither great for an
+    // Electron renderer where the URL is `file:` or `chrome-error:`.
+    // Intercept, smooth-scroll the matching id into view, no hash
+    // mutation.
+    function handleInternalAnchorClick(anchorEl: HTMLElement, e: MouseEvent): boolean {
+        const href = anchorEl.getAttribute('href') ?? '';
+        const id = href.slice(1);
+        if (id) {
+            const target = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                // Brief highlight so the user's eye locks onto the landing
+                // spot — especially useful for footnote bodies that may be
+                // visually adjacent to their neighbors.
+                target.classList.add('anchor-landing');
+                setTimeout(() => target.classList.remove('anchor-landing'), 1200);
             }
         }
-
-        // YouTube poster card (#904) — open the video in the real browser rather
-        // than navigating the renderer. `data-youtube-url` is a normalized
-        // youtube.com watch URL; openExternal's main-process handler re-validates
-        // it's http(s) before handing off to the OS.
-        const ytEmbed = el.closest<HTMLElement>('.youtube-embed');
-        if (ytEmbed) {
-            e.preventDefault();
-            const url = ytEmbed.getAttribute('data-youtube-url');
-            if (url) void api.shell.openExternal(url);
-            return;
-        }
-
-        // DOI link click — the doi-plugin auto-linker rendered this. The
-        // host decides between "open existing source" and "offer to
-        // ingest" based on whether the DOI matches a known source. (#473)
-        const doiAnchor = el.closest<HTMLAnchorElement>('a[href^="https://doi.org/"]');
-        if (doiAnchor && onDoiClick) {
-            e.preventDefault();
-            const href = doiAnchor.getAttribute('href') ?? '';
-            const doi = href.replace(/^https:\/\/doi\.org\//, '');
-            if (doi) onDoiClick(doi);
-            return;
-        }
-
-        // Internal anchor click (footnote ref ↔ body, heading anchor jumps,
-        // etc.). The browser's native handling would scroll instantly and
-        // also tack `#fn1` onto the URL hash — neither great for an
-        // Electron renderer where the URL is `file:` or `chrome-error:`.
-        // Intercept, smooth-scroll the matching id into view, no hash
-        // mutation.
-        const anchorEl = el.closest<HTMLAnchorElement>('a[href^="#"]');
-        if (anchorEl) {
-            const href = anchorEl.getAttribute('href') ?? '';
-            const id = href.slice(1);
-            if (id) {
-                const target = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
-                if (target) {
-                    e.preventDefault();
-                    target.scrollIntoView({behavior: 'smooth', block: 'center'});
-                    // Brief highlight so the user's eye locks onto the landing
-                    // spot — especially useful for footnote bodies that may be
-                    // visually adjacent to their neighbors.
-                    target.classList.add('anchor-landing');
-                    setTimeout(() => target.classList.remove('anchor-landing'), 1200);
-                }
-            }
-            return;
-        }
+        return true;
     }
 
     // ── Run-fence-from-preview handler ─────────────────────────────────────────
