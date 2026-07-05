@@ -7,6 +7,11 @@
     // Beyond `strict`: flag switch cases that fall through without an explicit
     // break/return/throw (#1007). Zero fallout at adoption time.
     "noFallthroughCasesInSwitch": true,
+    // Beyond `strict`: every indexed access (`arr[i]`, `map[key]`) is typed as
+    // possibly-`undefined`, turning a class of latent runtime bugs into compile
+    // errors (#1020). Access sites guard / default / assert-with-invariant as
+    // appropriate rather than assuming presence.
+    "noUncheckedIndexedAccess": true,
     // Incremental typecheck: cache results so a repeat `pnpm lint` only
     // re-checks what changed (#664). DX-only — CI always starts cold. The
     // buildinfo lives under node_modules/.cache (gitignored); tsconfig.eslint

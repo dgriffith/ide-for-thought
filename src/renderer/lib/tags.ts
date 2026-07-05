@@ -47,7 +47,7 @@ export function buildTagTree(tags: TagInfo[]): TagTreeNode[] {
     let cur = root;
     let acc = '';
     for (let i = 0; i < parts.length; i++) {
-      const seg = parts[i];
+      const seg = parts[i]!;
       acc = acc ? `${acc}/${seg}` : seg;
       let child = cur.children.find((c) => c.segment === seg);
       if (!child) {

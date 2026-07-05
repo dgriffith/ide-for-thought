@@ -62,7 +62,7 @@ export function installCallouts(md: MarkdownIt): void {
   const defaultBlockquoteClose = md.renderer.rules.blockquote_close;
 
   md.renderer.rules.blockquote_open = (tokens, idx, opts, env, self) => {
-    const tok = tokens[idx];
+    const tok = tokens[idx]!;
     const type = tok.attrGet('data-callout');
     if (type === null) {
       return defaultBlockquoteOpen
@@ -103,9 +103,9 @@ export function installCallouts(md: MarkdownIt): void {
 function calloutCoreRule(state: StateCore): void {
   const tokens = state.tokens;
   for (let i = 0; i < tokens.length; i++) {
-    if (tokens[i].type === 'blockquote_open') {
+    if (tokens[i]!.type === 'blockquote_open') {
       tryCalloutOnBlockquote(tokens, i);
-    } else if (tokens[i].type === 'paragraph_open') {
+    } else if (tokens[i]!.type === 'paragraph_open') {
       // Lenient extension to the standard syntax: a paragraph whose
       // first line is `[!type]` becomes a callout too. Obsidian and
       // GitHub require the leading `>`, but users in this repo write
@@ -119,26 +119,26 @@ function calloutCoreRule(state: StateCore): void {
 
 function tryCalloutOnBlockquote(tokens: Token[], i: number): void {
   const pIdx = i + 1;
-  if (pIdx >= tokens.length || tokens[pIdx].type !== 'paragraph_open') return;
+  if (pIdx >= tokens.length || tokens[pIdx]!.type !== 'paragraph_open') return;
   const inlineIdx = pIdx + 1;
-  if (inlineIdx >= tokens.length || tokens[inlineIdx].type !== 'inline') return;
-  const inline = tokens[inlineIdx];
+  if (inlineIdx >= tokens.length || tokens[inlineIdx]!.type !== 'inline') return;
+  const inline = tokens[inlineIdx]!;
   const m = inline.content.match(MARKER_RE);
   if (!m) return;
-  applyCalloutAttrs(tokens[i], m);
+  applyCalloutAttrs(tokens[i]!, m);
   stripMarkerFromParagraph(tokens, pIdx, m[0].length);
 }
 
 function tryCalloutOnBareParagraph(tokens: Token[], pIdx: number): void {
   const inlineIdx = pIdx + 1;
-  if (inlineIdx >= tokens.length || tokens[inlineIdx].type !== 'inline') return;
-  const inline = tokens[inlineIdx];
+  if (inlineIdx >= tokens.length || tokens[inlineIdx]!.type !== 'inline') return;
+  const inline = tokens[inlineIdx]!;
   const m = inline.content.match(MARKER_RE);
   if (!m) return;
   // Only fire on a top-level paragraph — nested-in-list/blockquote
   // paragraphs already get handled (or correctly ignored) by the
   // blockquote pass. The token stream's `level` field tracks nesting.
-  if (tokens[pIdx].level !== 0) return;
+  if (tokens[pIdx]!.level !== 0) return;
 
   // Bare callouts: rewrite `paragraph_open`/`paragraph_close` into
   // synthetic `blockquote_open`/`blockquote_close` so the existing
@@ -147,7 +147,7 @@ function tryCalloutOnBareParagraph(tokens: Token[], pIdx: number): void {
   const closeIdx = findMatchingParagraphClose(tokens, pIdx);
   if (closeIdx === -1) return;
 
-  const TokenCtor = tokens[pIdx].constructor as new (
+  const TokenCtor = tokens[pIdx]!.constructor as new (
     type: string, tag: string, nesting: -1 | 0 | 1,
   ) => Token;
   const open = new TokenCtor('blockquote_open', 'blockquote', 1);
@@ -175,7 +175,7 @@ function tryCalloutOnBareParagraph(tokens: Token[], pIdx: number): void {
 }
 
 function applyCalloutAttrs(blockquoteOpen: Token, m: RegExpMatchArray): void {
-  const type = m[1].toLowerCase();
+  const type = m[1]!.toLowerCase();
   const fold = m[2];
   let titleRaw = (m[3] ?? '').trim();
   // A flashcard's marker line carries a trailing `^id` block-id (#852); it's
@@ -183,7 +183,7 @@ function applyCalloutAttrs(blockquoteOpen: Token, m: RegExpMatchArray): void {
   // just the deck name, or the default "Card" when there's only an id.
   if (type === 'card') {
     const idMatch = TRAILING_ID_RE.exec(titleRaw);
-    if (idMatch) titleRaw = idMatch[1].trim();
+    if (idMatch) titleRaw = idMatch[1]!.trim();
   }
   const title = titleRaw.length > 0
     ? titleRaw
@@ -195,7 +195,7 @@ function applyCalloutAttrs(blockquoteOpen: Token, m: RegExpMatchArray): void {
 }
 
 function stripMarkerFromParagraph(tokens: Token[], pIdx: number, markerLen: number): void {
-  const inline = tokens[pIdx + 1];
+  const inline = tokens[pIdx + 1]!;
   const remainder = inline.content.slice(markerLen);
   if (remainder.trim().length === 0) {
     tokens.splice(pIdx, 3);
@@ -205,7 +205,7 @@ function stripMarkerFromParagraph(tokens: Token[], pIdx: number, markerLen: numb
 }
 
 function stripMarkerFromInline(tokens: Token[], inlineIdx: number, markerLen: number): void {
-  const inline = tokens[inlineIdx];
+  const inline = tokens[inlineIdx]!;
   inline.content = inline.content.slice(markerLen);
   // Don't touch inline.children — the core inline rule that runs next
   // will tokenize the new content and appends to children, so any
@@ -214,7 +214,7 @@ function stripMarkerFromInline(tokens: Token[], inlineIdx: number, markerLen: nu
 
 function findMatchingParagraphClose(tokens: Token[], openIdx: number): number {
   for (let i = openIdx + 1; i < tokens.length; i++) {
-    if (tokens[i].type === 'paragraph_close' && tokens[i].level === tokens[openIdx].level) {
+    if (tokens[i]!.type === 'paragraph_close' && tokens[i]!.level === tokens[openIdx]!.level) {
       return i;
     }
   }
@@ -230,7 +230,7 @@ function findMatchingParagraphClose(tokens: Token[], openIdx: number): number {
 function findMatchingBlockquoteOpen(tokens: Token[], closeIdx: number): Token | null {
   let depth = 0;
   for (let i = closeIdx; i >= 0; i--) {
-    const t = tokens[i];
+    const t = tokens[i]!;
     if (t.type === 'blockquote_close') depth++;
     else if (t.type === 'blockquote_open') {
       depth--;
@@ -241,7 +241,7 @@ function findMatchingBlockquoteOpen(tokens: Token[], closeIdx: number): Token | 
 }
 
 function capitalize(s: string): string {
-  return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+  return s.length === 0 ? s : s[0]!.toUpperCase() + s.slice(1);
 }
 
 function escapeHtml(s: string): string {

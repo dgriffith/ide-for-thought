@@ -44,12 +44,12 @@
     if (!filePath) return null;
     const parts = filePath.split('/').filter(Boolean);
     if (parts.length === 0) return null;
-    const leaf = parts[parts.length - 1].replace(/\.(md|ttl|csv|py)$/i, '');
+    const leaf = parts[parts.length - 1]!.replace(/\.(md|ttl|csv|py)$/i, '');
     const folders: Array<{ name: string; path: string }> = [];
     let acc = '';
     for (let i = 0; i < parts.length - 1; i++) {
-      acc = acc ? `${acc}/${parts[i]}` : parts[i];
-      folders.push({ name: parts[i], path: acc });
+      acc = acc ? `${acc}/${parts[i]}` : parts[i]!;
+      folders.push({ name: parts[i]!, path: acc });
     }
     return { folders, leaf };
   });

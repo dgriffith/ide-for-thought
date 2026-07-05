@@ -80,7 +80,7 @@ function privateFolderMatch(relativePath: string): string {
  */
 function extractFrontmatterRaw(content: string): string | null {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 /** Match `private: true` (any whitespace, case-insensitive on `true`). */
@@ -102,7 +102,7 @@ function hasPrivateTag(frontmatter: string): boolean {
   // a newline and pull in the first block-list item as a false positive.
   const tagsMatch = frontmatter.match(/^tags[ \t]*:[ \t]*(.*)$/im);
   if (!tagsMatch) return false;
-  const rest = tagsMatch[1].trim();
+  const rest = tagsMatch[1]!.trim();
   // Inline scalar or inline list.
   if (/^\[[^\]]*\]$/.test(rest) || /^[^\s[]/.test(rest)) {
     return /(^|[[,\s])private([,\s\]]|$)/.test(rest);
@@ -112,7 +112,7 @@ function hasPrivateTag(frontmatter: string): boolean {
   const tagsIdx = lines.findIndex((l) => /^tags\s*:/i.test(l));
   if (tagsIdx < 0) return false;
   for (let i = tagsIdx + 1; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
     if (/^\s*-\s*private\s*$/i.test(line)) return true;
     if (/^\S/.test(line)) break; // next top-level key
   }

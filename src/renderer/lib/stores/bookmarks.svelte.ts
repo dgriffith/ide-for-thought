@@ -184,12 +184,13 @@ function findFolder(nodes: BookmarkNode[], id: string): BookmarkFolder | null {
 
 function removeFromTree(nodes: BookmarkNode[], id: string): boolean {
   for (let i = 0; i < nodes.length; i++) {
-    if (nodes[i].id === id) {
+    const node = nodes[i]!;
+    if (node.id === id) {
       nodes.splice(i, 1);
       return true;
     }
-    if (nodes[i].type === 'folder') {
-      if (removeFromTree((nodes[i] as BookmarkFolder).children, id)) return true;
+    if (node.type === 'folder') {
+      if (removeFromTree(node.children, id)) return true;
     }
   }
   return false;

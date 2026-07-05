@@ -111,7 +111,7 @@
   function onKeydown(e: KeyboardEvent): void {
     if (e.key === 'Enter' && cy) {
       const sel = cy.$('node:selected');
-      if (sel.length > 0) { e.preventDefault(); activate(sel[0]); }
+      if (sel.length > 0) { e.preventDefault(); activate(sel[0]!); }
     }
   }
 </script>

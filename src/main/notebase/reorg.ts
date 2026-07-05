@@ -84,8 +84,8 @@ export function orderRefactors<T extends { fromPath: string; toPath: string }>(
     for (let y = 0; y < n; y++) {
       if (x === y) continue;
       // Y must precede X when Y vacates the path X wants to fill.
-      if (pairs[x].toPath === pairs[y].fromPath) {
-        edges[y].push(x);
+      if (pairs[x]!.toPath === pairs[y]!.fromPath) {
+        edges[y]!.push(x);
         indegree[x]++;
       }
     }
@@ -96,8 +96,8 @@ export function orderRefactors<T extends { fromPath: string; toPath: string }>(
   const ordered: T[] = [];
   while (queue.length > 0) {
     const i = queue.shift()!;
-    ordered.push(pairs[i]);
-    for (const j of edges[i]) {
+    ordered.push(pairs[i]!);
+    for (const j of edges[i]!) {
       if (--indegree[j] === 0) queue.push(j);
     }
   }

@@ -69,18 +69,19 @@ function rewriteWords(
   const tokens = text.split(/(\s+)/);
   const wordPositions: number[] = [];
   for (let i = 0; i < tokens.length; i++) {
-    if (!/^\s*$/.test(tokens[i]) && tokens[i].length > 0) wordPositions.push(i);
+    const tok = tokens[i]!;
+    if (!/^\s*$/.test(tok) && tok.length > 0) wordPositions.push(i);
   }
   const total = wordPositions.length;
   wordPositions.forEach((pos, idx) => {
-    tokens[pos] = rewriter(tokens[pos], idx, total);
+    tokens[pos] = rewriter(tokens[pos]!, idx, total);
   });
   return tokens.join('');
 }
 
 function capitalizeFirst(word: string): string {
   if (word.length === 0) return word;
-  return word[0].toUpperCase() + word.slice(1).toLowerCase();
+  return word[0]!.toUpperCase() + word.slice(1).toLowerCase();
 }
 
 function buildNounMap(nouns: string[]): Map<string, string> {

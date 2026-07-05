@@ -16,12 +16,12 @@ export function redistributeSizes(
 ): number[] {
   if (index < 0 || index + 1 >= sizes.length) return sizes;
   const next = [...sizes];
-  const pair = next[index] + next[index + 1];
+  const pair = next[index]! + next[index + 1]!;
   // The growing side can range over [min, pair - min] so neither falls below
   // the minimum. If the pair is too small to honor both minimums, the upper
   // bound wins (Math.min first), keeping behavior deterministic.
   const upper = Math.max(minFraction, pair - minFraction);
-  const a = Math.min(upper, Math.max(minFraction, next[index] + deltaFraction));
+  const a = Math.min(upper, Math.max(minFraction, next[index]! + deltaFraction));
   next[index] = a;
   next[index + 1] = pair - a;
   return next;

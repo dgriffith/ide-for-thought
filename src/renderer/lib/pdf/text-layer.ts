@@ -58,8 +58,9 @@ export function zoomOutScale(scale: number): number {
  * Returns the span's top-left corner + font size.
  */
 export function itemPosition(item: { transform: number[] }, viewport: ViewportLike): ItemBox {
-  const t = item.transform;
-  const v = viewport.transform;
+  // Both are 6-element affine matrices (pdfjs invariant).
+  const t = item.transform as [number, number, number, number, number, number];
+  const v = viewport.transform as [number, number, number, number, number, number];
   const a = v[0] * t[0] + v[2] * t[1];
   const b = v[1] * t[0] + v[3] * t[1];
   const e = v[0] * t[4] + v[2] * t[5] + v[4];
@@ -150,11 +151,11 @@ export function findExcerptRects(
 
     const itemSet = new Set<number>();
     for (let i = start; i < end && i < charToItem.length; i++) {
-      itemSet.add(charToItem[i]);
+      itemSet.add(charToItem[i]!);
     }
     for (const idx of itemSet) {
       const it = items[idx];
-      if (typeof it.str !== 'string') continue;
+      if (!it || typeof it.str !== 'string') continue;
       const { left, top, fontSize } = itemPosition(it, viewport);
       rects.push({
         excerptId: e.excerptId,

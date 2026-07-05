@@ -45,12 +45,12 @@ export function buildHeadingElements(headings: Heading[], rootLabel: string): He
   const edges: GraphEdge[] = [];
 
   for (let i = 0; i < headings.length; i++) {
-    const h = headings[i];
+    const h = headings[i]!;
     nodes.push({ data: { id: headingId(i), label: h.text, line: h.line, level: h.level } });
 
     let parent = ROOT_ID;
     for (let j = i - 1; j >= 0; j--) {
-      if (headings[j].level < h.level) { parent = headingId(j); break; }
+      if (headings[j]!.level < h.level) { parent = headingId(j); break; }
     }
     edges.push({ data: { id: `e${i}`, source: parent, target: headingId(i) } });
   }

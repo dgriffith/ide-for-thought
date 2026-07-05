@@ -8,7 +8,7 @@ export function isAllLower(s: string): boolean { return s === s.toLowerCase() &&
 export function isAllUpper(s: string): boolean { return s === s.toUpperCase() && s !== s.toLowerCase(); }
 
 export function toTitleCase(s: string): string {
-  return s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+  return s.replace(/\S+/g, (w) => w[0]!.toUpperCase() + w.slice(1).toLowerCase());
 }
 
 export const toggleCase: Command = (view: EditorView) => {
@@ -25,8 +25,8 @@ export const toggleCase: Command = (view: EditorView) => {
       const text = line.text;
       const col = from - line.from;
       let wStart = col, wEnd = col;
-      while (wStart > 0 && /\w/.test(text[wStart - 1])) wStart--;
-      while (wEnd < text.length && /\w/.test(text[wEnd])) wEnd++;
+      while (wStart > 0 && /\w/.test(text[wStart - 1]!)) wStart--;
+      while (wEnd < text.length && /\w/.test(text[wEnd]!)) wEnd++;
       if (wStart === wEnd) continue;
       from = line.from + wStart;
       to = line.from + wEnd;
@@ -176,8 +176,8 @@ export function findEnclosingPair(doc: Text, from: number, to: number): { from: 
     const right = to + dist - 1;
     if (left < 0 || right >= text.length) continue;
 
-    const lChar = text[left];
-    const rChar = text[right];
+    const lChar = text[left]!;
+    const rChar = text[right]!;
     if (PAIRS[lChar] === rChar) {
       return { from: left, to: right + 1 };
     }
@@ -218,8 +218,8 @@ export function findWord(doc: Text, pos: number): { from: number; to: number } |
   const text = line.text;
   const col = pos - line.from;
   let wStart = col, wEnd = col;
-  while (wStart > 0 && /\w/.test(text[wStart - 1])) wStart--;
-  while (wEnd < text.length && /\w/.test(text[wEnd])) wEnd++;
+  while (wStart > 0 && /\w/.test(text[wStart - 1]!)) wStart--;
+  while (wEnd < text.length && /\w/.test(text[wEnd]!)) wEnd++;
   if (wStart === wEnd) return null;
   return { from: line.from + wStart, to: line.from + wEnd };
 }
@@ -239,10 +239,10 @@ export function findSentence(doc: Text, from: number, to: number): { from: numbe
   // Find start: scan backward for sentence boundary
   let sStart = from;
   for (let i = from - 1; i >= 0; i--) {
-    if (/[.!?]/.test(text[i]) && (i + 1 >= text.length || /\s/.test(text[i + 1]))) {
+    if (/[.!?]/.test(text[i]!) && (i + 1 >= text.length || /\s/.test(text[i + 1]!))) {
       sStart = i + 1;
       // Skip whitespace after the punctuation
-      while (sStart < from && /\s/.test(text[sStart])) sStart++;
+      while (sStart < from && /\s/.test(text[sStart]!)) sStart++;
       break;
     }
     if (i === 0) sStart = 0;
@@ -298,7 +298,7 @@ export function findHeadingSection(doc: Text, from: number, to: number): { from:
     const match = line.text.match(/^(#{1,6})\s/);
     if (match) {
       headingLine = n;
-      headingLevel = match[1].length;
+      headingLevel = match[1]!.length;
       break;
     }
   }
@@ -311,7 +311,7 @@ export function findHeadingSection(doc: Text, from: number, to: number): { from:
   for (let n = headingLine + 1; n <= doc.lines; n++) {
     const line = doc.line(n);
     const match = line.text.match(/^(#{1,6})\s/);
-    if (match && match[1].length <= headingLevel) {
+    if (match && match[1]!.length <= headingLevel) {
       sectionEnd = doc.line(n - 1).to;
       break;
     }

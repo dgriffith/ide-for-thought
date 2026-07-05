@@ -136,8 +136,8 @@ export function citationMetaHandler(doc: DocLike, _url: URL): StructuredExtracti
   // we got instead of one meta tag per author.
   const resolvedCreators = creators.length > 1
     ? creators
-    : creators.length === 1 && creators[0].includes(';')
-      ? creators[0].split(';').map((c) => c.trim()).filter(Boolean)
+    : creators.length === 1 && creators[0]!.includes(';')
+      ? creators[0]!.split(';').map((c) => c.trim()).filter(Boolean)
       : creators;
 
   const subtype: ArticleMetadata['subtype'] | undefined =
@@ -229,7 +229,7 @@ function elementTexts(doc: DocLike, selector: string): string[] {
   const nodes = doc.querySelectorAll(selector);
   const out: string[] = [];
   for (let i = 0; i < nodes.length; i++) {
-    const t = nodes[i].textContent;
+    const t = nodes[i]!.textContent;
     if (t && t.trim()) out.push(t.trim());
   }
   return out;
@@ -268,13 +268,13 @@ function metaContentsAll(doc: DocLike, name: string): string[] {
   const out: string[] = [];
   const nodes = doc.querySelectorAll(`meta[name="${name}"]`);
   for (let i = 0; i < nodes.length; i++) {
-    const v = nodes[i].getAttribute('content');
+    const v = nodes[i]!.getAttribute('content');
     if (v && v.trim()) out.push(v.trim());
   }
   if (out.length === 0) {
     const propNodes = doc.querySelectorAll(`meta[property="${name}"]`);
     for (let i = 0; i < propNodes.length; i++) {
-      const v = propNodes[i].getAttribute('content');
+      const v = propNodes[i]!.getAttribute('content');
       if (v && v.trim()) out.push(v.trim());
     }
   }
@@ -290,12 +290,12 @@ export function normalizeCitationDate(raw: string | null): string | null {
   const slash = trimmed.match(/^(\d{4})\/(\d{1,2})(?:\/(\d{1,2}))?$/);
   if (slash) {
     const [, y, m, d] = slash;
-    if (d) return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    return `${y}-${m.padStart(2, '0')}`;
+    if (d) return `${y}-${m!.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    return `${y}-${m!.padStart(2, '0')}`;
   }
   // Last resort: pull the first 4-digit run.
   const year = trimmed.match(/(\d{4})/);
-  return year ? year[1] : null;
+  return year ? year[1]! : null;
 }
 
 function normalizeDoi(raw: string | null): string | null {

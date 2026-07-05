@@ -90,12 +90,13 @@ export function detectSparqlPhase(
 
   // Prefixed name: <prefix>:<local> where prefix is known.
   const pnM = /([A-Za-z_][\w-]*):([A-Za-z_][\w-]*)?$/.exec(before);
-  if (pnM && knownPrefixes.has(pnM[1])) {
+  if (pnM && knownPrefixes.has(pnM[1]!)) {
     const local = pnM[2] ?? '';
+    const pfx = pnM[1]!;
     return {
       kind: 'prefixed',
-      from: pos - local.length - 1 - pnM[1].length, // back to start of prefix
-      prefix: pnM[1],
+      from: pos - local.length - 1 - pfx.length, // back to start of prefix
+      prefix: pfx,
       local,
       localFrom: pos - local.length,
     };
@@ -105,7 +106,7 @@ export function detectSparqlPhase(
   // `minerv` should complete `minerva:`.
   const wordM = /([A-Za-z_][\w-]*)$/.exec(before);
   if (wordM) {
-    return { kind: 'general', from: pos - wordM[1].length, prefix: wordM[1] };
+    return { kind: 'general', from: pos - wordM[1]!.length, prefix: wordM[1]! };
   }
 
   // Explicit Ctrl+Space on whitespace / punctuation.
@@ -123,7 +124,7 @@ export function extractQueryVariables(text: string): string[] {
   const out = new Set<string>();
   const re = /[?$]([A-Za-z_]\w*)/g;
   let m;
-  while ((m = re.exec(text)) !== null) out.add(m[1]);
+  while ((m = re.exec(text)) !== null) out.add(m[1]!);
   return [...out].sort();
 }
 
@@ -138,9 +139,9 @@ export function extractUserPrefixes(text: string): Array<{ prefix: string; iri: 
   const re = /PREFIX\s+([A-Za-z_][\w-]*):\s*<([^>]*)>/gi;
   let m;
   while ((m = re.exec(text)) !== null) {
-    if (!seen.has(m[1])) {
-      seen.add(m[1]);
-      out.push({ prefix: m[1], iri: m[2] });
+    if (!seen.has(m[1]!)) {
+      seen.add(m[1]!);
+      out.push({ prefix: m[1]!, iri: m[2]! });
     }
   }
   return out;

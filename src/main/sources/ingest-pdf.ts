@@ -296,7 +296,7 @@ export function buildBodyMarkdown(title: string, pages: string[]): string {
     // Trim trailing whitespace per page but preserve internal layout —
     // pdfjs text extraction is already the best we can do without the
     // position info. Users clean up post-ingest if they want prose.
-    parts.push(pages[i].trimEnd());
+    parts.push(pages[i]!.trimEnd());
     parts.push('');
   }
   return parts.join('\n');

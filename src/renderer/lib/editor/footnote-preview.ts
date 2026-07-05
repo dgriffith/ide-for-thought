@@ -39,7 +39,7 @@ export function footnotePreview(): Extension {
       const start = m.index;
       const end = m.index + m[0].length;
       if (col >= start && col <= end) {
-        hit = { start, end, label: m[1] };
+        hit = { start, end, label: m[1]! };
         break;
       }
     }

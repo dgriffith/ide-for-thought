@@ -295,7 +295,7 @@ function parseHeader(relativePath: string, content: string): {
   // Fall back to the first H1, then the filename stem.
   const bodyAfterFm = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
   const h1 = bodyAfterFm.match(/^\s*#\s+(.+?)\s*$/m);
-  if (h1) return { frontmatter: fm, title: h1[1] };
+  if (h1) return { frontmatter: fm, title: h1[1]! };
   const stem = (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/i, '');
   return { frontmatter: fm, title: stem };
 }
@@ -304,7 +304,7 @@ function extractFrontmatter(content: string): Record<string, unknown> {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
   try {
-    const parsed: unknown = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]!);
     return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   } catch {
     return {};

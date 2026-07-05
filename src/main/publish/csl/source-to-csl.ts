@@ -91,7 +91,7 @@ function mapType(typeLocal: string | null): string {
 
 function extractTypeIri(ttl: string): string | null {
   const m = ttl.match(/this:\s*a\s+thought:(\w+)\s*[;.]/);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 // ── Field extractors ───────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ export function extractLiteral(ttl: string, predicate: string): string | null {
   const re = new RegExp(`${escapeRegex(predicate)}\\s+"((?:[^"\\\\]|\\\\.)*)"`);
   const m = ttl.match(re);
   if (!m) return null;
-  const unescaped = m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  const unescaped = m[1]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
   return unescaped.trim() || null;
 }
 
@@ -114,7 +114,7 @@ function extractAllLiterals(ttl: string, predicate: string): string[] {
   const out: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(ttl)) !== null) {
-    const unescaped = m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    const unescaped = m[1]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     if (unescaped.trim()) out.push(unescaped.trim());
   }
   return out;
@@ -123,7 +123,7 @@ function extractAllLiterals(ttl: string, predicate: string): string[] {
 function extractIri(ttl: string, predicate: string): string | null {
   const re = new RegExp(`${escapeRegex(predicate)}\\s+<([^>]+)>`);
   const m = ttl.match(re);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 function escapeRegex(s: string): string {
@@ -152,13 +152,13 @@ export function parseAuthorName(raw: string): CslName {
   let suffix: string | undefined;
   let body = trimmed;
   const suffixMatch = body.match(/^(.*?),\s*([A-Z][a-zA-Z.]{0,3})$/);
-  if (suffixMatch && SUFFIXES.has(suffixMatch[2])) {
-    body = suffixMatch[1].trim();
+  if (suffixMatch && SUFFIXES.has(suffixMatch[2]!)) {
+    body = suffixMatch[1]!.trim();
     suffix = suffixMatch[2];
   } else {
     const trailingSuffix = body.match(/^(.*?)\s+(Jr\.|Sr\.|III|II|IV|V)$/);
-    if (trailingSuffix && SUFFIXES.has(trailingSuffix[2])) {
-      body = trailingSuffix[1].trim();
+    if (trailingSuffix && SUFFIXES.has(trailingSuffix[2]!)) {
+      body = trailingSuffix[1]!.trim();
       suffix = trailingSuffix[2];
     }
   }
@@ -201,7 +201,7 @@ export function parseIssuedDate(raw: string): { 'date-parts': number[][] } | und
   const t = raw.trim();
   const m = t.match(/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/);
   if (!m) return undefined;
-  const y = parseInt(m[1], 10);
+  const y = parseInt(m[1]!, 10);
   const mo = m[2] ? parseInt(m[2], 10) : undefined;
   const d = m[3] ? parseInt(m[3], 10) : undefined;
   const parts: number[] = [y];
@@ -230,7 +230,7 @@ export interface ExcerptInfo {
 export function excerptTtlToInfo(ttl: string, id: string): ExcerptInfo | null {
   const sourceMatch = ttl.match(/thought:fromSource\s+sources:([\w\-.]+)/);
   if (!sourceMatch) return null;
-  const sourceId = sourceMatch[1];
+  const sourceId = sourceMatch[1]!;
   const pageLit = ttl.match(/thought:page\s+(\d+)/);
   const rangeLit = extractLiteral(ttl, 'thought:pageRange');
   const locator = rangeLit ?? (pageLit ? pageLit[1] : undefined);

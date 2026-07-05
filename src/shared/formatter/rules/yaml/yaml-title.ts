@@ -59,7 +59,7 @@ function applyYamlToHeading(
   const m = block.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!m) return content;
   let parsed: unknown;
-  try { parsed = YAML.parse(m[1]); } catch { return content; }
+  try { parsed = YAML.parse(m[1]!); } catch { return content; }
   if (!parsed || typeof parsed !== 'object') return content;
   const titleRaw = (parsed as Record<string, unknown>).title;
   if (typeof titleRaw !== 'string' || titleRaw.length === 0) return content;
@@ -87,7 +87,7 @@ function findFirstH1(content: string, cache: ParseCache): FoundH1 | null {
     const lineEnd = newlineIdx === -1 ? content.length : newlineIdx;
     const line = content.slice(lineStart, lineEnd);
     const m = line.match(H1_RE);
-    if (m) return { text: m[1].trim(), lineStart, lineEnd };
+    if (m) return { text: m[1]!.trim(), lineStart, lineEnd };
     if (newlineIdx === -1) break;
     lineStart = newlineIdx + 1;
   }

@@ -353,7 +353,7 @@
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        selectSlash(slashItems[slashIndex]);
+        selectSlash(slashItems[slashIndex]!);
         return;
       }
       if (e.key === 'Escape') {
@@ -416,7 +416,7 @@
     try {
       const { filedPaths } = await store.approveDraft(tabId, draft);
       // Open the first filed note so the user lands on what they just approved.
-      if (filedPaths.length > 0) void editor.openFile(filedPaths[0]);
+      if (filedPaths.length > 0) void editor.openFile(filedPaths[0]!);
     } catch (e) {
       console.error('[conv-panel] approve failed:', e);
     }
@@ -446,7 +446,7 @@
     try {
       await store.approveReorgDraft(tabId, draft, selected);
       // Land on the first moved note at its new path.
-      if (selected.length > 0) void editor.openFile(selected[0].toPath);
+      if (selected.length > 0) void editor.openFile(selected[0]!.toPath);
     } catch (e) {
       console.error('[conv-panel] approve reorg failed:', e);
     }

@@ -339,7 +339,7 @@ async function init(): Promise<void> {
     if (ui.activeTabId && tabs.some((t) => t.id === ui.activeTabId)) {
       activeTabId = ui.activeTabId;
     } else if (tabs.length > 0) {
-      activeTabId = tabs[0].id;
+      activeTabId = tabs[0]!.id;
     } else {
       activeTabId = null;
     }

@@ -117,7 +117,7 @@ export async function importZoteroRdfContent(
   };
 
   for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+    const item = items[i]!;
     let titleForProgress = item.value;
     try {
       const { metadata, attachmentRelPath } = extractItem(store, item);
@@ -322,7 +322,7 @@ function orderedContainerMembers(store: IndexedFormula, container: NamedNode): N
     const m = st.predicate.value.match(/_(\d+)$/);
     if (!m) continue;
     if (st.object.termType !== 'NamedNode' && st.object.termType !== 'BlankNode') continue;
-    entries.push({ n: parseInt(m[1], 10), node: st.object as NamedNode });
+    entries.push({ n: parseInt(m[1]!, 10), node: st.object as NamedNode });
   }
   entries.sort((a, b) => a.n - b.n);
   return entries.map((e) => e.node);
@@ -373,10 +373,10 @@ export function extractIdentifiers(identifiers: string[]): {
     let m: RegExpMatchArray | null;
     // Order matters: doi.org URLs masquerade as plain http URLs, so they
     // get the DOI lane before the general URL lane picks them up.
-    if ((m = s.match(/^\s*DOI[\s:]+(.+)$/i))) doi = normalizeDoiLiteral(m[1]);
+    if ((m = s.match(/^\s*DOI[\s:]+(.+)$/i))) doi = normalizeDoiLiteral(m[1]!);
     else if (/^https?:\/\/(?:dx\.)?doi\.org\//i.test(s)) doi = normalizeDoiLiteral(s);
-    else if ((m = s.match(/^\s*ISBN[\s:]+(.+)$/i))) isbn = m[1].replace(/[\s-]/g, '');
-    else if ((m = s.match(/^\s*ISSN[\s:]+(.+)$/i))) issn = m[1].replace(/\s/g, '');
+    else if ((m = s.match(/^\s*ISBN[\s:]+(.+)$/i))) isbn = m[1]!.replace(/[\s-]/g, '');
+    else if ((m = s.match(/^\s*ISSN[\s:]+(.+)$/i))) issn = m[1]!.replace(/\s/g, '');
     else if (/^https?:\/\//i.test(s)) url = s;
     else if (/^10\.\d+\//.test(s)) doi = normalizeDoiLiteral(s);
   }
@@ -398,7 +398,7 @@ export function normalizeIssuedDate(raw: string | null): string | null {
   if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(trimmed)) return trimmed;
   // Zotero often stores "October 15, 2024" or "2024-10-15".
   const m = trimmed.match(/(\d{4})/);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 // ── Attachments ─────────────────────────────────────────────────────────────

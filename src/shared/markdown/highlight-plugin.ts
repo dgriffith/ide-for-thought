@@ -89,7 +89,7 @@ export function scanHighlights(text: string, offset = 0): HighlightMatch[] {
     const content = text.slice(i + 2, closing);
     const colorMatch = COLOR_PREFIX_RE.exec(content);
     let color: HighlightColor | null = null;
-    if (colorMatch && PALETTE_SET.has(colorMatch[1])) {
+    if (colorMatch && PALETTE_SET.has(colorMatch[1]!)) {
       // Match the plugin's "color prefix with empty body" guard
       // (`==yellow:==` falls back to uncolored).
       if (colorMatch[0].length < content.length) {
@@ -153,7 +153,7 @@ function highlightInline(state: StateInline, silent: boolean): boolean {
   const colorMatch = COLOR_PREFIX_RE.exec(content);
   let color: HighlightColor | null = null;
   let innerStart = bodyStart;
-  if (colorMatch && PALETTE_SET.has(colorMatch[1])) {
+  if (colorMatch && PALETTE_SET.has(colorMatch[1]!)) {
     color = colorMatch[1] as HighlightColor;
     innerStart = bodyStart + colorMatch[0].length;
   }

@@ -116,7 +116,7 @@ async function sha256Prefix(bytes: Uint8Array): Promise<string> {
   const view = new Uint8Array(hash);
   let hex = '';
   for (let i = 0; i < 6; i++) {
-    hex += view[i].toString(16).padStart(2, '0');
+    hex += view[i]!.toString(16).padStart(2, '0');
   }
   return hex;
 }
@@ -142,7 +142,7 @@ function sanitiseStem(filename: string): string {
 function extensionFor(mime: string, filename: string | undefined): string {
   if (filename) {
     const m = filename.match(/\.([a-zA-Z0-9]+)$/);
-    if (m) return m[1].toLowerCase();
+    if (m) return m[1]!.toLowerCase();
   }
   switch (mime) {
     case 'image/png': return 'png';

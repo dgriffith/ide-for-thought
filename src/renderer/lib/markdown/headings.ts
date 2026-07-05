@@ -27,9 +27,9 @@ export function extractHeadings(text: string): Heading[] {
   const out: Heading[] = [];
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(/^(#{1,6})\s+(.+)$/);
+    const match = lines[i]!.match(/^(#{1,6})\s+(.+)$/);
     if (match) {
-      out.push({ level: match[1].length, text: match[2].trim(), line: i + 1 });
+      out.push({ level: match[1]!.length, text: match[2]!.trim(), line: i + 1 });
     }
   }
   return out;
@@ -51,7 +51,7 @@ export function activeHeadingChain(headings: readonly Heading[], cursorLine: num
   // Walk forward to find the latest heading at-or-before the cursor.
   let activeIdx = -1;
   for (let i = 0; i < headings.length; i++) {
-    if (headings[i].line <= cursorLine) activeIdx = i;
+    if (headings[i]!.line <= cursorLine) activeIdx = i;
     else break;
   }
   if (activeIdx < 0) return [];
@@ -59,12 +59,12 @@ export function activeHeadingChain(headings: readonly Heading[], cursorLine: num
   // Walk backward from `activeIdx` collecting headings whose level is
   // strictly shallower than the previous one — that's the ancestor
   // chain. The active heading itself is the leaf of the chain.
-  const chain: Heading[] = [headings[activeIdx]];
-  let needLevel = headings[activeIdx].level;
+  const chain: Heading[] = [headings[activeIdx]!];
+  let needLevel = headings[activeIdx]!.level;
   for (let i = activeIdx - 1; i >= 0 && needLevel > 1; i--) {
-    if (headings[i].level < needLevel) {
-      chain.unshift(headings[i]);
-      needLevel = headings[i].level;
+    if (headings[i]!.level < needLevel) {
+      chain.unshift(headings[i]!);
+      needLevel = headings[i]!.level;
     }
   }
   return chain;

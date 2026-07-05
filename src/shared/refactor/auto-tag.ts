@@ -105,7 +105,7 @@ export function extractTagsFromContent(content: string): string[] {
   const match = content.match(FRONTMATTER_RE);
   if (!match) return [];
   let parsed: unknown;
-  try { parsed = YAML.parse(match[1]); } catch { return []; }
+  try { parsed = YAML.parse(match[1]!); } catch { return []; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
   const fm = parsed as Record<string, unknown>;
   if (!Array.isArray(fm.tags)) return [];
@@ -129,7 +129,7 @@ export function removeTagsFromContent(content: string, tagsToRemove: string[]): 
   const match = content.match(FRONTMATTER_RE);
   if (!match) return { content, removedTags: [] };
   let parsed: unknown;
-  try { parsed = YAML.parse(match[1]); } catch { return { content, removedTags: [] }; }
+  try { parsed = YAML.parse(match[1]!); } catch { return { content, removedTags: [] }; }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { content, removedTags: [] };
   }
@@ -175,7 +175,7 @@ export function mergeTagsIntoContent(content: string, newTags: string[]): MergeR
   let fm: Record<string, unknown> = {};
   if (match) {
     try {
-      const parsed: unknown = YAML.parse(match[1]);
+      const parsed: unknown = YAML.parse(match[1]!);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         fm = parsed as Record<string, unknown>;
       }

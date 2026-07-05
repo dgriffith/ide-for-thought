@@ -135,6 +135,6 @@ function extractTagsFromTtl(ttl: string): string[] {
   const out: string[] = [];
   const re = /thought:hasTag\s+"([^"]+)"/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(ttl)) !== null) out.push(m[1].trim());
+  while ((m = re.exec(ttl)) !== null) out.push(m[1]!.trim());
   return out;
 }

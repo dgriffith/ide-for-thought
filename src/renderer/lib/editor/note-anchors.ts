@@ -37,18 +37,18 @@ export function extractAnchors(content: string): NoteAnchors {
 
     const h = line.match(HEADING_LINE_RE);
     if (h) {
-      const text = h[2].trim();
+      const text = h[2]!.trim();
       const slug = slugify(text);
       if (slug && !seenSlugs.has(slug)) {
         seenSlugs.add(slug);
-        headings.push({ slug, text, level: h[1].length });
+        headings.push({ slug, text, level: h[1]!.length });
       }
       continue;
     }
 
     const b = line.match(BLOCK_ID_LINE_RE);
     if (b) {
-      const id = b[1];
+      const id = b[1]!;
       if (!seenBlocks.has(id)) {
         seenBlocks.add(id);
         blockIds.push(id);

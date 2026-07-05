@@ -85,12 +85,12 @@ function scanLinks(text: string, offset: number): LinkRange[] {
     // Positions of the URL inside the match: after `](`
     const urlOpenIdx = m[0].indexOf('](') + 2;
     const urlStart = matchFrom + urlOpenIdx;
-    const urlEnd = urlStart + m[2].length;
+    const urlEnd = urlStart + m[2]!.length;
     ranges.push({
       from: matchFrom,
       to: matchTo,
       kind: 'markdown',
-      href: m[2],
+      href: m[2]!,
       linkType: null,
       editFrom: urlStart,
       editTo: urlEnd,
@@ -100,7 +100,7 @@ function scanLinks(text: string, offset: number): LinkRange[] {
   for (const m of text.matchAll(WIKI_RE)) {
     const matchFrom = offset + (m.index ?? 0);
     const matchTo = matchFrom + m[0].length;
-    const inner = m[1];
+    const inner = m[1]!;
     const parsed = parseWikiInner(inner);
     ranges.push({
       from: matchFrom,

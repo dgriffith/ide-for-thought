@@ -16,12 +16,12 @@ registerRule({
       const out: string[] = [];
       let i = 0;
       while (i < lines.length) {
-        const cur = lines[i];
+        const cur = lines[i]!;
         if (isListItemLine(cur)) {
           out.push(cur);
           let j = i + 1;
-          while (j < lines.length && isBlankLine(lines[j])) j++;
-          if (j > i + 1 && j < lines.length && isListItemLine(lines[j])) {
+          while (j < lines.length && isBlankLine(lines[j]!)) j++;
+          if (j > i + 1 && j < lines.length && isListItemLine(lines[j]!)) {
             // Skip the blanks; jump straight to the next list-item line.
             i = j;
             continue;

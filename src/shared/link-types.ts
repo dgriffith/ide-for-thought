@@ -106,7 +106,7 @@ export const LINK_TYPES: LinkType[] = [
 
 /** Look up a link type by syntax name. Falls back to 'references'. */
 export function getLinkType(name: string): LinkType {
-  return LINK_TYPES.find((t) => t.name === name) ?? LINK_TYPES[0];
+  return LINK_TYPES.find((t) => t.name === name) ?? LINK_TYPES[0]!;
 }
 
 /** Map from syntax name to LinkType for fast lookup */

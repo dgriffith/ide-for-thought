@@ -26,8 +26,8 @@ export function parseWikiInner(inner: string): ParsedWikiLink {
   const display = pipeIdx >= 0 ? inner.slice(pipeIdx + 1) : null;
 
   const typeMatch = head.match(/^([a-z][\w-]*)::(.*)$/);
-  const type = typeMatch ? typeMatch[1] : null;
-  const rest = typeMatch ? typeMatch[2] : head;
+  const type = typeMatch ? typeMatch[1]! : null;
+  const rest = typeMatch ? typeMatch[2]! : head;
 
   const hashIdx = rest.indexOf('#');
   const target = hashIdx >= 0 ? rest.slice(0, hashIdx) : rest;

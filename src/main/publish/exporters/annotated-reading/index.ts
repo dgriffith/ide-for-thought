@@ -69,7 +69,7 @@ export const annotatedReadingExporter: Exporter = {
  */
 function sourceIdFromPath(relativePath: string): string | null {
   const m = relativePath.match(/^\.minerva\/sources\/([^/]+)\/body\.md$/);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 /**
@@ -117,11 +117,11 @@ function titleFromContent(content: string, fallbackName: string): string {
   // Frontmatter title wins; first H1 fallback; else filename stem.
   const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (fm) {
-    const t = fm[1].match(/^title:\s*(.+)$/m);
-    if (t) return t[1].trim().replace(/^['"]|['"]$/g, '');
+    const t = fm[1]!.match(/^title:\s*(.+)$/m);
+    if (t) return t[1]!.trim().replace(/^['"]|['"]$/g, '');
   }
   const h1 = content.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '').match(/^#\s+(.+?)\s*$/m);
-  if (h1) return h1[1];
+  if (h1) return h1[1]!;
   return fallbackName.replace(/\.md$/i, '');
 }
 

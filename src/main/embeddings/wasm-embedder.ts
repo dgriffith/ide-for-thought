@@ -39,7 +39,7 @@ export async function createWasmEmbedder(opts: WasmEmbedderOptions = {}): Promis
   const tokenizer: WordPieceTokenizer = createWordPieceTokenizer(tokenizerJson);
   const session = await ort.InferenceSession.create(path.join(dir, 'onnx', 'model_quantized.onnx'));
   const needsTokenType = session.inputNames.includes('token_type_ids');
-  const outName = session.outputNames[0];
+  const outName = session.outputNames[0]!;
 
   return {
     dim: MODEL.dim,
@@ -56,9 +56,9 @@ export async function createWasmEmbedder(opts: WasmEmbedderOptions = {}): Promis
       const ids = new BigInt64Array(batch * seq);
       const mask = new BigInt64Array(batch * seq);
       for (let b = 0; b < batch; b++) {
-        const row = rows[b];
+        const row = rows[b]!;
         for (let s = 0; s < row.length; s++) {
-          ids[b * seq + s] = BigInt(row[s]);
+          ids[b * seq + s] = BigInt(row[s]!);
           mask[b * seq + s] = 1n;
         }
         // remaining positions stay 0 → [PAD] id 0, attention 0
@@ -74,7 +74,7 @@ export async function createWasmEmbedder(opts: WasmEmbedderOptions = {}): Promis
       }
 
       const out = await session.run(feeds);
-      const last = out[outName];
+      const last = out[outName]!;
       const [, , dim] = last.dims as [number, number, number];
       const data = last.data as Float32Array;
 

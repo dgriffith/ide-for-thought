@@ -85,8 +85,10 @@ registerRule<Config>({
         const lower = match.toLowerCase();
         const replacement = merged[lower];
         if (!replacement) return match;
-        return match[0] === match[0].toUpperCase()
-          ? replacement[0].toUpperCase() + replacement.slice(1)
+        // A regex match and a non-empty replacement both have a first char.
+        const first = match[0]!;
+        return first === first.toUpperCase()
+          ? replacement[0]!.toUpperCase() + replacement.slice(1)
           : replacement;
       }),
     );

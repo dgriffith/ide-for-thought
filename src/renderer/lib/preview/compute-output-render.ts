@@ -22,7 +22,7 @@ import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
  */
 export function findSourceFenceBefore(tokens: Token[], idx: number): { language: string; code: string } | null {
   for (let i = idx - 1; i >= 0; i--) {
-    const t = tokens[i];
+    const t = tokens[i]!;
     if (t.type === 'fence') {
       const lang = (t.info ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
       if (RUNNABLE_LANGUAGE_SET.has(lang)) {

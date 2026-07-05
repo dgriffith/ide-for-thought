@@ -35,7 +35,7 @@ export const treeMarkdownExporter: Exporter = {
     if (notes.length === 0) {
       return { files: [], summary: 'Nothing to export in this tree.' };
     }
-    const rootNote = notes[0];
+    const rootNote = notes[0]!;
 
     // Force follow-to-file so the link resolver emits `.md` cross-links.
     const bundlePlan: ExportPlan = { ...plan, linkPolicy: 'follow-to-file' };

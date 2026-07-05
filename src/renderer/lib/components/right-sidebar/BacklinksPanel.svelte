@@ -96,8 +96,8 @@
               onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGroup(type); } }}
             >
               <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={11} color="var(--text-faint)" />
-              <span class="type-square" style:background={typeLinks[0].linkColor} aria-hidden="true"></span>
-              <span class="type-label">{typeLinks[0].linkLabel}</span>
+              <span class="type-square" style:background={typeLinks[0]!.linkColor} aria-hidden="true"></span>
+              <span class="type-label">{typeLinks[0]!.linkLabel}</span>
               <span class="type-count">{typeLinks.length}</span>
             </div>
           {/if}

@@ -24,7 +24,7 @@ export function findAnchorOffset(text: string, anchor: string): number | null {
       if (line.trimEnd().endsWith(anchor)) return offset;
     } else {
       const m = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-      if (m && slugify(m[2]) === anchor) return offset;
+      if (m && slugify(m[2]!) === anchor) return offset;
     }
     offset += line.length + 1;
   }
@@ -81,7 +81,7 @@ export function countNotes(files: NoteFile[]): number {
 
 /** Singular/plural noun for a delete confirmation over a set of targets. */
 export function describeDeleteNoun(targets: Array<{ isDirectory: boolean }>): string {
-  if (targets.length === 1) return targets[0].isDirectory ? 'folder' : 'note';
+  if (targets.length === 1) return targets[0]!.isDirectory ? 'folder' : 'note';
   const allDirs = targets.every((t) => t.isDirectory);
   const allFiles = targets.every((t) => !t.isDirectory);
   if (allDirs) return 'folders';
@@ -95,7 +95,7 @@ export function describeDeleteMessage(
   noun: string,
 ): string {
   if (targets.length === 1) {
-    const name = targets[0].relativePath.split('/').pop();
+    const name = targets[0]!.relativePath.split('/').pop();
     return `Delete ${noun} "${name}"?`;
   }
   const sample = targets.slice(0, 3).map((t) => t.relativePath).join(', ');

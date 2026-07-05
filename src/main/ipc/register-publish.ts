@@ -98,7 +98,7 @@ export function registerPublish(): void {
         buttonLabel: 'Export here',
       });
       if (result.canceled || result.filePaths.length === 0) return null;
-      outputDir = result.filePaths[0];
+      outputDir = result.filePaths[0]!;
     }
     return await publish.runExport(rootPath, { ...args, outputDir });
   });

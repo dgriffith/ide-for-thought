@@ -71,8 +71,8 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
     id: `unsupported-${i}`,
     type: 'unsupported_claim',
     severity: 'warning' as const,
-    nodeUri: r.claim,
-    nodeLabel: r.label,
+    nodeUri: r.claim!,
+    nodeLabel: r.label!,
     message: `Claim "${r.label}" has no supporting evidence`,
     suggestedAction: 'Add grounds or evidence that supports this claim',
   }));
@@ -98,9 +98,9 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
     id: `stale-${i}`,
     type: 'stale_note',
     severity: 'info' as const,
-    nodeUri: r.note,
-    nodeLabel: r.title,
-    message: `"${r.title}" hasn't been modified since ${r.modified.split('T')[0]}`,
+    nodeUri: r.note!,
+    nodeLabel: r.title!,
+    message: `"${r.title}" hasn't been modified since ${r.modified!.split('T')[0]}`,
     suggestedAction: 'Review whether this note is still current',
   }));
 }
@@ -128,8 +128,8 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
       id: `no-warrant-${i}`,
       type: 'missing_warrant',
       severity: 'warning',
-      nodeUri: r.claim,
-      nodeLabel: r.label,
+      nodeUri: r.claim!,
+      nodeLabel: r.label!,
       message: `Claim "${r.label}" has grounds but no warrant connecting them`,
       suggestedAction: 'Add a warrant explaining why the grounds support this claim',
     });
@@ -153,8 +153,8 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
       id: `no-backing-${i}`,
       type: 'missing_backing',
       severity: 'info',
-      nodeUri: r.warrant,
-      nodeLabel: r.label,
+      nodeUri: r.warrant!,
+      nodeLabel: r.label!,
       message: `Warrant "${r.label}" has no backing — why should we accept this reasoning principle?`,
       suggestedAction: 'Add backing that supports this warrant',
     });
@@ -185,12 +185,12 @@ async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
 
   return (results.results as Record<string, string>[]).flatMap((r, i) => {
     if (!r.doi || VALID_DOI_RE.test(r.doi)) return [];
-    const label = r.title || r.sourceId;
+    const label = r.title || r.sourceId!;
     return [{
       id: `invalid-doi-${i}`,
       type: 'invalid_doi',
       severity: 'warning' as const,
-      nodeUri: r.source,
+      nodeUri: r.source!,
       nodeLabel: label,
       message: `Source "${label}" has a DOI that doesn't look right: ${r.doi}`,
       suggestedAction: 'Open the source meta.ttl and correct the bibo:doi value.',
@@ -214,8 +214,8 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
     id: `contradiction-${i}`,
     type: 'contradiction',
     severity: 'concern' as const,
-    nodeUri: r.a,
-    nodeLabel: r.aLabel,
+    nodeUri: r.a!,
+    nodeLabel: r.aLabel!,
     message: `Established claim "${r.aLabel}" contradicts established claim "${r.bLabel}"`,
     suggestedAction: 'Review both claims — at least one needs to be revised or its status changed',
   }));
@@ -244,7 +244,7 @@ async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspect
   `);
 
   return (results.results as Record<string, string>[]).map((r, i) => {
-    const label = r.title || r.sourceId;
+    const label = r.title || r.sourceId!;
     const missing: string[] = [];
     if (!r.title) missing.push('title');
     if (!r.creators) missing.push('authors');
@@ -252,7 +252,7 @@ async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspect
       id: `source-missing-metadata-${i}`,
       type: 'source_missing_metadata',
       severity: 'info' as const,
-      nodeUri: r.source,
+      nodeUri: r.source!,
       nodeLabel: label,
       message: `Source "${label}" is missing ${missing.join(' and ')}.`,
       suggestedAction: missing.includes('title')
@@ -285,14 +285,14 @@ async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: numb
   `);
 
   return (results.results as Record<string, string>[]).map((r, i) => {
-    const label = r.title || r.sourceId;
+    const label = r.title || r.sourceId!;
     return {
       id: `stub-aged-${i}`,
       type: 'stub_aged',
       severity: 'info' as const,
-      nodeUri: r.source,
+      nodeUri: r.source!,
       nodeLabel: label,
-      message: `Stub "${label}" has been unresolved since ${r.modified.split('T')[0]}.`,
+      message: `Stub "${label}" has been unresolved since ${r.modified!.split('T')[0]}.`,
       suggestedAction: 'Right-click the source and run "Resolve to full source", or hand-edit meta.ttl.',
     };
   });
@@ -322,13 +322,13 @@ async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[
   `);
 
   return (results.results as Record<string, string>[]).map((r, i) => {
-    const label = r.title || r.sourceId;
+    const label = r.title || r.sourceId!;
     const count = Number(r.cites ?? 0) || 0;
     return {
       id: `source-cited-unread-${i}`,
       type: 'source_cited_unread',
       severity: 'info' as const,
-      nodeUri: r.source,
+      nodeUri: r.source!,
       nodeLabel: label,
       message: `"${label}" is cited ${count === 1 ? 'once' : `${count} times`} but you haven't marked it Reading or Read.`,
       suggestedAction: 'Open the source and set its reading status, or right-click → Mark reading.',
@@ -369,7 +369,7 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
       type: 'source_duplicate_doi',
       severity: 'warning',
       nodeUri: firstSource,
-      nodeLabel: ids[0] ?? r.keyDoi,
+      nodeLabel: ids[0] ?? r.keyDoi!,
       message: `Duplicate DOI ${r.keyDoi}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
     });
@@ -397,7 +397,7 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
       type: 'source_duplicate_uri',
       severity: 'warning',
       nodeUri: firstSource,
-      nodeLabel: ids[0] ?? r.keyUri,
+      nodeLabel: ids[0] ?? r.keyUri!,
       message: `Duplicate URL ${r.keyUri}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
     });

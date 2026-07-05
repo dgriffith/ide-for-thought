@@ -70,7 +70,7 @@ function buildIndex(container: HTMLElement): CharIndex {
     }
     const raw = node.data;
     for (let i = 0; i < raw.length; i++) {
-      text.push(raw[i]);
+      text.push(raw[i]!);
       nodes.push({ node, offset: i });
     }
     prevParent = parent;
@@ -103,7 +103,7 @@ export function findExcerptRange(container: HTMLElement, citedText: string): Ran
   const origAt: number[] = [];
   let inSpace = false;
   for (let i = 0; i < idx.text.length; i++) {
-    const ch = idx.text[i];
+    const ch = idx.text[i]!;
     if (/\s/.test(ch)) {
       if (!inSpace) {
         normalized.push(' ');

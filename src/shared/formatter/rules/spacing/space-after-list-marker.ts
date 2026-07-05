@@ -15,7 +15,7 @@ registerRule({
     return transformUnprotected(content, cache, (seg) => {
       const parts = seg.split(/(\r?\n)/);
       for (let i = 0; i < parts.length; i += 2) {
-        parts[i] = parts[i]
+        parts[i] = parts[i]!
           .replace(UNORDERED, '$1$2 ')
           .replace(ORDERED, '$1$2 ');
       }

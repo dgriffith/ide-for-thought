@@ -28,12 +28,12 @@ function renumberIncrementally(seg: string): string {
   const LIST = /^([ \t]*)(\d+)([.)])([ \t]+)/;
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
+    const raw = lines[i]!;
     const body = raw.replace(/\r?\n$/, '');
     const m = LIST.exec(body);
 
     if (m) {
-      const indent = m[1];
+      const indent = m[1]!;
       const indentLen = indent.length;
       // Any deeper-indented lists are done — drop their counters.
       for (const k of [...counters.keys()]) {

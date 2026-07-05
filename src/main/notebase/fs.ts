@@ -19,7 +19,7 @@ export async function openNotebase(): Promise<NotebaseMeta | null> {
     return null;
   }
 
-  const rootPath = result.filePaths[0];
+  const rootPath = result.filePaths[0]!;
   return {
     rootPath,
     name: path.basename(rootPath),

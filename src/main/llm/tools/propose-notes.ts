@@ -53,7 +53,7 @@ function runProposeNotes(
   const fixedPayloads: DraftPayload[] = parsed.payloads.map((p, i) => ({
     kind: 'note',
     relativePath: p.relativePath,
-    content: fixup.notes[i].content,
+    content: fixup.notes[i]!.content, // fixup.notes is 1:1 with parsed.payloads
   }));
 
   const draft: ConversationDraft = {

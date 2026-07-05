@@ -53,9 +53,9 @@ export function formatToolCall(name: string, input: unknown): string {
       const code = pickString(i, 'code');
       if (!code) return '⚙️ Running code';
       const ws = code.match(/web_search\s*\(\s*\{[^}]*['"]query['"]\s*:\s*['"]([^'"]+)['"]/);
-      if (ws) return `🔍 Searching the web for **${truncate(ws[1], MAX_SNIPPET)}**`;
+      if (ws) return `🔍 Searching the web for **${truncate(ws[1]!, MAX_SNIPPET)}**`;
       const wf = code.match(/web_fetch\s*\(\s*\{[^}]*['"]url['"]\s*:\s*['"]([^'"]+)['"]/);
-      if (wf) return `🌐 Fetching **${truncate(wf[1], MAX_SNIPPET)}**`;
+      if (wf) return `🌐 Fetching **${truncate(wf[1]!, MAX_SNIPPET)}**`;
       const head = firstNonEmptyLine(code);
       return `⚙️ Running code: \`${truncate(head, MAX_SNIPPET)}\``;
     }

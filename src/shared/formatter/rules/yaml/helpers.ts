@@ -24,7 +24,7 @@ export function transformFrontmatterDoc(
   const block = content.slice(fm.start, fm.end);
   const m = block.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
   if (!m) return content;
-  const body = m[1];
+  const body = m[1]!;
   const terminator = m[2];
   let doc: YAML.Document.Parsed;
   try {
@@ -67,7 +67,7 @@ export function readFrontmatterKey(
   const m = block.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
   if (!m) return undefined;
   try {
-    const parsed: unknown = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]!);
     if (parsed && typeof parsed === 'object') {
       return (parsed as Record<string, unknown>)[key];
     }

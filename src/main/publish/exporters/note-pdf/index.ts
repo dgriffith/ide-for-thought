@@ -36,7 +36,7 @@ export const notePdfExporter: Exporter = {
         summary: 'PDF export supports one note at a time; use the Note-tree exporter for multi-note bundles.',
       };
     }
-    const note = notes[0];
+    const note = notes[0]!;
 
     // Reuse the HTML exporter's output as our PDF input. Force
     // inline-base64 so the off-screen window doesn't need filesystem

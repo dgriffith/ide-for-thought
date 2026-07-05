@@ -53,7 +53,7 @@ export function patchFrontmatterProperties(content: string, patch: PropertyPatch
   let fm: Record<string, unknown> = {};
   if (match) {
     try {
-      const parsed: unknown = YAML.parse(match[1]);
+      const parsed: unknown = YAML.parse(match[1]!);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         fm = parsed as Record<string, unknown>;
       }
@@ -111,7 +111,7 @@ export function readFrontmatterProperties(content: string): Record<string, unkno
   const match = content.match(FRONTMATTER_RE);
   if (!match) return {};
   try {
-    const parsed: unknown = YAML.parse(match[1]);
+    const parsed: unknown = YAML.parse(match[1]!);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }

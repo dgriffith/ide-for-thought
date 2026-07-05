@@ -286,7 +286,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
         await api.notebase.rename(t.relativePath, destPath);
         const tabIdx = editor.tabs.findIndex((tab) => tab.type === 'note' && tab.relativePath === t.relativePath);
         if (tabIdx !== -1) {
-          const tab = editor.tabs[tabIdx];
+          const tab = editor.tabs[tabIdx]!;
           if (tab.type === 'note') {
             tab.relativePath = destPath;
             tab.fileName = name;
@@ -331,7 +331,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
           await api.notebase.rename(item.relativePath, destPath);
           const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === item.relativePath);
           if (tabIdx !== -1) {
-            const tab = editor.tabs[tabIdx];
+            const tab = editor.tabs[tabIdx]!;
             if (tab.type === 'note') {
               tab.relativePath = destPath;
               tab.fileName = name;

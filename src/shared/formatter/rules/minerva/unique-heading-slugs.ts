@@ -17,12 +17,12 @@ registerRule({
     const rewrites: { lineIndex: number; newLine: string }[] = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const raw = lines[i];
-      if (cache.isProtected(offsets[i])) continue;
+      const raw = lines[i]!;
+      if (cache.isProtected(offsets[i]!)) continue;
       const body = raw.replace(/\r?\n$/, '');
       const m = body.match(HEADING_RE);
       if (!m) continue;
-      const text = m[3].trim();
+      const text = m[3]!.trim();
       const slug = slugify(text);
       const count = seenSlugs.get(slug) ?? 0;
       seenSlugs.set(slug, count + 1);
@@ -70,7 +70,7 @@ function buildLineOffsets(lines: string[]): number[] {
   let pos = 0;
   for (let i = 0; i < lines.length; i++) {
     offsets[i] = pos;
-    pos += lines[i].length;
+    pos += lines[i]!.length;
   }
   return offsets;
 }

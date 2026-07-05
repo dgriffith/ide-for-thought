@@ -19,5 +19,5 @@
 export function extractClaimUri(text: string): string | null {
   const re = /<?(https?:\/\/[^\s<>"]*\/c\/claim-[^\s<>"]+)>?/i;
   const m = re.exec(text);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }

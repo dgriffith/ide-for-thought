@@ -41,7 +41,7 @@ export const treeHtmlExporter: Exporter = {
     if (notes.length === 0) {
       return { files: [], summary: 'Nothing to export in this tree.' };
     }
-    const rootNote = notes[0];
+    const rootNote = notes[0]!;
 
     // Force follow-to-file even when the plan's linkPolicy is
     // inline-title — within a bundle the user clearly wants cross-links

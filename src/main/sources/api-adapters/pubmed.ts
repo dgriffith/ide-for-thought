@@ -157,7 +157,7 @@ export function buildMetadata(
 function normalizePubDate(raw: string | undefined): string | null {
   if (!raw) return null;
   const parts = raw.trim().split(/\s+/);
-  const year = parts[0];
+  const year = parts[0]!;
   if (!/^\d{4}$/.test(year)) return null;
   const month = parts[1] ? parseMonth(parts[1]) : null;
   const day = parts[2] && /^\d{1,2}$/.test(parts[2]) ? parts[2].padStart(2, '0') : null;

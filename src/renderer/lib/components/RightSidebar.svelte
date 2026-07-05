@@ -136,12 +136,12 @@
    *  group label sets `activePanel` to its first item, which flows back
    *  into `activeGroup` through this derivation. */
   const activeGroup = $derived(PANEL_TO_GROUP.get(activePanel) ?? 'note');
-  const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]);
+  const activeGroupDef = $derived(GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0]!);
   const activePanelDef = $derived(PANEL_DEFS.get(activePanel));
 
   function pickGroup(g: GroupDef) {
     if (g.id === activeGroup) return;
-    activePanel = g.items[0].id;
+    activePanel = g.items[0]!.id;
   }
 
   // Width is user-draggable and persists across sessions. localStorage

@@ -23,8 +23,8 @@ import { escapeHtml, escapeAttr } from '../preview/text';
  */
 export function installTransclusions(md: MarkdownIt): void {
   md.block.ruler.before('fence', 'transclusion', (state: StateBlock, startLine: number, _endLine: number, silent: boolean) => {
-    const pos = state.bMarks[startLine] + state.tShift[startLine];
-    const max = state.eMarks[startLine];
+    const pos = state.bMarks[startLine]! + state.tShift[startLine]!;
+    const max = state.eMarks[startLine]!;
     const line = state.src.slice(pos, max).trim();
     const match = line.match(/^!\[\[([^\]]+?)\]\]$/);
     if (!match) return false;
@@ -32,13 +32,13 @@ export function installTransclusions(md: MarkdownIt): void {
     state.line = startLine + 1;
     const token = state.push('transclusion', 'div', 0);
     token.map = [startLine, state.line];
-    token.meta = { embed: match[1].trim() };
+    token.meta = { embed: match[1]!.trim() };
     token.block = true;
     return true;
   });
 
   md.renderer.rules.transclusion = (tokens, idx) => {
-    const { embed } = tokens[idx].meta as { embed: string };
+    const { embed } = tokens[idx]!.meta as { embed: string };
     return `<div class="transclusion" data-embed="${escapeAttr(embed)}">`
       + `<div class="transclusion-loading">${escapeHtml(embed)}</div></div>\n`;
   };
@@ -54,7 +54,7 @@ export function installWikiLinks(md: MarkdownIt): void {
     if (!silent) {
       const token = state.push('wiki_link', '', 0);
       const linkTypeName = match[1] ?? 'references';
-      const target = match[2].trim();
+      const target = match[2]!.trim();
       const display = match[3]?.trim() ?? target;
       token.meta = { target, display, linkType: linkTypeName };
     }
@@ -63,7 +63,7 @@ export function installWikiLinks(md: MarkdownIt): void {
   });
 
   md.renderer.rules.wiki_link = (tokens, idx) => {
-    const { target, display, linkType: typeName } = tokens[idx].meta as {
+    const { target, display, linkType: typeName } = tokens[idx]!.meta as {
       target: string;
       display: string;
       linkType: string;
@@ -108,7 +108,7 @@ export function installNoteTags(md: MarkdownIt): void {
   });
 
   md.renderer.rules.note_tag = (tokens, idx) => {
-    const { tag } = tokens[idx].meta as { tag: string };
+    const { tag } = tokens[idx]!.meta as { tag: string };
     return `<span class="note-tag" data-tag="${escapeAttr(tag)}">#${escapeHtml(tag)}</span>`;
   };
 }

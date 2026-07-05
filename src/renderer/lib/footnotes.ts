@@ -70,16 +70,16 @@ export function scanFootnotes(text: string): FootnoteScan {
 function collectDefinitions(lines: string[]): FootnoteDefinition[] {
   const out: FootnoteDefinition[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(DEF_RE);
+    const m = lines[i]!.match(DEF_RE);
     if (!m) continue;
-    const label = m[1];
-    const bodyParts: string[] = [m[2]];
+    const label = m[1]!;
+    const bodyParts: string[] = [m[2]!];
     // Continuation: subsequent lines that are indented OR are blank
     // followed eventually by an indented line. Pandoc's "lazy
     // continuation" — but a non-indented non-blank line ends the def.
     let j = i + 1;
     while (j < lines.length) {
-      const next = lines[j];
+      const next = lines[j]!;
       if (/^\s+\S/.test(next)) {
         bodyParts.push(next.replace(/^\s+/, ''));
         j++;
@@ -89,8 +89,8 @@ function collectDefinitions(lines: string[]): FootnoteDefinition[] {
         // Peek ahead — only treat the blank as a continuation gap if
         // the next non-blank line is indented (still part of the def).
         let k = j + 1;
-        while (k < lines.length && /^\s*$/.test(lines[k])) k++;
-        if (k < lines.length && /^\s+\S/.test(lines[k])) {
+        while (k < lines.length && /^\s*$/.test(lines[k]!)) k++;
+        if (k < lines.length && /^\s+\S/.test(lines[k]!)) {
           bodyParts.push('');
           j++;
           continue;
@@ -113,7 +113,7 @@ function collectReferences(lines: string[]): FootnoteReference[] {
   const out: FootnoteReference[] = [];
   let inFence = false;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    const line = lines[i]!;
     if (/^\s*```/.test(line)) {
       inFence = !inFence;
       continue;
@@ -128,7 +128,7 @@ function collectReferences(lines: string[]): FootnoteReference[] {
     REF_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = REF_RE.exec(stripped)) !== null) {
-      out.push({ label: m[1], line: i + 1, column: m.index });
+      out.push({ label: m[1]!, line: i + 1, column: m.index });
     }
   }
   return out;

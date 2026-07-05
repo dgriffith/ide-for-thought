@@ -47,12 +47,12 @@ const EXCERPT_RE = /(?:^|[/\\])\.minerva[/\\]excerpts[/\\]([^/\\]+)\.ttl$/;
 /** Returns the source id if the path is .minerva/sources/<id>/{meta.ttl,body.md}. */
 function extractSourceId(absPath: string): string | null {
   const m = absPath.match(SOURCE_DIR_RE);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 function extractExcerptId(absPath: string): string | null {
   const m = absPath.match(EXCERPT_RE);
-  return m ? m[1] : null;
+  return m ? m[1]! : null;
 }
 
 export function startWatching(

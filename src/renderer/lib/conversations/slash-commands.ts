@@ -25,7 +25,7 @@ import {
  */
 export function slashQueryFromComposer(text: string): string | null {
   const m = /^\/([\w-]*)$/.exec(text);
-  return m ? m[1].toLowerCase() : null;
+  return m ? m[1]!.toLowerCase() : null;
 }
 
 /** Bare command name (no leading slash), lowercased. */

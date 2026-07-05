@@ -35,7 +35,7 @@
     if (tags.length === 0) return Infinity;
     const sorted = tags.map(totalCount).sort((a, b) => b - a);
     const idx = Math.max(0, Math.floor(sorted.length / 4) - 1);
-    return sorted[idx];
+    return sorted[idx]!;
   });
 
   function chipTone(tag: string): 'accent' | 'default' {

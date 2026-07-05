@@ -89,7 +89,7 @@
     ACTIVE_TAG_RE.lastIndex = 0;
     let m;
     while ((m = ACTIVE_TAG_RE.exec(stripped)) !== null) {
-      const cleaned = m[1].replace(/\/+$/, '');
+      const cleaned = m[1]!.replace(/\/+$/, '');
       if (cleaned) found.add(cleaned);
     }
     for (const t of extractTagsFromContent(content)) {

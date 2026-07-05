@@ -395,5 +395,5 @@ function ttlString(s: string): string {
 async function readExistingTitle(sourceDir: string): Promise<string> {
   const ttl = await fs.readFile(path.join(sourceDir, 'meta.ttl'), 'utf-8');
   const m = ttl.match(/dc:title\s+"((?:[^"\\]|\\.)*)"/);
-  return m ? m[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
+  return m ? m[1]!.replace(/\\"/g, '"').replace(/\\\\/g, '\\') : '';
 }

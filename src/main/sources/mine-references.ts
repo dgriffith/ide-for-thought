@@ -95,7 +95,7 @@ const REF_HEADING_RE = /^(#{1,6})\s+(References|Bibliography|Works\s+Cited|Liter
 export function extractReferenceSection(body: string): string | null {
   const m = body.match(REF_HEADING_RE);
   if (!m) return null;
-  const headingMarker = m[1];
+  const headingMarker = m[1]!;
   const headingDepth = headingMarker.length;
   // Index of the line right after the heading.
   const startIdx = (m.index ?? 0) + m[0].length;

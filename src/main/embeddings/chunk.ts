@@ -77,9 +77,9 @@ function splitIntoSections(content: string): RawSection[] {
     if (m) {
       // Close the running section, open a new one under the updated stack.
       sections.push(current);
-      const level = m[1].length;
-      const text = m[2].trim();
-      while (stack.length > 0 && stack[stack.length - 1].level >= level) stack.pop();
+      const level = m[1]!.length;
+      const text = m[2]!.trim();
+      while (stack.length > 0 && stack[stack.length - 1]!.level >= level) stack.pop();
       stack.push({ level, text });
       current = { breadcrumb: stack.map((s) => s.text), lines: [line] };
     } else {

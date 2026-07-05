@@ -24,10 +24,10 @@ export function meanPoolNormalize(
     if (!mask[s]) continue;
     kept++;
     const base = s * dim;
-    for (let d = 0; d < dim; d++) out[d] += tokens[base + d];
+    for (let d = 0; d < dim; d++) out[d] = out[d]! + tokens[base + d]!;
   }
   if (kept > 0) {
-    for (let d = 0; d < dim; d++) out[d] /= kept;
+    for (let d = 0; d < dim; d++) out[d] = out[d]! / kept;
   }
   return l2normalize(out);
 }
@@ -36,10 +36,10 @@ export function meanPoolNormalize(
  *  (no divide-by-zero) — degenerate, but never NaN. */
 export function l2normalize(v: Float32Array): Float32Array {
   let sum = 0;
-  for (let i = 0; i < v.length; i++) sum += v[i] * v[i];
+  for (let i = 0; i < v.length; i++) sum += v[i]! * v[i]!;
   const norm = Math.sqrt(sum);
   if (norm > 0) {
-    for (let i = 0; i < v.length; i++) v[i] /= norm;
+    for (let i = 0; i < v.length; i++) v[i] = v[i]! / norm;
   }
   return v;
 }
@@ -51,9 +51,9 @@ export function cosineSimilarity(a: ArrayLike<number>, b: ArrayLike<number>): nu
   let na = 0;
   let nb = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
+    dot += a[i]! * b[i]!;
+    na += a[i]! * a[i]!;
+    nb += b[i]! * b[i]!;
   }
   const denom = Math.sqrt(na) * Math.sqrt(nb);
   return denom > 0 ? dot / denom : 0;

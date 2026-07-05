@@ -148,7 +148,7 @@ export function extractStyleTitle(xml: string): string | null {
   if (!info) return null;
   const m = info[0].match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
   if (!m) return null;
-  return decodeXmlEntities(m[1].trim()) || null;
+  return decodeXmlEntities(m[1]!.trim()) || null;
 }
 
 function decodeXmlEntities(s: string): string {

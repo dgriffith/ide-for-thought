@@ -113,7 +113,7 @@ async function readCompanionOverride(rootPath: string, relativePath: string): Pr
   const m = content.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return null;
   try {
-    const fm = YAML.parse(m[1]) as Record<string, unknown> | null;
+    const fm = YAML.parse(m[1]!) as Record<string, unknown> | null;
     const raw = fm?.table_name;
     if (typeof raw === 'string' && raw.trim().length > 0) {
       // Run the user-supplied override through the same sanitizer so a

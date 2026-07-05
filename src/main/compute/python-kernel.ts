@@ -319,7 +319,7 @@ export function pathToModuleName(relativePath: string): string | null {
   if (last === '__init__.py') {
     segments.pop();
   } else {
-    segments[segments.length - 1] = last.slice(0, -3); // drop `.py`
+    segments[segments.length - 1] = last!.slice(0, -3); // drop `.py`
   }
   if (segments.length === 0) return null;
   // Each segment must be a valid Python identifier (ASCII letter/_ start,

@@ -275,7 +275,7 @@ export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Pr
     if (urls.length > 0) {
       el.innerHTML = renderNoticeHtml(
         'Remote data disabled',
-        `This chart references external data (${escapeHtml(urls[0])}). For security, `
+        `This chart references external data (${escapeHtml(urls[0]!)}). For security, `
           + 'Minerva renders charts from inline data only. Embed the data with '
           + '`"data": { "values": [ … ] }`.',
       );

@@ -57,16 +57,16 @@ export function parseQueryContent(
   let order: number | null = null;
 
   const nameMatch = content.match(/^#\s*@name\s+(.+)$/m);
-  if (nameMatch) name = nameMatch[1].trim();
+  if (nameMatch) name = nameMatch[1]!.trim();
   const descMatch = content.match(/^#\s*@description\s+(.+)$/m);
-  if (descMatch) description = descMatch[1].trim();
+  if (descMatch) description = descMatch[1]!.trim();
   const groupMatch = content.match(/^#\s*@group\s+(.+)$/m);
   if (groupMatch) {
-    const g = groupMatch[1].trim();
+    const g = groupMatch[1]!.trim();
     if (g) group = g;
   }
   const orderMatch = content.match(/^#\s*@order\s+(-?\d+)$/m);
-  if (orderMatch) order = parseInt(orderMatch[1], 10);
+  if (orderMatch) order = parseInt(orderMatch[1]!, 10);
 
   const query = content
     .split('\n')

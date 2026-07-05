@@ -25,7 +25,7 @@ function reindex(seg: string): string {
   let m;
   REF_RE.lastIndex = 0;
   while ((m = REF_RE.exec(seg)) !== null) {
-    const name = m[2];
+    const name = m[2]!;
     if (/^\d+$/.test(name) && !seen.has(name)) {
       seen.add(name);
       order.push(name);

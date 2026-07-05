@@ -56,13 +56,13 @@ export function parseYouTubeUrl(input: string): YouTubeRef | null {
   const host = u.hostname.replace(/^(www\.|m\.)/, '').toLowerCase();
   let id: string | null = null;
   if (host === 'youtu.be') {
-    id = u.pathname.slice(1).split('/')[0];
+    id = u.pathname.slice(1).split('/')[0]!;
   } else if (WATCH_HOSTS.has(host)) {
     if (u.pathname === '/watch') {
       id = u.searchParams.get('v');
     } else {
       const m = u.pathname.match(/^\/(embed|shorts|live|v)\/([^/]+)/);
-      if (m) id = m[2];
+      if (m) id = m[2]!;
     }
   }
   if (!id || !ID_RE.test(id)) return null;

@@ -272,7 +272,7 @@ function tokenise(text: string): string[] {
 
 function lastNameTokens(name: string): string[] {
   // "Smith, J." → "smith"; "Jane Smith" → "smith". Best-effort.
-  const stripped = name.split(',')[0].trim();
+  const stripped = name.split(',')[0]!.trim();
   const last = stripped.split(/\s+/).pop() ?? '';
   return last ? [last.toLowerCase().replace(/[^a-z]/g, '')] : [];
 }

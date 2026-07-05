@@ -68,7 +68,7 @@ export function deriveProposedTitle(body: string): string | null {
     const line = raw.trim();
     if (!line) continue;
     const heading = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
-    if (heading) return heading[1].trim();
+    if (heading) return heading[1]!.trim();
     if (line.length <= 60) return line;
     return null;
   }
@@ -160,7 +160,7 @@ export function normalizeHeadingLevels(body: string, settings: RefactorSettings)
     if (/^```/.test(line)) { inFence = !inFence; continue; }
     if (inFence) continue;
     const m = line.match(/^(#{1,6})\s+\S/);
-    if (m) minLevel = Math.min(minLevel, m[1].length);
+    if (m) minLevel = Math.min(minLevel, m[1]!.length);
   }
   if (!isFinite(minLevel) || minLevel <= 1) return body;
   const shift = minLevel - 1;
@@ -170,7 +170,7 @@ export function normalizeHeadingLevels(body: string, settings: RefactorSettings)
     if (inFence) return line;
     const m = line.match(/^(#{1,6})(\s+.+)$/);
     if (!m) return line;
-    const newLevel = Math.max(1, m[1].length - shift);
+    const newLevel = Math.max(1, m[1]!.length - shift);
     return '#'.repeat(newLevel) + m[2];
   }).join('\n');
 }
@@ -195,7 +195,7 @@ function buildFrontmatter(title: string, sourceRelativePath: string, today: stri
 function splitFrontmatter(content: string): { frontmatter: string | null; body: string } {
   const m = content.match(/^(---\n[\s\S]*?\n---\n?)/);
   if (!m) return { frontmatter: null, body: content };
-  return { frontmatter: m[1], body: content.slice(m[1].length) };
+  return { frontmatter: m[1]!, body: content.slice(m[1]!.length) };
 }
 
 /**
@@ -253,7 +253,7 @@ export function renderExtractedBody(
 /** Source note's title for template contexts — the H1 or the filename stem. */
 function sourceTitleFor(relativePath: string, content: string): string {
   const match = content.match(/^#\s+(.+)$/m);
-  if (match) return match[1].trim();
+  if (match) return match[1]!.trim();
   return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
 }
 

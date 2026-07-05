@@ -391,9 +391,10 @@ export async function expireProposals(ctx: ProjectContext): Promise<number> {
   const now = new Date();
   let count = 0;
   for (const row of results.results as Record<string, string>[]) {
-    const expires = new Date(row.expires);
+    // ?expires and ?proposal are required (non-OPTIONAL) bindings in the query.
+    const expires = new Date(row.expires!);
     if (expires <= now) {
-      await updateProposalStatus(ctx, row.proposal, 'expired');
+      await updateProposalStatus(ctx, row.proposal!, 'expired');
       count++;
     }
   }
@@ -454,36 +455,40 @@ export async function getProposal(ctx: ProjectContext, uri: string): Promise<Pro
 
   const rows = results.results as Record<string, string>[];
   if (rows.length === 0) return null;
-  const firstRow = rows[0];
+  const firstRow = rows[0]!; // non-empty checked above
   const affectsNodeUris = Array.from(
     new Set(rows.map(row => row.affectsNode).filter((u): u is string => Boolean(u))),
   );
+  // status/operationType/note/proposedBy/proposedAt/autoExpires/payloadJson are
+  // required (non-OPTIONAL) bindings in the query.
   return {
     uri,
     status: firstRow.status as Proposal['status'],
-    operationType: firstRow.operationType,
+    operationType: firstRow.operationType!,
     payloads: parsePayloads(firstRow.payloadJson),
-    note: firstRow.note,
+    note: firstRow.note!,
     affectsNodeUris,
     conversationUri: firstRow.conversation,
-    proposedBy: firstRow.proposedBy,
-    proposedAt: firstRow.proposedAt,
-    autoExpires: firstRow.autoExpires,
+    proposedBy: firstRow.proposedBy!,
+    proposedAt: firstRow.proposedAt!,
+    autoExpires: firstRow.autoExpires!,
   };
 }
 
 function proposalFromRow(row: Record<string, string>): Proposal {
+  // proposal/operationType/note/proposedBy/proposedAt/autoExpires are required
+  // (non-OPTIONAL) bindings in the listProposals query.
   return {
-    uri: row.proposal,
+    uri: row.proposal!,
     status: row.status as Proposal['status'],
-    operationType: row.operationType,
+    operationType: row.operationType!,
     payloads: parsePayloads(row.payloadJson),
-    note: row.note,
+    note: row.note!,
     affectsNodeUris: splitAffectsNodes(row.affectsNodes),
     conversationUri: row.conversation,
-    proposedBy: row.proposedBy,
-    proposedAt: row.proposedAt,
-    autoExpires: row.autoExpires,
+    proposedBy: row.proposedBy!,
+    proposedAt: row.proposedAt!,
+    autoExpires: row.autoExpires!,
   };
 }
 
@@ -928,5 +933,5 @@ export function stripTurtleCodeFence(turtle: string): string {
   // Match opening fence at first non-whitespace position; capture body up to
   // the matching closing fence at end of string (allowing trailing whitespace).
   const m = /^\s*```[a-zA-Z0-9_-]*\r?\n([\s\S]*?)\r?\n```\s*$/.exec(turtle);
-  return m ? m[1] : turtle;
+  return m ? m[1]! : turtle; // capture group present when the regex matches
 }

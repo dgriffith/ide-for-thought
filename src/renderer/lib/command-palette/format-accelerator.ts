@@ -63,7 +63,7 @@ export function formatAccelerator(accel: string, isMac: boolean = IS_MAC): strin
   const parts = accel.split('+').map((p) => p.trim()).filter(Boolean);
   if (parts.length === 0) return '';
   const modifiers = parts.slice(0, -1);
-  const finalKey = parts[parts.length - 1];
+  const finalKey = parts[parts.length - 1]!;
 
   const modifierMap = isMac ? MAC_GLYPHS : NON_MAC_LABELS;
   const renderedModifiers = modifiers.map((m) => modifierMap[m.toLowerCase()] ?? m);
