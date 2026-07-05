@@ -15,8 +15,12 @@ import { shutdownAllKernels } from './compute/python-kernel';
 import { stopClipperServer } from './clipper/lifecycle';
 import { registerSkillsAtStartup } from './skills/register';
 import { initAutoUpdate, setUpdateStateListener } from './auto-update';
+import { installE2EHooks } from './e2e-hooks';
 
 app.setName('Minerva');
+
+// e2e test seams (#998) — no-op unless MINERVA_E2E=1 (set by the Playwright job).
+installE2EHooks();
 
 // Boot-trace: stderr-tagged so the e2e smoke test (#394) can recover them
 // from the captured main-process stream when launch hangs on CI (#518).
