@@ -40,7 +40,8 @@ export function parseFenceInfo(info: string): ParsedFenceInfo {
   const attrs: Record<string, string> = {};
   const attrRe = /\{([a-zA-Z_][a-zA-Z0-9_-]*)=([^\s}]+)\}/g;
   for (const m of rest.matchAll(attrRe)) {
-    attrs[m[1]] = m[2];
+    // Both capture groups are structurally guaranteed when the regex matches.
+    attrs[m[1]!] = m[2]!;
   }
   return { language, attrs };
 }

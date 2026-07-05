@@ -93,7 +93,7 @@ function buildTextMetaTtl(title: string): string {
 function firstMarkdownHeading(content: string): string | null {
   for (const line of content.split(/\r?\n/)) {
     const m = /^#\s+(.+?)\s*$/.exec(line);
-    if (m) return m[1];
+    if (m) return m[1]!;
     if (line.trim().length > 0) break; // stop at the first non-blank, non-heading line
   }
   return null;

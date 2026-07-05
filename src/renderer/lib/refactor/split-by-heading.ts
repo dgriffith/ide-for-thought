@@ -35,7 +35,7 @@ const HEADING_RE = /^(#{1,6})\s+(.+?)\s*#*\s*$/;
 
 function extractSourceTitle(relativePath: string, content: string): string {
   const m = content.match(/^#\s+(.+)$/m);
-  if (m) return m[1].trim();
+  if (m) return m[1]!.trim();
   return (relativePath.split('/').pop() ?? relativePath).replace(/\.md$/, '');
 }
 
@@ -63,7 +63,7 @@ function buildFrontmatter(title: string, sourceRelativePath: string, today: stri
 function splitFrontmatter(content: string): { frontmatter: string; body: string; bodyOffset: number } {
   const m = content.match(/^(---\n[\s\S]*?\n---\n?)/);
   if (!m) return { frontmatter: '', body: content, bodyOffset: 0 };
-  return { frontmatter: m[1], body: content.slice(m[1].length), bodyOffset: m[1].length };
+  return { frontmatter: m[1]!, body: content.slice(m[1]!.length), bodyOffset: m[1]!.length };
 }
 
 /** Find every line that looks like an ATX heading of the given level, outside fenced code blocks. */
@@ -75,8 +75,8 @@ function findHeadings(body: string, level: number): Array<{ lineStart: number; t
     if (/^```/.test(line)) inFence = !inFence;
     if (!inFence) {
       const m = line.match(HEADING_RE);
-      if (m && m[1].length === level) {
-        out.push({ lineStart: offset, text: m[2].trim(), fullLine: line });
+      if (m && m[1]!.length === level) {
+        out.push({ lineStart: offset, text: m[2]!.trim(), fullLine: line });
       }
     }
     offset += line.length + 1; // account for the \n
@@ -114,11 +114,11 @@ export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHead
 
   // Slice body into [preamble, section_1, section_2, …]. Each section begins
   // at its heading's line; the preamble is everything before the first.
-  const preamble = body.slice(0, headings[0].lineStart);
+  const preamble = body.slice(0, headings[0]!.lineStart);
   const sections: string[] = [];
   for (let i = 0; i < headings.length; i++) {
-    const start = headings[i].lineStart;
-    const end = i + 1 < headings.length ? headings[i + 1].lineStart : body.length;
+    const start = headings[i]!.lineStart;
+    const end = i + 1 < headings.length ? headings[i + 1]!.lineStart : body.length;
     sections.push(body.slice(start, end));
   }
 
@@ -136,8 +136,8 @@ export function planSplitByHeading(opts: PlanSplitByHeadingOptions): SplitByHead
   for (let i = 0; i < headings.length; i++) {
     const stem = stems[i];
     const relativePath = `${subfolder}/${stem}.md`;
-    const title = headings[i].text;
-    const rawBody = normalizeHeadingLevels(sections[i].trimEnd(), settings);
+    const title = headings[i]!.text;
+    const rawBody = normalizeHeadingLevels(sections[i]!.trimEnd(), settings);
     const templateCtx = {
       sourceRelativePath,
       sourceTitle,

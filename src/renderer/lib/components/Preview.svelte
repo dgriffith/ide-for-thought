@@ -223,7 +223,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         const inline = tokens[idx + 1];
         const text = inline && inline.type === 'inline' ? inline.content : '';
         const slug = slugify(text);
-        if (slug) tokens[idx].attrSet('id', slug);
+        if (slug) tokens[idx]!.attrSet('id', slug);
         return defaultHeadingOpen
             ? defaultHeadingOpen(tokens, idx, options, env, self)
             : self.renderToken(tokens, idx, options);
@@ -238,12 +238,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (inline && inline.type === 'inline') {
             const m = inline.content.match(BLOCK_ID_RE);
             if (m) {
-                tokens[idx].attrSet('id', `^${m[1]}`);
+                tokens[idx]!.attrSet('id', `^${m[1]}`);
                 // Strip the marker from what renders.
                 inline.content = inline.content.replace(BLOCK_ID_RE, '');
                 if (inline.children) {
                     for (let i = inline.children.length - 1; i >= 0; i--) {
-                        const child = inline.children[i];
+                        const child = inline.children[i]!;
                         if (child.type === 'text') {
                             const stripped = child.content.replace(BLOCK_ID_RE, '');
                             if (stripped !== child.content) {
@@ -271,8 +271,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // structure: list_item_open → paragraph_open → inline). Stop if we hit
         // the matching close without finding one.
         let k = idx + 1;
-        while (k < tokens.length && tokens[k].type !== 'inline' && tokens[k].type !== 'list_item_close') k++;
-        const inlineTok = k < tokens.length && tokens[k].type === 'inline' ? tokens[k] : null;
+        while (k < tokens.length && tokens[k]!.type !== 'inline' && tokens[k]!.type !== 'list_item_close') k++;
+        const inlineTok = k < tokens.length && tokens[k]!.type === 'inline' ? tokens[k]! : null;
         if (inlineTok) {
             const m = inlineTok.content.match(TASK_ITEM_RE);
             if (m) {
@@ -281,17 +281,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                 // `md.render` — which is the frontmatter-stripped content below.
                 // Add the env-carried offset so the checkbox's data-task-line
                 // points at the line index in the original note.
-                const rawLine = tokens[idx].map?.[0] ?? -1;
+                const rawLine = tokens[idx]!.map?.[0] ?? -1;
                 const line = rawLine >= 0 ? rawLine + ((env as { lineOffset?: number })?.lineOffset ?? 0) : -1;
-                tokens[idx].attrSet('data-task-line', String(line));
-                tokens[idx].attrJoin('class', 'task-list-item');
+                tokens[idx]!.attrSet('data-task-line', String(line));
+                tokens[idx]!.attrJoin('class', 'task-list-item');
                 // Strip the `[ ]` prefix from the inline's aggregate content and
                 // from its first text child so the rendered output doesn't repeat it.
                 inlineTok.content = inlineTok.content.replace(TASK_ITEM_RE, '');
                 if (inlineTok.children) {
                     for (let i = 0; i < inlineTok.children.length; i++) {
-                        if (inlineTok.children[i].type === 'text') {
-                            inlineTok.children[i].content = inlineTok.children[i].content.replace(TASK_ITEM_RE, '');
+                        const child = inlineTok.children[i]!;
+                        if (child.type === 'text') {
+                            child.content = child.content.replace(TASK_ITEM_RE, '');
                             break;
                         }
                     }
@@ -329,19 +330,19 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
      * data: / file: pass through unchanged.
      */
     md.renderer.rules.image = (tokens, idx, options, env, self) => {
-        const tok = tokens[idx];
+        const tok = tokens[idx]!;
         const srcIdx = tok.attrIndex('src');
         if (srcIdx < 0) return self.renderToken(tokens, idx, options);
-        const src = tok.attrs![srcIdx][1];
+        const src = tok.attrs![srcIdx]![1];
         if (/^(?:https?:|data:|file:|blob:|mailto:)/i.test(src) || src.startsWith('//')) {
             // Absolute / data URL — render normally.
             return self.renderToken(tokens, idx, options);
         }
         const rel = resolveRelativeImagePath(src, renderPathOverride ?? notePath);
         const altIdx = tok.attrIndex('alt');
-        const alt = altIdx >= 0 ? tok.attrs![altIdx][1] : (tok.content ?? '');
+        const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
         const titleIdx = tok.attrIndex('title');
-        const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx][1])}"` : '';
+        const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
         // Local audio/video (#908): emit a player placeholder hydrated to a blob URL
         // by the post-render pass (videos are too large to base64-inline like images).
         const kind = mediaKind(rel);
@@ -381,7 +382,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     const defaultFence = md.renderer.rules.fence;
     md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-        const tok = tokens[idx];
+        const tok = tokens[idx]!;
         const info = tok.info.trim().toLowerCase();
         // tok.map is the [startLine, endLine] of the fence in the
         // SOURCE-FED-TO-md.render — 0-indexed, and that source has had
@@ -735,7 +736,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     // Query directive plugin: :::query-list ... :::
     md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
-        const startPos = state.bMarks[startLine] + state.tShift[startLine];
+        const startPos = state.bMarks[startLine]! + state.tShift[startLine]!;
         const startMax = state.eMarks[startLine];
         const lineText = state.src.slice(startPos, startMax);
 
@@ -750,7 +751,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         let nextLine = startLine + 1;
         let found = false;
         while (nextLine < endLine) {
-            const pos = state.bMarks[nextLine] + state.tShift[nextLine];
+            const pos = state.bMarks[nextLine]! + state.tShift[nextLine]!;
             const max = state.eMarks[nextLine];
             const line = state.src.slice(pos, max).trim();
             if (line === ':::') {
@@ -794,8 +795,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     });
 
     md.renderer.rules.query_directive = (tokens: Token[], idx: number) => {
-        const query = tokens[idx].content;
-        const {type, config} = tokens[idx].meta as { type: string; config: Record<string, unknown> };
+        const query = tokens[idx]!.content;
+        const {type, config} = tokens[idx]!.meta as { type: string; config: Record<string, unknown> };
         const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
         return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
     };
@@ -994,7 +995,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         const currentLinks = root.querySelectorAll<HTMLElement>('.cite-link, .quote-link');
         if (currentLinks.length !== links.length) return;
         for (let i = 0; i < links.length; i++) {
-            const el = links[i];
+            const el = links[i]!;
             const marker = response.markers[i];
             if (typeof marker !== 'string') continue;
             // Respect the user's |display override — they asked for that
@@ -1210,7 +1211,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // "link" config key specifies which column contains navigable paths
         const linkCol = config.link ?? '';
         // "columns" config key can restrict/reorder visible columns (comma-separated)
-        const allCols = Object.keys(rows[0]);
+        const allCols = Object.keys(rows[0]!);
         const visibleCols = config.columns
             ? config.columns.split(',').map(c => c.trim()).filter(c => allCols.includes(c))
             : allCols;
@@ -1247,8 +1248,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             return;
         }
 
-        const allCols = Object.keys(rows[0]);
-        const xCol = config.x ?? allCols[0];
+        const allCols = Object.keys(rows[0]!);
+        const xCol = config.x ?? allCols[0] ?? '';
         const yCols = config.y
             ? config.y.split(',').map(c => c.trim())
             : allCols.filter(c => c !== xCol);

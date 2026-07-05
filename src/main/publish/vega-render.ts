@@ -142,7 +142,7 @@ export async function renderVegaBlocks(markdown: string, opts: RenderVegaOptions
   let last = 0;
   for (const m of matches) {
     out += markdown.slice(last, m.index);
-    out += await renderOne(m[1] === 'vega' ? 'vega' : 'vega-lite', m[2], markdown, opts);
+    out += await renderOne(m[1] === 'vega' ? 'vega' : 'vega-lite', m[2]!, markdown, opts);
     last = m.index + m[0].length;
   }
   out += markdown.slice(last);

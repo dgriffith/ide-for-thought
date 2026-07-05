@@ -59,7 +59,7 @@ export const acceptCompletionEatTail: Command = (view) => {
  */
 export function wordTailEnd(text: string, from: number): number {
   let to = from;
-  while (to < text.length && /\w/.test(text[to])) to++;
+  while (to < text.length && /\w/.test(text[to]!)) to++;
   return to;
 }
 

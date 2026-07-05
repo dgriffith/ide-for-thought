@@ -144,7 +144,7 @@
     const patch: Record<string, boolean> = {};
     let acc = '';
     for (let i = 0; i < parts.length - 1; i++) {
-      acc = acc ? `${acc}/${parts[i]}` : parts[i];
+      acc = acc ? `${acc}/${parts[i]}` : parts[i]!;
       if (!expanded[acc]) patch[acc] = true;
     }
     if (Object.keys(patch).length > 0) {

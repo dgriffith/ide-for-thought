@@ -65,8 +65,9 @@ export function docFromText(text: string): LineDoc {
     lines: parts.length,
     line(n: number): DocLine {
       const i = n - 1;
-      const from = starts[i];
-      return { text: parts[i], from, to: from + parts[i].length };
+      const from = starts[i]!;
+      const text = parts[i]!;
+      return { text, from, to: from + text.length };
     },
   };
 }

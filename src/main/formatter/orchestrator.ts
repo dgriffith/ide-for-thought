@@ -153,8 +153,8 @@ async function cascadeHeadingRenames(
   if (oldH.length !== newH.length || oldH.length === 0) return [];
   const rewritten = new Set<string>();
   for (let i = 0; i < oldH.length; i++) {
-    const oldSlug = oldH[i];
-    const newSlug = newH[i];
+    const oldSlug = oldH[i]!;
+    const newSlug = newH[i]!;
     if (oldSlug === newSlug || newSlug.length === 0) continue;
     try {
       const result = await renameAnchor(rootPath, relativePath, oldSlug, newSlug);
@@ -179,7 +179,7 @@ function extractHeadingSlugsInOrder(content: string): string[] {
     }
     if (inFence) continue;
     const m = line.match(/^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/);
-    if (m) out.push(slugify(m[2].trim()));
+    if (m) out.push(slugify(m[2]!.trim()));
   }
   return out;
 }

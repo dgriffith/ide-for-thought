@@ -9,7 +9,7 @@
 export function toggleTaskOnLine(content: string, lineIndex: number): string {
   const lines = content.split('\n');
   if (lineIndex < 0 || lineIndex >= lines.length) return content;
-  const m = lines[lineIndex].match(
+  const m = lines[lineIndex]!.match(
     /^(\s*(?:[-*+]|\d+[.)])\s+)\[([ xX])\](\s[\s\S]*)?$/,
   );
   if (!m) return content;

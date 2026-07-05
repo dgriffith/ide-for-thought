@@ -114,7 +114,7 @@ function matchesForContent(content: string, re: RegExp): SearchMatch[] {
   const lines = content.split('\n');
   const matches: SearchMatch[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const lineText = lines[i];
+    const lineText = lines[i]!;
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(lineText)) !== null) {
@@ -208,7 +208,7 @@ function rewriteFileContent(
     const lineNumber = i + 1;
     const sel = perLineSelections.get(lineNumber);
     if (!sel) continue;
-    const originalLine = lines[i];
+    const originalLine = lines[i]!;
     // Scan the line in order; when a match's span is in our selection
     // set, substitute the replacement and adjust for length change so
     // later matches on the same line still land at their original cols.

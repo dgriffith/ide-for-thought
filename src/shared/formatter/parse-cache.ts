@@ -79,23 +79,23 @@ function findFencedCodeBlocks(content: string): Range[] {
   }
 
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i]!;
     const fenceMatch = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
     if (!fenceMatch) {
       i++;
       continue;
     }
-    const fenceChar = fenceMatch[1][0];
-    const fenceLen = fenceMatch[1].length;
-    const blockStart = lineOffsets[i];
+    const fenceChar = fenceMatch[1]![0];
+    const fenceLen = fenceMatch[1]!.length;
+    const blockStart = lineOffsets[i]!;
     let j = i + 1;
     while (j < lines.length) {
-      const candidate = lines[j];
+      const candidate = lines[j]!;
       const closeMatch = new RegExp(`^[ \\t]{0,3}(${fenceChar}{${fenceLen},})[ \\t]*(\\r?\\n|$)`).exec(candidate);
       if (closeMatch) { j++; break; }
       j++;
     }
-    const blockEnd = j < lines.length ? lineOffsets[j] : lineOffsets[lines.length];
+    const blockEnd = j < lines.length ? lineOffsets[j]! : lineOffsets[lines.length]!;
     out.push({ start: blockStart, end: blockEnd });
     i = j;
   }
@@ -170,11 +170,11 @@ function findBlockquotes(content: string): Range[] {
   }
   let i = 0;
   while (i < lines.length) {
-    if (/^[ \t]{0,3}>/.test(lines[i])) {
-      const start = lineOffsets[i];
+    if (/^[ \t]{0,3}>/.test(lines[i]!)) {
+      const start = lineOffsets[i]!;
       let j = i + 1;
-      while (j < lines.length && /^[ \t]{0,3}>/.test(lines[j])) j++;
-      out.push({ start, end: lineOffsets[j] });
+      while (j < lines.length && /^[ \t]{0,3}>/.test(lines[j]!)) j++;
+      out.push({ start, end: lineOffsets[j]! });
       i = j;
     } else {
       i++;

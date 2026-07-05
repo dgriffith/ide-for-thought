@@ -48,7 +48,7 @@ function familyOnly(name: { family?: string; given?: string; literal?: string })
   // "van der Berg" → "berg") — biblatex convention, and what most
   // people expect when they read a citekey.
   const tokens = family.split(/\s+/).filter(Boolean);
-  return tokens.length > 0 ? tokens[tokens.length - 1] : '';
+  return tokens.length > 0 ? tokens[tokens.length - 1]! : '';
 }
 
 function firstAuthor(item: CslItem): string {
@@ -103,7 +103,7 @@ export function assignCitekeys(items: CslItem[]): Map<string, string> {
   }
   for (const [stem, group] of byStem) {
     if (group.length === 1) {
-      out.set(group[0].id, stem);
+      out.set(group[0]!.id, stem);
       continue;
     }
     // Sort by source-id so collision suffixes survive re-runs that

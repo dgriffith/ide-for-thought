@@ -292,7 +292,7 @@ export function createSourceOps(ctx: SourceOpsCtx) {
       );
       return;
     }
-    const top = candidates[0];
+    const top = candidates[0]!;
     if (top.confidence >= RESOLVE_AUTO_THRESHOLD) {
       await applyResolution(sourceId, top.doi, top.title);
       return;

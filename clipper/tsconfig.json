@@ -5,6 +5,7 @@
     "moduleResolution": "bundler",
     "strict": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "isolatedModules": true,

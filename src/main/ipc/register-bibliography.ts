@@ -78,7 +78,7 @@ export function registerBibliography(): void {
       buttonLabel: 'Import',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const sourcePath = result.filePaths[0];
+    const sourcePath = result.filePaths[0]!;
     const xml = await fs.readFile(sourcePath, 'utf-8');
     if (!isValidCslStyle(xml)) {
       throw new Error('File is not a valid CSL style (missing <style> element with the CSL namespace).');
@@ -102,7 +102,7 @@ export function registerBibliography(): void {
       buttonLabel: 'Import',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const sourcePath = result.filePaths[0];
+    const sourcePath = result.filePaths[0]!;
     const xml = await fs.readFile(sourcePath, 'utf-8');
     if (!isValidCslLocale(xml)) {
       throw new Error('File is not a valid CSL locale (missing <locale> element with the CSL namespace).');

@@ -110,7 +110,7 @@ export function registerSources(): void {
       buttonLabel: 'Import',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return await importBibtex(rootPath, result.filePaths[0], {
+    return await importBibtex(rootPath, result.filePaths[0]!, {
       onProgress: (progress) => {
         if (!win.isDestroyed()) {
           win.webContents.send(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
@@ -130,7 +130,7 @@ export function registerSources(): void {
       buttonLabel: 'Import',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return await importZoteroRdf(rootPath, result.filePaths[0], {
+    return await importZoteroRdf(rootPath, result.filePaths[0]!, {
       onProgress: (progress) => {
         if (!win.isDestroyed()) {
           win.webContents.send(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, progress);
@@ -153,7 +153,7 @@ export function registerSources(): void {
       buttonLabel: 'Ingest',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const ingested = await ingestFile(rootPath, result.filePaths[0]);
+    const ingested = await ingestFile(rootPath, result.filePaths[0]!);
     // Re-index the new source so it shows up in the sidebar + graph.
     await reindexFile(rootPath, `.minerva/sources/${ingested.sourceId}/meta.ttl`);
     await persistIndexes(rootPath);

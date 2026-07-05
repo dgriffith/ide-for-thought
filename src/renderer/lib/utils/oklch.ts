@@ -24,9 +24,9 @@ const OKLCH_RE = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*(?:\/\
 export function normalizeColor(input: string): string {
   const m = OKLCH_RE.exec(input.trim());
   if (!m) return input;
-  const L = m[2] ? parseFloat(m[1]) / 100 : parseFloat(m[1]);
-  const C = parseFloat(m[3]);
-  const H = parseFloat(m[4]);
+  const L = m[2] ? parseFloat(m[1]!) / 100 : parseFloat(m[1]!);
+  const C = parseFloat(m[3]!);
+  const H = parseFloat(m[4]!);
   return oklchToHex(L, C, H);
 }
 

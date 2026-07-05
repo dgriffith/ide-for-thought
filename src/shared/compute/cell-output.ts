@@ -77,7 +77,7 @@ export function findCellOutput(content: string, cellId: string): StoredCellOutpu
     offset += line.length + 1; // +1 for the '\n' split removed
     const m = /^```(\S.*)$/.exec(line);
     if (!m) continue;
-    const info = m[1];
+    const info = m[1]!;
     const parsed = parseFenceInfo(info);
     if (!RUNNABLE_LANGUAGE_SET.has(parsed.language) || parsed.attrs.id !== cellId) continue;
 

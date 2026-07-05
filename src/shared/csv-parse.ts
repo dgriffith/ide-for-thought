@@ -30,7 +30,7 @@ export function parseCsv(text: string): ParsedCsv {
     return { headers: [], rows: [], hadHeaderRow: false };
   }
 
-  const first = records[0];
+  const first = records[0]!; // guarded by records.length === 0 above
   const headerish = looksLikeHeader(first);
   const width = first.length;
 

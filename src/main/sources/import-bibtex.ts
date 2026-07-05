@@ -82,7 +82,7 @@ export async function importBibtexContent(
   };
 
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
+    const entry = entries[i]!;
     let titleForProgress = entry.key;
     try {
       const metadata = mapBibtexEntry(entry);

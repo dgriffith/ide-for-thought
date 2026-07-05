@@ -37,7 +37,7 @@
     if (!filePath) return null;
     const parts = filePath.split('/').filter(Boolean);
     if (parts.length === 0) return null;
-    const leaf = parts[parts.length - 1].replace(/\.(md|ttl|csv)$/, '');
+    const leaf = parts[parts.length - 1]!.replace(/\.(md|ttl|csv)$/, '');
     return { folders: parts.slice(0, -1), leaf };
   });
 </script>

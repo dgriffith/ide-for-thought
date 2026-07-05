@@ -40,7 +40,7 @@ function normalizeWithMap(body: string): { normalized: string; map: number[] } {
   let inWs = false;
   let wsRunStart = -1;
   for (let i = 0; i < body.length; i++) {
-    if (/\s/.test(body[i])) {
+    if (/\s/.test(body[i]!)) {
       if (!inWs) { inWs = true; wsRunStart = i; }
       continue;
     }
@@ -50,7 +50,7 @@ function normalizeWithMap(body: string): { normalized: string; map: number[] } {
       if (chars.length > 0) { chars.push(' '); map.push(wsRunStart); }
       inWs = false;
     }
-    chars.push(body[i]);
+    chars.push(body[i]!);
     map.push(i);
   }
   return { normalized: chars.join(''), map };
@@ -70,7 +70,7 @@ export function locateExcerptOffsets(body: string, selection: string): ExcerptOf
   // More than one occurrence — anchoring to either would be a guess.
   if (normalized.indexOf(needle, first + 1) !== -1) return null;
 
-  const charStart = map[first];
-  const charEnd = map[first + needle.length - 1] + 1;
+  const charStart = map[first]!;
+  const charEnd = map[first + needle.length - 1]! + 1;
   return { charStart, charEnd };
 }

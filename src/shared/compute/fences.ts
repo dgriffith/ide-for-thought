@@ -55,18 +55,18 @@ export function findRunnableFences(
   // Running byte offsets per line start.
   const lineOffsets: number[] = [0];
   for (let i = 0; i < lines.length; i++) {
-    lineOffsets.push(lineOffsets[i] + lines[i].length + 1);
+    lineOffsets.push(lineOffsets[i]! + lines[i]!.length + 1);
   }
 
   let i = 0;
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i]!;
     // Accept optional post-language info (e.g. `sparql {id=abc}`), but
     // require *some* language tag — an unlabeled ``` is a plain code
     // block the compute shell leaves alone.
     const open = line.match(/^```(\w+)(\s.*)?$/);
     if (!open) { i++; continue; }
-    const language = open[1];
+    const language = open[1]!;
     // Find the closing fence.
     let close = -1;
     for (let j = i + 1; j < lines.length; j++) {
@@ -74,7 +74,7 @@ export function findRunnableFences(
     }
     if (close < 0) break; // unclosed fence; stop scanning
     if (allowed.has(language.toLowerCase())) {
-      const startOffset = lineOffsets[i];
+      const startOffset = lineOffsets[i]!;
       // endOffset: position just after the closing ```. When the closing
       // line is followed by more content (`close < lines.length - 1`),
       // a `\n` sits between the closing ``` and the next line, so we
@@ -85,7 +85,7 @@ export function findRunnableFences(
       // no-op in CodeMirror, breaking output-block writes for any note
       // that ended with an executable fence.
       const hasTrailingNewline = close < lines.length - 1;
-      const endOffset = lineOffsets[close] + lines[close].length + (hasTrailingNewline ? 1 : 0);
+      const endOffset = lineOffsets[close]! + lines[close]!.length + (hasTrailingNewline ? 1 : 0);
       out.push({
         startOffset,
         endOffset,

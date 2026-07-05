@@ -100,7 +100,7 @@ export function excerptIdFor(sourceId: string, citedText: string): string {
 export function citedTextFromTtl(ttl: string): string | null {
   const m = ttl.match(/thought:citedText\s+"((?:[^"\\]|\\.)*)"/);
   if (!m) return null;
-  return m[1]
+  return m[1]!
     .replace(/\\n/g, '\n')
     .replace(/\\r/g, '\r')
     .replace(/\\t/g, '\t')

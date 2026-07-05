@@ -88,7 +88,7 @@ export function resolveDeck(
 /** Strip a single leading blockquote marker (`>` or `> `) from a line. */
 export function stripQuote(line: string): { quoted: boolean; rest: string } {
   const m = /^>[ \t]?(.*)$/.exec(line);
-  return m ? { quoted: true, rest: m[1] } : { quoted: false, rest: line };
+  return m ? { quoted: true, rest: m[1]! } : { quoted: false, rest: line };
 }
 
 /**
@@ -107,14 +107,14 @@ export function collectCards(
 
   let i = 0;
   while (i < lines.length) {
-    const first = stripQuote(lines[i]);
+    const first = stripQuote(lines[i]!);
     const marker = CARD_MARKER_RE.exec(first.rest.trim());
     if (!marker) { i++; continue; }
 
     const sourceLine = i + 1;
     const titleRaw = marker[1] ?? '';
     const idMatch = TRAILING_ID_RE.exec(titleRaw);
-    const calloutDeck = (idMatch ? idMatch[1] : titleRaw).trim() || undefined;
+    const calloutDeck = (idMatch ? idMatch[1]! : titleRaw).trim() || undefined;
     const id = idMatch?.[2];
 
     // Collect the callout body. Blockquote form runs while lines stay quoted;
@@ -123,12 +123,13 @@ export function collectCards(
     let j = i + 1;
     for (; j < lines.length; j++) {
       if (first.quoted) {
-        const q = stripQuote(lines[j]);
+        const q = stripQuote(lines[j]!);
         if (!q.quoted) break;
         body.push(q.rest);
       } else {
-        if (lines[j].trim() === '') break;
-        body.push(lines[j]);
+        const bare = lines[j]!;
+        if (bare.trim() === '') break;
+        body.push(bare);
       }
     }
     i = j;

@@ -49,11 +49,11 @@
     let m: RegExpExecArray | null;
     sqlFenceRe.lastIndex = 0;
     while ((m = sqlFenceRe.exec(content)) !== null) {
-      const body = m[1];
+      const body = m[1]!;
       tableRefRe.lastIndex = 0;
       let t: RegExpExecArray | null;
       while ((t = tableRefRe.exec(body)) !== null) {
-        const raw = t[1];
+        const raw = t[1]!;
         const unquoted = raw.replace(/^["`]|["`]$/g, '');
         // Strip schema prefix for display + matching — DuckDB registers
         // CSVs as bare names in the default schema.

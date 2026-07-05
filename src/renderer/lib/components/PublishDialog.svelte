@@ -151,7 +151,7 @@
                   {:else}
                     <ul class="changes">
                       {#each res.result.changes.slice(0, 12) as ch (ch.path)}
-                        <li><span class="st st-{ch.status}">{ch.status[0].toUpperCase()}</span> {ch.path}</li>
+                        <li><span class="st st-{ch.status}">{ch.status[0]!.toUpperCase()}</span> {ch.path}</li>
                       {/each}
                     </ul>
                     {#if res.result.changes.length > 12}

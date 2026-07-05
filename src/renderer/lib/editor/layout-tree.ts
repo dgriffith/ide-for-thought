@@ -105,7 +105,7 @@ export function splitLeaf(
       const children = [...root.children];
       const sizes = [...root.sizes];
       children.splice(before ? idx : idx + 1, 0, leaf(newGroupId));
-      const half = sizes[idx] / 2;
+      const half = sizes[idx]! / 2;
       sizes.splice(idx, 1, half, half);
       return { ...root, children, sizes: normalizeSizes(sizes) };
     }
@@ -133,10 +133,10 @@ export function removeLeaf(root: LayoutNode, groupId: string): LayoutNode | null
     const next = removeLeaf(child, groupId);
     if (next !== null) {
       kept.push(next);
-      keptSizes.push(root.sizes[i]);
+      keptSizes.push(root.sizes[i]!);
     }
   });
   if (kept.length === 0) return null;
-  if (kept.length === 1) return kept[0]; // collapse single-child split
+  if (kept.length === 1) return kept[0]!; // collapse single-child split
   return { ...root, children: kept, sizes: normalizeSizes(keptSizes) };
 }

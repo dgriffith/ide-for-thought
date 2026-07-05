@@ -29,14 +29,14 @@ function moveFootnotesToEnd(seg: string): string {
   const kept: string[] = [];
   let i = 0;
   while (i < lines.length) {
-    const body = stripTerminator(lines[i]);
+    const body = stripTerminator(lines[i]!);
     if (DEF_START.test(body)) {
-      const block: string[] = [lines[i]];
+      const block: string[] = [lines[i]!];
       let j = i + 1;
       while (j < lines.length) {
-        const nextBody = stripTerminator(lines[j]);
+        const nextBody = stripTerminator(lines[j]!);
         if (CONTINUATION.test(nextBody)) {
-          block.push(lines[j]);
+          block.push(lines[j]!);
           j++;
         } else {
           break;
@@ -46,9 +46,9 @@ function moveFootnotesToEnd(seg: string): string {
       i = j;
       // Consume one trailing blank line so removing a def that was flanked
       // by blanks doesn't leave two blanks in a row in its place.
-      if (i < lines.length && /^\s*$/.test(stripTerminator(lines[i]))) i++;
+      if (i < lines.length && /^\s*$/.test(stripTerminator(lines[i]!))) i++;
     } else {
-      kept.push(lines[i]);
+      kept.push(lines[i]!);
       i++;
     }
   }

@@ -176,7 +176,7 @@ function collectExistingReferences(ttl: string): Set<string> {
   const out = new Set<string>();
   const re = /minerva:references\s+sources:([\w.-]+)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(ttl)) !== null) out.add(m[1]);
+  while ((m = re.exec(ttl)) !== null) out.add(m[1]!);
   return out;
 }
 

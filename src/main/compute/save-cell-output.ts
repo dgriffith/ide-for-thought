@@ -259,7 +259,7 @@ function extractFenceInfo(doc: string, fence: FenceRange): string {
   const stop = lineEnd < 0 ? doc.length : lineEnd;
   const line = doc.slice(fence.startOffset, stop);
   const m = line.match(/^`{3,}(.*)$/);
-  return m ? m[1] : '';
+  return m ? m[1]! : '';
 }
 
 // Re-export for type-checkers that prefer a named symbol over the

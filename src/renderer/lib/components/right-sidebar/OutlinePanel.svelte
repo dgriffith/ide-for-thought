@@ -16,20 +16,20 @@
 
   function hasChildren(index: number): boolean {
     if (index >= headings.length - 1) return false;
-    return headings[index + 1].level > headings[index].level;
+    return headings[index + 1]!.level > headings[index]!.level;
   }
 
   function isVisible(index: number): boolean {
     // Hide under a collapsed ancestor.
     for (let i = index - 1; i >= 0; i--) {
-      if (headings[i].level < headings[index].level) {
+      if (headings[i]!.level < headings[index]!.level) {
         if (collapsed[i]) return false;
       }
     }
     // Search filter: match against heading text. When searching we bypass
     // the collapsed-ancestor rule above by still requiring text match.
     if (search.trim()) {
-      return headings[index].text.toLowerCase().includes(search.toLowerCase());
+      return headings[index]!.text.toLowerCase().includes(search.toLowerCase());
     }
     return true;
   }

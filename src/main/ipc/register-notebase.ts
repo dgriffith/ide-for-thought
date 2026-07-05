@@ -56,7 +56,7 @@ export function registerNotebase(): void {
     });
     if (result.canceled || result.filePaths.length === 0) return null;
 
-    const rootPath = result.filePaths[0];
+    const rootPath = result.filePaths[0]!;
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: path.basename(rootPath) };
@@ -81,7 +81,7 @@ export function registerNotebase(): void {
       title: 'Open thoughtbase',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const rootPath = result.filePaths[0];
+    const rootPath = result.filePaths[0]!;
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
@@ -98,7 +98,7 @@ export function registerNotebase(): void {
       buttonLabel: 'Create Thoughtbase',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    const rootPath = result.filePaths[0];
+    const rootPath = result.filePaths[0]!;
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);

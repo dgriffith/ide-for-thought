@@ -47,13 +47,13 @@ export function rewriteCitations(
   let i = 0;
   while (i < content.length) {
     if (content[i] !== '[' || content[i + 1] !== '[' || isInsideFence(i)) {
-      out.push(content[i]);
+      out.push(content[i]!);
       i++;
       continue;
     }
     const first = parseCiteAt(content, i);
     if (!first) {
-      out.push(content[i]);
+      out.push(content[i]!);
       i++;
       continue;
     }
@@ -61,7 +61,7 @@ export function rewriteCitations(
     let scanPos = first.endPos;
     while (true) {
       let p = scanPos;
-      while (p < content.length && /\s/.test(content[p])) p++;
+      while (p < content.length && /\s/.test(content[p]!)) p++;
       const next = parseCiteAt(content, p);
       if (!next) break;
       run.push(next);
@@ -80,12 +80,12 @@ export function parseCiteAt(src: string, pos: number): ParsedCite | null {
   const inner = src.slice(pos + 2, close);
   const m = inner.match(/^(cite|quote)::(.+)$/i);
   if (!m) return null;
-  const rawTarget = m[2];
+  const rawTarget = m[2]!;
   const pipe = rawTarget.indexOf('|');
   const id = (pipe >= 0 ? rawTarget.slice(0, pipe) : rawTarget).trim();
   const alias = pipe >= 0 ? rawTarget.slice(pipe + 1).trim() : '';
   return {
-    kind: m[1].toLowerCase() as 'cite' | 'quote',
+    kind: m[1]!.toLowerCase() as 'cite' | 'quote',
     id,
     aliasLocator: parseLocatorAlias(alias),
     endPos: close + 2,

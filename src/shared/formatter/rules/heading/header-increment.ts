@@ -13,12 +13,13 @@ registerRule({
       let lastLevel: number | null = null;
       const parts = seg.split(/(\r?\n)/);
       for (let i = 0; i < parts.length; i += 2) {
-        const m = parts[i].match(/^(#{1,6})(?=[ \t]|$)/);
+        const part = parts[i]!;
+        const m = part.match(/^(#{1,6})(?=[ \t]|$)/);
         if (!m) continue;
-        const level = m[1].length;
+        const level = m[1]!.length;
         const allowed: number = lastLevel === null ? level : Math.min(level, lastLevel + 1);
         if (allowed !== level) {
-          parts[i] = '#'.repeat(allowed) + parts[i].slice(level);
+          parts[i] = '#'.repeat(allowed) + part.slice(level);
         }
         lastLevel = allowed;
       }

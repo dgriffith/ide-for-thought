@@ -87,7 +87,7 @@ async function readCompanionSchema(
   if (!m) return null;
   let fm: unknown;
   try {
-    fm = YAML.parse(m[1]);
+    fm = YAML.parse(m[1]!);
   } catch {
     return null;
   }

@@ -111,7 +111,7 @@
     const i = ids.indexOf(s.id);
     const j = i + dir;
     if (i === -1 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j], ids[i]];
+    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
     const cfg = skillCatalog.config;
     void commitConfig({ skills: cfg.skills, order: { ...cfg.order, [menu]: ids } });
   }

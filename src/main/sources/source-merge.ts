@@ -109,7 +109,7 @@ function detectPresentPredicates(ttl: string): Set<string> {
   // token followed by whitespace + a value.
   const re = /(?:^|\s)([a-zA-Z][\w-]*:[a-zA-Z][\w-]*)\s+(?!a\s)/gm;
   for (const m of ttl.matchAll(re)) {
-    out.add(m[1]);
+    out.add(m[1]!);
   }
   // `a` is the rdf:type predicate — record it too in case a merge
   // someday wants to add a type assertion.

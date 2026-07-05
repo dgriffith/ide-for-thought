@@ -98,7 +98,7 @@
     if (letters.length > words.length) return false;
     for (let i = 0; i < letters.length; i++) {
       if (i >= words.length) return false;
-      if (words[i][0]?.toLowerCase() !== letters[i]) return false;
+      if (words[i]![0]?.toLowerCase() !== letters[i]) return false;
     }
     return true;
   }
@@ -106,8 +106,9 @@
   function camelCaseMatch(name: string, q: string): boolean {
     const capitals: string[] = [];
     for (let i = 0; i < name.length; i++) {
-      if (i === 0 || name[i] === name[i].toUpperCase() && name[i] !== name[i].toLowerCase()) {
-        capitals.push(name[i].toLowerCase());
+      const ch = name[i]!;
+      if (i === 0 || ch === ch.toUpperCase() && ch !== ch.toLowerCase()) {
+        capitals.push(ch.toLowerCase());
       }
     }
     const qLower = q.toLowerCase();
@@ -121,7 +122,7 @@
   function fuzzyMatch(text: string, query: string): boolean {
     let ti = 0;
     for (let qi = 0; qi < query.length; qi++) {
-      const idx = text.indexOf(query[qi], ti);
+      const idx = text.indexOf(query[qi]!, ti);
       if (idx === -1) return false;
       ti = idx + 1;
     }

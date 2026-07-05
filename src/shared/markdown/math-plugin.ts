@@ -30,11 +30,12 @@ export function installMath(md: MarkdownIt): void {
     alt: ['paragraph', 'reference', 'blockquote', 'list'],
   });
   md.renderer.rules.math_inline = (tokens, idx) => {
-    const displayMode = tokens[idx].markup === '$$';
-    return renderTex(tokens[idx].content, displayMode);
+    const token = tokens[idx]!;
+    const displayMode = token.markup === '$$';
+    return renderTex(token.content, displayMode);
   };
   md.renderer.rules.math_block = (tokens, idx) =>
-    `<div class="math-block">${renderTex(tokens[idx].content, true)}</div>\n`;
+    `<div class="math-block">${renderTex(tokens[idx]!.content, true)}</div>\n`;
 }
 
 function renderTex(tex: string, displayMode: boolean): string {
@@ -126,8 +127,8 @@ function mathInline(state: StateInline, silent: boolean): boolean {
  * `$$` at the end of some subsequent (or the same) line.
  */
 function mathBlock(state: StateBlock, startLine: number, endLine: number, silent: boolean): boolean {
-  const openPos = state.bMarks[startLine] + state.tShift[startLine];
-  const openEnd = state.eMarks[startLine];
+  const openPos = state.bMarks[startLine]! + state.tShift[startLine]!;
+  const openEnd = state.eMarks[startLine]!;
   if (openEnd - openPos < 2) return false;
   if (state.src.charCodeAt(openPos) !== 0x24 || state.src.charCodeAt(openPos + 1) !== 0x24) {
     return false;
@@ -151,7 +152,7 @@ function mathBlock(state: StateBlock, startLine: number, endLine: number, silent
   let line = startLine + 1;
   let foundLine = -1;
   while (line < endLine) {
-    const lineStart = state.bMarks[line] + state.tShift[line];
+    const lineStart = state.bMarks[line]! + state.tShift[line]!;
     const lineEnd = state.eMarks[line];
     const text = state.src.slice(lineStart, lineEnd);
     if (text.trimEnd().endsWith('$$')) { foundLine = line; break; }
@@ -163,9 +164,9 @@ function mathBlock(state: StateBlock, startLine: number, endLine: number, silent
   const bodyLines: string[] = [];
   if (firstLine.trim().length > 0) bodyLines.push(firstLine);
   for (let i = startLine + 1; i < foundLine; i++) {
-    bodyLines.push(state.src.slice(state.bMarks[i] + state.tShift[i], state.eMarks[i]));
+    bodyLines.push(state.src.slice(state.bMarks[i]! + state.tShift[i]!, state.eMarks[i]));
   }
-  const tail = state.src.slice(state.bMarks[foundLine] + state.tShift[foundLine], state.eMarks[foundLine]);
+  const tail = state.src.slice(state.bMarks[foundLine]! + state.tShift[foundLine]!, state.eMarks[foundLine]);
   const tailBody = tail.replace(/\$\$\s*$/, '');
   if (tailBody.trim().length > 0) bodyLines.push(tailBody);
 

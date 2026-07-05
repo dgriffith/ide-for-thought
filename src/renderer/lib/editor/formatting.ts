@@ -96,7 +96,7 @@ function nextHighlightColor(current: HighlightColor | null): HighlightColor | nu
   if (current === null) return null;
   const idx = HIGHLIGHT_PALETTE.indexOf(current);
   if (idx < 0 || idx === HIGHLIGHT_PALETTE.length - 1) return null;
-  return HIGHLIGHT_PALETTE[idx + 1];
+  return HIGHLIGHT_PALETTE[idx + 1]!;
 }
 
 /**

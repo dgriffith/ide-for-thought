@@ -581,7 +581,7 @@ export function findDerivedNoteForCell(
   }
   if (candidates.length === 0) return null;
   candidates.sort();
-  return candidates[0];
+  return candidates[0]!;
 }
 
 export function findNotesLinkingTo(ctx: ProjectContext, targetRelativePath: string): string[] {
@@ -1138,8 +1138,8 @@ export function citationsForNote(
   const RE = /\[\[(cite|quote)::([^\]|]+)(?:\|[^\]]*)?\]\]/g;
   let m: RegExpExecArray | null;
   while ((m = RE.exec(countable)) !== null) {
-    const kind = m[1].toLowerCase();
-    const id = m[2].trim();
+    const kind = m[1]!.toLowerCase();
+    const id = m[2]!.trim();
     const key = `${kind}:${id}`;
     occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
   }

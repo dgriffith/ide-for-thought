@@ -79,9 +79,9 @@ export function addBlockquoteIndent(text: string, ctx: PasteContext): string {
   const lines = text.split('\n');
   if (lines.length < 2) return text;
   const m = ctx.lineBeforeCursor.match(/^(\s*>+\s?)/);
-  const prefix = m ? m[1] : '> ';
+  const prefix = m ? m[1]! : '> ';
   for (let i = 1; i < lines.length; i++) {
-    if (!/^\s*>/.test(lines[i])) lines[i] = prefix + lines[i];
+    if (!/^\s*>/.test(lines[i]!)) lines[i] = prefix + lines[i];
   }
   return lines.join('\n');
 }

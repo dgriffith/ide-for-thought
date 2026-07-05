@@ -87,7 +87,7 @@ function extractTurtleBlocks(content: string): string[] {
   let match;
   TURTLE_BLOCK_RE.lastIndex = 0;
   while ((match = TURTLE_BLOCK_RE.exec(content)) !== null) {
-    const block = match[1].trim();
+    const block = match[1]!.trim();
     if (block) blocks.push(block);
   }
   return blocks;
@@ -101,7 +101,7 @@ function extractTitle(content: string): string | null {
 
   // Fall back to first H1
   const match = content.match(HEADING_RE);
-  return match ? match[1].trim() : null;
+  return match ? match[1]!.trim() : null;
 }
 
 /** Each `/`-delimited segment of a nested tag must look like a normal
@@ -115,7 +115,7 @@ function extractTags(content: string): string[] {
   let match;
   TAG_RE.lastIndex = 0;
   while ((match = TAG_RE.exec(content)) !== null) {
-    const cleaned = normalizeNestedTag(match[1]);
+    const cleaned = normalizeNestedTag(match[1]!);
     if (cleaned) tags.add(cleaned);
   }
   return [...tags];
@@ -144,7 +144,7 @@ function extractLinks(content: string): ParsedLink[] {
   WIKI_LINK_RE.lastIndex = 0;
 
   while ((match = WIKI_LINK_RE.exec(content)) !== null) {
-    const inner = match[1];
+    const inner = match[1]!;
 
     // Check for typed link: type::rest
     const typeMatch = inner.match(/^([a-z][\w-]*)::(.+)$/);
@@ -152,8 +152,8 @@ function extractLinks(content: string): ParsedLink[] {
     let rest: string;
 
     if (typeMatch) {
-      type = typeMatch[1];
-      rest = typeMatch[2];
+      type = typeMatch[1]!;
+      rest = typeMatch[2]!;
     } else {
       type = 'references';
       rest = inner;
@@ -184,7 +184,7 @@ function extractFrontmatter(content: string): Record<string, FrontmatterValue> {
 
   let raw: unknown;
   try {
-    raw = YAML.parse(match[1]);
+    raw = YAML.parse(match[1]!);
   } catch {
     return {};
   }
@@ -225,7 +225,7 @@ function extractTables(content: string): ParsedTable[] {
   let i = 0;
   while (i < lines.length) {
     // Look for a header row: | col1 | col2 | ...
-    const headerLine = lines[i].trim();
+    const headerLine = lines[i]!.trim();
     if (!headerLine.startsWith('|') || !headerLine.endsWith('|')) { i++; continue; }
 
     // Next line must be the separator: |---|---|
@@ -242,7 +242,7 @@ function extractTables(content: string): ParsedTable[] {
     const rows: string[][] = [];
     let j = i + 2;
     while (j < lines.length) {
-      const rowLine = lines[j].trim();
+      const rowLine = lines[j]!.trim();
       if (!rowLine.startsWith('|') || !rowLine.endsWith('|')) break;
       const cells = rowLine
         .slice(1, -1)

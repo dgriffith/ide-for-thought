@@ -170,7 +170,7 @@
     const re = /(?:^|\s|;)\s*(?:a|rdf:type)\s+(?:[a-zA-Z][\w-]*:)?([A-Za-z][\w-]*)/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(turtle)) !== null) {
-      const t = m[1];
+      const t = m[1]!;
       out.set(t, (out.get(t) ?? 0) + 1);
     }
     return out;

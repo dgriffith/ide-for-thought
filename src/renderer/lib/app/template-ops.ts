@@ -220,7 +220,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     editor.switchTab(idx);
     // setContent operates on the active tab — switchTab already
     // flipped activeIndex so this targets the right buffer.
-    const target = editor.tabs[idx];
+    const target = editor.tabs[idx]!;
     if (target.type !== 'note') return false;
     editor.setContent(target.content + block);
     return true;

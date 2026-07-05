@@ -118,7 +118,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
 
   let fm: Record<string, unknown>;
   try {
-    const parsed: unknown = YAML.parse(m[1]);
+    const parsed: unknown = YAML.parse(m[1]!); // capture group present when the regex matches
     if (typeof parsed !== 'object' || parsed === null) {
       return { errors: ['frontmatter is not a YAML mapping'], label: fallbackLabel };
     }

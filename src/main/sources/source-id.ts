@@ -194,7 +194,7 @@ export function amazonAsin(hostname: string, pathname: string): string | null {
   const m = pathname.match(
     /\/(?:dp|gp\/product|gp\/aw\/d|o|exec\/obidos\/(?:asin|tg\/detail\/-\/[^/]+))\/([A-Z0-9]{10})(?=[/?]|$)/i,
   );
-  return m ? m[1].toUpperCase() : null;
+  return m ? m[1]!.toUpperCase() : null;
 }
 
 const TRACKING_PARAMS = new Set([
@@ -222,8 +222,8 @@ export function shortHash(input: string): string {
 
 function isIsbn10Valid(isbn10: string): boolean {
   let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(isbn10[i], 10) * (10 - i);
-  const last = isbn10[9];
+  for (let i = 0; i < 9; i++) sum += parseInt(isbn10[i]!, 10) * (10 - i);
+  const last = isbn10[9]!;
   sum += last === 'X' ? 10 : parseInt(last, 10);
   return sum % 11 === 0;
 }
@@ -231,7 +231,7 @@ function isIsbn10Valid(isbn10: string): boolean {
 function isIsbn13Valid(isbn13: string): boolean {
   let sum = 0;
   for (let i = 0; i < 13; i++) {
-    const digit = parseInt(isbn13[i], 10);
+    const digit = parseInt(isbn13[i]!, 10);
     sum += i % 2 === 0 ? digit : digit * 3;
   }
   return sum % 10 === 0;
@@ -241,7 +241,7 @@ function isbn10ToIsbn13(isbn10: string): string {
   const base = `978${isbn10.slice(0, 9)}`;
   let sum = 0;
   for (let i = 0; i < 12; i++) {
-    const digit = parseInt(base[i], 10);
+    const digit = parseInt(base[i]!, 10);
     sum += i % 2 === 0 ? digit : digit * 3;
   }
   const checksum = (10 - (sum % 10)) % 10;

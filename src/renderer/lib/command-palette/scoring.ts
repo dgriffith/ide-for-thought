@@ -47,7 +47,7 @@ export function firstLetterMatch(name: string, q: string): boolean {
   const letters = q.toLowerCase();
   if (letters.length === 0 || letters.length > words.length) return false;
   for (let i = 0; i < letters.length; i++) {
-    if (words[i][0]?.toLowerCase() !== letters[i]) return false;
+    if (words[i]![0]?.toLowerCase() !== letters[i]) return false;
   }
   return true;
 }
@@ -60,7 +60,7 @@ export function firstLetterMatch(name: string, q: string): boolean {
 export function camelCaseMatch(name: string, q: string): boolean {
   const peaks: string[] = [];
   for (let i = 0; i < name.length; i++) {
-    const c = name[i];
+    const c = name[i]!;
     if (i === 0 || /[A-Z]/.test(c)) peaks.push(c.toLowerCase());
   }
   const lowerQ = q.toLowerCase();
@@ -75,7 +75,7 @@ export function camelCaseMatch(name: string, q: string): boolean {
 export function fuzzyMatch(text: string, query: string): boolean {
   let ti = 0;
   for (let qi = 0; qi < query.length; qi++) {
-    const idx = text.indexOf(query[qi], ti);
+    const idx = text.indexOf(query[qi]!, ti);
     if (idx === -1) return false;
     ti = idx + 1;
   }

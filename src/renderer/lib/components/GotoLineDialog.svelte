@@ -15,7 +15,7 @@
       e.preventDefault();
       e.stopPropagation();
       const parts = value.split(':');
-      const line = parseInt(parts[0], 10);
+      const line = parseInt(parts[0]!, 10);
       const col = parts[1] ? parseInt(parts[1], 10) : 1;
       if (!isNaN(line)) onGoto(line, isNaN(col) ? 1 : col);
     } else if (e.key === 'Escape') {

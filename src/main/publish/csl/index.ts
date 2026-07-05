@@ -64,8 +64,10 @@ export async function loadCitationAssets(
   const { locales: availableLocales } = await getMergedLocales(rootPath);
   const styleId = opts.styleId && availableStyles[opts.styleId] ? opts.styleId : DEFAULT_STYLE;
   const localeId = opts.localeId && availableLocales[opts.localeId] ? opts.localeId : DEFAULT_LOCALE;
-  const style = availableStyles[styleId];
-  const locale = availableLocales[localeId];
+  // styleId/localeId are either a confirmed-present key or the bundled
+  // default (DEFAULT_STYLE/DEFAULT_LOCALE are always in the merged registry).
+  const style = availableStyles[styleId]!;
+  const locale = availableLocales[localeId]!;
 
   const items = new Map<string, CslItem>();
   const excerpts = new Map<string, { sourceId: string; locator?: string }>();

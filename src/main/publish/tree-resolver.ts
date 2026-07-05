@@ -147,7 +147,7 @@ export function extractWikiLinkTargets(content: string): string[] {
   const WIKI_RE = /\[\[([^\]|\n]+?)(?:\|[^\]\n]+)?\]\]/g;
   let m: RegExpExecArray | null;
   while ((m = WIKI_RE.exec(content)) !== null) {
-    const inner = m[1].trim();
+    const inner = m[1]!.trim();
     if (/^(cite|quote)::/i.test(inner)) continue;
     const untyped = inner.replace(/^[a-z][a-z0-9_]*::/i, '');
     const hashIdx = untyped.indexOf('#');

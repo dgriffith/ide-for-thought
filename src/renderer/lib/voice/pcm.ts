@@ -19,14 +19,14 @@ export const TARGET_SAMPLE_RATE = 16_000;
  */
 export function mixToMono(channels: Float32Array[]): Float32Array {
   if (channels.length === 0) return new Float32Array(0);
-  if (channels.length === 1) return channels[0];
-  const len = channels[0].length;
+  if (channels.length === 1) return channels[0]!;
+  const len = channels[0]!.length;
   const out = new Float32Array(len);
   for (const ch of channels) {
-    for (let i = 0; i < len; i++) out[i] += ch[i];
+    for (let i = 0; i < len; i++) out[i] = out[i]! + ch[i]!;
   }
   const n = channels.length;
-  for (let i = 0; i < len; i++) out[i] /= n;
+  for (let i = 0; i < len; i++) out[i] = out[i]! / n;
   return out;
 }
 
@@ -51,7 +51,7 @@ export function resampleLinear(
     const i0 = Math.floor(srcPos);
     const i1 = Math.min(i0 + 1, input.length - 1);
     const frac = srcPos - i0;
-    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+    out[i] = input[i0]! * (1 - frac) + input[i1]! * frac;
   }
   return out;
 }

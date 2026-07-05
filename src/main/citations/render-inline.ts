@@ -73,7 +73,7 @@ export async function renderInlineCitations(
     }
   }
 
-  const numeric = isNumericStyle(BUNDLED_STYLES[styleId]);
+  const numeric = isNumericStyle(BUNDLED_STYLES[styleId]!);
   const bibliography = numeric ? renderer.renderBibliography().entries : null;
 
   return {

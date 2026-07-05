@@ -39,7 +39,7 @@ export async function buildTreePdfHtml(plan: ExportPlan): Promise<BuildTreePdfHt
   if (notes.length === 0) {
     return { html: '', documentTitle: '', chapterCount: 0 };
   }
-  const rootNote = notes[0];
+  const rootNote = notes[0]!;
 
   const allCitedIds = new Set<string>();
   let isNoteStyle = false;

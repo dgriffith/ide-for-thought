@@ -23,7 +23,7 @@ export function scanCitations(content: string): ScannedCitation[] {
   WIKI_LINK_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = WIKI_LINK_RE.exec(stripped)) !== null) {
-    const parsed = parseWikiInner(m[1]);
+    const parsed = parseWikiInner(m[1]!);
     if (parsed.type !== 'cite' && parsed.type !== 'quote') continue;
     const id = parsed.target.trim();
     if (!id) continue;

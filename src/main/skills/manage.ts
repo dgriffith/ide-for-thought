@@ -84,7 +84,7 @@ export async function pickAndImportSkill(win: BrowserWindow): Promise<ImportedSk
     filters: [{ name: 'Skill', extensions: ['md'] }],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  return importSkillFromPath(result.filePaths[0]);
+  return importSkillFromPath(result.filePaths[0]!); // non-empty checked above
 }
 
 /** Delete a user skill by id (the bare .md file, or the folder for SKILL.md).

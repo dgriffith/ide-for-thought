@@ -68,8 +68,8 @@ export async function gatherContext(
         `);
         const rows = r.results as Array<{ label?: string; sourceText?: string }>;
         if (rows.length > 0) {
-          ctx.claimLabel = rows[0].label ?? '';
-          ctx.claimSourceText = rows[0].sourceText ?? '';
+          ctx.claimLabel = rows[0]!.label ?? '';
+          ctx.claimSourceText = rows[0]!.sourceText ?? '';
         }
       } catch {
         // Graph not initialised / query error — leave metadata empty.

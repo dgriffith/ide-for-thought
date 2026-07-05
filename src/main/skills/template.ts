@@ -100,7 +100,8 @@ function tokenize(template: string): Token[] {
   MUSTACHE.lastIndex = 0;
   while ((m = MUSTACHE.exec(template)) !== null) {
     if (m.index > last) tokens.push({ t: 'text', v: template.slice(last, m.index) });
-    const inner = m[1].trim();
+    // The single capture group always matches (possibly empty) when exec succeeds.
+    const inner = m[1]!.trim();
     if (inner.startsWith('#if ') || inner.startsWith('#if\t')) {
       let expr = inner.slice(3).trim();
       const neg = expr.startsWith('!');
@@ -112,9 +113,9 @@ function tokenize(template: string): Token[] {
       tokens.push({ t: 'endif' });
     } else {
       const parts = inner.split('|').map((p) => p.trim());
-      const path = parts[0];
+      const path = parts[0]!; // split always yields at least one element
       const filters = parts.slice(1).filter(Boolean);
-      tokens.push({ t: 'var', path, filters, raw: m[1].trim() });
+      tokens.push({ t: 'var', path, filters, raw: m[1]!.trim() });
     }
     last = m.index + m[0].length;
   }
@@ -130,7 +131,7 @@ function tokenize(template: string): Token[] {
 function trimStandalone(tokens: Token[]): Token[] {
   const isBlock = (tk: Token) => tk.t === 'if' || tk.t === 'else' || tk.t === 'endif';
   for (let i = 0; i < tokens.length; i++) {
-    if (!isBlock(tokens[i])) continue;
+    if (!isBlock(tokens[i]!)) continue;
     const prev = tokens[i - 1];
     const next = tokens[i + 1];
     const prevText = prev && prev.t === 'text' ? prev.v : i === 0 ? '' : null;
@@ -158,7 +159,7 @@ function parse(tokens: Token[]): Node[] {
   function parseSeq(stopOnElse: boolean): Node[] {
     const nodes: Node[] = [];
     while (pos < tokens.length) {
-      const tk = tokens[pos];
+      const tk = tokens[pos]!; // bounded by the while condition
       if (tk.t === 'endif') return nodes;
       if (tk.t === 'else' && stopOnElse) return nodes;
       if (tk.t === 'else') throw new Error('Template: unexpected {{else}} without matching {{#if}}');
@@ -166,11 +167,13 @@ function parse(tokens: Token[]): Node[] {
         pos++; // consume the if
         const thenNodes = parseSeq(true);
         let elseNodes: Node[] = [];
-        if (tokens[pos] && tokens[pos].t === 'else') {
+        const afterThen = tokens[pos];
+        if (afterThen && afterThen.t === 'else') {
           pos++; // consume else
           elseNodes = parseSeq(false);
         }
-        if (!tokens[pos] || tokens[pos].t !== 'endif') {
+        const endTk = tokens[pos];
+        if (!endTk || endTk.t !== 'endif') {
           throw new Error(`Template: unclosed {{#if ${tk.path}}} (missing {{/if}})`);
         }
         pos++; // consume endif

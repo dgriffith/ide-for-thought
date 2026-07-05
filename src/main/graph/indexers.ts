@@ -218,7 +218,7 @@ function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | Frontmat
   // Strings: try wiki-link first, then date shapes, then plain.
   const wiki = value.match(FRONTMATTER_WIKILINK_RE);
   if (wiki && projectBaseUri) {
-    const target = wiki[1].trim();
+    const target = wiki[1]!.trim();
     // `[[sources/<id>]]` materialises as the actual source URI rather
     // than a phantom note path (#474). Lets `about: [[sources/foo]]`
     // become a real edge from this note to the foo source, queryable
@@ -308,11 +308,11 @@ function extractHeadingsFromContent(content: string): HeadingSnapshot[] {
     if (inFence) continue;
     const m = line.match(HEADING_LINE_RE);
     if (!m) continue;
-    const text = m[2].trim();
+    const text = m[2]!.trim();
     const slug = slugify(text);
     if (!slug || seenSlugs.has(slug)) continue;
     seenSlugs.add(slug);
-    out.push({ slug, text, level: m[1].length });
+    out.push({ slug, text, level: m[1]!.length });
   }
   return out;
 }
@@ -506,7 +506,7 @@ export async function indexNote(
 
   // Markdown tables — CSVW triples
   for (let ti = 0; ti < parsed.tables.length; ti++) {
-    indexTable(state, parsed.tables[ti], ti, subject, graph);
+    indexTable(state, parsed.tables[ti]!, ti, subject, graph);
   }
 
   return headingRenameCandidate ? { headingRenameCandidate } : {};
@@ -536,8 +536,8 @@ function detectHeadingRename(
   const added = next.filter((h) => !prevSlugs.has(h.slug));
   if (removed.length !== 1 || added.length !== 1) return undefined;
 
-  const old = removed[0];
-  const fresh = added[0];
+  const old = removed[0]!;
+  const fresh = added[0]!;
   const incoming = findNotesLinkingToAnchorImpl(state, relativePath, old.slug).length;
 
   return {
@@ -566,7 +566,7 @@ function indexTable(
   // Columns
   const colNodes: $rdf.NamedNode[] = [];
   for (let ci = 0; ci < table.headers.length; ci++) {
-    const colName = table.headers[ci];
+    const colName = table.headers[ci]!;
     const colUri = $rdf.sym(`${tableUri.value}/column/${encodeURIComponent(colName)}`);
     colNodes.push(colUri);
     store.add(colUri, RDF('type'), CSVW('Column'), graph);
@@ -583,8 +583,8 @@ function indexTable(
     store.add(tableUri, CSVW('row'), rowUri, graph);
 
     for (let ci = 0; ci < table.headers.length; ci++) {
-      const value = table.rows[ri][ci] ?? '';
-      const cellUri = $rdf.sym(`${rowUri.value}/cell/${encodeURIComponent(table.headers[ci])}`);
+      const value = table.rows[ri]![ci] ?? '';
+      const cellUri = $rdf.sym(`${rowUri.value}/cell/${encodeURIComponent(table.headers[ci]!)}`);
       store.add(cellUri, RDF('type'), CSVW('Cell'), graph);
       store.add(cellUri, CSVW('column'), colNodes[ci], graph);
       store.add(cellUri, RDF('value'), $rdf.lit(value), graph);
@@ -851,7 +851,7 @@ function indexCsvFile(
   // `minerva:fromFile`). Keeping just the Table + column schema is enough for
   // the sidebar / tag / schema queries that touch CSV files through the graph.
   for (let ci = 0; ci < parsed.headers.length; ci++) {
-    const colName = parsed.headers[ci];
+    const colName = parsed.headers[ci]!;
     const colUri = $rdf.sym(`${subject.value}/column/${encodeURIComponent(colName)}`);
     store.add(colUri, RDF('type'), CSVW('Column'), graph);
     store.add(colUri, CSVW('name'), $rdf.lit(colName), graph);

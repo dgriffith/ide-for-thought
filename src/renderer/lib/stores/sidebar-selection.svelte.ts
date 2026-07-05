@@ -80,7 +80,7 @@ export function getSidebarSelectionStore() {
 
   function selectAll(visibleOrder: string[]): void {
     selected = new Set(visibleOrder);
-    anchor = visibleOrder.length > 0 ? visibleOrder[0] : null;
+    anchor = visibleOrder.length > 0 ? visibleOrder[0]! : null;
     focused = anchor;
   }
 
@@ -93,18 +93,18 @@ export function getSidebarSelectionStore() {
   function moveFocus(direction: 'up' | 'down', visibleOrder: string[]): string | null {
     if (visibleOrder.length === 0) return null;
     if (focused === null) {
-      focused = direction === 'down' ? visibleOrder[0] : visibleOrder[visibleOrder.length - 1];
+      focused = direction === 'down' ? visibleOrder[0]! : visibleOrder[visibleOrder.length - 1]!;
       return focused;
     }
     const curIdx = visibleOrder.indexOf(focused);
     if (curIdx === -1) {
-      focused = direction === 'down' ? visibleOrder[0] : visibleOrder[visibleOrder.length - 1];
+      focused = direction === 'down' ? visibleOrder[0]! : visibleOrder[visibleOrder.length - 1]!;
       return focused;
     }
     const nextIdx = direction === 'down'
       ? Math.min(curIdx + 1, visibleOrder.length - 1)
       : Math.max(curIdx - 1, 0);
-    focused = visibleOrder[nextIdx];
+    focused = visibleOrder[nextIdx]!;
     return focused;
   }
 

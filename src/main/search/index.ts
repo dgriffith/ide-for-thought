@@ -93,8 +93,8 @@ export async function persist(ctx: ProjectContext): Promise<void> {
 function extractTitle(content: string): string | null {
   // Frontmatter title
   const fmMatch = content.match(/^---\n[\s\S]*?\ntitle:\s*["']?(.+?)["']?\s*\n[\s\S]*?\n---/);
-  if (fmMatch) return fmMatch[1];
+  if (fmMatch) return fmMatch[1]!;
   // First H1
   const h1Match = content.match(/^#\s+(.+)$/m);
-  return h1Match ? h1Match[1].trim() : null;
+  return h1Match ? h1Match[1]!.trim() : null;
 }

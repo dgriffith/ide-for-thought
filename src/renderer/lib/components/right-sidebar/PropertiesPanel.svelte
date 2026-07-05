@@ -115,7 +115,7 @@
     if (!m) {
       return { ok: true, rows: [], body: '', blockStart: 0, blockEnd: 0, none: true };
     }
-    const body = m[1];
+    const body = m[1]!;
     const blockEnd = m[0].length;
     let doc: YAML.Document.Parsed;
     try {
@@ -124,7 +124,7 @@
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
     if (doc.errors.length > 0) {
-      return { ok: false, error: doc.errors[0].message };
+      return { ok: false, error: doc.errors[0]!.message };
     }
     if (!YAML.isMap(doc.contents)) {
       return { ok: false, error: 'Frontmatter is not a key/value map.' };
@@ -165,7 +165,7 @@
         if (wl) {
           return {
             kind: 'wiki-link',
-            target: wl[1].trim(),
+            target: wl[1]!.trim(),
             display: wl[2]?.trim() ?? null,
             raw: v,
           };

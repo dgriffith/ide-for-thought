@@ -16,7 +16,7 @@ type ReadStatus = SourceMetadata['readStatus'];
 /** Byline author rendering: one name, "A and B", or "A et al." for 3+. */
 export function formatCreators(creators: string[]): string {
   if (creators.length === 0) return '';
-  if (creators.length === 1) return creators[0];
+  if (creators.length === 1) return creators[0]!;
   if (creators.length === 2) return `${creators[0]} and ${creators[1]}`;
   return `${creators[0]} et al.`;
 }

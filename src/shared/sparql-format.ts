@@ -64,7 +64,7 @@ function tokenize(src: string): Token[] {
   const n = src.length;
 
   while (i < n) {
-    const c = src[i];
+    const c = src[i]!; // bounded by i < n
 
     // Whitespace
     if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
@@ -133,7 +133,7 @@ function tokenize(src: string): Token[] {
     if (c === '?' || c === '$') {
       // Standalone `?` (no identifier after) — treat as operator.
       let j = i + 1;
-      while (j < n && /[A-Za-z0-9_\u00C0-\uFFFD]/.test(src[j])) j++;
+      while (j < n && /[A-Za-z0-9_\u00C0-\uFFFD]/.test(src[j]!)) j++;
       if (j === i + 1) {
         out.push({ type: 'operator', text: c });
         i = j;
@@ -147,7 +147,7 @@ function tokenize(src: string): Token[] {
     // Number: optional sign handled by preceding operator token.
     if (/[0-9]/.test(c)) {
       let j = i;
-      while (j < n && /[0-9.eE+-]/.test(src[j])) j++;
+      while (j < n && /[0-9.eE+-]/.test(src[j]!)) j++;
       out.push({ type: 'number', text: src.slice(i, j) });
       i = j;
       continue;
@@ -190,7 +190,7 @@ function tokenize(src: string): Token[] {
     // `:`/`-`/`.` (dots inside pname-ns or local names).
     if (/[A-Za-z_:]/.test(c)) {
       let j = i;
-      while (j < n && /[A-Za-z0-9_:.-]/.test(src[j])) j++;
+      while (j < n && /[A-Za-z0-9_:.-]/.test(src[j]!)) j++;
       const text = src.slice(i, j).replace(/\.+$/, (dots) => {
         // Trailing dots belong to the statement terminator, not the name.
         return dots === '' ? '' : '';
@@ -229,7 +229,7 @@ function emit(tokens: Token[]): string {
 
   // Top-level loop.
   for (let i = 0; i < tokens.length; i++) {
-    const tok = tokens[i];
+    const tok = tokens[i]!; // bounded by i < tokens.length
     const prev = tokens[i - 1];
     const upper = tok.type === 'word' ? tok.text.toUpperCase() : '';
 

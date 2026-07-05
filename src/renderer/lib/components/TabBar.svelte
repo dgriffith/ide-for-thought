@@ -157,7 +157,7 @@
       <button onclick={() => { onCloseAllInGroup?.(); contextMenu = null; }}>Close All In Group</button>
     {/if}
     {#if otherGroups && otherGroups.length === 1}
-      <button onclick={() => { onMoveToGroup?.(contextMenu!.index, otherGroups[0].id); contextMenu = null; }}>Move to Other Group</button>
+      <button onclick={() => { onMoveToGroup?.(contextMenu!.index, otherGroups[0]!.id); contextMenu = null; }}>Move to Other Group</button>
     {:else if otherGroups && otherGroups.length > 1}
       <div class="submenu-item">
         <span class="submenu-trigger">Move to Group <Icon name="chevronRight" size={10} /></span>
@@ -170,15 +170,15 @@
     {/if}
     {#if tabs[contextMenu.index]?.type === 'note'}
       <div class="separator"></div>
-      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
+      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t?.type === 'note') onReveal(t.relativePath); contextMenu = null; }}>Reveal in Sidebar</button>
       <button onclick={() => { onSwitch(contextMenu!.index); contextMenu = null; onOpenConversation?.(); }}>Ask About This...</button>
-      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') onBookmark?.(t.relativePath); contextMenu = null; }}>Bookmark This Note</button>
+      <button onclick={() => { const t = tabs[contextMenu!.index]; if (t?.type === 'note') onBookmark?.(t.relativePath); contextMenu = null; }}>Bookmark This Note</button>
       <div class="submenu-item">
         <span class="submenu-trigger">Open In <Icon name="chevronRight" size={10} /></span>
         <div class="submenu">
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
-          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t.type === 'note') void api.shell.openInTerminal(t.relativePath); contextMenu = null; }}>Open in Terminal</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t?.type === 'note') void api.shell.revealFile(t.relativePath); contextMenu = null; }}>Reveal in Finder</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t?.type === 'note') void api.shell.openInDefault(t.relativePath); contextMenu = null; }}>Open in Default App</button>
+          <button onclick={() => { const t = tabs[contextMenu!.index]; if (t?.type === 'note') void api.shell.openInTerminal(t.relativePath); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
     {/if}

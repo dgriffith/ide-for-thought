@@ -75,7 +75,7 @@ export function formatDateTime(fmt: string, when: Date): string {
     switch (tok) {
       case 'YYYY': return String(when.getFullYear());
       case 'YY':   return String(when.getFullYear()).slice(-2);
-      case 'MMM':  return SHORT_MONTHS[when.getMonth()];
+      case 'MMM':  return SHORT_MONTHS[when.getMonth()]!; // getMonth() ∈ 0..11
       case 'MM':   return pad2(when.getMonth() + 1);
       case 'DD':   return pad2(when.getDate());
       case 'HH':   return pad2(when.getHours());
@@ -142,7 +142,7 @@ export async function substituteTemplate(
       i = close + 2;
       continue;
     }
-    out.push(template[i]);
+    out.push(template[i]!);
     i++;
   }
 

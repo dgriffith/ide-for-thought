@@ -115,10 +115,10 @@ function newGroupId(): string {
 const groups = $state<EditorGroup[]>([
   { id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' },
 ]);
-let activeGroupId = $state(groups[0].id);
+let activeGroupId = $state(groups[0]!.id);
 // Recursive split layout (#813). A lone leaf = the single-pane case (today);
 // `splitGroup` grows it into a tree, `collapseGroup` rebalances it back.
-let layout = $state<LayoutNode>(leaf(groups[0].id));
+let layout = $state<LayoutNode>(leaf(groups[0]!.id));
 
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let tabPersistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -128,7 +128,7 @@ const TAB_PERSIST_DELAY = 500;
 
 export function getEditorStore() {
   function activeGroup(): EditorGroup {
-    return groups.find((g) => g.id === activeGroupId) ?? groups[0];
+    return groups.find((g) => g.id === activeGroupId) ?? groups[0]!;
   }
 
   /** Resolve an explicit group target, falling back to the active group. Lets
@@ -166,7 +166,7 @@ export function getEditorStore() {
 
   function activeTab(): Tab | null {
     const g = activeGroup();
-    return g.activeIndex >= 0 && g.activeIndex < g.tabs.length ? g.tabs[g.activeIndex] : null;
+    return g.activeIndex >= 0 && g.activeIndex < g.tabs.length ? g.tabs[g.activeIndex]! : null;
   }
 
   function activeNoteTab(): NoteTab | null {
@@ -212,7 +212,7 @@ export function getEditorStore() {
     if (ids.length <= 1) return;
     const cur = ids.indexOf(activeGroupId);
     const start = cur === -1 ? 0 : cur;
-    activeGroupId = ids[(start + delta + ids.length) % ids.length];
+    activeGroupId = ids[(start + delta + ids.length) % ids.length]!;
     schedulePersistTabs();
   }
   const focusNextGroup = () => cycleFocus(1);
@@ -265,7 +265,7 @@ export function getEditorStore() {
     if (sameGroup && toIndex !== undefined && toIndex > fromIndex) insertAt -= 1;
     if (sameGroup && insertAt === fromIndex) return; // dropped onto itself
 
-    const [tab] = from.tabs.splice(fromIndex, 1);
+    const tab = from.tabs.splice(fromIndex, 1)[0]!; // fromIndex bounds-checked above
     // Re-home the source's active index now that a tab left it.
     if (from.tabs.length === 0) {
       from.activeIndex = -1;
@@ -315,7 +315,7 @@ export function getEditorStore() {
     const idx = groups.findIndex((g) => g.id === groupId);
     if (idx !== -1) groups.splice(idx, 1);
     if (activeGroupId === groupId) {
-      activeGroupId = collectGroupIds(layout)[0] ?? groups[0]?.id;
+      activeGroupId = collectGroupIds(layout)[0] ?? groups[0]!.id;
     }
     schedulePersistTabs();
   }
@@ -723,13 +723,13 @@ export function getEditorStore() {
     if (layoutOk) {
       groups.push(...restored);
       layout = savedLayout;
-      activeGroupId = ids.has(session.activeGroupId) ? session.activeGroupId : restored[0].id;
+      activeGroupId = ids.has(session.activeGroupId) ? session.activeGroupId : restored[0]!.id;
     } else {
       const merged: EditorGroup = {
-        id: restored[0].id,
+        id: restored[0]!.id,
         tabs: restored.flatMap((g) => g.tabs),
         activeIndex: -1,
-        viewMode: restored[0].viewMode,
+        viewMode: restored[0]!.viewMode,
       };
       merged.activeIndex = merged.tabs.length > 0 ? 0 : -1;
       groups.push(merged);
@@ -903,7 +903,7 @@ export function getEditorStore() {
     for (const grp of groups) {
       // Walk in reverse so each splice doesn't disturb pending indexes.
       for (let i = grp.tabs.length - 1; i >= 0; i--) {
-        const t = grp.tabs[i];
+        const t = grp.tabs[i]!;
         if (isNote(t) && isUnder(t.relativePath)) {
           grp.tabs.splice(i, 1);
           if (i === grp.activeIndex) {
@@ -929,7 +929,7 @@ export function getEditorStore() {
     let closed = 0;
     for (const grp of groups) {
       for (let i = grp.tabs.length - 1; i >= 0; i--) {
-        const t = grp.tabs[i];
+        const t = grp.tabs[i]!;
         if ((isSource(t) || isPdf(t)) && t.sourceId === sourceId) {
           grp.tabs.splice(i, 1);
           if (i === grp.activeIndex) {
@@ -964,8 +964,8 @@ export function getEditorStore() {
     // start-of-session shape.
     groups.length = 0;
     groups.push({ id: newGroupId(), tabs: [], activeIndex: -1, viewMode: 'source' });
-    activeGroupId = groups[0].id;
-    layout = leaf(groups[0].id);
+    activeGroupId = groups[0]!.id;
+    layout = leaf(groups[0]!.id);
   }
 
   return {

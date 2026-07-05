@@ -135,7 +135,7 @@ export class CitationRenderer {
         [],
       );
       const pairs = result[1];
-      const text = pairs.length > 0 ? pairs[0][1] : '';
+      const text = pairs.length > 0 ? pairs[0]![1] : '';
       // Note-class styles: stash the rendered text as a footnote body
       // and emit a `<sup>` marker linking to it (#297). The marker uses
       // a stable id-pair (`fnref-N` / `fn-N`) so the bottom-of-document

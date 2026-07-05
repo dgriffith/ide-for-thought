@@ -56,7 +56,7 @@ export function planBlockLink(
 
   const paragraph = content.slice(fromStart, toEnd);
   const existing = paragraph.match(BLOCK_ID_END_RE);
-  if (existing) return { blockId: existing[1], edit: null };
+  if (existing) return { blockId: existing[1]!, edit: null };
 
   const blockId = generateId();
   const lastLineText = (() => {

@@ -42,7 +42,7 @@ export function detectCompletionPhase(before: string, pos: number): CompletionPh
   let typePrefix = '';
   if (typeMatch) {
     typePrefixLen = typeMatch[0].length;
-    typePrefix = typeMatch[1];
+    typePrefix = typeMatch[1]!;
   }
   const pathAndAnchor = inner.slice(typePrefixLen);
   const hashIdx = pathAndAnchor.indexOf('#');
