@@ -11,11 +11,11 @@
  */
 
 export interface CslName {
-  family?: string;
-  given?: string;
-  suffix?: string;
+  family?: string | undefined;
+  given?: string | undefined;
+  suffix?: string | undefined;
   /** Used for institutional / unsplittable authors; citeproc emits verbatim. */
-  literal?: string;
+  literal?: string | undefined;
 }
 
 export interface CslItem {
@@ -217,9 +217,9 @@ export interface ExcerptInfo {
   /** The `sources:<id>` fragment this excerpt quotes from. */
   sourceId: string;
   /** CSL `locator` string: "12" for a page, "12-15" for a range. */
-  locator?: string;
+  locator?: string | undefined;
   /** Literal passage the excerpt captures; exposed for UI tooltips, not citation. */
-  citedText?: string;
+  citedText?: string | undefined;
 }
 
 /**

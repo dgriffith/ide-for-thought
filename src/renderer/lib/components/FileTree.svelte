@@ -52,37 +52,37 @@
     onNewNote: (directory: string) => void;
     onNewFolder: (directory: string) => void;
     onDelete: (relativePath: string, isDirectory: boolean) => void;
-    onAddTag?: (relativePath: string, isDirectory: boolean) => void;
-    onRemoveTag?: (relativePath: string, isDirectory: boolean) => void;
+    onAddTag?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
+    onRemoveTag?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
     /** Format the current sidebar selection (every .md under the selected
      *  files/folders, recursing into directories). The handler reads the
      *  selection itself; the right-clicked item is promoted into it before
      *  the menu opens, so the args are advisory. */
-    onFormat?: (relativePath: string, isDirectory: boolean) => void;
+    onFormat?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
     /** Fired right before a tree-item context menu opens. Lets the
      *  parent promote the right-clicked item into the selection (Finder
      *  / VS Code: right-clicking outside the selection drops it to a
      *  single-item selection). The parent decides whether the click
      *  hit an existing selection or not. */
-    onContextMenuTarget?: (relativePath: string) => void;
+    onContextMenuTarget?: ((relativePath: string) => void) | undefined;
     onRename: (relativePath: string) => void;
-    onMerge?: (relativePath: string) => void;
+    onMerge?: ((relativePath: string) => void) | undefined;
     onCut: (relativePath: string, isDirectory: boolean) => void;
     onCopy: (relativePath: string, isDirectory: boolean) => void;
     onPaste: (destDirectory: string) => void;
     onMove: (srcPath: string, destDirectory: string) => void;
-    onBookmark?: (relativePath: string) => void;
+    onBookmark?: ((relativePath: string) => void) | undefined;
     /** Toggle the `entrypoint` tag on a note. The handler decides whether
      *  to add or remove based on the note's current frontmatter; we
      *  prefetch the current state here purely to render the right label
      *  (Mark vs Unmark) on the menu item. */
-    onToggleEntrypoint?: (relativePath: string, currentlyEntrypoint: boolean) => void;
-    onExternalDrop?: (destDirectory: string, files: FileList) => void;
+    onToggleEntrypoint?: ((relativePath: string, currentlyEntrypoint: boolean) => void) | undefined;
+    onExternalDrop?: ((destDirectory: string, files: FileList) => void) | undefined;
   }
 
   let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop }: Props = $props();
 
-  let contextMenu = $state<{ x: number; y: number; dir: string; target?: string; targetIsDir?: boolean; targetIsEntrypoint?: boolean | null } | null>(null);
+  let contextMenu = $state<{ x: number; y: number; dir: string; target?: string | undefined; targetIsDir?: boolean | undefined; targetIsEntrypoint?: boolean | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
   $effect(() => {

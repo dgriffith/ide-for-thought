@@ -45,7 +45,7 @@
   <ConfirmDialog
     message={dialogs.confirm.message}
     confirmLabel={dialogs.confirm.confirmLabel}
-    hideDontAskAgain={dialogs.confirm.hideDontAskAgain}
+    {...(dialogs.confirm.hideDontAskAgain !== undefined ? { hideDontAskAgain: dialogs.confirm.hideDontAskAgain } : {})}
     onConfirm={(dontAskAgain) => dialogs.confirmConfirm(dontAskAgain)}
     onCancel={() => dialogs.cancelConfirm()}
   />

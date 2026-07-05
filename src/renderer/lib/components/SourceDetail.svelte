@@ -22,7 +22,7 @@
 
   interface Props {
     sourceId: string;
-    highlightExcerptId?: string;
+    highlightExcerptId?: string | undefined;
     onNavigate: (target: string) => void;
     onShowConfirm: (message: string, key: string, label?: string) => Promise<boolean>;
     /** Prompt for text (rename). Host supplies App.svelte's showPrompt. */

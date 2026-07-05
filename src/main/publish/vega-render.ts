@@ -122,7 +122,7 @@ export interface RenderVegaOptions {
   /** Project root, so `data.sparql` / `data.sql` / `data.table` can run against
    *  the live graph / DuckDB. Absent (e.g. headless with no project) → bound
    *  charts degrade gracefully. */
-  rootPath?: string;
+  rootPath?: string | undefined;
 }
 
 /**

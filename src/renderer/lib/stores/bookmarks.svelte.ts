@@ -150,8 +150,8 @@ export function getBookmarksStore() {
 export function collectBookmarksForPath(
   nodes: readonly BookmarkNode[],
   relativePath: string,
-): Array<{ cursorOffset?: number; anchor?: string }> {
-  const out: Array<{ cursorOffset?: number; anchor?: string }> = [];
+): Array<{ cursorOffset?: number | undefined; anchor?: string | undefined }> {
+  const out: Array<{ cursorOffset?: number | undefined; anchor?: string | undefined }> = [];
   const walk = (ns: readonly BookmarkNode[]) => {
     for (const n of ns) {
       if (n.type === 'folder') walk(n.children);

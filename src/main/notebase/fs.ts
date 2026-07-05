@@ -65,7 +65,7 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
         name: entry.name,
         relativePath,
         isDirectory: false,
-        mtimeMs,
+        ...(mtimeMs !== undefined ? { mtimeMs } : {}),
       });
     }
   }

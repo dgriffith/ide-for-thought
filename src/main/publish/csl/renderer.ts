@@ -116,7 +116,7 @@ export class CitationRenderer {
    * `renderCitation` and is the path that single `[[cite::]]` takes.
    * Per-item `label` defaults to "page" when omitted (#299).
    */
-  renderCitationCluster(items: Array<{ id: string; locator?: string; label?: string }>): string {
+  renderCitationCluster(items: Array<{ id: string; locator?: string | undefined; label?: string | undefined }>): string {
     if (items.length === 0) return '';
     for (const item of items) this.citedIds.add(item.id);
     const citationItems = items.map((item) => {

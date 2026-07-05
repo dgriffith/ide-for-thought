@@ -28,23 +28,23 @@ import { amazonAsin } from './source-id';
  * text, excerpt, and whatever the handler left null.
  */
 export interface StructuredExtraction {
-  title?: string | null;
-  creators?: string[];
-  abstract?: string | null;
-  issued?: string | null;
-  publisher?: string | null;
-  containerTitle?: string | null;
-  doi?: string | null;
-  arxiv?: string | null;
-  pubmed?: string | null;
-  isbn?: string | null;
-  pdfUrl?: string | null;
+  title?: string | null | undefined;
+  creators?: string[] | undefined;
+  abstract?: string | null | undefined;
+  issued?: string | null | undefined;
+  publisher?: string | null | undefined;
+  containerTitle?: string | null | undefined;
+  doi?: string | null | undefined;
+  arxiv?: string | null | undefined;
+  pubmed?: string | null | undefined;
+  isbn?: string | null | undefined;
+  pdfUrl?: string | null | undefined;
   /** The site-handler's subtype inference (Article / Preprint / Book …). */
-  subtype?: ArticleMetadata['subtype'];
+  subtype?: ArticleMetadata['subtype'] | undefined;
   /** Subject tags pulled from the page (e.g. Amazon breadcrumb categories).
    *  Written to meta.ttl as `minerva:upstreamTag` literals, subject to the
    *  import-upstream-tags setting. */
-  keywords?: string[];
+  keywords?: string[] | undefined;
 }
 
 /**

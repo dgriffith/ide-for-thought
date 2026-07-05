@@ -146,7 +146,7 @@ export function sourceOptions(sources: readonly SourceMetadata[]): Completion[] 
     return {
       label: `${title} — ${s.sourceId}`,
       apply: s.sourceId,
-      detail: byline || undefined,
+      ...(byline ? { detail: byline } : {}),
       type: 'class',
     };
   });

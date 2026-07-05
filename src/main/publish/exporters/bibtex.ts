@@ -81,7 +81,7 @@ export const bibtexExporter: Exporter = {
  */
 function collectCitedIds(
   plan: Parameters<Exporter['run']>[0],
-  excerpts: Map<string, { sourceId: string; locator?: string }>,
+  excerpts: Map<string, { sourceId: string; locator?: string | undefined }>,
 ): Set<string> {
   const cited = new Set<string>();
   if (plan.inputs.length === 0) {

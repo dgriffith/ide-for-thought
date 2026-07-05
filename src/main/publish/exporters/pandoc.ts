@@ -98,7 +98,7 @@ export const pandocExporter: Exporter = {
  */
 function rewriteCitations(
   content: string,
-  excerpts: Map<string, { sourceId: string; locator?: string }>,
+  excerpts: Map<string, { sourceId: string; locator?: string | undefined }>,
   keys: Map<string, string>,
 ): string {
   return content.replace(/\[\[(cite|quote)::([^\]|]+?)(?:\|[^\]]+?)?\]\]/g, (full, kind: string, idRaw: string) => {

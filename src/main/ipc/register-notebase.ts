@@ -222,7 +222,7 @@ export function registerNotebase(): void {
   handle(Channels.NOTEBASE_MERGE, withRootPath(async (rootPath, sourceRelPath: string, targetRelPath: string, separator?: string) => {
     const ctx = projectContext(rootPath);
     const result = await mergeNotes(rootPath, sourceRelPath, targetRelPath, {
-      separator,
+      ...(separator !== undefined ? { separator } : {}),
       markPathHandled,
       reindexHook: (relPath, content) => {
         if (relPath.endsWith(".md")) {

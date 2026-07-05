@@ -7,7 +7,7 @@
 
   type Scope = 'all' | 'notes' | 'sources' | 'queries';
 
-  interface NoteItem { kind: 'note'; name: string; relativePath: string; mtimeMs?: number; score: number }
+  interface NoteItem { kind: 'note'; name: string; relativePath: string; mtimeMs?: number | undefined; score: number }
   interface SourceItem { kind: 'source'; name: string; sourceId: string; byline: string | null; score: number }
   interface QueryItem { kind: 'query'; name: string; query: SavedQuery; score: number }
   type PaletteItem = NoteItem | SourceItem | QueryItem;
@@ -51,7 +51,7 @@
   const multiScope = $derived(!!(sources && sources.length > 0) || !!(savedQueries && savedQueries.length > 0));
 
   // Flatten note tree.
-  function flattenNotes(items: NoteFile[], acc: { name: string; relativePath: string; mtimeMs?: number }[] = []): { name: string; relativePath: string; mtimeMs?: number }[] {
+  function flattenNotes(items: NoteFile[], acc: { name: string; relativePath: string; mtimeMs?: number | undefined }[] = []): { name: string; relativePath: string; mtimeMs?: number | undefined }[] {
     for (const f of items) {
       if (f.isDirectory) {
         if (f.children) flattenNotes(f.children, acc);
@@ -142,7 +142,7 @@
       try { regex = new RegExp(q, 'i'); } catch { /* fall back to fuzzy */ }
     }
 
-    const mkNote = (n: { name: string; relativePath: string; mtimeMs?: number }, score: number): NoteItem =>
+    const mkNote = (n: { name: string; relativePath: string; mtimeMs?: number | undefined }, score: number): NoteItem =>
       ({ kind: 'note', name: n.name, relativePath: n.relativePath, mtimeMs: n.mtimeMs, score });
     const mkSource = (s: SourceMetadata, score: number): SourceItem =>
       ({ kind: 'source', name: displaySourceTitle(s), sourceId: s.sourceId, byline: formatByline(s), score });

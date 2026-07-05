@@ -24,7 +24,7 @@ export {
 
 export function registerCompute(): void {
   ipcMain.handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
-    return await runComputeCell(language, code, { rootPath, notePath });
+    return await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
   }));
 
   ipcMain.handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());

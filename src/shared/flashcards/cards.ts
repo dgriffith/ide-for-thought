@@ -27,7 +27,7 @@ export interface Card {
   /** Resolved deck name (callout → frontmatter → folder; see `resolveDeck`). */
   deck: string;
   /** Stable block-id, when the callout carries a trailing `^id`. */
-  id?: string;
+  id?: string | undefined;
   /** 1-based line of the `[!card]` marker — for write-back + warnings. */
   sourceLine: number;
 }

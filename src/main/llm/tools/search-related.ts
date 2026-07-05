@@ -26,7 +26,7 @@ async function runSearchRelated(
 
   if (typeof relative_path === 'string' && relative_path.trim()) {
     // Over-fetch chunk-level hits so best-per-ref de-dup still yields ~n results.
-    hits = await vectors.relatedToNote(pctx, relative_path.trim(), { limit: n * 5, kinds: kindFilter });
+    hits = await vectors.relatedToNote(pctx, relative_path.trim(), { limit: n * 5, ...(kindFilter ? { kinds: kindFilter } : {}) });
     descriptor = `related to ${relative_path.trim()}`;
     if (hits.length === 0) {
       return {
@@ -38,7 +38,7 @@ async function runSearchRelated(
       };
     }
   } else if (typeof query === 'string' && query.trim()) {
-    hits = await vectors.searchRelated(pctx, query.trim(), { limit: n * 5, kinds: kindFilter });
+    hits = await vectors.searchRelated(pctx, query.trim(), { limit: n * 5, ...(kindFilter ? { kinds: kindFilter } : {}) });
     descriptor = `for "${query.trim()}"`;
   } else {
     throw new Error('Provide either `query` (free text) or `relative_path` (a note to find relatives of).');

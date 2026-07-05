@@ -21,11 +21,11 @@
 import { createHash } from 'node:crypto';
 
 export interface SourceIdentifiers {
-  doi?: string;
-  arxiv?: string;
-  pubmed?: string;
-  isbn?: string;
-  url?: string;
+  doi?: string | undefined;
+  arxiv?: string | undefined;
+  pubmed?: string | undefined;
+  isbn?: string | undefined;
+  url?: string | undefined;
 }
 
 export type CanonicalIdMethod = 'doi' | 'arxiv' | 'pubmed' | 'isbn' | 'url' | 'hash';

@@ -12,6 +12,6 @@ export type WhisperRequest =
 /** worker → UI. */
 export type WhisperResponse =
   | { type: 'ready' }
-  | { type: 'progress'; status: string; loaded?: number; total?: number }
+  | { type: 'progress'; status: string; loaded?: number | undefined; total?: number | undefined }
   | { type: 'result'; id: number; text: string }
-  | { type: 'error'; id?: number; message: string };
+  | { type: 'error'; id?: number | undefined; message: string };

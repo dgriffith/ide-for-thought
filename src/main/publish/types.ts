@@ -95,18 +95,18 @@ export interface ExportPlan {
   linkPolicy: LinkPolicy;
   assetPolicy: AssetPolicy;
   /** CSL style id; exporters ignore when not set. */
-  citationStyle?: string;
+  citationStyle?: string | undefined;
   /** CSL locale id (#301). Exporters ignore when not set. */
-  citationLocale?: string;
+  citationLocale?: string | undefined;
   /** Absolute destination directory for exporters that write multiple files. */
-  outputDir?: string;
+  outputDir?: string | undefined;
   /**
    * Absolute path to the thoughtbase root. Exporters that inline assets
    * (images, attachments) resolve relative paths against this. Always
    * populated by `resolvePlan` — the `?` keeps tests that build plans
    * by hand readable.
    */
-  rootPath?: string;
+  rootPath?: string | undefined;
   /**
    * Citation assets loaded once by `resolvePlan` from the project's
    * sources + excerpts (#247). Exporters call `citations.createRenderer()`

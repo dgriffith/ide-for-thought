@@ -5,7 +5,7 @@
 
 export interface CspOptions {
   /** When set, dev-mode loosenings (Vite origin + ws) are added. */
-  devServerOrigin?: string;
+  devServerOrigin?: string | undefined;
 }
 
 /** Hosts the renderer is permitted to fetch directly. Main-process API

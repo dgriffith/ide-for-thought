@@ -12,8 +12,8 @@ import type { WhisperRequest, WhisperResponse } from './messages';
 
 export interface LoadProgress {
   status: string;
-  loaded?: number;
-  total?: number;
+  loaded?: number | undefined;
+  total?: number | undefined;
 }
 
 export interface Transcriber {

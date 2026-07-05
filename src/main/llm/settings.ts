@@ -42,11 +42,12 @@ export async function getSettings(): Promise<LLMSettings> {
   try {
     const raw = await fs.readFile(settingsPath(), 'utf-8');
     const parsed = JSON.parse(raw) as Partial<LLMSettings>;
+    const effort = resolveEffortSetting(parsed.effort);
     return {
       apiKey: parsed.apiKey ?? process.env.ANTHROPIC_API_KEY ?? '',
       model: resolveModel(parsed.model),
       web: resolveWeb(parsed.web),
-      ...(resolveEffortSetting(parsed.effort) ? { effort: resolveEffortSetting(parsed.effort) } : {}),
+      ...(effort ? { effort } : {}),
     };
   } catch {
     return {

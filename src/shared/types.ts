@@ -434,11 +434,11 @@ export interface Bookmark {
   id: string;
   name: string;
   relativePath: string;
-  cursorOffset?: number;
+  cursorOffset?: number | undefined;
   /** Optional sub-file anchor. A heading slug (#755 — e.g. `methods`) or a
-   *  `^block-id` (#756). Absent ⇒ the bookmark targets the whole file and
-   *  opens by path, exactly as before. */
-  anchor?: string;
+   *  `^block-id` (#756). Absent/undefined ⇒ the bookmark targets the whole
+   *  file and opens by path, exactly as before. */
+  anchor?: string | undefined;
 }
 
 export interface BookmarkFolder {

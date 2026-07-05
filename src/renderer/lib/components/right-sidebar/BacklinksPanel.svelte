@@ -66,7 +66,7 @@
 
 <div class="links-panel">
   <Ribbon
-    onOpenGraph={activeFilePath ? () => onOpenGraph?.(activeFilePath) : undefined}
+    {...(activeFilePath ? { onOpenGraph: () => onOpenGraph?.(activeFilePath) } : {})}
     {search}
     onSearch={(q: string) => { search = q; }}
     searchPlaceholder="Find mention…"
@@ -76,8 +76,8 @@
     ]}
     {sortId}
     onSort={(id: string) => { sortId = id as 'type' | 'title'; }}
-    onExpandAll={sortId === 'type' ? expandAll : undefined}
-    onCollapseAll={sortId === 'type' ? collapseAll : undefined}
+    {...(sortId === 'type' ? { onExpandAll: expandAll } : {})}
+    {...(sortId === 'type' ? { onCollapseAll: collapseAll } : {})}
   />
   <div class="scroll">
     {#if filtered().length === 0}

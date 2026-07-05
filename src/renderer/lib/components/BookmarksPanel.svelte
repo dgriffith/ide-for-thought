@@ -79,7 +79,7 @@
   }
 
   /** Icon distinguishing the three bookmark kinds. */
-  function bmIcon(node: { anchor?: string; cursorOffset?: number }): 'outline' | 'dot' | 'bookmark' {
+  function bmIcon(node: { anchor?: string | undefined; cursorOffset?: number | undefined }): 'outline' | 'dot' | 'bookmark' {
     if (node.anchor) return 'outline';
     if (node.cursorOffset != null) return 'dot';
     return 'bookmark';

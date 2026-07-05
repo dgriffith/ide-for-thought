@@ -12,7 +12,7 @@ export interface QueryNavPosition {
 export interface SourceNavPosition {
   type: 'source';
   sourceId: string;
-  highlightExcerptId?: string;
+  highlightExcerptId?: string | undefined;
 }
 
 export type NavPosition = NoteNavPosition | QueryNavPosition | SourceNavPosition;

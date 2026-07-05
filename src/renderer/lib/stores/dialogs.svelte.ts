@@ -19,8 +19,8 @@ import type { TemplateInfo } from '../ipc/client';
 
 export interface PromptState {
   message: string;
-  suggestions?: string[];
-  initial?: string;
+  suggestions?: string[] | undefined;
+  initial?: string | undefined;
   resolve: (value: string | null) => void;
 }
 export interface NewNoteState {
@@ -35,7 +35,7 @@ export interface ConfirmState {
   message: string;
   confirmLabel: string;
   key: string;
-  hideDontAskAgain?: boolean;
+  hideDontAskAgain?: boolean | undefined;
   resolve: (value: boolean) => void;
 }
 export type OpenTargetChoice = 'this' | 'new' | 'cancel';

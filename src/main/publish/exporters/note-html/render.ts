@@ -335,7 +335,7 @@ function renderCiteRun(
   // (`[[cite::id|p. 42]]`) wins; otherwise a quote falls back to the
   // excerpt's intrinsic page/range; bare cites have no locator.
   type Resolved =
-    | { ok: true; sourceId: string; locator?: string; label?: string }
+    | { ok: true; sourceId: string; locator?: string | undefined; label?: string | undefined }
     | { ok: false; missingMarker: string };
   const resolved: Resolved[] = items.map((item) => {
     if (item.kind === 'quote') {

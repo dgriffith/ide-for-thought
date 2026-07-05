@@ -64,7 +64,8 @@ function normalizeParameters(raw: unknown, errors: string[]): ToolParameter[] {
       return;
     }
     const param: ToolParameter = { id, label: label ?? id, type: type as ToolParameter['type'] };
-    if (obj.placeholder !== undefined) param.placeholder = asString(obj.placeholder);
+    const placeholder = asString(obj.placeholder);
+    if (placeholder !== undefined) param.placeholder = placeholder;
     // `default` (friendly) or `defaultValue`
     const dflt = obj.default ?? obj.defaultValue;
     if (dflt !== undefined) {
@@ -187,16 +188,16 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
     description: description!,
     longDescription,
     menu: menuRaw as SkillMenu,
-    group,
+    ...(group !== undefined ? { group } : {}),
     scope,
     outputMode: outputModeRaw as OutputMode,
     context,
     parameters,
     tools,
     web,
-    model,
-    slashCommand,
-    outputNotePrefix,
+    ...(model !== undefined ? { model } : {}),
+    ...(slashCommand !== undefined ? { slashCommand } : {}),
+    ...(outputNotePrefix !== undefined ? { outputNotePrefix } : {}),
     requiresSelection,
     firstMessage,
     body,

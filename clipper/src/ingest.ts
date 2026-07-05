@@ -15,10 +15,10 @@ const SECRET_HEADER = 'x-minerva-clipper-secret';
 export interface ClipResult {
   ok: boolean;
   /** Set on success. */
-  sourceId?: string;
-  duplicate?: boolean;
-  title?: string;
-  excerptId?: string;
+  sourceId?: string | undefined;
+  duplicate?: boolean | undefined;
+  title?: string | undefined;
+  excerptId?: string | undefined;
   /** Human-readable failure reason. */
   error?: string;
 }
@@ -65,9 +65,9 @@ export async function sendClip(
 export interface PreviewResult {
   ok: boolean;
   /** Canonical source id the save would produce (e.g. `arxiv-2604.18561`). */
-  sourceId?: string;
-  method?: string;
-  title?: string;
+  sourceId?: string | undefined;
+  method?: string | undefined;
+  title?: string | undefined;
   error?: string;
 }
 

@@ -33,8 +33,8 @@ export async function clipperIngest(
   const settings = await getIngestSettings();
 
   const result = await ingestHtmlString(rootPath, payload.html, {
-    url: payload.url,
-    titleFallback: payload.pageTitle,
+    ...(payload.url !== undefined ? { url: payload.url } : {}),
+    ...(payload.pageTitle !== undefined ? { titleFallback: payload.pageTitle } : {}),
     importUpstreamTags: settings.importUpstreamTags,
   });
 

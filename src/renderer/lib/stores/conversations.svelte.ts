@@ -449,7 +449,7 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
  *     with a tool-prepared prompt and an auto-fired user turn.
  */
 async function openConversationTab(opts: {
-  notePath?: string;
+  notePath?: string | undefined;
   systemPrompt?: string;
   model?: string;
   initialMessage?: string;

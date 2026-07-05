@@ -95,7 +95,11 @@ export async function ingestUrl(
 export async function ingestHtmlString(
   rootPath: string,
   html: string,
-  opts: { url?: string; titleFallback?: string; importUpstreamTags?: boolean } = {},
+  opts: {
+    url?: string | undefined;
+    titleFallback?: string | undefined;
+    importUpstreamTags?: boolean | undefined;
+  } = {},
 ): Promise<IngestResult> {
   const url = opts.url ?? null;
   const { document } = parseHTML(html);

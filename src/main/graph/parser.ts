@@ -9,7 +9,7 @@ export interface ParsedLink {
   /** Link type name (e.g. 'supports', 'references'). */
   type: string;
   /** Display text after `|`, if any. */
-  displayText?: string;
+  displayText?: string | undefined;
 }
 
 export interface ParsedTable {

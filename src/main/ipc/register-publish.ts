@@ -41,11 +41,11 @@ export function registerPublish(): void {
     forceExclude?: string[];
   }) => {
     const plan = await publish.resolvePlan(rootPath, input, {
-      linkPolicy: opts?.linkPolicy,
-      citationStyle: opts?.citationStyle,
-      citationLocale: opts?.citationLocale,
-      forceInclude: opts?.forceInclude,
-      forceExclude: opts?.forceExclude,
+      ...(opts?.linkPolicy !== undefined ? { linkPolicy: opts.linkPolicy } : {}),
+      ...(opts?.citationStyle !== undefined ? { citationStyle: opts.citationStyle } : {}),
+      ...(opts?.citationLocale !== undefined ? { citationLocale: opts.citationLocale } : {}),
+      ...(opts?.forceInclude !== undefined ? { forceInclude: opts.forceInclude } : {}),
+      ...(opts?.forceExclude !== undefined ? { forceExclude: opts.forceExclude } : {}),
     });
     // Strip `content` + `frontmatter` from the wire payload — the preview
     // only needs to audit paths, kinds, and exclusion reasons; loading

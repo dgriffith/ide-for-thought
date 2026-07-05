@@ -8,11 +8,11 @@ export interface ClipPayload {
   url: string;
   html: string;
   pageTitle: string;
-  selection?: string;
+  selection?: string | undefined;
   /** User tags from the popup (#793). */
-  tags?: string[];
+  tags?: string[] | undefined;
   /** Free-text note from the popup (#793). */
-  note?: string;
+  note?: string | undefined;
 }
 
 /** Normalise a raw selection: trimmed, or `undefined` when empty. */
