@@ -108,7 +108,9 @@ export const TOOL_CALLBACK_KEYS = [
 // is missing from the list, `_UnlistedToolCallbacks` stops being `never` and
 // this assignment fails `tsc` (run by `pnpm lint`).
 type _UnlistedToolCallbacks = Exclude<keyof ToolCallbacks, (typeof TOOL_CALLBACK_KEYS)[number]>;
-const _allToolCallbacksListed: _UnlistedToolCallbacks extends never
+// `export`ed so the value binding isn't flagged as an unused local (#1011,
+// noUnusedLocals) — its whole job is the compile-time assignment check above.
+export const _allToolCallbacksListed: _UnlistedToolCallbacks extends never
   ? true
   : { readonly ERROR: 'key missing from TOOL_CALLBACK_KEYS'; readonly missing: _UnlistedToolCallbacks } = true;
 

@@ -329,7 +329,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
      * `api.notebase.readBinary`, then swap in a data URL. http(s) /
      * data: / file: pass through unchanged.
      */
-    md.renderer.rules.image = (tokens, idx, options, env, self) => {
+    md.renderer.rules.image = (tokens, idx, options, _env, self) => {
         const tok = tokens[idx]!;
         const srcIdx = tok.attrIndex('src');
         if (srcIdx < 0) return self.renderToken(tokens, idx, options);
