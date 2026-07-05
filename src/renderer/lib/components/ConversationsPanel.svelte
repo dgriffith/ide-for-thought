@@ -377,7 +377,6 @@
   // Resize: track pointer between mousedown on the handle and mouseup
   // anywhere. We measure from the panel's bounding rect bottom so the
   // pointer stays under the handle as the user drags.
-  let panelEl = $state<HTMLDivElement>();
   function startResize(e: PointerEvent) {
     e.preventDefault();
     resizing = true;
@@ -636,7 +635,6 @@
     class="conv-panel"
     class:resizing
     style="height: {store.height}px;"
-    bind:this={panelEl}
   >
     <div class="resize-handle" onpointerdown={startResize} role="separator" aria-orientation="horizontal" aria-label="Resize conversations panel"></div>
 

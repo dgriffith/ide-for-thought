@@ -74,7 +74,6 @@
   let canvasEl = $state<HTMLCanvasElement>();
   let textLayerEl = $state<HTMLDivElement>();
   let highlightLayerEl = $state<HTMLDivElement>();
-  let viewerEl = $state<HTMLDivElement>();
 
   /** Excerpts for this source — loaded once and refreshed when the
    *  main process notifies that excerpts have changed. */
@@ -300,7 +299,7 @@
 
 <svelte:window onkeydown={handleKey} />
 
-<div class="pdf-viewer" bind:this={viewerEl}>
+<div class="pdf-viewer">
   <div class="toolbar">
     <button type="button" class="tool-btn" onclick={prevPage} disabled={page <= 1} title="Previous page">‹</button>
     <span class="page-counter">
