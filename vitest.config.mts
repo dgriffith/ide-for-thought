@@ -44,7 +44,7 @@ export default defineConfig({
       // Floors per area (#679). Set below the current numbers with headroom
       // so a small refactor won't flap CI, but a real regression on the trust
       // (llm) and security (notebase) paths fails. Measured at floor-time:
-      // shared ~? , llm ~65% lines / 46% branch, notebase ~89% lines. CI runs
+      // shared ~? , llm ~74% lines / 51% branch, notebase ~89% lines. CI runs
       // `pnpm coverage`, so these gate on every PR.
       thresholds: {
         'src/shared/**': {
@@ -52,12 +52,14 @@ export default defineConfig({
           functions: 70,
           statements: 70,
         },
-        // Trust path — proposals, approval gate, tool dispatch, turtle.
+        // Trust path — proposals, approval gate, tool dispatch, turtle. Branch
+        // floor tightened 38 → 45 once the expiry/auto-reject + malformed-bundle
+        // branches got tests (#1000); measured ~51% branch now.
         'src/main/llm/**': {
           lines: 55,
           functions: 58,
           statements: 55,
-          branches: 38,
+          branches: 45,
         },
         // Security path — fs sandbox, write pipeline, rename/merge link rewrites.
         'src/main/notebase/**': {
