@@ -570,117 +570,144 @@ async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload[]): Pr
   }
 }
 
+/** Narrow ProposalPayload to a single discriminant so the applyXxx helpers
+ *  receive the exact payload shape the dispatcher matched. */
+type PayloadOf<K extends ProposalPayload['kind']> = Extract<ProposalPayload, { kind: K }>;
+
+/**
+ * Route a payload to its apply helper. The switch stays a switch (not a map):
+ * each case's undo/rollback contract genuinely diverges, and returning the
+ * per-kind rollbackData shape is what dispatchRollback consumes. The case
+ * bodies live in named applyXxx helpers so this reads as a routing table.
+ */
 async function dispatchApply(ctx: ProjectContext, p: ProposalPayload): Promise<unknown> {
   switch (p.kind) {
-    case 'graph-triples': {
+    case 'graph-triples':
       await applyTurtle(ctx, p.turtle);
       return null;
-    }
-    case 'note': {
-      const finalPath = await resolveCollidingPath(ctx.rootPath, p.relativePath);
-      await notebaseFs.createFile(ctx.rootPath, finalPath);
-      await notebaseFs.writeFile(ctx.rootPath, finalPath, p.content);
-      await graph.indexNote(ctx, finalPath, p.content);
-      if (p.backlink) {
-        const noteUri = graph.noteUriFor(ctx, finalPath);
-        if (noteUri) {
-          await applyTurtle(
-            ctx,
-            `<${p.backlink.fromUri}> <${p.backlink.predicate}> <${noteUri}> .`,
-          );
-        }
-      }
-      return { resolvedPath: finalPath };
-    }
-    case 'excerpt': {
-      // #104: file a thought:Excerpt node so claim-extraction can anchor its
-      // evidence. Mirrors the `note` case — write the .ttl then index directly
-      // (rather than waiting on the chokidar watcher) so the graph reflects it
-      // immediately for the claim notes' `[[quote::id]]` edges in the same bundle.
-      const relativePath = `.minerva/excerpts/${p.excerptId}.ttl`;
-      await notebaseFs.createFile(ctx.rootPath, relativePath);
-      await notebaseFs.writeFile(ctx.rootPath, relativePath, p.excerptTtl);
-      graph.indexExcerpt(ctx, p.excerptId, p.excerptTtl);
-      return { excerptPath: relativePath };
-    }
-    case 'note-refactor': {
-      // Capture pre-images of every file the refactor will touch BEFORE applying,
-      // so rollback can restore them verbatim (a reverse rename can mis-rewrite a
-      // note that already linked to the destination). planRename also runs the
-      // guardrails (collision / no-op / unsafe / folder) — it throws on violation.
-      const plan = await planRename(ctx.rootPath, p.fromPath, p.toPath);
-      const preImages: Record<string, string> = {
-        [p.fromPath]: await notebaseFs.readFile(ctx.rootPath, p.fromPath),
-      };
-      for (const a of plan.affectedNotes) {
-        if (!(a.path in preImages)) preImages[a.path] = a.before;
-      }
-
-      const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
-        markPathHandled,
-        reindexHook: (relPath, content) => {
-          if (relPath.endsWith('.md')) {
-            search.indexNote(ctx, relPath, content);
-            void vectors.indexNote(ctx, relPath, content);
-          }
-        },
-        removeHook: (relPath) => {
-          search.removeNote(ctx, relPath);
-          void vectors.removeNote(ctx, relPath);
-        },
-      });
-      return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
-    }
-    case 'note-delete': {
-      // Capture the file content before deleting so rollback can recreate it
-      // verbatim. markPathHandled suppresses the watcher's re-index of the
-      // unlink (it still broadcasts NOTEBASE_FILE_DELETED so the renderer
-      // closes the tab + refreshes the tree). De-index across graph/search/
-      // vectors mirrors the manual delete path.
-      const content = await notebaseFs.readFile(ctx.rootPath, p.path);
-      markPathHandled(p.path);
-      await notebaseFs.deleteFile(ctx.rootPath, p.path);
-      graph.removeNote(ctx, p.path);
-      search.removeNote(ctx, p.path);
-      void vectors.removeNote(ctx, p.path);
-      return { path: p.path, content };
-    }
-    case 'note-rewrite': {
-      // Overwrite an existing note in place (#936). Guardrails: must be a .md
-      // note that already exists — readFile throws ENOENT for a missing file,
-      // which propagates and rolls the bundle back (a rewrite of a nonexistent
-      // note is a bug in the caller, not a note to create). Capture the prior
-      // content as a pre-image for rollback, then write + reindex inline.
-      // markPathHandled dedups the watcher's re-index of our own write; the
-      // renderer refresh is driven by the IPC layer via NOTEBASE_REWRITTEN
-      // (which consumes ApproveResult.rewrittenPaths), mirroring how the
-      // bypassing auto-tag/set_properties paths broadcast today.
-      if (!p.path.endsWith('.md')) {
-        throw new Error(`note-rewrite: refusing to rewrite non-markdown path "${p.path}".`);
-      }
-      const before = await notebaseFs.readFile(ctx.rootPath, p.path);
-      markPathHandled(p.path);
-      await notebaseFs.writeFile(ctx.rootPath, p.path, p.content);
-      await graph.indexNote(ctx, p.path, p.content);
-      search.indexNote(ctx, p.path, p.content);
-      void vectors.indexNote(ctx, p.path, p.content);
-      return { path: p.path, before };
-    }
-    case 'source-meta': {
-      // Upsert the proposed predicates into the source's meta.ttl (#943).
-      // Capture the whole meta.ttl as a pre-image so rollback restores it
-      // verbatim. setSourceProperties writes + reindexes; the .minerva/sources
-      // watcher notifies the renderer (same path the direct write used).
-      const before = await readMeta(sourceMetaPath(ctx.rootPath, p.sourceId));
-      await setSourceProperties(ctx.rootPath, p.sourceId, p.updates);
-      return { sourceId: p.sourceId, before };
-    }
+    case 'note':
+      return applyNote(ctx, p);
+    case 'excerpt':
+      return applyExcerpt(ctx, p);
+    case 'note-refactor':
+      return applyNoteRefactor(ctx, p);
+    case 'note-delete':
+      return applyNoteDelete(ctx, p);
+    case 'note-rewrite':
+      return applyNoteRewrite(ctx, p);
+    case 'source-meta':
+      return applySourceMeta(ctx, p);
     case 'source':
     case 'saved-query':
       throw new Error(
         `Approval payload kind "${p.kind}" not yet wired (#418 ships graph-triples + note; later kinds land as needed).`,
       );
   }
+}
+
+async function applyNote(ctx: ProjectContext, p: PayloadOf<'note'>): Promise<{ resolvedPath: string }> {
+  const finalPath = await resolveCollidingPath(ctx.rootPath, p.relativePath);
+  await notebaseFs.createFile(ctx.rootPath, finalPath);
+  await notebaseFs.writeFile(ctx.rootPath, finalPath, p.content);
+  await graph.indexNote(ctx, finalPath, p.content);
+  if (p.backlink) {
+    const noteUri = graph.noteUriFor(ctx, finalPath);
+    if (noteUri) {
+      await applyTurtle(
+        ctx,
+        `<${p.backlink.fromUri}> <${p.backlink.predicate}> <${noteUri}> .`,
+      );
+    }
+  }
+  return { resolvedPath: finalPath };
+}
+
+async function applyExcerpt(ctx: ProjectContext, p: PayloadOf<'excerpt'>): Promise<{ excerptPath: string }> {
+  // #104: file a thought:Excerpt node so claim-extraction can anchor its
+  // evidence. Mirrors the `note` case — write the .ttl then index directly
+  // (rather than waiting on the chokidar watcher) so the graph reflects it
+  // immediately for the claim notes' `[[quote::id]]` edges in the same bundle.
+  const relativePath = `.minerva/excerpts/${p.excerptId}.ttl`;
+  await notebaseFs.createFile(ctx.rootPath, relativePath);
+  await notebaseFs.writeFile(ctx.rootPath, relativePath, p.excerptTtl);
+  graph.indexExcerpt(ctx, p.excerptId, p.excerptTtl);
+  return { excerptPath: relativePath };
+}
+
+async function applyNoteRefactor(ctx: ProjectContext, p: PayloadOf<'note-refactor'>): Promise<unknown> {
+  // Capture pre-images of every file the refactor will touch BEFORE applying,
+  // so rollback can restore them verbatim (a reverse rename can mis-rewrite a
+  // note that already linked to the destination). planRename also runs the
+  // guardrails (collision / no-op / unsafe / folder) — it throws on violation.
+  const plan = await planRename(ctx.rootPath, p.fromPath, p.toPath);
+  const preImages: Record<string, string> = {
+    [p.fromPath]: await notebaseFs.readFile(ctx.rootPath, p.fromPath),
+  };
+  for (const a of plan.affectedNotes) {
+    if (!(a.path in preImages)) preImages[a.path] = a.before;
+  }
+
+  const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
+    markPathHandled,
+    reindexHook: (relPath, content) => {
+      if (relPath.endsWith('.md')) {
+        search.indexNote(ctx, relPath, content);
+        void vectors.indexNote(ctx, relPath, content);
+      }
+    },
+    removeHook: (relPath) => {
+      search.removeNote(ctx, relPath);
+      void vectors.removeNote(ctx, relPath);
+    },
+  });
+  return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
+}
+
+async function applyNoteDelete(ctx: ProjectContext, p: PayloadOf<'note-delete'>): Promise<{ path: string; content: string }> {
+  // Capture the file content before deleting so rollback can recreate it
+  // verbatim. markPathHandled suppresses the watcher's re-index of the
+  // unlink (it still broadcasts NOTEBASE_FILE_DELETED so the renderer
+  // closes the tab + refreshes the tree). De-index across graph/search/
+  // vectors mirrors the manual delete path.
+  const content = await notebaseFs.readFile(ctx.rootPath, p.path);
+  markPathHandled(p.path);
+  await notebaseFs.deleteFile(ctx.rootPath, p.path);
+  graph.removeNote(ctx, p.path);
+  search.removeNote(ctx, p.path);
+  void vectors.removeNote(ctx, p.path);
+  return { path: p.path, content };
+}
+
+async function applyNoteRewrite(ctx: ProjectContext, p: PayloadOf<'note-rewrite'>): Promise<{ path: string; before: string }> {
+  // Overwrite an existing note in place (#936). Guardrails: must be a .md
+  // note that already exists — readFile throws ENOENT for a missing file,
+  // which propagates and rolls the bundle back (a rewrite of a nonexistent
+  // note is a bug in the caller, not a note to create). Capture the prior
+  // content as a pre-image for rollback, then write + reindex inline.
+  // markPathHandled dedups the watcher's re-index of our own write; the
+  // renderer refresh is driven by the IPC layer via NOTEBASE_REWRITTEN
+  // (which consumes ApproveResult.rewrittenPaths), mirroring how the
+  // bypassing auto-tag/set_properties paths broadcast today.
+  if (!p.path.endsWith('.md')) {
+    throw new Error(`note-rewrite: refusing to rewrite non-markdown path "${p.path}".`);
+  }
+  const before = await notebaseFs.readFile(ctx.rootPath, p.path);
+  markPathHandled(p.path);
+  await notebaseFs.writeFile(ctx.rootPath, p.path, p.content);
+  await graph.indexNote(ctx, p.path, p.content);
+  search.indexNote(ctx, p.path, p.content);
+  void vectors.indexNote(ctx, p.path, p.content);
+  return { path: p.path, before };
+}
+
+async function applySourceMeta(ctx: ProjectContext, p: PayloadOf<'source-meta'>): Promise<{ sourceId: string; before: string }> {
+  // Upsert the proposed predicates into the source's meta.ttl (#943).
+  // Capture the whole meta.ttl as a pre-image so rollback restores it
+  // verbatim. setSourceProperties writes + reindexes; the .minerva/sources
+  // watcher notifies the renderer (same path the direct write used).
+  const before = await readMeta(sourceMetaPath(ctx.rootPath, p.sourceId));
+  await setSourceProperties(ctx.rootPath, p.sourceId, p.updates);
+  return { sourceId: p.sourceId, before };
 }
 
 async function dispatchRollback(ctx: ProjectContext, a: AppliedRecord): Promise<void> {
