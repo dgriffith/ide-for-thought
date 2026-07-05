@@ -188,8 +188,8 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
       electron:
-        specifier: ^42.4.0
-        version: 42.4.0
+        specifier: ^43.0.0
+        version: 43.0.0
       esbuild:
         specifier: ^0.28.1
         version: 0.28.1
@@ -3861,8 +3861,8 @@ packages:
   electron-to-chromium@1.5.328:
     resolution: {integrity: sha512-QNQ5l45DzYytThO21403XN3FvK0hOkWDG8viNf6jqS42msJ8I4tGDSpBCgvDRRPnkffafiwAym2X2eHeGD2V0w==}
 
-  electron@42.4.0:
-    resolution: {integrity: sha512-OXXqh9LD9KxXPv2Fe25EfU9N9AvWTuV6V81sfhQaNvTAXCd9ONA+Q4OWvMe+CmYD6xIwjFxGGtG/ZphDYYC5OQ==}
+  electron@43.0.0:
+    resolution: {integrity: sha512-PV60GsWU6qufhuOhw3n+Yix3WPDcqDtBqE8orbEQGQGHEkgp9o/JCPgb7L4vIL0r1HnfPdqSRtboOTqbDkcFDQ==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -12493,7 +12493,7 @@ snapshots:
 
   electron-to-chromium@1.5.328: {}
 
-  electron@42.4.0:
+  electron@43.0.0:
     dependencies:
       '@electron-internal/extract-zip': 1.0.2
       '@electron/get': 5.0.0
