@@ -11,7 +11,6 @@ import * as templates from './notebase/templates';
 import * as tables from './sources/tables';
 import { invalidate as invalidatePythonModules } from './compute/python-kernel';
 import { addRecentProject } from './recent-projects';
-import { rebuildMenu } from './menu';
 import { saveSession, type WindowState } from './session';
 import { acquireProject, releaseProject } from './project-context';
 import { runBackfill } from './embeddings/backfill';
@@ -23,6 +22,17 @@ import type { ProjectContext } from './project-context-types';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
+
+// Menu-rebuild trigger, injected rather than imported (#986). window-manager
+// needs to rebuild the native menu when window/project state changes (focus,
+// project open/close), but importing `rebuildMenu` from `./menu` created a
+// runtime import cycle — `menu.ts` already imports window helpers from here.
+// main.ts (the composition root) registers `rebuildMenu` via
+// `setMenuRebuilder` at startup, so the edge points one way now: menu → window.
+let menuRebuilder: (() => void) | null = null;
+export function setMenuRebuilder(fn: () => void): void {
+  menuRebuilder = fn;
+}
 
 interface WindowContext {
   rootPath: string | null;
@@ -136,7 +146,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   win.on('resize', persistSession);
 
   win.on('focus', () => {
-    rebuildMenu();
+    menuRebuilder?.();
   });
 
   return win;
@@ -251,7 +261,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     console.warn('[window-manager] template seed failed', err);
   }
   addRecentProject(rootPath);
-  rebuildMenu();
+  menuRebuilder?.();
 
   // Background embedding backfill (#836): embed any not-yet-embedded notes so
   // semantic search works on an existing thoughtbase, not just on edited notes.
@@ -482,7 +492,7 @@ export function closeProjectInWindow(winId: number): void {
       void releaseProject(previousRoot, winId);
     }
   }
-  rebuildMenu();
+  menuRebuilder?.();
   persistSession();
   void syncClipperLifecycle();
 }

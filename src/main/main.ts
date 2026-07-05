@@ -4,7 +4,7 @@ import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
 import { buildMenu, rebuildMenu } from './menu';
-import { createWindow, openProjectInWindow } from './window-manager';
+import { createWindow, openProjectInWindow, setMenuRebuilder } from './window-manager';
 import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
@@ -32,6 +32,11 @@ boot('main module loaded');
 
 void app.whenReady().then(async () => {
   boot('app ready');
+  // Break the menu.ts <-> window-manager.ts import cycle (#986): window-manager
+  // triggers menu rebuilds through this injected callback rather than importing
+  // `rebuildMenu` directly. Registered before any window is created so the
+  // focus/project-change rebuild triggers are wired from the first window.
+  setMenuRebuilder(rebuildMenu);
   // macOS dev dock icon (#805). A packaged .app gets its icon from the bundle
   // (packagerConfig.icon); an unpackaged `electron-forge start` shows the stock
   // Electron icon unless we set the dock icon here.
