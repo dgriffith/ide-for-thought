@@ -84,51 +84,63 @@
 <div class="tab-bar">
   {#each tabs as tab, i}
     {@const dirty = tab.type === 'note' && tab.content !== tab.savedContent}
+    <!-- Presentational wrapper: carries the drag / middle-click / context-menu
+         gestures for the whole tab. The switch and close controls live inside
+         as siblings so no interactive element nests another (a11y #1005). The
+         wrapper's mouse gestures all have UI equivalents (context menu, close
+         button), so it needs no role of its own. -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="tab"
       class:active={i === activeIndex}
       class:dirty
       onpointerdown={(e) => { if (e.button === 0) onTabPointerDown?.(i, e); }}
-      onclick={() => onSwitch(i)}
-      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSwitch(i); } }}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
-      title={tab.type === 'note'
-        ? tab.relativePath
-        : tab.type === 'query'
-          ? tab.title
-          : tab.type === 'pdf'
-            ? `PDF: ${sourceTabLabel(tab.sourceId)}`
-            : tab.type === 'graph'
-              ? `Graph: ${tab.relativePath}`
-              : `Source: ${sourceTabLabel(tab.sourceId)}`}
-      role="tab"
-      tabindex="0"
     >
-      <!-- Leading slot: dirty pip OR type icon. The pip wins when the
-           note is dirty so the visual cue can't be missed (§7.2). -->
-      <span class="tab-lead">
-        {#if dirty}
-          <span class="dirty-dot" aria-label="Unsaved changes"></span>
-        {:else if tab.type === 'query'}
-          <Icon name="query" size={13} color="var(--text-faint)" />
-        {:else if tab.type === 'source'}
-          <Icon name="source" size={13} color="var(--text-faint)" />
-        {:else if tab.type === 'pdf'}
-          <Icon name="source" size={13} color="var(--text-faint)" />
-        {:else if tab.type === 'graph'}
-          <Icon name="graph" size={13} color="var(--text-faint)" />
-        {:else}
-          <Icon name="notes" size={13} color="var(--text-faint)" />
-        {/if}
-      </span>
-      <span class="tab-name">
-        {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
-        {:else if tab.type === 'query'}{tab.title}
-        {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
-        {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
-        {:else}{sourceTabLabel(tab.sourceId)}{/if}
-      </span>
+      <!-- The tab proper: a plain button (Enter/Space switch natively). The
+           full ARIA tabs widget wants owned tabpanels the editor doesn't model,
+           so this is a button labelled by its text with aria-current marking the
+           open one — not a role="tab". -->
+      <button
+        class="tab-switch"
+        aria-current={i === activeIndex ? 'page' : undefined}
+        onclick={() => onSwitch(i)}
+        title={tab.type === 'note'
+          ? tab.relativePath
+          : tab.type === 'query'
+            ? tab.title
+            : tab.type === 'pdf'
+              ? `PDF: ${sourceTabLabel(tab.sourceId)}`
+              : tab.type === 'graph'
+                ? `Graph: ${tab.relativePath}`
+                : `Source: ${sourceTabLabel(tab.sourceId)}`}
+      >
+        <!-- Leading slot: dirty pip OR type icon. The pip wins when the
+             note is dirty so the visual cue can't be missed (§7.2). -->
+        <span class="tab-lead">
+          {#if dirty}
+            <span class="dirty-dot" aria-label="Unsaved changes"></span>
+          {:else if tab.type === 'query'}
+            <Icon name="query" size={13} color="var(--text-faint)" />
+          {:else if tab.type === 'source'}
+            <Icon name="source" size={13} color="var(--text-faint)" />
+          {:else if tab.type === 'pdf'}
+            <Icon name="source" size={13} color="var(--text-faint)" />
+          {:else if tab.type === 'graph'}
+            <Icon name="graph" size={13} color="var(--text-faint)" />
+          {:else}
+            <Icon name="notes" size={13} color="var(--text-faint)" />
+          {/if}
+        </span>
+        <span class="tab-name">
+          {#if tab.type === 'note'}{tab.fileName.replace(/\.md$/, '')}
+          {:else if tab.type === 'query'}{tab.title}
+          {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
+          {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
+          {:else}{sourceTabLabel(tab.sourceId)}{/if}
+        </span>
+      </button>
       <button
         class="close-btn"
         onclick={(e) => { e.stopPropagation(); onClose(i); }}
@@ -205,17 +217,39 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 0 8px 0 14px;
-    border: none;
+    padding-right: 8px;
     border-right: 1px solid var(--border);
     background: transparent;
     color: var(--text-muted);
     font-family: var(--font-sans);
     font-size: 13px;
-    cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
     position: relative;
+  }
+
+  /* The switch control fills the tab's leading area; native button chrome is
+     reset so it reads as plain tab text. Sibling of .close-btn so no
+     interactive element nests another (a11y #1005). */
+  .tab-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    align-self: stretch;
+    padding: 0 0 0 14px;
+    border: none;
+    background: none;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    appearance: none;
+  }
+
+  .tab-switch:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
   }
 
   .tab:hover {
