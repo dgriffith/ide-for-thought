@@ -68,13 +68,16 @@
      *  the note menus; since this source is the active tab, gatherContext
      *  picks up its body/metadata. */
     onInvokeTool?: (toolId: string) => void;
+    /** Mirror of the `numberedHeadings` editor setting (#1120), forwarded to
+     *  the source body's Preview so it agrees with note previews. */
+    numberedHeadings?: boolean;
   }
 
   let {
     sourceId, highlightExcerptId, onNavigate, onShowConfirm, onShowPrompt, onDeleted,
     onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
     onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
-    onInvokeTool,
+    onInvokeTool, numberedHeadings = false,
   }: Props = $props();
   let resolving = $state(false);
   let appendFlashId = $state<string | null>(null);
@@ -572,7 +575,7 @@
             bind:this={bodyViewEl}
             oncontextmenu={handleBodyContextMenu}
           >
-            <Preview content={bodyContent} onNavigate={onNavigate} />
+            <Preview content={bodyContent} onNavigate={onNavigate} {numberedHeadings} />
             {#if detail && detail.excerpts.length > 0}
               <ExcerptDensityGutter
                 host={bodyViewEl ?? null}

@@ -66,6 +66,7 @@
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
+  import { getEditorSettings, saveEditorSettings } from './lib/editor/settings';
   import {
     slugifyForPath,
     flattenNotePaths,
@@ -315,6 +316,9 @@
   }
   let editorFontSize = $state(parseInt(localStorage.getItem('editorFontSize') ?? '14', 10));
   let themeLabel = $state(getThemeMode());
+  // §-numeral heading setting (#1120), mirrored reactively so every Preview
+  // re-skins the moment it's toggled in Settings → Editor.
+  let numberedHeadings = $state(getEditorSettings().numberedHeadings);
   // Generic modal dialogs (prompt / confirm / new-note / snippet / open-target)
   // live in the dialog store (#670); destructure the imperative `show*` helpers
   // so the many call sites read unchanged. <DialogHost> renders the state.
@@ -1426,6 +1430,7 @@
                         bind:this={previewComponents[groupId]}
                         content={note.content}
                         notePath={note.relativePath}
+                        {numberedHeadings}
                         onNavigate={handleNavigate}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}
@@ -1460,6 +1465,7 @@
                   <SourceDetail
                     sourceId={active.sourceId}
                     highlightExcerptId={active.highlightExcerptId}
+                    {numberedHeadings}
                     onNavigate={handleNavigate}
                     onShowConfirm={showConfirm}
                     onShowPrompt={showPrompt}
@@ -1768,7 +1774,15 @@
   {/if}
   {#if showSettings}
     <SettingsDialog
-      onApplyEditor={(s) => editorComponent?.applySettings(s)}
+      onApplyEditor={(s) => {
+        // applySettings both persists and live-reconfigures the editor, but it
+        // no-ops when no editor view is mounted (e.g. Done pressed on a source
+        // tab). Persist here too so preview-only settings like numberedHeadings
+        // survive regardless, and mirror the value so open previews react now.
+        saveEditorSettings(s);
+        editorComponent?.applySettings(s);
+        numberedHeadings = s.numberedHeadings;
+      }}
       onThemeChanged={() => {
         themeLabel = getThemeMode();
         editorComponent?.updateTheme();

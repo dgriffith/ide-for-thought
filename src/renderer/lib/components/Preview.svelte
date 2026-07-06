@@ -123,6 +123,14 @@
          * DOI links open externally like any other link.
          */
         onDoiClick?: (doi: string) => void;
+        /**
+         * §-numeral opt-in (#1120). When true, rendered H2s get a
+         * decimal-leading-zero "§ 01" section numeral. Driven by the
+         * `numberedHeadings` editor setting (Settings → Editor), off by
+         * default — only long-form/essay notes want it, so it isn't forced on
+         * every journal or list.
+         */
+        numberedHeadings?: boolean;
     }
 
     let {
@@ -142,17 +150,8 @@
         onRunCell,
         onApplyCellOutputEdit,
         onDoiClick,
+        numberedHeadings = false,
     }: Props = $props();
-
-    // §-numeral opt-in (#1120). The decimal-leading-zero "§ 01" H2 counter
-    // only makes sense for long-form/essay notes, so it's gated on a
-    // `numbered: true` frontmatter flag rather than firing on every note
-    // (a journal or grocery list shouldn't grow section numerals). A
-    // targeted regex over the frontmatter block is enough for one boolean.
-    const numbered = $derived.by(() => {
-        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content)?.[1];
-        return fm ? /^\s*numbered:\s*true\s*$/m.test(fm) : false;
-    });
 
     // Per-fence collapse state, keyed by the fence's opening line in the
     // source markdown. Survives doc-edit re-renders (line numbers may
@@ -1737,7 +1736,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 <!-- svelte-ignore a11y_mouse_events_have_key_events -->
 <div
         class="preview"
-        class:numbered
+        class:numbered={numberedHeadings}
         bind:this={previewEl}
         onclick={handleClick}
         oncontextmenu={handlePreviewContextMenu}
@@ -1937,9 +1936,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     /* Heading scale per IMPLEMENTATION.md §8.1. H1/H2/H3 in the display
        serif. The § numeral eyebrow (rendered via a CSS counter) is opt-in
-       per note (#1120): only `.preview.numbered` — set from a
-       `numbered: true` frontmatter flag — resets/increments the counter and
-       shows the "§ 01" prefix. The serif H2 itself stays unconditional. */
+       (#1120): only `.preview.numbered` — added when the `numberedHeadings`
+       editor setting is on — resets/increments the counter and shows the
+       "§ 01" prefix. The serif H2 itself stays unconditional. */
     .preview.numbered {
         counter-reset: h2;
     }

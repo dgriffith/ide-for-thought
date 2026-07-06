@@ -462,6 +462,16 @@
               Automatically folds the YAML frontmatter block at the top of a note when it's opened.
             </p>
           </div>
+          <div class="field checkbox">
+            <label>
+              <input type="checkbox" bind:checked={editor.numberedHeadings} />
+              Numbered section headings
+            </label>
+            <p class="hint">
+              Prefixes each H2 in the preview with a "§ 01" section numeral. Best for long-form
+              essays; leave off for journals and lists.
+            </p>
+          </div>
 
         {:else if activeTab === 'appearance'}
           <div class="field">
