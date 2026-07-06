@@ -24,7 +24,9 @@ export function cmTheme(): Extension {
 export function minervaEditorTheme(): Extension {
   return EditorView.theme({
     '.cm-gutters': {
-      backgroundColor: 'var(--bg)',
+      // Match the content surface (--bg-inset, #1080) so the gutter and code
+      // area read as one panel rather than a two-tone seam.
+      backgroundColor: 'var(--bg-inset)',
       border: 'none',
       color: 'var(--text-faint)',
       fontFamily: 'var(--font-mono)',
