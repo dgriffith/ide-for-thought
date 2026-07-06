@@ -448,6 +448,12 @@
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
   }
+  /* On a selected row the accent tint warms/darkens the background enough that
+     the faint timestamp falls below WCAG AA (3.16:1 on the active-selected row);
+     lift it to full-strength text there, which clears AA in every theme (#1080). */
+  .tree-item.selected .mtime {
+    color: var(--text);
+  }
 
   .context-menu {
     position: fixed;

@@ -121,7 +121,12 @@ export function minervaSurfaceTheme(): Extension {
   return EditorView.theme({
     '&': {
       color: 'var(--text)',
-      backgroundColor: 'var(--bg)',
+      // The code surface is --bg-inset, not --bg (#1080): it's the background
+      // every syntax color is AA-verified against, and in light mode the honey
+      // function color clears 4.5:1 on --bg-inset (4.59) but not on the lighter
+      // --bg (4.33). It also matches Preview's code-fence background, so editor
+      // and rendered fences read identically.
+      backgroundColor: 'var(--bg-inset)',
     },
     '.cm-content': {
       caretColor: 'var(--accent)',
