@@ -3,6 +3,9 @@
   import { api } from '../ipc/client';
   import Preview from './Preview.svelte';
   import ExcerptDensityGutter from './ExcerptDensityGutter.svelte';
+  import Icon from './Icon.svelte';
+  import Eyebrow from './ui/Eyebrow.svelte';
+  import Chip from './ui/Chip.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
@@ -403,7 +406,7 @@
       {#if onInvokeTool && hasSourceTools}
         <div class="tools-menu">
           <button class="tools-btn" onclick={() => (toolMenuOpen = !toolMenuOpen)} aria-haspopup="menu" aria-expanded={toolMenuOpen}>
-            Tools <span class="caret">▾</span>
+            Tools <span class="caret"><Icon name="chevronDown" size={11} /></span>
           </button>
           {#if toolMenuOpen}
             <button type="button" class="tools-backdrop" aria-label="Close menu" onclick={() => (toolMenuOpen = false)}></button>
@@ -429,10 +432,12 @@
       {/if}
       <div class="source-tags">
         {#each detail.metadata.tags as tag (tag)}
-          <span class="tag-chip">
+          <Chip>
             #{tag}
-            <button class="tag-remove" title="Remove tag" onclick={() => handleRemoveTag(tag)}>×</button>
-          </span>
+            <button class="tag-remove" title="Remove tag" onclick={() => handleRemoveTag(tag)}>
+              <Icon name="close" size={11} />
+            </button>
+          </Chip>
         {/each}
         {#if addingTag}
           <input
@@ -450,7 +455,7 @@
             {/each}
           </datalist>
         {:else}
-          <button class="add-tag-btn" onclick={startAddTag}>+ tag</button>
+          <button class="add-tag-btn" onclick={startAddTag}><Icon name="plus" size={11} /> tag</button>
         {/if}
       </div>
       {#if detail.metadata.stubStatus === 'unresolved' && onResolveStub}
@@ -531,7 +536,7 @@
 
     {#if detail.metadata.abstract}
       <section class="abstract">
-        <h2>Abstract</h2>
+        <div class="sect-head"><Eyebrow>Abstract</Eyebrow></div>
         <p>{@html renderInlineWithMath(detail.metadata.abstract)}</p>
       </section>
     {/if}
@@ -539,7 +544,7 @@
     {#if bodyLoaded && (bodyContent !== null || editMode)}
       <section class="body">
         <div class="body-header">
-          <h2>Content</h2>
+          <Eyebrow>Content</Eyebrow>
           {#if !editMode}
             <button class="body-edit" onclick={enterEditMode}>Edit body</button>
           {/if}
@@ -607,7 +612,7 @@
     {/if}
 
     <section>
-      <h2>Excerpts ({detail.excerpts.length})</h2>
+      <div class="sect-head"><Eyebrow>Excerpts <span class="ct">{detail.excerpts.length}</span></Eyebrow></div>
       {#if detail.excerpts.length === 0}
         <p class="muted">No excerpts linked to this source yet.</p>
       {:else}
@@ -656,7 +661,7 @@
 
     <section>
       <div class="section-header">
-        <h2>Notes ({detail.aboutNotes.length})</h2>
+        <Eyebrow>Notes <span class="ct">{detail.aboutNotes.length}</span></Eyebrow>
         {#if onCreateAboutNote}
           <button class="section-action" disabled={creatingAbout} onclick={handleNewAboutNote}>
             {creatingAbout ? 'Creating…' : 'New note about this source'}
@@ -681,7 +686,7 @@
 
     {#if detail.references.length > 0}
       <section>
-        <h2>References ({detail.references.length})</h2>
+        <div class="sect-head"><Eyebrow>References <span class="ct">{detail.references.length}</span></Eyebrow></div>
         <ul class="about-list">
           {#each detail.references as ref (ref.sourceId)}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -698,7 +703,7 @@
     {/if}
 
     <section>
-      <h2>Referenced from ({detail.backlinks.length})</h2>
+      <div class="sect-head"><Eyebrow>Referenced from <span class="ct">{detail.backlinks.length}</span></Eyebrow></div>
       {#if detail.backlinks.length === 0}
         <p class="muted">No notes reference this source.</p>
       {:else}
@@ -746,6 +751,9 @@
     right: 0;
   }
   .tools-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     padding: 4px 10px;
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -755,7 +763,7 @@
     cursor: pointer;
   }
   .tools-btn:hover { background: var(--bg-button-hover); }
-  .tools-btn .caret { color: var(--text-muted); margin-left: 2px; }
+  .tools-btn .caret { display: inline-flex; align-items: center; color: var(--text-muted); }
   .tools-backdrop {
     position: fixed;
     inset: 0;
@@ -812,23 +820,28 @@
   }
 
   h1 {
-    font-size: 26px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     margin: 0 0 6px;
   }
 
-  h2 {
-    font-size: 15px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
+  /* Section headings use the shared Eyebrow primitive (#1119). The wrapper
+     just restores the vertical rhythm the old <h2> margin provided; the
+     count renders in accent. */
+  .sect-head {
     margin: 24px 0 12px;
+  }
+  .ct {
+    color: var(--accent);
   }
 
   .byline {
+    font-family: var(--font-display);
+    font-style: italic;
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 15px;
   }
 
   /* Tag editor (#766) */
@@ -839,33 +852,30 @@
     gap: 6px;
     margin-top: 8px;
   }
-  .tag-chip {
+  /* Remove-tag glyph inside the shared Chip (#1119) — an <Icon name="close">
+     rather than a bare ×. */
+  .tag-remove {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 1px 4px 1px 7px;
-    border-radius: 10px;
-    background: var(--bg-button);
-    color: var(--text);
-    font-size: 12px;
-  }
-  .tag-remove {
     border: none;
     background: none;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 13px;
     line-height: 1;
-    padding: 0 2px;
+    padding: 0;
+    margin: 0 -2px 0 1px;
   }
   .tag-remove:hover { color: var(--text); }
   .add-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     border: 1px dashed var(--border);
     background: none;
     color: var(--text-muted);
-    border-radius: 10px;
+    border-radius: 999px;
     font-size: 12px;
-    padding: 1px 8px;
+    padding: 2px 9px;
     cursor: pointer;
   }
   .add-tag-btn:hover { color: var(--text); border-color: var(--text-muted); }
@@ -873,7 +883,7 @@
     border: 1px solid var(--accent);
     background: var(--bg);
     color: var(--text);
-    border-radius: 10px;
+    border-radius: 999px;
     font-size: 12px;
     padding: 1px 8px;
     width: 100px;
@@ -981,7 +991,7 @@
     word-break: break-word;
   }
   .mono {
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
   }
 
@@ -992,7 +1002,9 @@
   .external:hover { text-decoration: underline; }
 
   .abstract p {
-    font-size: 14px;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 15px;
     color: var(--text-muted);
     margin: 0;
   }
@@ -1242,7 +1254,6 @@
     gap: 12px;
     margin: 0 0 8px;
   }
-  .section-header h2 { margin: 0; }
   .section-action {
     font-family: var(--font-sans);
     font-size: 12px;
@@ -1324,7 +1335,7 @@
     background: var(--bg-button);
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
   }
 

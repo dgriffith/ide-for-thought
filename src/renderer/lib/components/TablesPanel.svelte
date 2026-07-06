@@ -162,7 +162,7 @@
   }
 
   .table-name {
-    font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+    font-family: var(--font-mono);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;

@@ -220,7 +220,7 @@
     font-size: 12px;
     color: var(--text);
     cursor: pointer;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

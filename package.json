@@ -20,6 +20,7 @@
     "lint": "tsc --noEmit && svelte-check --threshold error && eslint .",
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
+    "lint:fonts": "! grep -rnE \"SF Mono|Fira Code|SFMono-Regular|'Cascadia\" src/renderer --include=*.svelte --include=*.ts | grep -v 'appearance/settings.ts'",
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "vitest bench --run --config vitest.bench.config.ts",

@@ -150,10 +150,14 @@ export const ICONS = {
     '<path d="M8.5 4 13 8 8.5 12z" fill="currentColor" stroke="none"/>',
 
   // ── Brand ─────────────────────────────────────────────────────────
+  // A crop of the app owl's eye looking back (#1121): outer socket ring,
+  // honey (accent) iris fill, dark pupil, catchlight. Inherits currentColor so
+  // it takes the accent in the title bar and the muted tone elsewhere.
   minervaMark:
-    '<circle cx="8" cy="8" r="6"/>' +
-    '<circle cx="8" cy="8" r="2.5"/>' +
-    '<circle cx="8" cy="8" r=".8" fill="currentColor" stroke="none"/>',
+    '<circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.4"/>' +
+    '<circle cx="8" cy="8" r="4.2" fill="currentColor" fill-opacity="0.28" stroke="currentColor" stroke-width="1.2"/>' +
+    '<circle cx="8" cy="8" r="1.7" fill="currentColor" stroke="none"/>' +
+    '<circle cx="7.2" cy="7.2" r="0.6" fill="#fff" fill-opacity="0.7" stroke="none"/>',
 } as const;
 
 export type IconName = keyof typeof ICONS;
