@@ -87,6 +87,12 @@
   --accent:        oklch(0.500 0.150 65);
   --accent-dim:    oklch(0.620 0.105 65);
   --accent-ink:    #ffffff;
+  /* Signal hues — darkened for this theme so they clear WCAG AA (4.5:1) on the
+     white --bg-inset when used as syntax colors (#1117). Without these, they'd
+     inherit the dark theme's light values and fail contrast on white. */
+  --sage:          oklch(0.440 0.080 148);
+  --rust:          oklch(0.500 0.140 38);
+  --iris:          oklch(0.450 0.110 280);
   /* Contrast theme keeps its dark title bar over a light body */
   --bg-titlebar:           #3a3a4a;
   --titlebar-text:         #ffffff;

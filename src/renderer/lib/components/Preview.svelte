@@ -14,7 +14,7 @@
     import type Token from 'markdown-it/lib/token.mjs';
     import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
     import hljs from 'highlight.js';
-    import 'highlight.js/styles/github-dark.min.css';
+    import '../../styles/hljs-minerva.css';
     import 'katex/dist/katex.min.css';
     import {installMath} from '../../../shared/markdown/math-plugin';
     import {installDoiAutolink} from '../../../shared/markdown/doi-plugin';

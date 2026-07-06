@@ -6,7 +6,7 @@
  * builds without throwing — catching a broken `EditorView.theme(...)` spec.
  */
 import { describe, it, expect } from 'vitest';
-import { minervaEditorTheme, fontSizeTheme } from '../../src/renderer/lib/editor/editor-theme';
+import { cmTheme, minervaEditorTheme, fontSizeTheme } from '../../src/renderer/lib/editor/editor-theme';
 
 describe('editor-theme builders (#672)', () => {
   it('minervaEditorTheme builds an extension', () => {
@@ -16,6 +16,10 @@ describe('editor-theme builders (#672)', () => {
   it('fontSizeTheme builds an extension for a given size', () => {
     expect(fontSizeTheme(16)).toBeTruthy();
   });
-  // cmTheme reads the theme mode (localStorage/matchMedia) so it's exercised via
-  // the app at runtime, not here — these two are the env-free pure builders.
+
+  // After #1117 cmTheme is env-free (token-driven surface + shared highlight,
+  // no theme-mode read), so it can build here without a DOM.
+  it('cmTheme builds the token-driven surface + highlight', () => {
+    expect(cmTheme()).toBeTruthy();
+  });
 });
