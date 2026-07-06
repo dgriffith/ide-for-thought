@@ -8,18 +8,19 @@
 
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { getEffectiveTheme, getThemeMode } from '../theme';
+import { minervaSurfaceTheme, minervaSyntaxHighlighting } from './minerva-highlight';
 
-/** oneDark in dark mode, an empty base in light/contrast — `minervaEditorTheme`
- *  layers the shared tokens on top either way. */
+/** The token-driven surface chrome + shared syntax highlight (#1117), replacing
+ *  the old `oneDark` (dark) / empty (light) split. One palette for every theme;
+ *  `minervaEditorTheme` layers the gutter / active-line tokens on top. Kept as a
+ *  function so it can be reconfigured through the theme compartment on a theme
+ *  swap (a no-op for the `var()`-based colors, which re-skin live). */
 export function cmTheme(): Extension {
-  return getEffectiveTheme(getThemeMode()) === 'dark' ? oneDark : [];
+  return [minervaSurfaceTheme(), minervaSyntaxHighlighting()];
 }
 
 /** Minerva-specific gutter + active-line styling per IMPLEMENTATION.md §8.2.
- *  Layered on top of `cmTheme()` so both dark oneDark and the empty light base
- *  inherit the same tokens. */
+ *  Layered on top of `cmTheme()`'s token-driven surface + highlight. */
 export function minervaEditorTheme(): Extension {
   return EditorView.theme({
     '.cm-gutters': {

@@ -34,12 +34,13 @@ const KNOWN_WELCOME = new Set<string>([
   // Clean: --text-faint was lifted to WCAG AA, so no tolerated violations here.
 ]);
 const KNOWN_WORKSPACE = new Set<string>([
-  // Remaining color-contrast is EDITOR-INTERNAL only: CodeMirror's oneDark
-  // theme syntax colors (e.g. its red #e06c75 at 4.38:1) + our link-type badge
-  // decorations (--text-faint) layered on oneDark's #282c34 background. The app
-  // chrome's faint text was lifted to AA (the welcome test enforces it, no
-  // allowlist there). Making the editor fully AA means retuning/replacing the
-  // oneDark theme — its own change; tracked as follow-up.
+  // Remaining color-contrast is EDITOR-INTERNAL only. The oneDark theme was
+  // replaced with the token-driven minervaHighlightStyle (#1117) — every syntax
+  // color is AA-verified on --bg-inset in all three themes — but axe may still
+  // flag editor-internal decorations (e.g. link-type badges) or the honey
+  // function color, which is AA on --bg-inset but 4.33:1 (AA-large) on the
+  // editor's --bg surface in light mode. Kept tolerated pending an editor a11y
+  // sweep; the app chrome's faint text is enforced by the welcome test.
   'color-contrast',
   // CodeMirror's `.cm-scroller` (tabindex=-1); its `.cm-content` editable IS
   // keyboard-focusable, so this axe finding is a known CM quirk, not a real trap.

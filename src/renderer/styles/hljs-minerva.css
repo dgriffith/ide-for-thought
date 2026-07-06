@@ -1,0 +1,94 @@
+/*
+ * Token-driven highlight.js theme for rendered code fences (#1117).
+ *
+ * Replaces `highlight.js/styles/github-dark.min.css`, whose cold GitHub palette
+ * ignored every design token. Mirrors the CodeMirror `minervaHighlightStyle`
+ * mapping so preview fences, the note editor, and the query panel all read the
+ * same: iris keywords, honey/accent functions, sage strings, rust numbers,
+ * faint-italic comments, muted operators & punctuation. Colors are `var()`
+ * tokens, so fences re-skin live across dark / light / contrast — and the fence
+ * background stays whatever Preview's `pre`/`code` rules set (var(--bg-inset)).
+ */
+
+.hljs {
+  color: var(--text);
+  background: transparent;
+}
+
+/* Comments → faint italic. */
+.hljs-comment,
+.hljs-quote {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+/* Keywords, types, markup tags → iris. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-type,
+.hljs-tag,
+.hljs-name,
+.hljs-meta .hljs-keyword {
+  color: var(--iris);
+}
+
+/* Functions, definitions, object keys, headings → honey (accent). */
+.hljs-title,
+.hljs-title.function_,
+.hljs-title.class_,
+.hljs-built_in,
+.hljs-attr,
+.hljs-attribute,
+.hljs-section {
+  color: var(--accent);
+}
+
+/* Plain identifiers → body text. */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-subst,
+.hljs-params {
+  color: var(--text);
+}
+
+/* Strings, regexps, links, additions → sage. */
+.hljs-string,
+.hljs-regexp,
+.hljs-link,
+.hljs-addition,
+.hljs-meta .hljs-string {
+  color: var(--sage);
+}
+
+/* Numbers, literals, atoms, deletions → rust. */
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-deletion {
+  color: var(--rust);
+}
+
+/* Meta, operators, punctuation, bullets → muted. */
+.hljs-meta,
+.hljs-operator,
+.hljs-punctuation,
+.hljs-bullet,
+.hljs-selector-attr,
+.hljs-selector-pseudo,
+.hljs-comment .hljs-doctag {
+  color: var(--text-muted);
+}
+
+/* Documentation tags read as annotations, not prose. */
+.hljs-doctag {
+  color: var(--iris);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: 600;
+}
