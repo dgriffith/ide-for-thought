@@ -234,7 +234,7 @@
         EditorView.theme({
           '&': { height: '100%' },
           '.cm-content': {
-            fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
+            fontFamily: 'var(--font-mono)',
             fontSize: '13px',
             lineHeight: '1.5',
           },

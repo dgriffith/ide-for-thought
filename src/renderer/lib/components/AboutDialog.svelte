@@ -40,7 +40,7 @@
       <div class="brand">
         <div class="eyebrow">About</div>
         <h2 class="title" id="about-title">Minerva</h2>
-        <p class="tagline">Thoughts Worth Keeping</p>
+        <p class="tagline">Thoughts worth keeping.</p>
       </div>
     </header>
 
@@ -137,6 +137,7 @@
   }
   .tagline {
     margin: 6px 0 0;
+    font-family: var(--font-display);
     font-size: 13.5px;
     font-style: italic;
     color: var(--text-muted);

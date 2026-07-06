@@ -881,7 +881,7 @@
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 3px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--text-muted);
     white-space: pre-wrap;
@@ -1001,7 +1001,7 @@
   }
   .error .message {
     color: var(--text-muted);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     white-space: pre-wrap;
     margin-bottom: 4px;

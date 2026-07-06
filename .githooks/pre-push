@@ -12,6 +12,12 @@ if [ "$SKIP_HOOKS" = "1" ]; then
   exit 0
 fi
 
+echo "→ pre-push: pnpm lint:fonts (skip with --no-verify)…"
+if ! pnpm lint:fonts; then
+  echo "✗ pre-push: hardcoded mono font literal found — use var(--font-mono). See reports/design-review-2.md §2." >&2
+  exit 1
+fi
+
 echo "→ pre-push: pnpm lint (skip with --no-verify)…"
 if ! pnpm lint; then
   echo "✗ pre-push: lint failed — push aborted. Fix it, or bypass with: git push --no-verify" >&2

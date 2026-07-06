@@ -259,7 +259,7 @@
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text);
     white-space: pre;
@@ -278,7 +278,7 @@
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 4px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text);
     resize: vertical;
@@ -320,11 +320,11 @@
   .compute-output-error {
     color: var(--text);
     font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
   }
   .compute-output-text {
     margin: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     color: var(--text);
     white-space: pre-wrap;

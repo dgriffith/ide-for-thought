@@ -472,7 +472,7 @@
     min-width: 90px;
   }
   .payload-summary {
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     font-size: 11px;
     flex: 1;
     overflow: hidden;
@@ -489,7 +489,7 @@
     border: 1px solid var(--border);
     border-radius: 3px;
     font-size: 11px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-family: var(--font-mono);
     color: var(--text);
     white-space: pre-wrap;
     word-wrap: break-word;

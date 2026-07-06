@@ -144,6 +144,16 @@
         onDoiClick,
     }: Props = $props();
 
+    // §-numeral opt-in (#1120). The decimal-leading-zero "§ 01" H2 counter
+    // only makes sense for long-form/essay notes, so it's gated on a
+    // `numbered: true` frontmatter flag rather than firing on every note
+    // (a journal or grocery list shouldn't grow section numerals). A
+    // targeted regex over the frontmatter block is enough for one boolean.
+    const numbered = $derived.by(() => {
+        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content)?.[1];
+        return fm ? /^\s*numbered:\s*true\s*$/m.test(fm) : false;
+    });
+
     // Per-fence collapse state, keyed by the fence's opening line in the
     // source markdown. Survives doc-edit re-renders (line numbers may
     // shift, but the user toggling collapse means "I'm done with this
@@ -1727,6 +1737,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 <!-- svelte-ignore a11y_mouse_events_have_key_events -->
 <div
         class="preview"
+        class:numbered
         bind:this={previewEl}
         onclick={handleClick}
         oncontextmenu={handlePreviewContextMenu}
@@ -1884,7 +1895,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     .cite-tooltip :global(.tt-meta) {
         font-size: 12px;
         color: var(--text-muted);
-        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-family: var(--font-mono);
     }
 
     .cite-tooltip :global(.tt-quote) {
@@ -1925,9 +1936,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     }
 
     /* Heading scale per IMPLEMENTATION.md §8.1. H1/H2/H3 in the display
-       serif; H2 carries a § numeral eyebrow rendered via a CSS counter,
-       so any section markdown source (## …) shows up as "§ 01 Heading". */
-    .preview {
+       serif. The § numeral eyebrow (rendered via a CSS counter) is opt-in
+       per note (#1120): only `.preview.numbered` — set from a
+       `numbered: true` frontmatter flag — resets/increments the counter and
+       shows the "§ 01" prefix. The serif H2 itself stays unconditional. */
+    .preview.numbered {
         counter-reset: h2;
     }
 
@@ -1949,10 +1962,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         font-weight: 500;
         letter-spacing: -0.01em;
         margin: 24px 0 12px;
+    }
+
+    .preview.numbered :global(h2) {
         counter-increment: h2;
     }
 
-    .preview :global(h2)::before {
+    .preview.numbered :global(h2)::before {
         content: '§ ' counter(h2, decimal-leading-zero);
         font-family: var(--font-mono);
         font-size: 11px;
