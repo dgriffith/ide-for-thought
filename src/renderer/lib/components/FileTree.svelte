@@ -441,12 +441,22 @@
   }
 
   /* Modified-time stamp on file rows (§5.3) — right-aligned, mono. */
+  /* Muted, not faint (#1080): --text-faint is only ~4.6:1 on a plain row and
+     drops to 4.18:1 once the row lightens on :hover (--text 4% tint) — below
+     WCAG AA. --text-muted clears AA on both (5.1–5.6:1). */
   .mtime {
     font-family: var(--font-mono);
     font-size: 10.5px;
-    color: var(--text-faint);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
     flex-shrink: 0;
+  }
+  /* Accent-tinted rows (open file / tree selection) warm the background enough
+     that even --text-muted falls below AA (3.8:1 on the active-selected row);
+     lift the timestamp to full-strength text there — AA in every theme. */
+  .tree-item.active .mtime,
+  .tree-item.selected .mtime {
+    color: var(--text);
   }
 
   .context-menu {
