@@ -139,7 +139,19 @@ export const proposeNotes: NotebaseTool = {
       'links. Bad: `[[stop-1]]` while the file is `notes/.../Sets, Functions, ' +
       'and the Need for Types.md`. Good: `[[Sets, Functions, and the Need for ' +
       'Types]]`. Prefer paths without commas/punctuation in the basename if you ' +
-      'can — they\'re easier to link to.',
+      'can — they\'re easier to link to.\n' +
+      '\n' +
+      'Grouping & ordering: put the whole bundle (parent index + every child) in ' +
+      'ONE new directory named for the topic, e.g. "notes/group-theory-journey/…", ' +
+      'so it stays together instead of scattering among unrelated notes. When the ' +
+      'children form an ORDERED series (a learning path, sequential steps), prefix ' +
+      'their basenames with a zero-padded number so they sort into reading order — ' +
+      '"Step 01: …", "Step 02: …" (zero-pad: "Step 01", not "Step 1", or a 10th+ ' +
+      'step mis-sorts), with the intro/overview named to sort first (e.g. ' +
+      '"Introduction"). Do NOT number unordered bundles — a glossary or a set of ' +
+      'claims should stay alphabetical, which is the right order there. A numeric ' +
+      'prefix is part of the basename, so the parent\'s [[…]] links must include it ' +
+      'exactly (the wiki-link rule above still applies).',
     input_schema: {
       type: 'object',
       properties: {

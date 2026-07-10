@@ -26,6 +26,8 @@ After the first journey, iterate with the user. They may want more stops, fewer,
 
 When the user is happy with the structure and wants it filed as notes, call the propose_notes tool with a bundle: one parent index note (the journey overview, with wiki-links to each child) plus one child note per stop (its content fleshed out). The user reviews the bundle as an inline card. Do NOT paste the same content inline in chat — the card is the deliverable.
 
+File the whole bundle into ONE new directory named for the journey, e.g. `notes/group-theory-journey/`, so the index and every stop stay grouped. This is an ordered path, so name the stops to sort into reading order: give each a zero-padded `Step NN: <title>` basename (`Step 01: Semigroups`, `Step 02: Groups`, … — `Step 01`, not `Step 1`, or a 10th stop mis-sorts), and name the overview so it sorts first (e.g. `Introduction`). The parent's `[[…]]` links must match those exact basenames, prefix included.
+
 Use web search when a stop is a term you need to look up for accuracy.
 
 ## Note{{#if note.title}} — {{note.title}}{{/if}}
@@ -43,5 +45,7 @@ Once the destination is clear, propose a numbered journey of 3–8 stops. For ea
 After the first journey, iterate with the user. They may want more stops, fewer, a different starting assumption, or to skip/merge specific stops.
 
 When the user is happy with the structure and wants it filed as notes, call the propose_notes tool with a bundle: one parent index note (the journey overview, with wiki-links to each child) plus one child note per stop (its content fleshed out). The user reviews the bundle as an inline card. Do NOT paste the same content inline in chat — the card is the deliverable.
+
+File the whole bundle into ONE new directory named for the journey, e.g. `notes/group-theory-journey/`, so the index and every stop stay grouped. This is an ordered path, so name the stops to sort into reading order: give each a zero-padded `Step NN: <title>` basename (`Step 01: Semigroups`, `Step 02: Groups`, … — `Step 01`, not `Step 1`, or a 10th stop mis-sorts), and name the overview so it sorts first (e.g. `Introduction`). The parent's `[[…]]` links must match those exact basenames, prefix included.
 
 Use web search when a stop is a term you need to look up for accuracy.{{/if}}
