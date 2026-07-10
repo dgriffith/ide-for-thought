@@ -1,6 +1,7 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
+import type { ThemeMode } from '../../../shared/theme';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -673,6 +674,8 @@ export interface MenuApi {
   onTogglePreview(cb: () => void): void;
   onQuickOpen(cb: () => void): void;
   onCycleTheme(cb: () => void): void;
+  onSetTheme(cb: (mode: ThemeMode) => void): void;
+  reportTheme(mode: ThemeMode): void;
   onSplitRight(cb: () => void): void;
   onSplitDown(cb: () => void): void;
   onFocusNextGroup(cb: () => void): void;

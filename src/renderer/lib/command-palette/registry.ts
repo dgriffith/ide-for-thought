@@ -18,6 +18,7 @@
  */
 import type { Command } from './types';
 import { formatAccelerator } from './format-accelerator';
+import { THEME_MODES, type ThemeMode } from '../theme';
 
 /** Dependencies the command registry needs from the host component. */
 export interface CommandDeps {
@@ -50,7 +51,11 @@ export interface CommandDeps {
   togglePreview(): void;
   toggleConversations(): void;
   newConversation(): void;
-  cycleTheme(): void;
+  /** Directly select a theme (#1139). One palette entry per mode. */
+  setTheme(mode: ThemeMode): void;
+  /** Current mode, so the active entry can be marked. Read at build time,
+   *  so it must be a getter for the palette's `$derived` to re-track it. */
+  currentTheme(): ThemeMode;
   fontIncrease(): void;
   fontDecrease(): void;
   fontReset(): void;
@@ -143,8 +148,16 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: true, run: () => deps.toggleConversations() },
     { id: 'view.newConversation', title: 'New Conversation', category: 'View',
       keybinding: null, enabled: hasProject, run: () => deps.newConversation() },
-    { id: 'view.cycleTheme', title: 'Cycle Theme', category: 'View',
-      keybinding: null, enabled: true, run: () => deps.cycleTheme() },
+    // One directly-selectable entry per theme, so each is searchable and a
+    // click jumps straight to it (#1139). The active mode is marked.
+    ...THEME_MODES.map((m) => ({
+      id: `view.theme.${m.value}`,
+      title: `Theme: ${m.label}${deps.currentTheme() === m.value ? ' (current)' : ''}`,
+      category: 'View',
+      keybinding: null,
+      enabled: true,
+      run: () => deps.setTheme(m.value),
+    })),
     { id: 'view.fontIncrease', title: 'Increase Font Size', category: 'View',
       keybinding: null, enabled: true, run: () => deps.fontIncrease() },
     { id: 'view.fontDecrease', title: 'Decrease Font Size', category: 'View',

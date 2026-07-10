@@ -1,11 +1,15 @@
 <script lang="ts">
   import type { CursorInfo } from './Editor.svelte';
   import Icon from './Icon.svelte';
+  import { THEME_MODES, type ThemeMode } from '../theme';
+  import { installDismissOnClickOutside } from '../dismiss-menu';
 
   interface Props {
     cursor: CursorInfo;
     fontSize: number;
-    theme: string;
+    /** Current theme mode — drives both the status-bar label and the
+     *  checked item in the picker. */
+    theme: ThemeMode;
     inspectionCount?: number;
     /** Number of incoming wiki-links to the active note (#472). 0
      *  hides the item entirely — keeps the bar tidy for unlinked
@@ -19,7 +23,8 @@
      *  cue entirely when no editable file is open. */
     hasActiveNote?: boolean;
     onGotoLine: () => void;
-    onCycleTheme: () => void;
+    /** Pick a theme directly (#1139) — replaces the old blind cycle on click. */
+    onSelectTheme: (mode: ThemeMode) => void;
     onShowInspections?: () => void;
     /** Click handler for the backlink-count item — App reveals + focuses
      *  the right-sidebar Backlinks panel. */
@@ -32,9 +37,34 @@
     cursor, fontSize, theme,
     inspectionCount = 0, backlinkCount = 0,
     isDirty = false, hasActiveNote = false,
-    onGotoLine, onCycleTheme, onShowInspections, onShowBacklinks,
+    onGotoLine, onSelectTheme, onShowInspections, onShowBacklinks,
     backfill = null,
   }: Props = $props();
+
+  let themeMenuOpen = $state(false);
+  let themeMenuEl = $state<HTMLDivElement>();
+
+  function toggleThemeMenu() {
+    themeMenuOpen = !themeMenuOpen;
+    if (themeMenuOpen) {
+      installDismissOnClickOutside(() => { themeMenuOpen = false; }, '.theme-wrap');
+    }
+  }
+
+  function pickTheme(mode: ThemeMode) {
+    onSelectTheme(mode);
+    themeMenuOpen = false;
+  }
+
+  // Focus the checked item when the picker opens so it's keyboard-drivable.
+  $effect(() => {
+    if (themeMenuOpen && themeMenuEl) {
+      themeMenuEl.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    }
+  });
+
+  const themeLabels: Record<ThemeMode, string> =
+    Object.fromEntries(THEME_MODES.map((m) => [m.value, m.label])) as Record<ThemeMode, string>;
 </script>
 
 <div class="status-bar">
@@ -88,7 +118,36 @@
     <span class="status-item faint">·</span>
     <span class="status-item faint nums">{fontSize}px</span>
     <span class="status-item faint">·</span>
-    <button class="status-item faint clickable" onclick={onCycleTheme} title="Cycle Theme (Cmd+Shift+T)">{theme}</button>
+    <div class="theme-wrap">
+      <button
+        class="status-item faint clickable"
+        onclick={toggleThemeMenu}
+        title="Theme — click to pick (Cmd+Shift+T cycles)"
+        aria-haspopup="menu"
+        aria-expanded={themeMenuOpen}
+      >{themeLabels[theme]}</button>
+      {#if themeMenuOpen}
+        <div
+          class="theme-menu"
+          role="menu"
+          tabindex="-1"
+          bind:this={themeMenuEl}
+          onkeydown={(e) => { if (e.key === 'Escape') { themeMenuOpen = false; } }}
+        >
+          {#each THEME_MODES as mode (mode.value)}
+            <button
+              role="menuitemradio"
+              aria-checked={theme === mode.value}
+              class="theme-menu-item"
+              onclick={() => pickTheme(mode.value)}
+            >
+              <span class="check">{#if theme === mode.value}<Icon name="check" size={11} color="var(--accent)" />{/if}</span>
+              {mode.label}
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
     <span class="status-item faint">·</span>
     <span class="status-item faint">Markdown</span>
   </div>
@@ -152,6 +211,51 @@
     width: 1px;
     height: 11px;
     background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* Theme picker — a small popup that opens upward from the status bar. */
+  .theme-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .theme-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    z-index: 1000;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+  }
+  .theme-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 12px 6px 8px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .theme-menu-item:hover,
+  .theme-menu-item:focus-visible {
+    background: var(--bg-button);
+    outline: none;
+  }
+  .theme-menu-item .check {
+    display: inline-flex;
+    width: 12px;
     flex-shrink: 0;
   }
 

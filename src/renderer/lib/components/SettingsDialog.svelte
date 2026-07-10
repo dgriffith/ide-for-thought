@@ -7,7 +7,7 @@
     FONT_FAMILY_PRESETS,
     type FontFamilyPreset,
   } from '../appearance/settings';
-  import { getThemeMode, setThemeMode, type ThemeMode } from '../theme';
+  import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
   import { api } from '../ipc/client';
   import type { LLMSettings } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
@@ -205,13 +205,6 @@
     id: id as FontFamilyPreset,
     label: def.label,
   }));
-
-  const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-    { value: 'dark', label: 'Dark' },
-    { value: 'light', label: 'Light' },
-    { value: 'contrast', label: 'High Contrast' },
-    { value: 'system', label: 'System' },
-  ];
 
   // Privileged sites now live in SitesSettings.svelte (self-contained panel).
 
@@ -477,7 +470,7 @@
           <div class="field">
             <label for="theme">Theme</label>
             <select id="theme" bind:value={theme}>
-              {#each THEME_OPTIONS as opt}
+              {#each THEME_MODES as opt}
                 <option value={opt.value}>{opt.label}</option>
               {/each}
             </select>

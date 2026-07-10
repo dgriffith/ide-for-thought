@@ -1,6 +1,7 @@
 import { ipcMain, app } from 'electron';
 import { Channels } from '../../shared/channels';
-import { getMenuShortcuts } from '../menu';
+import { getMenuShortcuts, setMenuThemeMode } from '../menu';
+import type { ThemeMode } from '../../shared/theme';
 
 // Injected by vite.main.config.ts `define` at build time — a packaged app has
 // no git to query at runtime, so the commit + date are baked in.
@@ -31,4 +32,8 @@ export function registerApp(): void {
 
   // Keyboard-shortcut reference for the Help menu (#804).
   ipcMain.handle(Channels.APP_GET_SHORTCUTS, () => getMenuShortcuts());
+
+  // The renderer owns the theme (localStorage); it reports changes so the
+  // native View → Theme submenu can show the active radio (#1139).
+  ipcMain.on(Channels.MENU_REPORT_THEME, (_e, mode: ThemeMode) => setMenuThemeMode(mode));
 }

@@ -158,6 +158,10 @@ export const Channels = {
   MENU_TOGGLE_CONVERSATIONS: 'menu:toggleConversations',
   MENU_NEW_CONVERSATION: 'menu:newConversation',
   MENU_CYCLE_THEME: 'menu:cycleTheme',
+  // Direct theme selection from the native View → Theme submenu (#1139).
+  MENU_SET_THEME: 'menu:setTheme',
+  // Renderer → main: report the current theme so the menu's radio reflects it.
+  MENU_REPORT_THEME: 'menu:reportTheme',
   // Editor split — focus & pane commands (#814)
   MENU_SPLIT_RIGHT: 'menu:splitRight',
   MENU_SPLIT_DOWN: 'menu:splitDown',

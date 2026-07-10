@@ -65,7 +65,7 @@
   import type { OnboardingAnswers } from './lib/components/OnboardingDialog.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
-  import { initTheme, cycleTheme, getThemeMode } from './lib/theme';
+  import { initTheme, cycleTheme, getThemeMode, setThemeMode, type ThemeMode } from './lib/theme';
   import { getEditorSettings, saveEditorSettings } from './lib/editor/settings';
   import {
     slugifyForPath,
@@ -562,7 +562,8 @@
     togglePreview: () => cycleViewMode(),
     toggleConversations: () => conversationsStore.toggle(),
     newConversation: () => { void newConversation(); },
-    cycleTheme: () => handleCycleTheme(),
+    setTheme: (mode) => handleSelectTheme(mode),
+    currentTheme: () => themeLabel,
     fontIncrease: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
     fontDecrease: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
     fontReset: () => { editorComponent?.resetFontSize(); editorFontSize = 14; },
@@ -834,13 +835,27 @@
     openFileSelect: (p) => { void handleFileSelect(p); },
   } satisfies ConversationOpsCtx);
 
-  function handleCycleTheme() {
-    themeLabel = cycleTheme();
+  // Re-tint every canvas/CodeMirror surface that can't pick up the CSS
+  // custom-property change on its own. Shared by cycle (⌘⇧T) and direct pick.
+  function applyThemeToSurfaces() {
     editorComponent?.updateTheme();
     queryPanelComponent?.updateTheme();
     previewComponent?.updateTheme();
     neighborhoodGraphComponent?.updateTheme();
     rightSidebar?.updateTheme();
+  }
+
+  function handleCycleTheme() {
+    themeLabel = cycleTheme();
+    applyThemeToSurfaces();
+    api.menu.reportTheme(themeLabel);
+  }
+
+  function handleSelectTheme(mode: ThemeMode) {
+    setThemeMode(mode);
+    themeLabel = mode;
+    applyThemeToSurfaces();
+    api.menu.reportTheme(themeLabel);
   }
 
   async function handleSwitchTab(index: number, groupId?: string) {
@@ -950,6 +965,9 @@
 
   onMount(() => {
     initTheme();
+    // Tell main the current theme so the native View → Theme radio starts
+    // in sync with what the renderer loaded from localStorage (#1139).
+    api.menu.reportTheme(themeLabel);
     initAppearance();
 
     // Pull skill metadata loaded by main (#625) into the renderer registry so
@@ -994,6 +1012,7 @@
     api.menu.onSaveAsTemplate(() => { void handleSaveAsTemplate(); });
     api.menu.onInsertTemplate(() => { void handleInsertTemplate(); });
     api.menu.onCycleTheme(() => handleCycleTheme());
+    api.menu.onSetTheme((mode) => handleSelectTheme(mode));
     api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
     api.menu.onFontReset(() => { editorComponent?.resetFontSize(); editorFontSize = 14; });
@@ -1540,7 +1559,7 @@
             isDirty={editor.isDirty}
             hasActiveNote={editor.activeTab?.type === 'note'}
             onGotoLine={() => { showGotoLine = true; }}
-            onCycleTheme={handleCycleTheme}
+            onSelectTheme={handleSelectTheme}
             onShowInspections={() => { rightSidebarVisible = true; }}
             onShowBacklinks={() => {
               rightSidebarVisible = true;

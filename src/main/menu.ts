@@ -1,6 +1,7 @@
 import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
+import { THEME_MODES, type ThemeMode } from '../shared/theme';
 import { getRecentProjects } from './recent-projects';
 import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress } from './window-manager';
 import { runBackfill } from './embeddings/backfill';
@@ -25,6 +26,18 @@ import {
 function send(channel: string, ...args: unknown[]) {
   const win = BrowserWindow.getFocusedWindow();
   if (win) win.webContents.send(channel, ...args);
+}
+
+// Current theme, mirrored from the renderer (which owns it in localStorage) so
+// the View → Theme submenu can show the active radio (#1139). Defaults to the
+// renderer's own default; corrected the moment the renderer reports on mount.
+let currentThemeMode: ThemeMode = 'dark';
+
+/** Renderer → main: record the active theme and refresh the menu's radio. */
+export function setMenuThemeMode(mode: ThemeMode): void {
+  if (mode === currentThemeMode) return;
+  currentThemeMode = mode;
+  rebuildMenu();
 }
 
 export function buildMenu(_win?: BrowserWindow): void {
@@ -446,7 +459,18 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       }),
       { type: 'separator' },
       {
-        label: 'Cycle Theme (Dark/Light/Contrast/System)',
+        label: 'Theme',
+        submenu: THEME_MODES.map((m) => ({
+          label: m.label,
+          type: 'radio' as const,
+          checked: currentThemeMode === m.value,
+          click: () => send(Channels.MENU_SET_THEME, m.value),
+        })),
+      },
+      {
+        // ⌘⇧T keeps cycling for power users; the submenu above is for
+        // direct selection (#1139).
+        label: 'Cycle Theme',
         accelerator: 'CmdOrCtrl+Shift+T',
         click: () => send(Channels.MENU_CYCLE_THEME),
       },

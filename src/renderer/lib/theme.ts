@@ -1,4 +1,9 @@
-export type ThemeMode = 'dark' | 'light' | 'contrast' | 'system';
+// ThemeMode + THEME_MODES live in shared/ so the native menu (main process)
+// and the renderer draw from one list. Re-exported here so existing
+// `../theme` imports keep working.
+import type { ThemeMode } from '../../shared/theme';
+export { THEME_MODES } from '../../shared/theme';
+export type { ThemeMode };
 
 const STORAGE_KEY = 'themeMode';
 
