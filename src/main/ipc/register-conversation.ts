@@ -18,6 +18,7 @@ import * as approval from '../llm/approval';
 import type { Proposal } from '../llm/approval';
 import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
+import { currentDateContext } from '../llm/date-context';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
 import {
   formatComputeResultAsContext,
@@ -73,6 +74,10 @@ function buildConversationSystemPrompt(
   currentNotePath?: string,
 ): string {
   const parts = [DEFAULT_CONVERSATION_SYSTEM_PROMPT];
+  // Dynamic per-turn context follows the static prompt. Within one session
+  // (same day, same open note) it's stable, so the cached system block still
+  // hits across turns; it only re-caches when the date or open note changes.
+  parts.push('', currentDateContext());
   if (contextBundle.notePath) {
     parts.push('', `The user started this conversation from the note: ${contextBundle.notePath}`);
   }
