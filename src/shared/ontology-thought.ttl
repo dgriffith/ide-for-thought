@@ -415,6 +415,31 @@ thought:Connection a owl:Class ;
     rdfs:label "Connection" ;
     rdfs:comment "A recognized relationship between previously separate ideas." .
 
+# ── Glossary (#1142) ──────────────────────────────────────────────────────
+
+thought:Term a owl:Class ;
+    rdfs:subClassOf thought:Concept ;
+    rdfs:label "Term" ;
+    rdfs:comment "A glossary entry: a named term with a working definition, aliases, and disambiguation. A subclass of Concept so glossary entries form a distinct, queryable set (every term, terms lacking a definition, orphan terms)." .
+
+thought:term a owl:DatatypeProperty ;
+    rdfs:label "term" ;
+    rdfs:comment "The canonical term string a glossary entry defines." ;
+    rdfs:domain thought:Term ;
+    rdfs:range xsd:string .
+
+thought:disambiguation a owl:DatatypeProperty ;
+    rdfs:label "disambiguation" ;
+    rdfs:comment "A 'not to be confused with' clarification distinguishing this term from a similar one." ;
+    rdfs:domain thought:Term ;
+    rdfs:range xsd:string .
+
+thought:seeAlso a owl:ObjectProperty ;
+    rdfs:label "see also" ;
+    rdfs:comment "A related glossary term worth cross-referencing." ;
+    rdfs:domain thought:Term ;
+    rdfs:range thought:Term .
+
 # ── Meta-Epistemic ────────────────────────────────────────────────────────
 
 thought:Framework a owl:Class ;

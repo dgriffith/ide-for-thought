@@ -15,6 +15,7 @@ export interface GraphTokens {
   textMuted: string;
   border: string;
   accent: string;
+  iris: string;
 }
 
 /** Read the live Catppuccin tokens off the document root. */
@@ -29,6 +30,7 @@ export function readGraphTokens(): GraphTokens {
     textMuted: get('--text-muted', '#6c7086'),
     border: get('--border', '#313244'),
     accent: get('--accent', '#89b4fa'),
+    iris: get('--iris', '#b4befe'),
   };
 }
 
@@ -72,6 +74,12 @@ export function buildGraphStyle(tokens: GraphTokens): GraphStylesheet {
       // Source nodes (View B) — leaves, visually distinct.
       selector: 'node[kind = "source"]',
       style: { shape: 'diamond', 'background-color': tokens.bgInset, 'border-color': tokens.accent },
+    },
+    {
+      // Glossary term nodes (#1142) — a rounded tag shape in the iris hue so a
+      // glossary reads as a recognizable cluster at a glance.
+      selector: 'node[kind = "term"]',
+      style: { shape: 'round-tag', 'background-color': tokens.bgInset, 'border-color': tokens.iris, color: tokens.iris },
     },
     {
       // Link targets that don't exist on disk yet (View B).

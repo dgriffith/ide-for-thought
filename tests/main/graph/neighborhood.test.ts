@@ -107,6 +107,23 @@ describe('neighborhood (against a real store)', () => {
     expect(res.edges.some((e) => e.source === 'inbound.md' && e.target === 'hub.md')).toBe(true);
   });
 
+  it('classifies notes typed thought:Term as kind "term" (#1142)', async () => {
+    const term = ['---', 'term: Semigroup', '---', '', '# Semigroup', '', '```turtle', 'this: a thought:Term .', '```', ''].join('\n');
+    // Index the term first so the bare `[[Semigroup]]` in topic resolves to
+    // glossary/Semigroup.md (basename resolution now matches navigation, #1142).
+    await indexNote(ctx, 'glossary/Semigroup.md', term);
+    await indexNote(ctx, 'notes/topic.md', '# Topic\n\nSee [[Semigroup]].');
+
+    const res = neighborhood(ctx, 'notes/topic.md', { depth: 1 });
+    expect(res.nodes.find((n) => n.id === 'glossary/Semigroup.md')?.kind).toBe('term');
+    // A plain note stays 'note'.
+    expect(res.nodes.find((n) => n.id === 'notes/topic.md')?.kind).toBe('note');
+
+    // The term itself as the focus root is also classified as a term.
+    const rooted = neighborhood(ctx, 'glossary/Semigroup.md', { depth: 1 });
+    expect(rooted.nodes.find((n) => n.id === 'glossary/Semigroup.md')?.kind).toBe('term');
+  });
+
   it('reaches depth-2 notes', async () => {
     await indexNote(ctx, 'a.md', 'see [[b]]');
     await indexNote(ctx, 'b.md', 'see [[c]]');

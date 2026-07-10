@@ -89,6 +89,15 @@ const MAP: Record<string, FrontmatterPredicate> = {
   confidence: THOUGHT('confidenceValue'),
   confidenceValue: THOUGHT('confidenceValue'),
 
+  // Glossary terms (#1142). A `glossary/` note carries these so the indexer
+  // materialises thought:* predicates; `aliases` is handled separately by the
+  // existing alias-resolution map (#469), not here. `seeAlso` values are
+  // `[[Other Term]]` wiki-links → materialise as edges to sibling terms.
+  term: THOUGHT('term'),
+  disambiguation: THOUGHT('disambiguation'),
+  seeAlso: THOUGHT('seeAlso'),
+  'see-also': THOUGHT('seeAlso'),
+
   // prov:* (provenance — #244 derived notes)
   derived_from: PROV('wasDerivedFrom'),
   derived_at: PROV('generatedAtTime'),
