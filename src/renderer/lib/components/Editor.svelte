@@ -141,6 +141,15 @@
      */
     onUploadError?: (message: string) => void;
     /**
+     * Plain-text mode (#1130): a non-markdown text file. Turns OFF the
+     * markdown-specific extensions — markdown language + syntax highlight,
+     * frontmatter fold, wiki-link/tag autocomplete + decorations, compute
+     * cells, footnote/highlight decorations, format-on-paste, image-paste
+     * upload — leaving a plain editable/saveable code buffer. Default false
+     * keeps every markdown caller unchanged.
+     */
+    plainText?: boolean;
+    /**
      * Run-cell handler (#373). When supplied, replaces the direct
      * `api.compute.runCell` call. App.svelte injects a trust-gated
      * variant that prompts on first Python execution per thoughtbase.
@@ -191,6 +200,7 @@
     initialHistory,
     onUploadError,
     onRunCell,
+    plainText = false,
   }: Props = $props();
 
   // Tools-for-Thought submenus, built to match the native main menu exactly
@@ -448,18 +458,22 @@
     basicSetup,
     // Give the `role="textbox"` content DOM an accessible name (#1005 a11y) —
     // CodeMirror's editable div is otherwise unlabeled (axe aria-input-field-name).
-    EditorView.contentAttributes.of({ 'aria-label': 'Note editor' }),
-    markdown({ codeLanguages: languages }),
-    // Pin the frontmatter fold's gutter arrow to line 1 by claiming the
-    // foldable range there ourselves. Without this, the markdown
-    // language's syntactic fold detection picks line 2 for the YAML
-    // body, so toggling the fold makes the arrow jump between lines —
-    // and a click-to-collapse from the expanded state leaves line 1 of
-    // the YAML visible.
-    foldService.of((state, lineStart) => {
-      if (lineStart !== 0) return null;
-      return findFrontmatterFoldRange(state.doc);
-    }),
+    EditorView.contentAttributes.of({ 'aria-label': plainText ? 'Text editor' : 'Note editor' }),
+    // Markdown language + frontmatter fold are markdown-only (#1130). A
+    // plain-text file gets a plain editable buffer with no md syntax layer.
+    ...(plainText ? [] : [
+      markdown({ codeLanguages: languages }),
+      // Pin the frontmatter fold's gutter arrow to line 1 by claiming the
+      // foldable range there ourselves. Without this, the markdown
+      // language's syntactic fold detection picks line 2 for the YAML
+      // body, so toggling the fold makes the arrow jump between lines —
+      // and a click-to-collapse from the expanded state leaves line 1 of
+      // the YAML visible.
+      foldService.of((state, lineStart) => {
+        if (lineStart !== 0) return null;
+        return findFrontmatterFoldRange(state.doc);
+      }),
+    ]),
     themeCompartment.of(cmTheme()),
     minervaEditorTheme(),
     search({
@@ -479,32 +493,36 @@
       '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
     })),
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
-    linkDecorations({
-      onOpenNote: (target: string) => {
-        if (onNavigate) onNavigate(target);
-      },
-      onOpenSource: (sourceId: string) => {
-        if (onOpenSource) onOpenSource(sourceId);
-      },
-      onOpenExcerpt: (excerptId: string) => {
-        if (onOpenExcerpt) onOpenExcerpt(excerptId);
-      },
-      onOpenExternal: (url: string) => {
-        void api.shell.openExternal(url);
-      },
-    }),
-    bookmarkGutterExtension(),
-    computeCellsExtension({
-      runCell: (language, code) => (
-        onRunCell
-          ? onRunCell(language, code, filePath)
-          : api.compute.runCell(language, code, filePath)
-      ),
-      runAllRef,
-    }),
-    footnotePreview(),
-    footnoteDecorations(),
-    highlightDecorations(),
+    // Markdown-only rendering layers (#1130): wiki-link/URL decorations,
+    // bookmark gutter, runnable compute cells, footnote + highlight decorations.
+    ...(plainText ? [] : [
+      linkDecorations({
+        onOpenNote: (target: string) => {
+          if (onNavigate) onNavigate(target);
+        },
+        onOpenSource: (sourceId: string) => {
+          if (onOpenSource) onOpenSource(sourceId);
+        },
+        onOpenExcerpt: (excerptId: string) => {
+          if (onOpenExcerpt) onOpenExcerpt(excerptId);
+        },
+        onOpenExternal: (url: string) => {
+          void api.shell.openExternal(url);
+        },
+      }),
+      bookmarkGutterExtension(),
+      computeCellsExtension({
+        runCell: (language, code) => (
+          onRunCell
+            ? onRunCell(language, code, filePath)
+            : api.compute.runCell(language, code, filePath)
+        ),
+        runAllRef,
+      }),
+      footnotePreview(),
+      footnoteDecorations(),
+      highlightDecorations(),
+    ]),
     EditorView.domEventHandlers({
       // Snapshot the selection at the very start of a right-click, before
       // any built-in handling can collapse it. Then, when the click is
@@ -549,6 +567,7 @@
       // Without stopPropagation an image drop fires both handlers and
       // the import path rejects the JPEG with "doesn't ingest *.jpeg".
       dragover: (e) => {
+        if (plainText) return false; // no image-upload / format-on-paste in plain text
         if (e.dataTransfer && hasImageFiles(e.dataTransfer)) {
           e.preventDefault();
           e.stopPropagation();
@@ -558,6 +577,7 @@
         return false;
       },
       drop: (e, v) => {
+        if (plainText) return false;
         if (!e.dataTransfer || !hasImageFiles(e.dataTransfer)) return false;
         e.preventDefault();
         e.stopPropagation();
@@ -569,6 +589,7 @@
       // → Cmd+V workflow and any other clipboard image source. Non-
       // image clipboard contents (text / html) fall through.
       paste: (e, v) => {
+        if (plainText) return false; // native paste — no image upload, no markdown reformat
         const items = e.clipboardData?.items;
         if (items) {
           const files = imageFilesFromClipboard(items);
@@ -850,7 +871,8 @@
       defaultKeymap: false,
     });
 
-    const allExtensions = [...extensions, appKeymap, updateListener, completion];
+    // Wiki-link / tag autocomplete is markdown-only (#1130).
+    const allExtensions = [...extensions, appKeymap, updateListener, ...(plainText ? [] : [completion])];
 
     // When the caller passes a history snapshot AND its serialised doc
     // still matches the current content, restore the undo/redo stacks

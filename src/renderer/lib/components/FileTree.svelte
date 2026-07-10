@@ -7,6 +7,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
+  import { fileCapability } from '../../../shared/file-capability';
   import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
   import type { IconName } from './icons/registry';
 
@@ -23,8 +24,11 @@
       case '.csv': return 'tables';
       case '.ttl': return 'graph';
       case '.py':  return 'code';
-      default:     return 'notes';
     }
+    // Now that the tree lists every file (#1130), disambiguate the newly-shown
+    // types by capability: plain-text/code files get the code glyph; everything
+    // else (markdown and unsupported binaries) falls back to the page icon.
+    return fileCapability(name) === 'plaintext' ? 'code' : 'notes';
   }
 
   interface Props {

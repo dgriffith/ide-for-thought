@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
-import { INDEXABLE_EXTS } from './indexable-files';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
@@ -49,7 +48,10 @@ async function readDirectory(dirPath: string, rootPath: string): Promise<NoteFil
         isDirectory: true,
         children,
       });
-    } else if (INDEXABLE_EXTS.has(path.extname(entry.name))) {
+    } else {
+      // List every file, not just indexable ones (#1130) — hiding unknown
+      // extensions made files a user put in their project silently vanish.
+      // Indexing stays gated on INDEXABLE_EXTS elsewhere; listing ≠ indexing.
       // mtime drives the "2h / 5d / 1mo" stamp on each file row in the
       // sidebar (§5.3 of the 2026-05 design review). One extra stat per
       // file at listing time; for typical thoughtbase sizes this is

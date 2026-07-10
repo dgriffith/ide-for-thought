@@ -1,5 +1,6 @@
 import { api } from '../ipc/client';
 import type { TabSession, SavedTab, SavedGroup, LayoutSession } from '../../../shared/types';
+import { fileCapability, extensionOf } from '../../../shared/file-capability';
 import { normalizeSqlRows, unionColumns } from '../editor/sql-result';
 import {
   type LayoutNode,
@@ -19,6 +20,10 @@ export interface NoteTab {
   fileName: string;
   content: string;
   savedContent: string;
+  /** True when opened in plain-text mode — a non-markdown text file (#1130).
+   *  Drives the Editor's plain-text mode (markdown behaviors off). Omitted for
+   *  markdown files. */
+  plainText?: boolean | undefined;
   cursorOffset?: number | undefined;
   scrollTop?: number | undefined;
   /**
@@ -69,7 +74,15 @@ export interface GraphTab {
   depth: number;
 }
 
-export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab;
+export interface UnsupportedTab {
+  type: 'unsupported';
+  relativePath: string;
+  fileName: string;
+  /** Lowercased extension (with dot) or '' — drives the "no preview for `.xyz`" copy. */
+  ext: string;
+}
+
+export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | UnsupportedTab;
 
 /**
  * Source / preview view mode. `'editor-preview'` = source editor + rendered
@@ -98,6 +111,7 @@ function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
 function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
 function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
 function isGraph(tab: Tab): tab is GraphTab { return tab.type === 'graph'; }
+function isUnsupported(tab: Tab): tab is UnsupportedTab { return tab.type === 'unsupported'; }
 
 let queryCounter = 0;
 let groupCounter = 0;
@@ -407,7 +421,7 @@ export function getEditorStore() {
     // already open anywhere, focus that pane + tab rather than spawning a second
     // live buffer (which would race to last-write-wins on save). This holds for
     // every caller — sidebar, wiki-link, search, split-open.
-    const found = locateTab((t) => isNote(t) && t.relativePath === relativePath);
+    const found = locateTab((t) => (isNote(t) || isUnsupported(t)) && t.relativePath === relativePath);
     if (found) {
       focusExistingTab(found);
       return;
@@ -415,14 +429,28 @@ export function getEditorStore() {
 
     const grp = resolveGroup(groupId);
     activeGroupId = grp.id;
-    const text = await api.notebase.readFile(relativePath);
     const fileName = relativePath.split('/').pop() ?? '';
+    const capability = fileCapability(relativePath);
+
+    // A file with no renderer (binary / unknown type) must NOT be read as text
+    // — that would slurp megabytes of garbage into a string (#1130). Route it
+    // to a calm "no preview" tab instead.
+    if (capability === 'unsupported') {
+      const tab: UnsupportedTab = { type: 'unsupported', relativePath, fileName, ext: extensionOf(relativePath) };
+      grp.tabs.push(tab);
+      grp.activeIndex = grp.tabs.length - 1;
+      schedulePersistTabs();
+      return;
+    }
+
+    const text = await api.notebase.readFile(relativePath);
     const tab: NoteTab = {
       type: 'note',
       relativePath,
       fileName,
       content: text,
       savedContent: text,
+      ...(capability === 'plaintext' ? { plainText: true } : {}),
     };
     grp.tabs.push(tab);
     grp.activeIndex = grp.tabs.length - 1;
@@ -455,11 +483,14 @@ export function getEditorStore() {
     const byOld = new Map(transitions.map((t) => [t.old, t.new]));
     let touched = false;
     for (const tab of allTabs()) {
-      if (!isNote(tab)) continue;
+      // Note tabs (markdown + plain-text) and unsupported-file tabs both carry a
+      // relativePath that must follow a move (#1130).
+      if (!isNote(tab) && !isUnsupported(tab)) continue;
       const newPath = byOld.get(tab.relativePath);
       if (newPath && newPath !== tab.relativePath) {
         tab.relativePath = newPath;
         tab.fileName = newPath.split('/').pop() ?? '';
+        if (isUnsupported(tab)) tab.ext = extensionOf(newPath);
         touched = true;
       }
     }
@@ -568,9 +599,12 @@ export function getEditorStore() {
       return {
         type: 'note',
         relativePath: t.relativePath,
+        ...(t.plainText ? { plainText: true } : {}),
         ...(t.cursorOffset !== undefined ? { cursorOffset: t.cursorOffset } : {}),
         ...(t.scrollTop !== undefined ? { scrollTop: t.scrollTop } : {}),
       };
+    } else if (isUnsupported(t)) {
+      return { type: 'unsupported', relativePath: t.relativePath };
     } else if (isQuery(t)) {
       return { type: 'query', title: t.title, query: t.query, language: t.language };
     } else if (isPdf(t)) {
@@ -619,12 +653,16 @@ export function getEditorStore() {
           fileName,
           content: text,
           savedContent: text,
+          ...(saved.plainText ? { plainText: true } : {}),
           cursorOffset: saved.cursorOffset,
           scrollTop: saved.scrollTop,
         };
       } catch {
         return null; // file deleted since last session
       }
+    } else if (saved.type === 'unsupported') {
+      const fileName = saved.relativePath.split('/').pop() ?? '';
+      return { type: 'unsupported', relativePath: saved.relativePath, fileName, ext: extensionOf(saved.relativePath) };
     } else if (saved.type === 'query') {
       queryCounter++;
       return {
@@ -913,7 +951,7 @@ export function getEditorStore() {
       // Walk in reverse so each splice doesn't disturb pending indexes.
       for (let i = grp.tabs.length - 1; i >= 0; i--) {
         const t = grp.tabs[i]!;
-        if (isNote(t) && isUnder(t.relativePath)) {
+        if ((isNote(t) || isUnsupported(t)) && isUnder(t.relativePath)) {
           grp.tabs.splice(i, 1);
           if (i === grp.activeIndex) {
             grp.activeIndex = -1;
