@@ -20,6 +20,7 @@
     message={dialogs.prompt.message}
     suggestions={dialogs.prompt.suggestions ?? []}
     initial={dialogs.prompt.initial ?? ''}
+    selectStem={dialogs.prompt.selectStem ?? false}
     onConfirm={(v) => dialogs.confirmPrompt(v)}
     onCancel={() => dialogs.cancelPrompt()}
   />

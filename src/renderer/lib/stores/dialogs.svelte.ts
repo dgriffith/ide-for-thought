@@ -21,6 +21,7 @@ export interface PromptState {
   message: string;
   suggestions?: string[] | undefined;
   initial?: string | undefined;
+  selectStem?: boolean | undefined;
   resolve: (value: string | null) => void;
 }
 export interface NewNoteState {
@@ -55,7 +56,7 @@ export function getDialogStore() {
 
   function showPrompt(
     message: string,
-    initialOrOptions?: string | { suggestions?: string[]; initial?: string },
+    initialOrOptions?: string | { suggestions?: string[]; initial?: string; selectStem?: boolean },
   ): Promise<string | null> {
     // Two overloads to keep call sites readable. New callers pass
     // (message, "current name") for Rename-style flows; existing
@@ -64,7 +65,13 @@ export function getDialogStore() {
       ? { initial: initialOrOptions }
       : (initialOrOptions ?? {});
     return new Promise((resolve) => {
-      prompt = { message, suggestions: opts.suggestions, initial: opts.initial, resolve };
+      prompt = {
+        message,
+        suggestions: opts.suggestions,
+        initial: opts.initial,
+        selectStem: opts.selectStem,
+        resolve,
+      };
     });
   }
 

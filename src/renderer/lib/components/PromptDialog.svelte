@@ -14,9 +14,14 @@
     /** Optional pre-seeded value (e.g. Rename) — the input opens
      *  populated with this string, fully selected. */
     initial?: string;
+    /** When true, pre-select only the filename stem (text before the last
+     *  dot) rather than the whole value, so typing replaces the name but
+     *  visibly keeps the extension. Used by Rename. Falls back to a full
+     *  select when `initial` has no extension. */
+    selectStem?: boolean;
   }
 
-  let { message, onConfirm, onCancel, suggestions = [], initial = '' }: Props = $props();
+  let { message, onConfirm, onCancel, suggestions = [], initial = '', selectStem = false }: Props = $props();
   // Intentional one-time seed from `initial`; dialog is short-lived and keyed.
   // svelte-ignore state_referenced_locally
   let value = $state(initial);
@@ -35,9 +40,13 @@
 
   $effect(() => {
     inputEl?.focus();
-    // Pre-select the seeded value so the user can type to replace
-    // it but Tab/Enter to accept as-is.
-    if (initial) inputEl?.select();
+    if (!initial || !inputEl) return;
+    // Pre-select the seeded value so the user can type to replace it but
+    // Tab/Enter to accept as-is. For Rename, select only the stem (before
+    // the last dot) so the extension stays visible and untouched.
+    const dot = initial.lastIndexOf('.');
+    if (selectStem && dot > 0) inputEl.setSelectionRange(0, dot);
+    else inputEl.select();
   });
 </script>
 

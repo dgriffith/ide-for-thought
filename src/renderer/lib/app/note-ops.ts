@@ -430,7 +430,10 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   async function handleRename(relativePath: string) {
     if (!notebase.meta) return;
     const oldName = relativePath.split('/').pop()!;
-    const rawNewName = await showPrompt('New name:');
+    // Seed the field with the current name so the user can tweak it instead
+    // of retyping from scratch; pre-select just the stem so typing replaces
+    // the name while the extension stays visible (#1143).
+    const rawNewName = await showPrompt('New name:', { initial: oldName, selectStem: true });
     if (!rawNewName || rawNewName === oldName) return;
     // Preserve the old extension when the user didn't include one. A file
     // that drops its .md / .ttl suffix falls out of the indexed set and
