@@ -1349,23 +1349,27 @@
                       title="Recompute all cells (top to bottom, stops on error)"
                     ><Icon name="run-all" size={12} /></button>
                   {/if}
-                  <div class="view-toggle">
-                    <button
-                      class:active={group.viewMode === 'source'}
-                      onclick={() => editor.setViewMode('source', groupId)}
-                      title="Source (Cmd+Shift+P to cycle)"
-                    >Source</button>
-                    <button
-                      class:active={group.viewMode === 'editor-preview'}
-                      onclick={() => editor.setViewMode('editor-preview', groupId)}
-                      title="Source + preview side by side"
-                    >Side by side</button>
-                    <button
-                      class:active={group.viewMode === 'preview'}
-                      onclick={() => editor.setViewMode('preview', groupId)}
-                      title="Preview"
-                    >Preview</button>
-                  </div>
+                  {#if !note.plainText}
+                    <!-- A plain-text file has no rendered preview (#1130) — the
+                         source/preview toggle would offer empty views. -->
+                    <div class="view-toggle">
+                      <button
+                        class:active={group.viewMode === 'source'}
+                        onclick={() => editor.setViewMode('source', groupId)}
+                        title="Source (Cmd+Shift+P to cycle)"
+                      >Source</button>
+                      <button
+                        class:active={group.viewMode === 'editor-preview'}
+                        onclick={() => editor.setViewMode('editor-preview', groupId)}
+                        title="Source + preview side by side"
+                      >Side by side</button>
+                      <button
+                        class:active={group.viewMode === 'preview'}
+                        onclick={() => editor.setViewMode('preview', groupId)}
+                        title="Preview"
+                      >Preview</button>
+                    </div>
+                  {/if}
                   <button
                     class="nav-btn"
                     onclick={() => editor.splitGroup(groupId, 'horizontal')}
@@ -1388,8 +1392,8 @@
                     title="Toggle Right Sidebar (Cmd+Shift+B)"
                   ><Icon name="outline" size={12} /></button>
                 </div>
-                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview'}>
-                  {#if group.viewMode === 'source' || group.viewMode === 'editor-preview'}
+                <div class="editor-content" class:editor-preview={group.viewMode === 'editor-preview' && !note.plainText}>
+                  {#if note.plainText || group.viewMode === 'source' || group.viewMode === 'editor-preview'}
                     <div class="editor-panel">
                       {#key groupId + ':' + note.relativePath}
                         <Editor
@@ -1397,6 +1401,7 @@
                           groupId={groupId}
                           filePath={note.relativePath}
                           content={note.content}
+                          plainText={note.plainText ?? false}
                           initialHistory={note.historyJson}
                           searchQuery={pendingSearchQuery}
                           onContentChange={(text) => editor.setContent(text, groupId)}
@@ -1443,7 +1448,7 @@
                       {/key}
                     </div>
                   {/if}
-                  {#if group.viewMode === 'preview' || group.viewMode === 'editor-preview'}
+                  {#if !note.plainText && (group.viewMode === 'preview' || group.viewMode === 'editor-preview')}
                     <div class="preview-panel">
                       <Preview
                         bind:this={previewComponents[groupId]}
@@ -1520,6 +1525,22 @@
                     onOpenNote={(p) => handleFileSelect(p)}
                   />
                 {/key}
+              {:else if active?.type === 'unsupported'}
+                <!-- No in-app renderer for this file type (#1130). A calm panel
+                     (not an error, per the UI philosophy) with escape hatches to
+                     the OS. Capture primitives, not the reactive tab, so the
+                     button handlers can't read a stale path. -->
+                {@const relPath = active.relativePath}
+                {@const extLabel = active.ext ? `${active.ext} files` : 'this file type'}
+                <div class="no-file no-preview">
+                  <p>No preview for {extLabel}</p>
+                  <p class="no-preview-name">{active.fileName}</p>
+                  <div class="no-preview-actions">
+                    <button onclick={() => void api.shell.revealFile(relPath)}>Reveal in Finder</button>
+                    <button onclick={() => void api.shell.openInDefault(relPath)}>Open with default app</button>
+                    <button onclick={() => void navigator.clipboard.writeText(relPath)}>Copy path</button>
+                  </div>
+                </div>
               {:else if editor.groups.length > 1}
                 <!-- A freshly split pane is empty until a note lands in it.
                      It has no tab bar, so offer a way back out (#817). -->
@@ -2028,6 +2049,36 @@
     cursor: pointer;
   }
   .empty-pane-close:hover {
+    border-color: var(--accent);
+  }
+
+  /* "No preview for .xyz" panel (#1130) — reuses the calm .no-file empty-state
+     look; no danger styling (per the UI philosophy). */
+  .no-preview {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .no-preview-name {
+    font-size: 12px !important;
+    color: var(--text-faint) !important;
+    font-family: var(--font-mono);
+  }
+  .no-preview-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .no-preview-actions button {
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text);
+    background: var(--bg-button);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .no-preview-actions button:hover {
     border-color: var(--accent);
   }
 

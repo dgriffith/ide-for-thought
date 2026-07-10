@@ -141,7 +141,7 @@ describe('startWatching() (#345)', () => {
       expect(created.sort()).toEqual(['a.md', 'b.ttl', 'c.csv']);
     });
 
-    it('ignores non-indexable extensions like .png and .json', async () => {
+    it('refreshes the tree for non-indexable files but does NOT index them (#1130)', async () => {
       const created: string[] = [];
       await startWatching(root, win as unknown as BrowserWindow, winId, {
         onFileCreated: (p) => created.push(p),
@@ -150,13 +150,20 @@ describe('startWatching() (#345)', () => {
       });
 
       await fsp.writeFile(path.join(root, 'image.png'), 'fake', 'utf-8');
-      await fsp.writeFile(path.join(root, 'config.json'), '{}', 'utf-8');
-      // Plant something we DO care about so we know the watcher is alive.
+      await fsp.writeFile(path.join(root, 'notes.txt'), 'plain', 'utf-8');
+      // Plant something indexable so we know the watcher is alive.
       await fsp.writeFile(path.join(root, 'real.md'), '# r\n', 'utf-8');
 
       await waitFor(() => created.includes('real.md'));
-      // .png / .json must not have invoked the callback, even though they
-      // landed in the watched tree.
+      // The tree-refresh IPC fires for EVERY file, so the sidebar updates
+      // when a .png / .txt is created (#1130).
+      await waitFor(() =>
+        win.webContents.send.mock.calls.some(
+          (c) => c[0] === Channels.NOTEBASE_FILE_CREATED && c[1] === 'notes.txt',
+        ),
+      );
+      expect(win.webContents.send).toHaveBeenCalledWith(Channels.NOTEBASE_FILE_CREATED, 'image.png');
+      // ...but the INDEX callback only ran for the indexable file — listing ≠ indexing.
       expect(created).toEqual(['real.md']);
     });
 

@@ -85,8 +85,9 @@ describe('listFiles', () => {
     await fsp.writeFile(path.join(root, 'README.md'), '# readme\n');
     await fsp.writeFile(path.join(root, 'data.csv'), 'a,b\n1,2\n');
     await fsp.writeFile(path.join(root, 'ontology.ttl'), '@prefix x: <x:> .\n');
-    // Non-indexable: must be filtered out.
+    // Non-indexable: now LISTED (#1130) though still not indexed.
     await fsp.writeFile(path.join(root, 'image.png'), 'fake');
+    await fsp.writeFile(path.join(root, 'notes.txt'), 'plain text\n');
     // Hidden dir: must be filtered out.
     await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
     await fsp.writeFile(path.join(root, '.minerva', 'graph.ttl'), '@prefix x: <x:> .\n');
@@ -119,17 +120,17 @@ describe('listFiles', () => {
     expect(names).not.toContain('.minerva');
   });
 
-  it('only includes indexable file types (.md, .ttl, .csv)', async () => {
+  it('lists all files, including non-indexable types (#1130)', async () => {
     const files = await listFiles(root);
-    function checkLeaves(items: typeof files) {
-      for (const f of items) {
-        if (!f.isDirectory) {
-          expect(f.name).toMatch(/\.(md|ttl|csv)$/);
-        }
-        if (f.children) checkLeaves(f.children);
-      }
-    }
-    checkLeaves(files);
+    const names = files.map((f) => f.name);
+    // Previously hidden non-indexable files are now surfaced in the tree.
+    expect(names).toContain('image.png');
+    expect(names).toContain('notes.txt');
+    // Indexable files still listed too.
+    expect(names).toContain('data.csv');
+    expect(names).toContain('ontology.ttl');
+    // Hidden dirs stay filtered.
+    expect(names).not.toContain('.minerva');
   });
 
   it('includes nested files', async () => {

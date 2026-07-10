@@ -150,6 +150,15 @@ export function startWatching(
     return timer;
   };
 
+  // The tree now lists every file (#1130), so the watcher surfaces IPC (tree
+  // refresh) and runs move-detection (open tabs following external moves) for
+  // ALL files. Graph/search indexing stays gated on `isWatchable` — listing a
+  // `.txt` must not drag it into the knowledge graph. These helpers apply that
+  // gate to just the index callbacks; the IPC sends around them are unconditional.
+  const indexChanged = (relative: string) => { if (isWatchable(relative)) void callbacks?.onFileChanged(relative); };
+  const indexCreated = (relative: string) => { if (isWatchable(relative)) void callbacks?.onFileCreated(relative); };
+  const indexDeleted = (relative: string) => { if (isWatchable(relative)) void callbacks?.onFileDeleted(relative); };
+
   const flushDelete = (absPath: string) => {
     const pending = pendingUnlinks.get(absPath);
     if (!pending) return;
@@ -157,28 +166,25 @@ export function startWatching(
     pendingUnlinks.delete(absPath);
     if (win.isDestroyed()) return;
     win.webContents.send(Channels.NOTEBASE_FILE_DELETED, pending.relative);
-    void callbacks?.onFileDeleted(pending.relative);
+    indexDeleted(pending.relative);
   };
 
   const emitCreate = (relative: string) => {
     win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
-    void callbacks?.onFileCreated(relative);
+    indexCreated(relative);
   };
 
-  // Callbacks may be async (interface allows void | Promise<void>); the
-  // watcher invokes them as fire-and-forget. `void` makes that explicit.
   notes.on('change', (filePath, stats) => {
-    if (isWatchable(filePath) && !win.isDestroyed()) {
-      const ino = inodeOf(stats);
-      if (ino !== undefined) inodeByPath.set(filePath, ino);
-      const relative = filePath.slice(rootPath.length + 1);
-      win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
-      void callbacks?.onFileChanged(relative);
-    }
+    if (win.isDestroyed()) return;
+    const ino = inodeOf(stats);
+    if (ino !== undefined) inodeByPath.set(filePath, ino);
+    const relative = filePath.slice(rootPath.length + 1);
+    win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
+    indexChanged(relative);
   });
 
   notes.on('add', (filePath, stats) => {
-    if (!isWatchable(filePath) || win.isDestroyed()) return;
+    if (win.isDestroyed()) return;
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
     const relative = filePath.slice(rootPath.length + 1);
@@ -196,7 +202,7 @@ export function startWatching(
       // picks up the new one. Crucially we do NOT emit FILE_DELETED for the
       // old path — that broadcast is what would close the tab.
       win.webContents.send(Channels.NOTEBASE_RENAMED, [{ old: pending.relative, new: relative }]);
-      void callbacks?.onFileDeleted(pending.relative);
+      indexDeleted(pending.relative);
       emitCreate(relative);
       return;
     }
@@ -215,7 +221,7 @@ export function startWatching(
   });
 
   notes.on('unlink', (filePath) => {
-    if (!isWatchable(filePath) || win.isDestroyed()) return;
+    if (win.isDestroyed()) return;
     const relative = filePath.slice(rootPath.length + 1);
     const basename = path.basename(filePath);
     const inode = inodeByPath.get(filePath);
@@ -225,7 +231,7 @@ export function startWatching(
     // delete immediately (unchanged behavior) rather than debouncing it.
     if (wasHandled(relative)) {
       win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
-      void callbacks?.onFileDeleted(relative);
+      indexDeleted(relative);
       return;
     }
 
@@ -239,7 +245,7 @@ export function startWatching(
       clearTimeout(added.timer);
       recentAdds.delete(movedTo);
       win.webContents.send(Channels.NOTEBASE_RENAMED, [{ old: relative, new: added.relative }]);
-      void callbacks?.onFileDeleted(relative);
+      indexDeleted(relative);
       return;
     }
 

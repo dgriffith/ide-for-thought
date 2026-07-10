@@ -190,6 +190,15 @@ export interface SavedNoteTab {
   relativePath: string;
   cursorOffset?: number;
   scrollTop?: number;
+  /** True for a file opened in plain-text mode (#1130); omitted for markdown. */
+  plainText?: boolean;
+}
+
+/** A file with no in-app renderer (binary / unknown type), shown as a calm
+ *  "no preview" panel. Not read as text. (#1130) */
+export interface SavedUnsupportedTab {
+  type: 'unsupported';
+  relativePath: string;
 }
 
 export interface SavedQueryTab {
@@ -221,7 +230,7 @@ export interface SavedGraphTab {
   depth?: number;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab;
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedUnsupportedTab;
 
 /** Legacy flat session: one group's tabs + active index. Superseded by
  *  {@link LayoutSession} (#816); still read on load and migrated to a single

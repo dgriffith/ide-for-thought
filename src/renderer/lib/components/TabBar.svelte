@@ -114,7 +114,9 @@
               ? `PDF: ${sourceTabLabel(tab.sourceId)}`
               : tab.type === 'graph'
                 ? `Graph: ${tab.relativePath}`
-                : `Source: ${sourceTabLabel(tab.sourceId)}`}
+                : tab.type === 'unsupported'
+                  ? tab.relativePath
+                  : `Source: ${sourceTabLabel(tab.sourceId)}`}
       >
         <!-- Leading slot: dirty pip OR type icon. The pip wins when the
              note is dirty so the visual cue can't be missed (§7.2). -->
@@ -138,6 +140,7 @@
           {:else if tab.type === 'query'}{tab.title}
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
           {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
+          {:else if tab.type === 'unsupported'}{tab.fileName}
           {:else}{sourceTabLabel(tab.sourceId)}{/if}
         </span>
       </button>
