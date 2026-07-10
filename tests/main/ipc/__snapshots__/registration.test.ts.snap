@@ -99,6 +99,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "links:externalInbound",
   "links:neighborhood",
   "links:outgoing",
+  "menu:reportTheme",
   "notebase:close",
   "notebase:copy",
   "notebase:createFile",

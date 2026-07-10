@@ -196,6 +196,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onReplaceInNotes",
     "onSave",
     "onSaveAsTemplate",
+    "onSetTheme",
     "onShortcuts",
     "onSortLines",
     "onSplitDown",
@@ -204,6 +205,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onTogglePreview",
     "onToggleRightSidebar",
     "onToggleSidebar",
+    "reportTheme",
   ],
   "notebase": [
     "clearRecent",

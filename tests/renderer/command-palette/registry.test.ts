@@ -17,7 +17,7 @@ function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'print',
     'saveAsTemplate', 'insertTemplate', 'dictate', 'find', 'findReplace', 'findInNotes',
     'replaceInNotes', 'gotoLine', 'sortLines', 'toggleSidebar', 'toggleRightSidebar',
-    'togglePreview', 'toggleConversations', 'newConversation', 'cycleTheme', 'fontIncrease', 'fontDecrease',
+    'togglePreview', 'toggleConversations', 'newConversation', 'setTheme', 'fontIncrease', 'fontDecrease',
     'fontReset', 'quickOpen', 'navBack', 'navForward', 'renameActive', 'moveActive',
     'copyActive', 'extractSelection', 'splitHere', 'splitByHeading', 'autoTagActive',
     'autoLinkActive', 'autoLinkInboundActive', 'decomposeActive', 'format', 'ingestUrl',
@@ -30,6 +30,7 @@ function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
     hasActiveNoteTab: () => true,
     canGoBack: () => true,
     canGoForward: () => true,
+    currentTheme: () => 'dark',
   } as Record<string, unknown>;
   for (const name of actionNames) deps[name] = vi.fn();
   return { ...deps, ...overrides } as CommandDeps;
@@ -44,7 +45,8 @@ describe('buildCommandRegistry', () => {
       'edit.dictate',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
-      'view.togglePreview', 'view.toggleConversations', 'view.newConversation', 'view.cycleTheme',
+      'view.togglePreview', 'view.toggleConversations', 'view.newConversation',
+      'view.theme.dark', 'view.theme.light', 'view.theme.contrast', 'view.theme.system',
       'view.fontIncrease', 'view.fontDecrease', 'view.fontReset', 'nav.quickOpen',
       'nav.back', 'nav.forward', 'refactor.rename', 'refactor.move', 'refactor.copy',
       'refactor.extract', 'refactor.splitHere', 'refactor.splitByHeading',
@@ -115,7 +117,10 @@ describe('buildCommandRegistry', () => {
       'edit.sortLines': 'sortLines', 'view.toggleSidebar': 'toggleSidebar',
       'view.toggleRightSidebar': 'toggleRightSidebar', 'view.togglePreview': 'togglePreview',
       'view.toggleConversations': 'toggleConversations', 'view.newConversation': 'newConversation',
-      'view.cycleTheme': 'cycleTheme',
+      // view.theme.* all dispatch to setTheme with distinct args — asserted
+      // separately below, so they're excluded from the 1:1 run loop.
+      'view.theme.dark': 'setTheme', 'view.theme.light': 'setTheme',
+      'view.theme.contrast': 'setTheme', 'view.theme.system': 'setTheme',
       'view.fontIncrease': 'fontIncrease', 'view.fontDecrease': 'fontDecrease',
       'view.fontReset': 'fontReset', 'nav.quickOpen': 'quickOpen', 'nav.back': 'navBack',
       'nav.forward': 'navForward', 'refactor.rename': 'renameActive',
@@ -136,9 +141,28 @@ describe('buildCommandRegistry', () => {
     // that forgot a dispatch assertion).
     expect(new Set(cmds.map((c) => c.id))).toEqual(new Set(Object.keys(wiring)));
     for (const cmd of cmds) {
+      // Theme entries share one dep (setTheme) with distinct args; covered below.
+      if (cmd.id.startsWith('view.theme.')) continue;
       cmd.run();
       const depMethod = deps[wiring[cmd.id]] as ReturnType<typeof vi.fn>;
       expect(depMethod, `command ${cmd.id} should call deps.${wiring[cmd.id]}`).toHaveBeenCalledTimes(1);
     }
+  });
+
+  it('each theme command selects its own mode via setTheme (#1139)', () => {
+    const deps = makeDeps();
+    const cmds = buildCommandRegistry(deps);
+    const byId = (id: string) => cmds.find((c) => c.id === id)!;
+    byId('view.theme.light').run();
+    byId('view.theme.system').run();
+    expect(deps.setTheme).toHaveBeenNthCalledWith(1, 'light');
+    expect(deps.setTheme).toHaveBeenNthCalledWith(2, 'system');
+  });
+
+  it('marks the current theme in the entry title', () => {
+    const cmds = buildCommandRegistry(makeDeps({ currentTheme: () => 'contrast' }));
+    const byId = (id: string) => cmds.find((c) => c.id === id)!;
+    expect(byId('view.theme.contrast').title).toBe('Theme: High Contrast (current)');
+    expect(byId('view.theme.dark').title).toBe('Theme: Dark');
   });
 });
