@@ -37,8 +37,9 @@ const KNOWN_WORKSPACE = new Set<string>([
   // color-contrast is now ENFORCED (#1080): the oneDark editor theme was
   // replaced with the token-driven minervaHighlightStyle (#1117), and the code
   // surface + gutters moved to --bg-inset, where every syntax color and the
-  // --text-faint gutter/decoration text clear WCAG AA (4.5:1). This spec runs
-  // in the default (dark) theme, so a regression here fails CI.
+  // --text-faint gutter/decoration text clear WCAG AA (4.5:1). This spec forces
+  // the dark theme (via emulateMedia below — the first-run default is now
+  // 'system', #1140), so a regression here fails CI.
   // CodeMirror's `.cm-scroller` (tabindex=-1); its `.cm-content` editable IS
   // keyboard-focusable, so this axe finding is a known CM quirk, not a real trap.
   'scrollable-region-focusable',
@@ -85,6 +86,10 @@ test('welcome screen: no NEW serious a11y violations (real-browser, incl. color-
   try {
     const win: Page = await app.firstWindow({ timeout: 20_000 });
     await win.waitForLoadState('domcontentloaded');
+    // Pin the dark theme deterministically. The first-run default is 'system'
+    // (#1140), which would otherwise resolve to the CI host's color scheme; the
+    // app re-applies on this media change since it's in system mode.
+    await win.emulateMedia({ colorScheme: 'dark' });
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toBeVisible({ timeout: 15_000 });
 
     const violations = await runAxe(win);
@@ -104,6 +109,9 @@ test('workspace (sidebar + editor): no NEW serious a11y violations (real-browser
   try {
     const win: Page = await app.firstWindow({ timeout: 20_000 });
     await win.waitForLoadState('domcontentloaded');
+    // Pin the dark theme (first-run default is now 'system', #1140) so the
+    // editor-contrast coverage below stays deterministic across CI hosts.
+    await win.emulateMedia({ colorScheme: 'dark' });
     // Session restore replaces the welcome screen with the workspace.
     await expect(win.getByRole('button', { name: 'Open Thoughtbase' })).toHaveCount(0, { timeout: 25_000 });
     await win.waitForTimeout(500); // let the sidebar tree + panels settle
