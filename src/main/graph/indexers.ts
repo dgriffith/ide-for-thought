@@ -20,6 +20,7 @@ import path from 'node:path';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
+import { resolveWikiLinkTarget } from '../../shared/wiki-link-resolver';
 import { slugify } from '../../shared/slug';
 import { parseCsv } from '../../shared/csv-parse';
 import { isIndexable } from '../notebase/indexable-files';
@@ -47,35 +48,46 @@ import { findNotesLinkingToAnchorImpl } from './queries';
 // excerptUri, tableUri, projectUri, linkPredicate) live in ./state and are
 // imported above; the link-resolution helpers that are indexer-only stay here.
 
-function resolveLinkTarget(state: GraphState, lt: LinkType, target: string, anchor?: string) {
+/** A note-file list + alias record for wiki-link resolution, built once per
+ *  note-index pass (see the link loop) so a note with many links doesn't
+ *  rebuild it per link. */
+interface LinkResolveCtx {
+  files: { relativePath: string; isDirectory: boolean }[];
+  aliases: Record<string, string>;
+}
+
+function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
+  return {
+    files: [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false })),
+    // aliasMap keys are already lowercased by rebuildAliasMap.
+    aliases: Object.fromEntries(state.aliasMap),
+  };
+}
+
+function resolveLinkTarget(
+  state: GraphState,
+  lt: LinkType,
+  target: string,
+  rc: LinkResolveCtx,
+  anchor?: string,
+) {
   if (lt.targetKind === 'source') return sourceUri(state, target);
   if (lt.targetKind === 'excerpt') return excerptUri(state, target);
-  const resolvedPath = resolveTargetByAlias(state, target);
-  const base = noteUri(state, resolvedPath.endsWith('.md') ? resolvedPath : `${resolvedPath}.md`);
+  // Resolve exactly as click-navigation does (#1142): exact path, then
+  // basename, then frontmatter alias, then slug-fuzzy — so a bare `[[Term]]`
+  // that opens `glossary/Term.md` in the editor also forms its graph edge to
+  // that note, not a phantom root `Term.md`. Falls back to the literal target
+  // (as a root-relative path) for a link to a note that doesn't exist yet, so
+  // its backlink still lights up once the file lands at that path.
+  const resolvedPath = resolveWikiLinkTarget(target, rc.files, rc.aliases)
+    ?? (target.endsWith('.md') ? target : `${target}.md`);
+  const base = noteUri(state, resolvedPath);
   // Anchors append as an IRI fragment: headings become `#slug`, block-ids
   // stay as `#^raw-id` (we don't slugify the `^` prefix or its payload so
   // ids survive edits on the referenced block).
   if (!anchor) return base;
   const frag = anchor.startsWith('^') ? anchor : slugify(anchor);
   return $rdf.sym(`${base.value}#${frag}`);
-}
-
-/**
- * If the wiki-link target name resolves via the alias map, return the
- * underlying note's relativePath (without `.md`). Otherwise return
- * `target` unchanged. Filename / title matches always win over aliases
- * (#469); the map's `rebuildAliasMap` step drops alias entries that
- * collide with canonical names so this lookup is safe.
- */
-function resolveTargetByAlias(state: GraphState, target: string): string {
-  // The map keys store the alias verbatim (case-insensitive lookup
-  // happens via .toLowerCase). Targets with anchors / `.md` suffix are
-  // handled by the caller — this helper only sees the bare path part.
-  const key = target.toLowerCase();
-  const aliased = state.aliasMap.get(key);
-  if (!aliased) return target;
-  // Strip `.md` so the caller's append logic stays simple.
-  return aliased.replace(/\.md$/i, '');
 }
 
 /**
@@ -204,7 +216,11 @@ const FRONTMATTER_WIKILINK_RE = /^\[\[([^[\]\n|]+)(?:\|[^\]]+)?\]\]$/;
  * - `"2024-01-15"`    → xsd:date literal (ISO-date shape)
  * - other string      → plain string literal
  */
-function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | FrontmatterValue[]>, projectBaseUri: string) {
+function frontmatterValueToTerm(
+  value: Exclude<FrontmatterValue, null | FrontmatterValue[]>,
+  projectBaseUri: string,
+  rc?: LinkResolveCtx,
+) {
   if (value instanceof Date) {
     return $rdf.lit(value.toISOString(), undefined, XSD('dateTime'));
   }
@@ -227,7 +243,11 @@ function frontmatterValueToTerm(value: Exclude<FrontmatterValue, null | Frontmat
       const sourceId = target.slice('sources/'.length);
       if (sourceId) return $rdf.sym(uriHelpers.sourceUri(projectBaseUri, sourceId));
     }
-    const noteRel = target.endsWith('.md') ? target : `${target}.md`;
+    // Resolve like navigation / body links (#1142) so a frontmatter
+    // `see-also: [[Term]]` edges to the real glossary/Term.md, not a phantom
+    // root Term.md. Falls back to the literal path (for a not-yet-created note).
+    const noteRel = (rc && resolveWikiLinkTarget(target, rc.files, rc.aliases))
+      || (target.endsWith('.md') ? target : `${target}.md`);
     return $rdf.sym(uriHelpers.noteUri(projectBaseUri, noteRel));
   }
   // Bare absolute URI → IRI node. Lets a frontmatter key like
@@ -475,11 +495,13 @@ export async function indexNote(
     store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
   }
 
-  // Wiki-links — typed predicates
+  // Wiki-links — typed predicates. Build the resolver context once for the
+  // whole note rather than per link.
+  const linkCtx = buildLinkResolveCtx(state);
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(state, linkType, link.target, link.anchor);
+    const targetNode = resolveLinkTarget(state, linkType, link.target, linkCtx, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 
@@ -489,7 +511,7 @@ export async function indexNote(
     if (key === 'title' || key === 'tags') continue;
     const predicate = resolveFrontmatterPredicate(key);
     for (const v of flattenFrontmatterScalars(value)) {
-      const term = frontmatterValueToTerm(v, baseUri);
+      const term = frontmatterValueToTerm(v, baseUri, linkCtx);
       if (term) store.add(subject, predicate, term, graph);
     }
   }
@@ -969,10 +991,11 @@ function indexSourceBody(
   }
 
   // Body wiki-links → typed edges on the source (same plumbing as notes).
+  const linkCtx = buildLinkResolveCtx(state);
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(state, linkType, link.target, link.anchor);
+    const targetNode = resolveLinkTarget(state, linkType, link.target, linkCtx, link.anchor);
     store.add(subject, predicate, targetNode, graph);
   }
 }
@@ -1171,6 +1194,11 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
         await walkAndCollectAliases(fullPath, root);
       } else if (isIndexable(entry.name)) {
         const relativePath = path.relative(root, fullPath);
+        // Register every note path up front so the main pass resolves bare
+        // `[[basename]]` links against the COMPLETE file set — otherwise a note
+        // indexed early couldn't resolve a link to one indexed later (#1142).
+        // Mirrors the alias pre-pass rationale (#469).
+        if (relativePath.endsWith('.md')) state!.indexedNotePaths.add(relativePath);
         try {
           const content = await fs.readFile(fullPath, 'utf-8');
           const parsed = parseMarkdown(content);

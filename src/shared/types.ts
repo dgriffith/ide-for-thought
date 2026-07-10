@@ -140,7 +140,9 @@ export interface RelatedNotesResult {
 export interface NeighborhoodNode {
   /** relativePath for notes; `source:<sourceId>` for sources. */
   id: string;
-  kind: 'note' | 'source';
+  /** `term` is a note additionally typed `thought:Term` (a glossary entry,
+   *  #1142) — rendered distinctly from a plain note. */
+  kind: 'note' | 'source' | 'term';
   label: string;
   /** False for a note-typed wiki-link target with no file on disk. */
   exists: boolean;

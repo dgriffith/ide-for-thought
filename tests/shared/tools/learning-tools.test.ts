@@ -12,7 +12,8 @@ const BATCH = [
   'learning.summarize',
   'learning.explain-like-im',
   'learning.give-examples',
-  'learning.define-terms',
+  'learning.generate-glossary',
+  'learning.add-term-to-glossary',
   'learning.find-prerequisites',
   'learning.quiz-me',
   'learning.find-counterexamples',
@@ -40,7 +41,7 @@ function optionValue(id: string, labelFragment: string): string {
 }
 
 describe('Learning skills (migrated from #180–#186 tools)', () => {
-  it('all nine load as stock Learning skills', () => {
+  it('all load as stock Learning skills', () => {
     for (const id of BATCH) {
       const s = skills.get(id);
       expect(s, id).toBeDefined();
@@ -115,8 +116,8 @@ describe('Learning skills (migrated from #180–#186 tools)', () => {
     expect(payload.firstMessage).toBe('Quiz me.');
   });
 
-  it('give-examples, define-terms, find-prerequisites, find-counterexamples embed note content', () => {
-    for (const id of ['learning.give-examples', 'learning.define-terms', 'learning.find-prerequisites', 'learning.find-counterexamples']) {
+  it('give-examples, generate-glossary, find-prerequisites, find-counterexamples embed note content', () => {
+    for (const id of ['learning.give-examples', 'learning.generate-glossary', 'learning.find-prerequisites', 'learning.find-counterexamples']) {
       const payload = buildConversationPayload(
         defs.get(id)!,
         {},

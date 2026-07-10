@@ -156,6 +156,22 @@ function collectNotePathsWithPredicate(
   return [...seen];
 }
 
+/** Relative paths of every note typed `thought:Term` — glossary entries
+ *  (#1142). Used to give term nodes a distinct rendering in the neighborhood
+ *  graph. Returned as a Set for O(1) membership during graph classification. */
+export function termNotePaths(ctx: ProjectContext): Set<string> {
+  const state = getState(ctx);
+  if (!state) return new Set();
+  const { store } = state;
+  const paths = new Set<string>();
+  for (const st of store.statementsMatching(undefined, RDF('type'), THOUGHT('Term'))) {
+    const pathStmts = store.statementsMatching(st.subject, MINERVA('relativePath'), undefined);
+    const p = pathStmts[0]?.object.value;
+    if (p && p.endsWith('.md')) paths.add(p);
+  }
+  return paths;
+}
+
 /** All indexed `.md` note paths in the thoughtbase (#215 — cross-note
  *  rules use this to reason about which link shortenings are unambiguous). */
 export function allNotePaths(ctx: ProjectContext): string[] {
