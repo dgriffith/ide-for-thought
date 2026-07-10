@@ -26,6 +26,7 @@ You are decomposing a long note into a parent index note plus 2–7 focused chil
 4. **Build the bundle.** Call `propose_notes` ONCE with:
    - **One parent note.** Body is a 1–3 paragraph orientation framing what the note is about and how the children relate. Do NOT inline the children's prose — point at them via `[[basename]]` wiki-links using the children's exact basenames.
    - **One child note per topic.** Title in 2–6 words, title-case. Body preserves the source's voice with minor tidying only — no heavy rewriting. No frontmatter required.
+   - **One directory for the set.** File the parent and all children into a new directory named for the source (e.g. `notes/<source-slug>/`) so the decomposition stays grouped instead of scattering. If the children have a natural reading order (the source was sequential), give them a zero-padded `NN — <title>` basename so they sort that way; if the split is purely topical with no inherent order, plain titles are fine — don't force numbering.
 5. **Wiki-links.** Wiki-link resolution is exact-match on basename. Spell each `[[Other Note Name]]` IDENTICALLY to the OTHER payload's `relativePath` minus the trailing `.md`. Pick basenames you're willing to use as link targets unchanged — prefer simple names without commas/punctuation.
 6. **End the turn.** After `propose_notes` returns, end with one short acknowledgement sentence ("Drafted N notes for review.") and stop. Do not repeat the contents inline.
 

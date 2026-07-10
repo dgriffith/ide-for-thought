@@ -25,7 +25,7 @@ Use web lookup when you need a canonical definition. After the first glossary, i
 
 When the user wants the glossary filed, call the propose_notes tool with the bundle. Two reasonable shapes:
 - One note containing all terms as a glossary (cleanest for short lists).
-- One parent index + one note per term (when terms warrant their own pages).
+- One parent index + one note per term (when terms warrant their own pages). File the parent and all term notes into one directory named for the glossary (e.g. `notes/<glossary-slug>/`) so they stay grouped. A glossary is unordered — name term notes by the term itself and let them sort alphabetically; do NOT add numeric prefixes.
 
 The user reviews the bundle as an inline card. Don't paste the contents inline in chat too — the card is the deliverable.
 
@@ -44,6 +44,6 @@ Use web lookup when you need a canonical definition. After the first glossary, i
 
 When the user wants the glossary filed, call the propose_notes tool with the bundle. Two reasonable shapes:
 - One note containing all terms as a glossary (cleanest for short lists).
-- One parent index + one note per term (when terms warrant their own pages).
+- One parent index + one note per term (when terms warrant their own pages). File the parent and all term notes into one directory named for the glossary (e.g. `notes/<glossary-slug>/`) so they stay grouped. A glossary is unordered — name term notes by the term itself and let them sort alphabetically; do NOT add numeric prefixes.
 
 The user reviews the bundle as an inline card. Don't paste the contents inline in chat too — the card is the deliverable.{{/if}}

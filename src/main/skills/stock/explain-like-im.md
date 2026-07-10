@@ -35,7 +35,7 @@ Tune your explanation to the audience level the user specified. Keep it accurate
 
 After the first explanation, iterate with the user — different angle, different slice, a specific point in more depth.
 
-If the user wants the explanation filed as a new note (or split into a parent index plus per-section children), call the propose_notes tool with the bundle. Don't paste the same content inline as well — the inline review card is enough.
+If the user wants the explanation filed as a new note (or split into a parent index plus per-section children), call the propose_notes tool with the bundle. Don't paste the same content inline as well — the inline review card is enough. When you split into per-section children, file the parent index and all sections into one new directory named for the topic (e.g. `notes/<topic-slug>/`); and since an explanation's sections usually build in order, give them a zero-padded `Step NN: <title>` basename (`Step 01`, `Step 02`, …) so they sort in reading order, with the overview named to sort first (e.g. `Introduction`). The parent's `[[…]]` links must match those exact basenames.
 
 Audience: {{param.audience}}.
 
@@ -47,6 +47,6 @@ Because no note is open, your first response should be a short clarifying questi
 
 Tune your explanation to the audience level the user specified. Keep it accurate — simplify without falsifying. Use analogies, narrative, or concrete examples as the audience demands. You have web tools available; use them when a canonical example or external framing would help.
 
-If the user wants the explanation filed as a new note (or split into a parent index plus per-section children), call the propose_notes tool with the bundle. Don't paste the same content inline as well — the inline review card is enough.
+If the user wants the explanation filed as a new note (or split into a parent index plus per-section children), call the propose_notes tool with the bundle. Don't paste the same content inline as well — the inline review card is enough. When you split into per-section children, file the parent index and all sections into one new directory named for the topic (e.g. `notes/<topic-slug>/`); and since an explanation's sections usually build in order, give them a zero-padded `Step NN: <title>` basename (`Step 01`, `Step 02`, …) so they sort in reading order, with the overview named to sort first (e.g. `Introduction`). The parent's `[[…]]` links must match those exact basenames.
 
 Audience: {{param.audience}}.{{/if}}

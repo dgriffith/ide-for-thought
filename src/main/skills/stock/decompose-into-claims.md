@@ -47,7 +47,7 @@ If the passage genuinely yields no claims (purely descriptive, only questions, o
 
 ### Parent decomposition note
 
-Path: `notes/decomposition-of-<source-stem>.md` (use the source note's basename, slugified).
+Path: `notes/claims/<source-stem>/00-decomposition.md` — the index lives in the same `notes/claims/<source-stem>/` directory as its claim notes (the `00` prefix sorts it above the numbered claims).
 
 ```markdown
 ---
@@ -68,7 +68,7 @@ A breakdown of [[<source-note-stem>]] into its individual claims.
 
 ### Child claim notes (one per claim)
 
-Path: `notes/claims/<source-stem>-<n>-<short-claim-slug>.md` — pick a basename that's stable, kebab-case, and ideally uses no punctuation (CRITICAL wiki-link rule applies — the parent's links must match these basenames identically).
+Path: `notes/claims/<source-stem>/<nn>-<short-claim-slug>.md` — file this source's claims together in their own `notes/claims/<source-stem>/` directory (the parent index goes there too), and zero-pad the number (`01`, `02`, … `10`) so they sort in extraction order rather than `1, 10, 2`. Pick a basename that's stable, kebab-case, and ideally uses no punctuation (CRITICAL wiki-link rule applies — the parent's links must match these basenames identically).
 
 ````markdown
 ---
