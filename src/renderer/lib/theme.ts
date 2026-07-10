@@ -8,7 +8,10 @@ export type { ThemeMode };
 const STORAGE_KEY = 'themeMode';
 
 export function getThemeMode(): ThemeMode {
-  return (localStorage.getItem(STORAGE_KEY) as ThemeMode) ?? 'dark';
+  // First-run default is 'system' so a fresh install matches the OS
+  // appearance out of the box (#1140). Only applies with nothing stored;
+  // once the user picks a theme, setThemeMode persists that choice.
+  return (localStorage.getItem(STORAGE_KEY) as ThemeMode) ?? 'system';
 }
 
 export function setThemeMode(mode: ThemeMode): void {
