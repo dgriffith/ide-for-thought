@@ -81,6 +81,15 @@ describe('handleRename', () => {
     await ops.handleRename('foo.md');
     expect(h.api.notebase.rename).not.toHaveBeenCalled();
   });
+
+  it('seeds the prompt with the current name and selects the stem (#1143)', async () => {
+    h.dialog.showPrompt.mockResolvedValue('renamed');
+    await ops.handleRename('notes/foo.md');
+    expect(h.dialog.showPrompt).toHaveBeenCalledWith('New name:', {
+      initial: 'foo.md',
+      selectStem: true,
+    });
+  });
 });
 
 describe('handleNewNote', () => {
