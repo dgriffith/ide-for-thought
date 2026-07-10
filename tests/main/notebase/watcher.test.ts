@@ -199,6 +199,106 @@ describe('startWatching() (#345)', () => {
     });
   });
 
+  describe('external move detection (#1144)', () => {
+    it('surfaces a cross-directory move as a rename, not a delete', async () => {
+      // A note that existed at startup (ignoreInitial → no inode cached),
+      // moved to another folder in the project. This is the reported repro:
+      // an in-Finder move must make the open tab follow, not close it.
+      const rel = 'note.md';
+      await fsp.mkdir(path.join(root, 'sub'), { recursive: true });
+      await fsp.writeFile(path.join(root, rel), '# note\n', 'utf-8');
+
+      const deleted: string[] = [];
+      const created: string[] = [];
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
+        onFileCreated: (p) => created.push(p),
+        onFileChanged: () => undefined,
+        onFileDeleted: (p) => deleted.push(p),
+      });
+
+      await fsp.rename(path.join(root, rel), path.join(root, 'sub', 'note.md'));
+
+      // The rename transition is broadcast (tab follows) and no delete IPC
+      // for the old path is ever sent (that would close the tab).
+      await waitFor(() =>
+        win.webContents.send.mock.calls.some(
+          (c) => c[0] === Channels.NOTEBASE_RENAMED,
+        ),
+      );
+      const renameCall = win.webContents.send.mock.calls.find(
+        (c) => c[0] === Channels.NOTEBASE_RENAMED,
+      );
+      expect(renameCall?.[1]).toEqual([{ old: rel, new: 'sub/note.md' }]);
+
+      // Give the (would-be) delete window time to elapse — the renderer-facing
+      // delete IPC (which closes the tab) must never fire.
+      await new Promise((r) => setTimeout(r, 300));
+      const sentDelete = win.webContents.send.mock.calls.some(
+        (c) => c[0] === Channels.NOTEBASE_FILE_DELETED,
+      );
+      expect(sentDelete).toBe(false);
+      // Index consistency: the old path is still dropped and the new path
+      // added via the callbacks (just not broadcast as a tab-closing delete).
+      expect(deleted).toEqual(['note.md']);
+      expect(created).toContain('sub/note.md');
+    });
+
+    it('detects an in-place rename (same dir, new name) as a rename', async () => {
+      // Create the file AFTER startWatching so its inode is cached — a rename
+      // that changes the basename can only be correlated by inode, and the
+      // watcher only knows a file's inode once it has seen an add/change for
+      // it this session.
+      const created: string[] = [];
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
+        onFileCreated: (p) => created.push(p),
+        onFileChanged: () => undefined,
+        onFileDeleted: () => undefined,
+      });
+
+      const rel = 'old-name.md';
+      await fsp.writeFile(path.join(root, rel), '# body\n', 'utf-8');
+      await waitFor(() => created.includes(rel));
+      // Let the recentAdds buffer for the create expire so it can't be the
+      // thing the rename pairs against.
+      await new Promise((r) => setTimeout(r, 200));
+
+      await fsp.rename(path.join(root, rel), path.join(root, 'new-name.md'));
+
+      await waitFor(() =>
+        win.webContents.send.mock.calls.some(
+          (c) => c[0] === Channels.NOTEBASE_RENAMED,
+        ),
+      );
+      const renameCall = win.webContents.send.mock.calls.find(
+        (c) => c[0] === Channels.NOTEBASE_RENAMED,
+      );
+      // In-place rename keeps the same inode, so the pair is correlated even
+      // though the basename changed.
+      expect(renameCall?.[1]).toEqual([{ old: rel, new: 'new-name.md' }]);
+    });
+
+    it('still emits a delete for a genuine removal (no paired add)', async () => {
+      // Regression guard: the debounce must not swallow real deletions.
+      const rel = 'doomed.md';
+      await fsp.writeFile(path.join(root, rel), 'x\n', 'utf-8');
+
+      const deleted: string[] = [];
+      await startWatching(root, win as unknown as BrowserWindow, winId, {
+        onFileCreated: () => undefined,
+        onFileChanged: () => undefined,
+        onFileDeleted: (p) => deleted.push(p),
+      });
+
+      await fsp.rm(path.join(root, rel));
+      await waitFor(() => deleted.includes(rel));
+      expect(win.webContents.send).toHaveBeenCalledWith(
+        Channels.NOTEBASE_FILE_DELETED,
+        rel,
+      );
+      expect(win.webContents.send.mock.calls.some((c) => c[0] === Channels.NOTEBASE_RENAMED)).toBe(false);
+    });
+  });
+
   describe('.minerva/{sources,excerpts} routing', () => {
     it('routes .minerva/sources/<id>/meta.ttl writes to onSourceMetaChanged', async () => {
       const sourceId = 'sha-abc123';
