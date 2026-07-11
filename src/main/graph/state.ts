@@ -17,6 +17,7 @@ import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
 import type { ProjectContext } from '../project-context-types';
+import { createProjectStore } from '../project-store';
 
 // ── Comunica engine (process-wide; stateless across projects) ────────────────
 
@@ -181,25 +182,27 @@ export interface GraphState {
 // read/write path — rdflib IndexedFormula mutation, `invalidate()`, and the
 // on-demand N3 rebuild in `queryGraph` — runs synchronously on the Electron
 // main thread, one IPC handler at a time. That single-threaded serialization is
-// precisely what lets this Map and the mutable store stay lock-free: no two
-// writes, and no write racing the rebuild, can ever interleave. A write nulls
-// `n3Cache` and the very next query rebuilds it before anyone reads it. If any
-// of this ever moves off the main thread (e.g. the O(n) rebuild into a worker,
-// #1088), that invariant breaks and real synchronization becomes necessary.
-const states = new Map<string, GraphState>();
+// precisely what lets this store and the mutable IndexedFormula stay lock-free:
+// no two writes, and no write racing the rebuild, can ever interleave. A write
+// nulls `n3Cache` and the very next query rebuilds it before anyone reads it. If
+// any of this ever moves off the main thread (e.g. the O(n) rebuild into a
+// worker, #1088), that invariant breaks and real synchronization becomes
+// necessary. The rdflib IndexedFormula holds no OS handle, so there's no dispose
+// hook — teardown just drops the state (#1085).
+const store = createProjectStore<GraphState>();
 
 export function getState(ctx: ProjectContext): GraphState | null {
-  return states.get(ctx.rootPath) ?? null;
+  return store.get(ctx);
 }
 
 /** Register a freshly-built state for a project. */
 export function setState(ctx: ProjectContext, state: GraphState): void {
-  states.set(ctx.rootPath, state);
+  store.set(ctx, state);
 }
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
 export function deleteState(ctx: ProjectContext): void {
-  states.delete(ctx.rootPath);
+  void store.dispose(ctx);
 }
 
 export function invalidate(state: GraphState): void {

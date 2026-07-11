@@ -4,6 +4,7 @@ import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
+import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
 
 interface TablesState {
@@ -16,10 +17,17 @@ interface TablesState {
   tableToPath: Map<string, string>;
 }
 
-const states = new Map<string, TablesState>();
+// Dispose closes the in-memory DuckDB (connection then instance) before the
+// state is dropped. closeSync is synchronous, so `disposeProject` stays sync.
+const store = createProjectStore<TablesState>({
+  dispose: (state) => {
+    try { state.connection.closeSync(); } catch { /* already closed */ }
+    try { state.instance.closeSync(); } catch { /* already closed */ }
+  },
+});
 
 function getState(ctx: ProjectContext): TablesState | null {
-  return states.get(ctx.rootPath) ?? null;
+  return store.get(ctx);
 }
 
 export type QueryResult =
@@ -35,10 +43,10 @@ export interface TableInfo {
 
 /** Open an in-memory DuckDB for the given project. Idempotent per project. */
 export async function initTablesDb(ctx: ProjectContext): Promise<void> {
-  if (states.has(ctx.rootPath)) return;
+  if (store.has(ctx)) return;
   const instance = await DuckDBInstance.create(':memory:');
   const connection = await instance.connect();
-  states.set(ctx.rootPath, {
+  store.set(ctx, {
     rootPath: ctx.rootPath,
     instance,
     connection,
@@ -48,11 +56,9 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
 }
 
 export function disposeProject(ctx: ProjectContext): void {
-  const state = states.get(ctx.rootPath);
-  if (!state) return;
-  try { state.connection.closeSync(); } catch { /* already closed */ }
-  try { state.instance.closeSync(); } catch { /* already closed */ }
-  states.delete(ctx.rootPath);
+  // The DuckDB close runs synchronously inside the store's dispose hook, so
+  // this stays a sync teardown even though `dispose` returns a promise.
+  void store.dispose(ctx);
 }
 
 /**
@@ -363,5 +369,5 @@ export async function listTables(ctx: ProjectContext): Promise<TableInfo[]> {
 
 /** Exposed for tests. */
 export function _isOpen(ctx: ProjectContext): boolean {
-  return states.has(ctx.rootPath);
+  return store.has(ctx);
 }

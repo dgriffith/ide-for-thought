@@ -3,16 +3,28 @@ import fs from 'node:fs/promises';
 import type { SearchProvider, SearchResult } from './types';
 import { MiniSearchProvider } from './minisearch-provider';
 import type { ProjectContext } from '../project-context-types';
+import { createProjectStore } from '../project-store';
 
 interface SearchState {
   rootPath: string;
   provider: SearchProvider;
 }
 
-const states = new Map<string, SearchState>();
+// Pure MiniSearch state — nothing to close on dispose, so no dispose hook.
+const store = createProjectStore<SearchState>();
 
 function getState(ctx: ProjectContext): SearchState | null {
-  return states.get(ctx.rootPath) ?? null;
+  return store.get(ctx);
+}
+
+/** Return the project's search state, creating an empty one if absent. */
+function getOrCreateState(ctx: ProjectContext): SearchState {
+  let state = store.get(ctx);
+  if (!state) {
+    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
+    store.set(ctx, state);
+  }
+  return state;
 }
 
 function indexPath(state: SearchState): string {
@@ -20,24 +32,16 @@ function indexPath(state: SearchState): string {
 }
 
 export async function initSearch(ctx: ProjectContext): Promise<void> {
-  let state = states.get(ctx.rootPath);
-  if (!state) {
-    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
-    states.set(ctx.rootPath, state);
-  }
+  const state = getOrCreateState(ctx);
   await state.provider.load(indexPath(state));
 }
 
 export function disposeProject(ctx: ProjectContext): void {
-  states.delete(ctx.rootPath);
+  void store.dispose(ctx);
 }
 
 export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
-  let state = states.get(ctx.rootPath);
-  if (!state) {
-    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
-    states.set(ctx.rootPath, state);
-  }
+  const state = getOrCreateState(ctx);
   state.provider.clear();
 
   let count = 0;
@@ -55,7 +59,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
         const title = extractTitle(content) ?? path.basename(relativePath, '.md');
-        state!.provider.index(relativePath, title, content);
+        state.provider.index(relativePath, title, content);
         count++;
       }
     }
