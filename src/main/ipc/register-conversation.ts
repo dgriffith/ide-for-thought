@@ -129,6 +129,25 @@ function buildClaimNoteContent(
   ].join('\n');
 }
 
+/**
+ * Every draft-filing IPC handler needs a non-empty array of work items
+ * (`payloads` / `claims` / `sources` / `updates`) or there is nothing to file.
+ * The recurring cause of an empty array here was a Svelte 5 `$state` value sent
+ * across IPC without a snapshot (the Proxy serializes to `{}`), so the throw
+ * names the field and points at that fix. Returns the validated array so the
+ * caller can use it without re-narrowing.
+ */
+function ensureDraftItems<T>(draft: unknown, field: string, label: string): T[] {
+  const items = (draft as Record<string, unknown> | null | undefined)?.[field];
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error(
+      `${label}: draft has no ${field} (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+      `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
+    );
+  }
+  return items as T[];
+}
+
 export function registerConversation(): void {
   // Proposals
   ipcMain.handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
@@ -369,12 +388,7 @@ export function registerConversation(): void {
       });
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
-      if (!draft || !Array.isArray(draft.payloads) || draft.payloads.length === 0) {
-        throw new Error(
-          `FILE_DRAFT: draft has no payloads (received ${JSON.stringify(draft).slice(0, 200)}). ` +
-          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
-        );
-      }
+      ensureDraftItems(draft, 'payloads', 'FILE_DRAFT');
       const ctx = projectContext(rootPath);
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'component_creation',
@@ -522,9 +536,10 @@ export function registerConversation(): void {
       draft: import('../../shared/conversation-claims-drafts').ConversationClaimsDraft,
     ): Promise<import('../../shared/conversation-claims-drafts').FileClaimsDraftResult> => {
       const sourceId = draft?.sourceId;
-      if (!sourceId || !Array.isArray(draft.claims) || draft.claims.length === 0) {
+      ensureDraftItems(draft, 'claims', 'FILE_CLAIMS_DRAFT');
+      if (!sourceId) {
         throw new Error(
-          `FILE_CLAIMS_DRAFT: draft has no sourceId/claims (received ${JSON.stringify(draft).slice(0, 200)}). ` +
+          `FILE_CLAIMS_DRAFT: draft has no sourceId (received ${JSON.stringify(draft).slice(0, 200)}). ` +
           `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
         );
       }
@@ -607,12 +622,7 @@ export function registerConversation(): void {
       });
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
-      if (!draft || !Array.isArray(draft.sources) || draft.sources.length === 0) {
-        throw new Error(
-          `FILE_SOURCE_DRAFT: draft has no sources (received ${JSON.stringify(draft).slice(0, 200)}). ` +
-          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
-        );
-      }
+      ensureDraftItems(draft, 'sources', 'FILE_SOURCE_DRAFT');
       const outcomes: import('../../shared/conversation-source-drafts').SourceIngestOutcome[] = [];
       let anyIngested = false;
       for (const src of draft.sources) {
@@ -692,12 +702,7 @@ export function registerConversation(): void {
       });
       const rootPath = rootPathFromEvent(e);
       if (!rootPath) throw new Error('No project open');
-      if (!draft || !Array.isArray(draft.updates) || draft.updates.length === 0) {
-        throw new Error(
-          `FILE_PROPERTY_DRAFT: draft has no updates (received ${JSON.stringify(draft).slice(0, 200)}). ` +
-          `If this came from a Svelte 5 $state value, snapshot it before sending across IPC.`,
-        );
-      }
+      ensureDraftItems(draft, 'updates', 'FILE_PROPERTY_DRAFT');
       // Apply each per-note frontmatter patch through the approval engine's
       // note_rewrite payload (#942) — see applyPropertyUpdates. broadcastRewritten
       // reloads open editors + the Properties panel from the rewritten paths.
