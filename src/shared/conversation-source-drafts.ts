@@ -25,7 +25,7 @@
  * when the conversation tab closes. Persistence is a follow-up.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 
 /**
  * One proposed source. Exactly one of `identifier` / `url` is present;
@@ -39,9 +39,7 @@ export interface DraftSource {
   url?: string;
 }
 
-export interface ConversationSourceDraft extends ConversationDraftBase {
-  /** Bundle-level "why I'm proposing these" note from the LLM. */
-  note: string;
+export interface ConversationSourceDraft extends ConversationToolDraft {
   sources: DraftSource[];
 }
 

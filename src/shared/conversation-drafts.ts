@@ -19,7 +19,7 @@
  * dialog closes. Persistence across reload is a follow-up.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 
 export interface DraftNotePayload {
   kind: 'note';
@@ -30,9 +30,7 @@ export interface DraftNotePayload {
 
 export type DraftPayload = DraftNotePayload;
 
-export interface ConversationDraft extends ConversationDraftBase {
-  /** One-line description the LLM provided when calling propose_notes ("why I'm proposing this"). */
-  note: string;
+export interface ConversationDraft extends ConversationToolDraft {
   payloads: DraftPayload[];
 }
 

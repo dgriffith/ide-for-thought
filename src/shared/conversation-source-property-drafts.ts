@@ -19,11 +19,9 @@
  * closes — same lifecycle as note / source / property drafts.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 
-export interface ConversationSourcePropertyDraft extends ConversationDraftBase {
-  /** Bundle-level "why I'm proposing this" note from the LLM. */
-  note: string;
+export interface ConversationSourcePropertyDraft extends ConversationToolDraft {
   /** The source whose meta.ttl is being patched. */
   sourceId: string;
   /** Proposed formal abstract (`dc:abstract`). Omitted when not proposed. */

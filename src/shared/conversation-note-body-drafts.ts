@@ -14,11 +14,9 @@
  * NOTEBASE_REWRITTEN so an open editor reloads the new content.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 
-export interface ConversationNoteBodyDraft extends ConversationDraftBase {
-  /** One-line summary for the card header (e.g. "Fill out notes/stub.md"). */
-  note: string;
+export interface ConversationNoteBodyDraft extends ConversationToolDraft {
   /** Thoughtbase-relative path of the existing note being rewritten. */
   relativePath: string;
   /** The note's current full content (frontmatter + body), for the diff's
