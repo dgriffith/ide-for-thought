@@ -14,6 +14,8 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "electron-forge start",
+    "cli:build": "vite build --config vite.cli.config.ts",
+    "cli": "pnpm cli:build && node .vite/build/cli.js",
     "build": "electron-forge make",
     "package": "electron-forge package",
     "release:tag": "node scripts/tag-release.mjs",
