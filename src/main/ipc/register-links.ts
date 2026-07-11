@@ -3,6 +3,7 @@ import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
 import * as vectors from '../embeddings/vector-store';
+import type { RefKind } from '../embeddings/vector-store';
 import { topRelatedNotes, markAlreadyLinked } from '../embeddings/related';
 import { projectContext } from '../project-context-types';
 import { withRootPathOr } from './helpers';
@@ -35,6 +36,36 @@ export function registerLinks(): void {
     ]);
     return { enabled: true, notes: markAlreadyLinked(ranked, linked) };
   }));
+
+  // Free-text semantic search for the live `:::query-semantic` block (#1128).
+  // Embeds the block's query text at request time (searchRelated does the
+  // embed) and ranks the corpus — read-only, nothing is written. `excludePath`
+  // drops the host note from its own results; `kinds` restricts the corpus.
+  ipcMain.handle(
+    Channels.EMBEDDINGS_SEARCH_TEXT,
+    withRootPathOr<[string, { limit?: number; kinds?: readonly RefKind[]; excludePath?: string }?], RelatedNotesResult | Promise<RelatedNotesResult>>(
+      { enabled: false, notes: [] },
+      async (rootPath, query: string, opts): Promise<RelatedNotesResult> => {
+        const ctx = projectContext(rootPath);
+        if (!vectors.isEnabled(ctx) || !query.trim()) return { enabled: false, notes: [] };
+        const n = Math.min(Math.max(Math.floor(opts?.limit ?? 8), 1), 25);
+        const hits = await vectors.searchRelated(ctx, query, {
+          limit: n * 5,
+          ...(opts?.kinds && opts.kinds.length > 0 ? { kinds: opts.kinds } : {}),
+          ...(opts?.excludePath ? { exclude: { kind: 'note' as const, ref: opts.excludePath } } : {}),
+        });
+        const ranked = topRelatedNotes(hits, {
+          limit: n,
+          titleOf: (h) => {
+            if (h.kind === 'source') return graph.sourceTitle(ctx, h.ref);
+            if (h.kind === 'excerpt') return 'Excerpt';
+            return graph.noteTitle(ctx, h.ref);
+          },
+        });
+        return { enabled: true, notes: ranked };
+      },
+    ),
+  );
   // Links
   ipcMain.handle(Channels.LINKS_OUTGOING, withRootPathOr([], (rootPath, relativePath: string) =>
     graph.outgoingLinks(projectContext(rootPath), relativePath)));

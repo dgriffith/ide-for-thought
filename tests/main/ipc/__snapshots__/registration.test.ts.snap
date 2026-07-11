@@ -68,6 +68,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "csl:removeLocale",
   "csl:removeStyle",
   "embeddings:related",
+  "embeddings:searchText",
   "excerpt:getNoteFolder",
   "excerpt:setNoteFolder",
   "export:csv",

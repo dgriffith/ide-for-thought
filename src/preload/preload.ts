@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
     related: (relativePath: string, limit?: number) =>
       ipcRenderer.invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
+    searchText: (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) =>
+      ipcRenderer.invoke(Channels.EMBEDDINGS_SEARCH_TEXT, query, opts),
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
