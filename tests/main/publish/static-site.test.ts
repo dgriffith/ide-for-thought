@@ -436,6 +436,46 @@ describe('static-site link + nav fixes (live GitHub Pages bugs)', () => {
     expect(html).toContain('href="fancy.css"');
   });
 
+  it('renders a structure sidebar on every page, current note highlighted + folder expanded (#1133)', async () => {
+    await fsp.mkdir(path.join(root, 'topic'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'topic', 'inner.md'), '---\ntitle: Inner\n---\n# Inner\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'top.md'), '---\ntitle: Top\n---\n# Top\n', 'utf-8');
+
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    const inner = String(output.files.find((f) => f.path === 'topic/inner.html')!.contents);
+    expect(inner).toContain('<aside class="site-sidebar">');
+    // Sidebar links to both notes, resolving from this page's depth.
+    expect(inner).toContain('href="../top.html"');
+    expect(inner).toContain('>Top</a>');
+    // Current note highlighted; its folder auto-expanded.
+    expect(inner).toContain('aria-current="page"');
+    expect(inner).toMatch(/<details data-path="topic" open><summary>topic<\/summary>/);
+    // A page outside that folder does NOT force it open.
+    const top = String(output.files.find((f) => f.path === 'top.html')!.contents);
+    expect(top).toContain('<aside class="site-sidebar">');
+    expect(top).toMatch(/<details data-path="topic"><summary>topic<\/summary>/); // collapsed
+    // The shipped script persists expanded-folder state across page loads so
+    // navigating doesn't collapse the sibling folders the reader opened (#1133).
+    const js = String(output.files.find((f) => f.path === 'search.js')!.contents);
+    expect(js).toContain('minerva-site-tree');
+    expect(js).toContain("details[data-path]");
+  });
+
+  it('sidebar lists ONLY exported notes — excluded/private never appear (#1133)', async () => {
+    await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/site-config.json'), JSON.stringify({ excludeTags: ['secret'] }), 'utf-8');
+    await fsp.writeFile(path.join(root, 'public.md'), '---\ntitle: Public\n---\n# Public\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'hidden.md'), '---\ntitle: Hidden\nprivate: true\n---\n# Hidden\n', 'utf-8');
+    await fsp.writeFile(path.join(root, 'tagged.md'), '---\ntitle: Tagged\ntags: [secret]\n---\n# Tagged\n', 'utf-8');
+
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    const html = String(output.files.find((f) => f.path === 'public.html')!.contents);
+    const sidebar = html.slice(html.indexOf('<aside class="site-sidebar">'), html.indexOf('</aside>'));
+    expect(sidebar).toContain('>Public</a>');
+    expect(sidebar).not.toContain('Hidden');
+    expect(sidebar).not.toContain('Tagged');
+  });
+
   it('with baseUrl empty, absolute-URL OG tags are cleanly omitted (#1136)', async () => {
     await fsp.writeFile(path.join(root, 'card.md'),
       '---\ntitle: Card\ndescription: blurb\npublish:\n  image: https://ex.com/c.png\n---\n# Card\n', 'utf-8');

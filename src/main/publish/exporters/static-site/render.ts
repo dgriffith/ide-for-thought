@@ -17,6 +17,7 @@ import type { SiteConfig } from './site-config';
 import { noteUrl, type SiteIndex } from './site-data';
 import { renderFootnotesSection } from '../note-html';
 import { extractPublish, type PublishMeta } from './publish-meta';
+import { type SidebarNode, subtreeContains } from './sidebar';
 
 export interface RenderPageInput {
   note: ExportPlanFile;
@@ -76,6 +77,7 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
     pageTitle: note.title,
     bodyHtml: `<article>${bodyWithBroken}${backlinksHtml}</article>${sidebar}`,
     nav,
+    currentPath: note.relativePath,
     ...(headExtra ? { headExtra } : {}),
     ...(bodyStyle ? { bodyStyle } : {}),
   });
@@ -279,18 +281,53 @@ interface ShellInput {
   /** Per-note background, validated to a safe CSS color/token (#1136). Applied
    *  as an inline style on `<body>`. */
   bodyStyle?: string;
+  /** relativePath of the note this page renders, so the structure sidebar can
+   *  highlight it and open its folder path (#1133). Empty for section pages. */
+  currentPath?: string;
+}
+
+/** The left structure sidebar (#1133) — site brand (links home) + the folder/
+ *  note tree, with the current note highlighted and its ancestors expanded.
+ *  Rendered from the tree the exporter attached to `config` (built from the
+ *  exported note set, so exclusions are respected). Empty when no tree. */
+function renderSidebar(config: SiteConfig, rootRelative: string, currentPath: string): string {
+  const tree = config.sidebarTree;
+  if (!tree || tree.length === 0) return '';
+  const brand = `<a class="site-brand" href="${escapeAttr(`${rootRelative}index.html`)}">${escapeHtml(config.title)}</a>`;
+  return `<aside class="site-sidebar">${brand}<nav class="site-tree">${renderTreeNodes(tree, currentPath, rootRelative)}</nav></aside>`;
+}
+
+function renderTreeNodes(nodes: SidebarNode[], currentPath: string, rootRelative: string, prefix = ''): string {
+  const items = nodes.map((n) => {
+    if (n.children) {
+      const folderPath = prefix ? `${prefix}/${n.name}` : n.name;
+      const open = subtreeContains(n.children, currentPath) ? ' open' : '';
+      // `data-path` is a stable id so search.js can persist the open/closed
+      // state across page loads (#1133) — navigating keeps expanded folders open.
+      return `<li class="tree-folder"><details data-path="${escapeAttr(folderPath)}"${open}><summary>${escapeHtml(n.name)}</summary>${renderTreeNodes(n.children, currentPath, rootRelative, folderPath)}</details></li>`;
+    }
+    const current = n.path === currentPath ? ' aria-current="page"' : '';
+    return `<li class="tree-note"><a href="${escapeAttr(`${rootRelative}${noteUrl(n.path!)}`)}"${current}>${escapeHtml(n.name)}</a></li>`;
+  });
+  return `<ul>${items.join('')}</ul>`;
 }
 
 function shell(input: ShellInput): string {
   const { config, rootRelative, pageTitle, bodyHtml, nav } = input;
   const headExtra = input.headExtra ?? '';
   const bodyStyleAttr = input.bodyStyle ? ` style="${escapeAttr(input.bodyStyle)}"` : '';
+  const sidebar = renderSidebar(config, rootRelative, input.currentPath ?? '');
   const navLink = (present: boolean, href: string, label: string): string =>
     present ? `\n  <a href="${escapeAttr(`${rootRelative}${href}`)}">${label}</a>` : '';
   const links =
     navLink(nav.hasTags, 'tags/index.html', 'Tags') +
     navLink(nav.hasReferences, 'references.html', 'References') +
     navLink(nav.hasSources, 'sources/index.html', 'Sources');
+  // The sidebar-toggle checkbox precedes .site-layout so the CSS-only
+  // `:checked ~ .site-layout .site-sidebar` reveal works on narrow screens.
+  const toggle = sidebar
+    ? '\n  <label for="site-sidebar-toggle" class="sidebar-toggle" aria-label="Toggle structure sidebar">☰</label>'
+    : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -302,14 +339,18 @@ function shell(input: ShellInput): string {
   }${headExtra}
 </head>
 <body data-search-root="${escapeAttr(rootRelative)}"${bodyStyleAttr}>
-<nav class="site-nav">
+<nav class="site-nav">${toggle}
   <a class="site-title" href="${rootRelative}index.html">${escapeHtml(config.title)}</a>${links}
   <input class="site-search" type="search" placeholder="Search notes…" autocomplete="off">
 </nav>
 <div id="search-results" class="hidden"></div>
+<input type="checkbox" id="site-sidebar-toggle" class="sidebar-toggle-cb" hidden>
+<div class="site-layout">
+${sidebar}
 <main class="page">
 ${bodyHtml}
 </main>
+</div>
 <script src="${rootRelative}search.js" defer></script>
 </body>
 </html>`;

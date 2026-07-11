@@ -71,4 +71,38 @@ export const SITE_SEARCH_SCRIPT = `(function() {
   function escapeAttr(s) { return escapeHtml(s); }
 
   input.addEventListener('input', function(e) { render(e.target.value.trim()); });
+})();
+
+// Structure-sidebar folder state (#1133): make the tree "sticky" across page
+// loads so navigating between notes keeps folders open instead of collapsing
+// back to just the current note's path. On each page the server opens the
+// current note's ancestors; we restore any folders the reader had open and then
+// re-save the union — so a folder stays open as you browse away from it, and
+// only a manual collapse closes it. localStorage-less browsers just get the
+// per-page default expansion.
+(function() {
+  'use strict';
+  var KEY = 'minerva-site-tree';
+  var tree = document.querySelector('.site-tree');
+  if (!tree || !window.localStorage) return;
+  var stored;
+  try { stored = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { stored = []; }
+  var openSet = {};
+  for (var i = 0; i < stored.length; i++) openSet[stored[i]] = true;
+  var folders = tree.querySelectorAll('details[data-path]');
+  function save() {
+    var out = [];
+    for (var j = 0; j < folders.length; j++) {
+      if (folders[j].open) out.push(folders[j].getAttribute('data-path'));
+    }
+    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+  }
+  for (var k = 0; k < folders.length; k++) {
+    if (openSet[folders[k].getAttribute('data-path')]) folders[k].open = true;
+    folders[k].addEventListener('toggle', save);
+  }
+  // Persist the current open set — INCLUDING the server-opened current-note
+  // path, whose HTML \`open\` attribute fires no toggle event — so those folders
+  // stay open once you navigate elsewhere.
+  save();
 })();`;

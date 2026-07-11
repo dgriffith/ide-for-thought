@@ -20,27 +20,29 @@
 
 export const STATIC_SITE_STYLE = `
 :root {
-  --fg: #1a1a1a;
-  --fg-muted: #5a5a5a;
-  --fg-faint: #8a8a8a;
-  --bg: #fdfdfa;
-  --bg-elev: #f4f3ee;
-  --accent: #2563eb;
-  --border: #e5e3dc;
-  --code-bg: #f5f4ef;
-  --strike: #b00020;
+  /* Calm, warm "reading" defaults — soft ink on warm paper, a muted slate-blue
+     link rather than an electric one. All overridable via .minerva/site.css. */
+  --fg: #2b2a27;
+  --fg-muted: #6b6862;
+  --fg-faint: #97948d;
+  --bg: #fbf9f3;
+  --bg-elev: #f2efe7;
+  --accent: #47698e;
+  --border: #e7e3d9;
+  --code-bg: #f2efe7;
+  --strike: #a8574c;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --fg: #e8e6df;
-    --fg-muted: #b0aea7;
-    --fg-faint: #888680;
-    --bg: #1d1d1b;
-    --bg-elev: #262624;
-    --accent: #6ea8fe;
-    --border: #353330;
-    --code-bg: #2a2a28;
-    --strike: #ef9a9a;
+    --fg: #e6e3da;
+    --fg-muted: #a9a69d;
+    --fg-faint: #7d7a72;
+    --bg: #1c1c1a;
+    --bg-elev: #262523;
+    --accent: #93b1d1;
+    --border: #34322e;
+    --code-bg: #262523;
+    --strike: #d69b93;
   }
 }
 * { box-sizing: border-box; }
@@ -50,11 +52,12 @@ body {
   background: var(--bg);
   color: var(--fg);
   font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
-  line-height: 1.6;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
 }
-a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 0.06em; }
-a:hover { text-decoration-thickness: 0.12em; }
+/* Softer links: muted color + a light, offset underline rather than a stark one. */
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 0.05em; text-underline-offset: 0.16em; text-decoration-color: var(--border); }
+a:hover { text-decoration-color: var(--accent); }
 
 /* Top nav */
 nav.site-nav {
@@ -88,6 +91,57 @@ nav.site-nav input.site-search {
   min-width: 160px;
 }
 
+/* ── Structure sidebar layout (#1133) ─────────────────────────────────────── */
+.site-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 15em) minmax(0, 1fr);
+  align-items: start;
+}
+.site-sidebar {
+  position: sticky;
+  top: 3.1em; /* clears the sticky top nav */
+  max-height: calc(100vh - 3.1em);
+  overflow-y: auto;
+  padding: 1.4em 0.9em;
+  border-right: 1px solid var(--border);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  font-size: 0.88em;
+}
+.site-brand {
+  display: block;
+  font-weight: 700;
+  font-size: 1.08em;
+  color: var(--fg);
+  text-decoration: none;
+  margin-bottom: 1em;
+}
+.site-tree ul { list-style: none; margin: 0; padding-left: 0.85em; }
+.site-tree > ul { padding-left: 0; }
+.site-tree li { margin: 0.1em 0; }
+.site-tree a {
+  display: block;
+  padding: 0.12em 0.4em;
+  border-radius: 3px;
+  color: var(--fg-muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-tree a:hover { color: var(--fg); background: var(--bg-elev); }
+.site-tree a[aria-current="page"] { color: var(--fg); font-weight: 700; background: var(--bg-elev); }
+.site-tree summary {
+  cursor: pointer;
+  padding: 0.12em 0.4em;
+  color: var(--fg);
+  font-weight: 600;
+}
+.site-tree summary:hover { background: var(--bg-elev); border-radius: 3px; }
+
+/* Sidebar toggle — a hamburger shown only on narrow screens. CSS-only. */
+.sidebar-toggle { display: none; cursor: pointer; user-select: none; font-size: 1.1em; color: var(--fg-muted); }
+.sidebar-toggle:hover { color: var(--fg); }
+
 /* Page layout */
 .page {
   max-width: 60em;
@@ -99,6 +153,14 @@ nav.site-nav input.site-search {
 }
 @media (max-width: 720px) {
   .page { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  /* Only on genuinely narrow screens does the sidebar fold to a toggle, so the
+     note stays readable; typical windows keep the two-column reading layout. */
+  .site-layout { grid-template-columns: 1fr; }
+  .site-sidebar { display: none; position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-toggle-cb:checked ~ .site-layout .site-sidebar { display: block; }
+  .sidebar-toggle { display: inline-block; }
 }
 article { min-width: 0; }
 aside.note-meta {
