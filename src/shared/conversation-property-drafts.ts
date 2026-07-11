@@ -20,7 +20,7 @@
  * tab closes — same lifecycle as note/source drafts.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 import type { PropertyPatch } from './refactor/frontmatter-patch';
 
 /** A single per-note frontmatter patch. */
@@ -33,9 +33,7 @@ export interface PropertyUpdate {
   properties: PropertyPatch;
 }
 
-export interface ConversationPropertyDraft extends ConversationDraftBase {
-  /** Bundle-level "why I'm proposing this" note from the LLM. */
-  note: string;
+export interface ConversationPropertyDraft extends ConversationToolDraft {
   updates: PropertyUpdate[];
 }
 

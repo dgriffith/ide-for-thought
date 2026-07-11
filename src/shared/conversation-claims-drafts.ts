@@ -18,7 +18,7 @@
  * Drafts live in renderer memory and drop when the tab closes.
  */
 
-import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ConversationToolDraft } from './conversation-draft-base';
 
 export type ClaimKind = 'factual' | 'evaluative' | 'definitional' | 'predictive';
 
@@ -45,9 +45,7 @@ export interface DraftClaim {
   quoteFound: boolean;
 }
 
-export interface ConversationClaimsDraft extends ConversationDraftBase {
-  /** Bundle-level "why I'm proposing these" note from the LLM. */
-  note: string;
+export interface ConversationClaimsDraft extends ConversationToolDraft {
   /** The source the claims were extracted from. */
   sourceId: string;
   claims: DraftClaim[];
