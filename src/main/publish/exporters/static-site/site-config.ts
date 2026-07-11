@@ -25,8 +25,7 @@ export interface SiteConfig {
   showBacklinks: boolean;
 }
 
-const DEFAULTS: SiteConfig = {
-  title: 'My Notes',
+const DEFAULTS: Omit<SiteConfig, 'title'> = {
   baseUrl: '',
   landing: '',
   excludeTags: ['draft'],
@@ -34,22 +33,28 @@ const DEFAULTS: SiteConfig = {
   showBacklinks: true,
 };
 
+/** Fallback site title when the config sets none (#1134): the project folder
+ *  name — the thoughtbase already has a name, so use it instead of "My Notes". */
+function defaultTitle(rootPath: string): string {
+  return path.basename(rootPath) || 'My Notes';
+}
+
 export async function loadSiteConfig(rootPath: string): Promise<SiteConfig> {
   const configPath = path.join(rootPath, '.minerva', 'site-config.json');
   try {
     const raw = await fs.readFile(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<SiteConfig>;
-    return mergeWithDefaults(parsed);
+    return mergeWithDefaults(parsed, rootPath);
   } catch {
     // Missing / malformed config → defaults. Not an error path: most
     // projects will start without one and the exporter still works.
-    return { ...DEFAULTS };
+    return { ...DEFAULTS, title: defaultTitle(rootPath) };
   }
 }
 
-function mergeWithDefaults(partial: Partial<SiteConfig>): SiteConfig {
+function mergeWithDefaults(partial: Partial<SiteConfig>, rootPath: string): SiteConfig {
   return {
-    title: typeof partial.title === 'string' && partial.title ? partial.title : DEFAULTS.title,
+    title: typeof partial.title === 'string' && partial.title ? partial.title : defaultTitle(rootPath),
     baseUrl: typeof partial.baseUrl === 'string' ? partial.baseUrl : DEFAULTS.baseUrl,
     landing: typeof partial.landing === 'string' ? partial.landing : DEFAULTS.landing,
     excludeTags: Array.isArray(partial.excludeTags) ? partial.excludeTags.filter((t) => typeof t === 'string') : [...DEFAULTS.excludeTags],
