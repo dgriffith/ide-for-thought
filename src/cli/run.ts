@@ -1,17 +1,17 @@
 /**
  * The Minerva CLI (#1149, epic #1145 — Substrate).
  *
- * `runCli` is the whole command surface as one pure async function: it takes an
- * argv slice + a working directory and returns { stdout, stderr, code } without
- * touching `process` or Electron. That keeps it fully testable under vitest and
- * lets the thin executable entry (`./main.ts`) — and, later, the MCP subcommand
- * (#1146) — wrap the same logic.
+ * `runCli` is the whole command surface as one async function: it takes an argv
+ * slice + a working directory and returns { stdout, stderr, code } without
+ * touching `process`. That keeps it testable and lets the thin executable entry
+ * (`./main.ts`) wrap it. The read work itself lives in the shared `Engine`
+ * (`./engine`), which the MCP subcommand (`./mcp`, #1146) drives too.
  *
- * This is the READ half of CLI parity: `query` (SPARQL), `search` (full-text),
- * and `read` (a note's markdown). It reuses the exact `ctx`-based core the app
- * uses — the audit for epic #1145 confirmed that core is Electron-free — by
- * constructing a ProjectContext from a directory and running the same
- * init → index → query path the app runs on project open.
+ * READ surface: `query` (SPARQL), `sql` (DuckDB), `search` (full-text),
+ * `semantic` (embeddings), `read` (a note's markdown), and `mcp` (a stdio MCP
+ * server exposing those as tools to agent clients). It reuses the exact
+ * `ctx`-based core the app uses — the audit for epic #1145 confirmed that core
+ * is Electron-free.
  *
  * Every result is *grounded*: query bindings carry node IRIs, search hits carry
  * the note path, read echoes the path. Output is JSON on stdout so it pipes to
@@ -19,14 +19,11 @@
  */
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import * as graph from '../main/graph/index';
-import * as search from '../main/search/index';
-import * as tables from '../main/sources/tables';
-import * as vectors from '../main/embeddings/vector-store';
 import type { ChunkEmbedder } from '../main/embeddings/vector-store';
-import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
-import { readFile } from '../main/notebase/fs';
-import { projectContext, type ProjectContext } from '../main/project-context-types';
+import { projectContext } from '../main/project-context-types';
+import { createEngine, type Engine, type ExecResult } from './engine';
+import { jsonStringify } from './json';
+import { runMcpServer } from './mcp';
 
 export interface CliResult {
   stdout: string;
@@ -52,6 +49,8 @@ Commands:
   search <text>         Full-text search over notes.        [--limit <n>]
   semantic <text>       Semantic (embeddings) search over notes.  [--limit <n>]
   read <relative-path>  Print a note's raw markdown.
+  mcp                   Start a stdio MCP server exposing the read tools to
+                        agent clients (Claude Desktop, coding agents, …).
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
@@ -99,25 +98,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { command: positionals.shift(), positionals, project, limit, help };
 }
 
-// DuckDB returns BigInt for integer columns (SQL command), which JSON.stringify
-// can't serialize. Keep safe integers as numbers; stringify larger ids to avoid
-// precision loss. See the DuckDB BigInt serialization gotcha.
-function bigintSafeReplacer(_key: string, v: unknown): unknown {
-  if (typeof v !== 'bigint') return v;
-  return v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER)
-    ? Number(v)
-    : v.toString();
-}
-
 function json(value: unknown): string {
-  return `${JSON.stringify(value, bigintSafeReplacer, 2)}\n`;
-}
-
-/** The app always has a `.minerva/` dir; a headless first run against a fresh
- *  vault may not, and the index-building commands persist there. Derived cache
- *  only, so creating it during a read is safe. */
-async function ensureMinervaDir(root: string): Promise<void> {
-  await fs.mkdir(path.join(root, '.minerva'), { recursive: true });
+  return `${jsonStringify(value, true)}\n`;
 }
 
 /** A directory is required and must exist; a missing `.minerva` is fine —
@@ -136,62 +118,12 @@ async function resolveProjectRoot(project: string | undefined, cwd: string): Pro
  *  opposed to an unexpected throw (exit code 1). */
 class UsageError extends Error {}
 
-async function runQuery(ctx: ProjectContext, sparql: string): Promise<CliResult> {
-  if (!sparql.trim()) throw new UsageError('query: a SPARQL string is required.');
-  await graph.initGraph(ctx);
-  await graph.indexAllNotes(ctx);
-  const { results, columns, error } = await graph.queryGraph(ctx, sparql);
-  if (error) return { stdout: '', stderr: `SPARQL error: ${error}\n`, code: 1 };
-  return { stdout: json({ columns, results }), stderr: '', code: 0 };
-}
-
-async function runSearch(ctx: ProjectContext, text: string, limit: number | undefined): Promise<CliResult> {
-  if (!text.trim()) throw new UsageError('search: a query string is required.');
-  // `indexAllNotes` persists the MiniSearch index into `.minerva/`, so the dir
-  // must exist first (a headless first run may not have it).
-  await ensureMinervaDir(ctx.rootPath);
-  await search.initSearch(ctx);
-  await search.indexAllNotes(ctx);
-  const hits = search.search(ctx, text, limit ? { limit } : undefined);
-  return { stdout: json({ query: text, hits }), stderr: '', code: 0 };
-}
-
-async function runSql(ctx: ProjectContext, sql: string): Promise<CliResult> {
-  if (!sql.trim()) throw new UsageError('sql: a SQL string is required.');
-  await ensureMinervaDir(ctx.rootPath);
-  await tables.initTablesDb(ctx);
-  // Register the vault's CSV tables so they're queryable by their derived names.
-  await tables.registerAllCsvs(ctx);
-  const result = await tables.runQuery(ctx, sql);
-  if (!result.ok) return { stdout: '', stderr: `SQL error: ${result.error}\n`, code: 1 };
-  return { stdout: json({ columns: result.columns, rows: result.rows }), stderr: '', code: 0 };
-}
-
-async function runSemantic(
-  ctx: ProjectContext,
-  text: string,
-  limit: number | undefined,
-  embedder: ChunkEmbedder,
-): Promise<CliResult> {
-  if (!text.trim()) throw new UsageError('semantic: a query string is required.');
-  await ensureMinervaDir(ctx.rootPath);
-  await vectors.init(ctx, { embedder });
-  const hits = await vectors.searchRelated(ctx, text, limit ? { limit } : {});
-  const out: Record<string, unknown> = { query: text, hits };
-  if (hits.length === 0) {
-    // Semantic search only covers already-embedded content; a vault the app has
-    // never opened/embedded yields nothing. Say so rather than look broken.
-    out.note =
-      'No embedded content matched. Semantic search covers notes already embedded ' +
-      'by the app; a vault that has never been embedded returns no hits.';
-  }
-  return { stdout: json(out), stderr: '', code: 0 };
-}
-
-async function runRead(ctx: ProjectContext, relativePath: string): Promise<CliResult> {
-  if (!relativePath) throw new UsageError('read: a relative note path is required.');
-  const content = await readFile(ctx.rootPath, relativePath);
-  return { stdout: json({ path: relativePath, content }), stderr: '', code: 0 };
+/** Format an Engine result as a CliResult: success → pretty JSON + code 0;
+ *  failure → `<prefix>: <error>` on stderr + code 1. */
+function format(result: ExecResult, errorPrefix: string): CliResult {
+  return result.ok
+    ? { stdout: json(result.data), stderr: '', code: 0 }
+    : { stdout: '', stderr: `${errorPrefix}: ${result.error}\n`, code: 1 };
 }
 
 /**
@@ -208,19 +140,33 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
 
   try {
     const root = await resolveProjectRoot(args.project, opts.cwd);
-    const ctx = projectContext(root);
+
+    // The MCP server is long-lived and owns its own IO; it doesn't fit the
+    // request/response shape, so it's handled before the engine dispatch.
+    if (args.command === 'mcp') {
+      await runMcpServer(root, { embedder: opts.embedder });
+      return { stdout: '', stderr: '', code: 0 };
+    }
+
+    const engine: Engine = createEngine(projectContext(root), { embedder: opts.embedder });
+    const rest = args.positionals.join(' ');
 
     switch (args.command) {
       case 'query':
-        return await runQuery(ctx, args.positionals.join(' '));
+        if (!rest.trim()) throw new UsageError('query: a SPARQL string is required.');
+        return format(await engine.query(rest), 'SPARQL error');
       case 'sql':
-        return await runSql(ctx, args.positionals.join(' '));
+        if (!rest.trim()) throw new UsageError('sql: a SQL string is required.');
+        return format(await engine.sql(rest), 'SQL error');
       case 'search':
-        return await runSearch(ctx, args.positionals.join(' '), args.limit);
+        if (!rest.trim()) throw new UsageError('search: a query string is required.');
+        return format(await engine.search(rest, args.limit), 'Error');
       case 'semantic':
-        return await runSemantic(ctx, args.positionals.join(' '), args.limit, opts.embedder ?? getSharedEmbedder());
+        if (!rest.trim()) throw new UsageError('semantic: a query string is required.');
+        return format(await engine.semantic(rest, args.limit), 'Error');
       case 'read':
-        return await runRead(ctx, args.positionals[0] ?? '');
+        if (!args.positionals[0]) throw new UsageError('read: a relative note path is required.');
+        return format(await engine.read(args.positionals[0]), 'Error');
       default:
         return { stdout: '', stderr: `Unknown command: ${args.command}\n\n${HELP}\n`, code: 2 };
     }
