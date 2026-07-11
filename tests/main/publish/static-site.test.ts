@@ -377,4 +377,74 @@ describe('static-site link + nav fixes (live GitHub Pages bugs)', () => {
     const a = String(output.files.find((f) => f.path === 'a.html')!.contents);
     expect(a).toContain('tags/index.html');
   });
+
+  it('defaults the site title to the project folder name (#1134)', async () => {
+    // No site-config.json → title falls back to the thoughtbase folder name.
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: First\n---\n# First\n', 'utf-8');
+    const plan = await resolvePlan(root, { kind: 'project' });
+    const output = await runExporter(staticSiteExporter, plan);
+    const projectName = path.basename(root);
+    const idx = String(output.files.find((f) => f.path === 'index.html')!.contents);
+    expect(idx).toContain(`<title>${projectName}`);
+    expect(idx).not.toContain('My Notes');
+    // Explicit config title still wins.
+    await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/site-config.json'), JSON.stringify({ title: 'Chosen' }), 'utf-8');
+    const out2 = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    expect(String(out2.files.find((f) => f.path === 'index.html')!.contents)).toContain('<title>Chosen');
+  });
+
+  it('copies .minerva/site.css and links it after style.css (#1135)', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: First\n---\n# First\n', 'utf-8');
+    await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/site.css'), ':root { --accent: #b5179e; }', 'utf-8');
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    expect(output.files.some((f) => f.path === 'site.css')).toBe(true);
+    const html = String(output.files.find((f) => f.path === 'a.html')!.contents);
+    // Both links present, site.css after style.css so it wins the cascade.
+    expect(html.indexOf('href="style.css"')).toBeLessThan(html.indexOf('href="site.css"'));
+  });
+
+  it('no site.css → no site.css link (zero-config unchanged, #1135)', async () => {
+    await fsp.writeFile(path.join(root, 'a.md'), '---\ntitle: First\n---\n# First\n', 'utf-8');
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    expect(output.files.some((f) => f.path === 'site.css')).toBe(false);
+    expect(String(output.files.find((f) => f.path === 'a.html')!.contents)).not.toContain('site.css');
+  });
+
+  it('per-note publish frontmatter emits OG/Twitter meta + validated background + per-note css (#1136)', async () => {
+    await fsp.mkdir(path.join(root, '.minerva'), { recursive: true });
+    await fsp.writeFile(path.join(root, '.minerva/site-config.json'), JSON.stringify({ baseUrl: 'https://ex.com/' }), 'utf-8');
+    await fsp.writeFile(path.join(root, 'card.md'), [
+      '---', 'title: Card', 'description: A share blurb',
+      'publish:', '  image: https://ex.com/card.png', '  background: "#faf3e0"', '  css: fancy.css',
+      '---', '# Card', '', 'Body.',
+    ].join('\n'), 'utf-8');
+    await fsp.writeFile(path.join(root, 'fancy.css'), 'article { max-width: 40rem; }', 'utf-8');
+
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    const html = String(output.files.find((f) => f.path === 'card.html')!.contents);
+    expect(html).toContain('<meta name="description" content="A share blurb">');
+    expect(html).toContain('<meta property="og:image" content="https://ex.com/card.png">');
+    expect(html).toContain('twitter:card" content="summary_large_image"');
+    // baseUrl set → canonical + og:url.
+    expect(html).toContain('<link rel="canonical" href="https://ex.com/card.html">');
+    expect(html).toContain('og:url" content="https://ex.com/card.html"');
+    // Validated background applied to <body>; per-note css copied + linked after style.css.
+    expect(html).toContain('style="background:#faf3e0"');
+    expect(output.files.some((f) => f.path === 'fancy.css')).toBe(true);
+    expect(html).toContain('href="fancy.css"');
+  });
+
+  it('with baseUrl empty, absolute-URL OG tags are cleanly omitted (#1136)', async () => {
+    await fsp.writeFile(path.join(root, 'card.md'),
+      '---\ntitle: Card\ndescription: blurb\npublish:\n  image: https://ex.com/c.png\n---\n# Card\n', 'utf-8');
+    const output = await runExporter(staticSiteExporter, await resolvePlan(root, { kind: 'project' }));
+    const html = String(output.files.find((f) => f.path === 'card.html')!.contents);
+    expect(html).not.toContain('rel="canonical"');
+    expect(html).not.toContain('og:url');
+    // description still emitted (relative-safe); og:image still works (absolute).
+    expect(html).toContain('name="description"');
+    expect(html).toContain('og:image');
+  });
 });

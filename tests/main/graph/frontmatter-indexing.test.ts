@@ -174,4 +174,17 @@ title: Frontmatter Title
     // Exactly one dc:title (the frontmatter one wins — extractTitle prefers it).
     expect(titles).toEqual(['Frontmatter Title']);
   });
+
+  it('does NOT materialise the publish: block as a graph predicate (#1136)', async () => {
+    await indexNote(ctx, 'card.md', [
+      '---', 'title: Card', 'publish:', '  image: https://ex.com/c.png', '  background: "#faf3e0"',
+      '---', '# Card', '', 'Body.',
+    ].join('\n'));
+    // No stray minerva:meta-publish (or any predicate carrying the values).
+    const { results } = await queryGraph(ctx, `
+      SELECT ?p ?o WHERE { ?note minerva:relativePath "card.md" ; ?p ?o .
+        FILTER(CONTAINS(STR(?p), "publish") || CONTAINS(STR(?o), "faf3e0")) }
+    `);
+    expect(results).toEqual([]);
+  });
 });

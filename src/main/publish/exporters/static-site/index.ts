@@ -26,6 +26,7 @@ import path from 'node:path';
 import type { Exporter, ExportOutput, ExportPlanFile } from '../../types';
 import { loadSiteConfig, type SiteConfig } from './site-config';
 import { buildSiteIndex, noteUrl, sourceUrl, collectCitedSources } from './site-data';
+import { extractPublish } from './publish-meta';
 import {
   renderNotePage,
   renderTagCloud,
@@ -60,6 +61,17 @@ export const staticSiteExporter: Exporter = {
     const index = buildSiteIndex(notes);
     const files: ExportOutput['files'] = [];
 
+    // Custom site stylesheet (#1135): if the project ships `.minerva/site.css`,
+    // copy it into the output and flag it so `shell()` links it AFTER the
+    // default style.css — the cascade lets a few `:root { --accent: … }` lines
+    // restyle the site. Absent file → output identical to before. Detected up
+    // front so the note pages (rendered below) carry the link too.
+    try {
+      const customCss = await fs.readFile(path.join(rootPath, '.minerva', 'site.css'), 'utf-8');
+      files.push({ path: 'site.css', contents: customCss });
+      config.hasCustomCss = true;
+    } catch { /* no custom stylesheet — zero-config stays zero-config */ }
+
     // Which published notes cite each source (#252 follow-up). Computed
     // up front from a cheap citation scan so per-source pages can be built
     // AND the "Sources" nav link can be gated on every page — including the
@@ -80,12 +92,23 @@ export const staticSiteExporter: Exporter = {
     // the tree-html bundle bibliography from #300).
     const allCitedIds = new Set<string>();
     let isNoteStyle = false;
+    // Per-note stylesheets referenced via `publish.css` (#1136) — copy each into
+    // the output once (the head-link is emitted by renderNotePage). Deduped
+    // across notes since several may share one stylesheet.
+    const copiedCss = new Set<string>();
 
     for (const note of notes) {
       const renderer = plan.citations?.createRenderer() ?? null;
       const rootRel = relativeToRoot(note.relativePath);
       const html = await renderNotePage({ note, plan, config, index, rootRelative: rootRel, renderer, nav });
       files.push({ path: noteUrl(note.relativePath), contents: html });
+      for (const cssPath of extractPublish(note).cssPaths) {
+        if (copiedCss.has(cssPath)) continue;
+        copiedCss.add(cssPath);
+        try {
+          files.push({ path: cssPath, contents: await fs.readFile(path.join(rootPath, cssPath), 'utf-8') });
+        } catch { /* referenced stylesheet missing — link 404s, page still renders */ }
+      }
       if (renderer) {
         for (const id of renderer.cited()) allCitedIds.add(id);
         if (renderer.isNoteStyle) isNoteStyle = true;
