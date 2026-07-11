@@ -88,6 +88,57 @@ nav.site-nav input.site-search {
   min-width: 160px;
 }
 
+/* ── Structure sidebar layout (#1133) ─────────────────────────────────────── */
+.site-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 16em) minmax(0, 1fr);
+  align-items: start;
+}
+.site-sidebar {
+  position: sticky;
+  top: 3.1em; /* clears the sticky top nav */
+  max-height: calc(100vh - 3.1em);
+  overflow-y: auto;
+  padding: 1.4em 0.9em;
+  border-right: 1px solid var(--border);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+  font-size: 0.88em;
+}
+.site-brand {
+  display: block;
+  font-weight: 700;
+  font-size: 1.08em;
+  color: var(--fg);
+  text-decoration: none;
+  margin-bottom: 1em;
+}
+.site-tree ul { list-style: none; margin: 0; padding-left: 0.85em; }
+.site-tree > ul { padding-left: 0; }
+.site-tree li { margin: 0.1em 0; }
+.site-tree a {
+  display: block;
+  padding: 0.12em 0.4em;
+  border-radius: 3px;
+  color: var(--fg-muted);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-tree a:hover { color: var(--fg); background: var(--bg-elev); }
+.site-tree a[aria-current="page"] { color: var(--fg); font-weight: 700; background: var(--bg-elev); }
+.site-tree summary {
+  cursor: pointer;
+  padding: 0.12em 0.4em;
+  color: var(--fg);
+  font-weight: 600;
+}
+.site-tree summary:hover { background: var(--bg-elev); border-radius: 3px; }
+
+/* Sidebar toggle — a hamburger shown only on narrow screens. CSS-only. */
+.sidebar-toggle { display: none; cursor: pointer; user-select: none; font-size: 1.1em; color: var(--fg-muted); }
+.sidebar-toggle:hover { color: var(--fg); }
+
 /* Page layout */
 .page {
   max-width: 60em;
@@ -99,6 +150,13 @@ nav.site-nav input.site-search {
 }
 @media (max-width: 720px) {
   .page { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  /* Sidebar folds to a toggle so the note stays readable. */
+  .site-layout { grid-template-columns: 1fr; }
+  .site-sidebar { display: none; position: static; max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+  .sidebar-toggle-cb:checked ~ .site-layout .site-sidebar { display: block; }
+  .sidebar-toggle { display: inline-block; }
 }
 article { min-width: 0; }
 aside.note-meta {

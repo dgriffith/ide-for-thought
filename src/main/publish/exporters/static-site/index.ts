@@ -27,6 +27,7 @@ import type { Exporter, ExportOutput, ExportPlanFile } from '../../types';
 import { loadSiteConfig, type SiteConfig } from './site-config';
 import { buildSiteIndex, noteUrl, sourceUrl, collectCitedSources } from './site-data';
 import { extractPublish } from './publish-meta';
+import { buildSidebarTree } from './sidebar';
 import {
   renderNotePage,
   renderTagCloud,
@@ -59,6 +60,10 @@ export const staticSiteExporter: Exporter = {
     }
 
     const index = buildSiteIndex(notes);
+    // Structure sidebar (#1133): built from the EXPORTED note set (post-filter),
+    // so it never links to a note that was withheld. Attached to config and
+    // threaded into every page's shell.
+    config.sidebarTree = buildSidebarTree(notes.map((n) => ({ relativePath: n.relativePath, title: n.title })));
     const files: ExportOutput['files'] = [];
 
     // Custom site stylesheet (#1135): if the project ships `.minerva/site.css`,

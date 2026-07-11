@@ -9,6 +9,7 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import type { SidebarNode } from './sidebar';
 
 export interface SiteConfig {
   /** Site title shown in the nav header and `<title>` of every page. */
@@ -27,6 +28,10 @@ export interface SiteConfig {
    *  `.minerva/site.css` that the exporter copied + linked (#1135). Set by the
    *  exporter after detecting the file, not by `loadSiteConfig`. */
   hasCustomCss?: boolean;
+  /** Runtime-only (not persisted): the left structure-sidebar tree, built from
+   *  the EXPORTED note set so exclusions are respected (#1133). Set by the
+   *  exporter, threaded into every page's shell. */
+  sidebarTree?: SidebarNode[];
 }
 
 const DEFAULTS: Omit<SiteConfig, 'title'> = {
