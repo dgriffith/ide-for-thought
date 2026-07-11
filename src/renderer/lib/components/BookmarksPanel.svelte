@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getBookmarksStore } from '../stores/bookmarks.svelte';
   import type { BookmarkNode } from '../../../shared/types';
+  import { DRAG_MIME_NOTE } from '../editor/drag-link';
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import Icon from './Icon.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
@@ -102,9 +103,17 @@
     if (name) bookmarks.addFolder(name);
   }
 
-  function handleDragStart(e: DragEvent, id: string) {
-    e.dataTransfer!.setData('text/bookmark-id', id);
-    e.dataTransfer!.effectAllowed = 'move';
+  function handleDragStart(e: DragEvent, node: BookmarkNode) {
+    e.dataTransfer!.setData('text/bookmark-id', node.id);
+    // A bookmark (not a folder) can ALSO be dropped into an editor to insert a
+    // [[link]] to its note (#1129); `copyMove` keeps the in-panel reorder (move)
+    // working alongside the editor drop (copy).
+    if (node.type === 'bookmark') {
+      e.dataTransfer!.setData(DRAG_MIME_NOTE, node.relativePath);
+      e.dataTransfer!.effectAllowed = 'copyMove';
+    } else {
+      e.dataTransfer!.effectAllowed = 'move';
+    }
   }
 
   function handleDrop(e: DragEvent, targetFolderId: string | null) {
@@ -193,7 +202,7 @@
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(node); } }}
       oncontextmenu={(e) => showContextMenu(e, node)}
       draggable={true}
-      ondragstart={(e) => handleDragStart(e, node.id)}
+      ondragstart={(e) => handleDragStart(e, node)}
     >
       <span class="chev"></span>
       <Icon name={bmIcon(node)} size={13} color="var(--text-faint)" />

@@ -8,6 +8,7 @@
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { extractTagsFromContent } from '../../../shared/refactor/auto-tag';
   import { fileCapability } from '../../../shared/file-capability';
+  import { DRAG_MIME_NOTE } from '../editor/drag-link';
   import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
   import type { IconName } from './icons/registry';
 
@@ -98,9 +99,18 @@
   });
   let dropTarget = $state<string | null>(null);
 
-  function handleDragStart(e: DragEvent, relativePath: string) {
+  function handleDragStart(e: DragEvent, relativePath: string, isDirectory: boolean) {
     e.dataTransfer!.setData('text/plain', relativePath);
-    e.dataTransfer!.effectAllowed = 'move';
+    // A file (not a folder) can also be dropped into an editor to insert a
+    // resolving wiki-link (#1129) — stamp the note MIME alongside the move
+    // payload. `copyMove` allows both the folder-move (move) and the
+    // editor-drop (copy) drop effects.
+    if (!isDirectory) {
+      e.dataTransfer!.setData(DRAG_MIME_NOTE, relativePath);
+      e.dataTransfer!.effectAllowed = 'copyMove';
+    } else {
+      e.dataTransfer!.effectAllowed = 'move';
+    }
   }
 
   function handleDragOver(e: DragEvent, dirPath: string) {
@@ -201,7 +211,7 @@
           }}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
           draggable={true}
-          ondragstart={(e) => handleDragStart(e, file.relativePath)}
+          ondragstart={(e) => handleDragStart(e, file.relativePath, true)}
           ondragover={(e) => handleDragOver(e, file.relativePath)}
           ondragleave={handleDragLeave}
           ondrop={(e) => handleDrop(e, file.relativePath)}
@@ -252,7 +262,7 @@
           onclick={(e) => onItemClick(file.relativePath, false, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey })}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath.includes('/') ? file.relativePath.substring(0, file.relativePath.lastIndexOf('/')) : '', file.relativePath, false)}
           draggable={true}
-          ondragstart={(e) => handleDragStart(e, file.relativePath)}
+          ondragstart={(e) => handleDragStart(e, file.relativePath, false)}
         >
           <span class="chev"></span>
           <Icon

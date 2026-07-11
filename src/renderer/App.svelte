@@ -31,6 +31,7 @@
   import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
+  import { getLinkDrag } from './lib/stores/link-drag.svelte';
   // PdfViewer + OcrProgressDialog are loaded lazily at their render sites
   // (`{#await import()}`) so pdfjs-dist + tesseract.js stay out of the eager
   // startup graph (#691).
@@ -323,6 +324,7 @@
   // live in the dialog store (#670); destructure the imperative `show*` helpers
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
+  const linkDrag = getLinkDrag();
   const { showPrompt, showConfirm } = dialogs;
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);
@@ -1717,6 +1719,24 @@
     />
   {/if}
   <DialogHost />
+
+  <!-- Drag-to-add-link overlays (#1129): a ghost chip following the pointer and
+       a live insertion caret in the editor under it. Pointer-event driven, so
+       reactivity stays live and these actually paint (unlike native HTML5 drag). -->
+  {#if linkDrag.dragging && linkDrag.ghost}
+    <div class="link-drag-ghost" style:left="{linkDrag.ghost.x + 12}px" style:top="{linkDrag.ghost.y + 10}px">
+      {linkDrag.dragging.label}
+    </div>
+  {/if}
+  {#if linkDrag.dragging && linkDrag.caret}
+    <div
+      class="link-drop-caret"
+      style:left="{linkDrag.caret.left}px"
+      style:top="{linkDrag.caret.top}px"
+      style:height="{Math.max(2, linkDrag.caret.bottom - linkDrag.caret.top)}px"
+    ></div>
+  {/if}
+
   {#if sourceFlow.mineReview}
     <MineReferencesDialog
       parentTitle={sourceFlow.mineReview.parentTitle}
@@ -1910,6 +1930,38 @@
   :global(body.tab-dragging) {
     cursor: grabbing;
     user-select: none;
+  }
+
+  /* Drag-to-add-link (#1129): app-wide grabbing cursor + no selection. */
+  :global(body.link-dragging) {
+    cursor: grabbing;
+    user-select: none;
+  }
+  /* The chip that follows the pointer while dragging a note/source in. */
+  .link-drag-ghost {
+    position: fixed;
+    z-index: 3000;
+    pointer-events: none;
+    max-width: 260px;
+    padding: 3px 8px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  /* The live insertion caret shown in the editor at the drop position. */
+  .link-drop-caret {
+    position: fixed;
+    z-index: 3000;
+    pointer-events: none;
+    width: 2px;
+    background: var(--accent);
   }
 
   .toolbar {

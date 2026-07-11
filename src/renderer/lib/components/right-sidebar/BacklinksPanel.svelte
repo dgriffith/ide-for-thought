@@ -4,6 +4,9 @@
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
+  import { getLinkDrag } from '../../stores/link-drag.svelte';
+
+  const linkDrag = getLinkDrag();
 
   interface Props {
     activeFilePath: string | null;
@@ -106,6 +109,7 @@
               <button
                 class="link-item"
                 onclick={() => onFileSelect(link.source)}
+                onpointerdown={(e) => linkDrag.start({ kind: 'note', path: link.source, label: link.sourceTitle }, e)}
                 title={link.source}
               >
                 <Icon name="notes" size={12} color="var(--text-faint)" />

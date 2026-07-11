@@ -50,6 +50,7 @@
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
   import { hasImageFiles, imageFilesFromTransfer, imageFilesFromClipboard } from '../editor/image-drop';
+  import { dataTransferHasItem, draggedItemFromDataTransfer, wikiLinkForItem, insertWikiLinkAtPos } from '../editor/drag-link';
   import { formatPaste } from '../editor/paste-format';
   import { getFormatSettings } from '../formatter/settings';
   import { buildParseCache } from '../../../shared/formatter/parse-cache';
@@ -459,6 +460,9 @@
     // Give the `role="textbox"` content DOM an accessible name (#1005 a11y) —
     // CodeMirror's editable div is otherwise unlabeled (axe aria-input-field-name).
     EditorView.contentAttributes.of({ 'aria-label': plainText ? 'Text editor' : 'Note editor' }),
+    // Mark plain-text editors so the drag-to-add-link machinery skips them —
+    // a [[wiki-link]] doesn't resolve in a non-markdown file (#1129 / #1130).
+    EditorView.editorAttributes.of(plainText ? { 'data-plaintext': 'true' } : {}),
     // Markdown language + frontmatter fold are markdown-only (#1130). A
     // plain-text file gets a plain editable buffer with no md syntax layer.
     ...(plainText ? [] : [
@@ -567,7 +571,15 @@
       // Without stopPropagation an image drop fires both handlers and
       // the import path rejects the JPEG with "doesn't ingest *.jpeg".
       dragover: (e) => {
-        if (plainText) return false; // no image-upload / format-on-paste in plain text
+        if (plainText) return false; // no image-upload / wiki-link drop in plain text
+        // Drag-to-add-link from an HTML5 source (file tree, bookmarks) — accept
+        // the drop so `drop` fires (#1129).
+        if (e.dataTransfer && dataTransferHasItem(e.dataTransfer)) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = 'copy';
+          return true;
+        }
         if (e.dataTransfer && hasImageFiles(e.dataTransfer)) {
           e.preventDefault();
           e.stopPropagation();
@@ -578,6 +590,15 @@
       },
       drop: (e, v) => {
         if (plainText) return false;
+        // Internal item → insert a resolving wiki-link at the drop point (#1129).
+        const item = e.dataTransfer && draggedItemFromDataTransfer(e.dataTransfer);
+        if (item) {
+          e.preventDefault();
+          e.stopPropagation();
+          const dropPos = v.posAtCoords({ x: e.clientX, y: e.clientY }) ?? v.state.selection.main.head;
+          insertWikiLinkAtPos(v, dropPos, wikiLinkForItem(item));
+          return true;
+        }
         if (!e.dataTransfer || !hasImageFiles(e.dataTransfer)) return false;
         e.preventDefault();
         e.stopPropagation();
