@@ -1,5 +1,5 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import type { ConversationToolKey } from '../../../shared/conversation-tools';
+import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
 import { searchNotes } from './search-notes';
 import { readNote } from './read-note';
@@ -54,7 +54,7 @@ export const NOTEBASE_TOOL_REGISTRY: Record<string, NotebaseTool> = Object.fromE
   DEFAULT_TOOLS.map((t) => [t.definition.name, t]),
 );
 
-export const NOTEBASE_TOOLS: Anthropic.Tool[] = DEFAULT_TOOLS.map((t) => t.definition);
+export const NOTEBASE_TOOLS: ToolSpec[] = DEFAULT_TOOLS.map((t) => t.definition);
 
 /**
  * Dispatch table for `executeNotebaseTool`. Same as the default registry plus
@@ -65,65 +65,23 @@ const DISPATCH: Record<string, NotebaseTool> = {
   [askUser.definition.name]: askUser,
 };
 
-const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, Anthropic.Tool> = {
+const TEMPLATE_TOOL_REGISTRY: Record<ConversationToolKey, ToolSpec> = {
   ask_user: askUser.definition,
 };
 
-/**
- * Server-side tools run on Anthropic's infrastructure — we just declare them
- * in the request and the API executes queries/fetches and returns structured
- * citations. Version _20260209 bundles dynamic filtering (Claude filters
- * results with code before they hit its context window).
- *
- * `allowed_domains` / `blocked_domains` are passed through per user setting;
- * they're mutually exclusive from the model's perspective but the API accepts
- * either independently.
- */
-export function buildWebTools(opts: {
-  allowedDomains?: string[] | undefined;
-  blockedDomains?: string[] | undefined;
-}): Anthropic.Messages.ToolUnion[] {
-  const webSearch: Anthropic.Messages.WebSearchTool20260209 = {
-    type: 'web_search_20260209',
-    name: 'web_search',
-  };
-  if (opts.allowedDomains && opts.allowedDomains.length > 0) {
-    webSearch.allowed_domains = opts.allowedDomains;
-  } else if (opts.blockedDomains && opts.blockedDomains.length > 0) {
-    webSearch.blocked_domains = opts.blockedDomains;
-  }
-  const webFetch: Anthropic.Messages.WebFetchTool20260209 = {
-    type: 'web_fetch_20260209',
-    name: 'web_fetch',
-  };
-  if (opts.allowedDomains && opts.allowedDomains.length > 0) {
-    webFetch.allowed_domains = opts.allowedDomains;
-  } else if (opts.blockedDomains && opts.blockedDomains.length > 0) {
-    webFetch.blocked_domains = opts.blockedDomains;
-  }
-  return [webSearch, webFetch];
-}
-
 export interface ConversationToolOptions {
-  web: {
-    enabled: boolean;
-    allowedDomains?: string[];
-    blockedDomains?: string[];
-  };
   /** Template-scoped tools to add on top of the default set. */
   extraTools?: ConversationToolKey[] | undefined;
 }
 
-export function buildConversationTools(
-  opts: ConversationToolOptions,
-): Anthropic.Messages.ToolUnion[] {
-  const tools: Anthropic.Messages.ToolUnion[] = [...NOTEBASE_TOOLS];
-  if (opts.web.enabled) {
-    tools.push(...buildWebTools({
-      allowedDomains: opts.web.allowedDomains,
-      blockedDomains: opts.web.blockedDomains,
-    }));
-  }
+/**
+ * The neutral client-side toolset for a conversation: the default notebase
+ * tools plus any template-scoped extras. Server-side web tools are NOT here —
+ * they're provider-specific (they run on the provider's infrastructure) and are
+ * added inside the provider from the request's web settings (#1148).
+ */
+export function buildConversationTools(opts: ConversationToolOptions): ToolSpec[] {
+  const tools: ToolSpec[] = [...NOTEBASE_TOOLS];
   if (opts.extraTools) {
     const seen = new Set<string>();
     for (const key of opts.extraTools) {

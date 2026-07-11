@@ -1,5 +1,9 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { getSettings } from './settings';
+import { getProvider } from './provider';
+import type {
+  ChatMessage,
+  ProviderMessage,
+  ProviderToolResult,
+} from './provider/types';
 import {
   buildConversationTools,
   executeNotebaseTool,
@@ -8,8 +12,6 @@ import {
 } from './tools';
 import type { Citation, TurnUsage } from '../../shared/types';
 import { resolveEffort, type Effort } from '../../shared/tools/effort';
-import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
-import { MISSING_API_KEY_MARKER } from '../../shared/llm-errors';
 import type { ConversationDraft } from '../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../shared/conversation-source-drafts';
 import type { ConversationPropertyDraft } from '../../shared/conversation-property-drafts';
@@ -127,10 +129,7 @@ export function toToolCallbacks(callbacks?: StreamCallbacks): ToolCallbacks {
   return out;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+export type { ChatMessage } from './provider/types';
 
 export interface CompleteOptions {
   system?: string;
@@ -156,7 +155,7 @@ export interface CompleteOptions {
 
 export interface CompleteWithToolsOptions {
   system: string;
-  messages: Anthropic.MessageParam[];
+  messages: ChatMessage[];
   toolContext: ToolContext;
   callbacks?: StreamCallbacks;
   /** Hard cap on tool-use iterations. Defaults to 10. */
@@ -198,57 +197,17 @@ export interface CompleteWithToolsResult {
   containerExpiresAt?: string;
 }
 
-async function getClient(): Promise<{
-  client: Anthropic;
-  model: string;
-  web: NonNullable<Awaited<ReturnType<typeof getSettings>>['web']>;
-  effort: Effort | undefined;
-}> {
-  const settings = await getSettings();
-  if (!settings.apiKey) {
-    // Message starts with MISSING_API_KEY_MARKER so the renderer can
-    // detect this specific failure across IPC and surface an actionable
-    // "Open Settings" dialog instead of the silent log message that was
-    // the only feedback before. See `shared/llm-errors.ts`.
-    throw new Error(
-      `${MISSING_API_KEY_MARKER}. Set it in the LLM settings or ANTHROPIC_API_KEY environment variable.`,
-    );
-  }
-  return {
-    client: new Anthropic({ apiKey: settings.apiKey }),
-    model: settings.model,
-    web: settings.web ?? { ...DEFAULT_WEB_SETTINGS },
-    effort: settings.effort,
-  };
-}
-
-/**
- * Build the `output_config` to attach to a Messages call for a given
- * (model, override) pair, or `undefined` to omit it. Effort is resolved from
- * the per-call override over the global default, then clamped to what the model
- * supports — Haiku gets nothing (sending effort 400s); `xhigh` only survives on
- * Opus. Returned as a partial so callers can spread it onto the params.
- */
-function outputConfigFor(
-  model: string,
-  override: Effort | undefined,
-  globalDefault: Effort | undefined,
-): { output_config: { effort: Effort } } | undefined {
-  const effort = resolveEffort(model, override, globalDefault);
-  return effort ? { output_config: { effort } } : undefined;
-}
-
 /**
  * Single-shot completion. Preserves the original API used by the Thinking
  * Tools executor and conversation slash commands — no tool use, streaming
- * controlled by the caller.
+ * controlled by the caller. All provider specifics live behind `provider`.
  */
 export async function complete(
   prompt: string,
   callbacksOrOptions?: StreamCallbacks | CompleteOptions,
 ): Promise<string> {
   let system: string | undefined;
-  let messages: Anthropic.MessageParam[];
+  let messages: ChatMessage[];
   let callbacks: StreamCallbacks | undefined;
   let modelOverride: string | undefined;
   let effortOverride: Effort | undefined;
@@ -264,39 +223,31 @@ export async function complete(
     modelOverride = opts.model;
     effortOverride = opts.effort;
     onUsage = opts.onUsage;
-    messages = (opts.messages ?? [{ role: 'user', content: prompt }]);
+    messages = opts.messages ?? [{ role: 'user', content: prompt }];
   } else {
     messages = [{ role: 'user', content: prompt }];
   }
 
-  const { client, model: defaultModel, effort: defaultEffort } = await getClient();
+  const { provider, model: defaultModel, effort: defaultEffort } = await getProvider();
   const model = modelOverride ?? defaultModel;
-  const outputConfig = outputConfigFor(model, effortOverride, defaultEffort);
+  const effort = resolveEffort(model, effortOverride, defaultEffort);
 
-  if (!callbacks) {
-    const response = await client.messages.create({
+  // `const` (not the outer `let`) so TS keeps the narrowing inside the closure.
+  const cb = callbacks;
+  const result = await provider.complete(
+    {
       model,
-      max_tokens: 16000,
-      ...(system ? { system } : {}),
-      ...outputConfig,
+      system,
       messages,
-    });
-    if (onUsage) onUsage(addUsage(emptyUsage(), response.usage), model);
-    return extractText(response.content);
-  }
-
-  const stream = client.messages.stream({
-    model,
-    max_tokens: 64000,
-    ...(system ? { system } : {}),
-    ...outputConfig,
-    messages,
-  }, { signal: callbacks.signal });
-
-  stream.on('text', (delta) => callbacks.onChunk(delta));
-  const finalMessage = await stream.finalMessage();
-  if (onUsage) onUsage(addUsage(emptyUsage(), finalMessage.usage), model);
-  return extractText(finalMessage.content);
+      effort,
+      // Streaming callers historically got a larger budget than one-shots.
+      maxTokens: cb ? 64000 : 16000,
+      signal: cb?.signal,
+    },
+    cb ? (delta) => cb.onChunk(delta) : undefined,
+  );
+  if (onUsage) onUsage(result.usage, model);
+  return result.text;
 }
 
 /**
@@ -311,28 +262,15 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { client, model: defaultModel, web, effort: defaultEffort } = await getClient();
+  const { provider, model: defaultModel, web, effort: defaultEffort } = await getProvider();
   const model = options.model ?? defaultModel;
-  const outputConfig = outputConfigFor(model, options.effort, defaultEffort);
+  const effort = resolveEffort(model, options.effort, defaultEffort);
   const { toolContext, callbacks, maxIterations = 10 } = options;
-  const messages: Anthropic.MessageParam[] = [...options.messages];
 
-  const system: Anthropic.TextBlockParam[] = [
-    {
-      type: 'text',
-      text: options.system,
-      cache_control: { type: 'ephemeral' },
-    },
-  ];
-
-  const tools = buildConversationTools({
-    web: {
-      enabled: web.enabled,
-      allowedDomains: web.allowedDomains,
-      blockedDomains: web.blockedDomains,
-    },
-    extraTools: options.extraTools,
-  });
+  // Client-side tools only; server-side web tools are added inside the provider
+  // from `web`. History is opaque to this loop — the provider owns its shape.
+  const tools = buildConversationTools({ extraTools: options.extraTools });
+  const history: ProviderMessage[] = provider.ingestHistory(options.messages);
 
   const textPieces: string[] = [];
   const citationMap = new Map<string, Citation>();
@@ -340,17 +278,11 @@ export async function completeWithTools(
   // only the final iteration's usage would under-report tool-heavy turns by
   // however many tool round-trips it took to get there (#820).
   const usage = emptyUsage();
-  // Code-execution sandbox id, threaded across iterations AND across
-  // turns of the same conversation. The newer web_search_20260209 /
-  // web_fetch_20260209 tools surface as `server_tool_use` blocks of
-  // type `code_execution`; once the API spins up a container, every
-  // subsequent request whose `messages` history still references
-  // those tool-use blocks must echo `container: <id>` back or the API
-  // 400s with "container_id is required when there are pending tool
-  // uses generated by code execution with tools." Seeded from the
-  // caller (Conversation.containerId) so the next turn picks up where
-  // the prior turn left off; captured fresh on every iteration so the
-  // most-recent id wins.
+  // Code-execution sandbox id, threaded across iterations AND across turns of
+  // the same conversation (see CompleteWithToolsOptions.initialContainerId). The
+  // provider echoes it back on each request and reports the latest id in the
+  // turn result; we keep the most-recent non-null so an intermediate
+  // non-code-execution turn doesn't drop a still-live sandbox.
   let containerId: string | null = options.initialContainerId ?? null;
   let containerExpiresAt: string | null = null;
 
@@ -364,119 +296,66 @@ export async function completeWithTools(
   const MAX_CONSECUTIVE_ERROR_ITERS = 3;
   let consecutiveAllErrorIters = 0;
 
+  // Surface a tool call as a live "🔍 Searching…" indicator the moment the model
+  // emits it — pushed inline into the transcript and streamed to the UI. The
+  // provider fires this exactly once per block (client- or server-side).
+  const onToolCallStart = (name: string, input: unknown): void => {
+    const indicator = `\n\n_${formatToolCall(name, input)}…_\n\n`;
+    textPieces.push(indicator);
+    if (callbacks) callbacks.onChunk(indicator);
+  };
+
   for (let iteration = 0; iteration < maxIterations; iteration++) {
-    const streamParams: Anthropic.MessageStreamParams = {
-      model,
-      max_tokens: 64000,
-      system,
-      tools,
-      messages,
-      ...outputConfig,
-    };
-    if (containerId) streamParams.container = containerId;
-    // Per-iteration diagnostic so the "container_id is required" 400s
-    // are easy to root-cause. Logs iteration number, whether we're
-    // passing a container, and a histogram of block types in the
-    // accumulated messages array — code_execution / server_tool_use
-    // here without a container is the smoking gun.
     if (process.env.MINERVA_LLM_DEBUG) {
-      const blockHist: Record<string, number> = {};
-      for (const m of messages) {
-        if (typeof m.content === 'string') continue;
-        for (const b of m.content) {
-          const t = (b as { type?: string }).type ?? '?';
-          blockHist[t] = (blockHist[t] ?? 0) + 1;
-        }
-      }
       console.log(
-        `[llm] iter=${iteration} container=${containerId ?? 'null'} ` +
-        `messageCount=${messages.length} blocks=${JSON.stringify(blockHist)}`,
+        `[llm] iter=${iteration} container=${containerId ?? 'null'} historyLength=${history.length}`,
       );
     }
-    const stream = client.messages.stream(
-      streamParams,
-      { signal: callbacks?.signal },
+
+    const turn = await provider.runTurn(
+      {
+        model,
+        system: options.system,
+        history,
+        tools,
+        web,
+        effort,
+        maxTokens: 64000,
+        containerId,
+        signal: callbacks?.signal,
+      },
+      {
+        onTextDelta: callbacks ? (delta) => callbacks.onChunk(delta) : undefined,
+        onToolCallStart,
+      },
     );
 
-    // Track which tool-use blocks we've already surfaced as live
-    // indicators so the post-finalMessage iteration below doesn't
-    // double-push them. The contentBlock event fires the moment the
-    // model finishes emitting a tool-use block (before the API
-    // executes the server tool / before our client-side dispatch
-    // runs), so users see "🔍 Searching the web for X" *during* the
-    // wait rather than after the iteration completes.
-    const liveEmittedToolUseIds = new Set<string>();
-    stream.on('contentBlock', (block) => {
-      if (block.type !== 'tool_use' && block.type !== 'server_tool_use') return;
-      const indicator = `\n\n_${formatToolCall(block.name, block.input)}…_\n\n`;
-      textPieces.push(indicator);
-      if (callbacks) callbacks.onChunk(indicator);
-      liveEmittedToolUseIds.add(block.id);
-    });
-
-    if (callbacks) {
-      stream.on('text', (delta) => callbacks.onChunk(delta));
+    sumUsage(usage, turn.usage);
+    history.push(turn.assistantMessage);
+    // Hold on to the container so the next iteration can reuse it; don't clear
+    // it when a later turn reports none.
+    if (turn.containerId) {
+      containerId = turn.containerId;
+      containerExpiresAt = turn.containerExpiresAt ?? null;
     }
 
-    const message = await stream.finalMessage();
-    addUsage(usage, message.usage);
-    messages.push({ role: 'assistant', content: message.content });
-    // Hold on to the container so the next iteration of this same
-    // agent turn can reuse it. Don't clear if a later iteration's
-    // response has `container: null` — the sandbox can persist across
-    // intermediate non-code-execution turns and the API still wants
-    // the id echoed.
-    if (message.container?.id) {
-      containerId = message.container.id;
-      containerExpiresAt = message.container.expires_at ?? null;
-    }
-
-    for (const block of message.content) {
-      if (block.type === 'text') {
-        textPieces.push(block.text);
-        collectCitations(block, citationMap);
-      } else if (block.type === 'server_tool_use' && !liveEmittedToolUseIds.has(block.id)) {
-        // Fallback path — if the SDK didn't fire `contentBlock` for
-        // this block for some reason, recover the indicator here.
-        const indicator = `\n\n_${formatToolCall(block.name, block.input)}…_\n\n`;
-        textPieces.push(indicator);
-        if (callbacks) callbacks.onChunk(indicator);
-      }
+    if (turn.text) textPieces.push(turn.text);
+    for (const c of turn.citations) {
+      if (!citationMap.has(c.url)) citationMap.set(c.url, c);
     }
 
     // Server-side tool loop (e.g. web_search) can hit its internal iteration
-    // cap and return pause_turn. The API expects us to re-send the same
-    // conversation so it can resume where it left off — no extra user message.
-    if (message.stop_reason === 'pause_turn') {
-      continue;
-    }
+    // cap and pause; re-send the same conversation so it resumes — no extra
+    // user message.
+    if (turn.stopReason === 'pause') continue;
+    if (turn.stopReason !== 'tool_use') break;
+    // Stopped for tool_use but only server-side blocks (which we don't execute)
+    // — nothing to run, so stop rather than loop forever.
+    if (turn.toolCalls.length === 0) break;
 
-    if (message.stop_reason !== 'tool_use') {
-      break;
-    }
-
-    const toolUses = message.content.filter(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
-    );
-
-    // If the model stopped for tool_use but only emitted server_tool_use
-    // blocks (which we don't execute), we'd loop forever. Guard against it.
-    if (toolUses.length === 0) break;
-
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const use of toolUses) {
+    const toolResults: ProviderToolResult[] = [];
+    for (const use of turn.toolCalls) {
       console.log(`[conv] tool call: ${use.name}`, JSON.stringify(use.input).slice(0, 200));
-      // Indicator was already streamed live via the `contentBlock`
-      // listener above (and pushed to textPieces) the moment the model
-      // finished emitting this tool-use block — i.e. before the wait
-      // for our local executor. Re-push only if the live emit somehow
-      // missed it (SDK version drift, etc.), so the persisted transcript
-      // still carries the indicator inline.
-      if (!liveEmittedToolUseIds.has(use.id)) {
-        const indicator = `\n\n_${formatToolCall(use.name, use.input)}…_\n\n`;
-        textPieces.push(indicator);
-        if (callbacks) callbacks.onChunk(indicator);
-      }
       const { content, isError } = await executeNotebaseTool(
         toolContext,
         use.name,
@@ -486,18 +365,13 @@ export async function completeWithTools(
       if (isError) {
         console.warn(`[conv] tool ${use.name} returned error:`, content.slice(0, 300));
       }
-      toolResults.push({
-        type: 'tool_result',
-        tool_use_id: use.id,
-        content,
-        ...(isError ? { is_error: true } : {}),
-      });
+      toolResults.push({ toolUseId: use.id, content, isError });
     }
 
-    messages.push({ role: 'user', content: toolResults });
+    history.push(provider.toolResultMessage(toolResults));
 
     // Track runs of all-error iterations and bail out of a wedged retry loop.
-    const allErrored = toolResults.length > 0 && toolResults.every((r) => r.is_error);
+    const allErrored = toolResults.length > 0 && toolResults.every((r) => r.isError);
     consecutiveAllErrorIters = allErrored ? consecutiveAllErrorIters + 1 : 0;
     if (consecutiveAllErrorIters >= MAX_CONSECUTIVE_ERROR_ITERS) {
       console.warn(`[conv] aborting after ${consecutiveAllErrorIters} consecutive all-error tool iterations`);
@@ -519,45 +393,20 @@ export async function completeWithTools(
   };
 }
 
-function collectCitations(
-  block: Anthropic.TextBlock,
-  acc: Map<string, Citation>,
-): void {
-  if (!block.citations) return;
-  for (const c of block.citations) {
-    if (c.type !== 'web_search_result_location') continue;
-    if (!c.url) continue;
-    if (acc.has(c.url)) continue;
-    acc.set(c.url, {
-      url: c.url,
-      ...(c.title != null ? { title: c.title } : {}),
-      citedText: c.cited_text,
-    });
-  }
-}
-
 function emptyUsage(): TurnUsage {
   return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
 }
 
 /**
- * Fold one API response's `usage` into a running per-turn total. Kept distinct
- * by token kind (plain input vs cache read vs cache write) so #821 can price
- * each at its own rate. Mutates and returns `acc` for terse call sites in the
- * agentic loop.
+ * Fold one turn's usage into a running per-turn total, kept distinct by token
+ * kind (plain input vs cache read vs cache write) so #821 can price each at its
+ * own rate. The provider already reduced the raw API usage to `TurnUsage`; this
+ * just sums across the agentic loop's iterations. Mutates and returns `acc`.
  */
-function addUsage(acc: TurnUsage, usage: Anthropic.Usage | undefined): TurnUsage {
-  if (!usage) return acc;
-  acc.inputTokens += usage.input_tokens ?? 0;
-  acc.outputTokens += usage.output_tokens ?? 0;
-  acc.cacheCreationTokens += usage.cache_creation_input_tokens ?? 0;
-  acc.cacheReadTokens += usage.cache_read_input_tokens ?? 0;
+function sumUsage(acc: TurnUsage, turn: TurnUsage): TurnUsage {
+  acc.inputTokens += turn.inputTokens;
+  acc.outputTokens += turn.outputTokens;
+  acc.cacheCreationTokens += turn.cacheCreationTokens;
+  acc.cacheReadTokens += turn.cacheReadTokens;
   return acc;
-}
-
-function extractText(content: Anthropic.ContentBlock[]): string {
-  return content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
 }
