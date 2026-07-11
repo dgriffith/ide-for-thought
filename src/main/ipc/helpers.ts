@@ -52,6 +52,25 @@ export function withRootPathOr<A extends unknown[], R>(
   };
 }
 
+/**
+ * Like {@link withRootPath}, but also hands the handler its {@link BrowserWindow}.
+ * The many handlers that resolve a project and then broadcast a change back to
+ * the renderer (or open a dialog anchored to the window) still need the event;
+ * #990's `withRootPath` dropped it, so those handlers kept hand-rolling the
+ * `rootPathFromEvent(e)` + `if (!rootPath) throw` guard. This finishes that
+ * consolidation for the window-needing handlers (#1092). Throws "No project
+ * open" when there's no project — same contract as `withRootPath`.
+ */
+export function withRootPathWin<A extends unknown[], R>(
+  fn: (rootPath: string, win: BrowserWindow, ...args: A) => R,
+): (e: Electron.IpcMainInvokeEvent, ...args: A) => R {
+  return (e, ...args) => {
+    const rootPath = rootPathFromEvent(e);
+    if (!rootPath) throw new Error('No project open');
+    return fn(rootPath, winFromEvent(e), ...args);
+  };
+}
+
 export async function reindexFile(rootPath: string, relativePath: string): Promise<void> {
   if (!isIndexable(relativePath)) return;
   const content = await notebaseFs.readFile(rootPath, relativePath);
