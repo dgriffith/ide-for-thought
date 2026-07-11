@@ -8,8 +8,19 @@
  */
 import { runCli } from './run';
 
+/** Read all of stdin (the `propose-note` note body). Returns '' at a TTY, so an
+ *  interactive invocation without a pipe doesn't hang waiting for input. */
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return '';
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString('utf-8');
+}
+
 async function main(): Promise<void> {
-  const result = await runCli(process.argv.slice(2), { cwd: process.cwd() });
+  const argv = process.argv.slice(2);
+  const stdin = argv[0] === 'propose-note' ? await readStdin() : undefined;
+  const result = await runCli(argv, { cwd: process.cwd(), stdin });
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
   process.exit(result.code);

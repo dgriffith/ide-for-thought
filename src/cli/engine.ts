@@ -24,10 +24,20 @@ import * as tables from '../main/sources/tables';
 import * as vectors from '../main/embeddings/vector-store';
 import type { ChunkEmbedder } from '../main/embeddings/vector-store';
 import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
+import * as approval from '../main/llm/approval';
 import { readFile } from '../main/notebase/fs';
 import type { ProjectContext } from '../main/project-context-types';
 
 export type ExecResult = { ok: true; data: unknown } | { ok: false; error: string };
+
+export interface ProposeNoteInput {
+  relativePath: string;
+  content: string;
+  /** One-line summary for the review queue; defaulted from the path if absent. */
+  note?: string | undefined;
+  /** Provenance — who proposed this. e.g. 'cli' or 'mcp:claude-code'. */
+  proposedBy: string;
+}
 
 export interface Engine {
   query(sparql: string): Promise<ExecResult>;
@@ -35,6 +45,9 @@ export interface Engine {
   search(text: string, limit?: number): Promise<ExecResult>;
   semantic(text: string, limit?: number): Promise<ExecResult>;
   read(relativePath: string): Promise<ExecResult>;
+  /** File a NEW note as a pending proposal through the approval gate. Never
+   *  writes the vault directly — a human approves it in Minerva. */
+  proposeNote(input: ProposeNoteInput): Promise<ExecResult>;
 }
 
 export interface EngineOptions {
@@ -108,6 +121,51 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
+    },
+
+    async proposeNote(input) {
+      const rel = input.relativePath?.trim();
+      if (!rel) return { ok: false, error: 'A relative note path is required.' };
+      if (typeof input.content !== 'string' || !input.content.trim()) {
+        return { ok: false, error: 'Note content is required.' };
+      }
+
+      // Load the on-disk snapshot fresh — NOT the read path's `indexAllNotes`
+      // store, which resets to note-derived triples and would drop existing
+      // proposals — so filing preserves everything already in graph.ttl. Then
+      // invalidate the read memo so a later query re-indexes against the store
+      // we're about to mutate.
+      await graph.initGraph(ctx);
+      graphReady = undefined;
+
+      const summary = input.note?.trim() || `Proposed note: ${rel}`;
+      // Route through the approval gate exactly like the internal AI does, and in
+      // LLM context so a regression that wrote directly (bypassing proposeWrite)
+      // would trip the write guard. The proposal lands PENDING — never applied
+      // here — so nothing touches the vault until a human approves it.
+      const proposal = await graph.withLLMContext(() =>
+        approval.proposeWrite(ctx, {
+          operationType: 'component_creation',
+          payloads: [{ kind: 'note', relativePath: rel, content: input.content }],
+          note: summary,
+          proposedBy: input.proposedBy,
+        }),
+      );
+      await graph.persistGraph(ctx);
+
+      return {
+        ok: true,
+        data: {
+          status: 'pending',
+          proposalUri: proposal?.uri ?? null,
+          relativePath: rel,
+          proposedBy: input.proposedBy,
+          note: summary,
+          message:
+            'Filed as a pending proposal. It is NOT written to the vault until a ' +
+            'human reviews and approves it in Minerva (Proposals panel).',
+        },
+      };
     },
   };
 }
