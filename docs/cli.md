@@ -5,8 +5,8 @@ epic (#1145 → #1149). It reuses the exact `ctx`-based core the app uses (that
 core is Electron-free), so an external agent or a shell script can query your
 knowledge graph and notes without the app running.
 
-> **Status: read-only, first cut.** `query`, `search`, `read`. Writes (through the
-> approval gate) and an MCP subcommand are later children of the epic.
+> **Status: read-only.** `query`, `sql`, `search`, `semantic`, `read`. Writes
+> (through the approval gate) and an MCP subcommand are later children of the epic.
 
 ## Build & run
 
@@ -24,10 +24,16 @@ repo's `node_modules` at runtime — no separate install.
 | Command | Purpose | Output |
 |---|---|---|
 | `query <sparql>` | SPARQL over the knowledge graph (standard prefixes auto-injected) | `{ columns, results }` |
+| `sql <sql>` | DuckDB SQL over the vault's CSV tables (registered by derived name) | `{ columns, rows }` |
 | `search <text>` | Full-text search over notes (`--limit <n>`, default 20) | `{ query, hits }` |
+| `semantic <text>` | Embeddings search over notes (`--limit <n>`) | `{ query, hits }` |
 | `read <relative-path>` | A note's raw markdown | `{ path, content }` |
 
 Global options: `--project <path>` (thoughtbase root, default: cwd), `--help`.
+
+`semantic` covers only content the app has already embedded; against a vault that
+was never opened in the app it returns no hits (with a `note` saying so). `sql`
+integer columns come back as JSON numbers (DuckDB BigInt is handled).
 
 Every result is **grounded** — query bindings carry node IRIs, search hits carry
 the note path, read echoes the path — and printed as JSON on stdout so it pipes

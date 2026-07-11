@@ -21,6 +21,10 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import * as graph from '../main/graph/index';
 import * as search from '../main/search/index';
+import * as tables from '../main/sources/tables';
+import * as vectors from '../main/embeddings/vector-store';
+import type { ChunkEmbedder } from '../main/embeddings/vector-store';
+import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
 import { readFile } from '../main/notebase/fs';
 import { projectContext, type ProjectContext } from '../main/project-context-types';
 
@@ -30,6 +34,13 @@ export interface CliResult {
   code: number;
 }
 
+export interface RunOptions {
+  cwd: string;
+  /** Injectable embedder for `semantic`, so tests can run against a fake instead
+   *  of loading the real WASM model. Defaults to the shared model embedder. */
+  embedder?: ChunkEmbedder;
+}
+
 export const HELP = `minerva — headless access to a Minerva thoughtbase (#1149)
 
 Usage:
@@ -37,16 +48,19 @@ Usage:
 
 Commands:
   query <sparql>        Run a SPARQL query against the knowledge graph.
+  sql <sql>             Run a DuckDB SQL query over the vault's CSV tables.
   search <text>         Full-text search over notes.        [--limit <n>]
+  semantic <text>       Semantic (embeddings) search over notes.  [--limit <n>]
   read <relative-path>  Print a note's raw markdown.
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
-  --limit <n>           Max results for search (default: 20).
+  --limit <n>           Max results for search/semantic (default: 20).
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
-pipes into jq or feeds an agent directly.`;
+pipes into jq or feeds an agent directly. Semantic search covers only content the
+app has already embedded.`;
 
 interface ParsedArgs {
   command: string | undefined;
@@ -85,8 +99,25 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { command: positionals.shift(), positionals, project, limit, help };
 }
 
+// DuckDB returns BigInt for integer columns (SQL command), which JSON.stringify
+// can't serialize. Keep safe integers as numbers; stringify larger ids to avoid
+// precision loss. See the DuckDB BigInt serialization gotcha.
+function bigintSafeReplacer(_key: string, v: unknown): unknown {
+  if (typeof v !== 'bigint') return v;
+  return v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(v)
+    : v.toString();
+}
+
 function json(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
+  return `${JSON.stringify(value, bigintSafeReplacer, 2)}\n`;
+}
+
+/** The app always has a `.minerva/` dir; a headless first run against a fresh
+ *  vault may not, and the index-building commands persist there. Derived cache
+ *  only, so creating it during a read is safe. */
+async function ensureMinervaDir(root: string): Promise<void> {
+  await fs.mkdir(path.join(root, '.minerva'), { recursive: true });
 }
 
 /** A directory is required and must exist; a missing `.minerva` is fine —
@@ -116,15 +147,45 @@ async function runQuery(ctx: ProjectContext, sparql: string): Promise<CliResult>
 
 async function runSearch(ctx: ProjectContext, text: string, limit: number | undefined): Promise<CliResult> {
   if (!text.trim()) throw new UsageError('search: a query string is required.');
-  // `indexAllNotes` persists the MiniSearch index into `.minerva/`; a running
-  // app always has that dir, but a headless first run against a fresh vault may
-  // not — create it so the index write doesn't ENOENT. Derived cache only, so
-  // writing it during a read is safe (it just warms what the app would build).
-  await fs.mkdir(path.join(ctx.rootPath, '.minerva'), { recursive: true });
+  // `indexAllNotes` persists the MiniSearch index into `.minerva/`, so the dir
+  // must exist first (a headless first run may not have it).
+  await ensureMinervaDir(ctx.rootPath);
   await search.initSearch(ctx);
   await search.indexAllNotes(ctx);
   const hits = search.search(ctx, text, limit ? { limit } : undefined);
   return { stdout: json({ query: text, hits }), stderr: '', code: 0 };
+}
+
+async function runSql(ctx: ProjectContext, sql: string): Promise<CliResult> {
+  if (!sql.trim()) throw new UsageError('sql: a SQL string is required.');
+  await ensureMinervaDir(ctx.rootPath);
+  await tables.initTablesDb(ctx);
+  // Register the vault's CSV tables so they're queryable by their derived names.
+  await tables.registerAllCsvs(ctx);
+  const result = await tables.runQuery(ctx, sql);
+  if (!result.ok) return { stdout: '', stderr: `SQL error: ${result.error}\n`, code: 1 };
+  return { stdout: json({ columns: result.columns, rows: result.rows }), stderr: '', code: 0 };
+}
+
+async function runSemantic(
+  ctx: ProjectContext,
+  text: string,
+  limit: number | undefined,
+  embedder: ChunkEmbedder,
+): Promise<CliResult> {
+  if (!text.trim()) throw new UsageError('semantic: a query string is required.');
+  await ensureMinervaDir(ctx.rootPath);
+  await vectors.init(ctx, { embedder });
+  const hits = await vectors.searchRelated(ctx, text, limit ? { limit } : {});
+  const out: Record<string, unknown> = { query: text, hits };
+  if (hits.length === 0) {
+    // Semantic search only covers already-embedded content; a vault the app has
+    // never opened/embedded yields nothing. Say so rather than look broken.
+    out.note =
+      'No embedded content matched. Semantic search covers notes already embedded ' +
+      'by the app; a vault that has never been embedded returns no hits.';
+  }
+  return { stdout: json(out), stderr: '', code: 0 };
 }
 
 async function runRead(ctx: ProjectContext, relativePath: string): Promise<CliResult> {
@@ -138,7 +199,7 @@ async function runRead(ctx: ProjectContext, relativePath: string): Promise<CliRe
  * return code 2, core errors code 1, success code 0 — so the executable entry is
  * a thin "write + exit" shell.
  */
-export async function runCli(argv: string[], opts: { cwd: string }): Promise<CliResult> {
+export async function runCli(argv: string[], opts: RunOptions): Promise<CliResult> {
   const args = parseArgs(argv);
 
   if (args.help || !args.command) {
@@ -152,8 +213,12 @@ export async function runCli(argv: string[], opts: { cwd: string }): Promise<Cli
     switch (args.command) {
       case 'query':
         return await runQuery(ctx, args.positionals.join(' '));
+      case 'sql':
+        return await runSql(ctx, args.positionals.join(' '));
       case 'search':
         return await runSearch(ctx, args.positionals.join(' '), args.limit);
+      case 'semantic':
+        return await runSemantic(ctx, args.positionals.join(' '), args.limit, opts.embedder ?? getSharedEmbedder());
       case 'read':
         return await runRead(ctx, args.positionals[0] ?? '');
       default:
