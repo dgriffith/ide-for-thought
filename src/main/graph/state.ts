@@ -13,6 +13,7 @@
 import * as $rdf from 'rdflib';
 import { QueryEngine } from '@comunica/query-sparql-rdfjs';
 import * as N3 from 'n3';
+import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
 import type { ProjectContext } from '../project-context-types';
@@ -29,8 +30,18 @@ export function getEngine(): QueryEngine {
 
 // ── SPARQL/RDF plumbing ──────────────────────────────────────────────────────
 
-/** Build an N3.Store from rdflib's IndexedFormula for Comunica to query */
+/** A full N3 rebuild slower than this (ms) trips a dev-log warning. The rebuild
+ *  is O(n) in triple count and runs synchronously on the main thread, so this
+ *  makes the latent cost cliff observable in the dev console before it bites at
+ *  100k+ triples (#1088). Not fatal, and silent in production — it's a
+ *  diagnostic, not a runtime guard. Deliberately generous so it stays quiet at
+ *  the current ~5–10k-triple working size. */
+const N3_REBUILD_WARN_MS = 75;
+
+/** Build an N3.Store from rdflib's IndexedFormula for Comunica to query.
+ *  O(n) in `s.statements.length`; see `N3_REBUILD_WARN_MS`. */
 export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
+  const started = performance.now();
   const n3Store = new N3.Store();
   const df = N3.DataFactory;
 
@@ -46,6 +57,18 @@ export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
         n3Store.addQuad(subject as N3.Quad_Subject, predicate, object as N3.Quad_Object, df.defaultGraph());
       }
     } catch { /* skip malformed triples */ }
+  }
+
+  const elapsedMs = performance.now() - started;
+  if (elapsedMs > N3_REBUILD_WARN_MS && process.env.NODE_ENV !== 'production') {
+    // A write-then-query pattern (e.g. auto-link backlink checks on save)
+    // invalidates the cache and pays this rebuild repeatedly — watch for it if
+    // this fires. Fixes to consider when it does: incremental on-write N3
+    // maintenance, or moving the rebuild off the main thread (#1088).
+    console.warn(
+      `[graph] N3 store rebuild took ${elapsedMs.toFixed(0)}ms for ${s.statements.length} triples ` +
+      `(O(n), synchronous on the main thread) — see #1088.`,
+    );
   }
 
   return n3Store;
@@ -154,6 +177,15 @@ export interface GraphState {
   frontmatterKeysPerNote: Map<string, string[]>;
 }
 
+// One GraphState per open project, keyed by rootPath. The entire graph
+// read/write path — rdflib IndexedFormula mutation, `invalidate()`, and the
+// on-demand N3 rebuild in `queryGraph` — runs synchronously on the Electron
+// main thread, one IPC handler at a time. That single-threaded serialization is
+// precisely what lets this Map and the mutable store stay lock-free: no two
+// writes, and no write racing the rebuild, can ever interleave. A write nulls
+// `n3Cache` and the very next query rebuilds it before anyone reads it. If any
+// of this ever moves off the main thread (e.g. the O(n) rebuild into a worker,
+// #1088), that invariant breaks and real synchronization becomes necessary.
 const states = new Map<string, GraphState>();
 
 export function getState(ctx: ProjectContext): GraphState | null {
