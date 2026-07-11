@@ -109,7 +109,7 @@ interface ComputeDraftStateEntry {
   afterMessageIndex: number;
 }
 
-interface TabRuntime {
+export interface TabRuntime {
   id: string;
   /** Auto-generated tab title. Set when a tool seeds the tab via
    *  `openConversationTab({ title })`; otherwise derived from the first
