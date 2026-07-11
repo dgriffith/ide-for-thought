@@ -1141,10 +1141,34 @@ function ensureProject(state: GraphState): void {
   }
 }
 
+/**
+ * Statements describing every `thought:Proposal` in the store. Proposals are the
+ * review queue's source of truth and are NOT rebuilt from notes, so a
+ * from-scratch reindex must carry them across the reset — otherwise the queue
+ * empties on every rebuild and a CLI/MCP-filed proposal (persisted in graph.ttl)
+ * would be dropped the moment the app next indexes, before the user ever sees it
+ * (#1151, epic #1145 — substrate/fleet provenance).
+ */
+function captureProposalStatements(store: $rdf.IndexedFormula): $rdf.Statement[] {
+  const out: $rdf.Statement[] = [];
+  for (const typed of store.statementsMatching(undefined, RDF('type'), THOUGHT('Proposal'))) {
+    // Proposals are flat records — every triple on the proposal subject.
+    out.push(...store.statementsMatching(typed.subject, undefined, undefined));
+  }
+  return out;
+}
+
+function restoreProposalStatements(store: $rdf.IndexedFormula, stmts: $rdf.Statement[]): void {
+  for (const st of stmts) store.add(st.subject, st.predicate, st.object);
+}
+
 export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   const state = getState(ctx);
   if (!state) return 0;
   const { rootPath } = state;
+
+  // Carry proposals across the from-scratch reset below (see the helper's note).
+  const preservedProposals = captureProposalStatements(state.store);
 
   // Reset and rebuild from scratch with ontology
   state.store = $rdf.graph();
@@ -1155,6 +1179,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   state.indexedNotePaths.clear();
 
   ensureProject(state);
+  restoreProposalStatements(state.store, preservedProposals);
 
   // Two-pass build (#469): the first walk just reads frontmatter
   // aliases so the alias map is fully populated before any link gets

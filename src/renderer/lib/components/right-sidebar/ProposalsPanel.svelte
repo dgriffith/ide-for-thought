@@ -2,6 +2,7 @@
   import { api } from '../../ipc/client';
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
+  import { describeProposer } from '../../../../shared/provenance';
 
   type NotePayload = { kind: 'note'; relativePath: string; content: string };
   type TriplesPayload = { kind: 'graph-triples'; turtle: string; affectsNodeUris: string[] };
@@ -251,6 +252,7 @@
   {:else}
     <div class="proposal-list">
       {#each shown() as p}
+        {@const by = describeProposer(p.proposedBy)}
         <button
           class="proposal-item"
           class:selected={selectedUri === p.uri}
@@ -259,7 +261,9 @@
           <span class="proposal-meta">
             <span class="proposal-status status-{p.status}">{p.status}</span>
             <span class="proposal-type">{p.operationType.replace(/_/g, ' ')}</span>
-            <span class="proposal-by">{p.proposedBy}</span>
+            <span class="proposal-by" class:external={by.external} title={p.proposedBy}>
+              {#if by.external}<span class="by-tag">agent</span>{/if}{by.label}
+            </span>
           </span>
           <span class="proposal-note">{p.note}</span>
           <span class="proposal-effects" title="What approving this proposal will create">
@@ -420,9 +424,33 @@
   }
   .proposal-by {
     margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--text-faint);
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* A contribution from a fleet agent (MCP client / CLI), not Minerva's own AI —
+     surfaced so the reviewer sees at a glance who proposed it (#1151). */
+  .proposal-by.external {
+    color: var(--accent);
+  }
+  .by-tag {
+    font-family: var(--font-sans, inherit);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: var(--bg-button, var(--bg-elev));
+    color: var(--accent);
+    border: 1px solid var(--accent);
   }
 
   .proposal-note {
