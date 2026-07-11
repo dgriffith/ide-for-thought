@@ -53,6 +53,23 @@ describe('semantic block (#1128)', () => {
     expect(selectSemanticNotes(notes, { limit: '1' })).toHaveLength(1);
   });
 
+  it('filters by kind — default is note-only; kind:all keeps everything', () => {
+    // The empty-query path reuses the all-kinds "related to this note" IPC, so
+    // the kind filter runs client-side here.
+    const notes = [rn({ ref: '1.md' }), rn({ kind: 'source', ref: 'src-1' })];
+    expect(selectSemanticNotes(notes, {}).map((n) => n.ref)).toEqual(['1.md']);
+    expect(selectSemanticNotes(notes, { kind: 'all' })).toHaveLength(2);
+  });
+
+  it('compact mode renders only the link (no section / snippet)', () => {
+    const notes = [rn({ ref: 'notes/r.md', title: 'R', sectionHeading: 'Sec', snippet: 'snip' })];
+    const html = buildSemanticHtml(notes, { compact: 'true' });
+    expect(html).toContain('data-target="notes/r.md"');
+    expect(html).not.toContain('semantic-section');
+    expect(html).not.toContain('Sec');
+    expect(html).not.toContain('snip');
+  });
+
   it('renders note hits as wiki-links with section + snippet; snippet:off hides it', () => {
     const notes = [rn({ ref: 'notes/r.md', title: 'Result', sectionHeading: 'Intro', snippet: 'a snippet' })];
     const html = buildSemanticHtml(notes, {});

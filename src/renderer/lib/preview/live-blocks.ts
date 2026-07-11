@@ -58,27 +58,33 @@ export function semanticKinds(config: Record<string, string>): readonly ('note' 
     k === 'note' || k === 'source' || k === 'excerpt');
 }
 
-/** Apply the block's `threshold` (min cosine similarity) and `limit`. */
+/** Apply the block's `kind` filter, `threshold` (min cosine similarity), and
+ *  `limit`. The kind filter runs client-side so the empty-query path (which
+ *  reuses the all-kinds "related to this note" IPC) honors it too. */
 export function selectSemanticNotes(notes: RelatedNote[], config: Record<string, string>): RelatedNote[] {
+  const kinds = new Set<string>(semanticKinds(config));
+  let out = notes.filter((n) => kinds.has(n.kind));
   const threshold = Number.parseFloat(config.threshold ?? '');
-  const filtered = Number.isFinite(threshold) ? notes.filter((n) => n.score >= threshold) : notes;
-  return filtered.slice(0, clampLimit(config.limit, 8));
+  if (Number.isFinite(threshold)) out = out.filter((n) => n.score >= threshold);
+  return out.slice(0, clampLimit(config.limit, 8));
 }
 
 export function buildSemanticHtml(notes: RelatedNote[], config: Record<string, string>): string {
   const titleHtml = titleHtmlFor(config);
   if (notes.length === 0) return `${titleHtml}<p class="query-empty">No related notes</p>`;
-  const showSnippet = config.snippet !== 'false' && config.snippet !== 'off';
+  // `compact: true` → just the link (no section heading, no snippet).
+  const compact = config.compact === 'true' || config.compact === 'on';
+  const showSnippet = !compact && config.snippet !== 'false' && config.snippet !== 'off';
   const items = notes.map((n) => {
     // Note hits are navigable wiki-links; source/excerpt hits show their title.
     const head = n.kind === 'note'
       ? `<a class="wiki-link" data-target="${escapeAttr(n.ref)}">${escapeHtml(n.title)}</a>`
       : `<span class="semantic-nonnote">${escapeHtml(n.title)}</span>`;
-    const section = n.sectionHeading
+    const section = !compact && n.sectionHeading
       ? `<div class="semantic-section">${escapeHtml(n.sectionHeading)}</div>` : '';
     const snippet = showSnippet && n.snippet
       ? `<div class="semantic-snippet">${escapeHtml(n.snippet)}</div>` : '';
     return `<li>${head}${section}${snippet}</li>`;
   });
-  return `${titleHtml}<ul class="query-result-list semantic-block">${items.join('')}</ul>`;
+  return `${titleHtml}<ul class="query-result-list semantic-block"${compact ? ' data-compact="1"' : ''}>${items.join('')}</ul>`;
 }

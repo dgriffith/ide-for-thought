@@ -1178,17 +1178,22 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             return;
         }
 
-        // Semantic block (#1128): embed the block's free-text query and rank the
-        // corpus. Read-only vector search over the on-device index.
+        // Semantic block (#1128): rank the corpus by similarity. With a free-text
+        // body, embed that query; with an empty body, fall back to "related to
+        // THIS note" (the sidebar's stored-vector path). Read-only.
         if (type === 'semantic') {
-            if (!query) { el.innerHTML = buildSemanticHtml([], config); return; }
+            const q = (query ?? '').trim();
             el.innerHTML = '<span class="query-loading">Loading...</span>';
             try {
-                const result = await api.embeddings.searchText(query, {
-                    limit: 25,
-                    kinds: semanticKinds(config),
-                    ...(notePath ? { excludePath: notePath } : {}),
-                });
+                const result = q
+                    ? await api.embeddings.searchText(q, {
+                        limit: 25,
+                        kinds: semanticKinds(config),
+                        ...(notePath ? { excludePath: notePath } : {}),
+                    })
+                    : notePath
+                        ? await api.embeddings.related(notePath, 25)
+                        : { enabled: false, notes: [] };
                 const notes = result.enabled ? selectSemanticNotes(result.notes, config) : [];
                 el.innerHTML = buildSemanticHtml(notes, config);
             } catch (e) {
