@@ -15,11 +15,35 @@ import type {
   ToolParameter,
   ToolScope,
 } from '../tools/types';
-import type { MenuConfig } from './menu-config';
 
 export type SkillMenu = 'Learning' | 'Research' | 'Analysis';
 
 export const SKILL_MENUS: readonly SkillMenu[] = ['Learning', 'Research', 'Analysis'];
+
+// ── Menu config (#630) ───────────────────────────────────────────────────────
+// The per-machine menu-config shapes live here, in the leaf type module, rather
+// than in `menu-config.ts` (which holds the pure logic that operates on them).
+// `menu-config.ts` already imports SkillMenu from here; defining these types
+// here too removes the type-only back-edge that formed a cycle (#1091).
+
+/** Per-skill override. Both fields are explicit once the user touches a skill. */
+export interface SkillSetting {
+  enabled: boolean;
+  menu: SkillMenu;
+}
+
+export interface MenuConfig {
+  /** id → override. Absent id = enabled, declared menu. */
+  skills: Record<string, SkillSetting>;
+  /** menu → ordered skill ids. Ids absent from the array sort last (appended). */
+  order: Record<SkillMenu, string[]>;
+}
+
+/** Minimal item shape the ordering functions need (SkillDef and SkillInfo both fit). */
+export interface MenuItemLike {
+  id: string;
+  menu: SkillMenu;
+}
 
 /** Skill `menu:` (display-cased) ↔ the registry's lowercase ToolCategory. */
 export function menuToCategory(menu: SkillMenu): ToolCategory {

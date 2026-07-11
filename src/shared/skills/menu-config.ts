@@ -21,25 +21,12 @@
  */
 
 import { type SkillMenu, SKILL_MENUS } from './types';
+import type { MenuConfig, MenuItemLike, SkillSetting } from './types';
 
-/** Per-skill override. Both fields are explicit once the user touches a skill. */
-export interface SkillSetting {
-  enabled: boolean;
-  menu: SkillMenu;
-}
-
-export interface MenuConfig {
-  /** id → override. Absent id = enabled, declared menu. */
-  skills: Record<string, SkillSetting>;
-  /** menu → ordered skill ids. Ids absent from the array sort last (appended). */
-  order: Record<SkillMenu, string[]>;
-}
-
-/** Minimal item shape the ordering functions need (SkillDef and SkillInfo both fit). */
-export interface MenuItemLike {
-  id: string;
-  menu: SkillMenu;
-}
+// The config type shapes moved to the leaf `types.ts` to break the type-only
+// cycle (#1091); re-exported here so existing `from './menu-config'` importers
+// keep working unchanged.
+export type { MenuConfig, MenuItemLike, SkillSetting } from './types';
 
 export function emptyMenuConfig(): MenuConfig {
   return {
