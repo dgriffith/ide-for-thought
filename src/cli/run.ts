@@ -36,6 +36,9 @@ export interface RunOptions {
   /** Injectable embedder for `semantic`, so tests can run against a fake instead
    *  of loading the real WASM model. Defaults to the shared model embedder. */
   embedder?: ChunkEmbedder;
+  /** Note content piped on stdin — how `propose-note` receives the body (the
+   *  executable entry reads it; kept as data so `runCli` stays process-free). */
+  stdin?: string | undefined;
 }
 
 export const HELP = `minerva — headless access to a Minerva thoughtbase (#1149)
@@ -49,12 +52,15 @@ Commands:
   search <text>         Full-text search over notes.        [--limit <n>]
   semantic <text>       Semantic (embeddings) search over notes.  [--limit <n>]
   read <relative-path>  Print a note's raw markdown.
-  mcp                   Start a stdio MCP server exposing the read tools to
-                        agent clients (Claude Desktop, coding agents, …).
+  propose-note <path>   File a NEW note (body on stdin) as a pending proposal
+                        for review in Minerva.               [--by <client-id>]
+  mcp                   Start a stdio MCP server exposing the read + propose
+                        tools to agent clients (Claude Desktop, coding agents…).
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
   --limit <n>           Max results for search/semantic (default: 20).
+  --by <client-id>      Provenance for propose-note (default: cli).
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
@@ -66,6 +72,7 @@ interface ParsedArgs {
   positionals: string[];
   project: string | undefined;
   limit: number | undefined;
+  by: string | undefined;
   help: boolean;
 }
 
@@ -76,6 +83,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const positionals: string[] = [];
   let project: string | undefined;
   let limit: number | undefined;
+  let by: string | undefined;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -90,12 +98,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
       limit = Number(argv[++i]);
     } else if (arg.startsWith('--limit=')) {
       limit = Number(arg.slice('--limit='.length));
+    } else if (arg === '--by') {
+      by = argv[++i];
+    } else if (arg.startsWith('--by=')) {
+      by = arg.slice('--by='.length);
     } else {
       positionals.push(arg);
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, help };
+  return { command: positionals.shift(), positionals, project, limit, by, help };
 }
 
 function json(value: unknown): string {
@@ -167,6 +179,21 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
       case 'read':
         if (!args.positionals[0]) throw new UsageError('read: a relative note path is required.');
         return format(await engine.read(args.positionals[0]), 'Error');
+      case 'propose-note': {
+        const rel = args.positionals[0];
+        if (!rel) throw new UsageError('propose-note: a relative note path is required.');
+        const content = opts.stdin ?? '';
+        if (!content.trim()) {
+          throw new UsageError(
+            'propose-note: pipe the note content on stdin, e.g. ' +
+              '`cat note.md | minerva propose-note notes/idea.md`.',
+          );
+        }
+        return format(
+          await engine.proposeNote({ relativePath: rel, content, proposedBy: args.by ?? 'cli' }),
+          'Error',
+        );
+      }
       default:
         return { stdout: '', stderr: `Unknown command: ${args.command}\n\n${HELP}\n`, code: 2 };
     }

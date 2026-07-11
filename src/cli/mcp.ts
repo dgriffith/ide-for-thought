@@ -45,11 +45,23 @@ interface JsonSchema {
   required?: string[];
 }
 
+/** Per-connection state. `clientName` is captured from the initialize handshake
+ *  so propose provenance can record WHICH agent proposed (decision #2 of the
+ *  substrate plan: `mcp:<client-id>`). */
+export interface McpSession {
+  clientName?: string;
+}
+
+interface ToolRunOptions {
+  /** Provenance stamp for write tools, e.g. `mcp:claude-code`. */
+  proposedBy: string;
+}
+
 interface McpTool {
   name: string;
   description: string;
   inputSchema: JsonSchema;
-  run(engine: Engine, args: Record<string, unknown>): Promise<ExecResult>;
+  run(engine: Engine, args: Record<string, unknown>, opts: ToolRunOptions): Promise<ExecResult>;
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
@@ -121,6 +133,30 @@ export const MCP_TOOLS: McpTool[] = [
     },
     run: (engine, args) => engine.read(str(args.relative_path)),
   },
+  {
+    name: 'propose_note',
+    description:
+      'Propose a NEW note for the thoughtbase. IMPORTANT: this does NOT write to the ' +
+      "vault — it files a PENDING proposal that the user reviews and approves in Minerva's " +
+      'Proposals panel. The proposal is stamped with your agent identity for provenance. ' +
+      'Use this to contribute findings back to the user\'s knowledge graph safely.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        relative_path: { type: 'string', description: 'Vault-relative path for the new note, e.g. notes/idea.md.' },
+        content: { type: 'string', description: 'The note markdown (may include frontmatter).' },
+        note: { type: 'string', description: 'Optional one-line summary shown in the review queue.' },
+      },
+      required: ['relative_path', 'content'],
+    },
+    run: (engine, args, opts) =>
+      engine.proposeNote({
+        relativePath: str(args.relative_path),
+        content: str(args.content),
+        note: str(args.note) || undefined,
+        proposedBy: opts.proposedBy,
+      }),
+  },
 ];
 
 /**
@@ -131,6 +167,7 @@ export const MCP_TOOLS: McpTool[] = [
 export async function handleMcpMessage(
   msg: JsonRpcMessage,
   engine: Engine,
+  session: McpSession = {},
 ): Promise<JsonRpcResponse | null> {
   const id = msg.id ?? null;
   const ok = (result: unknown): JsonRpcResponse => ({ jsonrpc: '2.0', id, result });
@@ -142,6 +179,9 @@ export async function handleMcpMessage(
 
   switch (msg.method) {
     case 'initialize': {
+      // Capture the client's name for propose provenance.
+      const clientInfo = msg.params?.clientInfo as { name?: string } | undefined;
+      if (clientInfo?.name) session.clientName = clientInfo.name;
       const requested = str(msg.params?.protocolVersion);
       return ok({
         protocolVersion: requested || PROTOCOL_VERSION,
@@ -164,7 +204,9 @@ export async function handleMcpMessage(
       const tool = MCP_TOOLS.find((t) => t.name === name);
       if (!tool) return fail(-32602, `Unknown tool: ${name}`);
       const args = (msg.params?.arguments as Record<string, unknown>) ?? {};
-      const result = await tool.run(engine, args);
+      // Provenance for any write tool: `mcp:<client>` (decision #2 of the plan).
+      const proposedBy = `mcp:${session.clientName ?? 'unknown'}`;
+      const result = await tool.run(engine, args, { proposedBy });
       // Tool-level failures are reported as an MCP tool result with isError,
       // NOT a JSON-RPC error — the call itself succeeded; the tool returned a
       // problem the agent should see and can recover from.
@@ -194,6 +236,7 @@ export async function runMcpServer(
   } = {},
 ): Promise<void> {
   const engine = createEngine(projectContext(root), { embedder: opts.embedder });
+  const session: McpSession = {};
   const input = opts.input ?? process.stdin;
   const output = opts.output ?? process.stdout;
   const rl = readline.createInterface({ input, crlfDelay: Infinity });
@@ -215,7 +258,7 @@ export async function runMcpServer(
           write({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
           return;
         }
-        const response = await handleMcpMessage(msg, engine);
+        const response = await handleMcpMessage(msg, engine, session);
         if (response) write(response);
       });
     });

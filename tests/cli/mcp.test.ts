@@ -51,7 +51,7 @@ describe('handleMcpMessage — handshake & discovery', () => {
     const r = await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, engine());
     const tools = (r?.result as { tools: { name: string; inputSchema: unknown }[] }).tools;
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
+      ['propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
     );
     for (const t of tools) expect(t.inputSchema).toHaveProperty('type', 'object');
   });
@@ -109,6 +109,70 @@ describe('handleMcpMessage — tools/call', () => {
   it('an unknown tool name is rejected (-32602)', async () => {
     const r = await call('destroy_everything', {});
     expect(r?.error?.code).toBe(-32602);
+  });
+});
+
+describe('handleMcpMessage — propose_note (write through the gate)', () => {
+  it('files a PENDING proposal stamped mcp:<client>, without writing the note', async () => {
+    const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mcp-propose-'));
+    try {
+      const eng = createEngine(projectContext(vault));
+      const session: { clientName?: string } = {};
+      // The initialize handshake carries the client name → propose provenance.
+      await handleMcpMessage(
+        { jsonrpc: '2.0', id: 1, method: 'initialize', params: { clientInfo: { name: 'claude-code' } } },
+        eng,
+        session,
+      );
+      const r = await handleMcpMessage(
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: {
+            name: 'propose_note',
+            arguments: { relative_path: 'ideas/spark.md', content: '# Spark\n\nA proposed idea.\n' },
+          },
+        },
+        eng,
+        session,
+      );
+      const result = r?.result as { content: { text: string }[]; isError?: boolean };
+      expect(result.isError).toBeFalsy();
+      const out = JSON.parse(result.content[0].text);
+      expect(out.status).toBe('pending');
+      expect(out.proposedBy).toBe('mcp:claude-code');
+      expect(out.proposalUri).toBeTruthy();
+      // Pending — the note is NOT written to the vault.
+      expect(fs.existsSync(path.join(vault, 'ideas', 'spark.md'))).toBe(false);
+      // The proposal IS persisted to graph.ttl for the app's review queue.
+      const ttl = await fsp.readFile(path.join(vault, '.minerva', 'graph.ttl'), 'utf-8');
+      expect(ttl).toContain('Proposal');
+      expect(ttl).toContain('claude-code');
+    } finally {
+      await fsp.rm(vault, { recursive: true, force: true });
+    }
+  });
+
+  it('stamps mcp:unknown when the client sent no name', async () => {
+    const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-mcp-anon-'));
+    try {
+      const eng = createEngine(projectContext(vault));
+      const r = await handleMcpMessage(
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: { name: 'propose_note', arguments: { relative_path: 'x.md', content: 'body' } },
+        },
+        eng,
+        {},
+      );
+      const out = JSON.parse((r?.result as { content: { text: string }[] }).content[0].text);
+      expect(out.proposedBy).toBe('mcp:unknown');
+    } finally {
+      await fsp.rm(vault, { recursive: true, force: true });
+    }
   });
 });
 

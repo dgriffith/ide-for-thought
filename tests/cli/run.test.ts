@@ -190,6 +190,53 @@ describe('runCli read commands (#1149)', () => {
   });
 });
 
+describe('runCli propose-note (#1147 — write through the gate)', () => {
+  it('files a pending proposal, stamped, without writing the note file', async () => {
+    const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cli-propose-'));
+    try {
+      const r = await runCli(['propose-note', 'notes/idea.md', '--by', 'cli'], {
+        cwd: vault,
+        stdin: '# Idea\n\nA proposed thought.\n',
+      });
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.stdout);
+      expect(out.status).toBe('pending');
+      expect(out.proposedBy).toBe('cli');
+      expect(out.proposalUri).toBeTruthy();
+      // Pending → the note is NOT written.
+      expect(fs.existsSync(path.join(vault, 'notes', 'idea.md'))).toBe(false);
+      // The proposal is persisted for the app's review queue.
+      const ttl = await fsp.readFile(path.join(vault, '.minerva', 'graph.ttl'), 'utf-8');
+      expect(ttl).toContain('Proposal');
+      expect(ttl).toMatch(/pending/);
+    } finally {
+      await fsp.rm(vault, { recursive: true, force: true });
+    }
+  });
+
+  it('requires the note body on stdin (exit 2)', async () => {
+    const r = await runCli(['propose-note', 'notes/x.md'], { cwd: root, stdin: '' });
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain('stdin');
+  });
+
+  it('a second proposal does not clobber the first (persistence safety)', async () => {
+    // The core risk of the whole propose path: filing #2 re-loads graph.ttl,
+    // so #1 must survive. Guards the initGraph → proposeWrite → persistGraph
+    // design against a store-reset regression.
+    const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cli-propose2-'));
+    try {
+      await runCli(['propose-note', 'a.md'], { cwd: vault, stdin: '# A\n\nbody a\n' });
+      await runCli(['propose-note', 'b.md'], { cwd: vault, stdin: '# B\n\nbody b\n' });
+      const ttl = await fsp.readFile(path.join(vault, '.minerva', 'graph.ttl'), 'utf-8');
+      expect(ttl).toContain('Proposed note: a.md');
+      expect(ttl).toContain('Proposed note: b.md');
+    } finally {
+      await fsp.rm(vault, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('runCli contract', () => {
   it('no command prints help with usage exit code 2', async () => {
     const r = await runCli([], { cwd: root });
