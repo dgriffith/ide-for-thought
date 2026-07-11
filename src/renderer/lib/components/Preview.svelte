@@ -1171,7 +1171,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             try {
                 const bundle = await getLinkBundle(notePath, revision);
                 el.innerHTML = buildBacklinksHtml(selectBacklinks(bundle.backlinks, config), config);
-            } catch {
+            } catch (e) {
+                console.warn('[query-backlinks] failed:', e);
                 el.innerHTML = buildBacklinksHtml([], config);
             }
             return;
@@ -1190,7 +1191,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                 });
                 const notes = result.enabled ? selectSemanticNotes(result.notes, config) : [];
                 el.innerHTML = buildSemanticHtml(notes, config);
-            } catch {
+            } catch (e) {
+                // A silent empty state hid the common cause here — a preload
+                // addition (api.embeddings.searchText) needs a full app restart,
+                // not just Cmd-R. Surface it so it's diagnosable.
+                console.warn('[query-semantic] failed:', e);
                 el.innerHTML = buildSemanticHtml([], config);
             }
             return;
