@@ -84,6 +84,20 @@ export function buildQuoteTooltip(meta: QuoteMeta): string {
   return parts.join('') || `<div class="tt-meta">No excerpt metadata available</div>`;
 }
 
+/** Wiki-link hover preview (#1132): a note's title + opening/section snippet.
+ *  Mirrors the cite/quote builders' pure-HTML-string shape. */
+export function buildNotePreviewTooltip(title: string, snippet: string): string {
+  const parts: string[] = [];
+  if (title) parts.push(`<div class="tt-title">${escapeHtml(title)}</div>`);
+  parts.push(`<div class="tt-note-body">${escapeHtml(snippet || '(empty note)')}</div>`);
+  return parts.join('');
+}
+
+/** Quiet "not found" for an unresolved wiki-link (#1132). */
+export function buildNotePreviewMissing(target: string): string {
+  return `<div class="tt-note-missing">“${escapeHtml(target)}” not found</div>`;
+}
+
 export function formatFullByline(creators: string[], year?: string): string {
   const who = creators.length === 0 ? ''
     : creators.length <= 3 ? creators.join(', ')

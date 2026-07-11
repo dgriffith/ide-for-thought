@@ -1457,6 +1457,8 @@
                         content={note.content}
                         notePath={note.relativePath}
                         {numberedHeadings}
+                        getNotePaths={() => flattenNotePaths(notebase.files)}
+                        getAliases={() => aliasEntries}
                         onNavigate={handleNavigate}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}

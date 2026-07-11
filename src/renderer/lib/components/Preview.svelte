@@ -48,8 +48,11 @@
         collapseCiteRows,
         buildCiteTooltip,
         buildQuoteTooltip,
-        buildFootnoteTooltip
+        buildFootnoteTooltip,
+        buildNotePreviewTooltip,
+        buildNotePreviewMissing
     } from '../preview/cite-meta';
+    import { makeNotePreviewFetcher } from '../editor/note-preview';
     import {
         findSourceFenceBefore,
         renderComputeOutput,
@@ -131,6 +134,11 @@
          * every journal or list.
          */
         numberedHeadings?: boolean;
+        /** Live note-path list + frontmatter aliases, for the wiki-link hover
+         *  preview (#1132) — resolves a hovered `[[link]]` to a note to read.
+         *  Without them the hover preview is simply inert. */
+        getNotePaths?: () => string[];
+        getAliases?: () => readonly { alias: string; relativePath: string }[];
     }
 
     let {
@@ -151,7 +159,19 @@
         onApplyCellOutputEdit,
         onDoiClick,
         numberedHeadings = false,
+        getNotePaths,
+        getAliases,
     }: Props = $props();
+
+    // Wiki-link hover preview (#1132) — reuses the editor's async fetcher +
+    // per-path read cache. A monotonic token cancels a stale async result when
+    // the pointer has since left or moved to another link.
+    const notePreviewFetcher = makeNotePreviewFetcher({
+        getNotePaths: () => getNotePaths?.() ?? [],
+        getAliases: () => getAliases?.() ?? [],
+        readNote: (p) => api.notebase.readFile(p),
+    });
+    let hoverToken = 0;
 
     // Per-fence collapse state, keyed by the fence's opening line in the
     // source markdown. Survives doc-edit re-renders (line numbers may
@@ -1692,6 +1712,27 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             }
             return;
         }
+        // Wiki-link hover (#1132): unlike cite/quote (whose metadata is on the
+        // element), a note's content is in another file — resolve + cached-read
+        // + snippet, then fill. Async, so guard against the pointer having moved
+        // on before the read resolves.
+        const wiki = target.closest<HTMLElement>('.wiki-link');
+        if (wiki) {
+            const linkTarget = wiki.dataset.target;
+            if (!linkTarget || !getNotePaths) return;
+            const token = ++hoverToken;
+            void notePreviewFetcher(linkTarget).then((preview) => {
+                if (token !== hoverToken) return; // superseded by another hover / mouseout
+                tooltipHtml = preview
+                    ? buildNotePreviewTooltip(preview.title, preview.snippet)
+                    : buildNotePreviewMissing(linkTarget);
+                tooltipVisible = true;
+                positionTooltip(wiki);
+            }).catch(() => {
+                if (token === hoverToken) tooltipVisible = false;
+            });
+            return;
+        }
         const el = target.closest<HTMLElement>('.cite-link, .quote-link');
         if (!el) return;
         const kind = el.dataset.tooltipKind;
@@ -1709,11 +1750,12 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     function handleMouseOut(e: MouseEvent) {
         const target = e.target as HTMLElement | null;
-        const leaving = target?.closest<HTMLElement>('.cite-link, .quote-link, .footnote-ref');
+        const leaving = target?.closest<HTMLElement>('.cite-link, .quote-link, .footnote-ref, .wiki-link');
         if (!leaving) return;
         // relatedTarget can be null when cursor leaves the window — dismiss anyway
         const to = e.relatedTarget as Node | null;
         if (to && leaving.contains(to)) return;
+        hoverToken++; // cancel any in-flight wiki-link fetch (#1132)
         tooltipVisible = false;
     }
 
@@ -1895,6 +1937,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         font-size: 12px;
         color: var(--text-muted);
         font-family: var(--font-mono);
+    }
+
+    /* Wiki-link hover preview (#1132) — the target note's opening snippet. */
+    .cite-tooltip :global(.tt-note-body) {
+        color: var(--text-muted);
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 12em;
+        overflow: hidden;
+    }
+    .cite-tooltip :global(.tt-note-missing) {
+        color: var(--text-muted);
+        font-style: italic;
+        font-size: 12px;
     }
 
     .cite-tooltip :global(.tt-quote) {
