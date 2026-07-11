@@ -51,7 +51,7 @@ describe('handleMcpMessage — handshake & discovery', () => {
     const r = await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, engine());
     const tools = (r?.result as { tools: { name: string; inputSchema: unknown }[] }).tools;
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
+      ['gather_context', 'propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
     );
     for (const t of tools) expect(t.inputSchema).toHaveProperty('type', 'object');
   });
@@ -109,6 +109,17 @@ describe('handleMcpMessage — tools/call', () => {
   it('an unknown tool name is rejected (-32602)', async () => {
     const r = await call('destroy_everything', {});
     expect(r?.error?.code).toBe(-32602);
+  });
+
+  it('gather_context returns a slice: matching notes with content and neighborhood', async () => {
+    const r = await call('gather_context', { topic: 'photosynthesis' });
+    const parsed = JSON.parse((r?.result as { content: { text: string }[] }).content[0].text);
+    expect(parsed.topic).toBe('photosynthesis');
+    const hit = parsed.notes.find((n: { path: string }) => n.path === 'photosynthesis.md');
+    expect(hit).toBeTruthy();
+    expect(hit.content).toContain('chemical energy');
+    expect(Array.isArray(hit.backlinks)).toBe(true);
+    expect(Array.isArray(hit.outgoingLinks)).toBe(true);
   });
 });
 

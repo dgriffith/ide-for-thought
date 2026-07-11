@@ -134,6 +134,24 @@ export const MCP_TOOLS: McpTool[] = [
     run: (engine, args) => engine.read(str(args.relative_path)),
   },
   {
+    name: 'gather_context',
+    description:
+      'Assemble a task-relevant SLICE of the thoughtbase for a topic — the matching notes ' +
+      'plus their link neighborhood (what links to them, what they link to) and full ' +
+      'content — as one bundle to seed your own context. Use this before researching or ' +
+      "writing, to ground yourself in what the user already knows. Prefer this over " +
+      'several separate reads when you need a topic overview.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        topic: { type: 'string', description: 'The topic / question to gather context about.' },
+        limit: { type: 'number', description: 'Max notes in the slice (default 5).' },
+      },
+      required: ['topic'],
+    },
+    run: (engine, args) => engine.context(str(args.topic), num(args.limit)),
+  },
+  {
     name: 'propose_note',
     description:
       'Propose a NEW note for the thoughtbase. IMPORTANT: this does NOT write to the ' +
