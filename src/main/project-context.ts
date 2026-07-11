@@ -19,6 +19,7 @@ import { abortBackfill } from './embeddings/backfill';
 import * as healthChecks from './graph/health-checks';
 import * as conversation from './llm/conversation';
 import { projectContext, type ProjectContext } from './project-context-types';
+import { disposeAllProjectStores } from './project-store';
 
 interface ProjectRecord {
   ctx: ProjectContext;
@@ -120,10 +121,10 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   } catch (err) {
     console.warn(`[project-context] final persist failed for ${rootPath}:`, err);
   }
-  tables.disposeProject(rec.ctx);
-  search.disposeProject(rec.ctx);
-  graph.disposeProject(rec.ctx);
-  await vectors.dispose(rec.ctx); // flush + close the embeddings DB (#835)
+  // Tear down every per-project store — graph, search, tables, and the vector
+  // store's embeddings DB (#835) — by iterating the registry instead of naming
+  // each (#1085). Disposal has no cross-store ordering dependency, unlike init.
+  await disposeAllProjectStores(rec.ctx);
   projects.delete(rootPath);
 }
 

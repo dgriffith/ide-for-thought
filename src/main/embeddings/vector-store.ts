@@ -20,6 +20,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import type { ProjectContext } from '../project-context-types';
+import { createProjectStore } from '../project-store';
 import { MODEL } from './embedder';
 import { chunkMarkdown } from './chunk';
 
@@ -63,7 +64,17 @@ interface StoreState {
   lock: Promise<unknown>;
 }
 
-const states = new Map<string, StoreState>();
+// Dispose waits for any in-flight indexing (the per-project lock) to settle,
+// then closes the persisted DuckDB. The store removes the state before running
+// this hook, so a concurrent call sees the project already gone — preserving
+// the original delete-first-then-close ordering.
+const store = createProjectStore<StoreState>({
+  dispose: async (state) => {
+    try { await state.lock; } catch { /* ignore */ }
+    try { state.connection.closeSync(); } catch { /* already closed */ }
+    try { state.instance.closeSync(); } catch { /* already closed */ }
+  },
+});
 const TABLE = 'note_chunks';
 
 function defaultDbPath(rootPath: string): string {
@@ -71,7 +82,7 @@ function defaultDbPath(rootPath: string): string {
 }
 
 export async function init(ctx: ProjectContext, opts: VectorStoreInit): Promise<void> {
-  if (states.has(ctx.rootPath)) return;
+  if (store.has(ctx)) return;
   const dbPath = opts.dbPath ?? defaultDbPath(ctx.rootPath);
   await fs.mkdir(path.dirname(dbPath), { recursive: true });
 
@@ -103,22 +114,17 @@ export async function init(ctx: ProjectContext, opts: VectorStoreInit): Promise<
        updated_at      TIMESTAMP NOT NULL
      )`,
   );
-  states.set(ctx.rootPath, {
+  store.set(ctx, {
     instance, connection, embedder: opts.embedder, model: MODEL.name, lock: Promise.resolve(),
   });
 }
 
 export function isEnabled(ctx: ProjectContext): boolean {
-  return states.has(ctx.rootPath);
+  return store.has(ctx);
 }
 
 export async function dispose(ctx: ProjectContext): Promise<void> {
-  const state = states.get(ctx.rootPath);
-  if (!state) return;
-  states.delete(ctx.rootPath);
-  try { await state.lock; } catch { /* ignore */ }
-  try { state.connection.closeSync(); } catch { /* already closed */ }
-  try { state.instance.closeSync(); } catch { /* already closed */ }
+  await store.dispose(ctx);
 }
 
 // ── Indexing ────────────────────────────────────────────────────────────────
@@ -129,7 +135,7 @@ export async function dispose(ctx: ProjectContext): Promise<void> {
  * over. Transactional. Resilient — failures log, leaving prior rows intact.
  */
 export async function indexChunks(ctx: ProjectContext, kind: RefKind, ref: string, content: string): Promise<void> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return;
   return runLocked(state, async () => {
     try {
@@ -167,7 +173,7 @@ export const indexExcerpt = (ctx: ProjectContext, excerptId: string, text: strin
   indexChunks(ctx, 'excerpt', excerptId, text);
 
 export async function removeRef(ctx: ProjectContext, kind: RefKind, ref: string): Promise<void> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return;
   return runLocked(state, async () => {
     try { await deleteRef(state, kind, ref); }
@@ -182,7 +188,7 @@ export const removeExcerpt = (ctx: ProjectContext, excerptId: string) => removeR
 /** The refs of `kind` already embedded under the current model — the backfill's
  *  per-kind skip set (#836/#839). */
 export async function embeddedRefs(ctx: ProjectContext, kind: RefKind): Promise<Set<string>> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return new Set();
   const reader = await state.connection.runAndReadAll(
     `SELECT DISTINCT ref_id FROM ${TABLE} WHERE kind = ${lit(kind)} AND embedding_model = ${lit(state.model)}`,
@@ -196,7 +202,7 @@ export async function embeddedRefs(ctx: ProjectContext, kind: RefKind): Promise<
 export const embeddedNotePaths = (ctx: ProjectContext) => embeddedRefs(ctx, 'note');
 
 export async function clear(ctx: ProjectContext): Promise<void> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return;
   return runLocked(state, async () => { await state.connection.run(`DELETE FROM ${TABLE}`); });
 }
@@ -208,7 +214,7 @@ export async function searchRelated(
   query: string | Float32Array,
   opts: SearchOptions = {},
 ): Promise<RelatedHit[]> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return [];
   const vec = typeof query === 'string' ? (await state.embedder.embed([query]))[0] : query;
   if (!vec) return [];
@@ -233,7 +239,7 @@ export async function relatedToRef(
   ref: string,
   opts: SearchOptions = {},
 ): Promise<RelatedHit[]> {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) return [];
   const model = lit(state.model);
   const kc = kindClause(opts.kinds, 't.');
@@ -256,7 +262,7 @@ export const relatedToNote = (ctx: ProjectContext, notePath: string, opts: Searc
 // ── internals ───────────────────────────────────────────────────────────────
 
 export function _connectionForTest(ctx: ProjectContext): DuckDBConnection {
-  const state = states.get(ctx.rootPath);
+  const state = store.get(ctx);
   if (!state) throw new Error('vector store not initialized');
   return state.connection;
 }
