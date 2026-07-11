@@ -44,6 +44,7 @@
     type BookmarkRef,
   } from '../editor/bookmark-gutter';
   import { footnotePreview } from '../editor/footnote-preview';
+  import { linkPreview } from '../editor/link-preview';
   import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
   import { planBlockLink } from '../editor/block-link';
@@ -524,6 +525,11 @@
         runAllRef,
       }),
       footnotePreview(),
+      linkPreview({
+        getNotePaths: () => getNotePaths?.() ?? [],
+        getAliases: () => getAliases?.() ?? [],
+        readNote: (p) => api.notebase.readFile(p),
+      }),
       footnoteDecorations(),
       highlightDecorations(),
     ]),

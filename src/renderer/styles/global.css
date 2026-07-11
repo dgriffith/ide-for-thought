@@ -573,3 +573,38 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px;
 }
+
+/* Wiki-link hover preview (#1131) — clones the footnote-tooltip look. */
+.cm-tooltip:has(.cm-link-preview) {
+  background: var(--bg-button);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  max-width: 360px;
+}
+.cm-link-preview {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+}
+.cm-link-preview .title {
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.cm-link-preview .body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-muted);
+}
+.cm-link-preview.loading {
+  color: var(--text-faint);
+}
+.cm-link-preview.missing {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 11px;
+}
