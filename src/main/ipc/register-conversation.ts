@@ -25,7 +25,7 @@ import {
   recordComputeProposalRun,
   buildComputeProposalNoteBlock,
 } from './register-compute';
-import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, reindexFile, persistIndexes, hooks } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
@@ -380,14 +380,12 @@ export function registerConversation(): void {
   // Proposals panel would be redundant. (See conversation-drafts.ts.)
   ipcMain.handle(
     Channels.CONVERSATION_FILE_DRAFT,
-    async (e, draft: import('../../shared/conversation-drafts').ConversationDraft) => {
+    withRootPath(async (rootPath, draft: import('../../shared/conversation-drafts').ConversationDraft) => {
       console.log('[conv] FILE_DRAFT received', {
         draftId: draft?.draftId,
         conversationId: draft?.conversationId,
         payloads: Array.isArray(draft?.payloads) ? draft.payloads.length : 'not-array',
       });
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       ensureDraftItems(draft, 'payloads', 'FILE_DRAFT');
       const ctx = projectContext(rootPath);
       const proposal = await approval.proposeWrite(ctx, {
@@ -407,7 +405,7 @@ export function registerConversation(): void {
         applied: true,
         filedPaths,
       };
-    },
+    }),
   );
 
   // Approve a refactor draft (#912): file + auto-apply a note-refactor proposal
@@ -611,8 +609,9 @@ export function registerConversation(): void {
   // the bundle.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_SOURCE_DRAFT,
-    async (
-      e,
+    withRootPathWin(async (
+      rootPath,
+      win,
       draft: import('../../shared/conversation-source-drafts').ConversationSourceDraft,
     ): Promise<import('../../shared/conversation-source-drafts').FileSourceDraftResult> => {
       console.log('[conv] FILE_SOURCE_DRAFT received', {
@@ -620,8 +619,6 @@ export function registerConversation(): void {
         conversationId: draft?.conversationId,
         sourceCount: Array.isArray(draft?.sources) ? draft.sources.length : 'not-array',
       });
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       ensureDraftItems(draft, 'sources', 'FILE_SOURCE_DRAFT');
       const outcomes: import('../../shared/conversation-source-drafts').SourceIngestOutcome[] = [];
       let anyIngested = false;
@@ -666,13 +663,12 @@ export function registerConversation(): void {
       }
       if (anyIngested) {
         await persistIndexes(rootPath);
-        const win = winFromEvent(e);
         if (!win.isDestroyed()) {
           win.webContents.send(Channels.SOURCES_CHANGED);
         }
       }
       return { outcomes };
-    },
+    }),
   );
 
   // Counterpart to CONVERSATION_FILE_DRAFT for set_properties bundles.
@@ -681,8 +677,8 @@ export function registerConversation(): void {
   // errors are non-fatal — the rest of the bundle still applies.
   ipcMain.handle(
     Channels.CONVERSATION_FILE_PROPERTY_DRAFT,
-    async (
-      e,
+    withRootPath(async (
+      rootPath,
       draft: import('../../shared/conversation-property-drafts').ConversationPropertyDraft,
     ): Promise<import('../../shared/conversation-property-drafts').FilePropertyDraftResult> => {
       console.log('[conv] FILE_PROPERTY_DRAFT received', {
@@ -700,8 +696,6 @@ export function registerConversation(): void {
             }))
           : null,
       });
-      const rootPath = rootPathFromEvent(e);
-      if (!rootPath) throw new Error('No project open');
       ensureDraftItems(draft, 'updates', 'FILE_PROPERTY_DRAFT');
       // Apply each per-note frontmatter patch through the approval engine's
       // note_rewrite payload (#942) — see applyPropertyUpdates. broadcastRewritten
@@ -713,7 +707,7 @@ export function registerConversation(): void {
       );
       hooks.broadcastRewritten(rootPath, rewrittenPaths);
       return { outcomes };
-    },
+    }),
   );
 
   // Counterpart to CONVERSATION_FILE_PROPERTY_DRAFT for source summaries
