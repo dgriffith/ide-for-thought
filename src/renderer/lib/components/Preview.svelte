@@ -30,22 +30,20 @@
     import {detectDataSource} from '../../../shared/vega/data-binding';
     import {slugify} from '../../../shared/slug';
     import {api} from '../ipc/client';
-    import {normalizeSqlRows} from '../editor/sql-result';
     import {clampSubmenu} from '../utils/menuClamp';
-    import {renderChart, type ChartHandle, type ChartConfig, type ChartSeries} from '../charts';
+    import {type ChartHandle} from '../charts';
     import {getToolInfosByCategory} from '../tools/tool-registry';
     import mdFootnote from 'markdown-it-footnote';
     import {planOutputEdit} from '../editor/output-block';
     import {findRunnableFences, codeOf, RUNNABLE_LANGUAGE_SET} from '../../../shared/compute/fences';
     import {runAllCellsInContent} from '../compute/run-all-cells';
     import type {CellResult} from '../ipc/client';
-    import {escapeHtml, escapeAttr, stripFrontmatter, countFrontmatterLines} from '../preview/text';
+    import {escapeAttr, stripFrontmatter, countFrontmatterLines} from '../preview/text';
     import {resolveRelativeImagePath, mimeFromPath} from '../preview/image-paths';
     import {mediaKind, mediaMime} from '../../../shared/media';
     import {
         type CiteMeta,
         type QuoteMeta,
-        collapseCiteRows,
         buildCiteTooltip,
         buildQuoteTooltip,
         buildFootnoteTooltip,
@@ -53,14 +51,14 @@
         buildNotePreviewMissing
     } from '../preview/cite-meta';
     import { makeNotePreviewFetcher } from '../editor/note-preview';
-    import { selectBacklinks, buildBacklinksHtml, semanticKinds, selectSemanticNotes, buildSemanticHtml } from '../preview/live-blocks';
-    import { getLinkBundle } from '../sidebar-link-bundle';
     import {
         findSourceFenceBefore,
         renderComputeOutput,
         tableToCsv,
         outputToMarkdownClipboard
     } from '../preview/compute-output-render';
+    import { applyCslMarkers, resolveCiteLabel, resolveQuoteLabel, type CitationRenderDeps } from '../preview/citation-render';
+    import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
 
     interface Props {
         content: string;
@@ -722,9 +720,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (injected) {
             void hydrateLocalImages();
             const cites = root.querySelectorAll('.cite-link');
-            cites.forEach((el) => resolveCiteLabel(el as HTMLElement));
+            cites.forEach((el) => resolveCiteLabel(citeDeps(), el as HTMLElement));
             const quotes = root.querySelectorAll('.quote-link');
-            quotes.forEach((el) => resolveQuoteLabel(el as HTMLElement));
+            quotes.forEach((el) => resolveQuoteLabel(citeDeps(), el as HTMLElement));
             void hydrateMermaidBlocks(root);
             void hydrateVegaBlocks(root, content);
             hydrateCardCallouts(root);
@@ -930,6 +928,23 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
      */
     let cslBibliographyEntries = $state<string[] | null>(null);
 
+    // Dependency bundles handed to the extracted preview renderers (#1087):
+    // citation-render (cite/quote enrichment) and query-blocks (query/chart
+    // rendering). Built per call so they capture the current previewEl / props;
+    // the caches + activeCharts are stable refs the modules read/mutate.
+    function citeDeps(): CitationRenderDeps {
+        return {
+            previewEl,
+            citeMetaCache,
+            quoteMetaCache,
+            queryPrefixes: QUERY_PREFIXES,
+            setBibliographyEntries: (v) => { cslBibliographyEntries = v; },
+        };
+    }
+    function queryDeps(): QueryBlockDeps {
+        return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts };
+    }
+
     // After render, find query-block placeholders and execute queries
     $effect(() => {
         rendered; // track dependency on rendered HTML
@@ -941,15 +956,15 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
         requestAnimationFrame(() => {
             const blocks = previewEl?.querySelectorAll('.query-block');
-            blocks?.forEach((el) => executeQueryBlock(el as HTMLElement));
+            blocks?.forEach((el) => executeQueryBlock(queryDeps(), el as HTMLElement));
             const cites = previewEl?.querySelectorAll('.cite-link');
-            cites?.forEach((el) => resolveCiteLabel(el as HTMLElement));
+            cites?.forEach((el) => resolveCiteLabel(citeDeps(), el as HTMLElement));
             const quotes = previewEl?.querySelectorAll('.quote-link');
-            quotes?.forEach((el) => resolveQuoteLabel(el as HTMLElement));
+            quotes?.forEach((el) => resolveQuoteLabel(citeDeps(), el as HTMLElement));
             // CSL marker pass — runs in parallel with the per-element
             // metadata fetches. Citeproc-rendered markers replace the
             // raw cite/quote display text per the project's CSL style.
-            void applyCslMarkers();
+            void applyCslMarkers(citeDeps());
             // Image hydration (#244) — same shape as CSL markers: walk the
             // rendered DOM, fetch each `<img class="local-image">` via the
             // binary IPC, swap in a data URL. Cached per-path so re-renders
@@ -988,63 +1003,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }
     }
 
-    /**
-     * Walk every cite/quote link in document order, batch them into one
-     * IPC call, and swap each link's `.link-display` text for the
-     * citeproc-rendered marker. Document order matters for numeric
-     * styles ("[1]" goes to the first-cited item) — `querySelectorAll`
-     * returns DOM-order, which equals source-order here.
-     */
-    async function applyCslMarkers(): Promise<void> {
-        const root = previewEl;
-        if (!root) return;
-        const links = Array.from(
-            root.querySelectorAll<HTMLElement>('.cite-link, .quote-link'),
-        );
-        if (links.length === 0) {
-            cslBibliographyEntries = null;
-            return;
-        }
-        const refs: { kind: 'cite' | 'quote'; id: string }[] = [];
-        for (const el of links) {
-            if (el.classList.contains('cite-link')) {
-                const id = el.dataset.sourceId;
-                if (id) refs.push({kind: 'cite', id});
-            } else {
-                const id = el.dataset.excerptId;
-                if (id) refs.push({kind: 'quote', id});
-            }
-        }
-        if (refs.length === 0) {
-            cslBibliographyEntries = null;
-            return;
-        }
-        let response: Awaited<ReturnType<typeof api.citations.renderInline>>;
-        try {
-            response = await api.citations.renderInline(refs);
-        } catch (err) {
-            console.warn('[preview] citation render failed:', err);
-            cslBibliographyEntries = null;
-            return;
-        }
-        // The DOM may have re-rendered while the IPC was in flight; bail
-        // if the link set we measured is no longer current.
-        const currentLinks = root.querySelectorAll<HTMLElement>('.cite-link, .quote-link');
-        if (currentLinks.length !== links.length) return;
-        for (let i = 0; i < links.length; i++) {
-            const el = links[i]!;
-            const marker = response.markers[i];
-            if (typeof marker !== 'string') continue;
-            // Respect the user's |display override — they asked for that
-            // exact text and citeproc shouldn't override it.
-            if (el.dataset.displayOverride === '1') continue;
-            const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
-            if (!displayEl) continue;
-            displayEl.innerHTML = marker;
-        }
-        cslBibliographyEntries = response.bibliography;
-    }
-
     // After render, if the caller asked us to jump to a heading or block, do it.
     $effect(() => {
         if (!pendingAnchor || !previewEl) return;
@@ -1059,310 +1017,6 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             }
         });
     });
-
-    async function resolveCiteLabel(el: HTMLElement) {
-        const sourceId = el.dataset.sourceId;
-        if (!sourceId) return;
-
-        const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
-        if (!displayEl) return;
-
-        const cached = citeMetaCache.get(sourceId);
-        if (cached) {
-            applyCiteMeta(el, displayEl, sourceId, cached);
-            return;
-        }
-
-        try {
-            const idEsc = sourceId.replace(/"/g, '\\"');
-            const sparql = `PREFIX bibo: <http://purl.org/ontology/bibo/>
-        SELECT ?title ?creator ?issued ?doi ?uri WHERE {
-          ?src minerva:sourceId "${idEsc}" .
-          OPTIONAL { ?src dc:title ?title }
-          OPTIONAL { ?src dc:creator ?creator }
-          OPTIONAL { ?src dc:issued ?issued }
-          OPTIONAL { ?src bibo:doi ?doi }
-          OPTIONAL { ?src bibo:uri ?uri }
-        }`;
-            const response = await api.graph.query(QUERY_PREFIXES + sparql);
-            const meta = collapseCiteRows(response.results as Array<Record<string, string>>);
-            citeMetaCache.set(sourceId, meta);
-            applyCiteMeta(el, displayEl, sourceId, meta);
-        } catch {
-            // Fall back to the source-id already rendered.
-        }
-    }
-
-    function applyCiteMeta(el: HTMLElement, _displayEl: HTMLSpanElement, _sourceId: string, meta: CiteMeta) {
-        // Display text is owned by the CSL marker pass (#110); we only
-        // populate tooltip metadata here.
-        el.dataset.tooltipKind = 'cite';
-        el.dataset.tooltipPayload = JSON.stringify(meta);
-    }
-
-    async function resolveQuoteLabel(el: HTMLElement) {
-        const excerptId = el.dataset.excerptId;
-        if (!excerptId) return;
-
-        const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
-        if (!displayEl) return;
-
-        const cached = quoteMetaCache.get(excerptId);
-        if (cached) {
-            applyQuoteMeta(el, displayEl, excerptId, cached);
-            return;
-        }
-
-        try {
-            const idEsc = excerptId.replace(/"/g, '\\"');
-            const sparql = `SELECT ?citedText ?sourceTitle ?sourceCreator ?sourceIssued ?page ?pageRange ?locationText WHERE {
-        ?ex minerva:excerptId "${idEsc}" .
-        OPTIONAL { ?ex thought:citedText ?citedText }
-        OPTIONAL { ?ex thought:page ?page }
-        OPTIONAL { ?ex thought:pageRange ?pageRange }
-        OPTIONAL { ?ex thought:locationText ?locationText }
-        OPTIONAL {
-          ?ex thought:fromSource ?src .
-          OPTIONAL { ?src dc:title ?sourceTitle }
-          OPTIONAL { ?src dc:creator ?sourceCreator }
-          OPTIONAL { ?src dc:issued ?sourceIssued }
-        }
-      } LIMIT 1`;
-            const response = await api.graph.query(QUERY_PREFIXES + sparql);
-            const row = response.results[0] as Record<string, string> | undefined;
-            const meta: QuoteMeta = row ? {
-                ...(row.citedText !== undefined ? { citedText: row.citedText } : {}),
-                ...(row.sourceTitle !== undefined ? { sourceTitle: row.sourceTitle } : {}),
-                ...(row.sourceCreator !== undefined ? { sourceCreator: row.sourceCreator } : {}),
-                ...(row.sourceIssued !== undefined ? { sourceYear: row.sourceIssued.slice(0, 4) } : {}),
-                ...(row.page !== undefined ? { page: row.page } : {}),
-                ...(row.pageRange !== undefined ? { pageRange: row.pageRange } : {}),
-                ...(row.locationText !== undefined ? { locationText: row.locationText } : {}),
-            } : {};
-            quoteMetaCache.set(excerptId, meta);
-            applyQuoteMeta(el, displayEl, excerptId, meta);
-        } catch {
-            // Fall back to the excerpt-id already rendered.
-        }
-    }
-
-    function applyQuoteMeta(el: HTMLElement, _displayEl: HTMLSpanElement, _excerptId: string, meta: QuoteMeta) {
-        // Display text is owned by the CSL marker pass (#110); we only
-        // populate tooltip metadata here.
-        el.dataset.tooltipKind = 'quote';
-        el.dataset.tooltipPayload = JSON.stringify(meta);
-    }
-
-    async function executeQueryBlock(el: HTMLElement) {
-        const query = el.dataset.query;
-        const type = el.dataset.type;
-
-        let config: Record<string, string> = {};
-        try {
-            config = JSON.parse(el.dataset.config ?? '{}');
-        } catch { /* ignore */
-        }
-
-        // Backlinks block (#1137): no query body — "who links to THIS note". Sits
-        // ahead of the `!query` guard. Direct IPC (deduped, title-enriched,
-        // typed rows), not a SPARQL preset. Read-only; nothing is written.
-        if (type === 'backlinks') {
-            if (!notePath) { el.innerHTML = buildBacklinksHtml([], config); return; }
-            try {
-                const bundle = await getLinkBundle(notePath, revision);
-                el.innerHTML = buildBacklinksHtml(selectBacklinks(bundle.backlinks, config), config);
-            } catch (e) {
-                console.warn('[query-backlinks] failed:', e);
-                el.innerHTML = buildBacklinksHtml([], config);
-            }
-            return;
-        }
-
-        // Semantic block (#1128): rank the corpus by similarity. With a free-text
-        // body, embed that query; with an empty body, fall back to "related to
-        // THIS note" (the sidebar's stored-vector path). Read-only.
-        if (type === 'semantic') {
-            const q = (query ?? '').trim();
-            el.innerHTML = '<span class="query-loading">Loading...</span>';
-            try {
-                const result = q
-                    ? await api.embeddings.searchText(q, {
-                        limit: 25,
-                        kinds: semanticKinds(config),
-                        ...(notePath ? { excludePath: notePath } : {}),
-                    })
-                    : notePath
-                        ? await api.embeddings.related(notePath, 25)
-                        : { enabled: false, notes: [] };
-                const notes = result.enabled ? selectSemanticNotes(result.notes, config) : [];
-                el.innerHTML = buildSemanticHtml(notes, config);
-            } catch (e) {
-                // A silent empty state hid the common cause here — a preload
-                // addition (api.embeddings.searchText) needs a full app restart,
-                // not just Cmd-R. Surface it so it's diagnosable.
-                console.warn('[query-semantic] failed:', e);
-                el.innerHTML = buildSemanticHtml([], config);
-            }
-            return;
-        }
-
-        if (!query) return;
-
-        const language = config.language === 'sql' ? 'sql' : 'sparql';
-        // Cache key pairs (language, query) so a SQL query and a SPARQL query that
-        // happen to share the same string don't collide.
-        const cacheKey = `${language}::${query}`;
-
-        const cached = queryCache.get(cacheKey);
-        if (cached) {
-            renderQueryResults(el, type ?? 'list', config, cached.results, cached.error);
-            return;
-        }
-
-        el.innerHTML = '<span class="query-loading">Loading...</span>';
-
-        try {
-            let results: Record<string, string>[];
-            if (language === 'sql') {
-                const response = await api.tables.query(query);
-                if (!response.ok) {
-                    queryCache.set(cacheKey, {results: [], error: response.error});
-                    renderQueryResults(el, type ?? 'list', config, [], response.error);
-                    return;
-                }
-                results = normalizeSqlRows(response.columns, response.rows);
-            } else {
-                const response = await api.graph.query(QUERY_PREFIXES + query);
-                results = response.results as Record<string, string>[];
-            }
-            queryCache.set(cacheKey, {results});
-            renderQueryResults(el, type ?? 'list', config, results);
-        } catch (e) {
-            const error = e instanceof Error ? e.message : String(e);
-            queryCache.set(cacheKey, {results: [], error});
-            renderQueryResults(el, type ?? 'list', config, [], error);
-        }
-    }
-
-    function renderQueryResults(el: HTMLElement, type: string, config: Record<string, string>, results: unknown[], error?: string) {
-        if (error) {
-            el.innerHTML = `<p class="query-error">${escapeHtml(error)}</p>`;
-            return;
-        }
-
-        const title = config.title;
-        const titleHtml = title ? `<h4 class="query-title">${escapeHtml(title)}</h4>` : '';
-
-        if (type === 'list') {
-            renderAsList(el, config, results, titleHtml);
-        } else if (type === 'table') {
-            renderAsTable(el, config, results, titleHtml);
-        } else if (type === 'timeseries') {
-            renderAsTimeseries(el, config, results);
-        } else {
-            el.innerHTML = `<p class="query-error">Unknown directive type: ${escapeHtml(type)}</p>`;
-        }
-    }
-
-    function renderAsList(el: HTMLElement, config: Record<string, string>, results: unknown[], titleHtml: string) {
-        // "link" config key specifies which column contains the navigable path (default: "path")
-        const linkCol = config.link ?? 'path';
-        const rows = results as Record<string, string>[];
-
-        const items = rows.map((r) => {
-            const label = r.title ?? r.name ?? r.label ?? r[linkCol] ?? 'Untitled';
-            const path = r[linkCol] ?? '';
-            if (path) {
-                return `<li><a class="wiki-link" data-target="${escapeAttr(path)}">${escapeHtml(label)}</a></li>`;
-            }
-            return `<li>${escapeHtml(label)}</li>`;
-        });
-        el.innerHTML = items.length > 0
-            ? `${titleHtml}<ul class="query-result-list">${items.join('')}</ul>`
-            : `${titleHtml}<p class="query-empty">No results</p>`;
-    }
-
-    function renderAsTable(el: HTMLElement, config: Record<string, string>, results: unknown[], titleHtml: string) {
-        const rows = results as Record<string, string>[];
-        if (rows.length === 0) {
-            el.innerHTML = `${titleHtml}<p class="query-empty">No results</p>`;
-            return;
-        }
-
-        // "link" config key specifies which column contains navigable paths
-        const linkCol = config.link ?? '';
-        // "columns" config key can restrict/reorder visible columns (comma-separated)
-        const allCols = Object.keys(rows[0]!);
-        const visibleCols = config.columns
-            ? config.columns.split(',').map(c => c.trim()).filter(c => allCols.includes(c))
-            : allCols;
-
-        const headers = visibleCols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
-        const body = rows.map(r => {
-            const cells = visibleCols.map(c => {
-                const val = r[c] ?? '';
-                if (c === linkCol || (linkCol === '' && c === 'path')) {
-                    return `<td><a class="wiki-link" data-target="${escapeAttr(val)}">${escapeHtml(val)}</a></td>`;
-                }
-                // If this cell looks like a path and there's a link column, make it a link using that path
-                if (linkCol && r[linkCol]) {
-                    // Only make the title/name/label column clickable
-                    if (c === 'title' || c === 'name' || c === 'label') {
-                        return `<td><a class="wiki-link" data-target="${escapeAttr(r[linkCol])}">${escapeHtml(val)}</a></td>`;
-                    }
-                }
-                return `<td>${escapeHtml(val)}</td>`;
-            }).join('');
-            return `<tr>${cells}</tr>`;
-        }).join('');
-
-        el.innerHTML = `${titleHtml}<table class="query-result-table"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
-    }
-
-    function renderAsTimeseries(el: HTMLElement, config: Record<string, string>, results: unknown[]) {
-        const rows = results as Record<string, string>[];
-        if (rows.length === 0) {
-            const title = config.title;
-            el.innerHTML = title
-                ? `<h4 class="query-title">${escapeHtml(title)}</h4><p class="query-empty">No results</p>`
-                : '<p class="query-empty">No results</p>';
-            return;
-        }
-
-        const allCols = Object.keys(rows[0]!);
-        const xCol = config.x ?? allCols[0] ?? '';
-        const yCols = config.y
-            ? config.y.split(',').map(c => c.trim())
-            : allCols.filter(c => c !== xCol);
-        const chartType = (config.type ?? 'line') as 'line' | 'bar' | 'area';
-        const height = parseInt(config.height ?? '300', 10);
-
-        const series: ChartSeries[] = yCols.map(col => ({
-            label: col,
-            data: rows.map(r => ({
-                x: r[xCol] ?? '',
-                y: parseFloat(r[col] ?? '0') || 0,
-            })),
-        }));
-
-        const chartConfig: ChartConfig = {
-            ...(config.title !== undefined ? { title: config.title } : {}),
-            type: chartType,
-            height,
-            series,
-        };
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'query-chart-wrapper';
-        wrapper.style.height = `${height}px`;
-        const canvas = document.createElement('canvas');
-        wrapper.appendChild(canvas);
-        el.innerHTML = '';
-        el.appendChild(wrapper);
-
-        const handle = renderChart(canvas, chartConfig);
-        activeCharts.push(handle);
-    }
 
     // Click routing (#993). handleClick walks a [selector, handler] table and
     // dispatches to the first branch whose `.closest(selector)` matches the
