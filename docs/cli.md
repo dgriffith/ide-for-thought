@@ -30,6 +30,7 @@ repo's `node_modules` at runtime — no separate install.
 | `search <text>` | Full-text search over notes (`--limit <n>`, default 20) | `{ query, hits }` |
 | `semantic <text>` | Embeddings search over notes (`--limit <n>`) | `{ query, hits }` |
 | `read <relative-path>` | A note's raw markdown | `{ path, content }` |
+| `context <topic>` | A task-relevant slice: matching notes + link neighborhood + content (`--limit <n>`) | `{ topic, noteCount, notes[] }` |
 | `propose-note <path>` | File a new note (body on **stdin**) as a pending proposal (`--by <id>`) | `{ status, proposalUri, … }` |
 
 Global options: `--project <path>` (thoughtbase root, default: cwd), `--help`.
@@ -50,6 +51,21 @@ node .vite/build/cli.js search photosynthesis --project ~/vault | jq '.hits[].re
 node .vite/build/cli.js query \
   'SELECT ?title WHERE { ?n a minerva:Note ; dc:title ?title } ORDER BY ?title' \
   --project ~/vault
+```
+
+## Context handoff
+
+`context <topic>` (MCP tool `gather_context`) is the one command that isn't a
+single lookup: it assembles a **task-relevant slice** an agent seeds its own
+context with. It full-text-retrieves the matching notes and expands each along the
+graph — its backlinks (what references it) and outgoing links (what it references)
+— returning each note's content plus that neighborhood as one bundle. A coding
+agent grounds itself in your design notes before writing; a browser agent checks
+what you already concluded before re-researching.
+
+```sh
+node .vite/build/cli.js context "retrieval augmented generation" --limit 5 --project ~/vault \
+  | jq '.notes[] | {path, backlinks: [.backlinks[].source]}'
 ```
 
 ## Proposing (writes go through the gate)
@@ -81,8 +97,9 @@ Desktop, a coding agent, an editor — can query the thoughtbase. It speaks
 newline-delimited JSON-RPC 2.0 and stays running until stdin closes.
 
 Tools: `query_graph`, `sql_query`, `search_notes`, `semantic_search`, `read_note`
-(reads, grounded JSON) and `propose_note` (files a pending proposal stamped
-`mcp:<client-name>` — see *Proposing* above).
+(reads, grounded JSON), `gather_context` (a topic slice — see *Context handoff*),
+and `propose_note` (files a pending proposal stamped `mcp:<client-name>` — see
+*Proposing* above).
 
 Point an MCP client at it (the client launches it as a subprocess):
 

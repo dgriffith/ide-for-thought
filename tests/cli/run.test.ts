@@ -190,6 +190,49 @@ describe('runCli read commands (#1149)', () => {
   });
 });
 
+describe('runCli context (#1150 — thoughtbase slice for handoff)', () => {
+  it('assembles matching notes with content + link neighborhood (both directions)', async () => {
+    const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cli-context-'));
+    try {
+      await fsp.mkdir(path.join(vault, 'notes'), { recursive: true });
+      await fsp.writeFile(
+        path.join(vault, 'notes', 'energy.md'),
+        '# Energy\n\nCellular energy comes from [[mitochondria]].\n',
+        'utf-8',
+      );
+      await fsp.writeFile(
+        path.join(vault, 'notes', 'mitochondria.md'),
+        '# Mitochondria\n\nThe powerhouse of the cell.\n',
+        'utf-8',
+      );
+      const r = await runCli(['context', 'mitochondria'], { cwd: vault });
+      expect(r.code).toBe(0);
+      const out = JSON.parse(r.stdout);
+      expect(out.topic).toBe('mitochondria');
+      expect(out.noteCount).toBeGreaterThan(0);
+
+      const mito = out.notes.find((n: { path: string }) => n.path === 'notes/mitochondria.md');
+      expect(mito).toBeTruthy();
+      expect(mito.content).toContain('powerhouse');
+      // energy.md links [[mitochondria]] → appears as a backlink of mitochondria.
+      expect(mito.backlinks.map((b: { source: string }) => b.source)).toContain('notes/energy.md');
+
+      const energy = out.notes.find((n: { path: string }) => n.path === 'notes/energy.md');
+      if (energy) {
+        // …and mitochondria appears among energy's outgoing links.
+        expect(energy.outgoingLinks.map((o: { target: string }) => o.target)).toContain('notes/mitochondria.md');
+      }
+    } finally {
+      await fsp.rm(vault, { recursive: true, force: true });
+    }
+  });
+
+  it('requires a topic (exit 2)', async () => {
+    const r = await runCli(['context'], { cwd: root });
+    expect(r.code).toBe(2);
+  });
+});
+
 describe('runCli propose-note (#1147 — write through the gate)', () => {
   it('files a pending proposal, stamped, without writing the note file', async () => {
     const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-cli-propose-'));

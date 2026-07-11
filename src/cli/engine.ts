@@ -45,6 +45,10 @@ export interface Engine {
   search(text: string, limit?: number): Promise<ExecResult>;
   semantic(text: string, limit?: number): Promise<ExecResult>;
   read(relativePath: string): Promise<ExecResult>;
+  /** Assemble a task-relevant slice of the thoughtbase for a topic: the matching
+   *  notes plus their link neighborhood and full content, as one bundle an
+   *  external agent can seed its own context with (#1150). */
+  context(topic: string, limit?: number): Promise<ExecResult>;
   /** File a NEW note as a pending proposal through the approval gate. Never
    *  writes the vault directly — a human approves it in Minerva. */
   proposeNote(input: ProposeNoteInput): Promise<ExecResult>;
@@ -121,6 +125,50 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
+    },
+
+    async context(topic, limit) {
+      const t = topic?.trim();
+      if (!t) return { ok: false, error: 'A topic is required.' };
+      const n = limit && limit > 0 ? limit : 5;
+      // Full-text retrieval (reliable, no model load), then expand each hit along
+      // its graph edges. Both indexes are needed: search for retrieval, graph for
+      // the link neighborhood + note content grounding.
+      await ensureSearch();
+      await ensureGraph();
+      const hits = search.search(ctx, t, { limit: n });
+      const notes = await Promise.all(
+        hits.map(async (h) => {
+          let content = '';
+          try {
+            content = await readFile(ctx.rootPath, h.relativePath);
+          } catch {
+            // A hit whose file vanished between index and read — skip its body,
+            // keep the neighborhood.
+          }
+          return {
+            path: h.relativePath,
+            title: h.title,
+            score: h.score,
+            snippet: h.snippet,
+            content,
+            // "Linked from" — notes that reference this one.
+            backlinks: graph.backlinks(ctx, h.relativePath).map((b) => ({
+              source: b.source,
+              sourceTitle: b.sourceTitle,
+              linkType: b.linkType,
+            })),
+            // "Links to" — what this note references.
+            outgoingLinks: graph.outgoingLinks(ctx, h.relativePath).map((o) => ({
+              target: o.target,
+              targetTitle: o.targetTitle,
+              linkType: o.linkType,
+              exists: o.exists,
+            })),
+          };
+        }),
+      );
+      return { ok: true, data: { topic: t, noteCount: notes.length, notes } };
     },
 
     async proposeNote(input) {

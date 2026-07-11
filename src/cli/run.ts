@@ -52,6 +52,8 @@ Commands:
   search <text>         Full-text search over notes.        [--limit <n>]
   semantic <text>       Semantic (embeddings) search over notes.  [--limit <n>]
   read <relative-path>  Print a note's raw markdown.
+  context <topic>       Assemble a relevant slice — matching notes + their link
+                        neighborhood + content — as agent context.  [--limit <n>]
   propose-note <path>   File a NEW note (body on stdin) as a pending proposal
                         for review in Minerva.               [--by <client-id>]
   mcp                   Start a stdio MCP server exposing the read + propose
@@ -179,6 +181,9 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
       case 'read':
         if (!args.positionals[0]) throw new UsageError('read: a relative note path is required.');
         return format(await engine.read(args.positionals[0]), 'Error');
+      case 'context':
+        if (!rest.trim()) throw new UsageError('context: a topic is required.');
+        return format(await engine.context(rest, args.limit), 'Error');
       case 'propose-note': {
         const rel = args.positionals[0];
         if (!rel) throw new UsageError('propose-note: a relative note path is required.');
