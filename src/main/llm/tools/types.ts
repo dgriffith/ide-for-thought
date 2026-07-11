@@ -1,4 +1,4 @@
-import type Anthropic from '@anthropic-ai/sdk';
+import type { ToolSpec } from '../provider/types';
 import type { ConversationDraft } from '../../../shared/conversation-drafts';
 import type { ConversationSourceDraft } from '../../../shared/conversation-source-drafts';
 import type { ConversationPropertyDraft } from '../../../shared/conversation-property-drafts';
@@ -74,6 +74,6 @@ export interface ToolResult {
 }
 
 export interface NotebaseTool {
-  definition: Anthropic.Tool;
+  definition: ToolSpec;
   run(ctx: ToolContext, input: unknown, callbacks: ToolCallbacks): Promise<ToolResult> | ToolResult;
 }
