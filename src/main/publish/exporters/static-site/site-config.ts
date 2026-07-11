@@ -23,6 +23,10 @@ export interface SiteConfig {
   excludeFolders: string[];
   /** Show per-note backlinks. */
   showBacklinks: boolean;
+  /** Runtime-only (not persisted): true when the project ships a
+   *  `.minerva/site.css` that the exporter copied + linked (#1135). Set by the
+   *  exporter after detecting the file, not by `loadSiteConfig`. */
+  hasCustomCss?: boolean;
 }
 
 const DEFAULTS: Omit<SiteConfig, 'title'> = {

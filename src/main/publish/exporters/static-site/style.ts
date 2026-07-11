@@ -4,6 +4,18 @@
  * Emitted as `style.css` at the site root and linked from every page
  * via a relative path. Designed for "digital garden" reading — quiet
  * typography, calm contrast, sidebar that gets out of the way.
+ *
+ * ── Override surface (#1135) ────────────────────────────────────────────────
+ * Drop a `.minerva/site.css` in the project to restyle the published site; it's
+ * copied into the output and linked AFTER this stylesheet, so it wins the
+ * cascade. The `:root` custom properties below are the intended, stable
+ * override points — a few lines restyle the whole site without fighting
+ * selectors, e.g.:
+ *
+ *     :root { --accent: #b5179e; --bg: #0e0e10; --fg: #eee; }
+ *
+ * Full selector overrides work too. Overridable variables: --fg, --fg-muted,
+ * --fg-faint, --bg, --bg-elev, --accent, --border, --code-bg, --strike.
  */
 
 export const STATIC_SITE_STYLE = `

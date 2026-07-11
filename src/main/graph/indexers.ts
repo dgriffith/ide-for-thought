@@ -508,7 +508,10 @@ export async function indexNote(
   // Frontmatter → triples. `title` (already used as the note title) and
   // `tags` (handled above) are skipped here so they don't double-emit.
   for (const [key, value] of Object.entries(parsed.frontmatter)) {
-    if (key === 'title' || key === 'tags') continue;
+    // `title`/`tags` handled above; `publish` is a nested block of static-site
+    // publishing directives (#1136) — a publication concern, kept out of the
+    // graph (and it's an object, not a materialisable scalar anyway).
+    if (key === 'title' || key === 'tags' || key === 'publish') continue;
     const predicate = resolveFrontmatterPredicate(key);
     for (const v of flattenFrontmatterScalars(value)) {
       const term = frontmatterValueToTerm(v, baseUri, linkCtx);

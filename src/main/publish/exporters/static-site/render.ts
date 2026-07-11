@@ -16,6 +16,7 @@ import type { AnnotatedExcerpt } from '../annotated-reading/resolve';
 import type { SiteConfig } from './site-config';
 import { noteUrl, type SiteIndex } from './site-data';
 import { renderFootnotesSection } from '../note-html';
+import { extractPublish, type PublishMeta } from './publish-meta';
 
 export interface RenderPageInput {
   note: ExportPlanFile;
@@ -66,13 +67,67 @@ export async function renderNotePage(input: RenderPageInput): Promise<string> {
     ? `<aside class="note-meta">${metaTags}${metaDate}</aside>`
     : '<aside class="note-meta"></aside>';
 
+  // Per-note social/OG meta + styling from the `publish:` frontmatter (#1136).
+  const { headExtra, bodyStyle } = buildPublishHead(extractPublish(note), config, note.relativePath, note.title, rootRelative);
+
   return shell({
     config,
     rootRelative,
     pageTitle: note.title,
     bodyHtml: `<article>${bodyWithBroken}${backlinksHtml}</article>${sidebar}`,
     nav,
+    ...(headExtra ? { headExtra } : {}),
+    ...(bodyStyle ? { bodyStyle } : {}),
   });
+}
+
+/**
+ * Build the per-note `<head>` additions (#1136): social/Open-Graph + Twitter
+ * meta, canonical/og:url (only when `baseUrl` is set — otherwise absolute-URL
+ * tags are cleanly omitted rather than emitting broken relative ones), and any
+ * per-note stylesheet links. Every interpolated value is escaped; the
+ * background is pre-validated to a safe CSS token by `extractPublish`.
+ */
+function buildPublishHead(
+  meta: PublishMeta,
+  config: SiteConfig,
+  notePath: string,
+  noteTitle: string,
+  rootRelative: string,
+): { headExtra: string; bodyStyle?: string } {
+  const tags: string[] = [];
+  if (meta.description) {
+    const d = escapeAttr(meta.description);
+    tags.push(`<meta name="description" content="${d}">`);
+    tags.push(`<meta property="og:description" content="${d}">`);
+    tags.push(`<meta name="twitter:description" content="${d}">`);
+  }
+  tags.push(`<meta property="og:title" content="${escapeAttr(noteTitle)}">`);
+  tags.push(`<meta property="og:type" content="article">`);
+
+  const base = config.baseUrl.trim().replace(/\/+$/, '');
+  if (base) {
+    const canonical = escapeAttr(`${base}/${noteUrl(notePath)}`);
+    tags.push(`<link rel="canonical" href="${canonical}">`);
+    tags.push(`<meta property="og:url" content="${canonical}">`);
+  }
+  // og:image must be an absolute URL (scrapers can't resolve relative ones).
+  if (meta.image && /^https?:\/\//i.test(meta.image)) {
+    const img = escapeAttr(meta.image);
+    tags.push(`<meta property="og:image" content="${img}">`);
+    tags.push(`<meta name="twitter:image" content="${img}">`);
+    tags.push(`<meta name="twitter:card" content="summary_large_image">`);
+  } else {
+    tags.push(`<meta name="twitter:card" content="summary">`);
+  }
+
+  // Per-note stylesheets — linked after the site style.css so they override.
+  for (const p of meta.cssPaths) {
+    tags.push(`<link rel="stylesheet" href="${escapeAttr(`${rootRelative}${p}`)}">`);
+  }
+
+  const headExtra = tags.map((t) => `\n  ${t}`).join('');
+  return meta.background ? { headExtra, bodyStyle: `background:${meta.background}` } : { headExtra };
 }
 
 /** Render the tag-cloud landing page (`tags/index.html`). */
@@ -218,10 +273,18 @@ interface ShellInput {
   pageTitle: string;
   bodyHtml: string;
   nav: NavFlags;
+  /** Extra `<head>` markup — per-note social/OG meta + per-note stylesheet
+   *  links (#1136). Already escaped by the caller. */
+  headExtra?: string;
+  /** Per-note background, validated to a safe CSS color/token (#1136). Applied
+   *  as an inline style on `<body>`. */
+  bodyStyle?: string;
 }
 
 function shell(input: ShellInput): string {
   const { config, rootRelative, pageTitle, bodyHtml, nav } = input;
+  const headExtra = input.headExtra ?? '';
+  const bodyStyleAttr = input.bodyStyle ? ` style="${escapeAttr(input.bodyStyle)}"` : '';
   const navLink = (present: boolean, href: string, label: string): string =>
     present ? `\n  <a href="${escapeAttr(`${rootRelative}${href}`)}">${label}</a>` : '';
   const links =
@@ -234,9 +297,11 @@ function shell(input: ShellInput): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(pageTitle)} — ${escapeHtml(config.title)}</title>
-  <link rel="stylesheet" href="${rootRelative}style.css">
+  <link rel="stylesheet" href="${rootRelative}style.css">${
+    config.hasCustomCss ? `\n  <link rel="stylesheet" href="${rootRelative}site.css">` : ''
+  }${headExtra}
 </head>
-<body data-search-root="${escapeAttr(rootRelative)}">
+<body data-search-root="${escapeAttr(rootRelative)}"${bodyStyleAttr}>
 <nav class="site-nav">
   <a class="site-title" href="${rootRelative}index.html">${escapeHtml(config.title)}</a>${links}
   <input class="site-search" type="search" placeholder="Search notes…" autocomplete="off">
