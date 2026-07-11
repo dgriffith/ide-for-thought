@@ -14,6 +14,7 @@
     statusGlyph,
     statusTitle,
   } from '../sources/source-display';
+  import { getLinkDrag } from '../stores/link-drag.svelte';
 
   interface Props {
     source: SourceMetadata;
@@ -22,12 +23,15 @@
   }
 
   let { source, onSelect, onContextMenu }: Props = $props();
+
+  const linkDrag = getLinkDrag();
 </script>
 
 <button
   class="source-item"
   onclick={() => onSelect(source.sourceId)}
   oncontextmenu={(e) => onContextMenu(e, source)}
+  onpointerdown={(e) => linkDrag.start({ kind: 'source', sourceId: source.sourceId, label: displaySourceTitle(source) }, e)}
   title={source.sourceId}
 >
   <div class="source-title">
