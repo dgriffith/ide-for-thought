@@ -53,6 +53,8 @@
         buildNotePreviewMissing
     } from '../preview/cite-meta';
     import { makeNotePreviewFetcher } from '../editor/note-preview';
+    import { selectBacklinks, buildBacklinksHtml, semanticKinds, selectSemanticNotes, buildSemanticHtml } from '../preview/live-blocks';
+    import { getLinkBundle } from '../sidebar-link-bundle';
     import {
         findSourceFenceBefore,
         renderComputeOutput,
@@ -139,6 +141,10 @@
          *  Without them the hover preview is simply inert. */
         getNotePaths?: () => string[];
         getAliases?: () => readonly { alias: string; relativePath: string }[];
+        /** Graph revision — bumped on any index change. The live query-block
+         *  family (backlinks / semantic, #1137/#1128) re-runs when it changes,
+         *  so a block reflects links/embeddings added elsewhere. */
+        revision?: number;
     }
 
     let {
@@ -161,6 +167,7 @@
         numberedHeadings = false,
         getNotePaths,
         getAliases,
+        revision = 0,
     }: Props = $props();
 
     // Wiki-link hover preview (#1132) — reuses the editor's async fetcher +
@@ -926,6 +933,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // After render, find query-block placeholders and execute queries
     $effect(() => {
         rendered; // track dependency on rendered HTML
+        revision; // re-run live blocks (backlinks/semantic) on graph changes (#1137/#1128)
 
         // Destroy previous chart instances before re-rendering
         activeCharts.forEach(c => c.destroy());
@@ -1148,13 +1156,47 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     async function executeQueryBlock(el: HTMLElement) {
         const query = el.dataset.query;
         const type = el.dataset.type;
-        if (!query) return;
 
         let config: Record<string, string> = {};
         try {
             config = JSON.parse(el.dataset.config ?? '{}');
         } catch { /* ignore */
         }
+
+        // Backlinks block (#1137): no query body — "who links to THIS note". Sits
+        // ahead of the `!query` guard. Direct IPC (deduped, title-enriched,
+        // typed rows), not a SPARQL preset. Read-only; nothing is written.
+        if (type === 'backlinks') {
+            if (!notePath) { el.innerHTML = buildBacklinksHtml([], config); return; }
+            try {
+                const bundle = await getLinkBundle(notePath, revision);
+                el.innerHTML = buildBacklinksHtml(selectBacklinks(bundle.backlinks, config), config);
+            } catch {
+                el.innerHTML = buildBacklinksHtml([], config);
+            }
+            return;
+        }
+
+        // Semantic block (#1128): embed the block's free-text query and rank the
+        // corpus. Read-only vector search over the on-device index.
+        if (type === 'semantic') {
+            if (!query) { el.innerHTML = buildSemanticHtml([], config); return; }
+            el.innerHTML = '<span class="query-loading">Loading...</span>';
+            try {
+                const result = await api.embeddings.searchText(query, {
+                    limit: 25,
+                    kinds: semanticKinds(config),
+                    ...(notePath ? { excludePath: notePath } : {}),
+                });
+                const notes = result.enabled ? selectSemanticNotes(result.notes, config) : [];
+                el.innerHTML = buildSemanticHtml(notes, config);
+            } catch {
+                el.innerHTML = buildSemanticHtml([], config);
+            }
+            return;
+        }
+
+        if (!query) return;
 
         const language = config.language === 'sql' ? 'sql' : 'sparql';
         // Cache key pairs (language, query) so a SQL query and a SPARQL query that
@@ -2318,6 +2360,41 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         color: var(--text-muted);
         font-size: 13px;
         font-style: italic;
+    }
+
+    /* Live query-block family: backlinks badges + semantic snippets (#1137/#1128). */
+    .preview :global(.query-link-badge) {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--bg);
+        padding: 1px 4px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        vertical-align: middle;
+    }
+    .preview :global(.semantic-block li) {
+        padding: 6px 0;
+    }
+    .preview :global(.semantic-section) {
+        font-size: 11px;
+        color: var(--text-faint);
+        margin-top: 1px;
+    }
+    .preview :global(.semantic-snippet) {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .preview :global(.semantic-nonnote) {
+        color: var(--text);
     }
 
     .preview :global(.query-empty) {

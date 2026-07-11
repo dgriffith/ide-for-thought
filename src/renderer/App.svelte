@@ -1459,6 +1459,7 @@
                         {numberedHeadings}
                         getNotePaths={() => flattenNotePaths(notebase.files)}
                         getAliases={() => aliasEntries}
+                        revision={graphRevision}
                         onNavigate={handleNavigate}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}

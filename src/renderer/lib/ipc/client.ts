@@ -164,6 +164,11 @@ export interface EmbeddingsApi {
   onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): void;
   /** Notes semantically related to `relativePath`, for the Related panel (#838). */
   related(relativePath: string, limit?: number): Promise<import('../../../shared/types').RelatedNotesResult>;
+  /** Free-text semantic search for the live `:::query-semantic` block (#1128). */
+  searchText(
+    query: string,
+    opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string },
+  ): Promise<import('../../../shared/types').RelatedNotesResult>;
 }
 
 export interface TagsApi {
