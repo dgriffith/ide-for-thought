@@ -71,4 +71,32 @@ export const SITE_SEARCH_SCRIPT = `(function() {
   function escapeAttr(s) { return escapeHtml(s); }
 
   input.addEventListener('input', function(e) { render(e.target.value.trim()); });
+})();
+
+// Structure-sidebar folder state (#1133): persist which folders are expanded so
+// navigating between notes keeps them open, instead of collapsing back to just
+// the current note's path on every page load. The server still opens the
+// current note's ancestors; we only ADD folders the user had expanded, never
+// force-close.
+(function() {
+  'use strict';
+  var KEY = 'minerva-site-tree';
+  var tree = document.querySelector('.site-tree');
+  if (!tree || !window.localStorage) return;
+  var open;
+  try { open = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { open = []; }
+  var openSet = {};
+  for (var i = 0; i < open.length; i++) openSet[open[i]] = true;
+  var folders = tree.querySelectorAll('details[data-path]');
+  function save() {
+    var out = [];
+    for (var j = 0; j < folders.length; j++) {
+      if (folders[j].open) out.push(folders[j].getAttribute('data-path'));
+    }
+    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+  }
+  for (var k = 0; k < folders.length; k++) {
+    if (openSet[folders[k].getAttribute('data-path')]) folders[k].open = true;
+    folders[k].addEventListener('toggle', save);
+  }
 })();`;

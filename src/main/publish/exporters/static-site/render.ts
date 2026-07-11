@@ -297,11 +297,14 @@ function renderSidebar(config: SiteConfig, rootRelative: string, currentPath: st
   return `<aside class="site-sidebar">${brand}<nav class="site-tree">${renderTreeNodes(tree, currentPath, rootRelative)}</nav></aside>`;
 }
 
-function renderTreeNodes(nodes: SidebarNode[], currentPath: string, rootRelative: string): string {
+function renderTreeNodes(nodes: SidebarNode[], currentPath: string, rootRelative: string, prefix = ''): string {
   const items = nodes.map((n) => {
     if (n.children) {
+      const folderPath = prefix ? `${prefix}/${n.name}` : n.name;
       const open = subtreeContains(n.children, currentPath) ? ' open' : '';
-      return `<li class="tree-folder"><details${open}><summary>${escapeHtml(n.name)}</summary>${renderTreeNodes(n.children, currentPath, rootRelative)}</details></li>`;
+      // `data-path` is a stable id so search.js can persist the open/closed
+      // state across page loads (#1133) — navigating keeps expanded folders open.
+      return `<li class="tree-folder"><details data-path="${escapeAttr(folderPath)}"${open}><summary>${escapeHtml(n.name)}</summary>${renderTreeNodes(n.children, currentPath, rootRelative, folderPath)}</details></li>`;
     }
     const current = n.path === currentPath ? ' aria-current="page"' : '';
     return `<li class="tree-note"><a href="${escapeAttr(`${rootRelative}${noteUrl(n.path!)}`)}"${current}>${escapeHtml(n.name)}</a></li>`;

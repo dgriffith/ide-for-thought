@@ -449,11 +449,16 @@ describe('static-site link + nav fixes (live GitHub Pages bugs)', () => {
     expect(inner).toContain('>Top</a>');
     // Current note highlighted; its folder auto-expanded.
     expect(inner).toContain('aria-current="page"');
-    expect(inner).toMatch(/<details open><summary>topic<\/summary>/);
+    expect(inner).toMatch(/<details data-path="topic" open><summary>topic<\/summary>/);
     // A page outside that folder does NOT force it open.
     const top = String(output.files.find((f) => f.path === 'top.html')!.contents);
     expect(top).toContain('<aside class="site-sidebar">');
-    expect(top).toMatch(/<details><summary>topic<\/summary>/); // collapsed
+    expect(top).toMatch(/<details data-path="topic"><summary>topic<\/summary>/); // collapsed
+    // The shipped script persists expanded-folder state across page loads so
+    // navigating doesn't collapse the sibling folders the reader opened (#1133).
+    const js = String(output.files.find((f) => f.path === 'search.js')!.contents);
+    expect(js).toContain('minerva-site-tree');
+    expect(js).toContain("details[data-path]");
   });
 
   it('sidebar lists ONLY exported notes — excluded/private never appear (#1133)', async () => {
