@@ -5,8 +5,9 @@ epic (#1145 → #1149). It reuses the exact `ctx`-based core the app uses (that
 core is Electron-free), so an external agent or a shell script can query your
 knowledge graph and notes without the app running.
 
-> **Status: read-only.** `query`, `sql`, `search`, `semantic`, `read`. Writes
-> (through the approval gate) and an MCP subcommand are later children of the epic.
+> **Status: read-only.** `query`, `sql`, `search`, `semantic`, `read`, and `mcp`
+> (a stdio MCP server exposing the reads to agent clients). Writes — through the
+> approval gate — are a later child of the epic (#1147).
 
 ## Build & run
 
@@ -48,6 +49,35 @@ node .vite/build/cli.js query \
   'SELECT ?title WHERE { ?n a minerva:Note ; dc:title ?title } ORDER BY ?title' \
   --project ~/vault
 ```
+
+## MCP server
+
+`minerva mcp [--project <path>]` starts a [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio, exposing the read commands as tools so any MCP client — Claude
+Desktop, a coding agent, an editor — can query the thoughtbase. It speaks
+newline-delimited JSON-RPC 2.0 and stays running until stdin closes.
+
+Tools: `query_graph`, `sql_query`, `search_notes`, `semantic_search`, `read_note`
+— each returning the same grounded JSON as the matching CLI command.
+
+Point an MCP client at it (the client launches it as a subprocess):
+
+```json
+{
+  "mcpServers": {
+    "minerva": {
+      "command": "node",
+      "args": ["/path/to/minerva/.vite/build/cli.js", "mcp", "--project", "/path/to/vault"]
+    }
+  }
+}
+```
+
+The server inits each modality once and stays warm across tool calls. Because
+that init is a point-in-time snapshot, a long-running server serves results as of
+startup — restart it to pick up external edits (the write-coordination caveat in
+`docs/vision/substrate-mcp-plan.md`). Read-only: writes will arrive as
+approval-gated proposals in a later child (#1147).
 
 ## Exit codes
 
