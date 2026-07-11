@@ -23,7 +23,7 @@ import {
   USER_LOCALES_DIR,
 } from '../publish/csl/user-assets';
 import { renderInlineCitations, type InlineCiteRequest, type InlineCiteResponse } from '../citations/render-inline';
-import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, hooks } from './helpers';
+import { rootPathFromEvent, withRootPath, withRootPathOr, withRootPathWin, hooks } from './helpers';
 
 export function registerBibliography(): void {
   // Bibliography (#113)
@@ -67,10 +67,7 @@ export function registerBibliography(): void {
       filePath: l.filePath,
     }));
   }));
-  ipcMain.handle(Channels.CSL_IMPORT_STYLE, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
-    const win = winFromEvent(e);
+  ipcMain.handle(Channels.CSL_IMPORT_STYLE, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'CSL style', extensions: ['csl', 'xml'] }],
@@ -90,11 +87,8 @@ export function registerBibliography(): void {
     const destPath = path.join(destDir, `${id}.csl`);
     await fs.writeFile(destPath, xml, 'utf-8');
     return { id, label: extractStyleTitle(xml) ?? id, filePath: destPath };
-  });
-  ipcMain.handle(Channels.CSL_IMPORT_LOCALE, async (e) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
-    const win = winFromEvent(e);
+  }));
+  ipcMain.handle(Channels.CSL_IMPORT_LOCALE, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'CSL locale', extensions: ['xml'] }],
@@ -114,7 +108,7 @@ export function registerBibliography(): void {
     const destPath = path.join(destDir, `${id}.xml`);
     await fs.writeFile(destPath, xml, 'utf-8');
     return { id, filePath: destPath };
-  });
+  }));
   ipcMain.handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
     if (!/^[a-z0-9_-]+$/i.test(id)) throw new Error('Invalid style id.');
     const target = path.join(rootPath, USER_STYLES_DIR, `${id}.csl`);

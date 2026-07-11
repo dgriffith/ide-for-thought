@@ -10,7 +10,7 @@ import {
   removePublishTarget,
   type PublishTarget,
 } from '../project-config';
-import { rootPathFromEvent, winFromEvent, withRootPath } from './helpers';
+import { withRootPath, withRootPathWin } from './helpers';
 
 export function registerPublish(): void {
   // ── Publication (#282) ─────────────────────────────────────────────────────
@@ -83,15 +83,12 @@ export function registerPublish(): void {
     };
   }));
 
-  ipcMain.handle(Channels.PUBLISH_RUN_EXPORT, async (e, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
-    const rootPath = rootPathFromEvent(e);
-    if (!rootPath) throw new Error('No project open');
+  ipcMain.handle(Channels.PUBLISH_RUN_EXPORT, withRootPathWin(async (rootPath, win, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
     let outputDir = args.outputDir;
     // When the renderer doesn't pass an outputDir, open a directory
     // picker here. Parents the dialog to the invoking window so it
     // behaves as a modal rather than a floating sheet.
     if (!outputDir) {
-      const win = winFromEvent(e);
       const result = await dialog.showOpenDialog(win, {
         properties: ['openDirectory', 'createDirectory'],
         title: 'Choose export destination',
@@ -101,7 +98,7 @@ export function registerPublish(): void {
       outputDir = result.filePaths[0]!;
     }
     return await publish.runExport(rootPath, { ...args, outputDir });
-  });
+  }));
 
   // ── Publish → git remote (#254) ────────────────────────────────────────────
 
