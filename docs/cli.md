@@ -83,6 +83,13 @@ cat draft.md | node .vite/build/cli.js propose-note notes/idea.md --by cli --pro
 `mcp:<client-name>` from the initialize handshake. The note body comes from
 **stdin**, so it composes with anything upstream.
 
+**Provenance for the fleet.** Every proposal is attributed by `proposedBy`, so the
+graph is an audit log of who contributed what. In Minerva, the Proposals panel
+labels external agents distinctly from the built-in AI, and the *Contributions by
+agent* stock query (Graph → Query) groups proposals by proposer. Attribution
+survives a graph reindex, so a proposal filed while the app is closed still shows
+up (and stays attributed) once it reopens.
+
 > **Coordination caveat.** A proposal is persisted into `.minerva/graph.ttl`. If
 > Minerva has the same vault open, both processes rewrite that file, so it's
 > last-writer-wins — file proposals when the app isn't actively editing the graph,

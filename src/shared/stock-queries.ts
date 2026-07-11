@@ -243,6 +243,19 @@ SELECT ?proposal ?note ?operationType ?proposedBy ?proposedAt WHERE {
 ORDER BY ?proposedAt`,
   },
   {
+    name: 'Contributions by agent',
+    description: "Every proposal grouped by who proposed it — the fleet audit log (mcp:… are external agents, llm:… is Minerva's own AI)",
+    language: 'sparql',
+    query: `${PREFIXES}
+SELECT ?proposedBy ?status (COUNT(?proposal) AS ?count) WHERE {
+  ?proposal rdf:type thought:Proposal .
+  ?proposal thought:proposedBy ?proposedBy .
+  ?proposal thought:proposalStatus ?status .
+}
+GROUP BY ?proposedBy ?status
+ORDER BY ?proposedBy ?status`,
+  },
+  {
     name: 'Conversation history',
     description: 'All recorded conversations with their status and trigger',
     language: 'sparql',
