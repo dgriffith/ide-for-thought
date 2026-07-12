@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Footnotes</title>
+<meta name="description" content="Footnotes in Minerva notes: the [^label] reference and definition syntax, how footnotes render in preview, click-to-jump navigation in the editor, and the Footnotes sidebar panel." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub active">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Footnotes</p>
+
+    <h1>Footnotes</h1>
+    <p class="lede">Footnotes let you push an aside, a caveat, or a citation-adjacent remark out of the sentence and down to the bottom of the note. You write a small inline marker where the thought occurs and a matching definition anywhere in the file — Minerva keeps the two connected in every view: rendered preview, source editor, and the right-sidebar Footnotes panel.</p>
+
+    <h2 id="syntax">Syntax</h2>
+    <p>Minerva uses the standard Pandoc-style footnote extension to markdown: a <b>reference</b> marks the spot in your text, and a <b>definition</b> supplies the footnote body.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>[^label]</code></div>
+        <div class="v"><b>Reference.</b> Placed inline in body text. The label can be a number (<code>[^1]</code>) or a name (<code>[^caveat]</code>) — letters, digits, underscores, and hyphens; no spaces.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[^label]: text…</code></div>
+        <div class="v"><b>Definition.</b> Must start at the beginning of a line — column zero, no indent. Conventionally these collect at the bottom of the note, but a definition anywhere in the file works.</div>
+      </div>
+      <div class="row">
+        <div class="k">indented lines</div>
+        <div class="v"><b>Continuation.</b> A multi-paragraph footnote continues on indented lines below the definition. A blank line is fine mid-definition as long as the next non-blank line is still indented; the first unindented line of text ends the footnote.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>\[^label]</code></div>
+        <div class="v"><b>Escape.</b> A backslash before the bracket makes it literal text, not a footnote. References inside code fences and inline <code>`code`</code> spans are also ignored.</div>
+      </div>
+    </div>
+
+    <p>A complete example:</p>
+<pre><code>The results replicate the 2019 study,[^rep] though with a smaller
+effect size.[^size]
+
+[^rep]: Only the primary outcome was replicated; the secondary
+    measures did not reach significance.
+
+[^size]: d = 0.31 vs. the original d = 0.62.</code></pre>
+
+    <h2 id="rendering">How footnotes render</h2>
+    <p>In preview, each reference becomes a numbered superscript link, and all the definitions gather into a footnotes section at the bottom of the rendered note. Clicking a superscript smooth-scrolls to the footnote body and briefly highlights it so your eye lands in the right place; each body ends with a return arrow that jumps back to the reference. You don't have to jump at all, though — hovering over a superscript shows the footnote text in a tooltip right where you are.</p>
+
+    <div class="shot wide">
+      <div class="icon">🦶</div>
+      <div class="k">Screenshot — Footnote in preview</div>
+      <div class="d">A rendered note showing a superscript ¹ in a paragraph with the hover tooltip open showing the footnote text, and the collected footnotes section visible at the bottom of the note with its return arrow.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Labels vs. numbers</span>
+      <p>The label is an identifier, not the displayed number. Rendered footnotes are numbered by the order their references appear in the text — <code>[^caveat]</code> renders as ¹ if it's the first footnote referenced. Use descriptive labels freely; the output stays tidy.</p>
+    </div>
+
+    <h2 id="editor">In the source editor</h2>
+    <p>In source view, footnote references and definition openers are highlighted as links. They navigate in both directions:</p>
+    <ul>
+      <li><b>Click a reference</b> — jump to its definition.</li>
+      <li><b>Click a definition</b> — jump to the first place it's referenced.</li>
+      <li><b><kbd>⌘</kbd>-click</b> (or <kbd>Ctrl</kbd>-click) — place the cursor inside the marker to edit it, without jumping. Same convention as wiki-links.</li>
+      <li><b>Hover a reference</b> — a tooltip previews the definition body, so you can read the footnote without leaving the sentence. If the label has no definition yet, the tooltip says so.</li>
+    </ul>
+    <p>To insert a footnote, run <b>Insert Footnote</b> from the command palette: it drops the next free numbered reference (<code>[^1]</code>, <code>[^2]</code>, …) at the cursor, appends the matching definition at the end of the note, and moves the cursor there so you can type the body immediately. You can bind it to a keyboard shortcut in Settings → Editor.</p>
+
+    <h2 id="panel">The Footnotes panel</h2>
+    <p>The right sidebar's <b>Footnotes</b> panel lists every footnote in the current note in source order, with a preview of each body and a search box for longer notes. Clicking an entry scrolls the editor to the footnote's first in-text use. The panel also doubles as a linter — it flags the two ways footnotes go stale:</p>
+    <ul>
+      <li><b>Defined · never used</b> — a definition no reference points at (shown muted).</li>
+      <li><b>Referenced · not defined</b> — a <code>[^label]</code> in the text with no matching definition. Clicking it takes you to the dangling reference so you can write the missing body.</li>
+    </ul>
+
+    <div class="shot">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Footnotes panel</div>
+      <div class="d">The right-sidebar Footnotes panel showing several footnote rows with their label badges and body previews, including one flagged "DEFINED · NEVER USED" and one flagged "REFERENCED · NOT DEFINED".</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Duplicate labels.</b> Define each label once. If two definitions share a label, hover previews and click-to-jump resolve to the first one, and the second silently loses.</li>
+      <li><b>Reusing a reference is fine.</b> The same <code>[^label]</code> can appear several times in the text, all pointing at one definition. Clicking the definition jumps to the <em>first</em> use; the Footnotes panel does the same.</li>
+      <li><b>Definitions must start at column zero.</b> An indented <code>[^label]:</code> line isn't a new definition — it reads as a continuation of the footnote above it (or as plain text).</li>
+      <li><b>Punctuation placement.</b> The convention is marker <em>after</em> punctuation: <code>word.[^1]</code>, not <code>word[^1].</code> The formatter's <b>Footnote reference after punctuation</b> rule fixes this automatically when you format a note.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-media.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Media</span>
+      </a>
+      <a class="next" href="notes-highlights.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Highlights →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
