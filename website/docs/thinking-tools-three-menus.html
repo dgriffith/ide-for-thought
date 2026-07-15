@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — The Three Menus</title>
+<meta name="description" content="Learning, Research, and Analysis each hold a different kind of skill, and how a skill's optional group field turns a long menu into nested submenus." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="thinking-tools-what-they-are.html" class="sub">What thinking tools are</a>
+    <a href="thinking-tools-running-a-skill.html" class="sub">Running a skill</a>
+    <a href="thinking-tools-three-menus.html" class="sub active">The three menus</a>
+    <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>The three menus</p>
+
+    <h1>The three menus</h1>
+    <p class="lede">Every skill declares exactly one menu — <code>Learning</code>, <code>Research</code>, or <code>Analysis</code> — in its frontmatter, and that's the only thing that decides where it shows up in the menu bar (and in the command palette's grouping). The three aren't enforced categories with different capabilities; they're a rough division of labor: Learning helps you understand something already in front of you, Research goes out and gathers or files new material, Analysis operates on a claim or argument you already have. A skill's <code>menu:</code> field is just a label — nothing about <code>outputMode</code>, tool access, or approval tier changes based on which one it picks.</p>
+
+    <h2 id="menus">What belongs where</h2>
+    <p>The order in the menu bar itself — Learning, then Research, then Analysis — is deliberate: it reads top-down as a workflow, read-and-understand first, then go gather or file material, then operate across what you've collected (<code>src/main/menu.ts</code>, the comment above <code>buildToolMenus()</code>). A couple of real stock skills per menu, with the actual frontmatter fields that place them:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Learning</div>
+        <div class="v">Skills that work on something you already have open — explain it, expand it, quiz you on it. <b>Deep Dive on Term</b> (<code>src/main/skills/stock/deep-dive.md</code>) expands a selected word or phrase into a fuller explanation at a chosen depth, using the surrounding note as context. <b>Explain Like I'm…</b> (<code>src/main/skills/stock/explain-like-im.md</code>) and <b>Quiz Me</b> (<code>src/main/skills/stock/quiz-me.md</code>) are the same shape: no new material comes in from outside, the skill just changes how you're engaging with what's already there.</div>
+      </div>
+      <div class="row">
+        <div class="k">Research</div>
+        <div class="v">Skills that go get something — from the web, from your existing notes, or from a source you're reading — and hand it back as a draft to file. <b>Find Sources</b> (<code>src/main/skills/stock/find-sources.md</code>) assembles a candidate reading list from web search and your existing notes; it explicitly doesn't ingest anything itself — "You pick which to actually read; ingest the keepers through Ingest URL / Identifier." <b>Extract Key Claims</b> (<code>src/main/skills/stock/extract-key-claims.md</code>) mines a source for <code>thought:Claim</code> notes anchored back to the passage they came from. <b>Check Facts</b> (<code>src/main/skills/stock/check-facts.md</code>) verifies a specific claim against outside evidence.</div>
+      </div>
+      <div class="row">
+        <div class="k">Analysis</div>
+        <div class="v">Skills that operate on a claim, argument, or note you already have, teasing out structure, tension, or a stronger version of it. <b>Steelman</b> (<code>src/main/skills/stock/steelman.md</code>) constructs the strongest possible version of an opposing argument. <b>Find Tensions</b> (<code>src/main/skills/stock/find-tensions.md</code>) compares two notes for where they disagree. <b>Doublecrux</b> and <b>Murphyjitsu</b> are the same family — this is Minerva's largest menu by a wide margin, roughly 30 of the ~50 stock skills, which is exactly why it's the one that needed grouping.</div>
+      </div>
+    </div>
+
+    <h2 id="grouping">Thematic grouping within a menu</h2>
+    <p>A skill's frontmatter can carry an optional <code>group:</code> field — a short thematic label like <code>Disagreement</code>, <code>Verification</code>, or <code>Data</code>. When at least one skill in a menu sets a <code>group</code>, that menu stops rendering as a flat list and becomes a set of nested submenus instead, one per group name, in first-appearance order (which follows the menu config's ordering). Skills that don't set a group collect into a trailing <code>General</code> bucket rather than disappearing. <b>Steelman</b> and <b>Doublecrux</b> both set <code>group: Disagreement</code>; <b>Find Sources</b> sets <code>group: Discovery</code>; <b>Check Facts</b>, <b>Date / Scope Check</b>, and <b>Find Primary Sources</b> all set <code>group: Verification</code>.</p>
+
+    <div class="box">
+      <span class="label">Flat until someone sets a group — where this is enforced</span>
+      <p>The partitioning is pure logic in <code>groupToolsByGroup()</code> (<code>src/shared/tools/grouping.ts</code>): it buckets tools by their <code>group</code> field in a <code>Map</code> keyed by first appearance, collects ungrouped tools separately, and — critically — "if no tool in the list declares a group, the result is a single null-labelled bucket." <code>hasNamedGroups()</code> checks whether any bucket has a non-null label. <code>buildToolMenus()</code> in <code>src/main/menu.ts</code> (lines 593–608) calls both: when <code>hasNamedGroups()</code> is false it renders <code>tools.map(mkItem)</code> directly as a flat list; only when it's true does it wrap each bucket in a <code>submenu</code> entry, labelled from <code>g.label</code> or falling back to <code>'General'</code> for the trailing bucket. No stock skill in Learning or Research sets a <code>group</code> today, so both stay flat — Analysis is the only menu with named groups (Disagreement, Verification, Discovery, Data, Semantic, Pattern, Motivation, Planning, Diagnostic, Generation, Organization, Mining, Decomposition, Summarize, Argumentation), which is also why it's the menu large enough to need the split. The same <code>groupToolsByGroup()</code> call is the one place this logic lives — the renderer's own copy of the registry and the Settings → Skills UI both read the same <code>group</code> field, so a skill you group yourself behaves identically everywhere it appears.</p>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗃️</div>
+      <div class="k">Screenshot — Analysis menu with a nested group open</div>
+      <div class="d">The menu bar's Analysis menu open, showing named submenus (Disagreement, Verification, Semantic, Pattern, General) instead of a flat list, with the Disagreement submenu expanded to reveal Steelman, Find Tensions, and Doublecrux.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>The menu is just a label, not a capability tier.</b> Nothing about a skill's <code>outputMode</code>, tool access, or approval tier is derived from which of the three menus it's in — <code>menu:</code> only controls where it's discoverable. A Research skill and a Learning skill can both open a conversation, write a note, or call the same tools; there's no sandboxing by category.</li>
+      <li><b>A skill can't belong to more than one menu.</b> <code>menu:</code> takes a single value. If a skill feels like it straddles two categories, pick the one that describes what triggers you to reach for it, not what it technically does under the hood.</li>
+      <li><b>Adding a group to one skill doesn't just nest that skill.</b> Because grouping is a menu-wide decision (<code>hasNamedGroups()</code> flips for the whole category), setting <code>group:</code> on a single skill in an otherwise-flat menu immediately restructures every other skill in that menu into the trailing <code>General</code> bucket. If you're authoring a skill for Learning or Research today, adding a group is a visible change to the whole menu, not a local one.</li>
+      <li><b>Source-scoped skills never appear in these menus at all.</b> A skill with <code>scope: source</code> is excluded from Learning/Research/Analysis and the editor's right-click menu regardless of what <code>menu:</code> it declares — it only shows up in the Source viewer's Tools menu. See <a href="thinking-tools-what-they-are.html">What thinking tools are</a> for that split.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="thinking-tools-running-a-skill.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Running a skill</span>
+      </a>
+      <a class="next" href="thinking-tools-managing-authoring.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Managing &amp; authoring →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

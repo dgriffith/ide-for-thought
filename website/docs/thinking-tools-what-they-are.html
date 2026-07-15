@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — What Thinking Tools Are</title>
+<meta name="description" content="A thinking tool is a skill — a markdown file with YAML frontmatter and a template prompt body — not a hardcoded feature, and every one you see in the Learning, Research, and Analysis menus is one." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="thinking-tools-what-they-are.html" class="sub active">What thinking tools are</a>
+    <a href="thinking-tools-running-a-skill.html" class="sub">Running a skill</a>
+    <a href="thinking-tools-three-menus.html" class="sub">The three menus</a>
+    <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>What thinking tools are</p>
+
+    <h1>What thinking tools are</h1>
+    <p class="lede">Every entry in the <b>Learning</b>, <b>Research</b>, and <b>Analysis</b> menus is a <b>skill</b> — a markdown file with a block of YAML frontmatter and a prompt body, not a feature built into the app. Minerva reads skill files at startup, and what they declare (a name, which menu they belong to, what context they need) is what you see on the menu. There is no separate, hardcoded catalog of tools to fall back on: the file <i>is</i> the tool.</p>
+
+    <h2 id="not-hardcoded">A skill, not a hardcoded tool</h2>
+    <p>Earlier versions of Minerva shipped roughly 35 individual tools as TypeScript code — one file per tool, each wired by hand into a menu, the command palette, and the conversation engine. That registry is gone. Every one of those tools is now a skill file: plain markdown, readable and editable like any note, requiring no rebuild of the app to change. Here's the frontmatter and opening lines of a real stock skill, <code>src/main/skills/stock/add-term-to-glossary.md</code>:</p>
+
+    <pre><code>---
+id: learning.add-term-to-glossary
+name: Add Term to Glossary
+description: Add one term to the existing glossary, matching its conventions
+menu: Learning
+outputMode: openConversation
+context: [selectedText, fullNote]
+slashCommand: /add-term-to-glossary
+model: claude-sonnet-5
+web: true
+firstMessage: "{{#if selection}}Add \"{{selection | trim}}\" to the glossary.{{/if}}"
+---
+You add a single term to the user's **existing** glossary, matching the
+conventions already in use.</code></pre>
+
+    <p>The frontmatter is declarative — which menu (<code>Learning</code>), what triggers it (a <code>/add-term-to-glossary</code> slash command, a menu click), what context to gather before running (the current selection and the active note). The body underneath is the actual prompt, written in a small non-executing template language (<code>{{selection}}</code>, <code>{{#if note}}…{{/if}}</code>) so one file adapts to whether a note is open or something is selected, instead of shipping separate code paths for each case. Minerva turns this into a running tool through a fixed pipeline, all under <code>src/main/skills/</code>: <code>parse.ts</code> reads the frontmatter and body, <code>loader.ts</code> assembles the full catalog, <code>compile.ts</code> turns each valid skill into a <code>ThinkingToolDef</code>, and <code>register.ts</code> adds it to the shared tool registry the menu bar, command palette, and conversation engine all read from. The renderer never sees the prompt text itself — it gets a serializable <code>SkillInfo</code> summary via <code>api.skills.list()</code> and builds its own copy of the registry from that.</p>
+
+    <h2 id="stock-vs-user">Stock skills vs. user skills</h2>
+    <p>Skills come from two places, and the distinction matters for what you can change:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Location</div>
+        <div class="v"><b>Stock:</b> <code>src/main/skills/stock/*.md</code>, bundled into the app at build time via Vite's <code>import.meta.glob</code> — around 50 files today, covering the default Learning, Research, and Analysis catalog. <b>User:</b> <code>~/.minerva/skills/</code> on your machine — either a bare <code>my-skill.md</code> file or a folder with a <code>SKILL.md</code> inside it (the folder form is for a skill that ships assets alongside its prompt). User skills apply across every thoughtbase you open on that machine, not just one project.</div>
+      </div>
+      <div class="row">
+        <div class="k">Loaded when</div>
+        <div class="v">Stock skills are embedded at build time — they ship inside the app itself, no filesystem read required. User skills are read from disk at runtime, on app startup, and again whenever you hit <b>Reload</b> in Settings → Skills after editing a file by hand.</div>
+      </div>
+      <div class="row">
+        <div class="k">Can it override?</div>
+        <div class="v">No. Stock loads first and claims every id it defines; a user skill whose <code>id</code> collides with a stock skill is rejected outright rather than replacing it — user skills are <b>additive only</b>. To change how a stock skill behaves, disable it in Settings → Skills and author your own from scratch (copying the stock file as a starting point is the normal way to do this).</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Additive, not overriding — where this is enforced</span>
+      <p>The rule lives in <code>src/main/skills/loader.ts</code>. <code>loadSkillCatalog()</code> loads stock skills first and inserts them into an id-keyed map (lines 98–104); it then loads user skills and, for each one, checks whether its id already exists in that map (lines 105–115). If the existing entry came from stock, the user skill is rejected with the error <code>id "…" is already a stock skill; user skills can't override stock</code> — it never reaches the catalog. The same file's header comment states the invariant directly: "User skills are additive only: a user skill whose id collides with a stock skill is rejected (it can't shadow stock)." A rejected skill doesn't take down the rest of your catalog, either — parsing is error-isolated per file, so one bad or colliding skill is reported (Settings → Skills lists load errors) while every other skill loads normally.</p>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🧠</div>
+      <div class="k">Screenshot — A thinking-tools menu open</div>
+      <div class="d">The menu bar's Analysis menu open, showing a flat list of skill entries (Steelman, Find Tensions, Murphyjitsu, Doublecrux, Antithesize) each with its short description beneath the name, matching the card layout skills declare via `name` and `description` in frontmatter.</div>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="thinking-tools.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Thinking tools</span>
+      </a>
+      <a class="next" href="thinking-tools-running-a-skill.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Running a skill →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
