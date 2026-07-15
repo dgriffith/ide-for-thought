@@ -10,6 +10,10 @@
 # exercised by CI (a maker regression stayed invisible until release day), and
 # there was no tag→downloadable-build flow.
 #
+# Also uploads a stable-named DMG copy (Minerva-mac-arm64.dmg, no version in the
+# name) alongside the version-stamped original, so the website's download button
+# can link to a URL that never changes across releases (see "Collect artifacts").
+#
 # Signing + notarization (#959): when the Apple secrets below are configured,
 # the "Prepare macOS signing" step imports the Developer ID cert into a throwaway
 # keychain and exports the App Store Connect API-key env vars, so forge.config.ts
@@ -121,6 +125,18 @@ jobs:
         run: |
           mkdir -p dist-artifacts
           find out/make -type f \( -name '*.dmg' -o -name '*.zip' \) -exec cp {} dist-artifacts/ \;
+
+          # Stable-named copy of the DMG (#1300-adjacent: website download link),
+          # alongside the version-stamped original. The versioned name changes
+          # every release, so the website can't link to it directly — this fixed
+          # name lets it link to a URL that never changes:
+          #   .../releases/latest/download/Minerva-mac-arm64.dmg
+          # which GitHub always redirects to whatever's currently published.
+          dmg="$(find dist-artifacts -maxdepth 1 -name '*.dmg' | head -n1)"
+          if [ -n "$dmg" ]; then
+            cp "$dmg" dist-artifacts/Minerva-mac-arm64.dmg
+          fi
+
           echo "Collected:"
           ls -la dist-artifacts
 
