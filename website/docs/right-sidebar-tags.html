@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Tags (Note)</title>
+<meta name="description" content="The right sidebar's Tags panel is a read-only, hierarchical view of the tags on the current note only — distinct from the left sidebar's flat, project-wide Tags panel, and it doesn't add or remove tags itself." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub active">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Tags</p>
+
+    <h1>Tags</h1>
+    <p class="lede">The right sidebar's Tags panel shows the tags that appear <b>on the current note</b> — nothing else in the project — arranged as a hierarchy so a tag like <code>#project/minerva/docs</code> renders as nested rows instead of one long string. It's a read view: this panel doesn't add or remove tags itself. To change what a note is tagged with, you edit the note.</p>
+
+    <div class="box">
+      <span class="label">Not the same panel as the left sidebar's Tags</span>
+      <p>Minerva has two panels that both say "Tags," and they do genuinely different jobs:</p>
+      <p><a href="left-sidebar-tags.html">Left sidebar → Tags</a> is flat and project-wide — every tag used anywhere in the thoughtbase, alphabetical, with a count. It's for browsing the whole project's vocabulary and jumping to any note carrying a given tag, regardless of what you currently have open.</p>
+      <p>This panel, in the <b>right</b> sidebar, is scoped to whatever note is open in the active tab. It only ever lists tags that are actually present in that note's content — no other tag in the project shows up here at all — and it renders them as a tree rather than a flat list (<code>TagsPanel.svelte</code>, right-sidebar variant). Switch tabs and the panel's contents change with it; it is not a filtered view of the left sidebar's list, it's a different query answering a different question ("what does <i>this</i> note carry?" vs. "what tags exist?").</p>
+    </div>
+
+    <h2 id="hierarchy">Reading the tree</h2>
+    <p>A tag with slashes in it — <code>#area/health</code>, <code>#project/minerva/docs</code> — is treated as a path, and the panel builds a tree out of every such path across the note's tags. Segments are synthesized as parent rows even if nothing in the project is tagged with that exact shorter form: a note tagged only <code>#foo/bar/baz</code> still shows <code>foo</code> and <code>foo/bar</code> as rows above it, because they're implied ancestors, not because anyone tagged a note with just <code>#foo</code>.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Expand / collapse</div>
+        <div class="v">Click the chevron on any row with children to fold or unfold that branch. Expand state persists locally (per-machine, not per-project) so the tree looks the same the next time you open the panel.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a leaf tag</div>
+        <div class="v">Shows every note and source tagged with that <i>exact</i> tag in a "TAGGED #…" section below the tree — not just the current note. This is how the panel doubles as a jumping-off point: the tag you see here is scoped to the current note, but clicking it surfaces every other note in the project that shares it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a parent tag</div>
+        <div class="v">Shows every note and source tagged at-or-under that prefix — "TAGGED UNDER #…" — a superset of clicking each child leaf individually. Useful for a broad sweep, e.g. every note under <code>#area/health</code> regardless of how deep the specific tag goes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Accent marker</div>
+        <div class="v">A row for a tag literally present on the current note is tinted with the accent color, distinguishing it from a synthesized ancestor row that exists only to hold the tree together.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filter field</div>
+        <div class="v">The ribbon's search box filters the tree by substring. A match keeps its ancestor chain visible even if a parent branch was previously collapsed, so you can see where in the hierarchy the hit lives.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🏷️</div>
+      <div class="k">Screenshot — Tags panel for a note tagged under a hierarchy</div>
+      <div class="d">The right sidebar's Tags panel open on a note carrying a nested tag, showing an expanded tree with a synthesized parent row and an accent-tinted leaf row for the tag actually on the note, and a "TAGGED #…" section beneath the tree listing other notes and sources that share that same tag.</div>
+    </div>
+
+    <h2 id="add-remove">Adding and removing a tag</h2>
+    <p>There's no input field or delete control in this panel — it only reads. A tag is added to or removed from a note the same way any other content changes: by editing the note itself. Minerva recognizes tags written two ways, and this panel shows both together without distinguishing which form a given tag used:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Inline <code>#hashtag</code></div>
+        <div class="v">Type <code>#tagname</code> anywhere in the note's body. It's picked up as a tag the next time the note is saved and re-indexed — no special syntax beyond the leading <code>#</code> and a valid tag character to follow it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Frontmatter <code>tags:</code> list</div>
+        <div class="v">Add or remove an entry in the YAML <code>tags:</code> array at the top of the note. Many notes carry tags only this way, with nothing typed inline — the panel merges both sources so neither is treated as more authoritative.</div>
+      </div>
+      <div class="row">
+        <div class="k">Removing a tag</div>
+        <div class="v">Delete the <code>#hashtag</code> text or the frontmatter list entry and save. There's no separate "untag" action — the panel simply stops showing a tag once the note no longer contains it in either form.</div>
+      </div>
+    </div>
+
+    <p>The panel re-reads the active note's content reactively, so a save that adds or removes a tag updates the tree immediately — no manual refresh. For the mechanics of how tags are extracted and indexed into the knowledge graph (the shared parsing that both this panel and the left sidebar's rely on), see <a href="left-sidebar-tags.html">Left sidebar → Tags</a>.</p>
+
+    <h2 id="graph">How this feeds the rest of the app</h2>
+    <p>Every tag on a note is indexed into <code>.minerva/graph.ttl</code> the moment the note is saved, the same as titles, wiki-links, and frontmatter metadata generally. That indexing is what makes both Tags panels, tag-based <a href="../features.html">SPARQL</a> queries, and the auto-tag skill's "don't repeat an existing tag" check all possible — this panel is simply the narrowest lens onto that same graph data, filtered down to one note.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>No tags in the note, no tree.</b> A note with no tags at all — inline or frontmatter — shows a plain "No tags in this note" message instead of an empty tree.</li>
+      <li><b>A code block's <code>#</code> doesn't count.</b> Text inside fenced or inline code is stripped before the panel looks for <code>#hashtag</code> matches, so a shell comment or a Markdown heading marker inside a code span won't accidentally show up as a tag.</li>
+      <li><b>Ancestor rows aren't "real" tags.</b> A synthesized parent segment (e.g. <code>foo</code> above a note tagged only <code>foo/bar</code>) exists to make the tree readable, not because the project has a tag called exactly that — don't expect it to appear in the left sidebar's project-wide list unless some note is tagged with that shorter form directly.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-citations.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Citations</span>
+      </a>
+      <a class="next" href="right-sidebar-related.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Related →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

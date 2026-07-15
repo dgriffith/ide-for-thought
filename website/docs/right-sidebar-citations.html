@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Citations</title>
+<meta name="description" content="The Citations panel lists every source the current note cites or quotes, grouped one row per source with occurrence counts and quoted excerpts, so you can jump straight to the source you referenced." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub active">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Citations</p>
+
+    <h1>Citations</h1>
+    <p class="lede">The Citations panel lists every source the current note cites or quotes — one row per source, with a byline, an occurrence count, and (when the note quotes it) the specific excerpts pulled in. It's a bibliography for the note you're looking at, built from its <code>[[cite::…]]</code> and <code>[[quote::…]]</code> links rather than typed by hand.</p>
+
+    <h2 id="how-it-works">How it works</h2>
+    <p>The panel groups every <a href="notes-links.html#types"><code>cite</code> and <code>quote</code> typed link</a> in the note by the source it resolves to, so a source cited three times and quoted twice appears once, with both counts on the same row. It reads the note's own indexed <code>thought:cites</code> / <code>thought:quotes</code> edges to find which sources are in play, then re-scans the live editor buffer to count occurrences — so the counts track what you're typing, not just the last save. Edits are debounced before the panel re-queries, so fast typing doesn't trigger a query per keystroke.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Source row</div>
+        <div class="v">Shows the source's title in italic and a byline (author, or "author and author," or "author et al." for three or more, plus the year when known) — the same metadata as the source's own entry. A chip on the right splits the count into cites and quotes, e.g. <code>3</code> cites and <code>2″</code> quotes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a source row</div>
+        <div class="v">Opens that source's own tab — the same detail view described in <a href="left-sidebar-sources.html">Left sidebar → Sources</a> — scrolled to the top.</div>
+      </div>
+      <div class="row">
+        <div class="k">Expand a source</div>
+        <div class="v">A disclosure triangle appears on any source the note actually quotes. Expanding it lists each quoted excerpt underneath, with a truncated preview of the quoted text and its locator (a page number, page range, or other location text) when the source has one.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click an excerpt</div>
+        <div class="v">Opens the source scrolled to that excerpt, rather than just to the top of the source — useful for jumping straight back to the passage you quoted in a long PDF or web capture.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search and sort</div>
+        <div class="v">The ribbon's search field filters by source title, source ID, author name, or quoted text — so you can find the source you cited by searching for a phrase you remember quoting. Sort between "Most cited" (the default) and alphabetical by title.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">📚</div>
+      <div class="k">Screenshot — Citations panel with an expanded source</div>
+      <div class="d">The right sidebar's Citations panel listing several cited sources as italic titles with author/year bylines and cite/quote count chips; one row is expanded to show two quoted excerpts indented beneath it with a locator like "p. 42" next to each.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>A citation key that doesn't resolve still gets a row.</b> If a <code>[[cite::id]]</code> or <code>[[quote::id]]</code> points at a source ID with no matching entry in the graph, that source is skipped entirely — it never enters the group set, so it won't show up as a broken row. Only sources the graph can actually resolve are listed, whether or not they have a title.</li>
+      <li><b>A resolved source with no title reads as "uncited."</b> If the source exists in the graph but has no title yet (a stub, or metadata still being fetched), its row shows the raw source ID in place of a title, in a warning color, with "N references · uncited" instead of a byline. It's still clickable — the warning is about missing metadata, not a broken link.</li>
+      <li><b>Bibliography blocks don't inflate the count.</b> Notes that embed a rendered bibliography block don't have their citation counts doubled by it — the panel strips that block before counting, so the numbers reflect inline <code>cite</code>/<code>quote</code> links only.</li>
+      <li><b>No citations, no rows.</b> A note with no <code>cite</code> or <code>quote</code> links shows a plain "No citations in this note" message — this panel only covers the source/excerpt typed links, not plain <code>references</code> links to other notes (see <a href="right-sidebar-backlinks.html">Backlinks</a> for those).</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-proposals.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Proposals</span>
+      </a>
+      <a class="next" href="right-sidebar-tags.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Tags →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Footnotes Panel</title>
+<meta name="description" content="The Footnotes panel lists every footnote in the current note, lets you jump between a reference and its definition, and flags footnotes that are defined but unused or referenced but undefined." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub active">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Footnotes</p>
+
+    <h1>Footnotes</h1>
+    <p class="lede">The <b>Footnotes</b> panel lists every footnote defined or referenced in the current note and lets you jump straight to where it's used — a quick index for notes with more than a couple of asides, and a linter that catches footnotes left dangling in either direction.</p>
+
+    <div class="box">
+      <span class="label">Syntax lives on its own page</span>
+      <p>This page is about the panel's own UI — search, rows, and the two stale-footnote flags. For the <code>[^label]</code> reference/definition syntax, how footnotes render in preview, and click-to-jump navigation in the source editor, see <a href="notes-footnotes.html">Notes → Footnotes</a>.</p>
+    </div>
+
+    <h2 id="layout">Reading the panel</h2>
+    <p>Each row shows a footnote's label and a one-line preview of its body. Rows for defined footnotes appear in source order — the order their definitions occur in the file, not the order they're referenced. Typing into the ribbon's search field narrows the list to footnotes whose label or body text contains the query, live as you type; this searches only the current note, not the whole project.</p>
+    <p><b>Click a row</b> to scroll the editor to that footnote's first in-text reference — the same jump-to-use behavior as clicking a definition in the source editor. If a footnote has no reference at all (see below), the click instead lands on the definition itself, since there's no reference to jump to.</p>
+
+    <h2 id="stale">Stale-footnote flags</h2>
+    <p>The panel doubles as a linter for the two ways a footnote can go out of sync — each renders as its own row with a small mono caption under the body preview:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Defined · never used</div>
+        <div class="v">A <code>[^label]: …</code> definition that no <code>[^label]</code> reference points at anywhere in the note. Shown muted, since it isn't broken — just unreferenced. Clicking it jumps to the definition.</div>
+      </div>
+      <div class="row">
+        <div class="k">Referenced · not defined</div>
+        <div class="v">A <code>[^label]</code> in the body text with no matching definition anywhere in the file. Clicking it takes you to the dangling reference so you can write the missing definition. If the same missing label is referenced more than once, it's still one row — clicking jumps to the first occurrence.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Footnotes panel, search and stale flags</div>
+      <div class="d">The right-sidebar Footnotes panel with the ribbon's search field focused and text entered, filtering the list to a handful of matching rows below — one row flagged "DEFINED · NEVER USED" in a muted style and one flagged "REFERENCED · NOT DEFINED," alongside ordinary rows showing a label and body preview.</div>
+    </div>
+
+    <h2 id="empty">No footnotes, no matches</h2>
+    <p>A note with no footnotes at all shows <i>"No footnotes"</i> in place of the list. If the note has footnotes but none match the current search text, the message changes to <i>"No matches"</i> instead, so you can tell at a glance whether the panel is empty because the note has nothing to show or because your filter is too narrow.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Row order follows definitions, not references.</b> The panel lists definitions in the order they appear in the file, then any undefined-reference rows after — it isn't ordered by where footnotes first appear as superscripts in the rendered note.</li>
+      <li><b>One row per label, not per use.</b> A footnote referenced several times in the text still gets a single row; clicking it always jumps to the first reference.</li>
+      <li><b>The panel reflects saved content.</b> Like the rest of the right sidebar, it's driven by the current note's content — a footnote you just typed shows up as soon as it's part of the note text the panel is reading, but a stale flag won't resolve until the fix (a new definition, or a new reference) is actually in place.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-related.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Related</span>
+      </a>
+      <a class="next" href="right-sidebar-tables.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Tables →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

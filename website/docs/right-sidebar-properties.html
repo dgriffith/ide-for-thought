@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Properties</title>
+<meta name="description" content="The Properties panel in Minerva's right sidebar: a structured, type-aware editor for a note's frontmatter — add, edit, and remove keys without hand-editing YAML." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub active">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Properties</p>
+
+    <h1>Properties</h1>
+    <p class="lede">The Properties panel is the right sidebar's structured editor for a note's <a href="notes-frontmatter.html">frontmatter</a>: the same YAML block, presented as a list of typed rows you can edit, add to, or remove from without touching a <code>---</code> fence. It's an alternative surface, not a separate data store — every change here is a rewrite of the note's actual frontmatter, and every hand-edit in the source view shows up here the moment the file reflows.</p>
+
+    <h2 id="where">Where it lives</h2>
+    <p>Properties is one of the panels under the <b>Note</b> group in the right sidebar, alongside Outline, Footnotes, Tags, and Tables — the panels that describe the active note itself, as opposed to how it connects to other notes. Switching tabs or notes just re-renders the same panel against whatever note is currently active; there's no per-note panel state to lose track of.</p>
+
+    <p>The component is <code>PropertiesPanel.svelte</code> (<code>src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte</code>), wired into <code>RightSidebar.svelte</code> at the <code>properties</code> panel id. It's given the editor's current buffer content and a callback to push edits back — it has no independent notion of "the file," only whatever content it's handed.</p>
+
+    <h2 id="writeback">How an edit reaches the file</h2>
+    <p>Every control in the panel — renaming a key, typing a new string, toggling a checkbox, adding a chip — funnels through one function that parses the note's existing frontmatter into a YAML document, applies a single mutation (set a key, delete a key, rename a key), and re-serializes the whole block (<code>PropertiesPanel.svelte:209-240</code>). The result replaces the frontmatter block in the editor buffer via <code>onContentChange</code>, exactly as if you'd typed the change yourself in the source view.</p>
+
+    <p>Because the panel always works from the real, parsed YAML document rather than a shadow copy, edits round-trip cleanly:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Key order</div>
+        <div class="v">Preserved. Editing an existing key's value mutates that key in place; only a brand-new key is appended at the end. Reordering isn't a supported gesture from the panel — drag the lines around in the source editor if you want a specific order.</div>
+      </div>
+      <div class="row">
+        <div class="k">Comments</div>
+        <div class="v">Preserved on untouched lines, because the panel parses with the <code>yaml</code> library's document API (which retains comments as part of the AST) rather than a parse-to-plain-object-and-restringify round trip. A comment attached to the exact key you edit can still be displaced by re-serialization — the guarantee is for the block as a whole, not line-for-line stability on every touched key.</div>
+      </div>
+      <div class="row">
+        <div class="k">Typing debounce</div>
+        <div class="v">Text and number fields don't write on every keystroke. Each keystroke updates a local draft immediately (so the input never stutters) and flushes to the buffer 250&nbsp;ms after you stop typing, or immediately on blur (<code>PropertiesPanel.svelte:299-307</code>). Checkboxes, dates, chips, and the key-rename field commit immediately — there's no debounce to wait out on those.</div>
+      </div>
+    </div>
+
+    <h2 id="editing">Editing, adding, and removing properties</h2>
+    <p>Each row is <code>[type icon, key, value control, × button]</code>. The value control is chosen from the same shape-detection rules covered in <a href="notes-frontmatter.html#values">Frontmatter → Value shapes</a> — this page only covers the parts of that interaction that aren't about the value's shape.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Renaming a key</div>
+        <div class="v">The key itself is a text input, not just a label. Typing a new name and blurring (or tabbing away) renames the key in place, keeping its value and position. Renaming to a key that's empty, or unchanged, is a no-op.</div>
+      </div>
+      <div class="row">
+        <div class="k">Removing a property</div>
+        <div class="v">Hover a row to reveal a × button at its right edge; click it to delete that key. If deleting the last remaining key leaves the frontmatter block empty, Minerva drops the entire <code>---</code>…<code>---</code> block from the note rather than leave a blank, technically-malformed fence pair behind (<code>PropertiesPanel.svelte:230-235</code>) — the note reverts to having no frontmatter at all, same as if you'd never added it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Adding a new key</div>
+        <div class="v">An "Add property…" row sits at the bottom of the list (or, for a note with no frontmatter yet, in the middle of the empty state) with an autocomplete field. Typing a name and pressing Enter — or clicking the adjacent + button — inserts the key with an empty string value and focuses its new value input immediately, so you can type the value with no extra click.</div>
+      </div>
+      <div class="row">
+        <div class="k">Autocomplete suggestions</div>
+        <div class="v">The dropdown suggests keys already in use elsewhere in the project first, then falls back to canonical keys the note doesn't have yet — filtered so a key already present on this note never appears twice. A handful of canonical keys are also offered as quick-add pill chips just below the add row, for one-click insertion without typing a name at all.</div>
+      </div>
+      <div class="row">
+        <div class="k">Starting from zero</div>
+        <div class="v">A note with no frontmatter block shows an empty-state prompt instead of a row list. Adding the first property here does double duty: it creates the <code>---</code>…<code>---</code> block and inserts the key in one step (<code>PropertiesPanel.svelte:211-218</code>) — there's no separate "create frontmatter" action to find first.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Custom keys work exactly the same</span>
+      <p>Adding a key that isn't on Minerva's canonical list isn't a degraded path — it's indexed and editable identically, just rendered with a muted key color instead of the accent used for recognized keys. See <a href="notes-frontmatter.html#custom">Frontmatter → Custom keys</a> for how an arbitrary key becomes a queryable graph triple.</p>
+    </div>
+
+    <h2 id="invalid">Invalid input on a typed field</h2>
+    <p>The panel declines bad input rather than writing something broken into the file:</p>
+
+    <ul>
+      <li><b>Number fields</b> ignore a blank or non-numeric value on commit — the underlying YAML key is simply left unchanged until you type something that parses as a finite number.</li>
+      <li><b>The wiki-link picker</b> discards an edit if you clear the target field entirely, reverting to the chip view rather than writing an empty link.</li>
+      <li><b>A YAML-shaped value</b> (a nested object, or a list with mixed or non-string items) has no structured editor at all — the panel shows it as read-only preformatted text with a note to edit it in source, rather than attempt a lossy round trip through a control that can't represent it.</li>
+    </ul>
+
+    <p>None of this is enforced with a confirmation dialog or a validation error banner — an unparseable number field just doesn't commit, silently, the same way a professional spreadsheet ignores a keystroke that doesn't belong in a numeric cell. The one visible error state is at the block level: if the frontmatter YAML doesn't parse at all (a bad indent, an unclosed quote), the whole panel shows the parse error and disables structured editing until the source is fixed — see <a href="notes-frontmatter.html#syntax">Frontmatter → The frontmatter block</a>.</p>
+
+    <div class="shot wide">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Properties panel mid-edit</div>
+      <div class="d">The right sidebar's Note group with the Properties tab active: a row list showing a few canonical rows (title, tags as chips, created as a date picker) and one custom key in muted styling, the cursor focused in a freshly-added empty value field with the row highlighted, and the "Add property…" autocomplete row with its canonical-key suggestion chips visible beneath the list.</div>
+    </div>
+
+    <h2 id="related">Properties vs. hand-editing YAML</h2>
+    <p>Nothing the panel does is exclusive to it — every mutation is a plain rewrite of the same frontmatter block you could edit by hand in the source view, and the two stay in sync automatically because the panel re-parses the buffer's content on every change, regardless of where that change came from. Use the panel when you want quick, mistake-resistant edits to a known shape of data (toggle a boolean, pick a date, add a tag chip); drop into source editing for anything the panel renders as read-only YAML, for reordering keys, or for writing a value shape the panel doesn't have a control for yet.</p>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-outline.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Outline</span>
+      </a>
+      <a class="next" href="right-sidebar-proposals.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Proposals →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

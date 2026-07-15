@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Related</title>
+<meta name="description" content="The Related panel surfaces notes, sources, and excerpts that are semantically similar to the one you're viewing, ranked by embedding similarity — distinct from the explicit, authored connections in Backlinks and Outgoing links." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub active">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Related</p>
+
+    <h1>Related</h1>
+    <p class="lede">The <b>Related</b> panel suggests notes, sources, and quoted excerpts that read like the one you're viewing — without either side having to link to the other. It's computed entirely from semantic embedding similarity, not from anything you've written or linked, which makes it the one right-sidebar panel that surfaces connections you never authored.</p>
+
+    <div class="box">
+      <span class="label">Implicit, not explicit</span>
+      <p><a href="right-sidebar-backlinks.html">Backlinks</a> and <a href="right-sidebar-outgoing-links.html">Outgoing links</a> both read the knowledge graph — they only ever show connections that exist because a wiki-link was typed somewhere. Related reads a separate vector store instead: it has no idea whether two notes link to each other, only whether their text is close in meaning. A note can be full of related suggestions while having zero backlinks, and a heavily-linked note can have nothing related if nothing else in the project resembles its content.</p>
+    </div>
+
+    <h2 id="how-it-works">How ranking works</h2>
+    <p>Every note, source body, and quoted excerpt in the project is split into sections and embedded into a 384-dimension vector using a local model — <code>all-MiniLM-L6-v2</code>, run fully offline through onnxruntime-web (WASM), not a cloud API and not transformers.js. Embedding happens automatically as you save; there's no separate "reindex" command to remember to run. The panel then ranks every other item by cosine similarity to the current note's own stored sections, taking each candidate's single best-matching section, and lists the closest matches first.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">What's ranked</div>
+        <div class="v">Semantic similarity only — cosine distance between embedding vectors. There's no graph-proximity component (shared tags, shared links, or folder location don't factor in at all); two notes can be textually similar despite never having been linked, tagged alike, or filed near each other.</div>
+      </div>
+      <div class="row">
+        <div class="k">What's compared</div>
+        <div class="v">The current note's stored section vectors against every other indexed note, source body, and highlighted excerpt in the project — three corpora in one ranked list, distinguished by a small kind icon on each row.</div>
+      </div>
+      <div class="row">
+        <div class="k">Similarity score</div>
+        <div class="v">Shown as a short bar next to each title rather than a raw number, with the exact percentage in its tooltip. It's a deliberately quiet affordance — a muted bar, not a scary red/green gauge — since a low score isn't a problem to fix, just a weaker match.</div>
+      </div>
+    </div>
+
+    <h2 id="reading">Reading a row</h2>
+    <p>Each result shows a kind icon, the title, the similarity bar, the heading of the best-matching section (when the source has headings), and a short snippet of the matching text. Clicking a note or excerpt row navigates straight to that section; clicking a source opens the source viewer. A row can also be picked up and dragged into the editor to insert a wiki-link, the same as dragging a file from the sidebar.</p>
+
+    <div class="box">
+      <span class="label">Suggesting a link</span>
+      <p>A related note that scores highly (above roughly 45% similarity) and isn't already linked to the current note in either direction gets a subtle left-edge accent plus a small link button — a low-key nudge that this might be worth an explicit link, not a demand. Clicking it inserts a <code>[[wiki-link]]</code> under a "See also" heading; the × next to it dismisses the suggestion for that specific note pair, remembered locally so it doesn't keep resurfacing. A note that's already linked via Backlinks or Outgoing links can still appear here — being related and being linked aren't mutually exclusive — it simply won't get the suggest affordance.</p>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🧭</div>
+      <div class="k">Screenshot — Related panel with a link suggestion</div>
+      <div class="d">The right sidebar's Related panel listing several results — a mix of note and source kind icons, each with a muted similarity bar, a section-heading breadcrumb, and a two-line snippet — with the top row showing the faint left-edge accent and link/dismiss buttons that mark an unlinked, high-similarity suggestion.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>A brand-new note has nothing to compare yet.</b> Related depends on the note's own content already being embedded; a note you just created and haven't saved with any real text yet won't have a meaningful vector, so the panel reads as empty rather than showing weak or irrelevant matches.</li>
+      <li><b>A small project may not have enough to suggest.</b> With only a handful of notes, or notes that don't overlap in subject matter, "No related notes found" is a normal, expected result — it isn't a sign anything is broken.</li>
+      <li><b>Indexing takes a moment on a project that's new to semantic search.</b> The first time embeddings are enabled for a thoughtbase, a background backfill has to embed the existing corpus; until that finishes, the panel shows an indexing message rather than treating an empty result as final.</li>
+      <li><b>Semantic search can be unavailable entirely.</b> If the vector store isn't initialized for the current project, the panel says so plainly instead of pretending there are no matches.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-tags.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Tags</span>
+      </a>
+      <a class="next" href="right-sidebar-footnotes.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Footnotes →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

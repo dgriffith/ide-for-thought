@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Bookmarks (Note)</title>
+<meta name="description" content="The right sidebar's Bookmarks panel is the same project-wide bookmark store as the left sidebar's Bookmarks panel, filtered down to a flat list of just the current note's bookmarks." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub active">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Bookmarks</p>
+
+    <h1>Bookmarks</h1>
+    <p class="lede">The right sidebar's Bookmarks panel shows the bookmarks that belong to the note you're currently looking at — a flat list, no folders. It isn't a separate bookmarking system: it reads the exact same project-wide bookmark store as the <a href="left-sidebar.html">left sidebar</a>'s <a href="left-sidebar-bookmarks.html">Bookmarks panel</a>, just filtered down to one file and rendered without the tree.</p>
+
+    <div class="box">
+      <span class="label">Same store, different view</span>
+      <p>There is one bookmark store in the whole app. The left sidebar's <code>BookmarksPanel.svelte</code> renders its full folder tree, unfiltered, with search, drag-and-drop, and folder management. This panel — a distinct component also named <code>BookmarksPanel.svelte</code>, at <code>right-sidebar/BookmarksPanel.svelte</code> — flattens that same tree and filters it down to whatever bookmarks (whole-note, section, or line) target the active note. Neither creates, folders, nor persists anything independently; both read and write through <code>getBookmarksStore()</code>, so a rename or delete in one view is instantly reflected in the other. For how bookmarks are created, how folders and drag-to-reorder work, the <code>Bookmark</code> data shape, and the <code>.minerva/bookmarks.json</code> persistence model, see <a href="left-sidebar-bookmarks.html">the left sidebar's Bookmarks page</a> — this page only covers what's different about the note-scoped view.</p>
+    </div>
+
+    <h2 id="what-shows">What shows up here</h2>
+    <p>The panel takes the active note's relative path and keeps only the bookmarks whose <code>relativePath</code> matches it, discarding the left sidebar's folder structure entirely in the process — a bookmark filed three folders deep on the left shows up here as a plain row, with no indication of which folder it lives in. Switch notes and the list recomputes immediately, since it's a derived filter over the shared store rather than a separate fetch.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">No active note</div>
+        <div class="v">Shows "No active note" — there's nothing to scope the list to.</div>
+      </div>
+      <div class="row">
+        <div class="k">Active note, no bookmarks</div>
+        <div class="v">Shows "No bookmarks for this note", distinct from the left sidebar's empty state ("No bookmarks yet"), which only appears when the entire project has zero bookmarks.</div>
+      </div>
+      <div class="row">
+        <div class="k">Whole-note, section, and line bookmarks</div>
+        <div class="v">All three kinds appear side by side, using the same icon convention as the left sidebar: an outline glyph for a section anchor, a dot for a line (cursor-offset) bookmark, and a plain bookmark glyph for a whole-note bookmark.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔖</div>
+      <div class="k">Screenshot — Right sidebar Bookmarks panel scoped to the active note</div>
+      <div class="d">The right sidebar's Bookmarks panel showing a short flat list of three bookmarks for the open note — one whole-note, one section (outline icon), one line (dot icon) — each row with a name on the left and a small delete (×) button that fades in on hover at the right; no folders, no search field, no "+ Folder" button.</div>
+    </div>
+
+    <h2 id="actions">What you can do from here</h2>
+    <p>This view is deliberately thin. Clicking a row opens the bookmark exactly like the left sidebar does — a section anchor scrolls to that heading, a line bookmark jumps to its stored cursor offset, and a whole-note bookmark just opens the file (a no-op here, since it's already open). The only other action is the per-row delete button, which removes the bookmark from the shared store outright. There's no rename, no drag-to-reorder, no new-folder button, and no way to create a bookmark from this panel — creation only happens from the editor, preview, or tab context menu's <b>Bookmark This Note</b> / <b>Bookmark Section</b> / <b>Bookmark Line</b> commands, the same as for the left sidebar.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Deleting here deletes everywhere.</b> Because both panels point at the same store, removing a bookmark from this list removes it from the left sidebar's tree too — there's no per-view "hide" that leaves the underlying bookmark intact.</li>
+      <li><b>Line bookmarks can still drift.</b> A line bookmark's position is a static character offset captured at creation time, so later edits to the note can shift what that offset now points at. This is the same acknowledged tradeoff documented on <a href="left-sidebar-bookmarks.html">the left sidebar's Bookmarks page</a> — it applies here too, since it's the identical stored data, just filtered.</li>
+      <li><b>Folder placement is invisible here.</b> If you're trying to find which folder a bookmark lives in so you can move or reorganize it, this panel can't help — switch to the left sidebar's tree view for that.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-heading-graph.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Heading graph</span>
+      </a>
+      <a class="next" href="conversations.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Conversations →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
