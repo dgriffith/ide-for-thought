@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Quick Switch</title>
+<meta name="description" content="Quick switch (⌘P) is Minerva's fuzzy jump-to-anything picker: match notes, sources, and saved queries by title or path and open the highlighted result with Enter." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="navigation-command-palette.html" class="sub">Command palette</a>
+    <a href="navigation-quick-switch.html" class="sub active">Quick switch</a>
+    <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
+    <a href="navigation-search.html" class="sub">Search</a>
+    <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
+    <a href="navigation-back-forward.html" class="sub">Back / forward</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Quick switch</p>
+
+    <h1>Quick switch</h1>
+    <p class="lede">Press <kbd>⌘</kbd><kbd>P</kbd> (or <kbd>Ctrl</kbd><kbd>P</kbd>) and start typing to jump straight to a note, a source, or a saved query by name — no mouse, no browsing the sidebar tree. Results narrow as you type, ranked by how well they match; arrow keys and <kbd>Enter</kbd> take you the rest of the way.</p>
+
+    <h2 id="opening">Opening it</h2>
+    <p>Quick switch lives in its own dialog, titled "Go to…" — <code>GotoNoteDialog.svelte</code> in the source tree, though nothing in the UI calls it that. The shortcut is <kbd>⌘</kbd><kbd>P</kbd> / <kbd>Ctrl</kbd><kbd>P</kbd>, deliberately following Obsidian's convention for quick-open rather than the VS Code / Linear-style <kbd>⌘</kbd><kbd>K</kbd> Minerva uses for its <a href="navigation-command-palette.html">command palette</a>.</p>
+
+    <div class="box">
+      <span class="label">Not <kbd>⌘</kbd><kbd>O</kbd></span>
+      <p><kbd>⌘</kbd><kbd>O</kbd> / <kbd>Ctrl</kbd><kbd>O</kbd> is bound to <b>Open Thoughtbase…</b> — it opens a different knowledge-base project entirely. It has nothing to do with switching notes inside the current one. If quick switch doesn't seem to be responding, check you're pressing <kbd>P</kbd>, not <kbd>O</kbd>.</p>
+    </div>
+
+    <h2 id="scope">A multi-scope picker</h2>
+    <p>Quick switch isn't limited to notes. Whenever the current project has sources or saved queries, the dialog shows a row of filter chips and searches across all three kinds at once:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">All</div>
+        <div class="v">Default scope. Matches notes, sources, and saved queries together, each result labeled with a kind icon.</div>
+      </div>
+      <div class="row">
+        <div class="k">Notes</div>
+        <div class="v">Matches against a note's title and its relative path in the project tree.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sources</div>
+        <div class="v">Matches against a source's title and byline. Only shown when the project has at least one source.</div>
+      </div>
+      <div class="row">
+        <div class="k">Queries</div>
+        <div class="v">Matches against a saved query's name and description. Only shown when the project has at least one saved query.</div>
+      </div>
+    </div>
+
+    <p>Each chip shows a live count. If a project has no sources and no saved queries yet, the chip row doesn't appear at all and quick switch behaves as a plain notes picker.</p>
+
+    <div class="shot wide">
+      <div class="icon">⌘</div>
+      <div class="k">Screenshot — Quick switch with mixed results</div>
+      <div class="d">The "Go to…" dialog open with the All scope chip active, showing a mixed result list: a note row with its folder-path chip and relative-time stamp, a source row with its byline, and a saved-query row with its description, each prefixed with a small kind icon.</div>
+    </div>
+
+    <h2 id="matching">How matching works</h2>
+    <p>As you type, every candidate in the active scope is scored against the query and re-sorted; a query that matches nothing scores zero and drops out of the list. Several matching strategies are tried, from most to least exact:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Substring — name</div>
+        <div class="v">The query appears anywhere in the title. Highest-ranked match.</div>
+      </div>
+      <div class="row">
+        <div class="k">First letters</div>
+        <div class="v">Each typed character matches the first letter of successive words — <code>rf</code> matches "Raft Foundations."</div>
+      </div>
+      <div class="row">
+        <div class="k">camelCase initials</div>
+        <div class="v">Each typed character matches a capitalized letter in the name, the way it would in an identifier.</div>
+      </div>
+      <div class="row">
+        <div class="k">Substring — path / secondary</div>
+        <div class="v">The query appears in the note's relative path, a source's byline, or a query's description.</div>
+      </div>
+      <div class="row">
+        <div class="k">Fuzzy subsequence</div>
+        <div class="v">The typed characters appear in order somewhere in the name (or, ranked lower still, the secondary field) — not necessarily together. The lowest-ranked way to match, and a useful fallback when you only half-remember a title.</div>
+      </div>
+    </div>
+
+    <p>With an empty query, every item in the active scope scores zero and the list falls back to the project's original file-tree order — it is not sorted by recency. Each row does show a relative modification time, but that's informational only; it doesn't drive the ranking.</p>
+
+    <div class="box">
+      <span class="label">Regex queries</span>
+      <p>If what you type contains a regex metacharacter (<code>. * + ? ^ $ { } ( ) | [ ] \</code>), Minerva tries it as a regular expression against names and paths first, falling back to the fuzzy strategies above if the pattern is invalid. This is a real capability, not an edge case to avoid — typing something like <code>^draft-</code> or <code>2024-\d\d</code> narrows results the way a full regex search would, without leaving the quick switch dialog.</p>
+    </div>
+
+    <h2 id="keys">Keyboard control</h2>
+    <p>Once the dialog is open, the mouse is optional:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>↑</kbd> / <kbd>↓</kbd></div>
+        <div class="v">Move the highlighted result.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Enter</kbd></div>
+        <div class="v">Open the highlighted result — a note opens in the editor, a source opens in the Source viewer, a saved query runs in a query tab.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Esc</kbd></div>
+        <div class="v">Close the dialog without navigating.</div>
+      </div>
+    </div>
+
+    <p>The footer echoes this — <code>↑↓ navigate · ↵ open · esc close</code> — alongside a running count of the current result list, and the input carries a small "⌘P" hint chip so the shortcut is visible even if you opened the dialog some other way.</p>
+
+    <h2 id="contrast">Quick switch vs. the command palette vs. Search</h2>
+    <p>Minerva has three separate ways to jump around, and they're deliberately not merged into one box:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Quick switch — <kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="v">Jump to a <i>thing</i> — a note, source, or saved query — by title or path. No actions, no commands.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette — <kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Run an <i>action</i> — a menu command, a skill, a setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search</div>
+        <div class="v">Find a <i>passage</i> — full-text search over note body content, not just titles and paths. See <a href="navigation-search.html">Search</a>.</div>
+      </div>
+    </div>
+
+    <p>If you know roughly what a note is called, quick switch is the fastest route to it. If you're trying to recall something you know you wrote but can't remember the title of, reach for Search instead — quick switch never looks inside a note's content.</p>
+
+    <h2 id="related">Related</h2>
+    <ul>
+      <li>The Merge Note picker (invoked from a note's right-click menu) reuses the same dialog in a notes-only configuration — no scope chips, since there's nothing to switch between.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="navigation-command-palette.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Command palette</span>
+      </a>
+      <a class="next" href="navigation-wiki-links.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Wiki-links →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

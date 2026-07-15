@@ -67,6 +67,12 @@
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
     <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
+    <a href="navigation-command-palette.html" class="sub">Command palette</a>
+    <a href="navigation-quick-switch.html" class="sub">Quick switch</a>
+    <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
+    <a href="navigation-search.html" class="sub">Search</a>
+    <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
+    <a href="navigation-back-forward.html" class="sub">Back / forward</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
 
@@ -209,7 +215,7 @@ See [[depends-on::auth-redesign|the redesign proposal]] before touching this.</c
     <ul>
       <li><b>Links inside code don't count.</b> A <code>[[...]]</code> written inside a fenced code block or inline <code>`code`</code> span is left as literal text — it's never indexed or rendered as a link.</li>
       <li><b>No nested brackets.</b> A link ends at the first <code>]]</code> it finds, so a literal <code>]</code> inside a target or display string will truncate the link early rather than being escaped.</li>
-      <li><b>Unresolved links don't stand out.</b> A target that doesn't match any note still gets indexed — as a link to a not-yet-existing file — but it renders the same as a resolved one. Clicking it won't create the missing note; it'll fail to open. Check the Backlinks panel or graph query results if you suspect a link isn't landing where you expect.</li>
+      <li><b>Unresolved links don't stand out.</b> A target that doesn't match any note still gets indexed — as a link to a not-yet-existing file — but it renders the same as a resolved one. Clicking it is a silent no-op: no note gets created and there's no error dialog, it just doesn't do anything. Check the Backlinks panel or graph query results if you suspect a link isn't landing where you expect. See <a href="navigation-wiki-links.html">Navigation → Wiki-links</a> for the click and hover-preview behavior in more detail.</li>
       <li><b>Frontmatter links are plainer.</b> A wiki-link written as a frontmatter value (e.g. in a custom property) only supports <code>[[target]]</code> and <code>[[target|display]]</code> — no type prefix, no anchor. Frontmatter values are treated as bare references.</li>
     </ul>
 

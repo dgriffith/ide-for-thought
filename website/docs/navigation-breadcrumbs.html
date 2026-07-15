@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Diagrams</title>
-<meta name="description" content="Mermaid diagrams in Minerva notes: the mermaid fence syntax, which diagram types render, how the app's theme colors carry into the diagram, and what happens when a diagram has a syntax error." />
+<title>Minerva — Docs — Breadcrumbs</title>
+<meta name="description" content="The breadcrumb trail above the note title: how it derives from the active file's folder path, clicking a segment to reveal that folder in the sidebar, and how it updates when you switch notes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -55,7 +55,7 @@
     <a href="notes-links.html" class="sub">Links</a>
     <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
     <a href="notes-math.html" class="sub">Math</a>
-    <a href="notes-diagrams.html" class="sub active">Diagrams</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
     <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
@@ -71,7 +71,7 @@
     <a href="navigation-quick-switch.html" class="sub">Quick switch</a>
     <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
     <a href="navigation-search.html" class="sub">Search</a>
-    <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
+    <a href="navigation-breadcrumbs.html" class="sub active">Breadcrumbs</a>
     <a href="navigation-back-forward.html" class="sub">Back / forward</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -86,79 +86,65 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Diagrams</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Breadcrumbs</p>
 
-    <h1>Diagrams</h1>
-    <p class="lede">A <code>mermaid</code> fence renders as a live diagram wherever it appears in a note — flowcharts, sequence diagrams, and anything else <a href="https://mermaid.js.org" target="_blank" rel="noopener">Mermaid</a>'s own syntax supports. Minerva doesn't restrict which Mermaid diagram types you can draw; it hands your fence content straight to the Mermaid library and draws whatever comes back as inline SVG, recolored to match the note around it.</p>
+    <h1>Breadcrumbs</h1>
+    <p class="lede">A thin bar sits above the note title showing where the current file lives in your folder tree — each folder in the path, then the note's own name. It's a persistent read-out, not a menu: there's nothing to open or trigger, just a live trail that tells you where you are and a fast way to jump back to that spot in the sidebar.</p>
 
-    <h2 id="syntax">The <code>mermaid</code> fence</h2>
-    <p>A diagram is a fenced code block whose language is <code>mermaid</code>. Everything inside the fence is Mermaid's own diagram-definition language — Minerva doesn't parse or validate it beyond handing it to the renderer.</p>
-
-<pre><code>```mermaid
-flowchart LR
-  A[Draft] --> B{Reviewed?}
-  B -- yes --> C[Published]
-  B -- no --> A
-```</code></pre>
-
-    <p>To insert one, right-click in the editor and choose <b>Elements → Mermaid Diagram</b> — it drops an empty fence with the cursor inside, ready for a diagram definition.</p>
-
-    <h2 id="types">Diagram types</h2>
-    <p>The fence renderer (<code>renderMermaidFence</code> in <code>Preview.svelte</code>) does no type-checking on the content — it escapes the fence body and hands it to Mermaid's <code>render()</code> call as-is, in <code>mermaid-renderer.ts</code>. That means any diagram type Mermaid itself understands works in a Minerva note: flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, and the rest of Mermaid's grammar. Two of the most common are worth a quick reference:</p>
+    <h2 id="trail">What the trail shows</h2>
+    <p>The bar renders one segment per folder in the active file's project-relative path, followed by the note's own name as the final segment. A project note at <code>research/interviews/q3-notes.md</code> shows as <code>research › interviews › q3-notes</code>.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>flowchart</code></div>
-        <div class="v"><b>Flowchart.</b> Nodes and directional edges — <code>LR</code> (left-to-right), <code>TD</code> (top-down), and the other Mermaid layout directions all work.
-<pre><code>```mermaid
-flowchart TD
-  Start --> Decision{OK?}
-  Decision -->|yes| End
-  Decision -->|no| Start
-```</code></pre>
-        </div>
+        <div class="k">Folder segment</div>
+        <div class="v">One per directory in the path. Clickable — jumps to that folder in the sidebar (see below). A note at the project root has no folder segments at all; the bar shows only the leaf.</div>
       </div>
       <div class="row">
-        <div class="k"><code>sequenceDiagram</code></div>
-        <div class="v"><b>Sequence diagram.</b> Participants and the messages passed between them, in order.
-<pre><code>```mermaid
-sequenceDiagram
-  Alice->>Bob: Question
-  Bob-->>Alice: Answer
-```</code></pre>
-        </div>
+        <div class="k">Leaf segment</div>
+        <div class="v">The current note's own name, always last. Rendered in italic to distinguish it from the folder chain, and set off with <code>aria-current="page"</code>. <b>Not clickable</b> — you're already looking at it, so there's nothing for a click to do.</div>
+      </div>
+      <div class="row">
+        <div class="k">Heading chain <span style="opacity:0.7;font-weight:400;">(optional)</span></div>
+        <div class="v">If <b>Settings → Workspace → Behaviors</b> has "show heading chain" turned on, a <code>·</code> separator and the chain of headings your cursor currently sits under trail after the leaf, each one clickable to jump the editor to that heading's line. Off by default — recomputes as you move the cursor, which some people find distracting in a bar that otherwise only changes on tab switches.</div>
       </div>
     </div>
 
-    <h2 id="rendering">How it renders</h2>
-    <p>In preview, the fence becomes a bordered block with a collapse toggle in its toolbar — the same convention as other fence types — and the diagram itself renders as inline SVG below it. Rendering is lazy: Minerva dynamic-imports the Mermaid library the first time a diagram needs drawing, rather than bundling it into the app's startup path.</p>
+    <p>The project root itself isn't a segment — the trail starts at the first real folder under it. If a note lives directly in the project root, the breadcrumb bar shows only its leaf name with no folder segments before it.</p>
 
     <div class="shot wide">
-      <div class="icon">🗺️</div>
-      <div class="k">Screenshot — Mermaid flowchart in preview</div>
-      <div class="d">A rendered note with a mermaid-fence flowchart: a small decision-branch diagram drawn as SVG, sitting inside a bordered fence block with a collapse toggle in its toolbar, colors matching the surrounding dark theme.</div>
+      <div class="icon">🍞</div>
+      <div class="k">Screenshot — Breadcrumb trail for a nested note</div>
+      <div class="d">The thin breadcrumb bar above a note's title, showing a multi-segment folder path (e.g. "research › interviews › transcripts") in muted text followed by the current note's name in italic, with the folder segments visibly clickable on hover.</div>
     </div>
 
+    <h2 id="clicking">Clicking a segment</h2>
+    <p>Clicking any folder segment reveals that folder in the left sidebar: it switches the sidebar to the Notes panel, expands the clicked folder and every ancestor above it, and scrolls it into view. It doesn't select or highlight a row — just expands the tree and brings the folder on screen so you can see what else lives alongside the current note.</p>
+
     <div class="box">
-      <span class="label">Theme colors carry into the diagram</span>
-      <p>Minerva initializes Mermaid on the <code>base</code> theme and overrides its variables with the app's own Catppuccin tokens — background, text, borders, node fill, and accent all come from the same CSS custom properties the rest of the note uses. Switch Minerva's theme (dark, light, or contrast) and diagrams redraw to match; there's no separate diagram theme to configure.</p>
+      <span class="label">The leaf is inert</span>
+      <p>The note's own name at the end of the trail isn't a button. There's no "reveal current file" click target there — use the tab's right-click menu ("Reveal in Sidebar") if you want that instead, which additionally selects the file and expands only its ancestors, not the file itself as a folder.</p>
     </div>
+
+    <h2 id="updates">Updating as you switch notes</h2>
+    <p>The trail is derived directly from the active tab's file path, so it updates the instant you switch tabs or open a different note — no separate refresh step. There's no debounce on the folder chain itself; only the optional heading chain (when a cursor moves inside a heading) is throttled slightly so rapid cursor movement doesn't thrash the recomputation.</p>
+
+    <p>The bar disappears entirely when no note is open — there's nothing to show a path for on an empty pane.</p>
 
     <h2 id="gotchas">Gotchas</h2>
     <ul>
-      <li><b>A syntax error renders inline, not as raw text.</b> If Mermaid can't parse the fence content, the block shows a small "Mermaid error" panel with the underlying error message in place of the diagram — the rest of the note keeps rendering normally. Fix the definition and the diagram appears in its place.</li>
-      <li><b>Re-rendering is idempotent.</b> A diagram block is marked once it's rendered, so re-running the preview's hydration pass (for example after an unrelated edit elsewhere in the note) doesn't redraw diagrams that already succeeded.</li>
-      <li><b>No live player, no external calls.</b> Rendering happens entirely locally through the bundled Mermaid library — nothing about a diagram's content is sent anywhere.</li>
+      <li><b>No keyboard shortcut.</b> Breadcrumbs are a persistent display element, not a triggered action — there's nothing to invoke from the command palette or bind a key to. Click a segment, or use the sidebar directly.</li>
+      <li><b>Long paths shrink the folders, not the leaf.</b> When the trail is too wide for the pane, folder segments truncate with an ellipsis first — the leaf (your current note) is pinned to always stay fully visible, so a deeply nested path loses its middle folders before it ever crowds out the file you're looking at.</li>
+      <li><b>The root/project name never appears.</b> The trail is relative to the project, not the filesystem — you won't see your project's own folder name as a leading segment.</li>
     </ul>
 
     <div class="pager">
-      <a class="prev" href="notes-math.html">
+      <a class="prev" href="navigation-search.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Math</span>
+        <span class="ttl">← Search</span>
       </a>
-      <a class="next" href="notes-charts.html">
+      <a class="next" href="navigation-back-forward.html">
         <span class="dir">Next</span>
-        <span class="ttl">Charts →</span>
+        <span class="ttl">Back / forward →</span>
       </a>
     </div>
   </main>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Diagrams</title>
-<meta name="description" content="Mermaid diagrams in Minerva notes: the mermaid fence syntax, which diagram types render, how the app's theme colors carry into the diagram, and what happens when a diagram has a syntax error." />
+<title>Minerva — Docs — Back / Forward</title>
+<meta name="description" content="How Minerva's back/forward history stack works: the Cmd+[ / Cmd+] shortcuts, the toolbar buttons, and which navigation actions push a history entry versus which bypass it." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -55,7 +55,7 @@
     <a href="notes-links.html" class="sub">Links</a>
     <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
     <a href="notes-math.html" class="sub">Math</a>
-    <a href="notes-diagrams.html" class="sub active">Diagrams</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
     <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
@@ -72,7 +72,7 @@
     <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
     <a href="navigation-search.html" class="sub">Search</a>
     <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
-    <a href="navigation-back-forward.html" class="sub">Back / forward</a>
+    <a href="navigation-back-forward.html" class="sub active">Back / forward</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
 
@@ -86,79 +86,81 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Diagrams</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Back / forward</p>
 
-    <h1>Diagrams</h1>
-    <p class="lede">A <code>mermaid</code> fence renders as a live diagram wherever it appears in a note — flowcharts, sequence diagrams, and anything else <a href="https://mermaid.js.org" target="_blank" rel="noopener">Mermaid</a>'s own syntax supports. Minerva doesn't restrict which Mermaid diagram types you can draw; it hands your fence content straight to the Mermaid library and draws whatever comes back as inline SVG, recolored to match the note around it.</p>
+    <h1>Back / forward</h1>
+    <p class="lede">Minerva keeps a position history as you move between notes, sources, and query tabs — <kbd>⌘</kbd><kbd>[</kbd> steps back, <kbd>⌘</kbd><kbd>]</kbd> steps forward (<kbd>Ctrl</kbd> on Windows/Linux), and the same two arrows sit in the title bar. It behaves like a browser history stack, with one distinction worth knowing: not every way of landing on a note counts as a step in that history.</p>
 
-    <h2 id="syntax">The <code>mermaid</code> fence</h2>
-    <p>A diagram is a fenced code block whose language is <code>mermaid</code>. Everything inside the fence is Mermaid's own diagram-definition language — Minerva doesn't parse or validate it beyond handing it to the renderer.</p>
+    <h2 id="controls">Controls</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>[</kbd></div>
+        <div class="v"><b>Back.</b> Returns to the previous recorded position. Disabled (and the toolbar button greyed out) when there's nothing behind you.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>]</kbd></div>
+        <div class="v"><b>Forward.</b> Re-applies a position you just came back from. Disabled once the forward stack is empty.</div>
+      </div>
+      <div class="row">
+        <div class="k">Toolbar arrows</div>
+        <div class="v">Two buttons at the left edge of the title bar, before the breadcrumb — the same back/forward affordance as a browser's, wired to the same shortcuts. Each is disabled exactly when its shortcut would be a no-op.</div>
+      </div>
+    </div>
 
-<pre><code>```mermaid
-flowchart LR
-  A[Draft] --> B{Reviewed?}
-  B -- yes --> C[Published]
-  B -- no --> A
-```</code></pre>
+    <div class="shot wide">
+      <div class="icon">◀️▶️</div>
+      <div class="k">Screenshot — Title bar back/forward buttons</div>
+      <div class="d">The left edge of the title bar showing the back and forward chevron buttons beside the vertical divider, with the back button active (dark) and the forward button disabled (dim), followed by the breadcrumb path of the active note.</div>
+    </div>
 
-    <p>To insert one, right-click in the editor and choose <b>Elements → Mermaid Diagram</b> — it drops an empty fence with the cursor inside, ready for a diagram definition.</p>
+    <p>A position isn't just a note — it's a note <em>and</em> a place in it. Going back returns you to the same scroll/cursor offset you were at, not just the top of the file. Query tabs and source views are tracked in the same stack, so stepping back out of a SPARQL query or a source detail view works the same way.</p>
 
-    <h2 id="types">Diagram types</h2>
-    <p>The fence renderer (<code>renderMermaidFence</code> in <code>Preview.svelte</code>) does no type-checking on the content — it escapes the fence body and hands it to Mermaid's <code>render()</code> call as-is, in <code>mermaid-renderer.ts</code>. That means any diagram type Mermaid itself understands works in a Minerva note: flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, and the rest of Mermaid's grammar. Two of the most common are worth a quick reference:</p>
+    <h2 id="what-counts">What counts as a step</h2>
+    <p>Every navigation records the position you're <em>leaving</em> before it moves you — so the history stack is really a trail of where you've been, not where you're going. The open question for any given way of jumping to a note is whether it leaves a trail at all:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>flowchart</code></div>
-        <div class="v"><b>Flowchart.</b> Nodes and directional edges — <code>LR</code> (left-to-right), <code>TD</code> (top-down), and the other Mermaid layout directions all work.
-<pre><code>```mermaid
-flowchart TD
-  Start --> Decision{OK?}
-  Decision -->|yes| End
-  Decision -->|no| Start
-```</code></pre>
-        </div>
+        <div class="k">Sidebar click</div>
+        <div class="v"><b>Recorded.</b> Selecting a note in the left sidebar tree records the position you left and the one you land on.</div>
       </div>
       <div class="row">
-        <div class="k"><code>sequenceDiagram</code></div>
-        <div class="v"><b>Sequence diagram.</b> Participants and the messages passed between them, in order.
-<pre><code>```mermaid
-sequenceDiagram
-  Alice->>Bob: Question
-  Bob-->>Alice: Answer
-```</code></pre>
-        </div>
+        <div class="k"><a href="navigation-wiki-links.html">Wiki-link</a> click</div>
+        <div class="v"><b>Recorded.</b> Following <code>[[a link]]</code> in preview or source pushes a history entry, same as a sidebar click — link-hopping through a chain of notes builds a full trail you can walk back out of.</div>
       </div>
-    </div>
-
-    <h2 id="rendering">How it renders</h2>
-    <p>In preview, the fence becomes a bordered block with a collapse toggle in its toolbar — the same convention as other fence types — and the diagram itself renders as inline SVG below it. Rendering is lazy: Minerva dynamic-imports the Mermaid library the first time a diagram needs drawing, rather than bundling it into the app's startup path.</p>
-
-    <div class="shot wide">
-      <div class="icon">🗺️</div>
-      <div class="k">Screenshot — Mermaid flowchart in preview</div>
-      <div class="d">A rendered note with a mermaid-fence flowchart: a small decision-branch diagram drawn as SVG, sitting inside a bordered fence block with a collapse toggle in its toolbar, colors matching the surrounding dark theme.</div>
+      <div class="row">
+        <div class="k"><a href="navigation-quick-switch.html">Quick switch</a> (<kbd>⌘</kbd><kbd>P</kbd>)</div>
+        <div class="v"><b>Recorded.</b> Jumping to a note, source, or saved query from the Quick Switch palette records a step, the same as clicking it in the sidebar would.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="navigation-search.html">Find in Notes</a> result</div>
+        <div class="v"><b>Not recorded.</b> Jumping to a match from Find in Notes opens the file and moves the cursor directly — it doesn't push a history entry. Back skips over these jumps entirely.</div>
+      </div>
+      <div class="row">
+        <div class="k">Back / forward itself</div>
+        <div class="v">Moving through the stack doesn't add to it — stepping back and forward repeatedly doesn't grow the trail or create duplicate entries.</div>
+      </div>
     </div>
 
     <div class="box">
-      <span class="label">Theme colors carry into the diagram</span>
-      <p>Minerva initializes Mermaid on the <code>base</code> theme and overrides its variables with the app's own Catppuccin tokens — background, text, borders, node fill, and accent all come from the same CSS custom properties the rest of the note uses. Switch Minerva's theme (dark, light, or contrast) and diagrams redraw to match; there's no separate diagram theme to configure.</p>
+      <span class="label">A fresh navigation clears what's ahead</span>
+      <p>Step back a few notes, then click a wiki-link or open something new from the sidebar — the forward stack is discarded at that point, exactly like a browser tab. The notes you stepped back past aren't gone from history in general, but the specific "forward" path to them is; you'd have to navigate to them again to revisit them.</p>
     </div>
 
-    <h2 id="gotchas">Gotchas</h2>
+    <h2 id="notes">A few more details</h2>
     <ul>
-      <li><b>A syntax error renders inline, not as raw text.</b> If Mermaid can't parse the fence content, the block shows a small "Mermaid error" panel with the underlying error message in place of the diagram — the rest of the note keeps rendering normally. Fix the definition and the diagram appears in its place.</li>
-      <li><b>Re-rendering is idempotent.</b> A diagram block is marked once it's rendered, so re-running the preview's hydration pass (for example after an unrelated edit elsewhere in the note) doesn't redraw diagrams that already succeeded.</li>
-      <li><b>No live player, no external calls.</b> Rendering happens entirely locally through the bundled Mermaid library — nothing about a diagram's content is sent anywhere.</li>
+      <li><b>History is capped.</b> The back stack holds at most 100 entries; once full, the oldest position is dropped as a new one is added.</li>
+      <li><b>Repeat visits don't duplicate.</b> Recording a position that's effectively the same as the one you're already on — same note, cursor within roughly 20 characters, or the same query tab — is skipped rather than pushed as a new step.</li>
+      <li><b>History doesn't survive a project switch.</b> Opening a different thoughtbase starts a fresh, empty stack.</li>
     </ul>
 
     <div class="pager">
-      <a class="prev" href="notes-math.html">
+      <a class="prev" href="navigation-breadcrumbs.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Math</span>
+        <span class="ttl">← Breadcrumbs</span>
       </a>
-      <a class="next" href="notes-charts.html">
+      <a class="next" href="viewing-options.html">
         <span class="dir">Next</span>
-        <span class="ttl">Charts →</span>
+        <span class="ttl">Viewing options →</span>
       </a>
     </div>
   </main>
