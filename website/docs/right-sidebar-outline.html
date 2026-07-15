@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Outline</title>
+<meta name="description" content="The Outline panel renders a live, collapsible heading tree for the current note — H1 through H6 — so you can scan a long note's structure at a glance and click any heading to jump the editor there." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub active">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Outline</p>
+
+    <h1>Outline</h1>
+    <p class="lede">The Outline panel renders every heading in the current note — <code>#</code> through <code>######</code> — as a collapsible tree, indented to match heading depth, so you can scan a long note's structure without scrolling through it. Click any heading to move the editor's cursor there and scroll it into view.</p>
+
+    <h2 id="how-it-works">How it works</h2>
+    <p>The panel re-parses the note's raw text on every change and rebuilds the tree from scratch — there's no separate "refresh" step and no stale state to worry about. Headings are recognized with a plain ATX-style match (a run of 1–6 <code>#</code> characters, a space, then the heading text); Setext-style headings (text underlined with <code>===</code> or <code>---</code>) aren't recognized, because Minerva notes don't use that form. The same parser also powers the editor's cursor-aware breadcrumb chain above the note, so the two stay in lockstep by construction rather than by convention.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Nesting</div>
+        <div class="v">A heading is indented under whichever shallower heading precedes it — <code>##</code> nests under the last <code>#</code>, <code>###</code> nests under the last <code>##</code>, and so on. A heading with no shallower heading above it (or a document that only uses one level) sits flush at the root.</div>
+      </div>
+      <div class="row">
+        <div class="k">Collapse / expand</div>
+        <div class="v">Any heading with subheadings gets a disclosure triangle. Click it to fold that branch, or use the ribbon's expand-all / collapse-all buttons to act on the whole tree at once. A heading with no children shows a blank spacer instead of a triangle — nothing to toggle.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filter</div>
+        <div class="v">The ribbon's search field filters headings by text as you type. Filtering ignores the collapsed state of any ancestor — a match stays visible even inside a folded branch — but it doesn't re-nest results into their own mini-tree; each match still renders at its normal indent depth.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click-to-scroll</div>
+        <div class="v">Clicking a heading (not its disclosure triangle) places the editor's cursor at the start of that heading's line and scrolls it to the vertical center of the view. It's a real cursor placement, the same as jumping to a search result — not a transient visual highlight — so you can start typing right away.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗒️</div>
+      <div class="k">Screenshot — Outline panel for a multi-heading note</div>
+      <div class="d">The right sidebar's Outline panel open on a note with several H2 sections, one of them expanded to show nested H3 subheadings indented beneath it and a sibling H2 collapsed to a single triangle-prefixed row; the ribbon's filter field and expand-all/collapse-all buttons sit above the tree.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>No headings, no tree.</b> A note with no <code>#</code>-style headings shows a plain "No headings" message in place of the list — there's nothing to scan and nothing to click.</li>
+      <li><b>Duplicate heading text is fine.</b> The panel doesn't require unique heading text; two sections both titled "Notes" show up as two separate rows, each jumping to its own line. Nothing here is keyed by text — every row is tied to the line the heading actually appears on.</li>
+      <li><b>Long headings truncate, they don't wrap.</b> A heading whose text is wider than the sidebar is cut off with an ellipsis rather than wrapping to a second line, to keep every row a single scannable line height.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar-outgoing-links.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Outgoing links</span>
+      </a>
+      <a class="next" href="right-sidebar-properties.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Properties →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

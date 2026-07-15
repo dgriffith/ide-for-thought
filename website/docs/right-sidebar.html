@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Right Sidebar</title>
+<meta name="description" content="The right sidebar's panels: Backlinks, Outgoing links, Outline, Properties, Proposals, Citations, Tags, Related, Footnotes, Tables, Heading graph, and Bookmarks." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html" class="active">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Right sidebar</p>
+
+    <h1>Right sidebar</h1>
+    <p class="lede">The right sidebar is context about the note in front of you — twelve panels, each answering a different question about it. What links here? What does it link to? What's its shape? What's pending review? What does it cite? None of them edit your prose directly; they're lenses on the graph, the frontmatter, and the AI review queue, all pointed at whatever you're currently looking at.</p>
+
+    <div class="box">
+      <span class="label">One exception</span>
+      <p>Every panel below is scoped to the note you have open — except <a href="right-sidebar-proposals.html">Proposals</a>, which is project-wide by design: pending AI writes aren't naturally a per-note concern, so it shows you everything regardless of which note is active.</p>
+    </div>
+
+    <h2 id="glance">The twelve panels</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><a href="right-sidebar-backlinks.html">Backlinks</a></div>
+        <div class="v">Notes that link to this one — the incoming side of the graph.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-outgoing-links.html">Outgoing links</a></div>
+        <div class="v">Every wiki-link this note makes — the outgoing side.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-outline.html">Outline</a></div>
+        <div class="v">A collapsible heading tree, for scanning a long note fast.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-properties.html">Properties</a></div>
+        <div class="v">Frontmatter as editable typed rows, instead of raw YAML.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-proposals.html">Proposals</a></div>
+        <div class="v">Approve or reject pending AI writes, one keystroke at a time.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-citations.html">Citations</a></div>
+        <div class="v">Every source this note cites or quotes, with excerpts.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-tags.html">Tags</a></div>
+        <div class="v">This note's own tags, shown as a hierarchy — read-only.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-related.html">Related</a></div>
+        <div class="v">Notes that read alike, found by semantic similarity.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-footnotes.html">Footnotes</a></div>
+        <div class="v">Every footnote in this note, plus a linter for dangling ones.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-tables.html">Tables</a></div>
+        <div class="v">Which SQL-referenced tables this note mentions actually exist.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-heading-graph.html">Heading graph</a></div>
+        <div class="v">The same headings as Outline, drawn as a spatial tree.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="right-sidebar-bookmarks.html">Bookmarks</a></div>
+        <div class="v">This note's bookmarks, filtered from the project-wide list.</div>
+      </div>
+    </div>
+
+    <h2 id="learn-more">In depth</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="right-sidebar-backlinks.html">
+        <span class="em">↙️</span>
+        <h3>Backlinks</h3>
+        <p>Every note that links here — the incoming side.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-outgoing-links.html">
+        <span class="em">↗️</span>
+        <h3>Outgoing links</h3>
+        <p>Every link this note makes — the outgoing side.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-outline.html">
+        <span class="em">📑</span>
+        <h3>Outline</h3>
+        <p>A collapsible heading tree for scanning a long note fast.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-properties.html">
+        <span class="em">🎛️</span>
+        <h3>Properties</h3>
+        <p>Edit frontmatter as typed rows instead of raw YAML.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-proposals.html">
+        <span class="em">🤝</span>
+        <h3>Proposals</h3>
+        <p>Approve or reject pending AI writes, one keystroke at a time.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-citations.html">
+        <span class="em">📖</span>
+        <h3>Citations</h3>
+        <p>Every source this note cites or quotes, with excerpts.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-tags.html">
+        <span class="em">🌿</span>
+        <h3>Tags</h3>
+        <p>This note's own tags, shown as a hierarchy — read-only.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-related.html">
+        <span class="em">🧲</span>
+        <h3>Related</h3>
+        <p>Notes that read alike, found by semantic similarity.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-footnotes.html">
+        <span class="em">📎</span>
+        <h3>Footnotes</h3>
+        <p>Every footnote in this note, and a linter for dangling ones.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-tables.html">
+        <span class="em">🧾</span>
+        <h3>Tables</h3>
+        <p>Which SQL-referenced tables in this note actually exist.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-heading-graph.html">
+        <span class="em">🌐</span>
+        <h3>Heading graph</h3>
+        <p>The same headings as Outline, drawn as a spatial tree.</p>
+      </a>
+      <a class="doc-card" href="right-sidebar-bookmarks.html">
+        <span class="em">📌</span>
+        <h3>Bookmarks</h3>
+        <p>This note's bookmarks, filtered from the global list.</p>
+      </a>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="left-sidebar-bookmarks.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Bookmarks</span>
+      </a>
+      <a class="next" href="right-sidebar-backlinks.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Backlinks →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

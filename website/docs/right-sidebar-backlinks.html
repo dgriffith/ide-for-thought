@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Backlinks</title>
+<meta name="description" content="The Backlinks panel lists every note that links to the one you're viewing, grouped by link type or sorted alphabetically, with a click to jump straight to the source." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="right-sidebar-backlinks.html" class="sub active">Backlinks</a>
+    <a href="right-sidebar-outgoing-links.html" class="sub">Outgoing links</a>
+    <a href="right-sidebar-outline.html" class="sub">Outline</a>
+    <a href="right-sidebar-properties.html" class="sub">Properties</a>
+    <a href="right-sidebar-proposals.html" class="sub">Proposals</a>
+    <a href="right-sidebar-citations.html" class="sub">Citations</a>
+    <a href="right-sidebar-tags.html" class="sub">Tags</a>
+    <a href="right-sidebar-related.html" class="sub">Related</a>
+    <a href="right-sidebar-footnotes.html" class="sub">Footnotes</a>
+    <a href="right-sidebar-tables.html" class="sub">Tables</a>
+    <a href="right-sidebar-heading-graph.html" class="sub">Heading graph</a>
+    <a href="right-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Backlinks</p>
+
+    <h1>Backlinks</h1>
+    <p class="lede">The <b>Backlinks</b> panel lists every note that links to the one you currently have open — the incoming side of the link graph, as opposed to the note's own <a href="right-sidebar-outgoing-links.html">outgoing links</a>. It's driven entirely by the graph index, so the list updates as soon as another note's link is saved, without you touching the current note at all.</p>
+
+    <div class="box">
+      <span class="label">How a backlink gets here</span>
+      <p>This page is about the panel's own UI — grouping, sorting, and click behavior. For how wiki-links resolve to a target, what the twelve typed-link predicates mean, and how a link gets indexed into the graph as a triple in the first place, see <a href="notes-links.html#backlinks">Notes → Links → Backlinks</a>.</p>
+    </div>
+
+    <h2 id="layout">Reading the panel</h2>
+    <p>Each row is a source note that links to the current one, with a small notes icon and the source note's title — never its raw file path, though the path is available as the row's tooltip. A header line above the list gives a running total: <i>"N linked mentions"</i>. If a note links to the current one more than once (say, via two different typed links), each link is its own row — the count is mentions, not distinct notes.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Filter box</div>
+        <div class="v">Typing into the ribbon's search field narrows the list to source notes whose title or path contains the query, live as you type. It searches only what's already loaded for the current note — it isn't a project-wide search.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sort: By type (default)</div>
+        <div class="v">Rows are grouped into collapsible sections, one per link type, each with a colored square and mono-cased label (e.g. <code>SUPPORTS</code>, <code>REFERENCES</code>) matching that type's color from <a href="notes-links.html">typed links</a>, plus a count. Click a group header — or its chevron — to collapse or expand it; the ribbon's collapse-all / expand-all buttons act on every group at once.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sort: Alphabetical</div>
+        <div class="v">Switching the sort dropdown to "Alphabetical" drops the type grouping entirely and lists every backlink as one flat list, ordered by source note title. Each row instead carries its own small colored badge showing that link's type, since the grouping that would otherwise convey it is gone.</div>
+      </div>
+      <div class="row">
+        <div class="k">Click a row</div>
+        <div class="v">Opens the source note in the editor. This is real navigation, not a preview — the current note's own panel state (search text, sort choice, collapsed groups) is left as you had it, ready for when you navigate back.</div>
+      </div>
+      <div class="row">
+        <div class="k">Drag a row</div>
+        <div class="v">A backlink row can be picked up and dropped the same way a sidebar file can — useful for dragging a source note into a note body as a new link, or into another drop target that accepts a note reference.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔗</div>
+      <div class="k">Screenshot — Backlinks panel, grouped by type</div>
+      <div class="d">The right-sidebar Backlinks panel with the sort dropdown set to "By type," showing two expanded type groups — each with a colored square, mono type label, and count — and one collapsed group, above a flat row of ungrouped backlinks; the ribbon's filter field, sort selector, and expand/collapse-all buttons are visible at the top.</div>
+    </div>
+
+    <h2 id="empty">No backlinks</h2>
+    <p>A note with nothing pointing at it shows <i>"No backlinks found"</i> in place of the list — this is expected for a new note, a leaf note, or anything you haven't linked to yet, not an error state. If backlinks exist but your filter text doesn't match any of them, the message changes to <i>"No matches"</i> instead, so you can tell at a glance whether the panel is empty because nothing links here or because your search is too narrow.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>The panel only knows about the graph, not the disk.</b> A link that hasn't been saved yet — still sitting in an unsaved editor buffer — isn't indexed, so it won't appear as a backlink anywhere until the source note is saved.</li>
+      <li><b>Same source, multiple rows.</b> If a note links to the current one through more than one typed link, it shows up once per link, not deduplicated into a single row — the mention count in the header reflects this.</li>
+      <li><b>Collapsed-group state doesn't persist across notes.</b> Switching to a different note resets which type groups are collapsed; it isn't remembered per-note.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="right-sidebar.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Right sidebar</span>
+      </a>
+      <a class="next" href="right-sidebar-outgoing-links.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Outgoing links →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
