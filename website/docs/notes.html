@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Notes</title>
+<meta name="description" content="What a note is in Minerva, how the note lifecycle works — create, rename, move, delete — how every save feeds the knowledge graph, and a map of everything you can put inside a note." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html" class="active">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Notes</p>
+
+    <h1>Notes</h1>
+    <p class="lede">A note is a plain <code>.md</code> file — nothing more. It can live anywhere in your project's folder tree, no dedicated "notes" directory required, and it can optionally start with a block of YAML <a href="notes-frontmatter.html">frontmatter</a> carrying structured metadata. Everything else — links, formatting, embedded content — is markdown written in a text editor, which is what makes a Minerva project just a folder of files you can open, edit, and back up with anything else that understands plain text.</p>
+
+    <h2 id="lifecycle">The note lifecycle</h2>
+    <p>Notes are managed from the sidebar tree, the command palette, or the File menu:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Create</div>
+        <div class="v"><b>File → New Note</b> (<kbd>⌘</kbd><kbd>N</kbd>), or "New Note" from the command palette. A dialog asks for a name and, optionally, a starting template — there's no silent "Untitled" default and no auto-numbering to dodge a collision, so pick a name that doesn't already exist.</div>
+      </div>
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">From the note's context menu in the sidebar. Prompts for a new name with the current one pre-filled. Renaming also rewrites every <a href="notes-links.html">wiki-link</a> elsewhere in the project that pointed at the old name, so incoming links don't go stale.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move</div>
+        <div class="v">Drag the note to a different folder in the sidebar tree.</div>
+      </div>
+      <div class="row">
+        <div class="k">Delete</div>
+        <div class="v">From the note's context menu in the sidebar. Minerva checks first whether anything outside the project still links to the file; if it's clear, you get a plain confirmation — "Delete note &quot;name&quot;?" — with a "don't ask again" option. No red styling: deleting a note is a normal operation, especially with git backing every project.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Note lifecycle actions</div>
+      <div class="d">The left sidebar's file tree with a right-click context menu open on a note showing Rename, Move, and Delete, alongside the New Note dialog prompting for a name and template.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Every save updates the graph</span>
+      <p>There's no separate "index" or "sync" step. The moment you save a note, Minerva parses it and immediately re-indexes it into <code>.minerva/graph.ttl</code> — extracting the title, tags, wiki-links, frontmatter metadata, any embedded <a href="notes-rdf.html">Turtle blocks</a>, and <a href="notes-tables.html">table</a> data. The knowledge graph is always a live reflection of what's on disk, not a snapshot you have to remember to refresh.</p>
+    </div>
+
+    <h2 id="contents">What you can put in a note</h2>
+    <p>Beyond prose, a note can embed any of the following. Each has its own page with the exact syntax, how it renders, and any gotchas to know about:</p>
+
+    <div class="doc-cards">
+      <a class="doc-card" href="notes-links.html">
+        <span class="em">🔗</span>
+        <h3>Links</h3>
+        <p>Wiki-links, typed relationships, and how they build the backlink graph.</p>
+      </a>
+      <a class="doc-card" href="notes-callouts.html">
+        <span class="em">💡</span>
+        <h3>Callouts &amp; cards</h3>
+        <p>Titled note, tip, and warning-style boxes, plus front/back flashcard callouts.</p>
+      </a>
+      <a class="doc-card" href="notes-math.html">
+        <span class="em">∫</span>
+        <h3>Math</h3>
+        <p>Inline and display equations, rendered with KaTeX.</p>
+      </a>
+      <a class="doc-card" href="notes-diagrams.html">
+        <span class="em">🔀</span>
+        <h3>Diagrams</h3>
+        <p>Flowcharts, sequence diagrams, and anything else Mermaid draws.</p>
+      </a>
+      <a class="doc-card" href="notes-charts.html">
+        <span class="em">📊</span>
+        <h3>Charts</h3>
+        <p>Interactive Vega and Vega-Lite charts, live in the note.</p>
+      </a>
+      <a class="doc-card" href="notes-code.html">
+        <span class="em">🧮</span>
+        <h3>Code &amp; compute cells</h3>
+        <p>Syntax-highlighted code, plus runnable SPARQL, SQL, and Python cells.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Tables &amp; CSV</h3>
+        <p>Markdown tables that double as structured data via CSVW.</p>
+      </a>
+      <a class="doc-card" href="notes-images.html">
+        <span class="em">🖼️</span>
+        <h3>Images</h3>
+        <p>Drag, paste, or link images — stored right alongside your notes.</p>
+      </a>
+      <a class="doc-card" href="notes-media.html">
+        <span class="em">🎬</span>
+        <h3>Media</h3>
+        <p>YouTube videos as click-to-open poster cards, no embedded player.</p>
+      </a>
+      <a class="doc-card" href="notes-footnotes.html">
+        <span class="em">🦶</span>
+        <h3>Footnotes</h3>
+        <p>Asides and citations that collect at the bottom of the note.</p>
+      </a>
+      <a class="doc-card" href="notes-highlights.html">
+        <span class="em">🖍️</span>
+        <h3>Highlights</h3>
+        <p>Mark a passage as important with a tinted inline span.</p>
+      </a>
+      <a class="doc-card" href="notes-tasks.html">
+        <span class="em">☑️</span>
+        <h3>Task lists</h3>
+        <p>Checkboxes that toggle in preview and write straight back to source.</p>
+      </a>
+      <a class="doc-card" href="notes-rdf.html">
+        <span class="em">🐢</span>
+        <h3>Turtle / RDF</h3>
+        <p>Hand-author graph triples directly inside a note.</p>
+      </a>
+      <a class="doc-card" href="notes-frontmatter.html">
+        <span class="em">🏷️</span>
+        <h3>Frontmatter</h3>
+        <p>YAML metadata that drives the app and feeds the graph.</p>
+      </a>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="../getting-started.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Getting started</span>
+      </a>
+      <a class="next" href="notes-links.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Links →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

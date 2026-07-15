@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Code &amp; Compute Cells</title>
+<meta name="description" content="Code fences in Minerva notes: plain syntax-highlighted blocks versus runnable sparql, sql, and python cells, how to run them, and where their output lands in the note." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub active">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Code &amp; compute cells</p>
+
+    <h1>Code &amp; compute cells</h1>
+    <p class="lede">Every fenced code block in a note gets syntax highlighting. A handful of languages get more than that: mark a fence <code>sparql</code>, <code>sql</code>, or <code>python</code> and it becomes a runnable cell — a small ▶ appears, and running it writes the result back into the note as an output block sitting right under the code. The rest of the note stays a normal, portable markdown file the whole time.</p>
+
+    <h2 id="syntax">Plain fences vs. runnable fences</h2>
+    <p>The distinction is entirely the language tag on the opening fence. Everything else about the fence — the triple backticks, the indentation, how it looks in preview — is identical.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">```<i>lang</i></div>
+        <div class="v"><b>Plain fence.</b> Any language your syntax highlighter recognizes — <code>js</code>, <code>rust</code>, <code>bash</code>, <code>yaml</code>, and so on — renders with color highlighting and nothing else. There's no fixed list to check against: if it's not one of the three runnable tags below, Minerva highlights it and leaves it alone.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>```sparql</code></div>
+        <div class="v"><b>Runnable.</b> Runs against the current project's knowledge graph — the same engine behind the Query panel. Returns a table of variable bindings.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>```sql</code></div>
+        <div class="v"><b>Runnable.</b> Runs against the project's DuckDB instance — the same connection behind CSV/table sources. Returns a table of rows.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>```python</code></div>
+        <div class="v"><b>Runnable.</b> Executes in a persistent local Python process, one per project. Also matches the <code>py</code> and <code>python3</code> aliases. Returns text, a pandas table, JSON, an inline image (matplotlib, PIL), or rich HTML, depending on what the cell produces.</div>
+      </div>
+    </div>
+
+    <p>An unlabeled fence — bare ``` ``` with no language at all — is always plain. Minerva only turns on the run affordance when it recognizes the tag.</p>
+
+    <h2 id="running">Running a cell</h2>
+    <p>A runnable fence gets a small toolbar in both the source editor and the rendered preview:</p>
+    <ul>
+      <li><b>Click ▶</b> — on the fence's gutter marker in the editor, or the toolbar button in preview. The icon swaps to a muted <code>…</code> while the cell runs.</li>
+      <li><b><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Enter</kbd></b> (or <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Enter</kbd>) — runs the fence the cursor is currently inside, from the editor.</li>
+      <li><b>Recompute all</b> — the toolbar button above the note re-runs every runnable fence top to bottom, stopping at the first error. It only appears when the note has at least one runnable fence.</li>
+    </ul>
+    <p>Editor and preview stay in sync either way: a run from the preview's ▶ button routes through the same trust gate and writes the same doc edit as a run from the editor gutter, so the fence and its output look identical regardless of which surface triggered the run.</p>
+
+    <h2 id="output">Where output goes</h2>
+    <p>A cell's result is written into the note itself, as an <code>output</code> fence immediately below the source fence — not a floating panel that disappears when you close the note. Re-running a cell replaces its existing output block in place. What that block renders as depends on the result's shape: a table for SPARQL bindings, SQL rows, or a pandas DataFrame; preformatted text; pretty-printed JSON; an inline image; or sanitized HTML for something like a Seaborn plot's rich repr. A failed cell — a SPARQL syntax error, a bad SQL statement, a Python exception — writes an error block instead, styled distinctly from a normal result, with the interpreter's message.</p>
+
+    <div class="shot wide">
+      <div class="icon">▶</div>
+      <div class="k">Screenshot — Runnable cell with output</div>
+      <div class="d">A note in preview showing a python fence with its ▶/Recompute toolbar, followed immediately by its rendered output block — a small table (a pandas DataFrame) with a "Showing N of M rows" truncation footer beneath it.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Large results are capped, not dropped</span>
+      <p>Table output — from SQL, SPARQL, or a DataFrame — is capped at a fixed row count per cell. When a result is truncated the output block shows "Showing <i>N</i> of <i>M</i> rows" so you know there's more data than you're seeing, rather than silently hiding it. Narrow the query if you need the rest.</p>
+    </div>
+
+    <h2 id="python">Python specifics</h2>
+    <p>The Python kernel is a real local process — the same permissions as Minerva itself, not a browser sandbox. It can read and write files, make network requests, and import anything installed in the interpreter Minerva is configured to use (Settings → Compute). Because of that, Minerva asks for confirmation once per project before running any Python cell; declining leaves the cell unrun until you approve it or re-run it later. There's no per-cell red warning styling — it's a single one-time prompt, and approving it is remembered for the rest of the project.</p>
+    <p>Cells in the same note share a namespace: a variable or import from one Python cell is visible to a later cell in that note, in run order. Cells in different notes never share state. SQL and SPARQL fences have no such state to share — each run is an independent query.</p>
+
+    <h2 id="trust">Approval and the knowledge graph</h2>
+    <p>Running a fence yourself — clicking ▶, pressing the shortcut, or using Recompute all — is a direct action you took, so it executes immediately with no approval step, the same way typing in a note doesn't ask for approval. Fences you write and run are ordinary local computation, not an AI-originated change, so the approval engine (the review step that gates AI proposals before they reach the graph) doesn't apply to them.</p>
+    <p>Both engines run the query you wrote, in full: a <code>sparql</code> fence executes through the same SPARQL engine as the Query panel, and a <code>sql</code> fence executes through the same DuckDB connection as your table sources. Every stock example is a read (<code>SELECT</code>, a graph pattern), and that's the intended use — but nothing in the compute shell parses your query to reject a write statement first. Treat a runnable fence with the same care as running a query in the Query panel itself. The SQL side has a natural backstop: that DuckDB connection is an in-memory instance rebuilt from your CSV sources each time the project opens, not a persisted database, so nothing a <code>sql</code> fence does to it outlives the session.</p>
+    <p>The one place a compute cell touches the graph on its own is unrelated to what the cell does: when the AI proposes a cell inside a conversation (rather than you writing one directly in a note) and you click Run on that proposal, Minerva records a <code>thought:ComputeProposal</code> audit entry — what ran, when, and that it was already approved by your click. That's provenance for a thing you just confirmed, not a new claim awaiting review, so it isn't queued through the pending-proposal flow the way an AI-proposed claim or link would be.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>The runnable list is exactly three languages.</b> <code>sparql</code>, <code>sql</code>, and <code>python</code> (plus the <code>py</code> / <code>python3</code> aliases for the last one). Everything else — including close cousins like <code>graphql</code> or <code>bash</code> — is highlighted only; there's no way to make an arbitrary language executable from within a note.</li>
+      <li><b>Case matters in spirit, not literally.</b> The language tag is matched case-insensitively, so <code>SPARQL</code> and <code>Sql</code> still get the run affordance — but stick to lowercase; it's what every stock example and the highlighter both expect.</li>
+      <li><b>An output block isn't free-standing.</b> It's tied to the fence directly above it. Insert a paragraph or heading between a source fence and its output block and Minerva can no longer tell they're related — re-running writes a fresh block instead of replacing the orphaned one.</li>
+      <li><b>Declining the Python trust prompt doesn't block SPARQL or SQL.</b> The prompt only gates Python's arbitrary-process execution — a <code>sparql</code> or <code>sql</code> fence always runs when you click ▶, whatever the query says. Write cells the way you'd write anything you're about to run yourself.</li>
+      <li><b>Recompute all stops on the first error.</b> It's a top-to-bottom re-run, not a best-effort sweep — fix the failing cell and run again to continue past it.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-charts.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Charts</span>
+      </a>
+      <a class="next" href="notes-tables.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Tables &amp; CSV →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

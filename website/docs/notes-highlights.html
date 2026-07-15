@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Highlights</title>
+<meta name="description" content="Highlighting text in Minerva notes: the ==highlighted== and ==color:highlighted== syntax, the five-color palette, and how highlights render as a tinted span in both the source editor and preview." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub active">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Highlights</p>
+
+    <h1>Highlights</h1>
+    <p class="lede">Wrap text in double equals signs and Minerva marks it as highlighted — a tinted inline span, the same idea as a highlighter pen on paper. It's a lightweight way to flag a passage as important while you're reading or drafting, without committing to a claim, a link, or any other structured markup.</p>
+
+    <h2 id="syntax">Syntax</h2>
+    <p>The marker is <code>==</code> on both sides of the text. An optional color name before the text picks from a small built-in palette; leave it off for the default tint.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>==text==</code></div>
+        <div class="v"><b>Highlight.</b> Marks the enclosed text with the default tint.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>==color:text==</code></div>
+        <div class="v"><b>Colored highlight.</b> <code>color</code> must be one of <code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, or <code>orange</code>. Anything else isn't recognized as a color prefix and is treated as part of the highlighted text instead — so <code>==Pythagorean: a²+b²==</code> highlights the whole string rather than guessing at a color.</div>
+      </div>
+      <div class="row">
+        <div class="k">no space inside</div>
+        <div class="v"><b>Whitespace guard.</b> A space or tab right after the opening <code>==</code> or right before the closing <code>==</code> stops the match — same rule as <code>**bold**</code> and <code>~~strikethrough~~</code>. This keeps a run of prose like <code>x == y == z</code> from accidentally turning into a highlight.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>===</code></div>
+        <div class="v"><b>Not a delimiter.</b> Three or more consecutive equals signs — in either direction — are never read as a highlight marker, so ASCII rules and similar runs of <code>=</code> are left alone.</div>
+      </div>
+    </div>
+
+    <p>A short example:</p>
+<pre><code>The migration is safe as long as ==the backfill runs before the
+NOT NULL constraint is added==. Everything else is cosmetic.
+
+Flagged for review: ==orange:re-check this once the index rebuild finishes==.</code></pre>
+
+    <h2 id="rendering">How highlights render</h2>
+    <p>A highlight becomes a <code>&lt;mark&gt;</code> element wherever it appears — an inline tinted span, not a block. In the rendered preview this shows as a soft color wash behind the text, sized to the palette color you chose (or the default accent tint if you didn't choose one).</p>
+
+    <div class="shot wide">
+      <div class="icon">🖍️</div>
+      <div class="k">Screenshot — Highlighted text in preview</div>
+      <div class="d">A rendered paragraph mid-sentence with two inline highlighted spans: one with the default tint around a short phrase, and one with the yellow palette color around a different phrase later in the same paragraph — both shown as a soft color wash behind the text, inline with the surrounding prose.</div>
+    </div>
+
+    <p>In the source editor, the same span is painted with a matching tint while you type — the <code>==</code> delimiters stay visible rather than being hidden, which is the convention Minerva uses for inline markup generally (it matches how <code>*emphasis*</code> and <code>~~strikethrough~~</code> are shown). You can see exactly what you wrote, decorated in place.</p>
+
+    <div class="box">
+      <span class="label">The color is themeable</span>
+      <p>Highlight tints are defined as CSS custom properties per theme, not fixed colors — the same five palette names (<code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, <code>orange</code>) resolve to different underlying values in Honey, Light, and Contrast, so a highlight stays legible and on-palette no matter which theme you're using. The editor and preview both derive their tint from the same source, so a highlight looks the same intensity in both places.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Other inline formatting nests fine.</b> The text inside <code>==…==</code> is re-parsed as regular inline markdown, so <code>==**bold**==</code>, <code>==[[wiki-link]]==</code>, and similar combinations work as you'd expect — the highlight wraps around the other formatting rather than blocking it.</li>
+      <li><b>Bold can wrap a highlight too.</b> <code>**==highlighted==**</code> resolves outermost-in — the bold applies around the highlighted span — so both directions of nesting are supported.</li>
+      <li><b>Unrecognized color prefixes aren't stripped.</b> Only the five palette names count as a color. <code>==note:remember this==</code> isn't read as a <code>note</code>-colored highlight — the whole thing, prefix included, is just the highlighted text.</li>
+      <li><b>An empty color prefix falls back to plain.</b> <code>==yellow:==</code> has no body left after the color name, so it isn't treated as a valid highlight with an empty label — it's left uncolored so you can still see what you wrote.</li>
+      <li><b>Highlights are inline-only.</b> A newline inside the marker ends the match before it closes — a highlight can't span multiple lines or wrap a whole paragraph.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-footnotes.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Footnotes</span>
+      </a>
+      <a class="next" href="notes-tasks.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Task lists →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Tables &amp; CSV</title>
+<meta name="description" content="Markdown tables in Minerva notes: standard pipe-delimited syntax and alignment markers, and how every table on a note is extracted into the knowledge graph as CSVW triples during indexing." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub active">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Tables &amp; CSV</p>
+
+    <h1>Tables &amp; CSV</h1>
+    <p class="lede">Markdown tables render the way you'd expect — a header row, an alignment row, and as many data rows as you like. What's less obvious is that every table in a note is also read as data: on each save, Minerva parses its rows and columns into the knowledge graph using CSVW, the W3C vocabulary for describing tabular data. You don't opt in — a table is always both a formatted block in your text and a small dataset in the graph.</p>
+
+    <h2 id="syntax">Syntax</h2>
+    <p>Minerva uses standard GFM (GitHub-Flavored Markdown) pipe tables. A leading and trailing <code>|</code> on each row is conventional but not load-bearing for rendering — what matters is the separator row between the header and the data.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>| A | B |</code></div>
+        <div class="v"><b>Header row.</b> One line, cells separated by <code>|</code>. Becomes the column names for both rendering and graph extraction.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>|---|---|</code></div>
+        <div class="v"><b>Separator row.</b> Required immediately after the header. Marks where the header ends and data begins — without it, the lines above and below are just a paragraph, not a table.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:---</code></div>
+        <div class="v"><b>Left-align</b> the column (also the default with no colon).</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>---:</code></div>
+        <div class="v"><b>Right-align</b> the column — handy for numeric data.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>:---:</code></div>
+        <div class="v"><b>Center-align</b> the column.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>| a \| b |</code></div>
+        <div class="v"><b>Escaped pipe.</b> A backslash before a pipe inside a cell renders it as a literal <code>|</code> instead of a column break.</div>
+      </div>
+    </div>
+
+    <p>A short example:</p>
+<pre><code>| Trial | Condition | Effect size |
+|:------|:---------:|------------:|
+| 1     | control   |        0.12 |
+| 2     | treatment |        0.61 |
+| 3     | treatment |        0.58 |</code></pre>
+
+    <div class="shot wide">
+      <div class="icon">📊</div>
+      <div class="k">Screenshot — Rendered table in preview</div>
+      <div class="d">The rendered preview of the trial/condition/effect-size table above: a bordered table with a bold header row, the first column left-aligned, the second column centered, and the numeric third column right-aligned.</div>
+    </div>
+
+    <p>Rendering is unmodified GFM — the same table syntax you'd write for GitHub. There's no support for merged or spanned cells (no colspan/rowspan); each cell is exactly one row by one column.</p>
+
+    <h2 id="csvw">How tables become CSVW</h2>
+    <p>On every index pass, Minerva walks each note's parsed tables and writes them into <code>.minerva/graph.ttl</code> using <a href="https://www.w3.org/ns/csvw#" target="_blank" rel="noopener">CSVW</a> — the real W3C namespace, not a Minerva-specific one. Each table becomes a <code>csvw:Table</code> linked to its note with <code>csvw:inNote</code>; each header becomes a <code>csvw:Column</code> with a <code>csvw:name</code> and <code>csvw:columnIndex</code>; each data row becomes a <code>csvw:Row</code>; and each row/column intersection becomes a <code>csvw:Cell</code> carrying the cell's value. <code>csvw</code> is one of the prefixes auto-injected into every query, so you can reach this data from Graph &gt; Query without declaring the namespace yourself.</p>
+
+    <div class="box">
+      <span class="label">Every table, no opt-in</span>
+      <p>There's no caption, id, or frontmatter flag that marks a table as "graph-worthy." Any syntactically valid table — header row, separator row, at least one data row — is extracted automatically. A table with a header and separator but zero data rows is the one exception: it's dropped silently, both from rendering as a meaningful table and from the graph. There's no way to write a markdown table that's decorative-only and keep it out of the graph; if you don't want tabular content indexed, it can't be a markdown table.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Alignment is display-only.</b> The <code>:---</code> / <code>---:</code> / <code>:---:</code> markers control text alignment in preview and nowhere else — that information isn't captured when a table is extracted into the graph. A SPARQL query over a table's cells can't tell you which columns were right-aligned.</li>
+      <li><b>Escaped pipes render correctly but don't extract correctly.</b> Preview handles <code>\|</code> as a literal pipe character inside a cell. The graph indexer's table parser doesn't — it splits naively on every <code>|</code>, so a cell written as <code>a \| b</code> shows up as one cell in preview but as extra, misaligned cells in the CSVW triples. Avoid literal pipes in cell content if you plan to query that table.</li>
+      <li><b>Tables inside code fences aren't extracted.</b> A pipe table written as an example inside a fenced code block renders as code, not a table, and is correctly excluded from graph indexing.</li>
+      <li><b>This isn't the CSV/DuckDB pipeline.</b> The right sidebar's <b>Tables</b> panel lists tables referenced by <code>```sql</code> fences and registered <code>.csv</code> files in your project — a separate, SQL-oriented feature. It doesn't show markdown tables or CSVW data. The only way to see a markdown table's extracted triples today is a graph query.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-code.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Code &amp; compute cells</span>
+      </a>
+      <a class="next" href="notes-images.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Images →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

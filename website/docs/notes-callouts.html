@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Callouts &amp; Cards</title>
+<meta name="description" content="Callout blocks in Minerva notes: the blockquote and bare-paragraph syntax that triggers one, the 14 built-in kinds, collapsible callouts, and how a [!card] callout differs from a plain one." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub active">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Callouts &amp; cards</p>
+
+    <h1>Callouts &amp; cards</h1>
+    <p class="lede">A callout turns an ordinary blockquote into a titled, colored box — a note, a tip, a warning-equivalent, a flashcard. The syntax is Obsidian's <code>[!type]</code> convention: a blockquote whose first line names a kind. Minerva also accepts a lenient bare form with no leading <code>&gt;</code>, and one kind — <code>card</code> — renders as a front/back flashcard instead of a plain note box.</p>
+
+    <h2 id="syntax">Syntax</h2>
+    <p>A callout's marker line is <code>[!type]</code>, optionally followed by <code>+</code> or <code>-</code> to make it collapsible, and an optional custom title. Everything after the marker line — inside the blockquote — is the callout body.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>&gt; [!type]</code></div>
+        <div class="v"><b>Standard form.</b> A blockquote whose first line is <code>[!type]</code>. Every following <code>&gt;</code>-prefixed line is the body. This is the same syntax Obsidian and GitHub use.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[!type]</code></div>
+        <div class="v"><b>Bare form (lenient extension).</b> A top-level paragraph starting with <code>[!type]</code> becomes a callout even without the leading <code>&gt;</code>. It always renders non-collapsible — there's no blockquote container to attach a disclosure to. Only fires at the top level; a <code>[!type]</code> line nested inside a list or another blockquote is left alone.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>&gt; [!type]+</code></div>
+        <div class="v"><b>Collapsible, default-expanded.</b> Renders as a <code>&lt;details open&gt;</code>/<code>&lt;summary&gt;</code> pair instead of a plain <code>&lt;div&gt;</code>, so it's keyboard-operable and starts open.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>&gt; [!type]-</code></div>
+        <div class="v"><b>Collapsible, default-collapsed.</b> Same as above but starts closed — the body is hidden until clicked.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>&gt; [!type] Custom title</code></div>
+        <div class="v"><b>Custom title.</b> Text after the marker (and fold flag) replaces the kind's default title in the title bar. Whitespace here is restricted to spaces/tabs, so a title can't accidentally swallow the body's first line.</div>
+      </div>
+    </div>
+
+    <p>A complete example, plus the bare form:</p>
+<pre><code>&gt; [!warning] Before you continue
+&gt; This rewrites every note's frontmatter in place. Commit first.
+
+&gt; [!tip]-
+&gt; Collapsed by default — click to expand.
+
+[!note]
+No leading &gt; required — this still becomes a callout.</code></pre>
+
+    <h2 id="kinds">Supported kinds</h2>
+    <p>Fourteen kinds are recognized by name; each has a default icon, a default title (used when you don't supply a custom one), and a color drawn from the existing palette — nothing new, no red/danger styling. An unrecognized kind (e.g. <code>[!random]</code>) still renders as a callout: it falls back to a generic dot icon and the accent color, with the kind name capitalized as its title.</p>
+
+    <div class="deflist">
+      <div class="row"><div class="k"><code>note</code></div><div class="v">Default title "Note". Accent-colored.</div></div>
+      <div class="row"><div class="k"><code>info</code></div><div class="v">Default title "Info". Iris-colored.</div></div>
+      <div class="row"><div class="k"><code>tip</code></div><div class="v">Default title "Tip". Sage-colored.</div></div>
+      <div class="row"><div class="k"><code>success</code></div><div class="v">Default title "Success". Sage-colored, checkmark icon.</div></div>
+      <div class="row"><div class="k"><code>question</code></div><div class="v">Default title "Question". Accent-colored, "?" icon.</div></div>
+      <div class="row"><div class="k"><code>warning</code></div><div class="v">Default title "Warning". The warmest tone in the set (an amber/rust shade, not red) with a triangle icon — Minerva's stand-in for danger styling.</div></div>
+      <div class="row"><div class="k"><code>failure</code></div><div class="v">Default title "Failure". Same warm tone as <code>warning</code>, "✗" icon.</div></div>
+      <div class="row"><div class="k"><code>danger</code></div><div class="v">Default title "Danger". Same warm tone as <code>warning</code> — Minerva has no separate red danger color, per house style.</div></div>
+      <div class="row"><div class="k"><code>bug</code></div><div class="v">Default title "Bug". Iris-colored.</div></div>
+      <div class="row"><div class="k"><code>example</code></div><div class="v">Default title "Example". Iris-colored.</div></div>
+      <div class="row"><div class="k"><code>quote</code></div><div class="v">Default title "Quote". Muted-text colored rather than an accent — reads as a citation, not an alert.</div></div>
+      <div class="row"><div class="k"><code>abstract</code></div><div class="v">Default title "Abstract". Iris-colored.</div></div>
+      <div class="row"><div class="k"><code>todo</code></div><div class="v">Default title "Todo". Accent-colored, checkbox icon.</div></div>
+      <div class="row"><div class="k"><code>card</code></div><div class="v">Default title "Card". Renders as a flashcard rather than a plain note box — see below.</div></div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗒️</div>
+      <div class="k">Screenshot — Callout kinds in preview</div>
+      <div class="d">A rendered note stacking three blocks top to bottom: a "Note" callout in the accent color with its pencil icon, a "Warning" callout in the warm amber tone with its triangle icon (no red anywhere), and below them a "Card" callout showing its front-side prompt text above a dashed divider with a collapsed "Show answer" disclosure.</div>
+    </div>
+
+    <h2 id="cards">Card-style callouts</h2>
+    <p><code>[!card]</code> is syntactically an ordinary callout — same marker, same blockquote body — but it's treated differently once inside: an <code>&lt;hr&gt;</code> (a <code>---</code> line) in the body splits it into a front and a back, the way a flashcard's prompt and answer are two separate things. Minerva's preview hydrates this after render by moving everything after the divider into a collapsed <b>Show answer</b> disclosure, so the front stands alone until you choose to reveal the back — the divider itself is replaced by the disclosure's summary line.</p>
+    <p>A card without a <code>---</code> divider is left untouched — it just renders as a front with no answer to reveal, same as a malformed or front-only card.</p>
+    <p>A card's title line also has one more piece of machinery: a trailing <code>^id</code> block-id (used to anchor the card for spaced-repetition review) is stripped from the displayed title, leaving only the deck name you wrote — or the default "Card" title if the marker line held nothing but an id.</p>
+
+<pre><code>&gt; [!card] Biology deck
+&gt; What organelle produces most of a cell's ATP?
+&gt; ---
+&gt; The mitochondrion.</code></pre>
+
+    <div class="box">
+      <span class="label">Unrecognized kinds still work</span>
+      <p>A kind that isn't in the built-in list doesn't fail to render — it becomes a callout styled with the accent color and a generic dot icon, titled with the capitalized kind name (or your custom title, if you supplied one). This makes ad hoc kinds safe to use for personal conventions.</p>
+    </div>
+
+    <h2 id="nesting">Nesting and nuances</h2>
+    <ul>
+      <li><b>Nesting works for free.</b> A callout inside a callout is just a nested blockquote — Minerva's core render rule walks every <code>blockquote_open</code> token independently, so nested callouts need no special-case syntax.</li>
+      <li><b>Bare callouts can't collapse.</b> Because the lenient no-<code>&gt;</code> form has no blockquote container, <code>+</code>/<code>-</code> fold flags on a bare <code>[!type]</code> line are meaningless — collapsibility requires the standard blockquote form.</li>
+      <li><b>Kind names are case-insensitive.</b> <code>[!Warning]</code> and <code>[!warning]</code> resolve to the same kind; the stored kind is always lowercased.</li>
+      <li><b>Collapsible callouts render as <code>&lt;details&gt;</code>.</b> That means keyboard operability (focus, <kbd>Enter</kbd>/<kbd>Space</kbd> to toggle) comes from the browser, not from custom script.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-links.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Links</span>
+      </a>
+      <a class="next" href="notes-math.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Math →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
