@@ -4,6 +4,7 @@ import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './typ
 import { searchNotes } from './search-notes';
 import { readNote } from './read-note';
 import { searchRelated } from './search-related';
+import { searchHelp } from './search-help';
 import { queryGraph } from './query-graph';
 import { listNotes } from './list-notes';
 import { proposeNoteRename } from './propose-note-rename';
@@ -31,6 +32,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   searchNotes,
   readNote,
   searchRelated,
+  searchHelp,
   queryGraph,
   listNotes,
   proposeNoteRename,

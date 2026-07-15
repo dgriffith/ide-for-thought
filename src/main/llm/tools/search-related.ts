@@ -88,7 +88,8 @@ export const searchRelated: NotebaseTool = {
       'Choosing among the search tools: use search_related for "find things ' +
       'like / about this" by meaning; use search_notes for exact keywords or ' +
       'phrases; use query_graph for structural questions (links, tags, types, ' +
-      'claims). They complement each other — combine when unsure.',
+      'claims); use search_help for questions about Minerva itself rather than ' +
+      'the user\'s own thoughtbase. They complement each other — combine when unsure.',
     input_schema: {
       type: 'object',
       properties: {
