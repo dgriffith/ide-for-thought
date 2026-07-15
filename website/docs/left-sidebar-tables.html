@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Tables Panel</title>
+<meta name="description" content="The left sidebar's Tables panel: every CSV in your project registered as a queryable DuckDB view, with row/column counts, a click-to-query shortcut, and a context menu to open the raw file." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="left-sidebar-notes-tree.html" class="sub">Notes tree</a>
+    <a href="left-sidebar-sources.html" class="sub">Sources</a>
+    <a href="left-sidebar-tags.html" class="sub">Tags</a>
+    <a href="left-sidebar-tables.html" class="sub active">Tables</a>
+    <a href="left-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Tables</p>
+
+    <h1>Tables</h1>
+    <p class="lede">The Tables panel lists every <code>.csv</code> file in your project as a queryable table. Each one is registered as a live DuckDB view the moment it appears on disk — the panel isn't a browser for markdown tables or their <a href="notes-tables.html">CSVW</a> triples, it's a directory of your project's actual CSV data, ready to query with SQL.</p>
+
+    <div class="box">
+      <span class="label">Not the same "tables" as the Notes &amp; Tables page</span>
+      <p><a href="notes-tables.html">Tables &amp; CSV</a> covers markdown pipe tables written inside a note and how each one is extracted into <code>.minerva/graph.ttl</code> as CSVW triples on save. This panel is unrelated: it only ever lists standalone <code>.csv</code> files sitting in your project folder. A markdown table inside a note's prose never appears here, and a CSV file's rows never appear as a markdown table anywhere — the two pipelines don't intersect except that both eventually write shape information (columns, types) into the same graph.</p>
+    </div>
+
+    <h2 id="registration">How a CSV gets here</h2>
+    <p>On project open, Minerva walks the project folder and registers every <code>.csv</code> file it finds as an in-memory DuckDB view — the view is lazy, so DuckDB re-reads the file from disk on every query rather than caching stale content. The file watcher keeps this live afterward: adding, editing, or deleting a <code>.csv</code> anywhere in the project registers, re-registers, or drops its view automatically, and the panel refreshes to match. There's no import step and no dialog — drop a CSV in the folder and it's queryable.</p>
+
+    <p>The SQL identifier for a table is derived from its path by default (slashes and punctuation become underscores — <code>notes/data/2024-experiment.csv</code> becomes <code>notes_data_2024_experiment</code>), but you can pin an explicit name. A companion markdown note in the same folder with a matching filename stem (<code>experiment.csv</code> ↔ <code>experiment.md</code>) can set <code>table_name:</code> in its frontmatter to override the derived name — useful for giving a table a shorter or more memorable identifier than its path would produce.</p>
+
+    <div class="box">
+      <span class="label">Two CSVs, one name</span>
+      <p>If two different CSVs would derive the same table name, the second one is skipped rather than silently replacing the first's view — you'll see a toast pointing at the conflict, and the fix is a <code>table_name:</code> override on one of the companion notes to disambiguate. The skipped file's data simply isn't queryable until you resolve the collision.</p>
+    </div>
+
+    <h2 id="panel">What each row shows</h2>
+    <p>The panel is a flat, alphabetically-sorted list (by file path) with a filter field above it that matches against both the table name and the file's relative path as you type.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Table name</div>
+        <div class="v">The SQL identifier — the derived or overridden name described above — shown in monospace as the row's primary label.</div>
+      </div>
+      <div class="row">
+        <div class="k">Row / column counts</div>
+        <div class="v">A live count queried straight from DuckDB — <code>3 rows · 5 cols</code>, for example — not a cached figure from when the file was first registered.</div>
+      </div>
+      <div class="row">
+        <div class="k">File path (on hover)</div>
+        <div class="v">The CSV's project-relative path isn't printed in the row itself, but it's the row's tooltip — hover to confirm which file a given table name maps to.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🧮</div>
+      <div class="k">Screenshot — Tables panel with several registered CSVs</div>
+      <div class="d">The left sidebar's Tables tab showing a filter field followed by a handful of rows — each a monospace table name like <code>notes_data_2024_experiment</code> over a smaller row/column count line, with one row's right-click context menu open showing Query (SELECT *), Copy Table Name, Open CSV, and Reveal in Finder.</div>
+    </div>
+
+    <h2 id="clicking">Clicking a table</h2>
+    <p>Clicking a row doesn't open the CSV file or jump anywhere in a note — it opens a new SQL query tab pre-filled with <code>SELECT * FROM &lt;table name&gt;</code> against that table, so you land straight on its data. From there it's an ordinary compute-cell-style query surface: edit the SQL, re-run it, and it executes against the same in-memory DuckDB instance the panel itself is backed by.</p>
+
+    <p>Right-clicking a row opens a context menu with four actions:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Query (SELECT *)</div>
+        <div class="v">Same action as a left click — opens the query tab.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy Table Name</div>
+        <div class="v">Copies the SQL identifier to the clipboard, for referencing the table in a query you're already writing elsewhere (a compute cell, for instance).</div>
+      </div>
+      <div class="row">
+        <div class="k">Open CSV</div>
+        <div class="v">This is "opening the underlying CSV" — it opens the raw <code>.csv</code> file itself as a file tab, the same as selecting it in the notes tree. There's no separate export or view-as-table step; you're looking at the plain-text file on disk.</div>
+      </div>
+      <div class="row">
+        <div class="k">Reveal in Finder</div>
+        <div class="v">Shows the CSV file in the OS file browser.</div>
+      </div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Empty project shows a hint, not a blank pane.</b> With no CSVs registered, the panel reads "No tables yet. Drop a CSV into the thoughtbase." instead of an empty list.</li>
+      <li><b>A table with no header row is still queryable, just awkwardly.</b> DuckDB's CSV auto-detection infers a header when it can; if a file genuinely has none, columns come back as generic auto-generated names rather than anything meaningful. There's no markdown-style caption concept here at all — a CSV file has no title beyond its filename and derived table name.</li>
+      <li><b>Reads are live, but registration needs the watcher (or a rebuild) to notice a brand-new file.</b> Editing an already-registered CSV is reflected immediately — the DuckDB view re-reads on every query. Adding a new <code>.csv</code> or renaming one relies on the file watcher to register it, which is normally instant; if a table you expect doesn't show up, <b>Query → Rebuild All Indexes</b> forces a full re-scan of every CSV in the project.</li>
+      <li><b>This is a separate DuckDB instance from any per-note compute cells.</b> The panel and its query tabs share one in-memory database per project — every registered CSV is queryable from any query you open, and none of it touches <code>.minerva/graph.ttl</code> directly (only column names and types are mirrored into the graph, not row data).</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="left-sidebar-tags.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Tags</span>
+      </a>
+      <a class="next" href="left-sidebar-bookmarks.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Bookmarks →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
