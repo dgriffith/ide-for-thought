@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — The Propose, Review, Approve Loop</title>
+<meta name="description" content="Why every AI-originated graph write in Minerva files as a reviewable thought:Proposal instead of landing directly — the Trust Principle, the three approval tiers, and the diff view you check before you approve." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
+    <a href="conversations-drafts.html" class="sub">Drafts</a>
+    <a href="conversations-propose-review-approve.html" class="sub active">The propose → review → approve loop</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="conversations.html">Conversations</a><span class="sep">/</span>Propose, review, approve</p>
+
+    <h1>The propose, review, approve loop</h1>
+    <p class="lede">Minerva talks to a graph-backed knowledge base, and the one design decision that makes that safe is simple to state and easy to underestimate: the model never gets to write to it directly. Every AI-originated change to <code>.minerva/graph.ttl</code> — a new claim, a rewritten note, a proposed source summary — has to pass through a single choke point, the approval engine, before it becomes real.</p>
+
+    <div class="box">
+      <span class="label">The Trust Principle</span>
+      <p><b>The LLM proposes, the human confirms.</b> Conversation output is evidence to be evaluated and filed, not an authoritative update to the graph. This is the most important design decision in Minerva — not a safety feature bolted on afterward, but the reason the approval engine (<code>src/main/llm/approval.ts</code>) exists at all.</p>
+    </div>
+
+    <h2 id="why">Why proposals exist</h2>
+    <p>An LLM is a source of claims about your notes, not an editor with commit rights. Treating its output as evidence means every graph mutation it wants to make is a <i>suggestion</i> until you look at it — so wrong claims, bad links, and hallucinated components stay quarantined as pending records instead of silently becoming part of what you know. The mechanism for that quarantine is a node type: <code>thought:Proposal</code>, with a <code>thought:proposalStatus</code> of <code>thought:pending</code>, <code>thought:approved</code>, <code>thought:rejected</code>, or <code>thought:expired</code>.</p>
+
+    <p>Internally, every LLM apply path funnels through one function, <code>proposeWrite()</code>, which takes an <code>operationType</code> (what kind of change this is) and a bundle of <code>payloads</code> (what it would actually write). What happens next depends entirely on that operation's approval tier.</p>
+
+    <h2 id="tiers">The three approval tiers</h2>
+    <p>Every <code>OperationType</code> the LLM can emit maps to exactly one tier in a policy table (<code>DEFAULT_POLICY</code> in <code>approval.ts</code>, lines 46–65). The tier decides whether <code>proposeWrite()</code> files a pending proposal, applies the write immediately and just logs it, or applies it with no record at all:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>requires_approval</code></div>
+        <div class="v">New claims (<code>new_claim</code>), evidence links (<code>evidence_link</code>), component creation (<code>component_creation</code>), note moves/renames (<code>note_refactor</code>), note deletes (<code>note_delete</code>), in-place note rewrites (<code>note_rewrite</code>), and proposed source properties (<code>source_properties</code>). <code>proposeWrite()</code> writes a <code>thought:Proposal</code> with status <code>pending</code> and stops there — nothing is applied until you act on it.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>notify_only</code></div>
+        <div class="v">Confidence updates (<code>confidence_update</code>) and status changes (<code>status_change</code>). The bundle is applied immediately via <code>applyBundle()</code>, but a <code>thought:Proposal</code> is still written — filed straight in as <code>approved</code> — so the change leaves an audit trail even though nobody reviewed it beforehand.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>autonomous</code></div>
+        <div class="v">Tag additions (<code>tag_addition</code>) and staleness flags (<code>staleness_flag</code>). Applied immediately with no proposal node written at all — <code>proposeWrite()</code> returns <code>null</code>. Low-stakes enough that even an audit-trail entry isn't worth it.</div>
+      </div>
+    </div>
+
+    <p>One override cuts across all three. Before dispatching on tier, <code>proposeWrite()</code> checks whether any node the bundle touches (<code>affectsNodeUris</code>) already carries <code>thought:hasStatus thought:established</code> — a SPARQL <code>ASK</code>-style lookup (<code>anyNodeEstablished()</code>, <code>approval.ts</code> lines 91–101). If so, the tier is forced up to <code>requires_approval</code> regardless of what the operation type's own policy says. A <code>tag_addition</code> against an ordinary note applies silently; the same <code>tag_addition</code> against a note you've marked established gets queued for your review instead. Once you've vetted something, the model can't quietly touch it again without asking.</p>
+
+    <h2 id="diff">The diff view</h2>
+    <p>A pending proposal isn't a one-line description you have to trust — it's the literal payload bundle waiting to be applied, and reviewing it means reading that payload directly. Each payload in the bundle carries enough to reconstruct exactly what will land:</p>
+
+    <ul>
+      <li>A <code>note</code> payload carries the full <code>content</code> of the file that would be created (plus the <code>relativePath</code> it would be filed at) — you read the whole note, not a summary of it.</li>
+      <li>A <code>graph-triples</code> payload carries the raw Turtle that would be merged into the store, along with the <code>affectsNodeUris</code> it introduces — the same triples the trust-integrity query later checks for approval provenance.</li>
+      <li>A <code>note-rewrite</code> payload carries the full replacement <code>content</code> for an existing note; approval captures the prior content as a pre-image first, so the operation is reversible even though what you're shown is the new version.</li>
+      <li>A <code>note-delete</code> or <code>note-refactor</code> payload names the <code>path</code> (or <code>fromPath</code>/<code>toPath</code>) being removed or moved.</li>
+    </ul>
+
+    <p>A proposal can bundle more than one payload, and the bundle is atomic: approving applies every payload in order, rejecting discards all of them, never half. This is the same mechanism <a href="right-sidebar-proposals.html">the Proposals panel</a> renders as an expandable card per payload — that page documents the panel's UI in detail (the status tabs, the keyboard shortcuts, the project-wide scope); this page is about what makes the payload trustworthy to read in the first place: it's the actual write, not a paraphrase of it.</p>
+
+    <div class="shot wide">
+      <div class="icon">🔍</div>
+      <div class="k">Screenshot — Diff view for a pending proposal</div>
+      <div class="d">A pending proposal card expanded in the Proposals panel: the operation type and proposer badge at the top, one payload row expanded to show the raw Turtle for a new claim's graph-triples payload, and a second collapsed row for the note payload it's attached to — the reviewer can inspect either before deciding.</div>
+    </div>
+
+    <h2 id="decide">Approving and rejecting</h2>
+    <p>Once you've read the payload, the decision is one keystroke: <kbd>y</kbd> to approve, <kbd>n</kbd> to reject, both handled by <code>approveProposal()</code> / <code>rejectProposal()</code> in <code>approval.ts</code>. Approving applies the bundle and flips status to <code>approved</code>; rejecting flips status to <code>rejected</code> and applies nothing, but the proposal node itself stays in the graph either way — reviewed history, not a queue you empty. See <a href="right-sidebar-proposals.html">Proposals</a> for the full keystroke reference, the status-tab filtering, and what the panel shows you while a card is collapsed.</p>
+
+    <h2 id="expiry">Auto-expiry</h2>
+    <p>Every proposal is stamped with an <code>autoExpires</code> timestamp at creation — seven days out by default (<code>write.expiryDays ?? 7</code>), configurable per write. There is a real function that enforces it, <code>expireProposals()</code>, which walks every still-<code>pending</code> proposal past its <code>autoExpires</code> date and flips it to <code>expired</code>.</p>
+
+    <p>What doesn't exist is anything that calls that function on a schedule. <code>expireProposals()</code> is wired to a single IPC channel, <code>proposal:expire</code>, exposed on <code>window.api</code> as <code>api.proposals.expire()</code> — but nothing in the renderer currently invokes it, and there's no timer in main running it in the background. In practice a proposal past its expiry window doesn't flip itself to <code>expired</code>; it just keeps showing as <b>Pending</b> until something calls that IPC method, which nothing currently does. Treat <code>autoExpires</code> as a recorded intent rather than a guarantee — <a href="right-sidebar-proposals.html">Proposals</a> covers this same finding from the panel's side, in its Gotchas section.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>"Applied immediately" still isn't invisible.</b> <code>notify_only</code> operations write to the graph before you ever see them, but they still leave an <code>approved</code> proposal behind — check the Approved tab in the Proposals panel if you want to know what an autonomous-feeling AI action actually did.</li>
+      <li><b><code>autonomous</code> operations leave nothing to audit through proposals.</b> Tag additions and staleness flags never create a <code>thought:Proposal</code> at all. If you want a record of every graph write regardless of tier, the <a href="right-sidebar-proposals.html">Proposals</a> panel won't show these — you'd need to look at the graph directly.</li>
+      <li><b>Escalation is per-write, not per-conversation.</b> The established-node check runs against the specific <code>affectsNodeUris</code> a given bundle touches, computed fresh on every <code>proposeWrite()</code> call — there's no session-level flag that makes an entire conversation more cautious once it brushes an established node once.</li>
+      <li><b>Approving a bundle with zero payloads throws rather than silently succeeding.</b> That's a deliberate refusal in <code>approveProposal()</code> — an empty bundle means something upstream filed the proposal incorrectly, and the engine surfaces that as a bug instead of a no-op approval.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="conversations-drafts.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Drafts</span>
+      </a>
+      <a class="next" href="thinking-tools.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Thinking tools →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
