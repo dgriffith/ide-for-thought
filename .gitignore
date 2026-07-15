@@ -43,3 +43,9 @@ tests/fixtures/sample-project/.minerva/sources/*
 # build/dev time, not vendored. The small tokenizer/vocab/config ARE committed
 # so the WordPiece ground-truth test runs in CI without a network fetch.
 resources/models/**/*.onnx
+
+# Precomputed help-docs corpus (#1284, epic:docs-grounding): entirely derived
+# from website/docs/*.html, rebuilt by `scripts/build-help-corpus.mjs` via the
+# predev/prebuild hooks — the source of truth is the docs pages, not this
+# file, so unlike resources/models/ there's nothing here worth committing.
+resources/help-docs/
