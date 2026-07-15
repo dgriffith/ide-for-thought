@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Notes Tree</title>
+<meta name="description" content="The Notes panel's file tree: how it displays your project's folder structure, the header's live note count, and how creating, renaming, and moving notes are exposed as tree-specific UI." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="left-sidebar-notes-tree.html" class="sub active">Notes tree</a>
+    <a href="left-sidebar-sources.html" class="sub">Sources</a>
+    <a href="left-sidebar-tags.html" class="sub">Tags</a>
+    <a href="left-sidebar-tables.html" class="sub">Tables</a>
+    <a href="left-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Notes tree</p>
+
+    <h1>Notes tree</h1>
+    <p class="lede">The <b>Notes</b> tab is the left sidebar's default panel — the file/folder tree that mirrors your project's directory structure on disk. This page covers the panel itself as a piece of UI: the header controls, how the tree displays folders and files, and how creating, renaming, and moving notes are exposed here specifically. For the underlying concepts — what a note is, the full lifecycle, everything you can embed in one — see <a href="notes.html">Notes</a>.</p>
+
+    <h2 id="header">The panel header</h2>
+    <p>Above the tree sits a header with the panel title and a count on the right, then a row of three small tool buttons once the project has at least one note:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Note count</div>
+        <div class="v">A plain number next to the "Notes" title — no icon, no label, just a tabular-numeral count. It's a recursive file count, not a top-level one: every file anywhere in the tree, folders excluded, counted depth-first. It's a derived value, so it updates live the instant a note is created, deleted, or moved — there's no separate refresh step.</div>
+      </div>
+      <div class="row">
+        <div class="k">Expand all / Collapse all</div>
+        <div class="v">Two toolbar buttons above the tree. Expand All opens every folder in the project at once, regardless of current state; Collapse All folds everything shut. Both act on the whole tree, not just the visible portion.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-reveal active file</div>
+        <div class="v">A toggle button (pressed = on) that keeps the tree in sync with whatever note is open in the editor: switching files expands every ancestor folder and scrolls the row into view automatically. It only reveals — clicking a folder to open or close it never re-triggers a reveal, so manually browsing the tree doesn't fight with whatever you have open elsewhere.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">The project name is a row, not a header</span>
+      <p>If the sidebar has a project name to show, it renders as a synthetic root row above the real tree — with its own folder icon and disclosure arrow — rather than as a section heading. It behaves like any other folder row (click to expand/collapse) but sits outside the multi-selection and drag-and-drop model, so it can't be accidentally selected, deleted, or dragged.</p>
+    </div>
+
+    <h2 id="tree">Reading the tree</h2>
+    <p>Folders and files are interleaved in a single hierarchical list, indented by depth. A few things about how it's populated and displayed are worth knowing:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Empty folders</div>
+        <div class="v">Shown, not filtered out. An empty folder is a normal, visible row you can expand (to see nothing) or drop a file into — Minerva doesn't hide directories just because they're currently empty.</div>
+      </div>
+      <div class="row">
+        <div class="k">Every file type</div>
+        <div class="v">The tree lists every file in the project, not just <code>.md</code> notes — <code>.csv</code> tables, <code>.ttl</code> Turtle/RDF, <code>.py</code> compute cells, and plain-text or code files each get a distinct row icon. Anything else falls back to the default note-page icon, since a curated notebase is almost always markdown-adjacent rather than an arbitrary binary.</div>
+      </div>
+      <div class="row">
+        <div class="k">Modified time</div>
+        <div class="v">File rows show a relative timestamp ("3h ago") on the right when the file has a known modification time. Folder rows don't carry one.</div>
+      </div>
+      <div class="row">
+        <div class="k">Expand / collapse</div>
+        <div class="v">Only the disclosure chevron toggles a folder open or shut. Clicking the rest of the row selects the folder without touching its expanded state — so you can select a folder (to delete it, tag it, and so on) without it springing open or shut underneath you.</div>
+      </div>
+      <div class="row">
+        <div class="k">Keyboard navigation</div>
+        <div class="v">Click the tree (or Tab into it) to give it keyboard focus, then <kbd>↑</kbd>/<kbd>↓</kbd> move a cursor through the currently visible rows — respecting collapsed folders — without opening anything. <kbd>Enter</kbd> opens the focused file or toggles the focused folder. <kbd>⌘</kbd><kbd>↓</kbd>/<kbd>⌘</kbd><kbd>↑</kbd> expand/collapse the focused folder in place. <kbd>Space</kbd> toggles the focused row into/out of the selection. <kbd>⌘</kbd><kbd>A</kbd> selects every visible row; <kbd>Esc</kbd> clears the selection.</div>
+      </div>
+      <div class="row">
+        <div class="k">Multi-select</div>
+        <div class="v"><kbd>⌘</kbd>-click toggles a row in or out of the selection without opening it; <kbd>Shift</kbd>-click selects a contiguous range in visible order. A selection-count badge ("3 of 42 selected") appears above the tree once anything beyond a single row is selected, with a "clear" link. Right-clicking a row that's already part of the selection keeps the whole selection intact — so Delete or a tag action from the context menu applies to everything selected, not just the row you clicked.</div>
+      </div>
+    </div>
+
+    <h2 id="create">Creating notes and folders from the panel</h2>
+    <p>Right-clicking empty space in the tree (or the project-root row) opens a menu with just two entries: <b>New Note</b> and <b>New Folder</b>. Right-clicking an existing folder gets the same two entries at the top, scoped to create inside that folder rather than at the project root. New Note here opens the same naming dialog described in <a href="notes.html#lifecycle">Notes → The note lifecycle</a>; New Folder is the sidebar-specific counterpart — there's no File-menu or command-palette equivalent for creating a folder, only this context menu.</p>
+
+    <h2 id="rename-move">Renaming and moving</h2>
+    <p>Right-clicking a note or folder opens a fuller context menu: Cut, Copy, Paste (when something's on the clipboard), New Note, New Folder, then a separator before Rename, Merge into… (notes only), Copy Path, Bookmark and Toggle Entrypoint (notes only), an Open In submenu (Reveal in Finder / Open in Default App / Open in Terminal), Add Tag…, Remove Tag…, Format, and finally Delete.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">Context menu → Rename. Same prompt-with-prefilled-name behavior as described in the note lifecycle — wiki-links elsewhere in the project are rewritten to match.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move (drag)</div>
+        <div class="v">Every row is natively draggable. Drag a file or folder onto a target folder row to move it there; drop on empty space below the tree (or on the root row) to move it to the project root. Dropping a file straight into the editor — rather than onto a folder — inserts a resolving wiki-link instead of moving it; that's a different drag payload from a folder-to-folder move.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move (Cut / Paste)</div>
+        <div class="v">Context menu → Cut on the source, then Paste on the destination folder's context menu. Functionally the same move as dragging, useful when the source and destination aren't both scrolled into view at once.</div>
+      </div>
+      <div class="row">
+        <div class="k">Copy</div>
+        <div class="v">Context menu → Copy, then Paste elsewhere — duplicates rather than moves.</div>
+      </div>
+      <div class="row">
+        <div class="k">External drops</div>
+        <div class="v">Dragging files in from Finder (or another app) onto the tree imports them into the project at the drop location, rather than being treated as an internal move.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗂️</div>
+      <div class="k">Screenshot — Notes tree with context menu open</div>
+      <div class="d">The left sidebar's Notes panel: header showing the "Notes" title and a note count on the right, the Expand All / Collapse All / Auto-reveal toolbar below it, and the file tree beneath with a folder expanded to show a mix of notes and an empty subfolder. A right-click context menu is open on a note row, showing Cut, Copy, New Note, New Folder, a separator, then Rename, Copy Path, Bookmark, an Open In submenu, Add Tag…, Remove Tag…, Format, and Delete.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Deleting is a plain confirmation, not a warning</span>
+      <p>Delete from this menu follows the same rule as everywhere else in Minerva: no red styling, just a plain "Delete note &quot;name&quot;?" confirmation with a "don't ask again" option, backed by the fact that git has your history regardless. See <a href="notes.html#lifecycle">Notes → The note lifecycle</a> for the link-check Minerva runs first.</p>
+    </div>
+
+    <h2 id="empty-project">No notes yet</h2>
+    <p>A brand-new project with zero files shows a plain "No notes yet" message in place of the tree — the toolbar (Expand All / Collapse All / Auto-reveal) doesn't render at all until there's at least one file, since there's nothing yet for those controls to act on. Right-clicking the empty state still opens the New Note / New Folder menu, so an empty project isn't a dead end.</p>
+
+    <div class="pager">
+      <a class="prev" href="left-sidebar.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Left sidebar</span>
+      </a>
+      <a class="next" href="left-sidebar-sources.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Sources →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

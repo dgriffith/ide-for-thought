@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Tags</title>
+<meta name="description" content="The left sidebar's Tags panel: a flat, alphabetical chip list of every tag from frontmatter and inline #tag syntax, with per-tag note/source counts and click-to-filter results." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="left-sidebar-notes-tree.html" class="sub">Notes tree</a>
+    <a href="left-sidebar-sources.html" class="sub">Sources</a>
+    <a href="left-sidebar-tags.html" class="sub active">Tags</a>
+    <a href="left-sidebar-tables.html" class="sub">Tables</a>
+    <a href="left-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Tags</p>
+
+    <h1>Tags</h1>
+    <p class="lede">The Tags panel is a flat, alphabetical list of every tag in your project — pulled from frontmatter and from inline <code>#tag</code> text alike — rendered as chips you click to see what carries that tag. It's a browsing and filtering tool, not an editor: tags themselves are added and removed from a note's own text or its Properties panel, not from here.</p>
+
+    <h2 id="sources">Where tags come from</h2>
+    <p>A tag can be written two ways, and both land in the same place. Minerva doesn't distinguish a "frontmatter tag" from a "body tag" once they're indexed — they're merged into one deduplicated set per note and written to the graph as identical <code>minerva:hasTag</code> edges.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Frontmatter list</div>
+        <div class="v"><code>tags: [neuroscience, consciousness]</code> in the YAML block at the top of a note. See <a href="notes-frontmatter.html#keys">Frontmatter — Recognized keys</a> for the full value shape.</div>
+      </div>
+      <div class="row">
+        <div class="k">Inline <code>#tag</code></div>
+        <div class="v">Anywhere in the note body, a <code>#</code> at the start of a line or after whitespace, immediately followed by a letter — <code>#draft</code>, <code>#project/ui</code>. It stops at the next character that isn't a letter, digit, underscore, hyphen, or slash.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Why <code># Heading</code> doesn't become a tag</span>
+      <p>An ATX heading like <code># Heading</code> or <code>## Subheading</code> has a space between the <code>#</code> and the text, and the tag pattern requires a letter <em>immediately</em> after the <code>#</code> — so ordinary headings are never mistaken for tags. Write <code>#tag</code> with no space to tag something; write <code>#&nbsp;Heading</code> with a space for a heading. Tags inside fenced or inline code spans are also ignored — code is stripped from the note before tag extraction runs, so a <code>#</code> in a code sample never pollutes your tag list.</p>
+    </div>
+
+    <h2 id="panel">What the panel shows</h2>
+    <p>Tags render as a wrapped grid of chips, sorted alphabetically by tag name — not by frequency, recency, or anything else. Each chip's label is the tag name prefixed with <code>#</code>, followed by a count.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Count</div>
+        <div class="v">The number next to a tag's name is how many notes (and, if the <b>sources</b> toggle is on, sources) carry it — hovering a chip shows the exact breakdown, e.g. "3 notes, 1 source." A note or source is only counted once per tag even if the tag appears many times in its body.</div>
+      </div>
+      <div class="row">
+        <div class="k">Chip size</div>
+        <div class="v">Tags in the top quartile by combined note+source count render slightly larger than the rest — a quick visual cue for which tags dominate the project, recomputed automatically as the tag list changes. It's a sizing hint only; it doesn't change sort order or behavior.</div>
+      </div>
+      <div class="row">
+        <div class="k">Accent tags</div>
+        <div class="v"><code>entrypoint</code> and <code>open-question</code> always render in the accent color, regardless of their count — Minerva treats these two as navigationally significant rather than ordinary labels.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sources toggle</div>
+        <div class="v">A checkbox above the tag list, on by default, that includes tagged sources alongside tagged notes — in both the displayed counts and in a selected tag's results below. Turning it off narrows everything to notes only.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🏷️</div>
+      <div class="k">Screenshot — Tags panel with a tag selected</div>
+      <div class="d">The left sidebar's Tags tab: a wrapped row of pill-shaped tag chips of mixed size sorted alphabetically, one chip (e.g. #neuroscience) shown in its active/pressed state, with a "Tagged #neuroscience" section beneath listing matching note titles and a couple of source rows marked with a small SRC badge — the "sources" checkbox above the chip grid shown checked.</div>
+    </div>
+
+    <h2 id="selecting">Selecting a tag</h2>
+    <p>Clicking a chip is the panel's only interaction — there's no separate search box for the tag list itself. It queries the graph for every note and source carrying that exact tag and lists their titles directly beneath the chip grid, under a "Tagged #name" header. Clicking a listed note opens it in the editor; clicking a listed source opens the source viewer.</p>
+
+    <p>Only one tag can be active at a time — selecting a chip doesn't add to a running filter, it replaces whichever tag was previously selected. Clicking the already-active chip again deselects it and clears the results, which is also how you back out of a tag filter entirely.</p>
+
+    <div class="box">
+      <span class="label">This filters a results list, not the notes tree</span>
+      <p>Selecting a tag doesn't change what's visible in the <a href="left-sidebar-notes-tree.html">Notes tree</a> panel — the two are independent. It produces its own flat list of matching titles inside the Tags panel itself; switch to the Notes tab and the full, unfiltered tree is exactly as you left it.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>No tag hierarchy in this panel.</b> The <code>/</code> in a tag like <code>project/ui</code> is valid syntax and is stored and matched as a literal tag string — but this panel shows it as one flat chip alongside every other tag, not as a nested tree with parent/child rollup. (A nested-tag tree does exist elsewhere, in the right sidebar's Properties-adjacent tags view — a different panel from the one described on this page.)</li>
+      <li><b>Selecting a tag is an exact match, not a prefix match.</b> Selecting <code>project</code> shows only notes tagged exactly <code>#project</code> — notes tagged only <code>#project/ui</code> won't appear in its results.</li>
+      <li><b>Empty project shows a hint, not a blank pane.</b> With no tags indexed anywhere, the panel reads "No tags yet" instead of an empty grid.</li>
+      <li><b>The panel doesn't add or remove tags.</b> To tag a note, edit its frontmatter or type <code>#tag</code> in the body (or use the Properties panel's tag chips in the right sidebar); the Tags panel only ever reads what's already indexed.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="left-sidebar-sources.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Sources</span>
+      </a>
+      <a class="next" href="left-sidebar-tables.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Tables →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
