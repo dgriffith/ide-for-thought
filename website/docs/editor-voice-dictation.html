@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Voice Dictation</title>
+<meta name="description" content="Dictate straight into a note with an on-device Whisper model — no audio ever leaves your machine — and how it relates to the composer's separate mic button." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub active">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Voice dictation</p>
+
+    <h1>Voice dictation</h1>
+    <p class="lede">Dictate into the note you're editing, and Minerva transcribes it with a local Whisper model running entirely on your machine — no audio, and nothing but the one-time model download, ever crosses the network. Trigger it from the keyboard, the command palette, or the editor's right-click menu; the transcript lands right at your cursor.</p>
+
+    <div class="box">
+      <span class="label">Two mic buttons, one engine</span>
+      <p>The Conversations composer has its own inline mic for dictating a chat message, and the editor has this separate entry point for dictating into a note. Both drive the same recorder and the same Whisper worker — Minerva just tracks which surface asked for it (<code>voice</code> vs. <code>editor</code>), so only the button that started a recording lights up while it runs. This page covers the editor path; see <a href="conversations.html">Conversations</a> for the composer's.</p>
+    </div>
+
+    <h2 id="how-it-runs">How it runs on-device</h2>
+    <p>Dictation never calls out to a cloud speech-to-text API. Recording, decoding, and transcription all happen inside the renderer:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Capture</div>
+        <div class="v">A <code>getUserMedia</code> microphone stream is recorded with <code>MediaRecorder</code>. Dictation is click-to-toggle, not continuously streamed — the whole clip is captured first, then handed off for transcription in a single pass.</div>
+      </div>
+      <div class="row">
+        <div class="k">Transcription</div>
+        <div class="v">The recorded clip is decoded, downmixed, and resampled to 16 kHz mono, then sent to a Whisper model (<code>@huggingface/transformers</code>) running in a dedicated Web Worker — off the UI thread, so a multi-second transcription doesn't stall the editor. The worker runs on the WASM (<code>onnxruntime-web</code>) backend, never the native binary.</div>
+      </div>
+      <div class="row">
+        <div class="k">Model download</div>
+        <div class="v">The chosen Whisper model's weights are fetched from the Hugging Face hub the first time dictation is used, then cached by the browser's Cache API — every dictation after that loads from cache with no network round-trip. Only the model file is ever fetched; your recorded audio is passed directly to the worker and never leaves the process.</div>
+      </div>
+      <div class="row">
+        <div class="k">Model choice</div>
+        <div class="v">Three English-only Whisper variants are available in Settings — Tiny (~25MB, fastest, least accurate), Base (~50MB, the default), and Small (~180MB, slowest, most accurate). Switching models in Settings downloads and caches the new one on next use; the old model's worker is dropped rather than kept alongside it.</div>
+      </div>
+    </div>
+
+    <h2 id="using-it">Starting and stopping</h2>
+    <p>Three entry points all funnel into the same toggle — the first trigger starts recording, the second stops it and inserts the transcript:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Shortcut — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
+        <div class="v">Starts recording at the cursor. Press it again to stop and insert the transcribed text at that same cursor position — even if focus moved to the floating recording indicator while you were speaking.</div>
+      </div>
+      <div class="row">
+        <div class="k">Right-click menu</div>
+        <div class="v">Editor context menu → <b>Dictate…</b>, alongside <b>Ask About This...</b> and <b>Bookmark This Note</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette</div>
+        <div class="v">Search for <b>Dictate (Voice to Text)</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k">While recording</div>
+        <div class="v">A floating pill at the bottom of the window shows <b>Listening…</b> with <b>Insert</b> and <b>Cancel</b> buttons, plus the shortcut reminder. <kbd>Esc</kbd> cancels without inserting anything. During transcription the pill switches to <b>Transcribing…</b>; on first use (or after switching models) it shows model-download progress as a percentage instead.</div>
+      </div>
+      <div class="row">
+        <div class="k">Text insertion</div>
+        <div class="v">The transcript is inserted at wherever your cursor was when you started recording. Minerva adds a leading space automatically when joining onto a preceding word, so dictating after existing text doesn't run the two together.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🎙️</div>
+      <div class="k">Screenshot — Dictating into the editor</div>
+      <div class="d">A note in the editor mid-dictation: the cursor sits in the body text, and the floating recording pill at the bottom of the window shows a pulsing "Listening…" indicator with the ⌘⇧V hint and Insert/Cancel buttons.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>First use downloads a model.</b> The first time you dictate (or the first time after switching models in Settings), Minerva fetches the model file before it can transcribe — the default Base model is roughly 50MB. The floating pill shows download progress; every dictation after that is instant, served from the browser cache.</li>
+      <li><b>Microphone permission is asked once by the OS.</b> The first recording attempt triggers the normal macOS/Windows microphone permission prompt. If it's denied, the pill reports it plainly rather than failing silently; you'll need to grant microphone access to Minerva in your system settings before trying again.</li>
+      <li><b>English only.</b> All three bundled Whisper variants are English-only models — there's no language picker, and accuracy on other languages will be poor to unusable.</li>
+      <li><b>A very short clip is treated as a no-op.</b> Toggling dictation on and immediately off again (under roughly a fifth of a second of audio) inserts nothing rather than erroring — useful if you trigger the shortcut by accident.</li>
+      <li><b>It's a whole-clip transcription, not live streaming.</b> Minerva records the entire dictation first and transcribes it as one pass when you stop, so there's no word-by-word text appearing as you speak — the transcript arrives all at once, right after you stop.</li>
+      <li><b>One microphone at a time.</b> Recording is a single shared engine — starting a dictation in the editor while the composer's mic is active (or vice versa) isn't a supported combination; only one surface can be recording at once.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="editor-link-autocomplete.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Link autocomplete</span>
+      </a>
+      <a class="next" href="left-sidebar.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Left sidebar →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

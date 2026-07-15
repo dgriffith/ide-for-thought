@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Markdown Formatting</title>
+<meta name="description" content="A quick-reference table of every markdown syntax Minerva renders — basics like headers and lists in full, plus a one-line pointer to the dedicated page for anything more elaborate." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub active">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Markdown formatting</p>
+
+    <h1>Markdown formatting</h1>
+    <p class="lede">Minerva renders standard markdown, plus a set of extensions for research and knowledge work. This page is a scannable reference — syntax on the left, what it renders as on the right — not a tutorial. The basics are covered in full below; anything more elaborate links out to its own page with the complete syntax and behavior.</p>
+
+    <h2 id="basics">The basics</h2>
+    <p>Headers, emphasis, lists, blockquotes, and inline code follow standard CommonMark, with one deliberate deviation noted below.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code># … ######</code></div>
+        <div class="v">Headings, level 1 through 6 — <code># H1</code>, <code>## H2</code>, and so on. Minerva is <b>ATX-only</b>: the underline style (<code>Heading\n---</code>) is deliberately disabled, so a line followed by a row of dashes stays plain text rather than becoming a heading. Every rendered heading gets a stable id for <a href="notes-links.html">wiki-link</a> anchors like <code>[[note#heading]]</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>**bold**</code> / <code>__bold__</code></div>
+        <div class="v">Both delimiters work — <b>bold text</b>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>*italic*</code> / <code>_italic_</code></div>
+        <div class="v">Both delimiters work — <em>italic text</em>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>- item</code> / <code>* item</code> / <code>1. item</code></div>
+        <div class="v">Unordered lists (either <code>-</code> or <code>*</code>) and ordered lists (any number followed by <code>.</code>). Indent a nested item by four spaces to sublist it. A list item starting with <code>[ ]</code> or <code>[x]</code> becomes an interactive checkbox instead — see <a href="notes-tasks.html">Task lists</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>&gt; quoted text</code></div>
+        <div class="v">A blockquote, indented and set off with a rule along the left edge. Prefix the first line with <code>[!type]</code> — <code>[!note]</code>, <code>[!tip]</code>, <code>[!warning]</code>, <code>[!card]</code>, and more — and it becomes a titled, colored callout instead of a plain quote. See <a href="notes-callouts.html">Callouts &amp; cards</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>---</code></div>
+        <div class="v">A horizontal rule, as long as it sits on its own line with a blank line before and after. The one exception: three dashes as the very first line of the file instead opens a YAML <a href="notes-frontmatter.html">frontmatter</a> block, closed by a matching <code>---</code> further down.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>`inline code`</code></div>
+        <div class="v">Monospaced <code>inline code</code>, no syntax highlighting.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>```lang … ```</code></div>
+        <div class="v">A fenced code block, syntax-highlighted by language. Fence a block <code>sparql</code>, <code>sql</code>, or <code>python</code> and it becomes a runnable cell with its result written back into the note. See <a href="notes-code.html">Code &amp; compute cells</a>.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">✍️</div>
+      <div class="k">Screenshot — Basic markdown rendered in Preview</div>
+      <div class="d">A note's Preview pane showing an H2 heading, a paragraph with bold and italic phrases, an unordered list with a nested sub-item, a blockquote, a horizontal rule, and an inline code span, all rendered together to show how the basics look side by side.</div>
+    </div>
+
+    <h2 id="more">Everything else</h2>
+    <p>These have their own page with full syntax, rendering details, and any gotchas — this row is just a pointer:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><a href="notes-links.html">Links &amp; wiki-links</a></div>
+        <div class="v"><code>[[Note Title]]</code> resolves and renders as a live link into the knowledge graph; standard <code>[text](url)</code> links also work. Links can carry a relationship type, like <em>supports</em> or <em>rebuts</em>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-images.html">Images</a></div>
+        <div class="v">Standard <code>![alt](path)</code> syntax. PNG, JPEG, GIF, WebP, SVG, and AVIF render inline and can be clicked to enlarge.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-tables.html">Tables</a></div>
+        <div class="v">Standard pipe-delimited markdown tables — header row, alignment row, data rows. Every table is also parsed into the graph as CSVW structured data on save.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-footnotes.html">Footnotes</a></div>
+        <div class="v">An inline <code>[^id]</code> marker paired with a <code>[^id]: definition</code> anywhere in the file, collected at the bottom of the note.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-highlights.html">Highlights</a></div>
+        <div class="v">Wrap text in <code>==double equals==</code> for a tinted inline highlight span.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-tasks.html">Task lists</a></div>
+        <div class="v">A list item starting with <code>[ ]</code> or <code>[x]</code> renders as a clickable checkbox that writes its state straight back to the source.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-math.html">Math</a></div>
+        <div class="v"><code>$inline$</code> and <code>$$display$$</code> LaTeX, rendered with KaTeX — the same convention as Pandoc.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-diagrams.html">Diagrams</a></div>
+        <div class="v">A <code>```mermaid</code> fence renders as a live diagram — flowcharts, sequence diagrams, and anything else Mermaid draws.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-charts.html">Charts</a></div>
+        <div class="v">A Vega or Vega-Lite JSON spec in a fenced code block renders as an interactive chart, optionally bound to a live SPARQL query or dataset.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-callouts.html">Callouts &amp; cards</a></div>
+        <div class="v">A blockquote whose first line is <code>[!type]</code> becomes a titled note/tip/warning-style box; <code>[!card]</code> renders as a front/back flashcard.</div>
+      </div>
+      <div class="row">
+        <div class="k"><a href="notes-rdf.html">Turtle / RDF</a></div>
+        <div class="v">A <code>```turtle</code> fence lets you hand-author graph triples directly in a note; Minerva merges them into <code>.minerva/graph.ttl</code> on save.</div>
+      </div>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="editor-writing-surface.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← The writing surface</span>
+      </a>
+      <a class="next" href="editor-keyboard-shortcuts.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Keyboard shortcuts →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
