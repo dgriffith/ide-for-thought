@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Settings: AI</title>
+<meta name="description" content="The AI tab of Settings: choosing a default model and reasoning effort, entering and clearing your Anthropic API key, and where per-skill model overrides actually live." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub active">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>AI</p>
+
+    <h1>AI</h1>
+    <p class="lede">The default model and reasoning effort every new conversation starts with, your Anthropic API key, and voice dictation. Per-skill model overrides live on the separate <a href="settings-skills.html">Skills</a> tab, not here — this tab only sets the fallback everything else defers to.</p>
+
+    <h2 id="model">Default model and effort</h2>
+    <p>These two dropdowns set the defaults a new conversation opens with. Both are just starting points — the per-conversation model and effort pickers in the conversation panel's context rail override them for that one tab, and neither dropdown here touches a conversation already in progress.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Default model</div>
+        <div class="v">A fixed list, not a live query against Anthropic — Claude Fable 5, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, and Claude Haiku 4.5. Sonnet 4.6 stays listed alongside its successor, Sonnet 5, purely so anyone who had it selected doesn't get silently reset to a different model on upgrade.</div>
+      </div>
+      <div class="row">
+        <div class="k">Default reasoning effort</div>
+        <div class="v">"Model default" (send no preference), Low, Medium, High, Extra, or Max. Higher effort lets the model think longer before answering. Support is model-gated: Haiku 4.5 accepts no effort control at all, Sonnet 4.6 and Sonnet 5 top out at Max, and "Extra" only exists for Opus 4.8 and Fable 5.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Only the levels a model supports are ever sent</span>
+      <p>The dropdown here doesn't hide unsupported levels for you — it's a single global default, not model-aware. The gating happens downstream: the per-conversation effort picker only offers what the conversation's current model actually accepts, and if a saved default or a conversation override doesn't apply to the model in play, it's silently clamped to the nearest level that model supports rather than sent as-is and rejected by the API.</p>
+    </div>
+
+    <h2 id="apikey">API key</h2>
+    <p>A password-style field for your Anthropic API key, plus a status line above it that reflects what's already stored — not a live validation check. On open, the panel shows <b>Loading…</b> until the saved settings arrive, then <b>✓ API key saved</b> if one is on file or <b>No API key set</b> if it isn't. Minerva never round-trips the stored key to check it still works; "saved" means present, not verified.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Entering a key</div>
+        <div class="v">Typing into the field doesn't save immediately — like the model and effort defaults, it's held until you click <b>Done</b> on the dialog. The field's placeholder changes to "Type to replace existing key" once a key is already saved, and the saved value itself is never displayed back — copy, cut, and right-click are all disabled on the field so there's nothing to accidentally expose over your shoulder or leak into a clipboard manager.</div>
+      </div>
+      <div class="row">
+        <div class="k">Clearing a key</div>
+        <div class="v">A <b>Clear saved key</b> link appears once a key is set. Clicking it doesn't delete anything immediately — it flips a pending "will clear on save" state (the status line updates to say so, the input disables) with a <b>Cancel clear</b> link right below it to back out before you commit. The key is only actually removed when you click Done.</div>
+      </div>
+      <div class="row">
+        <div class="k">Environment variable fallback</div>
+        <div class="v">Setting <code>ANTHROPIC_API_KEY</code> in your environment works without ever touching this field — Minerva falls back to it whenever no key is stored in settings. A key you type here and save takes precedence over the environment variable.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Where this lives on disk</span>
+      <p>The model, effort, and API key are all one record, written to <code>llm-settings.json</code> in your Electron user-data directory (not inside the project's <code>.minerva/</code> folder, and not synced anywhere) — so this is a per-machine setting, same as the Skills and Behaviors tabs. It's saved as one unit when you click Done on the Settings dialog, not per-field as you edit.</p>
+    </div>
+
+    <h2 id="tools">Tool preferences</h2>
+    <p>This tab doesn't have its own tool-preference controls. Per-skill model overrides — pointing a specific skill at a cheaper or more capable model than the global default — are configured on the <a href="settings-skills.html">Skills</a> tab instead, which reads the same default-model value set here as its fallback for any skill without an explicit override.</p>
+
+    <h2 id="voice">Voice dictation</h2>
+    <p>Below the API key sits an unrelated pair of controls: an <b>Enable voice dictation</b> checkbox and a voice-model dropdown. Unlike everything above, these save immediately to <code>localStorage</code> as you change them — dictation runs entirely on-device (local Whisper, via a renderer worker) and never touches your Anthropic key or the main-process settings file, so there's no reason to defer it to the dialog's Done button. The model (tens of megabytes) downloads once on first use; your audio never leaves the machine.</p>
+
+    <div class="shot wide">
+      <div class="icon">🤖</div>
+      <div class="k">Screenshot — Settings → AI tab</div>
+      <div class="d">The AI settings panel: a "Default model" dropdown and a "Default reasoning effort" dropdown with its model-gating hint text beneath; below that the API key section showing the "✓ API key saved" status line, a masked password field with a "Clear saved key" link; and at the bottom the voice dictation checkbox with its model dropdown.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Nothing here saves until you click Done.</b> The model, effort, API key entry, and pending clear are all held in the dialog's local state and only written together when you close the dialog with Done — clicking Cancel, or closing the window, discards all of it, including a pending key clear.</li>
+      <li><b>Changing the model or clearing the key doesn't touch conversations already open.</b> Each conversation tab tracks its own model (defaulting from this setting only when it was created), so switching the default here has no retroactive effect on an in-progress tab. Clearing the API key here and clicking Done will, however, make the very next message you send in <i>any</i> conversation fail — there's no separate per-conversation key.</li>
+      <li><b>"API key saved" is a presence check, not a working-key check.</b> An expired, revoked, or mistyped key still shows <b>✓ API key saved</b> — the status only reflects that something is stored, not that Anthropic will accept it. A bad key surfaces as a failed request the next time you actually send a message.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="settings-compute.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Compute</span>
+      </a>
+      <a class="next" href="settings-skills.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Skills →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Settings: Notes</title>
+<meta name="description" content="The Notes tab in Settings — where refactored notes and excerpt notes land by default, the folder and filename template tokens, and the link and body templates that wrap them." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub active">Notes</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Notes</p>
+
+    <h1>Notes</h1>
+    <p class="lede">The Notes tab in <b>Settings</b> controls where the note-creating commands file what they create — <b>Extract Selection</b>, <b>Split Here</b>, and <b>Split by Heading</b> (the <em>Refactoring</em> subsection), and <b>New note from excerpt</b> (the <em>Excerpt notes</em> subsection) — plus the templates that shape what gets written into the new note and left behind in the source.</p>
+
+    <h2 id="refactoring">Refactoring</h2>
+    <p>These settings apply to the three note-splitting commands. They're per-machine preferences, not part of a project — Minerva keeps them in your browser profile's local storage, so they follow you across every thoughtbase you open on this machine but don't travel with a project to another computer.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Destination for new notes</div>
+        <div class="v">Dropdown with three options: <b>Same folder as source note</b> (default), <b>Thoughtbase root</b>, or <b>Custom folder (template)</b>. Applies to Extract Selection, Split Here, and Split by Heading alike.</div>
+      </div>
+      <div class="row">
+        <div class="k">Custom folder template</div>
+        <div class="v">Only shown when destination is <b>Custom folder (template)</b>. A text field for a project-relative path built from tokens, e.g. <code>notes/{{date:YYYY}}/{{date:MM}}</code>. Left blank, it resolves to the thoughtbase root.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filename prefix</div>
+        <div class="v">Text field, empty by default. Prepended to every refactored note's generated filename, using the same token syntax as the folder template — e.g. <code>{{date:YYYYMMDDHHmm}}-</code> for a Zettelkasten-style timestamp prefix.</div>
+      </div>
+      <div class="row">
+        <div class="k">Normalize heading levels in extracted notes</div>
+        <div class="v">Checkbox, off by default. When the extracted body's shallowest heading is H2 or deeper, shifts every heading up so it becomes H1. Only touches the new note's body — the source note is never rewritten.</div>
+      </div>
+      <div class="row">
+        <div class="k">Transclude by default</div>
+        <div class="v">Checkbox, off by default. When on, refactor commands leave behind <code>![[new-note]]</code> in the source instead of <code>[[new-note]]</code>, so the preview inlines the extracted content rather than just linking to it. Disabled (greyed out) whenever a link template is set below, since the template takes over that decision.</div>
+      </div>
+      <div class="row">
+        <div class="k">Link template</div>
+        <div class="v">Multi-line text field, empty by default. What to put in the source note in place of the extracted content. Blank means Minerva falls back to a plain wiki-link, or a transclusion if the toggle above is on. Precedence is: link template, if set, always wins over the transclude toggle.</div>
+      </div>
+      <div class="row">
+        <div class="k">Refactored note template</div>
+        <div class="v">Multi-line text field, empty by default. Wraps the body of every note these commands create. Blank means the extracted content is used as-is, unwrapped.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🗒️</div>
+      <div class="k">Screenshot — Settings → Notes tab, Refactoring</div>
+      <div class="d">The Refactoring subsection of the Notes settings tab: the Destination dropdown with Custom folder selected and its revealed folder-template field, the Filename prefix field, the Normalize heading levels and Transclude by default checkboxes with their hint text, and the Link template and Refactored note template textareas below.</div>
+    </div>
+
+    <h3 id="tokens">Template tokens</h3>
+    <p>The destination template, filename prefix, link template, and refactored-note template all share one token syntax. A token is anything inside double braces:</p>
+
+    <pre><code>{{date}}               ISO date (YYYY-MM-DD) in local time
+{{date:FORMAT}}        Custom date format — FORMAT is built from YYYY, MM, DD, HH, mm, ss
+{{title}}              The source note's title
+{{source}}             The source note's project-relative path
+{{new_note_title}}     The new (extracted) note's title
+{{new_note_content}}   The new note's raw body — only available in the refactored-note template</code></pre>
+
+    <p>Not every template accepts every token — <code>{{new_note_content}}</code> only makes sense in the refactored-note template, since it's the one place the extracted body is available to insert. The destination and filename-prefix templates realistically only need <code>{{date:…}}</code> and <code>{{title}}</code>, but all six are recognized wherever a template field appears.</p>
+
+    <div class="box">
+      <span class="label">Unknown tokens render as nothing</span>
+      <p>A token Minerva doesn't recognize — a typo, or one borrowed from the wrong field — quietly resolves to an empty string rather than raising an error or leaving the literal <code>{{…}}</code> in the output. That keeps a mistyped token from leaking brace characters into a filename, but it also means a silently-wrong template just produces a slightly-off result with no warning. The one template with a real failure mode is the <b>refactored-note template</b>: it wraps the extracted body wherever <code>{{new_note_content}}</code> appears, so a template that omits that token entirely discards the extracted content — the new note is created from the template text alone, with nothing to show for the selection you just extracted.</p>
+    </div>
+
+    <h2 id="excerpt-notes">Excerpt notes</h2>
+    <p>A single setting, separate from Refactoring because it's stored differently: this one is per-project, not per-machine.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Default destination folder</div>
+        <div class="v">Text field, placeholder "(project root)". The project-relative folder where <b>New note from excerpt</b> lands. Leave it blank and excerpts land at the thoughtbase root; the folder is created automatically on the first write if it doesn't already exist.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Where this lives on disk</span>
+      <p>Unlike the Refactoring settings above, the excerpt destination folder is stored in the project itself, at <code>.minerva/config.json</code>, under an <code>excerpt.noteFolder</code> key. That makes it a project convention rather than a personal one — it travels with the project if you sync or git-track <code>.minerva/</code>, the same way <a href="left-sidebar.html">bookmarks</a> do. It's telling Minerva where excerpts belong within <em>this</em> project's structure, not expressing a personal habit the way the Refactoring defaults do.</p>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="settings-behaviors.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Behaviors</span>
+      </a>
+      <a class="next" href="settings-formatter.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Formatter →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

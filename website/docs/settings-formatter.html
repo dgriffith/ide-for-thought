@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Settings: Formatter</title>
+<meta name="description" content="The Formatter tab in Settings — the on-by-default house style, opt-in rules by category, the Restore house style button, and how rule toggles apply the next time you format." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-formatter.html" class="sub active">Formatter</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Formatter</p>
+
+    <h1>Formatter</h1>
+    <p class="lede">The Formatter tab in <b>Settings</b> lists every deterministic markdown normalization Minerva knows how to apply — trailing-whitespace cleanup, frontmatter tidying, footnote conventions, and more — each as its own checkbox with a title and a plain-language description. Formatting itself runs on demand, from <b>Refactor ▸ Format</b>, not automatically on every save; this tab only controls which rules fire the next time you run it.</p>
+
+    <h2 id="model">House style, and everything else opt-in</h2>
+    <p>Rules aren't all-on or all-off together. Minerva ships a curated <b>house style</b> — a subset chosen because each rule is safe and uncontroversial: it tidies whitespace, list markers, frontmatter shape, or Minerva's own link hygiene without ever changing the meaning of your prose, your heading levels, or the words you wrote. House-style rules are <b>on by default</b>. Every other rule — anything opinionated enough that it could surprise a writer, like heading capitalization, smart-ellipsis substitution, or spelling autocorrect — is <b>off by default</b> and stays off until you check its box.</p>
+
+    <p>Toggling any rule, in either direction, writes an explicit override; a rule with no override falls back to whether it's in the house-style set. Overrides are stored per-project in <code>.minerva/formatter.json</code>, so they travel with the thoughtbase — open the project on another machine and you get the same formatting behavior, not a fresh set of per-machine defaults.</p>
+
+    <div class="box">
+      <span class="label">"Restore house style"</span>
+      <p>The button above the rule list clears every explicit enable/disable override in one step, so each rule falls back to the curated default — house-style rules on, everything else off. It's disabled when you're already at house style (no overrides to clear), and it doesn't ask for confirmation — there's nothing destructive about it, since your notes aren't touched until you next run Format. One thing it deliberately leaves alone: per-rule <em>configuration</em>. If you'd changed a rule's own setting — for instance, how many consecutive blank lines to allow — that value survives a restore. The button resets <em>which</em> rules run, not how the ones you've tuned are configured.</p>
+    </div>
+
+    <h2 id="categories">Rule categories</h2>
+    <p>Rules are grouped into six categories, applied in this order — structural passes first, so later rules see an already-normalized document shape. A handful of real examples from each:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">YAML frontmatter</div>
+        <div class="v">Structural tidying of the YAML block — no value rewrites beyond de-duplication. <b>Compact frontmatter</b> (house style) strips leading and trailing blank lines inside the block. <b>Dedupe YAML array values</b> (house style) collapses <code>tags: [a, a, b]</code> to <code>tags: [a, b]</code>, first occurrence wins. <b>Sort frontmatter keys</b> (opt-in) imposes a consistent key order.</div>
+      </div>
+      <div class="row">
+        <div class="k">Headings</div>
+        <div class="v"><b>Heading increment</b> (opt-in) clamps an out-of-order jump — H1 straight to H3 — down to the previous level plus one; the document's first heading is always accepted as-is. <b>Capitalize headings</b> (opt-in) applies a chosen case style (title case, sentence case, or lowercase) with a configurable list of proper nouns to preserve verbatim.</div>
+      </div>
+      <div class="row">
+        <div class="k">Content</div>
+        <div class="v"><b>Proper ellipsis</b> (opt-in) collapses three consecutive dots (<code>...</code>) into a single <code>…</code> character. <b>Wrap bare URLs</b> (opt-in) turns a bare <code>https://…</code> into an angle-bracket or link form. <b>Auto-correct common misspellings</b> (opt-in) runs a small, deliberately conservative starter dictionary — extendable via a per-rule config rather than expected to catch everything out of the box.</div>
+      </div>
+      <div class="row">
+        <div class="k">Footnotes</div>
+        <div class="v"><b>Footnote reference after punctuation</b> (opt-in) moves a reference marker that lands before sentence-ending punctuation to after it: <code>word[^1].</code> → <code>word.[^1]</code>. <b>Move footnotes to the bottom</b> (opt-in) collects every <code>[^name]: …</code> definition, continuation lines included, and re-emits them as a single block at the document's end, in document order.</div>
+      </div>
+      <div class="row">
+        <div class="k">Spacing</div>
+        <div class="v"><b>Trailing whitespace</b> (house style) strips trailing spaces and tabs from every line, leaving code fences, frontmatter, and math untouched. <b>Collapse consecutive blank lines</b> (house style) caps runs of blank lines at a configurable maximum — default 1.</div>
+      </div>
+      <div class="row">
+        <div class="k">Minerva-specific</div>
+        <div class="v"><b>Canonical wiki-link extension</b> (house style) enforces one style for wiki-link targets, always with <code>.md</code> or always without — typed links like <code>[[cite::…]]</code> are left alone since they target sources, not files. <b>Unique heading slugs</b> (house style) suffixes a duplicate heading anchor (<code>Overview</code> + <code>Overview</code> → <code>Overview</code> + <code>Overview 2</code>) and cascades the rename into any incoming <code>[[note#old-slug]]</code> links.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🧹</div>
+      <div class="k">Screenshot — Settings → Formatter tab</div>
+      <div class="d">The Formatter tab: the intro paragraph explaining house style, a "Restore house style" button (dimmed, at house style) with its hint text, then the six category headings — YAML frontmatter, Headings, Content, Footnotes, Spacing, Minerva-specific — each expanded into a checklist of rule rows, a checkbox plus title plus description per row, with a mix of checked (house style) and unchecked (opt-in) boxes visible.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Formatting is on demand, not on save.</b> There's no background pass that rewrites a note the moment you save it. Rules only run when you invoke <b>Refactor ▸ Format</b> — on the active note, or on every <code>.md</code> file under whatever you've selected in the left sidebar (multi-select with <kbd>⌘</kbd>-click, <kbd>⇧</kbd>-click, or <kbd>⌘</kbd><kbd>A</kbd>). Toggling a rule in Settings changes nothing about notes already on disk; it only changes what happens the <em>next</em> time you run Format.</li>
+      <li><b>Nothing is retroactive.</b> Following on from the above: a note you formatted last week under an old rule set stays exactly as it was written. There's no "re-format everything" prompt triggered by a settings change — if you want the new rule set applied project-wide, select the whole tree in the sidebar and run Format yourself.</li>
+      <li><b>It's global, not per-note.</b> There's no frontmatter flag or per-file switch to exempt a single note from formatting — the rule set in this tab applies uniformly to whatever you run Format over. If a note needs different handling, leave it out of your sidebar selection when you invoke the command.</li>
+      <li><b>Ignore the tab list's "On-save rules" subtitle.</b> The Settings sidebar's own tab listing labels this section "On-save rules" — that's a holdover from an earlier design and doesn't match current behavior. Nothing runs on save; go by the on-demand behavior described above.</li>
+      <li><b>Restoring house style doesn't touch per-rule configuration.</b> Clearing your on/off overrides is not the same as clearing everything — a tuned value like a custom blank-line maximum persists across a restore. Only the enabled/disabled state resets.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="settings-notes.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Notes</span>
+      </a>
+      <a class="next" href="settings-bibliography.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Bibliography →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
