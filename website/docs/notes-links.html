@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Links</title>
+<meta name="description" content="Wiki-links in Minerva notes: the [[target|alias]] syntax, heading and block anchors, the 12 typed link types, how a link target resolves, and how links feed backlinks in the graph." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub active">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Links</p>
+
+    <h1>Links</h1>
+    <p class="lede">Wiki-links are how notes connect to each other. Wrap a note title in double brackets and Minerva turns it into a live link — resolved, rendered, and indexed into the knowledge graph. Beyond a plain reference, a link can carry a <b>type</b>: <em>supports</em>, <em>rebuts</em>, <em>depends on</em>, and nine others that describe the shape of the relationship, not just its existence.</p>
+
+    <h2 id="syntax">Syntax</h2>
+    <p>The full form is <code>[[type::target#anchor|display]]</code> — every part after the target is optional.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>[[target]]</code></div>
+        <div class="v"><b>Basic link.</b> <code>target</code> is a note title or filename. An untyped link is a <b>References</b> link — the default, catch-all type.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[target|display]]</code></div>
+        <div class="v"><b>Display text.</b> Everything after <code>|</code> is shown in place of the raw target — useful when the note title is long or reads awkwardly inline.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[target#Heading]]</code></div>
+        <div class="v"><b>Heading anchor.</b> Points at a specific heading in the target note rather than the top of the file.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[target^blockid]]</code></div>
+        <div class="v"><b>Block anchor.</b> Points at a specific block. The <code>^</code> is part of the syntax and isn't stripped when Minerva writes the anchor into the graph.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[type::target]]</code></div>
+        <div class="v"><b>Typed link.</b> <code>type</code> must start with a lowercase letter (e.g. <code>supports</code>, <code>depends-on</code>) — see the full list below. It goes <em>before</em> the target, separated by <code>::</code>.</div>
+      </div>
+    </div>
+
+    <p>Anchors and display text combine with a type prefix in any order you'd expect:</p>
+
+<pre><code>This claim is well established.[[supports::experiment-log#Trial 4]]
+
+See [[depends-on::auth-redesign|the redesign proposal]] before touching this.</code></pre>
+
+    <h2 id="types">Typed links</h2>
+    <p>A typed link renders in its type's color in preview, so the shape of a note's connections is visible at a glance without opening the backlinks panel. Twelve types are built in:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>references</code></div>
+        <div class="v"><b>References.</b> General-purpose "points at" link. The default when no type is given.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>supports</code></div>
+        <div class="v"><b>Supports.</b> This note backs up the claim in the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>rebuts</code></div>
+        <div class="v"><b>Rebuts.</b> This note argues against the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>load-bearing-for</code></div>
+        <div class="v"><b>Load-bearing for.</b> Flags the target as critically dependent on the analysis in this note — a high-leverage link worth double-checking if this note turns out to be wrong.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>expands</code></div>
+        <div class="v"><b>Expands.</b> This note elaborates on or goes deeper into the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>depends-on</code></div>
+        <div class="v"><b>Depends On.</b> This note requires the target to hold.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>implements</code></div>
+        <div class="v"><b>Implements.</b> This note is a concrete realization of an idea or spec described in the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>alternative-to</code></div>
+        <div class="v"><b>Alternative To.</b> This note proposes a different approach to the same problem as the target.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>supersedes</code></div>
+        <div class="v"><b>Supersedes.</b> This note replaces the target — a signal the target may be stale.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>related-to</code></div>
+        <div class="v"><b>Related To.</b> A loose, non-directional relation — useful when a link matters but none of the sharper types fit.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>cite</code></div>
+        <div class="v"><b>Cites.</b> Points at a <em>source</em> rather than a note — the target is a bibliography-style reference, not another knowledge-base file.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>quote</code></div>
+        <div class="v"><b>Quotes.</b> Points at a specific excerpt anchored in a source, for a direct quotation rather than a general citation.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔗</div>
+      <div class="k">Screenshot — Typed links in preview</div>
+      <div class="d">A rendered note with several inline wiki-links in different colors — a green "supports" link, a red "rebuts" link, and a default-blue untyped link — each underlined in its type's color.</div>
+    </div>
+
+    <h2 id="resolving">How a target resolves</h2>
+    <p>Minerva tries a target against your notes in order and stops at the first match:</p>
+    <ol>
+      <li>Exact file path.</li>
+      <li>Filename, case-sensitive.</li>
+      <li>A note's <code>aliases:</code> frontmatter, case-insensitive.</li>
+      <li>Filename, case-insensitive and slugified — punctuation and spacing don't have to match exactly.</li>
+      <li>Full path, slugified.</li>
+      <li>A unique tail of a nested path (so <code>[[raft]]</code> can resolve to <code>journey/raft.md</code>).</li>
+    </ol>
+    <p>The same resolver drives graph indexing, click-to-navigate in preview, and the hover preview — a link goes to the same place everywhere it's shown.</p>
+
+    <div class="box">
+      <span class="label">Ambiguous targets</span>
+      <p>If more than one note could satisfy a given step above, Minerva takes the first one it finds and doesn't warn you. Keep filenames distinct, or lean on <code>aliases:</code> frontmatter to make the intended target unambiguous.</p>
+    </div>
+
+    <p>In the source editor, clicking a link navigates to it; <kbd>⌘</kbd>-click (or <kbd>Ctrl</kbd>-click) places the cursor inside it to edit, the same convention as footnotes.</p>
+
+    <h2 id="backlinks">Backlinks</h2>
+    <p>Every link is indexed into the graph as a triple from the source note to the resolved target, using a predicate specific to its type — an untyped link becomes a <code>references</code> triple, a <code>[[supports::x]]</code> link becomes a <code>supports</code> triple, and so on. The right sidebar's <b>Backlinks</b> panel queries the graph for every note that links to the one you're viewing, and shows each with its link type's label and color, so you can tell at a glance whether an incoming note supports, rebuts, or merely references the current one.</p>
+
+    <div class="shot">
+      <div class="icon">↩️</div>
+      <div class="k">Screenshot — Backlinks panel</div>
+      <div class="d">The right-sidebar Backlinks panel listing several notes that link to the current one, each row showing the source note's title and a colored badge for its link type (e.g. "SUPPORTS", "RELATED TO").</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Links inside code don't count.</b> A <code>[[...]]</code> written inside a fenced code block or inline <code>`code`</code> span is left as literal text — it's never indexed or rendered as a link.</li>
+      <li><b>No nested brackets.</b> A link ends at the first <code>]]</code> it finds, so a literal <code>]</code> inside a target or display string will truncate the link early rather than being escaped.</li>
+      <li><b>Unresolved links don't stand out.</b> A target that doesn't match any note still gets indexed — as a link to a not-yet-existing file — but it renders the same as a resolved one. Clicking it won't create the missing note; it'll fail to open. Check the Backlinks panel or graph query results if you suspect a link isn't landing where you expect.</li>
+      <li><b>Frontmatter links are plainer.</b> A wiki-link written as a frontmatter value (e.g. in a custom property) only supports <code>[[target]]</code> and <code>[[target|display]]</code> — no type prefix, no anchor. Frontmatter values are treated as bare references.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Notes</span>
+      </a>
+      <a class="next" href="notes-callouts.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Callouts &amp; cards →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Charts</title>
+<meta name="description" content="Embedding Vega and Vega-Lite charts in Minerva notes: the vega-lite and vega fence syntax, the JSON spec format, live data from SPARQL/SQL/tables/cells, and how charts render inline." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub active">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Charts</p>
+
+    <h1>Charts</h1>
+    <p class="lede">Put a <a href="https://vega.github.io/vega-lite/">Vega-Lite</a> or <a href="https://vega.github.io/vega/">Vega</a> JSON spec in a fenced code block and the preview renders it as a live, interactive chart — hover for tooltips, use the built-in menu to export a PNG or SVG. Data can be inlined in the spec, or bound to a SPARQL query, a DuckDB table, or a compute cell's output, so a chart can track the graph or a dataset instead of a frozen snapshot.</p>
+
+    <h2 id="syntax">The <code>vega-lite</code> and <code>vega</code> fences</h2>
+    <p>A chart is a fenced code block whose language is <code>vega-lite</code> or <code>vega</code>, containing a JSON chart specification. Both fences render through the same engine — <a href="https://github.com/vega/vega-embed">vega-embed</a> compiles and draws either — so the only difference is which spec dialect you're writing.</p>
+
+<pre><code>```vega-lite
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": { "values": [
+    { "category": "A", "value": 28 },
+    { "category": "B", "value": 55 },
+    { "category": "C", "value": 43 },
+    { "category": "D", "value": 91 }
+  ] },
+  "mark": "bar",
+  "encoding": {
+    "x": { "field": "category", "type": "nominal" },
+    "y": { "field": "value", "type": "quantitative" }
+  }
+}
+```</code></pre>
+
+    <p>To insert one, right-click in the editor and choose <b>Elements → Chart…</b>. The submenu offers Bar, Line, Area, Scatter, Time Series, and Pie — each drops a complete, valid, inline-data spec with the cursor already inside the data array, so the first edit is just replacing the sample values. <b>From SPARQL</b>, <b>From Table</b>, and <b>From Cell</b> scaffold a data-bound chart instead (see below); <b>Empty Block</b> drops a bare <code>```vega-lite</code> fence for writing a spec from scratch.</p>
+
+    <h2 id="dialects">Vega-Lite vs. Vega</h2>
+    <p>Minerva tells the two dialects apart by the fence's language tag, not by inspecting the JSON — a <code>```vega</code> fence is always compiled as full Vega, a <code>```vega-lite</code> fence always as Vega-Lite.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>```vega-lite</code></div>
+        <div class="v"><b>Vega-Lite — the concise, declarative form.</b> You describe data, a mark type, and encodings; Vega-Lite works out axes, scales, and legends. This is what every Insert-menu scaffold produces, and what you want for ordinary bar/line/area/scatter/pie charts.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>```vega</code></div>
+        <div class="v"><b>Full Vega — the low-level grammar.</b> You specify scales, axes, and marks explicitly. Reach for it only when a chart needs something Vega-Lite's higher-level vocabulary can't express.</div>
+      </div>
+    </div>
+
+    <h2 id="rendering">How it renders</h2>
+    <p>The chart renders inline as an SVG, sized to the width of the note column — a spec's own <code>width</code>/<code>height</code> are honored, but the drawing scales to fit rather than overflowing into a horizontal scrollbar. It's genuinely interactive: hover a mark for a tooltip, and an "⋯" menu in the corner offers PNG/SVG export and viewing the spec (raw and compiled). While a chart is being drawn the block shows a brief "Rendering chart…" placeholder.</p>
+
+    <p>Chart colors follow the current theme automatically — background, axis lines, gridlines, and the default category palette are drawn from the same tokens as the rest of the UI, so a chart looks at home in dark, light, or high-contrast mode without any styling in the spec. An explicit color in your spec's own encoding still wins.</p>
+
+    <div class="shot wide">
+      <div class="icon">📊</div>
+      <div class="d">A rendered note showing a vega-lite bar chart fenced block: the chart drawn as an SVG bar chart sized to the note column width, a tooltip visible on a hovered bar, and the "⋯" export menu in the corner of the chart block.</div>
+    </div>
+
+    <h2 id="data">Sourcing data</h2>
+    <p>The ordinary way to supply data is inline, in the spec's own <code>data.values</code> array, as in the example above. For a chart that should track something else in the project, Minerva also recognizes four binding forms in place of <code>values</code> — each resolves to rows just before the chart renders:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>"data": { "sparql": "…" }</code></div>
+        <div class="v">Runs the query against the project's knowledge graph; each result row becomes a data point.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>"data": { "sql": "…" }</code></div>
+        <div class="v">Runs the query against registered DuckDB tables.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>"data": { "table": "name" }</code></div>
+        <div class="v">Shorthand for <code>SELECT * FROM name</code> against a registered table.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>"data": { "cell": "cell-id" }</code></div>
+        <div class="v">Reads the stored tabular output of a compute cell elsewhere in the note. The cell must have been run at least once — an unrun cell has no output to read.</div>
+      </div>
+    </div>
+
+    <p>A data-bound chart gets a refresh (⟳) button on its fence toolbar that inline charts don't need — click it to re-run the query and redraw without editing the note, useful after the graph or a table has changed. Values coming back from SPARQL are strings; Minerva coerces any column that's numeric in every row to a number first, so quantitative encodings (sums, axes, sorting) behave rather than sorting "10" before "9".</p>
+
+    <div class="box">
+      <span class="label">Inline data only — no remote URLs</span>
+      <p>A Vega/Vega-Lite spec can normally point <code>data</code> at a <code>url</code> to fetch a file or a network resource. Minerva refuses that: a note can arrive from an import, the clipper, or someone else's shared vault, so a chart spec is untrusted input, and rendering it must not make an arbitrary network or filesystem request. A spec with a <code>url</code> anywhere in it renders a "Remote data disabled" notice instead of a chart — inline <code>data.values</code>, or one of the SPARQL/SQL/table/cell bindings above, are the only supported sources.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Invalid JSON fails the whole block.</b> If the fence body doesn't parse as JSON, the chart is replaced with an inline "Vega error" showing the parse error — fix the syntax and it re-renders. A structurally valid spec that Vega-Lite/Vega itself rejects (unknown mark type, missing required encoding, and so on) surfaces the same way, with the library's own error message.</li>
+      <li><b>Fence language picks the dialect, not the JSON.</b> Pasting a full Vega spec into a <code>```vega-lite</code> fence (or vice versa) doesn't auto-detect — it just gets compiled by the wrong engine and fails. Match the fence tag to the spec you're writing.</li>
+      <li><b>A <code>url</code> anywhere in the spec blocks the whole chart</b>, even nested inside a layer or transform — not just at the top level. See the callout above.</li>
+      <li><b>Cell-bound charts need the cell to have run.</b> <code>data.cell</code> reads a stored output block from earlier in the note; if that compute cell hasn't been executed yet (or its last run errored), the chart shows "Chart data unavailable" instead of drawing empty axes.</li>
+      <li><b>Sizing follows the note column, not the spec's raw pixel size.</b> A wide fixed-width spec doesn't force a horizontal scrollbar — it scales down to fit. If a chart looks cramped, that's usually the note column, not the spec.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-diagrams.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Diagrams</span>
+      </a>
+      <a class="next" href="notes-code.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Code &amp; compute cells →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
