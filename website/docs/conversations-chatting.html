@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Chatting with the AI</title>
+<meta name="description" content="How a conversation starts, why the AI reads your thoughtbase through tools instead of a dumped-in context blob, and what a streaming reply with a web citation looks like." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="conversations-chatting.html" class="sub active">Chatting with the AI</a>
+    <a href="conversations-drafts.html" class="sub">Drafts</a>
+    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="conversations.html">Conversations</a><span class="sep">/</span>Chatting with the AI</p>
+
+    <h1>Chatting with the AI</h1>
+    <p class="lede">The conversations panel is a two-pane, mail-style chat: a list of open conversation tabs on the left, the active transcript and composer on the right. The model doesn't get your whole thoughtbase stuffed into its context on every turn — it gets a small set of tools and decides for itself when to search your notes, query the graph, or look something up on the web.</p>
+
+    <h2 id="opening">Opening a conversation</h2>
+    <p>The panel lives beneath the editor and stays hidden until you ask for it — it's not a permanent fixture of the workspace. Every path into it lands on the same two-pane view:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Toggle the panel</div>
+        <div class="v"><b>View → Toggle Conversations</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd>) shows or hides the panel without touching any open conversation. Hiding it doesn't archive anything — your tabs are still there when you bring it back.</div>
+      </div>
+      <div class="row">
+        <div class="k">New conversation</div>
+        <div class="v">The <b>+</b> button in the conversation list, <b>View → New Conversation</b>, or the toolbar's <b>New Conversation</b> button above the editor. This starts a <i>freeform</i> conversation — no note attached, regardless of what's open in the editor.</div>
+      </div>
+      <div class="row">
+        <div class="k">Ask about this note</div>
+        <div class="v">Right-click a tab in the editor's tab bar → <b>Ask About This...</b>. This opens a new conversation whose <code>contextBundle.notePath</code> is set to that note, shown as a "From:" origin chip in the conversation's context rail — the note-scoped counterpart to a blank New Conversation.</div>
+      </div>
+      <div class="row">
+        <div class="k">Close a tab</div>
+        <div class="v">The × on a tab, with a confirm dialog — "Close this conversation? You won't be able to reopen it." — because closing <i>archives</i> the conversation rather than merely hiding the tab. There's no reopen UI for an archived conversation, which is why the confirm exists even under the "don't add warnings" house rule.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">A conversation's note origin isn't a lock-in</span>
+      <p>The context rail shows two things side by side when they differ: <b>From:</b> the note the conversation was started against, and <b>Active:</b> the note currently open in the editor, if you've since switched files. Both are passed to the model on every turn as plain sentences in the system prompt — "the user started this conversation from…" / "the note currently open in the editor is…" — so it can resolve "this note" against whichever one you mean, without the conversation being pinned to a single file for its whole lifetime.</p>
+    </div>
+
+    <h2 id="scoping">How the AI is scoped to your thoughtbase</h2>
+    <p>There is no step where Minerva serializes your graph, or the active note's full text, into the prompt on every turn. Instead the assistant is handed a fixed set of tools and a system prompt that tells it when to reach for each one — the model decides what it actually needs, per turn:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>search_notes</code></div>
+        <div class="v">Full-text search across the thoughtbase. The model's first move for "what have I written about X."</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>read_note</code></div>
+        <div class="v">Reads one specific note by its relative path — typically a path <code>search_notes</code> or a citation just surfaced.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>query_graph</code></div>
+        <div class="v">Runs a SPARQL query against <code>.minerva/graph.ttl</code> for structural questions — what links to what, which notes share a tag, which claims cite a source. Standard prefixes are auto-injected, same as a <code>```sparql</code> cell in a note.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>describe_graph_schema</code></div>
+        <div class="v">Fetches the full ontology TTL so the model can check class/predicate names before guessing at a non-trivial query.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>web_search</code> / <code>web_fetch</code></div>
+        <div class="v">For facts, current events, or documentation outside the thoughtbase — <code>web_fetch</code> reads a specific URL in full, typically one <code>web_search</code> just turned up.</div>
+      </div>
+    </div>
+
+    <p>The only always-on context is a few lines of plain text folded into the system prompt on every turn (<code>buildConversationSystemPrompt</code> in <code>src/main/ipc/register-conversation.ts</code>): today's date, the conversation's origin note path if any, and the currently-open editor note path if it differs. None of that is note <i>content</i> — just enough for the model to know which path "this note" refers to before it decides whether to go read it.</p>
+
+    <div class="box">
+      <span class="label">The trust principle still governs what comes back</span>
+      <p>Reading your notes and graph is unrestricted — the read tools have no approval gate, because reading changes nothing. But the two write tools available in conversation, <code>propose_notes</code> and <code>propose_sources</code>, only ever produce inline draft cards with Approve/Discard. Nothing the model reads or reasons about turns into a graph write on its own say-so — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
+    </div>
+
+    <h2 id="sending">Sending a message</h2>
+    <p>The composer is a plain textarea: <kbd>⏎</kbd> sends, <kbd>⇧</kbd><kbd>⏎</kbd> inserts a newline. Typing a leading <code>/</code> opens a filtered menu of built-in commands (like <code>/compact</code>, which summarizes older turns once a thread gets long) and any skill that declared a slash command — picking one runs it exactly as if you'd chosen it from a menu. A mic button next to Send drives local, on-device dictation into the composer when voice input is enabled.</p>
+    <p>Your message is echoed into the transcript immediately, before the model has replied — the send call can take anywhere from a second to tens of seconds, and without that optimistic insert your own message would appear to vanish from the composer with nothing to show for it.</p>
+
+    <h2 id="streaming">Streaming responses</h2>
+    <p>Replies stream in token-by-token, not all at once. Each chunk arrives over the <code>conversation:stream</code> IPC channel and is appended to a running buffer as it comes in; a three-dot "thinking" indicator sits at the head of the reply and stays visible through any mid-turn pause — including the gap while the model is blocked on a tool call between chunks of text — so the panel never looks stalled. The partial buffer is rendered through the same markdown pipeline as a finished message, so formatting doesn't visibly "snap" into place once the turn completes.</p>
+    <p>While a reply is streaming, the composer disables and its Send button becomes <b>Cancel</b>, which aborts the in-flight turn.</p>
+
+    <h2 id="citations">Referenced notes and citations</h2>
+    <p>A citation in a conversation is a <b>web source</b>, not a link back into your graph. When the model uses <code>web_search</code>, each result it draws on becomes a numbered footnote under that assistant message — title, host, and the exact passage cited — and clicking one opens the URL in your default browser. There's a "cite" action next to each one that ingests the source into your Sources library and weaves a citation marker into whichever note the conversation is anchored to (its origin note, or the active editor note if it's freeform), the same mechanism as citing from anywhere else in Minerva.</p>
+    <p>References to your own notes work differently: the model just writes the relative path in its prose ("see <code>research/thesis.md</code>") per the system prompt's instruction to cite what it reads, rendered as plain markdown text — there's no separate "sources used" sidebar for thoughtbase reads, because reading a note doesn't need an approval trail or a footnote the way an external claim does.</p>
+
+    <div class="shot wide">
+      <div class="icon">💬</div>
+      <div class="k">Screenshot — An active conversation, mid-reply</div>
+      <div class="d">The conversations panel with the tab list on the left; the context rail showing "From: research/thesis.md" and a model picker; a streaming assistant message with the thinking-dots indicator still visible beneath the partial markdown text; and, on the completed message above it, a numbered footnote citation with title, host, and a "cite" action.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>The model picker and effort picker are per-conversation, not per-message.</b> Changing the model on an existing tab only affects turns from that point forward; if the conversation had a reasoning-effort override the new model doesn't support, it's silently clamped to the nearest level it does (or cleared, for a model with no effort levels at all) rather than erroring on the next send.</li>
+      <li><b>Closing a tab is one-way.</b> There's a confirm dialog, but there is no "reopen last closed conversation" — once archived, a conversation only resurfaces as an entry in whatever surface lists archived conversations, not back in the tab strip.</li>
+      <li><b>A conversation's citations are exclusively from <code>web_search</code>.</b> If the model never calls that tool during a turn, the message carries no citations at all, even if it extensively read and referenced your own notes via <code>search_notes</code>/<code>read_note</code>.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="conversations.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Conversations</span>
+      </a>
+      <a class="next" href="conversations-drafts.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Drafts →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
