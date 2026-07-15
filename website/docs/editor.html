@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Editor</title>
+<meta name="description" content="The writing surface: how markdown renders live in the editor, formatting syntax, keyboard shortcuts, link autocomplete, and voice dictation." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html" class="active">Editor</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Editor</p>
+
+    <h1>Editor</h1>
+    <p class="lede">The editor is a single writing surface, not a split raw-text-and-preview view — markdown renders styled in place as you type, in the same pane you're editing. This section covers that surface itself, the formatting syntax it understands, every keyboard shortcut it answers to, the <code>[[</code> autocomplete that helps you link notes without memorizing filenames, and voice dictation for when you'd rather talk than type.</p>
+
+    <h2 id="glance">At a glance</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="editor-writing-surface.html"><b>The writing surface</b></a> — how live inline rendering works, and what it deliberately doesn't hide.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="editor-markdown-formatting.html"><b>Markdown formatting</b></a> — a syntax reference table, linking out to the deep dives.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="editor-keyboard-shortcuts.html"><b>Keyboard shortcuts</b></a> — every binding the editor answers to, in one place.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>[[</code></div>
+        <div class="v"><a href="editor-link-autocomplete.html"><b>Link autocomplete</b></a> — a filtered suggestion list of notes and aliases as you type.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
+        <div class="v"><a href="editor-voice-dictation.html"><b>Voice dictation</b></a> — local, on-device transcription into the note.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Windows / Linux</span>
+      <p>Every shortcut above uses <kbd>Ctrl</kbd> in place of <kbd>⌘</kbd>.</p>
+    </div>
+
+    <h2 id="learn-more">In depth</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="editor-writing-surface.html">
+        <span class="em">🖋️</span>
+        <h3>The writing surface</h3>
+        <p>A single pane where markdown renders styled in place as you type.</p>
+      </a>
+      <a class="doc-card" href="editor-markdown-formatting.html">
+        <span class="em">🔤</span>
+        <h3>Markdown formatting</h3>
+        <p>A syntax reference — what renders as what, linking to the deep dives.</p>
+      </a>
+      <a class="doc-card" href="editor-keyboard-shortcuts.html">
+        <span class="em">⌨️</span>
+        <h3>Keyboard shortcuts</h3>
+        <p>Every binding the editor answers to, gathered in one place.</p>
+      </a>
+      <a class="doc-card" href="editor-link-autocomplete.html">
+        <span class="em">🔮</span>
+        <h3>Link autocomplete</h3>
+        <p>Type <code>[[</code> and get a filtered list of notes and aliases.</p>
+      </a>
+      <a class="doc-card" href="editor-voice-dictation.html">
+        <span class="em">🎙️</span>
+        <h3>Voice dictation</h3>
+        <p>Local, on-device transcription — nothing leaves your machine.</p>
+      </a>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="viewing-options-split-panes-windows.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Split panes &amp; windows</span>
+      </a>
+      <a class="next" href="editor-writing-surface.html">
+        <span class="dir">Next</span>
+        <span class="ttl">The writing surface →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

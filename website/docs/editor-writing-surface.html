@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — The Writing Surface</title>
+<meta name="description" content="How Minerva's Source editor renders markdown live inline as you type — styled headers, emphasis, and links in place of raw syntax — and how the pane relates to the file on disk." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+    <a href="editor-writing-surface.html" class="sub active">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>The writing surface</p>
+
+    <h1>The writing surface</h1>
+    <p class="lede">The Source pane isn't a plain textarea with a monospace font bolted on. It's a single CodeMirror surface that understands markdown as you type — headers, emphasis, and links render styled in place, in the same pane you're editing, rather than staying inert characters until you switch to Preview. This page is about that pane's own character. For how Source relates to Preview and Side by side as separate view modes, see <a href="viewing-options-view-modes.html">View modes</a>.</p>
+
+    <h2 id="live-rendering">What "live inline rendering" means</h2>
+    <p>Minerva parses the buffer with <code>@codemirror/lang-markdown</code> and applies a token-driven highlight style directly on top of it (<code>src/renderer/lib/components/Editor.svelte:470</code>, <code>src/renderer/lib/editor/minerva-highlight.ts</code>). A heading line isn't just gray text with a <code>#</code> in front — the whole line is styled bold and in the accent color the moment CodeMirror recognizes it as a heading. Bold and italic spans pick up real <code>font-weight</code> and <code>font-style</code> the moment you close the <code>**</code> or <code>_</code>. Wiki-links and URLs get a soft rounded chip and become clickable (<code>src/renderer/lib/editor/link-decorations.ts:165-173</code>).</p>
+
+    <p>The important distinction from Obsidian-style "live preview" editors: Minerva never hides the markdown delimiters. The <code>#</code>, <code>**</code>, <code>==</code>, and <code>[[</code>/<code>]]</code> stay on screen, styled through, rather than disappearing until your cursor lands nearby. A comment in the highlight-span source states the convention directly: <i>"We don't hide the <code>==</code> delimiters — keeping them visible is the convention for inline markup... the user can see exactly what they wrote"</i> (<code>src/renderer/lib/editor/highlight-decorations.ts:6-9</code>). There's no cursor-triggered reveal because nothing is ever concealed — what you see is always the literal file content, styled, not a rendered substitute.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Headers</div>
+        <div class="v">Styled bold, in the accent color, as soon as the line parses as a heading. The <code>#</code> markers stay visible as part of the line (<code>t.heading</code>, <code>minerva-highlight.ts:102</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Bold / italic / strikethrough</div>
+        <div class="v"><code>**bold**</code>, <code>_italic_</code>, and <code>~~struck~~</code> render with real weight, slant, or a line-through the moment the span closes — the asterisks, underscores, and tildes stay visible, just styled along with the text (<code>minerva-highlight.ts:103-105</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Highlights — <code>==text==</code></div>
+        <div class="v">A tinted background matching the same color the Preview pane uses, painted live while typing. Delimiters are intentionally not hidden (<code>src/renderer/lib/editor/highlight-decorations.ts</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Wiki-links &amp; URLs</div>
+        <div class="v">A soft accent-tinted chip, no underline, cursor turns into a pointer on hover — a mark decoration, not a widget, so the caret can still move through the link text to edit it (<code>src/renderer/lib/editor/link-decorations.ts:178-194</code>). Hovering one briefly also pops a preview tooltip of the target note (<code>src/renderer/lib/editor/link-preview.ts</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Footnote refs &amp; definitions</div>
+        <div class="v"><code>[^label]</code> renders underlined and clickable, jumping between a reference and its definition on click; hovering a reference pops a tooltip of the definition body (<code>src/renderer/lib/editor/footnote-decorations.ts</code>, <code>footnote-preview.ts</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Runnable code fences</div>
+        <div class="v">A ▶ run marker appears in the gutter next to any executable fence (SPARQL, SQL, Python); results write back into the note as a companion <code>```output</code> block right below the fence, not into a separate panel (<code>src/renderer/lib/editor/compute-cells.ts</code>).</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">✍️</div>
+      <div class="k">Screenshot — Live inline rendering in the Source pane</div>
+      <div class="d">The Source editor showing a heading rendered bold in the accent color with its "#" still visible, a bold span with its "**" markers intact, and a wiki-link rendered as a rounded accent-tinted chip — with the text cursor visibly resting inside the bold span to show that the raw "**" characters remain on screen rather than disappearing while editing.</div>
+    </div>
+
+    <h2 id="not-a-textarea">Not a textarea, and not a second copy of the file</h2>
+    <p>Two things follow from the pane being CodeMirror rather than a bare <code>&lt;textarea&gt;</code>: it understands markdown structure well enough to fold the frontmatter block, match brackets, and drive autocomplete — see <a href="editor-link-autocomplete.html">Link autocomplete</a> — and it renders through <a href="viewing-options-themes.html">theme</a> tokens, so switching themes re-skins the editor's syntax colors along with everything else, live, with no rebuild.</p>
+
+    <div class="box">
+      <span class="label">The pane is the file, not a preview of it</span>
+      <p>What you're looking at in Source is the exact text of the <code>.md</code> file on disk, styled — not a separate rendering pass like Preview's. There's no intermediate "draft" state: every keystroke is the buffer, and every save re-indexes it into the knowledge graph immediately, the same as any other edit. See <a href="notes.html#lifecycle">Notes</a> for how saves feed <code>.minerva/graph.ttl</code>.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Plain-text files skip all of this.</b> A file Minerva treats as plain text (not markdown) gets the bare editing buffer with no markdown language, no link/footnote/highlight decorations, and no compute-cell gutter — <code>Editor.svelte:467-535</code> gates the entire markdown rendering stack behind a markdown check.</li>
+      <li><b>Delimiters are never hidden.</b> If you're coming from an editor that conceals <code>**</code>/<code>#</code>/<code>[[…]]</code> until the cursor is nearby, expect Minerva's Source pane to look "busier" — that's deliberate, so what you see always matches what's actually in the file.</li>
+      <li><b>Links are marks, not widgets.</b> The chip styling on a wiki-link doesn't replace the text with something else — you can still click into the middle of <code>[[Some Note]]</code> and edit the target directly, because the brackets and text are still real, editable characters underneath the styling.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="editor.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Editor</span>
+      </a>
+      <a class="next" href="editor-markdown-formatting.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Markdown formatting →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

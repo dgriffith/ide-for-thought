@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Link Autocomplete</title>
+<meta name="description" content="How typing [[ suggests matching notes and aliases as you type, how to filter and accept an entry, and what actually happens when the typed text doesn't match anything." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub active">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Link autocomplete</p>
+
+    <h1>Link autocomplete</h1>
+    <p class="lede">Typing <code>[[</code> opens a suggestion list of notes and aliases, filtered as you keep typing. It saves you from remembering exact filenames — and from a typo quietly producing a link to nowhere. This page covers the trigger, the filtering, and — verified directly against the completion source, not assumed — exactly what happens when nothing matches.</p>
+
+    <h2 id="trigger">Triggering the list</h2>
+    <p>The popup isn't tied to the single act of typing <code>[[</code> — it re-evaluates on every keystroke while your cursor sits inside an unclosed pair. Start a link, and the list stays open and refiltering as you type, narrows and reorders as you add characters, and disappears once you type the closing <code>]]</code> or leave the link.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Trigger</div>
+        <div class="v">Typing <code>[[</code> anywhere in a note opens the list. It stays live on every subsequent keystroke as long as the cursor is inside an open pair — there's no separate "re-trigger" gesture, it's continuous.</div>
+      </div>
+      <div class="row">
+        <div class="k">Filter</div>
+        <div class="v">Whatever you type after <code>[[</code> narrows the list. Filtering is CodeMirror's built-in fuzzy matcher — a subsequence match, case-insensitive — not a Minerva-specific search, so out-of-order characters can still match (e.g. <code>mtg</code> can match <code>Meeting Notes</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Select</div>
+        <div class="v">Arrow keys move through the list; clicking an entry also works. <kbd>Esc</kbd> dismisses the popup without changing anything you've typed.</div>
+      </div>
+      <div class="row">
+        <div class="k">Accept</div>
+        <div class="v"><kbd>Tab</kbd> or <kbd>Enter</kbd> accepts the highlighted entry, inserting its title or alias in place of what you'd typed so far. Accepting never inserts brackets — you already typed <code>[[</code>, and Minerva doesn't auto-close <code>]]</code> for you.</div>
+      </div>
+      <div class="row">
+        <div class="k">No match</div>
+        <div class="v">If nothing in your notes matches, the list shows no items — there's no "Create new note" entry. See <a href="#gotchas">Gotchas</a> for the verified detail.</div>
+      </div>
+    </div>
+
+    <p>The list draws from two sources at once: every note's path (title, effectively) and any <code>aliases:</code> frontmatter entries across the project, so an alias you've defined is just as reachable as the note's real filename. A note path ranks slightly above a matching alias when both match the same typed text, so the canonical name wins ties. Typing <code>type::</code> first (e.g. <code>supports::</code>) also offers the twelve <a href="notes-links.html#types">link types</a> as completions before you get to the target text, and <code>cite::</code> switches the whole list over to your indexed sources instead of notes.</p>
+
+    <div class="shot wide">
+      <div class="icon">🔎</div>
+      <div class="k">Screenshot — Link autocomplete open</div>
+      <div class="d">The editor mid-line with an unclosed [[Mee typed, a completion popup open beneath the cursor listing filtered matches such as "Meeting Notes" and "Meeting Prep", one entry highlighted, with a note-path icon beside each.</div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Typing text that matches no note does not create anything — the list is simply empty.</b> The completion source builds its option list strictly from existing note paths, aliases, headings, block ids, or sources, depending on which part of the link you're typing — there's no branch anywhere that synthesizes a "create new note" option from your typed text. If you finish typing a target that matches nothing and close the brackets yourself, you're left with a plain unresolved <code>[[...]]</code> link, exactly as if you'd typed it without ever seeing a suggestion. This mirrors the click-navigation behavior documented in <a href="navigation-wiki-links.html#gotchas">Navigation → Wiki-links</a> — an unresolved target is a quiet no-op there too, not an auto-create — so the two code paths agree even though they're independent.</li>
+      <li><b>Closing the brackets yourself has no special effect.</b> Autocomplete is purely an insert-before-you-finish-typing convenience. Typing the closing <code>]]</code> just ends the phase the popup was tracking; nothing is validated, created, or written at that moment.</li>
+      <li><b>Accepting mid-word eats the leftover tail, not just what's before the cursor.</b> If you're editing inside an existing link — say the cursor sits in the middle of <code>[[No|te]]</code> — accepting a suggestion also removes the contiguous run of word characters right after the cursor, so you get a clean <code>[[Notebook]]</code> instead of <code>[[Notebooknote]]</code>. It stops at the first non-word character, so it won't reach past a <code>]</code> or a <code>,</code>.</li>
+      <li><b>The popup closes at <code>|</code>.</b> Once you type the display-text separator, completion stops offering target suggestions — everything after <code>|</code> is free text, same as writing <code>[[target|display]]</code> by hand. See <a href="notes-links.html#syntax">Links → Syntax</a>.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="editor-keyboard-shortcuts.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Keyboard shortcuts</span>
+      </a>
+      <a class="next" href="editor-voice-dictation.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Voice dictation →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

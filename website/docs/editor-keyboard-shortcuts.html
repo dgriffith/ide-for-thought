@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Keyboard Shortcuts</title>
+<meta name="description" content="A complete reference of Minerva's editor keyboard shortcuts — formatting, file and editing commands, and navigation — gathered in one place and cross-linked to their dedicated pages." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub active">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Keyboard shortcuts</p>
+
+    <h1>Keyboard shortcuts</h1>
+    <p class="lede">Every shortcut the editor answers to, gathered in one reference: inline formatting, file and editing commands, and the navigation shortcuts documented in depth elsewhere. All bindings live in <code>src/renderer/lib/editor/command-registry.ts</code> (formatting and text commands, dispatched through CodeMirror's keymap) and <code>src/renderer/lib/keymap/handle-keydown.ts</code> (app-level navigation, bound at the window). On Windows and Linux, <kbd>⌘</kbd> becomes <kbd>Ctrl</kbd> and <kbd>⌥</kbd> becomes <kbd>Alt</kbd> — every combo below follows that swap unless noted.</p>
+
+    <h2 id="formatting">Formatting</h2>
+    <p>Inline and insert commands from <code>COMMAND_REGISTRY</code>. Toggle commands wrap or unwrap the current selection — pressing the same shortcut again on already-formatted text removes the markers. See <a href="editor-markdown-formatting.html">Markdown formatting</a> for the underlying syntax each one produces.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>B</kbd></div>
+        <div class="v">Toggle <b>bold</b> — wraps the selection in <code>**…**</code>, or drops the cursor between a fresh pair of markers with nothing selected.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>I</kbd></div>
+        <div class="v">Toggle <i>italic</i> — wraps the selection in <code>*…*</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>E</kbd></div>
+        <div class="v">Toggle inline <code>code</code> — wraps the selection in backticks.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></div>
+        <div class="v">Toggle strikethrough — wraps the selection in <code>~~…~~</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Y</kbd></div>
+        <div class="v">Toggle <a href="notes-highlights.html">highlight</a>, cycling color on repeat presses — yellow → green → blue → pink → orange → plain (unwrapped). Y is mnemonic for yellow, the default color. <code>Mod-Shift-H</code> was the more obvious pick but was already claimed by the menu's Replace-in-Notes accelerator, so this shortcut uses Y instead.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Insert a markdown link — <code>[selected text](url)</code>, or <code>[](url)</code> with the cursor in the brackets if nothing's selected. This is the editor's insert-link command, distinct from the app-level <a href="navigation-command-palette.html">command palette</a>'s <kbd>⌘</kbd><kbd>K</kbd> — the palette only opens when the editor isn't the one capturing the keystroke first.</div>
+      </div>
+    </div>
+
+    <p>Headings, quotes, lists, task lists, tables, horizontal rules, footnotes, wiki-links, and typed links are all reachable from the editor's Insert/Format menus and the command palette, but ship with no default key binding (<code>defaultKey: ''</code> in the registry) — there's simply nothing to press for them yet.</p>
+
+    <div class="box">
+      <span class="label">Shortcuts are user-remappable</span>
+      <p>Every entry in <code>COMMAND_REGISTRY</code> can be rebound from Settings — overrides are stored in <code>localStorage</code> and merged over the defaults at startup (<code>resolveKeyBindings()</code>). The bindings on this page are what you get out of the box; check Settings if a combo doesn't match what you're seeing.</p>
+    </div>
+
+    <h2 id="file-and-editing">File &amp; editing</h2>
+    <p>Saving, undo/redo, and text manipulation commands.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>S</kbd></div>
+        <div class="v">Save now. Minerva <a href="notes.html">autosaves</a> on a debounced ~1000ms timer, so this isn't strictly necessary to avoid losing work — but it's not a no-op either: it flushes any pending autosave and writes immediately, then refreshes tags, the right sidebar, and backlink/alias caches on the spot rather than waiting for the timer.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>Z</kbd></div>
+        <div class="v">Undo, via CodeMirror's standard history keymap (bundled in <code>basicSetup</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Z</kbd></div>
+        <div class="v">Redo.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>D</kbd></div>
+        <div class="v">Duplicate line — with no selection, copies the current line directly beneath itself; with a selection, duplicates the whole selected region.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌥</kbd><kbd>↑</kbd> / <kbd>⌥</kbd><kbd>↓</kbd></div>
+        <div class="v">Extend or shrink the selection outward/inward through a sequence of enclosing scopes — word, bracket/quote pair, line, sentence, paragraph, heading section, whole document — remembering each step so shrinking retraces exactly what extending grew.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd></div>
+        <div class="v">Toggle case of the selection (or the word under the cursor with nothing selected): all-lowercase → UPPERCASE → Title Case → lowercase.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>J</kbd></div>
+        <div class="v">Join lines — merges the current line with the next (or every line in a multi-line selection) into one, separated by a single space. This binding doesn't swap to <kbd>⌘</kbd> on Windows/Linux — it's <code>Ctrl-Shift-j</code> in the registry on every platform.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
+        <div class="v">Start or stop <a href="editor-voice-dictation.html">voice dictation</a> into the editor at the cursor.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>F</kbd></div>
+        <div class="v">Open CodeMirror's built-in search panel, scoped to the current editor tab only. Not the same as project-wide search — see the gotcha below.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>H</kbd></div>
+        <div class="v">Open the same panel with replace enabled, scoped to the current tab.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">⌘F / ⌘H are per-tab, not project-wide</span>
+      <p>These open CodeMirror's own search panel inside whichever note is focused. For a search across every file in the project, use <a href="navigation-search.html">Find in Notes…</a> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) instead — same underlying idea, much larger scope. If a search you expect to span the whole project is only turning up matches in the file you already have open, you pressed the un-shifted version.</p>
+    </div>
+
+    <h2 id="navigation">Navigation</h2>
+    <p>Shortcuts that move you around the app rather than editing text. Each one has its own page with the full mechanics — this is just the complete list in one place, so you don't have to go hunting across the docs for a shortcut you half-remember.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Open the <a href="navigation-command-palette.html">command palette</a> — a do-anything launcher over commands and actions.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="v"><a href="navigation-quick-switch.html">Quick switch</a> — jump to any note, source, or query by name.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+        <div class="v"><a href="navigation-search.html">Find in Notes…</a> — project-wide search across every file's actual content.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>[</kbd> / <kbd>⌘</kbd><kbd>]</kbd></div>
+        <div class="v"><a href="navigation-back-forward.html">Back / Forward</a> through your navigation history.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div>
+        <div class="v">Cycle the active pane's <a href="viewing-options-view-modes.html">view mode</a> — Source → Preview → Editor + Preview → Source.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>\</kbd> / <kbd>⌘</kbd><kbd>⇧</kbd><kbd>\</kbd></div>
+        <div class="v"><a href="viewing-options-split-panes-windows.html">Split the editor</a> right or down.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd></div>
+        <div class="v"><a href="viewing-options-split-panes-windows.html">New window</a> — opens a second, blank Minerva window.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>N</kbd></div>
+        <div class="v"><a href="notes.html">New Note</a> — prompts for a name and, optionally, a starting template.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>G</kbd></div>
+        <div class="v">Go to line, when a note is focused.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Q</kbd></div>
+        <div class="v">New query tab, when a project is open.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>I</kbd></div>
+        <div class="v">Open a <a href="conversations.html">conversation</a> with the assistant.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd></div>
+        <div class="v">Toggle the <a href="right-sidebar.html">right sidebar</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></div>
+        <div class="v">Cycle the <a href="viewing-options-themes.html">theme</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>W</kbd></div>
+        <div class="v">Close the active tab, when one is open.</div>
+      </div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>⌘P is Quick switch, not a preview toggle.</b> Unlike some other markdown editors, Minerva reserves <kbd>⌘</kbd><kbd>P</kbd> for <a href="navigation-quick-switch.html">Quick switch</a>. Cycling the preview mode is <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd> instead, matching the Linear / VS Code convention rather than Obsidian's.</li>
+      <li><b>Join Lines doesn't follow the Cmd/Ctrl swap.</b> It's bound as <code>Ctrl-Shift-j</code> in <code>COMMAND_REGISTRY</code> on every platform, including macOS — the one formatting/editing shortcut on this page that isn't <kbd>⌘</kbd> on Mac.</li>
+      <li><b>⌘F/⌘H vs ⌘⇧F/⌘⇧H.</b> The un-shifted pair searches only the current tab (CodeMirror's own panel); the shifted pair searches the whole project (<a href="navigation-search.html">Find in Notes…</a>). Easy to reach for the wrong one out of habit from a single-file editor.</li>
+      <li><b>Most paragraph-level formatting has no default key.</b> Headings, quotes, lists, task lists, tables, horizontal rules, and footnote insertion are registry commands with an empty <code>defaultKey</code> — reach them from the Insert/Format menus, the command palette, or bind your own key in Settings.</li>
+      <li><b>Every shortcut is remappable.</b> If a combo on this page doesn't do what's described, check Settings for a user override before assuming the docs are stale.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="editor-markdown-formatting.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Markdown formatting</span>
+      </a>
+      <a class="next" href="editor-link-autocomplete.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Link autocomplete →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
