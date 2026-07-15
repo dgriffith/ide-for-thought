@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Running a Skill</title>
+<meta name="description" content="What actually happens when you invoke a thinking tool from the Learning, Research, or Analysis menu — how it gathers context, runs, and almost always ends with a proposal to review rather than a direct write." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="thinking-tools-what-they-are.html" class="sub">What thinking tools are</a>
+    <a href="thinking-tools-running-a-skill.html" class="sub active">Running a skill</a>
+    <a href="thinking-tools-three-menus.html" class="sub">The three menus</a>
+    <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>Running a skill</p>
+
+    <h1>Running a skill</h1>
+    <p class="lede">Pick a skill from the Learning, Research, or Analysis menu (or the editor's right-click menu) and Minerva gathers whatever context that skill declared it needs from the note you're in, then runs it. Almost every stock skill hands its result to you as a <a href="conversations-propose-review-approve.html">reviewable proposal</a> — nothing lands in your notes or the graph without a keystroke from you.</p>
+
+    <h2 id="invoke">From menu click to running</h2>
+    <p>A skill is just a registered thinking tool, so invoking one from a menu, the editor's right-click, or the command palette all funnel through the same path: the click sends the tool's id over the <code>tool:invoke</code> IPC channel, the renderer gathers exactly the context fields that skill's <code>context:</code> frontmatter declared (the current note's full text, your current selection, a claim under the cursor, related or tagged notes, or — for Source-scoped skills — the active source's metadata and body), and then runs it.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">1. Gather context</div>
+        <div class="v">Only what the skill asked for is collected — a skill that lists <code>fullNote</code> gets the current note's text and path; one that lists <code>selectedText</code> gets your highlighted passage; one that lists <code>claimUnderCursor</code> resolves the <code>thought:Claim</code> at your cursor. Nothing is sent that the skill didn't declare it needs.</div>
+      </div>
+      <div class="row">
+        <div class="k">2. Ask for parameters (if any)</div>
+        <div class="v">A skill can declare a small parameters form — a dropdown, a text field, or a note picker — that opens as a dialog before anything runs. Excavate's "Analysis depth" (Quick / Standard / Deep) is a stock example. Skills with no parameters skip straight to running.</div>
+      </div>
+      <div class="row">
+        <div class="k">3. Run</div>
+        <div class="v">Most stock skills open a new <a href="conversations.html">conversation</a> seeded with a system prompt and an auto-fired first message built from your context — you watch it think and respond like any other conversation. A handful of skills (marked for direct output) instead run in a compact bottom panel with a streaming "Thinking…" view and no chat back-and-forth.</div>
+      </div>
+      <div class="row">
+        <div class="k">4. Land as a proposal</div>
+        <div class="v">When a skill's work involves writing to your notes or graph — filing a claim, proposing linked evidence, drafting a source summary, rewriting a note — it calls a tool like <code>propose_claims</code> or <code>propose_source_properties</code>, which files a <code>thought:Proposal</code> through the approval engine. Nothing is written until you approve it.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">The trust principle still applies</span>
+      <p>A skill is a prompt template, not a shortcut around the approval engine. Whatever conversation a skill opens is bound by the same rule as a conversation you started yourself: <b>the LLM proposes, the human confirms.</b> See <a href="conversations-propose-review-approve.html">The propose, review, approve loop</a> for how the approval tiers work and <a href="right-sidebar-proposals.html">Proposals</a> for how to review and act on what a skill files.</p>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🧭</div>
+      <div class="k">Screenshot — Invoking a skill and its resulting proposal</div>
+      <div class="d">Split view: the Research menu open with a skill highlighted (e.g. "Propose Summary") on the left, and the Proposals panel on the right showing the pending card it filed — the abstract and TL;DR payloads collapsed, ready to expand and review.</div>
+    </div>
+
+    <h2 id="output-modes">Where the result actually shows up</h2>
+    <p>What you see after a skill runs depends on its <code>outputMode</code>, set by whoever authored it:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Open a conversation</div>
+        <div class="v">The default for nearly every stock skill. The menu click opens a new conversation tab pinned to your current note, with the skill's system prompt and first message already in place. You read the model's reasoning as it comes in, same as any chat — and if the skill's job is to propose a graph change, that proposal appears the same way any conversation-filed proposal does: as a pending card, reviewable from the <a href="right-sidebar-proposals.html">Proposals panel</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Direct output panel</div>
+        <div class="v">A small number of skills (Excavate is a stock example) run in a bottom dock instead of opening a conversation: a streaming "Thinking…" view, then the finished text with <b>Save as Note</b>, <b>Append to Current</b>, and <b>Copy</b> buttons. This is a separate, older mechanism from the proposal system — choosing "Save as Note" writes the file immediately rather than filing a <code>thought:Proposal</code>. The explicit button click is still your confirmation step; it's just a different one than the diff-and-approve flow.</div>
+      </div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>A skill can refuse to run before it ever reaches the model.</b> If a skill declares <code>requiresSelection</code> and you haven't highlighted anything, the menu item fails fast with a message telling you to select text first — the right-click menu hides the entry entirely in that case. Other skills check their context at prompt-build time instead: a claim-scoped skill invoked with no <code>thought:Claim</code> under the cursor throws a specific, readable error ("right-click on a claim line first") rather than sending an empty prompt to the model.</li>
+      <li><b>Running a skill over a note with nothing relevant in it doesn't error — it just produces a thin result.</b> A source-summarizing skill invoked with no extracted body text says so plainly in its first message rather than fabricating a summary; other skills without that guard will still run and the model will do its best with sparse input, which usually means a proposal not worth approving. Reviewing the diff before you approve is what catches this, not the tool refusing to run.</li>
+      <li><b>The skill only sees the context it declared, not everything about the note.</b> A skill listing only <code>selectedText</code> never sees the rest of the note, even though you invoked it while that note was open — if a skill seems to be ignoring context you'd expect it to use, check what its <code>context:</code> list actually requests (see <a href="thinking-tools-managing-authoring.html">Managing &amp; authoring</a>).</li>
+      <li><b>Cancel stops the run, not the proposal.</b> The direct-output panel has a Cancel button while it's streaming, which stops that call. A skill running as a conversation is cancelled the same way any conversation send is — but if the model already made its tool call before you cancelled, whatever it proposed is still sitting in the Proposals panel; cancelling doesn't retract a proposal already filed. Reject it there if you don't want it.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="thinking-tools-what-they-are.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← What thinking tools are</span>
+      </a>
+      <a class="next" href="thinking-tools-three-menus.html">
+        <span class="dir">Next</span>
+        <span class="ttl">The three menus →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
