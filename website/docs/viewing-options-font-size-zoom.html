@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Font Size &amp; Zoom</title>
+<meta name="description" content="Two separate ways to make text bigger or smaller in Minerva — the editor's own font-size setting, and whole-window zoom on the entire UI — and how they interact." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="viewing-options-view-modes.html" class="sub">View modes</a>
+    <a href="viewing-options-themes.html" class="sub">Themes</a>
+    <a href="viewing-options-font-size-zoom.html" class="sub active">Font size &amp; zoom</a>
+    <a href="viewing-options-split-panes-windows.html" class="sub">Split panes &amp; windows</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>Font size &amp; zoom</p>
+
+    <h1>Font size &amp; zoom</h1>
+    <p class="lede">Minerva has two separate controls for making text bigger or smaller, and they don't do the same thing. <b>Editor font size</b> resizes only the text inside the CodeMirror source editor. <b>Zoom</b> scales the entire window — sidebar, toolbar, dialogs, and the editor along with everything else. They're independent settings that happen to compound, since zoom scales the whole rendered page including whatever the editor's own font size is currently set to.</p>
+
+    <h2 id="mechanisms">The two mechanisms</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Editor font size</div>
+        <div class="v">Resizes text in the <a href="editor.html">source editor</a> only — the sidebar, toolbar, and dialogs stay the same size. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>=</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>=</kbd> increases it, <kbd>⌘</kbd><kbd>⇧</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>-</kbd> decreases it, in steps of 1px each press (View → Increase/Decrease Editor Font Size, <code>src/main/menu.ts:482-491</code>). View → Reset Editor Font Size has no default shortcut. Ranges from 10px to 24px, default 14px (<code>src/renderer/lib/editor/font-size.ts:10-12</code>), and persists across restarts in <code>localStorage</code> under <code>editorFontSize</code> (<code>src/renderer/lib/components/Editor.svelte:253-254</code>). There's no Settings-panel slider for it — the menu items and shortcuts are the only way to change it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Zoom</div>
+        <div class="v">Scales the whole window's UI — everything renders bigger or smaller together, not just the editor. <kbd>⌘</kbd><kbd>+</kbd> / <kbd>Ctrl</kbd><kbd>+</kbd> zooms in, <kbd>⌘</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>-</kbd> zooms out, <kbd>⌘</kbd><kbd>0</kbd> / <kbd>Ctrl</kbd><kbd>0</kbd> resets to actual size (View → Actual Size / <em>(unlabeled zoom in/out)</em>, <code>src/main/menu.ts:478-480</code>). These are Electron's built-in <code>resetZoom</code> / <code>zoomIn</code> / <code>zoomOut</code> menu roles, which drive <code>webContents</code>'s zoom factor directly — Minerva doesn't implement its own zoom logic or clamp it to a custom range.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔍</div>
+      <div class="k">Screenshot — View menu, zoom &amp; font size section</div>
+      <div class="d">The View menu open, scrolled to the lower section showing "Actual Size", the unlabeled zoom in/out items, and below a separator "Increase Editor Font Size", "Decrease Editor Font Size", and "Reset Editor Font Size" — illustrating that these are two adjacent but distinct groups of commands.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">They compound, not replace</span>
+      <p>Zoom scales the entire rendered page, and the editor's font size is just a CSS pixel value on that page — so zooming in on a window where you've already bumped the editor font up to 20px gives you 20px text rendered at, say, 110% larger again. If text looks too big, check both controls rather than assuming one setting reset the other.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Zoom resets every launch; editor font size doesn't.</b> Editor font size is saved to <code>localStorage</code> and survives restarts. Zoom is Electron's in-memory <code>webContents</code> zoom factor — Minerva doesn't persist it anywhere, so a zoomed window goes back to 100% the next time you open the app.</li>
+      <li><b>Zoom has no reset shortcut for the editor specifically.</b> <kbd>⌘</kbd><kbd>0</kbd> resets whole-window zoom to 100%; it does not touch your editor font-size setting. To get the editor back to its default 14px, use View → Reset Editor Font Size.</li>
+      <li><b>Editor font size is clamped, zoom isn't (by Minerva).</b> The editor setting can't go below 10px or above 24px — the menu commands simply stop moving it further once you hit either end. Zoom uses Chromium's own built-in limits, which are much wider and not something Minerva restricts.</li>
+      <li><b>No Settings-panel control for either.</b> Both are menu commands (with keyboard shortcuts) rather than fields in <a href="settings.html">Settings</a> — there's nothing to type a specific pixel size or zoom percentage into.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="viewing-options-themes.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Themes</span>
+      </a>
+      <a class="next" href="viewing-options-split-panes-windows.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Split panes &amp; windows →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Split Panes &amp; Windows</title>
+<meta name="description" content="Splitting the editor into multiple panes — each with its own tabs and view mode — moving tabs between them, and when to open a whole new window instead." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="viewing-options-view-modes.html" class="sub">View modes</a>
+    <a href="viewing-options-themes.html" class="sub">Themes</a>
+    <a href="viewing-options-font-size-zoom.html" class="sub">Font size &amp; zoom</a>
+    <a href="viewing-options-split-panes-windows.html" class="sub active">Split panes &amp; windows</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>Split panes &amp; windows</p>
+
+    <h1>Split panes &amp; windows</h1>
+    <p class="lede">A single tab strip is fine until you want to see two notes at once — a source next to the claim it supports, or an outline next to the section you're drafting from it. Minerva gives you two ways to do that: split the current window into multiple <b>panes</b>, each with its own tabs and its own <a href="viewing-options-view-modes.html">view mode</a>; or open an entirely separate <b>window</b>. They solve different problems, and knowing which one you want saves a few seconds of fighting the layout.</p>
+
+    <h2 id="panes">Panes and groups</h2>
+    <p>Internally, a pane is called a <b>group</b> — an independent unit owning its own tab strip, active tab, and view mode (<code>EditorGroup</code>, <code>src/renderer/lib/stores/editor.svelte.ts:100-105</code>). A window with no splits is just one group. The panes themselves are arranged in a recursive layout tree of horizontal/vertical splits with fractional sizes, so you can split a pane that's already inside a split (<code>LayoutNode</code>, <code>src/renderer/lib/editor/layout-tree.ts:12-27</code>); dragging the hairline between two panes resizes just that pair.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Split right</div>
+        <div class="v"><kbd>⌘</kbd><kbd>\</kbd> (<kbd>Ctrl</kbd><kbd>\</kbd> on Windows/Linux), the split-pane icon button in a pane's toolbar, or <b>View → Split Editor Right</b>. Splits the focused pane horizontally, adding a new empty pane to its right and focusing it (<code>editor.splitGroup(groupId, 'horizontal')</code>, <code>src/renderer/lib/stores/editor.svelte.ts:253-262</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Split down</div>
+        <div class="v"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>\</kbd> (<kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>\</kbd>), the toolbar's split-down button, or <b>View → Split Editor Down</b>. Same as Split Right but stacks the new pane vertically, below the focused one.</div>
+      </div>
+      <div class="row">
+        <div class="k">Drag a tab to an edge</div>
+        <div class="v">Press and drag a tab toward the left, right, top, or bottom edge of any pane; a preview shows where it'll land. Dropping on an edge band splits that pane along the matching axis and moves the tab into the new sub-pane — dragging to the left or right edge splits horizontally, top or bottom splits vertically (<code>dropZoneFromFraction</code> / <code>splitForZone</code>, <code>src/renderer/lib/editor/drop-zone.ts:13-46</code>).</div>
+      </div>
+      <div class="row">
+        <div class="k">Focus next / previous pane</div>
+        <div class="v"><kbd>⌘</kbd><kbd>⌥</kbd><kbd>→</kbd> / <kbd>⌘</kbd><kbd>⌥</kbd><kbd>←</kbd> (<kbd>Ctrl</kbd><kbd>Alt</kbd>), or <b>View → Focus Next/Previous Group</b>. Cycles focus through panes in left-to-right visual order, wrapping at the ends.</div>
+      </div>
+      <div class="row">
+        <div class="k">Close pane</div>
+        <div class="v"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>W</kbd> or <b>View → Close Group</b>. Closes every tab in the focused pane and collapses it out of the layout tree, rebalancing the remaining split.</div>
+      </div>
+    </div>
+
+    <h2 id="moving-tabs">Moving tabs between panes</h2>
+    <p>Once you have more than one pane, a tab can move between them two ways:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Drag to center</div>
+        <div class="v">Drag a tab and drop it in the middle of another pane (including onto its tab bar) rather than on an edge — this moves the tab into that pane without creating a new split, the same "move here" gesture VS Code uses.</div>
+      </div>
+      <div class="row">
+        <div class="k">Move to Other Group</div>
+        <div class="v">Right-click a tab for its context menu. With exactly one other pane open it's a single-click <b>Move to Other Group</b>; with more than two panes it expands into a submenu listing each by position (Group 1, Group 2, …) so you can pick the destination (<code>TabBar.svelte:174-180</code>).</div>
+      </div>
+    </div>
+
+    <p>A file, source, or PDF can only be open in one pane at a time — Minerva won't let you open the same note twice into two panes as separate buffers, since that would race two copies against each other on save. Trying to open something that's already open elsewhere just refocuses the pane it's already in.</p>
+
+    <h2 id="view-mode">Each pane keeps its own view mode</h2>
+    <p>View mode — <a href="viewing-options-view-modes.html">Source, Preview, or Editor + Preview</a> — lives on the group, not on the note or the window. Split a pane and the new one inherits the splitting pane's mode so the split feels continuous, but from that point the two are independent: switch one pane to Preview and the other stays in Source, and each remembers its own mode as you switch which note is open in it.</p>
+
+    <div class="shot wide">
+      <div class="icon">🪟</div>
+      <div class="k">Screenshot — Two panes, two view modes</div>
+      <div class="d">The editor split vertically into two side-by-side panes via Split Right. The left pane shows a note in Source mode with raw markdown and an open wiki-link; the right pane shows a different note in Preview mode, fully rendered. Each pane has its own tab strip and toolbar above it, with the right pane's "Preview" button highlighted as active and the left pane's "Source" button highlighted instead.</div>
+    </div>
+
+    <h2 id="windows">Opening a new window</h2>
+    <p><b>File → New Window</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd>) opens a second, completely blank Minerva window with no project loaded — you then open a thoughtbase into it the same way you would the first window. It is not tied to whatever project is open in the window you triggered it from.</p>
+
+    <div class="box">
+      <span class="label">Same project, or a different one — your choice</span>
+      <p>A new window can open the <em>same</em> thoughtbase as another open window, or a completely different one. When two windows point at the same project's root path, Minerva shares one underlying project context between them — the graph, search index, tables, and embeddings are initialized once and reference-counted across acquiring windows, not duplicated (<code>acquireProject</code>, <code>src/main/project-context.ts:52-96</code>). A note saved in one window is written to disk and re-indexed once; the other window's file watcher picks up the change and reflects it, same as if the file had changed from outside the app.</p>
+    </div>
+
+    <h2 id="which">Split pane or new window?</h2>
+    <p>Both let you look at two things at once — the difference is scope and independence:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Prefer a split</div>
+        <div class="v">You're working within one project and want two views alongside each other on one screen — a source next to the note citing it, an outline next to a draft, or the same note in Source and Preview. Panes share the window's size, menu, and focus.</div>
+      </div>
+      <div class="row">
+        <div class="k">Prefer a new window</div>
+        <div class="v">You want a second, independently movable and resizable surface — across two monitors, for example — or you want to have <em>two different projects</em> open at once. A window is also the only way to get a fully separate set of panes: splitting only subdivides the window you're already in.</div>
+      </div>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Closing a pane's last tab collapses the pane.</b> Close every tab in a split pane (one at a time, or via Close All) and the now-empty pane collapses out of the layout tree automatically, handing its space back to its sibling — you don't end up staring at a blank pane. The one exception is a window with a single pane and no split: that one stays, showing its normal empty "no file open" state, since a window always keeps at least one pane.</li>
+      <li><b>A new window starts blank, not cloned.</b> New Window never copies the current window's open tabs, panes, or project — it's a fresh window exactly like the one you'd get from launching the app again. If you want the same project open a second time, you open it again from the new window's File menu (or Recent Thoughtbases).</li>
+      <li><b>Same project across windows means shared state, not synced UI.</b> The graph and indexes are shared and stay consistent, but each window's panes, tabs, and view modes are independent — closing a pane in one window has no effect on the other.</li>
+      <li><b>Drag vs. click targets differ by pixel region.</b> The edge bands that trigger a split are the outer quarter of a pane on each side; the inner half plus the entire tab bar is the "move without splitting" zone. If a drag keeps splitting when you meant to move a tab into a pane, drop closer to its center or onto its tab bar instead.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="viewing-options-font-size-zoom.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Font size &amp; zoom</span>
+      </a>
+      <a class="next" href="editor.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Editor →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
