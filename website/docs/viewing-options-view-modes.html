@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — View Modes</title>
+<meta name="description" content="The three ways to view a note in Minerva — Source, Preview, and side-by-side Editor+Preview — and how to switch between them with the toolbar buttons or the cycle shortcut." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="viewing-options-view-modes.html" class="sub active">View modes</a>
+    <a href="viewing-options-themes.html" class="sub">Themes</a>
+    <a href="viewing-options-font-size-zoom.html" class="sub">Font size &amp; zoom</a>
+    <a href="viewing-options-split-panes-windows.html" class="sub">Split panes &amp; windows</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>View modes</p>
+
+    <h1>View modes</h1>
+    <p class="lede">Every open note has a view mode: raw markdown in the editor, the rendered read-only page, or both side by side. It's a per-pane setting — a <a href="viewing-options-split-panes-windows.html">split pane</a> can show one note in Source while another shows a different note in Preview — and switching modes never touches the file on disk, so it's a free, reversible way to look at the same content differently.</p>
+
+    <h2 id="modes">The three modes</h2>
+    <p>The mode lives on the pane (called a "group" internally), not on the note itself — reopen a note later and it comes back in whatever mode that pane was last set to, not whatever mode it was in when you closed it (<code>src/renderer/lib/stores/editor.svelte.ts:576</code> — <code>setViewMode(mode, groupId)</code> sets it per group).</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Source</div>
+        <div class="v">The raw <code>.md</code> text in the CodeMirror editor — what you'll want for anything mechanical: fixing a wiki-link, editing frontmatter, working inside a code fence. Labeled <b>Source</b> on the toolbar.</div>
+      </div>
+      <div class="row">
+        <div class="k">Preview</div>
+        <div class="v">The fully rendered, read-only page — headings, callouts, math, diagrams, charts, and embedded media all render live. Labeled <b>Preview</b> on the toolbar.</div>
+      </div>
+      <div class="row">
+        <div class="k">Editor + Preview</div>
+        <div class="v">Source on the left, rendered Preview on the right, in the same pane. Internally this is the <code>editor-preview</code> mode; the toolbar calls it <b>Side by side</b>.</div>
+      </div>
+    </div>
+
+    <p>These three are exactly the values of the <code>ViewMode</code> union — <code>'source' | 'preview' | 'editor-preview'</code> (<code>src/renderer/lib/stores/editor.svelte.ts:92</code>). A plain-text file (no markdown rendering — see <a href="notes.html">Notes</a>) skips the toggle entirely and only shows Source, since a Preview of plain text would just be an empty pane.</p>
+
+    <div class="shot wide">
+      <div class="icon">🪟</div>
+      <div class="k">Screenshot — Editor + Preview split mode</div>
+      <div class="d">A note pane in "Side by side" mode: the CodeMirror source editor on the left with raw markdown and an open code fence, and the rendered Preview pane on the right showing the same content formatted, separated by a hairline divider. The toolbar above shows Source / Side by side / Preview with "Side by side" highlighted as active.</div>
+    </div>
+
+    <h2 id="switching">Switching modes</h2>
+    <p>Two ways to change a pane's mode, both acting on the same underlying <code>editor.setViewMode()</code> / <code>editor.cycleViewMode()</code> calls:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Toolbar buttons</div>
+        <div class="v">Three buttons above the note — <b>Source</b>, <b>Side by side</b>, <b>Preview</b> — jump straight to that mode regardless of what it's currently showing. Each calls <code>editor.setViewMode('source' | 'editor-preview' | 'preview', groupId)</code> directly (<code>src/renderer/App.svelte:1360-1372</code>); there's no cycling involved, so you can go from Source straight to Preview without passing through the split view.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cycle shortcut — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div>
+        <div class="v">Steps the active pane through the three modes in order: <b>Source → Preview → Editor + Preview → Source</b> (<code>cycleViewMode()</code>, <code>src/renderer/lib/stores/editor.svelte.ts:580-585</code>). Bound globally as <kbd>Cmd</kbd><kbd>Shift</kbd><kbd>P</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd> (<code>src/renderer/lib/keymap/handle-keydown.ts:52-55</code>) and also reachable from the View menu as <b>Cycle Preview Mode</b> (<code>src/main/menu.ts:428-432</code>).</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Why ⌘P was taken already</span>
+      <p>Minerva binds <kbd>⌘</kbd><kbd>P</kbd> to <a href="navigation-quick-switch.html">Quick switch</a> rather than a preview toggle, unlike some other markdown editors — so the cycle shortcut adds <kbd>⇧</kbd> instead. See <a href="navigation-command-palette.html">Command palette</a> for the related <kbd>⌘</kbd><kbd>K</kbd> binding.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>No scroll sync in Side by side.</b> The source and preview panes scroll independently — scrolling one does not move the other. Each pane just remembers its own scroll position for restoring the note later (<code>src/renderer/lib/components/Editor.svelte:932-933</code>); they aren't linked to each other.</li>
+      <li><b>Cursor and scroll position survive a mode switch.</b> Toggling between Source, Preview, and Side by side doesn't remount the editor — it's only swapping which pane(s) are visible around it — so your cursor offset and scroll position in the source editor are exactly where you left them when you switch back to Source.</li>
+      <li><b>The mode belongs to the pane, not the note.</b> Split your window into two panes, put one in Preview and one in Source, and that assignment sticks per pane even as you switch which note is open in it.</li>
+      <li><b>Plain-text files have no toggle.</b> A file that Minerva treats as plain text (not markdown) has nothing to render, so the Source/Side by side/Preview toolbar doesn't appear for it at all — you're always in Source for those.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="viewing-options.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Viewing options</span>
+      </a>
+      <a class="next" href="viewing-options-themes.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Themes →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
