@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Search</title>
+<meta name="description" content="Search (⌘⇧F) is Minerva's project-wide find/replace: a live, debounced grep across every note, Turtle file, CSV, and Python cell, grouped by file with jump-to-match — not a graph or title search." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="navigation-command-palette.html" class="sub">Command palette</a>
+    <a href="navigation-quick-switch.html" class="sub">Quick switch</a>
+    <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
+    <a href="navigation-search.html" class="sub active">Search</a>
+    <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
+    <a href="navigation-back-forward.html" class="sub">Back / forward</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Search</p>
+
+    <h1>Search</h1>
+    <p class="lede">Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd> (or <kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd>) to open <b>Find in Notes…</b> — a project-wide search across every file's actual content, not just titles. Results update live as you type, grouped by file, and clicking any match opens the note with the cursor placed at that exact line and column.</p>
+
+    <h2 id="opening">Opening it</h2>
+    <p>Search lives in <code>FindInNotesDialog.svelte</code>, a modal dialog with a segmented toggle between two modes: <b>Find</b> and <b>Find and Replace</b>. It's reachable three ways, all landing on the same dialog:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+        <div class="v">Opens in <b>Find</b> mode. Registered as a native Electron menu accelerator on <b>Edit → Find in Notes…</b>, not in the app's own keymap handler — it fires whether or not the editor has focus.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd></div>
+        <div class="v">Opens the same dialog directly in <b>Find and Replace</b> mode, via <b>Edit → Replace in Notes…</b>. You can still switch modes with the segmented control once it's open.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette</div>
+        <div class="v">"Find in Notes…" is listed under the Edit category in the <a href="navigation-command-palette.html">command palette</a> (<kbd>⌘</kbd><kbd>K</kbd>), for when your hands are already there.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Not the same as ⌘F</span>
+      <p><kbd>⌘</kbd><kbd>F</kbd> and <kbd>⌘</kbd><kbd>H</kbd> — without Shift — open CodeMirror's built-in search panel inside the <em>current</em> editor tab only. Search proper (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) is the project-wide version: same underlying idea, different scope. If you're only turning up matches in the file you already have open, you pressed the wrong one.</p>
+    </div>
+
+    <h2 id="scope">What gets searched</h2>
+    <p>This is a literal, on-disk grep — not a graph query. It reads every indexable file fresh from the filesystem on each search and scans line by line for the pattern; it never touches <code>.minerva/graph.ttl</code>, so it doesn't know about tags, typed links, or frontmatter as structured facts. If a tag or a linked title is spelled out in a file's text, a text match will still find it — but there's no separate graph-aware match type, no "matched because it's tagged X."</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">File types</div>
+        <div class="v">Every indexable file in the project: notes (<code>.md</code>), Turtle blocks and standalone RDF (<code>.ttl</code>), CSV data (<code>.csv</code>), and Python compute cells (<code>.py</code>). The same extension set the sidebar and file watcher treat as first-class notebase files — the same folders are excluded too (<code>.git</code>, <code>node_modules</code>, <code>.minerva</code>, <code>.obsidian</code>, dotfiles).</div>
+      </div>
+      <div class="row">
+        <div class="k">Body content</div>
+        <div class="v">Yes — this is the primary thing being matched. Every line of every file is scanned against the pattern.</div>
+      </div>
+      <div class="row">
+        <div class="k">File and note names</div>
+        <div class="v">No. Only file <em>contents</em> are matched against the pattern; a filename that happens to match your query but doesn't contain it in the body won't turn up. The file's relative path is shown as each result group's header, but it isn't itself searched — that's what <a href="navigation-quick-switch.html">Quick switch</a> is for.</div>
+      </div>
+      <div class="row">
+        <div class="k">Graph facts (tags, typed links, frontmatter)</div>
+        <div class="v">Not as structured data. Search bypasses the knowledge graph entirely — it's a text scan, so a tag like <code>#draft</code> or a wiki-link's raw <code>[[target]]</code> syntax matches only because the literal characters are present in the file, the same as any other text.</div>
+      </div>
+      <div class="row">
+        <div class="k">Case sensitivity</div>
+        <div class="v">Case-insensitive by default. Toggle the <code>Aa</code> button next to the search field to match case exactly.</div>
+      </div>
+      <div class="row">
+        <div class="k">Regular expressions</div>
+        <div class="v">Off by default — a plain query is treated as a literal substring (special regex characters are escaped automatically). Toggle the <code>.*</code> button to write a real pattern instead.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔎</div>
+      <div class="k">Screenshot — Search results for a query</div>
+      <div class="d">The Find in Notes dialog with a query typed into the pattern field, the Aa and .* flag buttons in their default off state, and a results list below grouped into collapsible file sections — each match row showing a line:column locator and a line-of-context excerpt with the matched text highlighted in an amber &lt;mark&gt;.</div>
+    </div>
+
+    <h2 id="results">Results: grouping, ranking, and jumping in</h2>
+    <p>Results are grouped by file and sorted alphabetically by relative path — not by relevance, match count, or recency. There's no scoring: a query either matches a line or it doesn't. Within a file, matches appear in document order, top to bottom. Each file group is an expand/collapse accordion, useful when one file has a long run of matches you want out of the way.</p>
+
+    <p>Click any match row to jump straight to it: the note opens in the editor and the cursor lands at the exact line and column of the match, scrolled to the vertical center of the view. This is a real cursor placement, not just "open the file" — you can start typing immediately.</p>
+
+    <h2 id="live">Live search, not search-then-Enter</h2>
+    <p>Typing into the pattern field re-runs the search automatically, debounced by 200ms — there's no Enter key to press, no separate "search" button. Toggling case-sensitivity or regex mode re-runs it the same way. A running match/file count sits in the dialog header once results come in.</p>
+
+    <h2 id="replace">Find and Replace</h2>
+    <p>Switching to Replace mode adds a replacement field and a per-match checkbox next to every result (all checked by default), plus file-level checkboxes for bulk toggling. <b>Replace Selected</b> applies only the checked matches; <b>Replace All</b> applies every current match regardless of checkbox state. Each result row previews what the line will read after replacement. Replace re-reads every target file from disk at apply time — rather than trusting what was on screen at search time — so a file changed since your last search is replaced against its current content, not a stale snapshot.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Reads from disk, not from memory.</b> Search has no dependency on the graph index — it's a fresh filesystem read on every keystroke. But that cuts both ways: if you have unsaved edits in an open editor tab, Search won't see them (or will still show old text) until the file is actually saved to disk.</li>
+      <li><b>No fuzzy matching here.</b> Unlike <a href="navigation-quick-switch.html">Quick switch</a>'s multi-strategy fuzzy scoring, Search is a literal substring or regex match — nothing in between. A typo in your query simply won't match.</li>
+      <li><b>A literal <code>]</code> or regex metacharacter needs the right mode.</b> With the regex toggle off, everything you type — including characters like <code>.</code> or <code>*</code> — is escaped and matched literally. Turn on <code>.*</code> if you actually want regex semantics.</li>
+    </ul>
+
+    <h2 id="contrast">Search vs. Quick switch vs. the command palette</h2>
+    <p>The three sit side by side in the left sidebar for a reason — each answers a different question:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Search — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></div>
+        <div class="v">Find a <i>passage</i> — a full-text scan of every file's actual content, across the whole project. Use it when you remember something you wrote but not which note it's in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Quick switch — <kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="v">Jump to a <i>thing</i> — a note, source, or saved query — by fuzzy-matching its title or path. Never looks inside a file's content. See <a href="navigation-quick-switch.html">Quick switch</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Command palette — <kbd>⌘</kbd><kbd>K</kbd></div>
+        <div class="v">Run an <i>action</i> — a menu command, a skill, a setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
+      </div>
+    </div>
+
+    <p>If you know a note's title, Quick switch gets you there fastest. If you're hunting for a specific line of text and don't know (or don't remember) which note it lives in, Search is the tool — it's the only one of the three that looks inside file content rather than titles or command names.</p>
+
+    <div class="pager">
+      <a class="prev" href="navigation-wiki-links.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Wiki-links</span>
+      </a>
+      <a class="next" href="navigation-breadcrumbs.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Breadcrumbs →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
