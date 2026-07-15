@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Settings: Compute</title>
+<meta name="description" content="The Compute settings tab: selecting and probing the Python interpreter Minerva runs code cells with, and where the execution trust prompt actually lives." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub active">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Compute</p>
+
+    <h1>Compute</h1>
+    <p class="lede">The Compute tab is one thing: which Python interpreter Minerva runs your <code>python</code> cells with. There's no separate trust switch to configure here — the one-time consent prompt for running Python at all lives at the point you actually run a cell, not in Settings. See <a href="notes-code.html">Code &amp; compute cells</a> for the fence syntax, how output is written back into a note, and the full execution-trust model.</p>
+
+    <h2 id="interpreter">Python interpreter</h2>
+    <p>This tab has a single field: a path to a Python executable. It's a per-machine override, not a per-project one — every thoughtbase you open on this computer shares whatever interpreter you set here.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Python interpreter path</div>
+        <div class="v">A text field for the path to the Python binary Minerva should invoke — for example <code>/Users/you/.minerva-venv/bin/python</code>. Left empty, Minerva resolves an interpreter in order: the <code>MINERVA_PYTHON</code> environment variable, then <code>python3</code> on <code>$PATH</code>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Browse…</div>
+        <div class="v">Opens a native file picker to select the interpreter binary instead of typing a path. Selecting a file probes it immediately, so you see right away whether it's runnable.</div>
+      </div>
+      <div class="row">
+        <div class="k">Probe</div>
+        <div class="v">Runs <code>python --version</code> against whichever path is currently in the field (or, if the field is empty, against whatever the resolver would currently pick) and reports the result inline — the resolved version string on success, or the interpreter's own error text on failure. Probing doesn't save anything; it's a dry run.</div>
+      </div>
+      <div class="row">
+        <div class="k">Save</div>
+        <div class="v">Writes the current path as the per-machine override. Disabled when the field matches what's already saved, so it only lights up once there's an actual change to persist.</div>
+      </div>
+      <div class="row">
+        <div class="k">Save &amp; Restart Kernel</div>
+        <div class="v">Saves the path and restarts the persistent Python process immediately, so the very next cell you run picks up the new interpreter. Restarting wipes the kernel's namespace — variables and imports from earlier cells in any open note are gone, the same as if you'd started a fresh Minerva session.</div>
+      </div>
+      <div class="row">
+        <div class="k">Clear override</div>
+        <div class="v">Empties the saved path, returning to the <code>MINERVA_PYTHON</code> / <code>python3</code> resolution order above. Only appears once a path has been saved.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🐍</div>
+      <div class="k">Screenshot — Settings → Compute tab</div>
+      <div class="d">The Compute settings panel: the Python interpreter path field with Browse and Probe buttons beside it, a probe-result strip beneath showing a resolved version string and path, and the Save / Save &amp; Restart Kernel / Clear override row underneath.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Where the trust prompt actually is</span>
+      <p>The tab's sub-line in the Settings menu reads "Python interpreter · trust," but there's no toggle for it here — the trust model isn't a setting you configure in advance, it's a one-time confirmation dialog that appears the first time you run a Python cell in a given project. Declining leaves the cell unrun until you approve it later; approving is remembered for the rest of that project. That prompt, what it gates, and why SPARQL and SQL fences skip it entirely, are covered in <a href="notes-code.html#trust">Code &amp; compute cells — Approval and the knowledge graph</a>. This page is only about which interpreter binary gets used once that trust is in place.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>A saved path that stops existing fails at run time, not save time.</b> Saving doesn't validate the path — Probe does, but Save doesn't require a successful probe first. If an interpreter gets uninstalled, moved, or was on a drive that's no longer mounted, the saved override stays in place and the next cell run simply fails with the interpreter's own error text in the output block. Come back to this tab, Probe to confirm, and Browse to a valid binary.</li>
+      <li><b>It's per-machine, so it doesn't travel with the project.</b> Open the same thoughtbase on another computer and it resolves the interpreter fresh on that machine — the environment variable or <code>python3</code> on that machine's <code>PATH</code>, unless you set an override there too. A project's notes never encode which interpreter produced their output.</li>
+      <li><b>Restarting the kernel is a real reset.</b> Any variable, DataFrame, or import built up across a note's Python cells is gone after Save &amp; Restart Kernel. If you need that state, re-run the note's cells from the top afterward rather than assuming Minerva carries anything forward.</li>
+      <li><b>Probing the empty field probes the resolver, not "nothing."</b> With the path field blank, Probe still runs against whatever <code>MINERVA_PYTHON</code> or <code>python3</code> would resolve to — so a failed probe on an empty field usually means neither of those is set up, not that probing was skipped.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="settings-clipper.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Clipper</span>
+      </a>
+      <a class="next" href="settings-ai.html">
+        <span class="dir">Next</span>
+        <span class="ttl">AI →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
