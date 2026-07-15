@@ -59,6 +59,11 @@ export interface EngineOptions {
    *  Resolved lazily — the shared embedder is only constructed if `semantic`
    *  actually runs. */
   embedder?: ChunkEmbedder | undefined;
+  /** Absolute path to the bundled `resources/` dir. The CLI derives this from the
+   *  bundle location so semantic search finds the model regardless of the
+   *  caller's cwd; the app omits it (electron resolves via `process.resourcesPath`)
+   *  and tests inject a fake embedder instead. */
+  resourcesBase?: string | undefined;
 }
 
 const SEMANTIC_EMPTY_NOTE =
@@ -90,7 +95,7 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
   })());
   const ensureVectors = () => (vectorsReady ??= (async () => {
     await ensureMinervaDir();
-    await vectors.init(ctx, { embedder: opts.embedder ?? getSharedEmbedder() });
+    await vectors.init(ctx, { embedder: opts.embedder ?? getSharedEmbedder(opts.resourcesBase) });
   })());
 
   return {

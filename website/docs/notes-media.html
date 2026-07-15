@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Media</title>
+<meta name="description" content="Embedding YouTube videos in Minerva notes: the youtube fence syntax, accepted URL forms and timestamps, the click-to-open poster card, and how embeds degrade on export." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-media.html" class="sub active">Media</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Media</p>
+
+    <h1>Media</h1>
+    <p class="lede">Media in Minerva means YouTube. Put a video URL in a <code>youtube</code> fence and the preview draws a poster card — the video's thumbnail with a play button — that opens the video in your default browser when you click it. Minerva deliberately doesn't run a live player inside the app: no third-party frame or script ever loads in your notes, and nothing is fetched from YouTube until you actually view a note containing an embed.</p>
+
+    <h2 id="syntax">The <code>youtube</code> fence</h2>
+    <p>A media embed is a fenced code block whose language is <code>youtube</code>. The first non-empty line is the video URL; any lines after it become an optional caption, shown on the card in place of the default "Watch on YouTube" label.</p>
+
+<pre><code>```youtube
+https://www.youtube.com/watch?v=aBcDeFgHiJk
+Feynman on how rubber bands work
+```</code></pre>
+
+    <p>To insert one, right-click in the editor and choose <b>Elements → YouTube Video</b> — it drops an empty fence with the cursor inside, ready for a pasted URL.</p>
+
+    <h2 id="urls">Accepted URL forms</h2>
+    <p>Paste the URL in whatever shape YouTube gave you — the address bar, the Share button, or an embed snippet all work. Minerva recognizes:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>youtube.com/watch?v=ID</code></div>
+        <div class="v"><b>Standard watch URL.</b> The address-bar form. Extra query parameters (<code>&amp;list=</code>, <code>&amp;si=</code>, <code>&amp;feature=</code>, …) are tolerated and stripped.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>youtu.be/ID</code></div>
+        <div class="v"><b>Share link.</b> The short form the Share button copies.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>…/shorts/ID</code></div>
+        <div class="v"><b>Shorts.</b> A Short embeds like any other video.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>…/embed/ID</code> <code>…/live/ID</code> <code>…/v/ID</code></div>
+        <div class="v"><b>Embed, live, and legacy paths.</b> Useful when you're pasting a URL dug out of an <code>&lt;iframe&gt;</code> snippet. The privacy domain <code>youtube-nocookie.com</code> is accepted too.</div>
+      </div>
+    </div>
+
+    <p><code>www.</code> and <code>m.</code> prefixes and <code>http</code> vs. <code>https</code> don't matter. Whatever form you paste, Minerva normalizes it to a clean <code>youtube.com/watch?v=ID</code> link with tracking parameters removed — that normalized URL is what opens when you click the card.</p>
+
+    <h3 id="timestamps">Timestamps</h3>
+    <p>A <code>t=</code> or <code>start=</code> parameter survives normalization, so a "start at 1:30" link keeps its offset. Both the bare-seconds form (<code>t=90</code>) and the colloquial forms (<code>t=90s</code>, <code>t=2m30s</code>, <code>t=1h2m3s</code>) are understood; the canonical link becomes <code>watch?v=ID&amp;t=90s</code>.</p>
+
+    <h2 id="rendering">How the card renders</h2>
+    <p>In preview, the fence becomes a poster card: the video's thumbnail with a play button over it, your caption (or "Watch on YouTube") beneath, and a <code>youtube.com</code> host line so it's obvious where a click leads. Clicking the card — or focusing it and pressing <kbd>Enter</kbd>; it's an ordinary link — opens the video in your default browser, at the timestamp if the URL carried one.</p>
+
+    <div class="shot wide">
+      <div class="icon">🎬</div>
+      <div class="k">Screenshot — YouTube poster card in preview</div>
+      <div class="d">A rendered note with a youtube-fence poster card: the video thumbnail with a centered play button, a caption line below it, and the youtube.com host label.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">Why not an inline player?</span>
+      <p>An embedded player means YouTube's scripts and cookies running inside your knowledge base. Minerva's renderer forbids third-party frames outright, so the card is the whole story: the only network request is for the static thumbnail image, made when you view the note, and playback happens in your browser where you already manage that relationship.</p>
+    </div>
+
+    <h2 id="export">On export</h2>
+    <p>The interactive card is meaningless in an exported file, so when you publish or export a note each <code>youtube</code> fence degrades to a linked thumbnail — the poster image wrapped in a link to the video, <code>[![caption](thumbnail)](watch-url)</code> in markdown terms. A reader of the exported artifact still sees the poster and can click through to watch.</p>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>Paste a full URL, scheme and all.</b> A bare video id or a schemeless <code>youtube.com/watch?v=…</code> doesn't parse — the fence renders an "Unrecognized YouTube URL" error in its place. Copy the complete <code>https://</code> URL from the browser or the Share button. The error is inline and harmless; fix the URL and the card appears.</li>
+      <li><b>One video per fence.</b> Only the first non-empty line is read as the URL. A second URL on a later line isn't a second embed — it's caption text.</li>
+      <li><b>Videos only, not playlists or channels.</b> Playlist, channel, and <code>@handle</code> URLs don't resolve. A watch URL that carries a <code>&amp;list=</code> parameter embeds fine, but the playlist context is dropped — the card links to that single video.</li>
+      <li><b>No title lookup.</b> Fetching the real title would mean calling YouTube every time the note renders, which Minerva won't do. The card shows your caption or the generic "Watch on YouTube" — write a caption if the note should read well.</li>
+      <li><b>Offline, the thumbnail is blank.</b> The poster image comes from <code>img.youtube.com</code> when the note is viewed. Without a network the card still renders — caption, play button, working link — just without the picture, and the image fills in next time you view the note online.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="notes-images.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Images</span>
+      </a>
+      <a class="next" href="notes-footnotes.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Footnotes →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

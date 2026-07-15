@@ -253,7 +253,10 @@ export async function runMcpServer(
     output?: NodeJS.WritableStream;
   } = {},
 ): Promise<void> {
-  const engine = createEngine(projectContext(root), { embedder: opts.embedder });
+  const engine = createEngine(projectContext(root), {
+    embedder: opts.embedder,
+    resourcesBase: opts.resourcesBase,
+  });
   const session: McpSession = {};
   const input = opts.input ?? process.stdin;
   const output = opts.output ?? process.stdout;

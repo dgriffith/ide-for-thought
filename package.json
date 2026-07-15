@@ -11,10 +11,13 @@
     "url": "git+https://github.com/dgriffith/ide-for-thought.git"
   },
   "main": ".vite/build/main.js",
+  "bin": {
+    "minerva": ".vite/build/cli.js"
+  },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "electron-forge start",
-    "cli:build": "vite build --config vite.cli.config.ts",
+    "cli:build": "vite build --config vite.cli.config.ts && chmod +x .vite/build/cli.js",
     "cli": "pnpm cli:build && node .vite/build/cli.js",
     "build": "electron-forge make",
     "package": "electron-forge package",

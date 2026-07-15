@@ -155,14 +155,23 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
   try {
     const root = await resolveProjectRoot(args.project, opts.cwd);
 
+    // The bundled model lives at <repo>/resources. Both the built bundle
+    // (.vite/build/cli.js) and the TS source (src/cli/run.ts) sit two levels
+    // below the repo root, so this resolves the model regardless of the caller's
+    // cwd — where the embedder's old cwd-relative fallback broke (#1149).
+    const resourcesBase = path.join(__dirname, '..', '..', 'resources');
+
     // The MCP server is long-lived and owns its own IO; it doesn't fit the
     // request/response shape, so it's handled before the engine dispatch.
     if (args.command === 'mcp') {
-      await runMcpServer(root, { embedder: opts.embedder });
+      await runMcpServer(root, { embedder: opts.embedder, resourcesBase });
       return { stdout: '', stderr: '', code: 0 };
     }
 
-    const engine: Engine = createEngine(projectContext(root), { embedder: opts.embedder });
+    const engine: Engine = createEngine(projectContext(root), {
+      embedder: opts.embedder,
+      resourcesBase,
+    });
     const rest = args.positionals.join(' ');
 
     switch (args.command) {

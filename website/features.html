@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Features</title>
+<meta name="description" content="Minerva is a desktop workspace for thinking with AI. Turn throwaway AI conversations into structured, checkable, persistent knowledge you own." />
+<link rel="stylesheet" href="minerva.css" />
+<style>
+  /* features-page-only additions */
+  header.hero { padding: 96px 0 56px; text-align: center; }
+  .hero .logo { width: 96px; height: 96px; border-radius: 22px; margin: 0 auto 28px; display: block; box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+  .hero h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: 1.08; margin: 0 0 18px; letter-spacing: -0.02em; }
+  .hero h1 .grad { color: var(--accent); }
+  .hero p.tag { font-size: clamp(1.1rem, 2.2vw, 1.4rem); color: var(--text-muted); max-width: 720px; margin: 0 auto 34px; }
+  .hero .cta { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+  .split.reverse .col-text { order: 2; }
+  @media (max-width: 820px) { .split { grid-template-columns: 1fr; gap: 28px; } .split.reverse .col-text { order: 0; } }
+
+  ul.feat li b { color: var(--text); }
+
+  .skills { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 30px; }
+  @media (max-width: 820px) { .skills { grid-template-columns: 1fr; } }
+  .skillcol { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; }
+  .skillcol h3 { margin: 0 0 4px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+  .skillcol .count { color: var(--accent-dim); font-size: 0.85rem; font-weight: 500; }
+  .skillcol ul { list-style: none; padding: 0; margin: 14px 0 0; }
+  .skillcol li { padding: 5px 0; font-size: 0.92rem; border-bottom: 1px solid var(--border); }
+  .skillcol li:last-child { border-bottom: none; }
+  .skillcol li b { color: var(--text); font-weight: 600; }
+  .skillcol li span { color: var(--text-faint); display: block; font-size: 0.84rem; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .chip { background: var(--bg-elev-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 15px; font-size: 0.9rem; font-weight: 550; }
+  .chip span { color: var(--text-faint); font-weight: 400; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plumage" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eyeGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plumage)"/>
+        <path d="M330 410 C 300 320, 320 270, 372 250 C 388 320, 392 372, 384 412 Z" fill="#b9802f"/>
+        <path d="M694 410 C 724 320, 704 270, 652 250 C 636 320, 632 372, 640 412 Z" fill="#b9802f"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plumage)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#face)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eyeGlow)"/><circle cx="586" cy="450" r="74" fill="url(#eyeGlow)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="features.html" class="active hide-sm">Features</a>
+      <a href="getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="about.html" class="hide-sm">About</a>
+      <a href="privacy.html" class="hide-sm">Privacy</a>
+      <a href="getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <svg class="logo" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva logo">
+      <defs>
+        <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+        <radialGradient id="glow2" cx="50%" cy="42%" r="55%"><stop offset="0%" stop-color="#5a6bc4" stop-opacity="0.55"/><stop offset="100%" stop-color="#5a6bc4" stop-opacity="0"/></radialGradient>
+        <linearGradient id="plumage2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+        <linearGradient id="face2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+        <radialGradient id="eyeGlow2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+      </defs>
+      <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#sky2)"/>
+      <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#glow2)"/>
+      <g fill="#fdf6df"><circle cx="220" cy="230" r="6"/><circle cx="800" cy="240" r="6.5"/><circle cx="860" cy="430" r="4"/><circle cx="170" cy="430" r="4.5"/><circle cx="150" cy="600" r="3"/><circle cx="880" cy="600" r="3.5"/></g>
+      <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plumage2)"/>
+      <path d="M330 410 C 300 320, 320 270, 372 250 C 388 320, 392 372, 384 412 Z" fill="#b9802f"/>
+      <path d="M694 410 C 724 320, 704 270, 652 250 C 636 320, 632 372, 640 412 Z" fill="#b9802f"/>
+      <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plumage2)"/>
+      <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#face2)"/>
+      <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+      <circle cx="438" cy="450" r="74" fill="url(#eyeGlow2)"/><circle cx="586" cy="450" r="74" fill="url(#eyeGlow2)"/>
+      <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+      <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+      <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+    </svg>
+
+    <span class="pill">A desktop workspace for thinking and building with AI</span>
+    <h1>What you build with AI<br>deserves more than a <span class="grad">quick chat</span>.</h1>
+    <p class="tag">The best thinking you do with an AI vanishes into a scroll of throwaway conversations — unsourced, unstructured, impossible to build on. Minerva is where that work lands and stays: knowledge you can check, connect, and keep. You and the AI build it together — with you fully in control.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="getting-started.html">Download Minerva</a>
+      <a class="btn btn-ghost" href="#control">You're in control</a>
+    </div>
+
+    <div class="shot hero-shot">
+      <div class="icon">🖼️</div>
+      <div class="k">Screenshot — Hero</div>
+      <div class="d">Full app window: sidebar with a thoughtbase, a note open in split view (source + live preview), and the query panel visible. Use the dark theme.</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ WHAT IS A THOUGHTBASE ============ -->
+<section id="thoughtbase">
+  <div class="wrap">
+    <p class="eyebrow">The Big Idea</p>
+    <h2>Thoughtbases:<span style="color:var(--accent);"> webs of human and AI thought</span></h2>
+    <p class="lede">A Minerva thoughtbase is where your thinking on a subject lives and grows. Instead of scattered documents and lost chat threads, you collect what you're working through as <b>notes</b> — and those notes link to each other, so ideas connect the way they do in your head. Some you write yourself; some you draft side by side with the AI. Over time it becomes a living map of what you know, not a folder of dead files.</p>
+    <div class="grid">
+      <div class="card"><span class="em">🧵</span><h3>Notes of every kind</h3><p>A note can be a stray paragraph, a full essay, a table of data, a diagram, an image, a math derivation, or a captured web page. Whatever the thought needs.</p></div>
+      <div class="card"><span class="em">🔗</span><h3>Linked, not filed</h3><p>Connect any note to any other with a link — cite it, support it, contradict it, build on it. Follow the threads instead of hunting through folders.</p></div>
+      <div class="card"><span class="em">🤝</span><h3>Yours and the AI's, together</h3><p>Write by hand when you want to, or let the AI draft, summarize, and gather — with you approving what actually lands. Either way, it's yours to keep.</p></div>
+    </div>
+    <div class="shot wide">
+      <div class="icon">🗺️</div>
+      <div class="k">Screenshot — A thoughtbase</div>
+      <div class="d">A view that conveys "richly linked notes": several notes visible with wiki-links between them, a mix of media (text, a chart, an image, a source), and hover-preview of a linked note. The connections should read at a glance.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section id="editor">
+  <div class="wrap">
+    <div class="split">
+      <div class="col-text">
+        <p class="eyebrow">The Editor</p>
+        <h2>An editor that keeps up with your thinking</h2>
+        <p class="lede">A fast CodeMirror 6 surface with live preview. Write plain markdown; get rendered callouts, math, diagrams, charts, and code without leaving the keyboard.</p>
+        <ul class="feat">
+          <li><b>Three view modes</b> <span>— source, preview, or split, toggled instantly.</span></li>
+          <li><b>Wiki-links &amp; typed links</b> <span>— <code>[[note]]</code> plus 11 semantic link types (supports, rebuts, depends-on, supersedes…) each color-coded.</span></li>
+          <li><b>Rich blocks inline</b> <span>— callouts, tables, footnotes, highlights, math, diagrams, lists, and tables.</span></li>
+          <li><b>Code sections that run</b> <span>— Python, SQL, SPARQL, and Vega/Vega-Lite charts render live against your data, enabling powerful data visualizations.</span></li>
+          <li><b>Voice dictation</b> <span>— Native speech-to-text, take your notes by voice with AI-powered expansion.</span></li>
+        </ul>
+      </div>
+      <div class="col-shot">
+        <div class="shot">
+          <div class="icon">✍️</div>
+          <div class="k">Screenshot — Editor / split view</div>
+          <div class="d">A note in split mode showing wiki-links, a callout, a KaTeX equation, and a live Vega-Lite chart rendering in the preview pane.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ KNOWLEDGE ============ -->
+<section id="knowledge">
+  <div class="wrap">
+    <div class="split reverse">
+      <div class="col-text">
+        <p class="eyebrow">The Knowledge Graph</p>
+        <h2>A knowledge graph your AI can actually read</h2>
+        <p class="lede">On every change, Minerva reads the structure out of your writing — titles, tags, links, metadata, even data tables — and weaves it into a <b>knowledge graph</b>: a precise map of everything you've written and how it connects. That map is what lets the AI search for your real notes instead of guessing, and use them with context and understanding.</p>
+        <ul class="feat">
+          <li><b>Grounded, not guessed</b> <span>— the AI queries your knowledge graph to answer from what you actually wrote, and points back to the exact notes it drew on.</span></li>
+          <li><b>Insights surfaced for you</b> <span>— ask it to trace how a claim is supported, find where your notes contradict each other, or spot patterns across hundreds of them.</span></li>
+          <li><b>Built automatically</b> <span>— titles, <code>#tags</code>, wiki-links, metadata, and data tables all fold in on save. No schema wrangling.</span></li>
+          <li><b>Query it yourself, too</b> <span>— a built-in query panel is right there when you want to interrogate everything directly. Industry-standard SQL and SPARQL query languages supported.</span></li>
+        </ul>
+      </div>
+      <div class="col-shot">
+        <div class="shot">
+          <div class="icon">🕸️</div>
+          <div class="k">Screenshot — AI answering from the graph</div>
+          <div class="d">The AI in conversation surfacing an insight from the thoughtbase — an answer with citations linking back to the specific notes it drew on. (Optionally, the SPARQL query panel tucked alongside to show direct querying.)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DATA ANALYSIS ============ -->
+<section id="data">
+  <div class="wrap">
+    <p class="eyebrow">Data &amp; Analysis</p>
+    <h2>Bring data into your thinking</h2>
+    <p class="lede">Drop a CSV into your thoughtbase and it becomes a queryable table. Query it with SQL, run Python right in your notes, chart the result, and let Minerva help you find what's interesting.</p>
+    <div class="grid">
+      <div class="card"><span class="em">🐍</span><h3>Python cells</h3><p>A <code>python</code> code fence turns any note into a notebook. A <code>minerva.*</code> library API — <code>notes()</code>, <code>sparql()</code>, <code>sql()</code>, <code>table()</code> — hands you your own library as data; output renders inline.</p></div>
+      <div class="card"><span class="em">🗃️</span><h3>CSV → SQL tables</h3><p>Any <code>.csv</code> becomes a DuckDB table with inferred types. Run SELECT/WITH queries and bind results straight into charts.</p></div>
+      <div class="card"><span class="em">🧮</span><h3>The library is the data source</h3><p>Notebooks live inside the thoughtbase, not the other way around. Derived outputs save as notes with a <code>derivedFrom</code> link back to the computation.</p></div>
+      <div class="card"><span class="em">📈</span><h3>Generate Visualizations</h3><p>Point Minerva at a table and it proposes the right charts for the shape of your data — as a note you review.</p></div>
+      <div class="card"><span class="em">🔎</span><h3>Find Outliers</h3><p>Flag anomalous values in tabular data, with the reasoning written up as a reviewable note.</p></div>
+      <div class="card"><span class="em">🔗</span><h3>Find Correlations</h3><p>Surface the strongest relationships across your data before you go looking for them by hand.</p></div>
+    </div>
+    <div class="shot wide">
+      <div class="icon">📊</div>
+      <div class="k">Screenshot — Data analysis</div>
+      <div class="d">A note acting as a notebook: a Python (or SQL) code fence over a CSV table with its output — a chart or table — rendered inline below the cell.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SKILLS ============ -->
+<section id="skills">
+  <div class="wrap">
+    <p class="eyebrow">Tools for Thought</p>
+    <h2>Skills — thinking moves, one click away</h2>
+    <p class="lede">Minerva ships with a library of <b>skills</b>: structured thinking operations you invoke from the Learning, Research, and Analysis menus. Each runs a careful prompt over your note and returns something you review. Author your own in a markdown file; they show up in the menus alongside the built-ins.</p>
+
+    <div class="skills">
+      <div class="skillcol">
+        <h3>📚 Learning <span class="count">/ understand it</span></h3>
+        <ul>
+          <li><b>Explain Like I'm…</b><span>Re-explain at any level</span></li>
+          <li><b>Define Terms</b><span>Extract &amp; define the jargon</span></li>
+          <li><b>Find Prerequisites</b><span>What to learn first</span></li>
+          <li><b>Give Examples</b><span>Concrete illustrations</span></li>
+          <li><b>Quiz Me</b><span>Graded comprehension check</span></li>
+          <li><b>Propose Flashcards</b><span>Atomic Q/A for spaced repetition</span></li>
+          <li><b>Create Learning Journey</b><span>An ordered path to mastery</span></li>
+        </ul>
+      </div>
+
+      <div class="skillcol">
+        <h3>🔬 Research <span class="count">/ verify it</span></h3>
+        <ul>
+          <li><b>Check Facts</b><span>Web-verify a claim</span></li>
+          <li><b>Find Primary Sources</b><span>Past the citation chain</span></li>
+          <li><b>Find Sources</b><span>Build a reading list</span></li>
+          <li><b>Extract Key Claims</b><span>Each with a supporting excerpt</span></li>
+          <li><b>Decompose into Claims</b><span>One typed claim per assertion</span></li>
+          <li><b>Find Opposing / Supporting Arguments</b><span>The strongest case either way</span></li>
+          <li><b>Translate the Magnitude</b><span>Re-ground a number against base rates</span></li>
+        </ul>
+      </div>
+
+      <div class="skillcol">
+        <h3>🧠 Analysis <span class="count">/ pressure-test it</span></h3>
+        <ul>
+          <li><b>Steelman &amp; Antithesize</b><span>Strongest counter-case</span></li>
+          <li><b>Double Crux</b><span>Find the crux of a disagreement</span></li>
+          <li><b>Excavate</b><span>Surface hidden assumptions</span></li>
+          <li><b>Murphyjitsu</b><span>Pre-mortem a plan's failure</span></li>
+          <li><b>Dimensionalize</b><span>Reduce a decision to measurable axes</span></li>
+          <li><b>Reference Class</b><span>Forecast from the outside view</span></li>
+          <li><b>Synthesize, Negspace, Taboo, Metaphorize…</b><span>and many more</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="lede center" style="margin: 26px auto 0;">Nearly 50 skills in all — and the set is yours to extend and organize.</p>
+
+    <div class="shot wide">
+      <div class="icon">🧰</div>
+      <div class="k">Screenshot — Skills menu</div>
+      <div class="d">One of the menus (Analysis) open, showing grouped skills; or the conversation panel mid-run with a skill result streaming in.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ YOU DECIDE ============ -->
+<section id="control">
+  <div class="wrap">
+    <p class="eyebrow">You Decide</p>
+    <h2>The AI proposes. You confirm.</h2>
+    <div class="callout">
+      <p>"The AI suggests; you decide. What it produces is evidence for you to weigh and file — never a change to what you know until you say so."</p>
+      <p class="who">— Minerva's core design principle</p>
+    </div>
+    <div class="split" style="margin-top:40px;">
+      <div class="col-text">
+        <p class="lede">Nothing an AI generates touches your thoughtbase directly. Every suggested claim, edit, tag, or source arrives as a <b>proposal</b> you review side by side and accept with a single keystroke — or reject. Approved changes are written into your notes; ignored ones simply expire.</p>
+        <ul class="feat">
+          <li><b>Review before it counts</b> <span>— see exactly what would change, side by side, before it does.</span></li>
+          <li><b>You set the line</b> <span>— new claims require your sign-off; trivial tags can apply quietly. Tune what needs approval.</span></li>
+          <li><b>Full provenance</b> <span>— everything the AI touches records what proposed it and when.</span></li>
+          <li><b>Guaranteed, not promised</b> <span>— a built-in integrity check can prove nothing the AI created ever skipped your approval.</span></li>
+        </ul>
+      </div>
+      <div class="col-shot">
+        <div class="shot">
+          <div class="icon">✅</div>
+          <div class="k">Screenshot — Proposal review</div>
+          <div class="d">The proposals queue / side-by-side review showing a pending AI proposal with approve &amp; reject actions.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EPISTEMICS ============ -->
+<section id="epistemics">
+  <div class="wrap">
+    <p class="eyebrow">Structured Reasoning</p>
+    <h2>A vocabulary for how you know things</h2>
+    <p class="lede">Under the hood, Minerva models the <em>shape</em> of an argument, not just its text. Its thought ontology captures claims, the grounds and warrants behind them, and the ways reasoning goes wrong — so your thoughtbase can hold not only what you believe, but why.</p>
+    <div class="grid">
+      <div class="card"><span class="em">🧩</span><h3>Claims &amp; evidence</h3><p>Claims, grounds, warrants, backing, qualifiers, and rebuttals — an extended Toulmin model of argument.</p></div>
+      <div class="card"><span class="em">❓</span><h3>Questions &amp; hypotheses</h3><p>Track open questions, tentative hypotheses, findings, and the tensions between competing ideas.</p></div>
+      <div class="card"><span class="em">⚠️</span><h3>Epistemic defects</h3><p>Name fallacies, cognitive biases, rhetorical moves, and structural problems where reasoning breaks down.</p></div>
+      <div class="card"><span class="em">📌</span><h3>Anchored excerpts</h3><p>Pin verbatim quotes to a source by page, line, or text anchor — evidence you can always trace back.</p></div>
+      <div class="card"><span class="em">🧬</span><h3>Provenance throughout</h3><p>Aligned with W3C PROV-O: who or what created each node, and when, is always on record.</p></div>
+      <div class="card"><span class="em">🔍</span><h3>Queryable structure</h3><p>Because it's all connected and queryable, you can ask: which claim is load-bearing? What's unsupported?</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SOURCES ============ -->
+<section id="sources">
+  <div class="wrap">
+    <div class="split reverse">
+      <div class="col-text">
+        <p class="eyebrow">Sources &amp; the Web Clipper</p>
+        <h2>Capture the web, keep the receipts</h2>
+        <p class="lede">Minerva manages the sources behind your thinking — PDFs, web pages, papers, books — with real metadata and citations. The companion browser clipper saves what you're reading in one click, correctly, even behind a login.</p>
+        <ul class="feat">
+          <li><b>Minerva Clipper</b> <span>— one-click web capture that grabs the rendered page and a canonical source ID; save a selection as a linked excerpt.</span></li>
+          <li><b>Import anything</b> <span>— PDFs (with OCR), DOI / ISBN / arXiv IDs, BibTeX, and Zotero RDF exports.</span></li>
+          <li><b>Real metadata</b> <span>— author, date, DOI, abstract, reading status, and collections — manual or auto-extracted.</span></li>
+          <li><b>Source viewer</b> <span>— read the source inline, anchor excerpts, and see every note that cites it.</span></li>
+          <li><b>Citations &amp; bibliographies</b> <span>— CSL styles (APA, Chicago, MLA…) and BibTeX export.</span></li>
+        </ul>
+      </div>
+      <div class="col-shot">
+        <div class="shot">
+          <div class="icon">📎</div>
+          <div class="k">Screenshot — Clipper + source</div>
+          <div class="d">The browser clipper popup on a webpage on one side; the imported source's viewer in Minerva with an anchored excerpt on the other.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOUNDATIONS ============ -->
+<section id="foundations">
+  <div class="wrap">
+    <p class="eyebrow">Foundations</p>
+    <h2>Local-first, keyboard-driven, yours</h2>
+    <div class="grid">
+      <div class="card"><span class="em">🔒</span><h3>Local &amp; private</h3><p>Your notes are plain files on your disk. Voice, embeddings, and search all run on-device.</p></div>
+      <div class="card"><span class="em">🧭</span><h3>Semantic + full-text search</h3><p>Fast full-text search plus on-device embeddings to find notes by meaning, not just keywords.</p></div>
+      <div class="card"><span class="em">🔄</span><h3>Live file sync</h3><p>Notes are plain files — edit them anywhere. Minerva watches the folder and re-indexes changes the moment they hit disk.</p></div>
+      <div class="card"><span class="em">⌨️</span><h3>Keyboard-first</h3><p>Every major action has a shortcut. A professional tool that stays out of your way — no hand-holding, no nag screens.</p></div>
+      <div class="card"><span class="em">🎨</span><h3>Themes</h3><p>Dark, light, and high-contrast themes. Charts and diagrams re-skin live to match.</p></div>
+      <div class="card"><span class="em">🪟</span><h3>Split panes &amp; windows</h3><p>Open multiple thoughtbases in separate windows; split the editor and give each pane its own view mode.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EXPORT ============ -->
+<section id="export">
+  <div class="wrap">
+    <p class="eyebrow">Export &amp; Publish</p>
+    <h2>Take your thinking anywhere</h2>
+    <p class="lede">A thoughtbase isn't a silo. Export a single note or an entire folder tree to whatever form the moment calls for. Your thoughts are yours, fully exportable in standard formats. No lock-in. Ever.</p>
+    <div class="chips">
+      <div class="chip">Markdown <span>· note &amp; tree</span></div>
+      <div class="chip">HTML <span>· note &amp; tree</span></div>
+      <div class="chip">PDF <span>· note &amp; tree</span></div>
+      <div class="chip">Static Site <span>· browsable</span></div>
+      <div class="chip">Anki Flashcard Decks <span>· .apkg flashcards</span></div>
+      <div class="chip">BibTeX <span>· bibliography</span></div>
+      <div class="chip">Pandoc <span>· DOCX, EPUB &amp; more</span></div>
+      <div class="chip">RDF / Turtle <span>· your knowledge, portably</span></div>
+    </div>
+    <div class="shot wide">
+      <div class="icon">📤</div>
+      <div class="k">Screenshot — Export menu</div>
+      <div class="d">The format-first Export menu open, showing the export families; optionally a published static-site page rendered in a browser.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CLOSER ============ -->
+<section id="closer">
+  <div class="wrap center">
+    <h2>Stop losing your best thinking.</h2>
+    <p class="lede" style="margin: 0 auto 12px;">The insights you get when working with AI are worth keeping. Give them somewhere to live — structured, sourced, and checkable — where you and the AI can keep building on it instead of starting every conversation over.</p>
+    <p class="lede" style="margin: 0 auto 28px;">That's Minerva.</p>
+    <div class="cta center">
+      <a class="btn btn-primary" href="getting-started.html">Download Minerva</a>
+      <a class="btn btn-ghost" href="index.html">Back to home</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI. Electron · Svelte 5 · TypeScript. Version 0.1.0.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="features.html">Features</a><a href="getting-started.html">Getting Started</a><a href="getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="#">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

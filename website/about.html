@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — About</title>
+<meta name="description" content="Why Minerva exists, who built it, and the commitment behind it." />
+<link rel="stylesheet" href="minerva.css" />
+<style>
+  header.page { padding: 72px 0 20px; }
+  header.page h1 { font-size: clamp(2.1rem, 4.4vw, 3rem); margin: 0 0 14px; letter-spacing: -0.02em; }
+  header.page p.sub { color: var(--text-muted); font-size: 1.15rem; max-width: 62ch; }
+  .prose { max-width: 70ch; }
+  .prose p { color: var(--text); font-size: 1.06rem; }
+  .prose p.muted { color: var(--text-muted); }
+  .prose h2 { margin-top: 40px; }
+  .guarantee { background: var(--bg-elev); border:1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: 12px; padding: 22px 26px; margin: 18px 0; }
+  .guarantee h3 { margin:0 0 6px; font-size: 1.08rem; }
+  .guarantee p { margin:0; color: var(--text-muted); font-size: 0.98rem; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect x="0" y="0" width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <path d="M330 410 C 300 320, 320 270, 372 250 C 388 320, 392 372, 384 412 Z" fill="#b9802f"/>
+        <path d="M694 410 C 724 320, 704 270, 652 250 C 636 320, 632 372, 640 412 Z" fill="#b9802f"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="features.html" class="hide-sm">Features</a>
+      <a href="getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="about.html" class="active hide-sm">About</a>
+      <a href="privacy.html" class="hide-sm">Privacy</a>
+      <a href="getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="wrap">
+    <h1>About Minerva</h1>
+    <p class="sub">A tool for building real, lasting knowledge with AI — and a straight answer to the question every careful person asks about a new tool: can I trust it with my thinking?</p>
+  </div>
+</header>
+
+<section style="border-top:none; padding-top: 10px;">
+  <div class="wrap prose">
+    <p>Minerva is a workspace for thinking with AI — a place to turn the scattered, brilliant, disposable output of AI conversations into a structured body of knowledge you actually own and can build on for years.</p>
+    <p class="muted">But an About page should do more than restate the pitch. It should answer the honest worry. So here's the worry, said plainly, and the answer.</p>
+
+    <h2>The fair question</h2>
+    <p>There are a lot of impressive-looking tools right now, built quickly, that turn out to be experiments their makers wander away from. If you're going to pour a year of your thinking into something, you deserve to know it won't strand you. That's the right instinct. Here's why Minerva is built to earn the trust it's asking for — starting with the part that doesn't depend on me at all.</p>
+
+    <h2>First, the part that isn't a promise</h2>
+    <p>The strongest guarantee Minerva can offer isn't about my intentions. It's built into how the thing works:</p>
+
+    <div class="guarantee">
+      <h3>Your thinking is plain files you own</h3>
+      <p>Every note is a Markdown file on your disk. Not in a proprietary database, not on a server, not behind an account. If Minerva disappeared tomorrow, you'd open your entire body of work in any text editor, unchanged.</p>
+    </div>
+    <div class="guarantee">
+      <h3>Everything exports to open standards</h3>
+      <p>Markdown, HTML, PDF, BibTeX, and RDF/Turtle. Your knowledge graph isn't trapped in Minerva's format — it travels, in standards other tools can read.</p>
+    </div>
+    <div class="guarantee">
+      <h3>It's open source</h3>
+      <p>The code is open. Even if I stepped away, no one could take Minerva from the people using it — it can be inspected, forked, and kept alive by anyone who cares to.</p>
+    </div>
+
+    <p class="muted">Those three are true regardless of what happens to me, to this project, or to anything else. That's the point of them. A tool that can't strand you doesn't need you to trust its maker — but it's fair to want to know who that is anyway.</p>
+
+    <h2>Who built it, and why</h2>
+
+    <div class="fill">
+      <b>Dave — your voice goes here</b>
+      This is the heart of the page and the one part I shouldn't ghost-write. A few things worth landing, in your register: who you are (35 years building software; JetBrains IntelliJ intentions/inspections; data.world knowledge-graph work — the RDF/PROV-O lineage that literally became Minerva's substrate). Why this tool and not another — the real reason, the one from the "joys of programming craft" essay: what agentic tools displaced, and what you wanted to build back. This is where the abandonware fear is truly answered, not by a pledge but by making it obvious this is a life's-throughline project, not a whim. Keep the war stories and the dry humor. A paragraph or three.
+    </div>
+
+    <div class="fill">
+      <b>Optional: the personal commitment (intent, not contract)</b>
+      If you want a personal note on top of the architectural guarantees — and a modest one adds warmth — this is the place. The strongest version isn't a maintenance countdown; it's stake and self-use: that you build Minerva because you use it every day, that your public writing is built around it, that you intend to develop it for as long as it's yours to develop. "I eat my own cooking" reassures more than "I promise N years." Keep it honest and unforced; skip it entirely if it doesn't sit right.
+    </div>
+
+    <h2>The design belief underneath it</h2>
+    <p>One conviction shapes everything in Minerva: <b>the AI proposes, and you decide.</b> Nothing an AI generates becomes part of your knowledge until you've reviewed it and said yes. This isn't a feature bolted on for comfort — it's the center of the design. A tool meant to make you a stronger thinker can't quietly do your thinking for you. It can offer, gather, draft, and challenge — and then hand the judgment back to you, every time.</p>
+
+    <div class="fill">
+      <b>Optional: the Dancing with Robots throughline</b>
+      A line or two pointing at the Substack as the ongoing record of the thinking behind Minerva — and, practically, as living proof the project is active and public. This doubles as your real-time "still here" signal, which is worth more than any static promise.
+    </div>
+
+    <h2>Try it</h2>
+    <p class="muted">The best way to judge any of this is to use it. It's free, it's open source, and it runs entirely on your machine.</p>
+    <div class="cta" style="margin-top:8px;">
+      <a class="btn btn-primary" href="getting-started.html">Download Minerva</a>
+      <a class="btn btn-ghost" href="features.html">See the features</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="features.html">Features</a><a href="getting-started.html">Getting Started</a><a href="getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="#">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
