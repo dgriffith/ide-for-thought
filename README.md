@@ -203,4 +203,4 @@ src/
 
 ## License
 
-Private — not yet licensed for distribution.
+MIT — see [LICENSE](LICENSE).
