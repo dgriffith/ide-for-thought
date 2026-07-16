@@ -375,6 +375,21 @@ export function addOntologyToStore(state: GraphState): void {
 
 // ── Indexing ────────────────────────────────────────────────────────────────
 
+export interface IndexNoteOptions {
+  /**
+   * Skip the per-note `rebuildAliasMap` call (perf #1106). `rebuildAliasMap`
+   * is O(N) in the project's total note count, so calling it once per note
+   * during a full `indexAllNotes` walk is O(N²) — at 5,000 notes, tens of
+   * millions of wasted inner iterations. `indexAllNotes` already runs a
+   * complete alias pre-pass (`walkAndCollectAliases`) before this loop starts
+   * and rebuilds once more after it ends, so the per-note rebuild here is
+   * pure redundancy in that path. The incremental single-note path (a save,
+   * a rename, a merge, …) still needs it — that path never runs the pre-pass
+   * or a trailing rebuild, so skipping it there would leave `aliasMap` stale.
+   */
+  skipAliasRebuild?: boolean;
+}
+
 // indexNote is an async-by-contract public API: callers `await` it across
 // the project (ipc, write-pipeline, watchers, rename), and we want the
 // freedom to add real async work later without rippling out a signature
@@ -384,6 +399,7 @@ export async function indexNote(
   ctx: ProjectContext,
   relativePath: string,
   content: string,
+  opts: IndexNoteOptions = {},
 ): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
   checkLLMWriteGuard('indexNote');
   const state = getState(ctx);
@@ -490,7 +506,7 @@ export async function indexNote(
   } else {
     state.aliasesPerNote.delete(relativePath);
   }
-  rebuildAliasMap(state);
+  if (!opts.skipAliasRebuild) rebuildAliasMap(state);
   for (const alias of validAliases) {
     store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
   }
@@ -1190,6 +1206,11 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
 
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
+  // Each indexNote call above skipped its own rebuild (perf #1106) — the
+  // pre-pass already left aliasMap correct, but rebuild once more here as a
+  // cheap (O(N), not O(N²)) guarantee rather than relying on the pre-pass
+  // and the main pass never diverging.
+  rebuildAliasMap(state);
   count += await walkAndIndexSources(ctx, rootPath);
   count += await walkAndIndexExcerpts(ctx, rootPath);
   // graph.ttl is a cold snapshot now (#348). The release / quit path
@@ -1207,7 +1228,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
       } else if (isIndexable(entry.name)) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
-        await indexNote(ctx, relativePath, content);
+        await indexNote(ctx, relativePath, content, { skipAliasRebuild: true });
         count++;
       }
     }
