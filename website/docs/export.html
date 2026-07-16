@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Conversations</title>
-<meta name="description" content="Chatting with the AI about your notes, draft cards, and the propose → review → approve loop that keeps the human in control of the knowledge graph." />
+<title>Minerva — Docs — Export</title>
+<meta name="description" content="Getting content out of a thoughtbase: document/publication/citation exports, publishing to the web, bibliography settings, and what's excluded by default." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -59,74 +59,94 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="conversations.html" class="active">Conversations</a>
-    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
-    <a href="conversations-drafts.html" class="sub">Drafts</a>
-    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="export.html">Export</a>
+    <a href="export.html" class="active">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Conversations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Export</p>
 
-    <h1>Conversations</h1>
-    <p class="lede">Conversations is where you think alongside the AI instead of just editing prose by hand. You chat, it reads your notes through tools it calls itself, and when it wants to change something — a new claim, a rewritten note, a tag — it hands you a draft instead of just doing it. Everything past that point runs through one rule: the model proposes, you confirm. Nothing lands in the graph until you say so.</p>
+    <h1>Export</h1>
+    <p class="lede">Twelve exporters across three families — document, publication, citation — plus git-backed publishing straight to the web. Every one shares the same underlying pipeline: pick a scope, review what's in and what's excluded, then run.</p>
 
     <h2 id="glance">At a glance</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></div>
-        <div class="v"><a href="conversations-chatting.html"><b>Chatting with the AI</b></a> — open the panel, start a conversation, watch it search your notes as it goes.</div>
+        <div class="k">—</div>
+        <div class="v"><a href="export-documents.html"><b>Document exports</b></a> — markdown, HTML, and PDF, single-note or bundled.</div>
       </div>
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="conversations-drafts.html"><b>Drafts</b></a> — a not-yet-submitted candidate sitting in the transcript, yours to accept or discard.</div>
+        <div class="v"><a href="export-publishing.html"><b>Publishing</b></a> — a browseable static site, and pushing it straight to a git remote.</div>
       </div>
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="conversations-propose-review-approve.html"><b>The propose → review → approve loop</b></a> — why nothing the AI produces writes to the graph on its own.</div>
+        <div class="v"><a href="export-bibliography.html"><b>Bibliography &amp; citations</b></a> — BibTeX, Pandoc, and the citation-style settings that shape both.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="export-flashcards.html"><b>Flashcards</b></a> — an Anki deck built from <code>[!card]</code> callouts.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="export-scopes-privacy.html"><b>Scopes &amp; privacy</b></a> — what "export" actually includes, and what's held back by default.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">The trust principle</span>
-      <p>Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. It's the single most important design decision in Minerva — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> for the full picture.</p>
+      <span class="label">Three families, not four</span>
+      <p>The Export menu groups exporters as <b>Document</b> (Markdown, HTML, PDF), <b>Publication</b> (Static Site, Annotated Source, Anki Deck), and <b>Citation</b> (BibTeX, Pandoc) — flashcards live under Publication rather than being their own category.</p>
     </div>
 
     <h2 id="learn-more">In depth</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="conversations-chatting.html">
-        <span class="em">💭</span>
-        <h3>Chatting with the AI</h3>
-        <p>Tab-based conversations, scoped by tools the model calls itself.</p>
+      <a class="doc-card" href="export-documents.html">
+        <span class="em">📄</span>
+        <h3>Document exports</h3>
+        <p>Markdown, HTML, and PDF — single-note or bundled by wiki-link.</p>
       </a>
-      <a class="doc-card" href="conversations-drafts.html">
-        <span class="em">📝</span>
-        <h3>Drafts</h3>
-        <p>Not-yet-submitted candidates you can accept or discard.</p>
+      <a class="doc-card" href="export-publishing.html">
+        <span class="em">🌐</span>
+        <h3>Publishing</h3>
+        <p>A static site, and pushing it to a real git remote.</p>
       </a>
-      <a class="doc-card" href="conversations-propose-review-approve.html">
-        <span class="em">🔁</span>
-        <h3>The propose → review → approve loop</h3>
-        <p>The trust principle: the model proposes, you confirm.</p>
+      <a class="doc-card" href="export-bibliography.html">
+        <span class="em">📚</span>
+        <h3>Bibliography &amp; citations</h3>
+        <p>BibTeX, Pandoc, and the citation-style settings behind both.</p>
+      </a>
+      <a class="doc-card" href="export-flashcards.html">
+        <span class="em">🗂️</span>
+        <h3>Flashcards</h3>
+        <p>Turn <code>[!card]</code> callouts into an Anki deck.</p>
+      </a>
+      <a class="doc-card" href="export-scopes-privacy.html">
+        <span class="em">🔒</span>
+        <h3>Scopes &amp; privacy</h3>
+        <p>What gets included, and what's excluded by default.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-bookmarks.html">
+      <a class="prev" href="ingest-citing-duplicates.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Bookmarks</span>
+        <span class="ttl">← Citing &amp; duplicates</span>
       </a>
-      <a class="next" href="conversations-chatting.html">
+      <a class="next" href="export-documents.html">
         <span class="dir">Next</span>
-        <span class="ttl">Chatting with the AI →</span>
+        <span class="ttl">Document exports →</span>
       </a>
     </div>
   </main>

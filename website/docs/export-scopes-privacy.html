@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Conversations</title>
-<meta name="description" content="Chatting with the AI about your notes, draft cards, and the propose → review → approve loop that keeps the human in control of the knowledge graph." />
+<title>Minerva — Docs — Export Scopes &amp; Privacy</title>
+<meta name="description" content="The scope options shared across every exporter, and the three signals that exclude a note from export by default — plus how to review and override before you run it." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -59,10 +59,7 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="conversations.html" class="active">Conversations</a>
-    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
-    <a href="conversations-drafts.html" class="sub">Drafts</a>
-    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
@@ -70,64 +67,63 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub active">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Conversations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Scopes &amp; privacy</p>
 
-    <h1>Conversations</h1>
-    <p class="lede">Conversations is where you think alongside the AI instead of just editing prose by hand. You chat, it reads your notes through tools it calls itself, and when it wants to change something — a new claim, a rewritten note, a tag — it hands you a draft instead of just doing it. Everything past that point runs through one rule: the model proposes, you confirm. Nothing lands in the graph until you say so.</p>
+    <h1>Scopes &amp; privacy</h1>
+    <p class="lede">Every exporter shares the same two questions underneath: what counts as "in scope," and what gets held back even though it's technically in scope. Both are settled before you commit to running anything — the export preview shows you exactly what you're about to get.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="scope">Scope</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">Single note</div><div class="v">Just the active note.</div></div>
+      <div class="row"><div class="k">Folder</div><div class="v">A folder and everything under it, recursively.</div></div>
+      <div class="row"><div class="k">Project</div><div class="v">The whole thoughtbase.</div></div>
+      <div class="row"><div class="k">Tree</div><div class="v">A root note's wiki-link closure — every note reachable by following links outward, breadth-first, to a max depth (default 3, to balance "capture enough context" against a runaway bundle).</div></div>
+      <div class="row"><div class="k">Source</div><div class="v">A single ingested source, for the Annotated Source exporter.</div></div>
+    </div>
+
+    <h2 id="privacy">What's excluded by default</h2>
+    <p>Minerva holds personal thinking, half-formed arguments, and reading notes — accidentally publishing those would be a real problem, so exports drop anything matching a private signal unless you explicitly override it. Three signals, checked in order:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">1. Location</div><div class="v">The note's path is under any <code>private/</code> or <code>.private/</code> folder.</div></div>
+      <div class="row"><div class="k">2. Frontmatter</div><div class="v"><code>private: true</code>.</div></div>
+      <div class="row"><div class="k">3. Tag</div><div class="v"><code>#private</code> — either in a <code>tags:</code> frontmatter array or inline in the body.</div></div>
+    </div>
+    <p>Every exclusion comes with a human-readable reason ("under private/", "frontmatter private: true", "tagged #private") — nothing is dropped silently.</p>
+
+    <h2 id="reviewing">Reviewing before you export</h2>
+    <p>The export preview shows two lists: what's <b>included</b>, and what's <b>excluded</b> along with its reason. From there:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></div>
-        <div class="v"><a href="conversations-chatting.html"><b>Chatting with the AI</b></a> — open the panel, start a conversation, watch it search your notes as it goes.</div>
+        <div class="k">Re-include an excluded note</div>
+        <div class="v">Click its row in the Excluded list — an override just for this run, not a permanent change to the note.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-drafts.html"><b>Drafts</b></a> — a not-yet-submitted candidate sitting in the transcript, yours to accept or discard.</div>
-      </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-propose-review-approve.html"><b>The propose → review → approve loop</b></a> — why nothing the AI produces writes to the graph on its own.</div>
+        <div class="k">Drop an included note</div>
+        <div class="v">Uncheck it in the Included list — it moves to Excluded with the reason "manually excluded," again just for this run.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">The trust principle</span>
-      <p>Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. It's the single most important design decision in Minerva — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> for the full picture.</p>
-    </div>
-
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="conversations-chatting.html">
-        <span class="em">💭</span>
-        <h3>Chatting with the AI</h3>
-        <p>Tab-based conversations, scoped by tools the model calls itself.</p>
-      </a>
-      <a class="doc-card" href="conversations-drafts.html">
-        <span class="em">📝</span>
-        <h3>Drafts</h3>
-        <p>Not-yet-submitted candidates you can accept or discard.</p>
-      </a>
-      <a class="doc-card" href="conversations-propose-review-approve.html">
-        <span class="em">🔁</span>
-        <h3>The propose → review → approve loop</h3>
-        <p>The trust principle: the model proposes, you confirm.</p>
-      </a>
+    <div class="shot wide">
+      <div class="icon">🔒</div>
+      <div class="k">Screenshot — The export preview dialog</div>
+      <div class="d">The Included/Excluded split view: an Included list with checkboxes (one unchecked, showing an "unchecked" count), and an Excluded list showing a few notes with reasons like "under private/" and "frontmatter private: true," one of them clicked to show it can be re-included.</div>
     </div>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-bookmarks.html">
+      <a class="prev" href="export-flashcards.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Bookmarks</span>
+        <span class="ttl">← Flashcards</span>
       </a>
-      <a class="next" href="conversations-chatting.html">
-        <span class="dir">Next</span>
-        <span class="ttl">Chatting with the AI →</span>
-      </a>
+      <span></span>
     </div>
   </main>
 </div>

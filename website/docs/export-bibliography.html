@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Conversations</title>
-<meta name="description" content="Chatting with the AI about your notes, draft cards, and the propose → review → approve loop that keeps the human in control of the knowledge graph." />
+<title>Minerva — Docs — Bibliography &amp; Citations</title>
+<meta name="description" content="Getting citations out in a form other tools can use: the BibTeX and Pandoc exporters, and the Bibliography settings that control how citations render." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -59,10 +59,7 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="conversations.html" class="active">Conversations</a>
-    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
-    <a href="conversations-drafts.html" class="sub">Drafts</a>
-    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
@@ -70,63 +67,61 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub active">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Conversations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Bibliography &amp; citations</p>
 
-    <h1>Conversations</h1>
-    <p class="lede">Conversations is where you think alongside the AI instead of just editing prose by hand. You chat, it reads your notes through tools it calls itself, and when it wants to change something — a new claim, a rewritten note, a tag — it hands you a draft instead of just doing it. Everything past that point runs through one rule: the model proposes, you confirm. Nothing lands in the graph until you say so.</p>
+    <h1>Bibliography &amp; citations</h1>
+    <p class="lede">Two exporters for getting your citations into a form other reference tools understand, plus the settings that control how a citation actually renders.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="bibtex">BibTeX</h2>
+    <p>Exports every cited source as a single <code>.bib</code> file, one entry per source, keyed with a deterministic <code>author-year-firstword</code> citekey (e.g. <code>smith-2020-functions</code> — stop-words like "the" are skipped when picking the title word). Scope to a single note, a folder, or the whole project.</p>
+    <div class="box">
+      <span class="label">Citekeys are stable per export, not forever</span>
+      <p>The same source set produces the same keys every time. But adding a new source to your library can shift a collision suffix (<code>smith-2020a</code> → <code>smith-2020b</code>) for entries it now collides with — so don't treat a citekey as a permanent identifier across exports. Sources themselves are still matched by DOI/arXiv id/etc. on re-import, not by citekey.</p>
+    </div>
+
+    <h2 id="pandoc">Pandoc</h2>
+    <p>For anyone who wants Word, PDF, or another format Pandoc itself produces: exports a single note as markdown (with <code>[[cite::id]]</code> rewritten to Pandoc's <code>[@citekey]</code> form) alongside a <code>bibliography.json</code> (CSL-JSON) and a generated <code>README.md</code> with the exact pandoc command to run, including your chosen citation style. There's no one-click "formatted bibliography .docx" exporter — Pandoc is the escape hatch for that, not a built-in.</p>
+
+    <h2 id="settings">Bibliography settings</h2>
+    <p>Controls how citations render across every exporter that formats them (Pandoc's generated command, and the note-html/tree-html exporters):</p>
     <div class="deflist">
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></div>
-        <div class="v"><a href="conversations-chatting.html"><b>Chatting with the AI</b></a> — open the panel, start a conversation, watch it search your notes as it goes.</div>
+        <div class="k">Citation style</div>
+        <div class="v">A dropdown of bundled and imported CSL styles. Defaults to APA; an unrecognized or missing style falls back to APA automatically rather than failing.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-drafts.html"><b>Drafts</b></a> — a not-yet-submitted candidate sitting in the transcript, yours to accept or discard.</div>
+        <div class="k">Import .csl style…</div>
+        <div class="v">Bring in a citation style Minerva doesn't ship — any valid CSL <code>.csl</code>/<code>.xml</code> file.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-propose-review-approve.html"><b>The propose → review → approve loop</b></a> — why nothing the AI produces writes to the graph on its own.</div>
+        <div class="k">Locale</div>
+        <div class="v">Defaults to <code>en-US</code>, with the same fallback behavior as style. Import a custom locale the same way as a style.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">The trust principle</span>
-      <p>Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. It's the single most important design decision in Minerva — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> for the full picture.</p>
-    </div>
-
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="conversations-chatting.html">
-        <span class="em">💭</span>
-        <h3>Chatting with the AI</h3>
-        <p>Tab-based conversations, scoped by tools the model calls itself.</p>
-      </a>
-      <a class="doc-card" href="conversations-drafts.html">
-        <span class="em">📝</span>
-        <h3>Drafts</h3>
-        <p>Not-yet-submitted candidates you can accept or discard.</p>
-      </a>
-      <a class="doc-card" href="conversations-propose-review-approve.html">
-        <span class="em">🔁</span>
-        <h3>The propose → review → approve loop</h3>
-        <p>The trust principle: the model proposes, you confirm.</p>
-      </a>
+    <div class="shot wide">
+      <div class="icon">📚</div>
+      <div class="k">Screenshot — Bibliography settings</div>
+      <div class="d">The Settings → Bibliography tab: the citation style dropdown set to APA, a list of imported styles below it, and the "Import .csl style…" button.</div>
     </div>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-bookmarks.html">
+      <a class="prev" href="export-publishing.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Bookmarks</span>
+        <span class="ttl">← Publishing</span>
       </a>
-      <a class="next" href="conversations-chatting.html">
+      <a class="next" href="export-flashcards.html">
         <span class="dir">Next</span>
-        <span class="ttl">Chatting with the AI →</span>
+        <span class="ttl">Flashcards →</span>
       </a>
     </div>
   </main>
