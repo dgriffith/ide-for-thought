@@ -16,6 +16,7 @@ import * as N3 from 'n3';
 import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
+import type { NeighborhoodResult } from '../../shared/types';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 
@@ -176,6 +177,18 @@ export interface GraphState {
    *  note (rather than a flat global Set) so removeNote can shrink
    *  the union without scanning every note. */
   frontmatterKeysPerNote: Map<string, string[]>;
+  /**
+   * Memoized `neighborhood()` results keyed by `path\0depth\0cap` (perf #1113).
+   * The graph/citations panels re-run a neighborhood BFS on every note switch
+   * via a reactive `$effect`, and a build hops up to `cap` nodes × (outgoing +
+   * backlink) predicate fans — so re-selecting a note used to redo the whole
+   * traversal. A small LRU (bounded in `neighborhood()`) keeps back-and-forth
+   * navigation off the BFS. Cleared wholesale by `invalidate()` on every write,
+   * the same coarse always-correct invalidation `n3Cache` uses: any triple
+   * change can alter some note's link neighborhood, so a targeted eviction would
+   * be both fiddly and easy to get subtly wrong.
+   */
+  neighborhoodCache: Map<string, NeighborhoodResult>;
 }
 
 // One GraphState per open project, keyed by rootPath. The entire graph
@@ -207,6 +220,8 @@ export function deleteState(ctx: ProjectContext): void {
 
 export function invalidate(state: GraphState): void {
   state.n3Cache = null;
+  // Any triple change can alter some note's neighborhood; drop the memo (#1113).
+  state.neighborhoodCache.clear();
 }
 
 // ── URI helpers (delegate to uri-helpers module) ────────────────────────────

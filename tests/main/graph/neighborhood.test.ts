@@ -160,3 +160,46 @@ describe('neighborhood (against a real store)', () => {
     expect(hop.expandTo.sort()).toEqual(['b.md', 'c.md']);
   });
 });
+
+// Per-project memo keyed by (path, depth, cap), cleared on write (perf #1113).
+describe('neighborhood caching (perf #1113)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'nbhd-cache-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  it('returns the memoized result on re-selection without re-running the BFS', async () => {
+    await indexNote(ctx, 'a.md', 'see [[b]]');
+    await indexNote(ctx, 'b.md', '# B');
+    const first = neighborhood(ctx, 'a.md', { depth: 1 });
+    const second = neighborhood(ctx, 'a.md', { depth: 1 });
+    // A fresh BFS builds new arrays/object; identity proves the memo was hit.
+    expect(second).toBe(first);
+  });
+
+  it('keys the memo by depth (and cap) — a different depth recomputes', async () => {
+    await indexNote(ctx, 'a.md', 'see [[b]]');
+    await indexNote(ctx, 'b.md', 'see [[c]]');
+    await indexNote(ctx, 'c.md', '# C');
+    const d1 = neighborhood(ctx, 'a.md', { depth: 1 });
+    const d2 = neighborhood(ctx, 'a.md', { depth: 2 });
+    expect(d2).not.toBe(d1);
+    expect(d2.nodes.map((n) => n.id)).toContain('c.md'); // genuinely the depth-2 build
+  });
+
+  it('invalidates the memo on write, so a later build reflects the new store', async () => {
+    await indexNote(ctx, 'hub.md', '# Hub');
+    const before = neighborhood(ctx, 'hub.md', { depth: 1 });
+    expect(before.nodes.map((n) => n.id)).not.toContain('inbound.md');
+
+    // A new inbound link is a graph write → invalidate() clears the memo.
+    await indexNote(ctx, 'inbound.md', 'links to [[hub]]');
+    const after = neighborhood(ctx, 'hub.md', { depth: 1 });
+    expect(after).not.toBe(before);
+    expect(after.nodes.map((n) => n.id)).toContain('inbound.md');
+  });
+});

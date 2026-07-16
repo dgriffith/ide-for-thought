@@ -118,6 +118,7 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     aliasesPerNote: new Map(),
     indexedNotePaths: new Set(),
     frontmatterKeysPerNote: new Map(),
+    neighborhoodCache: new Map(),
   };
 
   // Load persisted graph if it exists
