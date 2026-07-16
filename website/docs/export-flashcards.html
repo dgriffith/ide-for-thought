@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Conversations</title>
-<meta name="description" content="Chatting with the AI about your notes, draft cards, and the propose → review → approve loop that keeps the human in control of the knowledge graph." />
+<title>Minerva — Docs — Flashcards</title>
+<meta name="description" content="Turning [!card] callouts into an Anki deck: writing a card, deck resolution, and what the resulting .apkg contains." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -59,10 +59,7 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="conversations.html" class="active">Conversations</a>
-    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
-    <a href="conversations-drafts.html" class="sub">Drafts</a>
-    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
@@ -70,63 +67,48 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub active">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Conversations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Flashcards</p>
 
-    <h1>Conversations</h1>
-    <p class="lede">Conversations is where you think alongside the AI instead of just editing prose by hand. You chat, it reads your notes through tools it calls itself, and when it wants to change something — a new claim, a rewritten note, a tag — it hands you a draft instead of just doing it. Everything past that point runs through one rule: the model proposes, you confirm. Nothing lands in the graph until you say so.</p>
+    <h1>Flashcards</h1>
+    <p class="lede">The Anki Deck exporter turns explicit <code>[!card]</code> callouts into an <code>.apkg</code> file you can import into Anki — not a blanket "turn my notes into flashcards" converter. If a note has no card callouts, it contributes nothing to the deck.</p>
 
-    <h2 id="glance">At a glance</h2>
-    <div class="deflist">
-      <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></div>
-        <div class="v"><a href="conversations-chatting.html"><b>Chatting with the AI</b></a> — open the panel, start a conversation, watch it search your notes as it goes.</div>
-      </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-drafts.html"><b>Drafts</b></a> — a not-yet-submitted candidate sitting in the transcript, yours to accept or discard.</div>
-      </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-propose-review-approve.html"><b>The propose → review → approve loop</b></a> — why nothing the AI produces writes to the graph on its own.</div>
-      </div>
-    </div>
-
+    <h2 id="writing">Writing a card</h2>
+    <p>A card is a callout with a <code>---</code> divider splitting the front (prompt) from the back (answer):</p>
     <div class="box">
-      <span class="label">The trust principle</span>
-      <p>Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. It's the single most important design decision in Minerva — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> for the full picture.</p>
+      <span class="label">Example</span>
+      <p><code>&gt; [!card] Optional Deck ^cardid<br>&gt; What is the capital of France?<br>&gt; ---<br>&gt; **Paris**</code></p>
+    </div>
+    <p>The leading <code>&gt;</code> (blockquote form) is optional — a bare <code>[!card]</code> paragraph works too, same as any other callout. Both the deck name and the <code>^cardid</code> block-id after it are optional.</p>
+
+    <h2 id="decks">Deck resolution</h2>
+    <p>A card's deck name resolves in order:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">1. Callout title</div><div class="v">Whatever comes right after <code>[!card]</code> on that line — <code>Optional Deck</code> in the example above.</div></div>
+      <div class="row"><div class="k">2. Frontmatter</div><div class="v">The note's own <code>cardDeck</code> frontmatter field, if the callout didn't specify one.</div></div>
+      <div class="row"><div class="k">3. Folder</div><div class="v">The note's folder path, mapped to a deck path (e.g. <code>notes/math/algebra.md</code> → deck <code>notes::math</code>).</div></div>
+      <div class="row"><div class="k">4. Default</div><div class="v">Notes sitting at the vault root with no deck specified any other way fall into a deck literally named <code>Default</code>.</div></div>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="conversations-chatting.html">
-        <span class="em">💭</span>
-        <h3>Chatting with the AI</h3>
-        <p>Tab-based conversations, scoped by tools the model calls itself.</p>
-      </a>
-      <a class="doc-card" href="conversations-drafts.html">
-        <span class="em">📝</span>
-        <h3>Drafts</h3>
-        <p>Not-yet-submitted candidates you can accept or discard.</p>
-      </a>
-      <a class="doc-card" href="conversations-propose-review-approve.html">
-        <span class="em">🔁</span>
-        <h3>The propose → review → approve loop</h3>
-        <p>The trust principle: the model proposes, you confirm.</p>
-      </a>
-    </div>
+    <h2 id="ids">Card identity</h2>
+    <p>A card's stable id is the trailing <code>^cardid</code> on its callout line. Cards without one get an id assigned and written back into the note automatically on first export — so re-exporting after editing a card's text updates the same Anki card instead of creating a duplicate.</p>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-bookmarks.html">
+      <a class="prev" href="export-bibliography.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Bookmarks</span>
+        <span class="ttl">← Bibliography &amp; citations</span>
       </a>
-      <a class="next" href="conversations-chatting.html">
+      <a class="next" href="export-scopes-privacy.html">
         <span class="dir">Next</span>
-        <span class="ttl">Chatting with the AI →</span>
+        <span class="ttl">Scopes &amp; privacy →</span>
       </a>
     </div>
   </main>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — PDF Ingest</title>
-<meta name="description" content="Ingesting a PDF: text-layer extraction for the normal case, and the in-app OCR handoff for scanned PDFs with no text layer." />
+<title>Minerva — Docs — Publishing</title>
+<meta name="description" content="Turning a thoughtbase into a browseable static site, per-note publish frontmatter, and Publish to Web — git-backed publishing straight to a remote." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,56 +66,73 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub active">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub">Citing &amp; duplicates</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub active">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>PDF ingest</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Publishing</p>
 
-    <h1>PDF ingest</h1>
-    <p class="lede">Most PDFs have a text layer Minerva can read directly. The exceptions — scanned pages with no underlying text — get a short, explicit OCR step instead of either failing outright or silently ingesting nothing useful.</p>
+    <h1>Publishing</h1>
+    <p class="lede">Turning some or all of a thoughtbase into a site someone else can browse — and, if you want it live, pushing that site straight to a git remote.</p>
 
-    <h2 id="text-layer">Text-layer PDFs</h2>
-    <p>The normal case, whether the PDF came from a local file or a URL: Minerva extracts the text page by page and persists three things under <code>.minerva/sources/&lt;id&gt;/</code> — <code>original.pdf</code> (the raw bytes), <code>body.md</code> (the extracted text, with a <code>&lt;!-- page N --&gt;</code> marker before each page's content), and <code>meta.ttl</code> (whatever title, author, and date the PDF's own <code>/Info</code> dictionary provided).</p>
-
-    <h2 id="ocr">Scanned PDFs — the OCR handoff</h2>
-    <p>When a PDF has no text layer, Minerva still saves <code>original.pdf</code> and a stub <code>meta.ttl</code>, but <code>body.md</code> stays empty until you complete OCR. The app detects this and hands off to an in-app OCR pass — Tesseract.js, running right in the renderer, no external service — which you confirm before it runs.</p>
-
+    <h2 id="static-site">Project as Static Site</h2>
+    <p>Always project-scoped: the whole thoughtbase becomes a browseable site with its own sidebar, search, and per-note pages. Customize an individual note's share appearance with a <code>publish:</code> block in its frontmatter:</p>
+    <div class="box">
+      <span class="label">Example</span>
+      <p><code>---<br>title: My Note<br>description: A short share blurb<br>publish:<br>&nbsp;&nbsp;image: https://example.com/card.png<br>&nbsp;&nbsp;background: "#faf3e0"<br>&nbsp;&nbsp;css: styles/fancy.css<br>---</code></p>
+    </div>
     <div class="deflist">
       <div class="row">
-        <div class="k">If you run OCR</div>
-        <div class="v">Each page is recognized and the result becomes <code>body.md</code>, with <code>thought:extractionMethod</code> stamped <code>"ocr"</code> on the source (as opposed to <code>"text-layer"</code> for the normal case) — so you can tell later which sources came through which path.</div>
+        <div class="k"><code>image</code></div>
+        <div class="v">The social-share preview image — must be an absolute <code>http(s)</code> URL; a project-relative image isn't copied over (yet).</div>
       </div>
       <div class="row">
-        <div class="k">If you skip it</div>
-        <div class="v">The source stays on disk with <code>original.pdf</code> and its metadata intact — you can open the source later and run OCR then. Nothing is lost by skipping; the body is just a placeholder until you do.</div>
+        <div class="k"><code>background</code></div>
+        <div class="v">A page background color — a hex value, a named CSS color, an <code>rgb()</code>/<code>hsl()</code> function, or a <code>var(--x)</code> reference. Anything else is silently ignored rather than risk unsafe CSS.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>css</code></div>
+        <div class="v">One or more project-relative <code>.css</code> paths, copied into the output and linked after the site's own stylesheet.</div>
       </div>
     </div>
 
     <div class="shot wide">
-      <div class="icon">🔍</div>
-      <div class="k">Screenshot — The OCR confirmation prompt</div>
-      <div class="d">The dialog shown right after ingesting a scanned PDF: page count, a short explanation that no text layer was found, and Run OCR / Skip buttons.</div>
+      <div class="icon">🌐</div>
+      <div class="k">Screenshot — The exported static site</div>
+      <div class="d">A browser window showing the generated site: left sidebar of notes, a search box, and a note open in the main pane with its title and content rendered.</div>
     </div>
 
+    <h2 id="publish-to-web">Publish to Web</h2>
+    <p>Publish to Web takes a static site's output and pushes it to a git remote — a real deploy, not a local export. Configure a target once, then re-run it whenever you want to update the live version:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">Label</div><div class="v">A name for this target, shown in the Publish menu/dialog.</div></div>
+      <div class="row"><div class="k">Exporter</div><div class="v">Which exporter's output gets pushed — Static Site is the natural fit.</div></div>
+      <div class="row"><div class="k">Remote</div><div class="v">The git remote URL. SSH-form remotes are normalized to HTTPS at push time; authentication goes through a GitHub token, not an SSH key.</div></div>
+      <div class="row"><div class="k">Branch</div><div class="v">The branch to publish to (e.g. <code>gh-pages</code>) — created automatically if it doesn't exist yet.</div></div>
+      <div class="row"><div class="k">Subdirectory</div><div class="v">Where in the repo the output lands. Leave blank for the repo root.</div></div>
+      <div class="row"><div class="k">Commit message</div><div class="v">A template supporting <code>{{date}}</code> / <code>{{version}}</code> placeholders.</div></div>
+    </div>
+    <p>Every publish supports a <b>dry run</b> — resolve the export, prepare the workspace, and show you what would change, without actually pushing.</p>
+
     <div class="box">
-      <span class="label">Two things worth knowing up front</span>
-      <p><b>Encrypted PDFs are rejected with a clean error</b> rather than ingesting a broken source — decrypt it first if you need it in your thoughtbase. And <b>a PDF's source id is always a content hash</b>, never a DOI pulled from the file, even when the PDF's metadata has one — PDFs rarely embed a DOI reliably enough to key on, so the id is based on the file's own bytes instead. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what this means if the same paper also arrives later via its DOI or arXiv id.</p>
+      <span class="label">This one leaves your machine</span>
+      <p>Every other export in this section stays local until you decide otherwise. Publish to Web is the exception — running it for real pushes to whatever remote you've configured. Nothing about the trust principle changes (you still choose when to run it), but it's worth being deliberate about which target you're publishing to.</p>
     </div>
 
     <div class="pager">
-      <a class="prev" href="ingest-adding-sources.html">
+      <a class="prev" href="export-documents.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Adding sources</span>
+        <span class="ttl">← Document exports</span>
       </a>
-      <a class="next" href="ingest-clipper.html">
+      <a class="next" href="export-bibliography.html">
         <span class="dir">Next</span>
-        <span class="ttl">Browser clipper →</span>
+        <span class="ttl">Bibliography &amp; citations →</span>
       </a>
     </div>
   </main>

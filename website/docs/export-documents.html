@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Conversations</title>
-<meta name="description" content="Chatting with the AI about your notes, draft cards, and the propose → review → approve loop that keeps the human in control of the knowledge graph." />
+<title>Minerva — Docs — Document Exports</title>
+<meta name="description" content="The document-family exporters: markdown passthrough, single-note and wiki-link-closure bundles in Markdown, HTML, and PDF, and the link policies shared across them." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -59,10 +59,7 @@
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
-    <a href="conversations.html" class="active">Conversations</a>
-    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
-    <a href="conversations-drafts.html" class="sub">Drafts</a>
-    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
@@ -70,63 +67,77 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub active">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Conversations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Document exports</p>
 
-    <h1>Conversations</h1>
-    <p class="lede">Conversations is where you think alongside the AI instead of just editing prose by hand. You chat, it reads your notes through tools it calls itself, and when it wants to change something — a new claim, a rewritten note, a tag — it hands you a draft instead of just doing it. Everything past that point runs through one rule: the model proposes, you confirm. Nothing lands in the graph until you say so.</p>
+    <h1>Document exports</h1>
+    <p class="lede">Seven exporters covering the document family — plain markdown, and single-note vs. wiki-link-closure bundles in Markdown, HTML, and PDF.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="exporters">The exporters</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd></div>
-        <div class="v"><a href="conversations-chatting.html"><b>Chatting with the AI</b></a> — open the panel, start a conversation, watch it search your notes as it goes.</div>
+        <div class="k">Markdown<br><span class="v" style="opacity:.7">(passthrough)</span></div>
+        <div class="v">A folder or the whole project, copied through as-is — the closest thing to "just give me the files."</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-drafts.html"><b>Drafts</b></a> — a not-yet-submitted candidate sitting in the transcript, yours to accept or discard.</div>
+        <div class="k">Note as Clean Markdown</div>
+        <div class="v">A single note, cleaned up for standalone reading (no project-specific cruft).</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="conversations-propose-review-approve.html"><b>The propose → review → approve loop</b></a> — why nothing the AI produces writes to the graph on its own.</div>
+        <div class="k">Note Tree as Markdown Zip</div>
+        <div class="v">A root note's wiki-link closure, bundled as a <code>.zip</code> of markdown files.</div>
+      </div>
+      <div class="row">
+        <div class="k">Note as HTML</div>
+        <div class="v">A single note as a standalone <code>.html</code> file, styles and scripts embedded.</div>
+      </div>
+      <div class="row">
+        <div class="k">Note Tree as HTML Bundle</div>
+        <div class="v">A wiki-link closure as a set of linked <code>.html</code> files.</div>
+      </div>
+      <div class="row">
+        <div class="k">Note as PDF</div>
+        <div class="v">A single note rendered to PDF via Electron's own Chromium engine.</div>
+      </div>
+      <div class="row">
+        <div class="k">Note Tree as Single PDF</div>
+        <div class="v">A wiki-link closure consolidated into one PDF.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">The trust principle</span>
-      <p>Conversation outputs are evidence to be evaluated and filed, not authoritative updates to the graph. It's the single most important design decision in Minerva — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> for the full picture.</p>
-    </div>
-
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="conversations-chatting.html">
-        <span class="em">💭</span>
-        <h3>Chatting with the AI</h3>
-        <p>Tab-based conversations, scoped by tools the model calls itself.</p>
-      </a>
-      <a class="doc-card" href="conversations-drafts.html">
-        <span class="em">📝</span>
-        <h3>Drafts</h3>
-        <p>Not-yet-submitted candidates you can accept or discard.</p>
-      </a>
-      <a class="doc-card" href="conversations-propose-review-approve.html">
-        <span class="em">🔁</span>
-        <h3>The propose → review → approve loop</h3>
-        <p>The trust principle: the model proposes, you confirm.</p>
-      </a>
+    <h2 id="link-policies">Link policies</h2>
+    <p>Every export needs a rule for what happens to a <code>[[wiki-link]]</code> in the output. Three policies apply across the document family:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Drop</div>
+        <div class="v">The link disappears; its display text (or the target name) remains as plain text. Fits a single-note export, where the link's target usually isn't in the output anyway.</div>
+      </div>
+      <div class="row">
+        <div class="k">Inline title</div>
+        <div class="v">The link is replaced with the target note's own title (from frontmatter or its H1). Fits content-style exports where the reader has no way to follow the link regardless.</div>
+      </div>
+      <div class="row">
+        <div class="k">Follow to file</div>
+        <div class="v">Rewritten to a relative file link when the target is part of this export; otherwise falls back to inline title. The shape for folder/tree exports, where the output is genuinely a set of inter-linked files.</div>
+      </div>
     </div>
 
     <div class="pager">
-      <a class="prev" href="right-sidebar-bookmarks.html">
+      <a class="prev" href="export.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Bookmarks</span>
+        <span class="ttl">← Export</span>
       </a>
-      <a class="next" href="conversations-chatting.html">
+      <a class="next" href="export-publishing.html">
         <span class="dir">Next</span>
-        <span class="ttl">Chatting with the AI →</span>
+        <span class="ttl">Publishing →</span>
       </a>
     </div>
   </main>
