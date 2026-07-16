@@ -77,7 +77,7 @@ describe('writeAndReindex (#341)', () => {
     expect((r.results as Array<{ t: string }>)[0].t).toBe('Foo');
 
     // Step 4: search indexed (full-text query hits).
-    const hits = runSearch(ctx, 'body');
+    const hits = await runSearch(ctx, 'body');
     expect(hits.some((h) => h.relativePath === 'foo.md')).toBe(true);
 
     // Step 6: rewritten broadcast went out for this path.

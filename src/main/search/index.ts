@@ -48,7 +48,7 @@ function getState(ctx: ProjectContext): SearchState | null {
 function getOrCreateState(ctx: ProjectContext): SearchState {
   let state = store.get(ctx);
   if (!state) {
-    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider(), persistTimer: null };
+    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider(ctx.rootPath), persistTimer: null };
     store.set(ctx, state);
   }
   return state;
@@ -108,9 +108,9 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
   state.provider.remove(relativePath);
 }
 
-export function search(ctx: ProjectContext, query: string, opts?: { limit?: number }): SearchResult[] {
+export function search(ctx: ProjectContext, query: string, opts?: { limit?: number }): Promise<SearchResult[]> {
   const state = getState(ctx);
-  if (!state) return [];
+  if (!state) return Promise.resolve([]);
   return state.provider.search(query, opts);
 }
 
