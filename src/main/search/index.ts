@@ -8,10 +8,37 @@ import { createProjectStore } from '../project-store';
 interface SearchState {
   rootPath: string;
   provider: SearchProvider;
+  /** Pending debounced-persist timer (perf #1107), or null if none scheduled. */
+  persistTimer: ReturnType<typeof setTimeout> | null;
 }
 
-// Pure MiniSearch state — nothing to close on dispose, so no dispose hook.
-const store = createProjectStore<SearchState>();
+/**
+ * How long to wait after the last `schedulePersist` call before actually
+ * writing the index to disk (perf #1107). `persist` serializes the entire
+ * MiniSearch index — O(total corpus bytes), not O(the one changed note) — so
+ * calling it synchronously on every save (the old behavior) meant a
+ * multi-megabyte JSON.stringify + write on every ~1s autosave tick in a large
+ * vault. This coalesces a burst of saves into one write after things go
+ * quiet. A crash before the timer fires loses only index freshness, not
+ * data — the index is fully reconstructible via `indexAllNotes`.
+ */
+let persistDebounceMs = 3000;
+
+/** Test-only: shrink the debounce window instead of waiting out the real one. */
+export function _setPersistDebounceMsForTests(ms: number): void {
+  persistDebounceMs = ms;
+}
+
+// Dispose clears any pending debounce timer so it can't fire after the
+// project's state (and possibly the whole process, on the last window) is
+// gone. persist() itself already cancels the timer on every explicit call
+// (release/quit paths persist synchronously before disposing), so this is a
+// defensive backstop, not the primary flush path.
+const store = createProjectStore<SearchState>({
+  dispose: (state) => {
+    if (state.persistTimer) clearTimeout(state.persistTimer);
+  },
+});
 
 function getState(ctx: ProjectContext): SearchState | null {
   return store.get(ctx);
@@ -21,7 +48,7 @@ function getState(ctx: ProjectContext): SearchState | null {
 function getOrCreateState(ctx: ProjectContext): SearchState {
   let state = store.get(ctx);
   if (!state) {
-    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider() };
+    state = { rootPath: ctx.rootPath, provider: new MiniSearchProvider(), persistTimer: null };
     store.set(ctx, state);
   }
   return state;
@@ -90,7 +117,32 @@ export function search(ctx: ProjectContext, query: string, opts?: { limit?: numb
 export async function persist(ctx: ProjectContext): Promise<void> {
   const state = getState(ctx);
   if (!state) return;
+  if (state.persistTimer) {
+    clearTimeout(state.persistTimer);
+    state.persistTimer = null;
+  }
   await state.provider.save(indexPath(state));
+}
+
+/**
+ * Debounced counterpart to `persist` (perf #1107) — arms (or re-arms) a timer
+ * to persist after the debounce window elapses with no further calls, instead
+ * of writing immediately. This is what the per-save write path calls;
+ * anything that needs an on-disk guarantee right now (project release, app
+ * quit, a manual rebuild) should keep calling `persist` directly.
+ */
+export function schedulePersist(ctx: ProjectContext): void {
+  const state = getState(ctx);
+  if (!state) return;
+  if (state.persistTimer) clearTimeout(state.persistTimer);
+  state.persistTimer = setTimeout(async () => {
+    state.persistTimer = null;
+    try {
+      await state.provider.save(indexPath(state));
+    } catch (err) {
+      console.warn(`[search] debounced persist failed for ${state.rootPath}:`, err);
+    }
+  }, persistDebounceMs);
 }
 
 /** Simple title extraction matching what the graph parser does */
