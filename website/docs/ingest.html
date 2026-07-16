@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Thinking Tools</title>
-<meta name="description" content="The Learning, Research, and Analysis skills: what they are, running one, the three menus, and managing or authoring your own." />
+<title>Minerva — Docs — Ingest</title>
+<meta name="description" content="Bringing external content into a thoughtbase: adding sources, PDF text extraction and OCR, the browser clipper, and citing what you bring in." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -60,82 +60,82 @@
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
-    <a href="thinking-tools.html" class="active">Thinking tools</a>
-    <a href="thinking-tools-what-they-are.html" class="sub">What thinking tools are</a>
-    <a href="thinking-tools-running-a-skill.html" class="sub">Running a skill</a>
-    <a href="thinking-tools-three-menus.html" class="sub">The three menus</a>
-    <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
-    <a href="ingest.html">Ingest</a>
+    <a href="ingest.html" class="active">Ingest</a>
+    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
+    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
+    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
+    <a href="ingest-citing-duplicates.html" class="sub">Citing &amp; duplicates</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Thinking tools</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Ingest</p>
 
-    <h1>Thinking tools</h1>
-    <p class="lede">The Learning, Research, and Analysis menus are structured thinking moves you run over the note you're looking at — steelman an argument, extract its claims, quiz yourself on it, check a fact. Every one is a <b>skill</b>: a markdown file, not a hardcoded feature, which is why the set you get is yours to enable, reassign, or extend.</p>
+    <h1>Ingest</h1>
+    <p class="lede">Bringing external material into a thoughtbase — papers, articles, web pages, PDFs — as <b>Sources</b> you can cite, quote, and query alongside your own notes. Five ways in from the File menu, a quick paste into the Sources panel, drag-and-drop, or a browser extension that captures the page you're already reading.</p>
 
     <h2 id="glance">At a glance</h2>
     <div class="deflist">
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-what-they-are.html"><b>What thinking tools are</b></a> — markdown files with YAML frontmatter, not built-in features.</div>
+        <div class="v"><a href="ingest-adding-sources.html"><b>Adding sources</b></a> — URL, DOI/arXiv/PubMed, a local file, or a bulk BibTeX/Zotero import.</div>
       </div>
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-running-a-skill.html"><b>Running a skill</b></a> — pick one from a menu; it runs and hands back a proposal to review.</div>
+        <div class="v"><a href="ingest-pdf.html"><b>PDF ingest</b></a> — text-layer extraction, and the OCR handoff for scanned PDFs.</div>
       </div>
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-three-menus.html"><b>The three menus</b></a> — Learning, Research, Analysis, and how skills group within each.</div>
+        <div class="v"><a href="ingest-clipper.html"><b>Browser clipper</b></a> — a Chrome extension that captures the page you're reading, no copy-paste required.</div>
       </div>
       <div class="row">
         <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-managing-authoring.html"><b>Managing &amp; authoring</b></a> — enable, reassign, reorder from Settings, or write your own.</div>
+        <div class="v"><a href="ingest-citing-duplicates.html"><b>Citing &amp; duplicates</b></a> — referencing a source from a note, and what happens when you ingest the same one twice.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Still the trust principle</span>
-      <p>A skill's output is a candidate, not a graph write. Every stock skill that produces a change files it through the approval engine — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
+      <span class="label">A Source is a first-class citizen</span>
+      <p>Once ingested, a source lives under <code>.minerva/sources/&lt;id&gt;/</code> — its own metadata, extracted body, and (for PDFs and web pages) the original file — right alongside your project's git history. It shows up in the <a href="left-sidebar-sources.html">Left sidebar's Sources panel</a>, can be cited from any note, and is queryable like anything else in the graph.</p>
     </div>
 
     <h2 id="learn-more">In depth</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="thinking-tools-what-they-are.html">
+      <a class="doc-card" href="ingest-adding-sources.html">
+        <span class="em">➕</span>
+        <h3>Adding sources</h3>
+        <p>URL, identifier, file, or bulk import — every path in, one place.</p>
+      </a>
+      <a class="doc-card" href="ingest-pdf.html">
         <span class="em">📄</span>
-        <h3>What thinking tools are</h3>
-        <p>Skills are markdown files, not built-in features — stock and user, side by side.</p>
+        <h3>PDF ingest</h3>
+        <p>Text-layer extraction, and the OCR handoff for scanned pages.</p>
       </a>
-      <a class="doc-card" href="thinking-tools-running-a-skill.html">
-        <span class="em">▶️</span>
-        <h3>Running a skill</h3>
-        <p>Pick one from a menu; it runs and hands back a proposal to review.</p>
+      <a class="doc-card" href="ingest-clipper.html">
+        <span class="em">✂️</span>
+        <h3>Browser clipper</h3>
+        <p>Capture the page you're reading straight from the browser.</p>
       </a>
-      <a class="doc-card" href="thinking-tools-three-menus.html">
-        <span class="em">🗂️</span>
-        <h3>The three menus</h3>
-        <p>Learning, Research, Analysis — and how skills group within each.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-managing-authoring.html">
-        <span class="em">🛠️</span>
-        <h3>Managing &amp; authoring</h3>
-        <p>Enable, reassign, reorder from Settings — and how to write your own.</p>
+      <a class="doc-card" href="ingest-citing-duplicates.html">
+        <span class="em">🔗</span>
+        <h3>Citing &amp; duplicates</h3>
+        <p>Reference a source from a note, and what re-ingesting it does.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="conversations-propose-review-approve.html">
+      <a class="prev" href="query-result-blocks.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← The propose → review → approve loop</span>
+        <span class="ttl">← Result blocks</span>
       </a>
-      <a class="next" href="thinking-tools-what-they-are.html">
+      <a class="next" href="ingest-adding-sources.html">
         <span class="dir">Next</span>
-        <span class="ttl">What thinking tools are →</span>
+        <span class="ttl">Adding sources →</span>
       </a>
     </div>
   </main>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Thinking Tools</title>
-<meta name="description" content="The Learning, Research, and Analysis skills: what they are, running one, the three menus, and managing or authoring your own." />
+<title>Minerva — Docs — PDF Ingest</title>
+<meta name="description" content="Ingesting a PDF: text-layer extraction for the normal case, and the in-app OCR handoff for scanned PDFs with no text layer." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -60,82 +60,61 @@
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
-    <a href="thinking-tools.html" class="active">Thinking tools</a>
-    <a href="thinking-tools-what-they-are.html" class="sub">What thinking tools are</a>
-    <a href="thinking-tools-running-a-skill.html" class="sub">Running a skill</a>
-    <a href="thinking-tools-three-menus.html" class="sub">The three menus</a>
-    <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
+    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
+    <a href="ingest-pdf.html" class="sub active">PDF ingest</a>
+    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
+    <a href="ingest-citing-duplicates.html" class="sub">Citing &amp; duplicates</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Thinking tools</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>PDF ingest</p>
 
-    <h1>Thinking tools</h1>
-    <p class="lede">The Learning, Research, and Analysis menus are structured thinking moves you run over the note you're looking at — steelman an argument, extract its claims, quiz yourself on it, check a fact. Every one is a <b>skill</b>: a markdown file, not a hardcoded feature, which is why the set you get is yours to enable, reassign, or extend.</p>
+    <h1>PDF ingest</h1>
+    <p class="lede">Most PDFs have a text layer Minerva can read directly. The exceptions — scanned pages with no underlying text — get a short, explicit OCR step instead of either failing outright or silently ingesting nothing useful.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="text-layer">Text-layer PDFs</h2>
+    <p>The normal case, whether the PDF came from a local file or a URL: Minerva extracts the text page by page and persists three things under <code>.minerva/sources/&lt;id&gt;/</code> — <code>original.pdf</code> (the raw bytes), <code>body.md</code> (the extracted text, with a <code>&lt;!-- page N --&gt;</code> marker before each page's content), and <code>meta.ttl</code> (whatever title, author, and date the PDF's own <code>/Info</code> dictionary provided).</p>
+
+    <h2 id="ocr">Scanned PDFs — the OCR handoff</h2>
+    <p>When a PDF has no text layer, Minerva still saves <code>original.pdf</code> and a stub <code>meta.ttl</code>, but <code>body.md</code> stays empty until you complete OCR. The app detects this and hands off to an in-app OCR pass — Tesseract.js, running right in the renderer, no external service — which you confirm before it runs.</p>
+
     <div class="deflist">
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-what-they-are.html"><b>What thinking tools are</b></a> — markdown files with YAML frontmatter, not built-in features.</div>
+        <div class="k">If you run OCR</div>
+        <div class="v">Each page is recognized and the result becomes <code>body.md</code>, with <code>thought:extractionMethod</code> stamped <code>"ocr"</code> on the source (as opposed to <code>"text-layer"</code> for the normal case) — so you can tell later which sources came through which path.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-running-a-skill.html"><b>Running a skill</b></a> — pick one from a menu; it runs and hands back a proposal to review.</div>
+        <div class="k">If you skip it</div>
+        <div class="v">The source stays on disk with <code>original.pdf</code> and its metadata intact — you can open the source later and run OCR then. Nothing is lost by skipping; the body is just a placeholder until you do.</div>
       </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-three-menus.html"><b>The three menus</b></a> — Learning, Research, Analysis, and how skills group within each.</div>
-      </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-managing-authoring.html"><b>Managing &amp; authoring</b></a> — enable, reassign, reorder from Settings, or write your own.</div>
-      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🔍</div>
+      <div class="k">Screenshot — The OCR confirmation prompt</div>
+      <div class="d">The dialog shown right after ingesting a scanned PDF: page count, a short explanation that no text layer was found, and Run OCR / Skip buttons.</div>
     </div>
 
     <div class="box">
-      <span class="label">Still the trust principle</span>
-      <p>A skill's output is a candidate, not a graph write. Every stock skill that produces a change files it through the approval engine — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
-    </div>
-
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="thinking-tools-what-they-are.html">
-        <span class="em">📄</span>
-        <h3>What thinking tools are</h3>
-        <p>Skills are markdown files, not built-in features — stock and user, side by side.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-running-a-skill.html">
-        <span class="em">▶️</span>
-        <h3>Running a skill</h3>
-        <p>Pick one from a menu; it runs and hands back a proposal to review.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-three-menus.html">
-        <span class="em">🗂️</span>
-        <h3>The three menus</h3>
-        <p>Learning, Research, Analysis — and how skills group within each.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-managing-authoring.html">
-        <span class="em">🛠️</span>
-        <h3>Managing &amp; authoring</h3>
-        <p>Enable, reassign, reorder from Settings — and how to write your own.</p>
-      </a>
+      <span class="label">Two things worth knowing up front</span>
+      <p><b>Encrypted PDFs are rejected with a clean error</b> rather than ingesting a broken source — decrypt it first if you need it in your thoughtbase. And <b>a PDF's source id is always a content hash</b>, never a DOI pulled from the file, even when the PDF's metadata has one — PDFs rarely embed a DOI reliably enough to key on, so the id is based on the file's own bytes instead. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what this means if the same paper also arrives later via its DOI or arXiv id.</p>
     </div>
 
     <div class="pager">
-      <a class="prev" href="conversations-propose-review-approve.html">
+      <a class="prev" href="ingest-adding-sources.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← The propose → review → approve loop</span>
+        <span class="ttl">← Adding sources</span>
       </a>
-      <a class="next" href="thinking-tools-what-they-are.html">
+      <a class="next" href="ingest-clipper.html">
         <span class="dir">Next</span>
-        <span class="ttl">What thinking tools are →</span>
+        <span class="ttl">Browser clipper →</span>
       </a>
     </div>
   </main>
