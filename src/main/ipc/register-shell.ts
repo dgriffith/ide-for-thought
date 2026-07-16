@@ -2,6 +2,7 @@ import { ipcMain, shell, dialog } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { Channels } from '../../shared/channels';
+import { assertSafePath } from '../notebase/fs';
 import { winFromEvent, withRootPathOr } from './helpers';
 
 export function registerShell(): void {
@@ -19,21 +20,28 @@ export function registerShell(): void {
     }
   });
 
-  // Shell
+  // Shell. All three resolve renderer-supplied relative paths through
+  // `assertSafePath` before handing them to `shell.*` / `spawn`, so a
+  // `../` escape can't launch or reveal a file outside the project root —
+  // the same path-traversal invariant `fs.ts` enforces (#1328). A
+  // traversal attempt throws, which rejects the invoke and performs no
+  // shell action.
   ipcMain.handle(Channels.SHELL_REVEAL_FILE, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
     const fullPath = relativePath
-      ? path.join(rootPath, relativePath)
+      ? assertSafePath(rootPath, relativePath)
       : rootPath;
     shell.showItemInFolder(fullPath);
   }));
 
   ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string) => {
-    void shell.openPath(path.join(rootPath, relativePath));
+    void shell.openPath(assertSafePath(rootPath, relativePath));
   }));
 
   ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
+    // Validate the full path is in-root, then open its containing dir —
+    // dirname of an in-root path is itself in-root.
     const dir = relativePath
-      ? path.join(rootPath, path.dirname(relativePath))
+      ? path.dirname(assertSafePath(rootPath, relativePath))
       : rootPath;
     // Use spawn with explicit args (no shell) so a filename containing
     // shell metacharacters can't inject. Detached + unref so closing the
