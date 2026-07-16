@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<title>Minerva — Docs — Maintenance</title>
+<meta name="description" content="The small set of housekeeping actions for when something seems stuck or stale: rebuilding indexes, restarting the Python kernel, and a few others." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,56 +66,62 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub active">Citing &amp; duplicates</a>
     <a href="export.html">Export</a>
-    <a href="maintenance.html">Maintenance</a>
+    <a href="maintenance.html" class="active">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Maintenance</p>
 
-    <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <h1>Maintenance</h1>
+    <p class="lede">Notes, search, tables, and semantic search all stay in sync automatically as you work — indexing happens on save, not on a schedule you manage. These six actions are the manual escape hatch for when that assumption breaks down, not a routine you're expected to run.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
-
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
-
+    <h2 id="actions">The actions</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
+        <div class="k">Rebuild All Indexes<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">A full rescan — the knowledge graph, full-text search, and every registered CSV table are all rebuilt from what's on disk, rather than the incremental update a normal save triggers. Reach for this if something looks stale or inconsistent and you want to rule out a missed update.</div>
       </div>
       <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
+        <div class="k">Rebuild Semantic Index<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Forces a full re-embed of the corpus. Normal backfill (a new note, or the embedding model changing) already happens automatically in the background — this is the explicit "start from scratch" option for suspected corruption. Runs non-blocking, with progress shown in the status bar.</div>
       </div>
       <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
+        <div class="k">Interrupt Cell<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Stops a running Python cell without restarting the kernel — everything else the kernel holds (variables, imports) stays intact. Unix only. No default keyboard shortcut is assigned (the Jupyter-standard <kbd>Cmd</kbd>+<kbd>.</kbd> collides with macOS's own Zoom In).</div>
       </div>
+      <div class="row">
+        <div class="k">Restart Python Kernel<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Wipes every notebook's namespace — all variables, imports, and Python's own module cache. Needed after editing a <code>.py</code> helper file elsewhere in the project, since the kernel caches imports and won't pick up your edit otherwise (see <a href="editor.html">Editor</a> for the compute-cell side of this).</div>
+      </div>
+      <div class="row">
+        <div class="k">Clear Recent Thoughtbases<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Wipes the open-recent list shown when you launch Minerva. Bookkeeping only — no project data is touched.</div>
+      </div>
+      <div class="row">
+        <div class="k">Export Knowledge Graph…<br><span class="v" style="opacity:.7">Export menu</span></div>
+        <div class="v">Dumps the live RDF store to a <code>.ttl</code> file you choose — the one item here that isn't strictly "fix something," more a raw escape hatch to the underlying data. See <a href="export.html">Export</a> for everything else that menu covers.</div>
+      </div>
+    </div>
+
+    <div class="shot wide">
+      <div class="icon">🛠️</div>
+      <div class="k">Screenshot — The File menu's indexing/kernel section</div>
+      <div class="d">The File menu open, scrolled to show Rebuild All Indexes, Rebuild Semantic Index, Interrupt Cell, and Restart Python Kernel grouped together.</div>
     </div>
 
     <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+      <span class="label">What's deliberately not here</span>
+      <p>There's no "verify thoughtbase integrity" or "repair broken links" action, and no cache-clearing beyond the two rebuild actions above. The graph, search index, and tables are designed to stay correct via normal on-save indexing — this menu exists for the rare case where that assumption doesn't hold, not as a checkup you should run out of habit.</p>
     </div>
 
     <div class="pager">
-      <a class="prev" href="ingest-clipper.html">
+      <a class="prev" href="export-scopes-privacy.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Browser clipper</span>
+        <span class="ttl">← Scopes &amp; privacy</span>
       </a>
-      <a class="next" href="export.html">
-        <span class="dir">Next</span>
-        <span class="ttl">Export →</span>
-      </a>
+      <span></span>
     </div>
   </main>
 </div>
