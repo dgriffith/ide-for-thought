@@ -14,13 +14,9 @@
 
 import DOMPurify from 'dompurify';
 
-// The script/injection surface forbidden across every DOMPurify pass in the
-// renderer — reused by the diagram-SVG sanitiser (#1331) so there is a single
-// source of truth for "what a library must never be able to emit into the host
-// page." Exported rather than duplicated.
-export const FORBID_TAGS = ['script', 'iframe', 'object', 'embed', 'form'];
+const FORBID_TAGS = ['script', 'iframe', 'object', 'embed', 'form'];
 
-export const FORBID_ATTR = [
+const FORBID_ATTR = [
   'onerror',
   'onload',
   'onclick',

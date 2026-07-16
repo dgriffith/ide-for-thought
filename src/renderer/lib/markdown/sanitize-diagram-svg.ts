@@ -4,36 +4,61 @@
  * Mermaid renders a diagram to an SVG *string* that the renderer injects via
  * `innerHTML` (`mermaid-renderer.ts`). Today the only thing between a malicious
  * ```mermaid source and DOM injection is the app CSP (no `unsafe-inline` in
- * `script-src`) plus mermaid's own output being well-formed. This adds an
- * explicit DOMPurify pass as a second, independent layer, so a mermaid
- * sanitisation bypass or a future CSP regression can't turn diagram source into
- * an executing `<script>` or inline event handler.
+ * `script-src`) plus mermaid's own output. This adds an explicit, independent
+ * scrub of the markup before it hits the DOM, so a mermaid sanitisation bypass
+ * or a future CSP regression can't turn diagram source into an executing
+ * `<script>` or inline event handler. CSP stays the primary control; this is the
+ * second layer.
  *
- * (Vega does NOT need this: vega-embed builds the chart with safe DOM
+ * Why not DOMPurify (as used for compute output): DOMPurify's allowlist strips
+ * `<foreignObject>` HTML content, and mermaid v11 renders node labels as HTML
+ * inside `<foreignObject>` — so a DOMPurify pass silently deletes every diagram
+ * label. Instead this parses the SVG the same way the browser will when it's
+ * assigned to `innerHTML` (the HTML parser, where `<foreignObject>` is an HTML
+ * integration point so labels survive) and removes only the actual injection
+ * surface: script/embed elements, SMIL animation elements (mermaid diagrams are
+ * static; these are a known animate-to-script vector), `on*` handler attributes,
+ * and `javascript:` / `vbscript:` / `data:text/html` URLs. Everything legitimate
+ * — `<text>`/`<foreignObject>` labels, `<style>`, `<path>`, ids, classes, inline
+ * styles, the ids/classes mermaid's post-render `bindFunctions` re-queries — is
+ * preserved untouched.
+ *
+ * (Vega needs no equivalent: vega-embed builds the chart with safe DOM
  * construction — createElementNS/setAttribute via its SVG renderer — never
- * `innerHTML` of a generated string, and runs expressions through the CSP-safe
- * AST interpreter (`ast: true`). The only `innerHTML` in the Vega renderer is
- * app-controlled, already-escaped error/notice HTML.)
- *
- * Config mirrors `sanitizeComputeOutputHtml`: DOMPurify's default HTML+SVG
- * allowlist minus the script/handler surface. That allowlist keeps everything
- * this app's mermaid actually emits — it runs with `securityLevel: 'strict'`, so
- * node labels are SVG `<text>` (not `<foreignObject>` HTML), and the `<style>`,
- * `<path>`, `<g>`, ids, classes and inline styles all survive, including the
- * ids/classes mermaid's post-render `bindFunctions` re-queries. `USE_PROFILES`
- * is intentionally omitted — see the note in compute-output-sanitize.ts.
- *
- * (DOMPurify's default drops `<foreignObject>` HTML content, which would matter
- * only if mermaid were switched to `htmlLabels`/non-strict — revisit the config
- * here if that ever happens.)
+ * `innerHTML` of a generated string, and `ast: true` keeps expressions off
+ * `new Function`.)
  */
 
-import DOMPurify from 'dompurify';
-import { FORBID_TAGS, FORBID_ATTR } from '../compute-output-sanitize';
+/** Elements never legitimately present in a static rendered diagram. */
+const FORBIDDEN_ELEMENTS = [
+  'script', 'iframe', 'object', 'embed', 'form',
+  // SMIL animation can retarget an href to a script URL; mermaid output is
+  // static, so these are pure attack surface.
+  'animate', 'animatetransform', 'animatemotion', 'set',
+];
+
+/** URL schemes that must never survive on href / xlink:href / src. */
+const UNSAFE_URI_RE = /^\s*(?:javascript|vbscript|data:text\/html)/i;
+const URI_ATTRS = new Set(['href', 'xlink:href', 'src']);
 
 export function sanitizeDiagramSvg(svg: string): string {
-  return DOMPurify.sanitize(svg, {
-    FORBID_TAGS,
-    FORBID_ATTR,
-  });
+  // Parse as HTML — the same parser the browser uses for `el.innerHTML = …`, so
+  // `<foreignObject>` HTML labels are namespaced correctly and preserved.
+  const doc = new DOMParser().parseFromString(svg, 'text/html');
+  const container = doc.body;
+
+  container.querySelectorAll(FORBIDDEN_ELEMENTS.join(',')).forEach((el) => el.remove());
+
+  for (const el of container.querySelectorAll('*')) {
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) {
+        el.removeAttribute(attr.name);
+      } else if (URI_ATTRS.has(name) && UNSAFE_URI_RE.test(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+
+  return container.innerHTML;
 }
