@@ -537,6 +537,15 @@
    *  custom keybinding UI both draw from this list. The Electron
    *  menu still lives in `src/main/menu.ts` — moving menus to read
    *  from this registry is a separate follow-up.
+   *
+   *  Gated on `showCommandPalette` (#1108): building the registry
+   *  evaluates each command's `enabled` getter (`hasProject`,
+   *  `hasNote`, …), which reads reactive editor/notebase state. If the
+   *  `$derived` tracked those unconditionally it would rebuild all ~60
+   *  objects on every note switch and navigation even with the palette
+   *  closed — pure churn nobody consumes. Only the getter is reactive,
+   *  so while the palette is closed the derived depends solely on
+   *  `showCommandPalette` and navigation no longer touches it.
    */
   const commandDeps: CommandDeps = {
     hasProject: () => !!notebase.meta,
@@ -593,7 +602,9 @@
     editSavedQueries: () => { showEditSavedQueries = true; },
     openSettings: () => { showSettings = true; },
   };
-  const commands = $derived<Command[]>(buildCommandRegistry(commandDeps));
+  const commands = $derived<Command[]>(
+    showCommandPalette ? buildCommandRegistry(commandDeps) : [],
+  );
   /** When non-null, the merge-target picker is shown. Holds the source
    *  note path; the picker filters the source out of its candidates. */
   let mergePickerSource = $state<string | null>(null);
