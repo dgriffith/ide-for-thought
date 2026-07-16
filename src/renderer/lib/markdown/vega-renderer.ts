@@ -293,6 +293,12 @@ export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Pr
     }
 
     try {
+      // No DOMPurify pass here (#1331): vega-embed builds the chart with safe
+      // DOM construction (createElementNS/setAttribute via its SVG renderer),
+      // never innerHTML of a generated string, and `ast: true` below keeps
+      // expressions off `new Function`. The only innerHTML in this file is the
+      // app-controlled, already-escaped error/notice HTML. See
+      // sanitize-diagram-svg.ts for the mermaid counterpart that does need it.
       const { view } = await embed(el, spec, {
         mode,
         renderer: 'svg',
