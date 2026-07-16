@@ -80,9 +80,22 @@ if (chunks.length === 0) {
   throw new Error(`no chunks extracted from ${DOCS_DIR} — is website/docs/ present?`);
 }
 
+// Embedding all ~500 chunks in one batch pads every row to the single
+// longest sequence in the whole corpus and holds every layer's
+// intermediate activations for the full batch at once — fine on a dev
+// machine, but enough to OOM (std::bad_alloc from the WASM runtime) on a
+// memory-constrained CI runner. Batching bounds peak memory to one
+// batch's worth regardless of corpus size.
+const EMBED_BATCH_SIZE = 32;
+
 const embedder = await createWasmEmbedder({ resourcesBase: path.join(ROOT, 'resources') });
 try {
-  const vectors = await embedder.embed(chunks.map((c) => c.text));
+  const texts = chunks.map((c) => c.text);
+  const vectors = [];
+  for (let i = 0; i < texts.length; i += EMBED_BATCH_SIZE) {
+    const batch = texts.slice(i, i + EMBED_BATCH_SIZE);
+    vectors.push(...await embedder.embed(batch));
+  }
   const corpus = {
     model: MODEL.name,
     dim: MODEL.dim,
