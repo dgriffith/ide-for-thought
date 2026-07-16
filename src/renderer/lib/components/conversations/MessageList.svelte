@@ -51,7 +51,16 @@
 
   function scrollToBottom() {
     requestAnimationFrame(() => {
-      if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+      if (!scrollEl) return;
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+      // Second pass (#1112): with `content-visibility` render-virtualization the
+      // bottom turns may have used their intrinsic-size *estimate* on the first
+      // pass. Scrolling there brings them on-screen so they render at their real
+      // height; re-pin to the now-accurate scrollHeight on the next frame so we
+      // always land flush at the bottom instead of a few pixels short.
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+      });
     });
   }
 
@@ -223,7 +232,25 @@
     flex-direction: column;
     gap: 10px;
   }
-  .msg { display: flex; flex-direction: column; gap: 2px; }
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    /* Render-virtualization for long transcripts (perf #1112). A several-
+       hundred-message research conversation mounts thousands of DOM nodes
+       (rendered markdown, citations, diffs); `content-visibility: auto` lets
+       Chromium skip layout + paint for the off-screen turns so scroll and
+       per-append cost stay bounded by the visible window instead of the whole
+       history. Crucially the nodes stay in the DOM, so scroll-to-bottom,
+       jump-to-message, and cross-message text selection keep working unchanged
+       — this virtualizes rendering, not the node list.
+       `contain-intrinsic-size: auto <fallback>` makes Chromium remember each
+       turn's real height after its first render (so the scrollbar settles
+       instead of drifting as you scroll up); the 4rem fallback only sizes turns
+       that have never been on-screen yet. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 4rem;
+  }
   .msg-role {
     font-size: 10px;
     font-weight: 600;
