@@ -113,7 +113,7 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
     },
     async search(text, limit) {
       await ensureSearch();
-      const hits = search.search(ctx, text, limit ? { limit } : undefined);
+      const hits = await search.search(ctx, text, limit ? { limit } : undefined);
       return { ok: true, data: { query: text, hits } };
     },
     async semantic(text, limit) {
@@ -141,7 +141,7 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       // the link neighborhood + note content grounding.
       await ensureSearch();
       await ensureGraph();
-      const hits = search.search(ctx, t, { limit: n });
+      const hits = await search.search(ctx, t, { limit: n });
       const notes = await Promise.all(
         hits.map(async (h) => {
           let content = '';

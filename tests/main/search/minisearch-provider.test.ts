@@ -1,79 +1,100 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
 import { MiniSearchProvider } from '../../../src/main/search/minisearch-provider';
 
+// The provider reads note bodies from disk on demand for snippet extraction
+// (perf #1111), so tests back each indexed note with a real file under a temp
+// root. `write` both creates the file and indexes it, mirroring how the search
+// layer feeds the provider (index.ts reads the file, then calls `index`).
+let root: string;
+
 function createProvider(): MiniSearchProvider {
-  return new MiniSearchProvider();
+  return new MiniSearchProvider(root);
 }
+
+function write(p: MiniSearchProvider, relativePath: string, title: string, content: string): void {
+  const full = path.join(root, relativePath);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, content, 'utf-8');
+  p.index(relativePath, title, content);
+}
+
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'minisearch-provider-'));
+});
+
+afterEach(() => {
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 describe('MiniSearchProvider', () => {
   describe('index and search', () => {
-    it('finds an indexed document', () => {
+    it('finds an indexed document', async () => {
       const p = createProvider();
-      p.index('note.md', 'My Note', 'This is some content');
-      const results = p.search('content');
+      write(p, 'note.md', 'My Note', 'This is some content');
+      const results = await p.search('content');
       expect(results).toHaveLength(1);
       expect(results[0].relativePath).toBe('note.md');
     });
 
-    it('finds by title', () => {
+    it('finds by title', async () => {
       const p = createProvider();
-      p.index('note.md', 'Architecture', 'Body text');
-      const results = p.search('Architecture');
+      write(p, 'note.md', 'Architecture', 'Body text');
+      const results = await p.search('Architecture');
       expect(results).toHaveLength(1);
     });
 
-    it('title matches rank higher than content matches', () => {
+    it('title matches rank higher than content matches', async () => {
       const p = createProvider();
-      p.index('a.md', 'Architecture Overview', 'Some unrelated body');
-      p.index('b.md', 'Other Note', 'The architecture is described here');
-      const results = p.search('architecture');
+      write(p, 'a.md', 'Architecture Overview', 'Some unrelated body');
+      write(p, 'b.md', 'Other Note', 'The architecture is described here');
+      const results = await p.search('architecture');
       expect(results[0].relativePath).toBe('a.md');
     });
 
-    it('supports prefix search', () => {
+    it('supports prefix search', async () => {
       const p = createProvider();
-      p.index('note.md', 'Deployment', 'Deploy the application');
-      const results = p.search('dep');
+      write(p, 'note.md', 'Deployment', 'Deploy the application');
+      const results = await p.search('dep');
       expect(results.length).toBeGreaterThan(0);
     });
 
-    it('returns empty for empty query', () => {
+    it('returns empty for empty query', async () => {
       const p = createProvider();
-      p.index('note.md', 'Test', 'Content');
-      expect(p.search('')).toEqual([]);
-      expect(p.search('  ')).toEqual([]);
+      write(p, 'note.md', 'Test', 'Content');
+      expect(await p.search('')).toEqual([]);
+      expect(await p.search('  ')).toEqual([]);
     });
 
-    it('respects limit option', () => {
+    it('respects limit option', async () => {
       const p = createProvider();
       for (let i = 0; i < 20; i++) {
-        p.index(`note-${i}.md`, `Note ${i}`, 'Common content word');
+        write(p, `note-${i}.md`, `Note ${i}`, 'Common content word');
       }
-      const results = p.search('content', { limit: 5 });
+      const results = await p.search('content', { limit: 5 });
       expect(results.length).toBeLessThanOrEqual(5);
     });
   });
 
   describe('update', () => {
-    it('re-indexes a document on second index call', () => {
+    it('re-indexes a document on second index call', async () => {
       const p = createProvider();
-      p.index('note.md', 'Old Title', 'Old content');
-      p.index('note.md', 'New Title', 'New content');
-      const results = p.search('New Title');
+      write(p, 'note.md', 'Old Title', 'Old content');
+      write(p, 'note.md', 'New Title', 'New content');
+      const results = await p.search('New Title');
       expect(results).toHaveLength(1);
       expect(results[0].title).toBe('New Title');
     });
   });
 
   describe('remove', () => {
-    it('removes a document from search results', () => {
+    it('removes a document from search results', async () => {
       const p = createProvider();
-      p.index('note.md', 'Test', 'Content');
+      write(p, 'note.md', 'Test', 'Content');
       p.remove('note.md');
-      expect(p.search('Test')).toEqual([]);
+      expect(await p.search('Test')).toEqual([]);
     });
 
     it('is a no-op for non-existent document', () => {
@@ -83,50 +104,75 @@ describe('MiniSearchProvider', () => {
   });
 
   describe('clear', () => {
-    it('empties all documents', () => {
+    it('empties all documents', async () => {
       const p = createProvider();
-      p.index('a.md', 'A', 'Content A');
-      p.index('b.md', 'B', 'Content B');
+      write(p, 'a.md', 'A', 'Content A');
+      write(p, 'b.md', 'B', 'Content B');
       p.clear();
-      expect(p.search('Content')).toEqual([]);
+      expect(await p.search('Content')).toEqual([]);
     });
   });
 
   describe('snippets', () => {
-    it('includes context around the matched term', () => {
+    it('includes context around the matched term', async () => {
       const p = createProvider();
       const body = 'The quick brown fox jumps over the lazy dog. ' +
         'Architecture is the foundation of every system. ' +
         'More text follows after this point.';
-      p.index('note.md', 'Test', body);
-      const results = p.search('Architecture');
+      write(p, 'note.md', 'Test', body);
+      const results = await p.search('Architecture');
       expect(results[0].snippet).toContain('Architecture');
+    });
+
+    it('finds a match deep in the body (read from disk, not a truncated preview)', async () => {
+      const p = createProvider();
+      const body = 'x'.repeat(5000) + ' needle-in-haystack ' + 'y'.repeat(5000);
+      write(p, 'note.md', 'Test', body);
+      const results = await p.search('needle-in-haystack');
+      expect(results[0].snippet).toContain('needle-in-haystack');
+    });
+
+    it('still surfaces a result (sans snippet) when the file is gone from disk', async () => {
+      const p = createProvider();
+      write(p, 'note.md', 'Test', 'Content about architecture');
+      fs.rmSync(path.join(root, 'note.md'));
+      const results = await p.search('architecture');
+      expect(results).toHaveLength(1);
+      expect(results[0].snippet).toBe('');
     });
   });
 
   describe('save and load', () => {
     it('round-trips through a file', async () => {
       const p = createProvider();
-      p.index('note.md', 'Saved Note', 'Persistent content');
+      write(p, 'note.md', 'Saved Note', 'Persistent content');
 
-      const tmpFile = path.join(os.tmpdir(), `minisearch-test-${Date.now()}.json`);
-      try {
-        await p.save(tmpFile);
+      const tmpFile = path.join(root, 'index.json');
+      await p.save(tmpFile);
 
-        const p2 = createProvider();
-        await p2.load(tmpFile);
-        const results = p2.search('Persistent');
-        expect(results).toHaveLength(1);
-        expect(results[0].relativePath).toBe('note.md');
-      } finally {
-        fs.unlinkSync(tmpFile);
-      }
+      const p2 = createProvider();
+      await p2.load(tmpFile);
+      const results = await p2.search('Persistent');
+      expect(results).toHaveLength(1);
+      expect(results[0].relativePath).toBe('note.md');
+    });
+
+    it('persisted JSON does not embed note bodies', async () => {
+      const p = createProvider();
+      write(p, 'note.md', 'Secret Title', 'UNIQUEBODYTOKEN should not be serialized');
+
+      const tmpFile = path.join(root, 'index.json');
+      await p.save(tmpFile);
+      const written = fs.readFileSync(tmpFile, 'utf-8');
+      // The inverted index holds terms, but the raw body text must not be
+      // stored verbatim — that was the O(vault) duplication #1111 removed.
+      expect(written).not.toContain('UNIQUEBODYTOKEN should not be serialized');
     });
 
     it('load handles missing file gracefully', async () => {
       const p = createProvider();
-      await p.load('/tmp/nonexistent-file-' + Date.now() + '.json');
-      expect(p.search('anything')).toEqual([]);
+      await p.load(path.join(root, 'nonexistent.json'));
+      expect(await p.search('anything')).toEqual([]);
     });
   });
 });

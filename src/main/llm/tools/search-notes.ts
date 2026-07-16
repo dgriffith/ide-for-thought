@@ -2,12 +2,12 @@ import * as search from '../../search/index';
 import { projectContext } from '../../project-context-types';
 import type { NotebaseTool, ToolContext } from './types';
 
-function runSearch(ctx: ToolContext, input: unknown): string {
+async function runSearch(ctx: ToolContext, input: unknown): Promise<string> {
   const { query, limit } = input as { query: string; limit?: number };
   if (typeof query !== 'string' || !query.trim()) {
     throw new Error('query is required');
   }
-  const results = search.search(projectContext(ctx.rootPath), query, { limit: limit ?? 10 });
+  const results = await search.search(projectContext(ctx.rootPath), query, { limit: limit ?? 10 });
   if (results.length === 0) {
     return `No results for "${query}".`;
   }
@@ -44,5 +44,5 @@ export const searchNotes: NotebaseTool = {
       required: ['query'],
     },
   },
-  run: (ctx, input) => ({ content: runSearch(ctx, input), isError: false }),
+  run: async (ctx, input) => ({ content: await runSearch(ctx, input), isError: false }),
 };

@@ -16,8 +16,9 @@ export interface SearchProvider {
   /** Remove a document from the index */
   remove(relativePath: string): void;
 
-  /** Search the index, returning ranked results */
-  search(query: string, opts?: { limit?: number }): SearchResult[];
+  /** Search the index, returning ranked results. Async because snippets are
+   *  read from disk on demand rather than held in memory (perf #1111). */
+  search(query: string, opts?: { limit?: number }): Promise<SearchResult[]>;
 
   /** Persist the index to disk */
   save(destPath: string): Promise<void>;

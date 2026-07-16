@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
 import { projectContext } from '../project-context-types';
 import * as search from '../search/index';
+import type { SearchResult } from '../search/types';
 import * as savedQueries from '../saved-queries';
 import { rebuildMenu } from '../menu';
 import { rootPathFromEvent, withRootPathOr } from './helpers';
@@ -57,6 +58,6 @@ export function registerQueries(): void {
   });
 
   // Search
-  ipcMain.handle(Channels.SEARCH_QUERY, withRootPathOr([], (rootPath, query: string) =>
+  ipcMain.handle(Channels.SEARCH_QUERY, withRootPathOr(Promise.resolve<SearchResult[]>([]), (rootPath, query: string) =>
     search.search(projectContext(rootPath), query)));
 }
