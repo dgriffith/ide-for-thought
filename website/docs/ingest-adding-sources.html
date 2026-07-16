@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Adding Sources</title>
+<meta name="description" content="Every way to bring a source into a thoughtbase: the File menu's dedicated ingest actions, the Sources panel's smart-route +, drag-and-drop, and bulk BibTeX/Zotero import." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="query.html">Query</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="ingest-adding-sources.html" class="sub active">Adding sources</a>
+    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
+    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
+    <a href="ingest-citing-duplicates.html" class="sub">Citing &amp; duplicates</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Adding sources</p>
+
+    <h1>Adding sources</h1>
+    <p class="lede">There's more than one door in, depending on what you're starting from: a URL, an identifier, a file already on disk, or a whole reference library you want to bring over at once.</p>
+
+    <h2 id="menu">The File menu</h2>
+    <p>Five dedicated actions, each doing one thing well rather than one smart button trying to guess:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Ingest URL as Source…<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></div>
+        <div class="v">Prompts for a URL and runs it through Readability extraction. URL only — it won't recognize an identifier typed into this prompt.</div>
+      </div>
+      <div class="row">
+        <div class="k">Ingest Identifier…<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></div>
+        <div class="v">Prompts for a DOI, arXiv id, or PubMed id and looks it up against CrossRef / arXiv / PubMed. Also tries to fetch an open-access PDF automatically when one exists — if that specific fetch fails, the source still ingests fine with its metadata; the source's <code>bibo:uri</code> points at the canonical record so you can grab the PDF by hand.</div>
+      </div>
+      <div class="row">
+        <div class="k">Ingest File as Source…</div>
+        <div class="v">Opens a native file picker (not a drop target) for a local PDF, HTML, or plain-text/markdown file.</div>
+      </div>
+      <div class="row">
+        <div class="k">Import BibTeX…</div>
+        <div class="v">Bulk-imports a <code>.bib</code> file. Reports imported / duplicate (skipped) / failed / parse-error counts when it finishes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Import Zotero RDF…</div>
+        <div class="v">Bulk-imports a Zotero RDF export, lifting any attached PDFs along with each entry's metadata.</div>
+      </div>
+    </div>
+
+    <h2 id="panel">The Sources panel's + button</h2>
+    <p>The quickest path for a one-off: click <b>+</b> in the <a href="left-sidebar-sources.html">Sources panel</a> and paste in a URL, DOI, arXiv id, or PubMed id. Unlike the menu's URL/Identifier actions, this one <b>smart-routes</b> — it recognizes which kind of thing you pasted and picks the right path automatically. It also catches a DOI embedded in a longer piece of pasted text (e.g. "see 10.1145/xxxx for details"), extracting just the identifier rather than failing on the surrounding prose.</p>
+
+    <div class="shot wide">
+      <div class="icon">➕</div>
+      <div class="k">Screenshot — Adding a source via the + button</div>
+      <div class="d">The Sources panel with the + button highlighted and the resulting prompt dialog ("URL, DOI, arXiv id, or PubMed id:") showing a pasted arXiv URL.</div>
+    </div>
+
+    <h2 id="drop">Drag and drop</h2>
+    <p>Dropping files onto the Notes tree isn't source-specific — it's a general "bring this file into the project" gesture that branches by file type:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>.pdf</code></div>
+        <div class="v">Ingested as a Source, the same as the menu's PDF path. The folder you dropped onto is ignored — sources live in the sources library, not the file tree.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>.md</code> / <code>.ttl</code> / <code>.csv</code></div>
+        <div class="v">Copied into the thoughtbase as a regular file, at the folder you dropped onto — <b>not</b> ingested as a Source. A name collision gets auto-renamed (<code>foo.md</code>, <code>foo-2.md</code>, …) rather than overwriting.</div>
+      </div>
+      <div class="row">
+        <div class="k">Anything else</div>
+        <div class="v">Rejected, with a reason shown for each skipped file. One unsupported file in a multi-file drop doesn't cancel the rest of the import.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Why re-adding the same paper doesn't duplicate it</span>
+      <p>Every source is stored under an id derived from its most stable identifier — DOI, arXiv id, PubMed id, ISBN, or (falling back) a hash of its URL or content. Ingesting the same paper twice by the same route produces the same id, so a duplicate is just a no-op. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what happens when the <i>same</i> paper arrives via <i>different</i> identifiers.</p>
+    </div>
+
+    <h2 id="gotchas">Gotchas</h2>
+    <ul>
+      <li><b>The menu's "Ingest URL" and "Ingest Identifier" don't smart-route — the Sources panel's + button does.</b> Paste a DOI into the URL prompt and it fails; paste it into the + button and it works. If you're not sure which kind of thing you're holding, use the + button.</li>
+      <li><b>PDF ingest doesn't key off a DOI even when one's findable.</b> A PDF's source id is always a content hash, not a DOI extracted from the file — see <a href="ingest-pdf.html">PDF ingest</a> for why, and <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for the merge step this can require.</li>
+      <li><b>Bulk imports report failures inline, not silently.</b> A BibTeX or Zotero RDF import that partially fails still completes the entries it can, then shows you the first few failures with a reason — check the summary rather than assuming a clean run.</li>
+    </ul>
+
+    <div class="pager">
+      <a class="prev" href="ingest.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Ingest</span>
+      </a>
+      <a class="next" href="ingest-pdf.html">
+        <span class="dir">Next</span>
+        <span class="ttl">PDF ingest →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
