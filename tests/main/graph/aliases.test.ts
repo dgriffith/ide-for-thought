@@ -19,6 +19,7 @@ import os from 'node:os';
 import {
   initGraph,
   indexNote,
+  indexAllNotes,
   queryGraph,
   getAliasMap,
 } from '../../../src/main/graph/index';
@@ -159,5 +160,50 @@ describe('frontmatter aliases (#469)', () => {
       '',
     ].join('\n'));
     expect(Object.keys(getAliasMap(ctx)).sort()).toEqual(['foo']);
+  });
+
+  describe('full-index path (perf #1106 — skips the per-note rebuild)', () => {
+    it('produces the same alias map as the incremental path, including collisions', async () => {
+      // Same three scenarios as the incremental tests above, but all planted
+      // on disk and indexed via indexAllNotes — the path that now skips
+      // rebuildAliasMap per note and relies on the pre-pass + one rebuild
+      // after the main walk instead.
+      await fsp.writeFile(
+        path.join(root, 'kennedy.md'),
+        ['---', 'aliases:', '  - JFK', '---', '# Kennedy', ''].join('\n'),
+        'utf-8',
+      );
+      // A real note named JFK.md should beat the alias above.
+      await fsp.writeFile(path.join(root, 'JFK.md'), '# Some other JFK note\n', 'utf-8');
+      // Duplicate alias claim: alphabetically-first path wins.
+      await fsp.writeFile(
+        path.join(root, 'b.md'),
+        ['---', 'aliases:', '  - shared', '---', '# B'].join('\n'),
+        'utf-8',
+      );
+      await fsp.writeFile(
+        path.join(root, 'a.md'),
+        ['---', 'aliases:', '  - shared', '---', '# A'].join('\n'),
+        'utf-8',
+      );
+      // A link that should resolve through an alias planted in the same pass.
+      await fsp.writeFile(path.join(root, 'essays.md'), '# Essays\n\nSee [[shared]].\n', 'utf-8');
+
+      const count = await indexAllNotes(ctx);
+      expect(count).toBe(5);
+
+      const map = getAliasMap(ctx);
+      expect(map.jfk).toBeUndefined(); // real JFK.md file wins over the alias
+      expect(map.shared).toBe('a.md'); // alphabetically-first path wins
+
+      // The `shared` alias resolves to a.md, not left dangling as literal text.
+      const r = await queryGraph(ctx, `
+        SELECT ?subject ?target WHERE {
+          ?subject <https://minerva.dev/ontology#references> ?target .
+        }
+      `);
+      const rows = r.results as Array<{ subject: string; target: string }>;
+      expect(rows.some((row) => row.target.endsWith('/a'))).toBe(true);
+    });
   });
 });
