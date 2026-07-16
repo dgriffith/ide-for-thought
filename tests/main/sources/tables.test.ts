@@ -38,6 +38,28 @@ describe('tables module — DuckDB lifecycle + runQuery (#232)', () => {
     }
   });
 
+  it('blocks httpfs extension autoload — no network egress from a SQL cell (#1325)', async () => {
+    // A remote read forces DuckDB to autoload `httpfs`; with autoload
+    // disabled at init (hardenConnection) it fails with a Missing Extension
+    // error instead of reaching the network. Loopback host so the assertion
+    // is about the block, not about DNS/connectivity.
+    const result = await runQuery(
+      ctx,
+      "SELECT * FROM read_csv_auto('https://127.0.0.1/leak.csv')",
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/extension|autoload|httpfs/i);
+    }
+  });
+
+  it('still runs core built-in queries after the extension lockdown (#1325)', async () => {
+    // The lockdown must not touch the built-ins the CSV pipeline relies on.
+    const result = await runQuery(ctx, 'SELECT 1 AS n');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.rows).toEqual([{ n: 1 }]);
+  });
+
   it('handles multi-row / multi-column results with typed values', async () => {
     const result = await runQuery(ctx, `
       SELECT * FROM (VALUES

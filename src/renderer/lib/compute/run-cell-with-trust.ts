@@ -1,28 +1,53 @@
 /**
- * Trust-gated wrapper around `api.compute.runCell` (#373).
+ * Trust-gated wrapper around `api.compute.runCell` (#373, #1325).
  *
- * Python cells run with the same permissions as Minerva — file
- * system, network, every installed package — so we prompt once per
- * thoughtbase before the first execution. Cancelling the prompt
- * blocks the run; clicking Run records the consent in
- * `.minerva/config.json` so subsequent cells in the same project
- * skip the dialog.
+ * Every executable compute fence runs with real capability, not just
+ * Python — so we prompt once per thoughtbase before the first
+ * execution of ANY of them. Cancelling the prompt blocks the run;
+ * clicking Run records the consent in `.minerva/config.json` so
+ * subsequent cells in the same project skip the dialog.
+ *
+ * The languages that require consent (#1325):
+ *   - `python` — runs with Minerva's full permissions (fs, network,
+ *      every installed package).
+ *   - `sql` — DuckDB is NOT a sandboxed dialect: `read_text`,
+ *      `read_csv_auto`, `read_blob`, `glob(...)` read arbitrary local
+ *      files and `COPY (…) TO '<path>'` writes them. (Network egress
+ *      via the httpfs extension is additionally blocked at the DuckDB
+ *      layer — see `sources/tables.ts` — but local file access is a
+ *      core capability, so consent is still required.)
+ *   - `sparql` — only queries the already-in-memory project graph and
+ *      the rdfjs engine has no HTTP dereference actor (so `SERVICE`
+ *      federation can't reach the network), but it's an executable
+ *      fence and gated for consistency.
  *
  * The dialog flow lives in the renderer (we need a real Svelte
  * confirm dialog), but the trust state is project-scoped — stored
  * via the `compute:get/setPythonTrust` IPCs that read/write the
- * project config. SQL / SPARQL fences pass straight through;
- * they don't execute arbitrary code.
+ * project config. The persisted flag is a single per-project
+ * "run compute cells" consent (its stored name is historical).
  */
 
 import { api } from '../ipc/client';
 import { CONFIRM_KEYS } from '../confirm-keys';
+import { RUNNABLE_LANGUAGE_SET } from '../../../shared/compute/fences';
 import type { CellResult } from '../../../shared/compute/types';
 
-const PYTHON_TRUST_PROMPT = [
-  'Run Python cells in this thoughtbase?',
+/**
+ * The trust gate covers exactly the languages the compute shell can
+ * execute — every one of them runs with real capability (filesystem /
+ * network / arbitrary packages), so consent is required before any of
+ * them run (#1325). We reuse `RUNNABLE_LANGUAGE_SET` (the single source
+ * of truth, kept in sync with the executor registry) rather than a local
+ * list so the two can't drift and aliases like `py` / `python3` can't
+ * slip through the gate.
+ */
+const TRUST_GATED_LANGUAGES = RUNNABLE_LANGUAGE_SET;
+
+const COMPUTE_TRUST_PROMPT = [
+  'Run compute cells in this thoughtbase?',
   '',
-  'Python cells run with the same permissions as Minerva — they can read and write files, make network requests, and import any installed package.',
+  'Compute cells (Python, SQL, SPARQL) run with real capability — they can read and write files on this machine and, for Python, make network requests and import any installed package.',
   '',
   'Only run cells in thoughtbases you trust.',
 ].join('\n');
@@ -44,8 +69,9 @@ export interface TrustGateDeps {
 }
 
 /**
- * Run a cell, gating Python through the per-project trust prompt.
- * Non-Python cells (sparql / sql) pass through unchanged.
+ * Run a cell, gating every executable language (python / sql / sparql)
+ * through the per-project trust prompt (#1325). Non-executable
+ * languages pass through unchanged.
  */
 export async function runCellWithTrust(
   language: string,
@@ -53,11 +79,11 @@ export async function runCellWithTrust(
   notePath: string | undefined,
   deps: TrustGateDeps,
 ): Promise<CellResult> {
-  if (language === 'python') {
+  if (TRUST_GATED_LANGUAGES.has(language.toLowerCase())) {
     const trusted = await api.compute.getPythonTrust();
     if (!trusted) {
       const confirmed = await deps.showConfirm(
-        PYTHON_TRUST_PROMPT,
+        COMPUTE_TRUST_PROMPT,
         CONFIRM_KEYS.pythonTrust,
         'Run',
         { hideDontAskAgain: true },
@@ -65,7 +91,7 @@ export async function runCellWithTrust(
       if (!confirmed) {
         return {
           ok: false,
-          error: 'Python execution declined for this thoughtbase. Open Settings → Compute or re-run a cell to be prompted again.',
+          error: 'Compute execution declined for this thoughtbase. Open Settings → Compute or re-run a cell to be prompted again.',
         };
       }
       await api.compute.setPythonTrust(true);
