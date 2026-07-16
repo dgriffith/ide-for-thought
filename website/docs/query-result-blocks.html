@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Left Sidebar</title>
-<meta name="description" content="The left sidebar's five panels: the Notes tree, Sources, Tags, Tables, and Bookmarks — what each one shows and how to work with it." />
+<title>Minerva — Docs — Query Result Blocks</title>
+<meta name="description" content="Pasting a query's results into a note as a live list, table, or timeseries chart, and how to discover a table's schema before you query it." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -57,12 +57,7 @@
     <a href="editor.html">Editor</a>
 
     <h4>The workspace</h4>
-    <a href="left-sidebar.html" class="active">Left sidebar</a>
-    <a href="left-sidebar-notes-tree.html" class="sub">Notes tree</a>
-    <a href="left-sidebar-sources.html" class="sub">Sources</a>
-    <a href="left-sidebar-tags.html" class="sub">Tags</a>
-    <a href="left-sidebar-tables.html" class="sub">Tables</a>
-    <a href="left-sidebar-bookmarks.html" class="sub">Bookmarks</a>
+    <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
     <a href="thinking-tools.html">Thinking tools</a>
@@ -70,77 +65,62 @@
 
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
+    <a href="query-menu-panel.html" class="sub">Query menu &amp; panel</a>
+    <a href="query-runnable-cells.html" class="sub">Runnable cells</a>
+    <a href="query-result-blocks.html" class="sub active">Result blocks</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Left sidebar</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="query.html">Query</a><span class="sep">/</span>Result blocks</p>
 
-    <h1>Left sidebar</h1>
-    <p class="lede">The left sidebar is the workspace rail — five panels behind five tabs, each a different lens on your project. The Notes tree is the file system; Sources is a reference manager sitting alongside it; Tags and Tables are two different ways to browse data extracted from your notes; Bookmarks is a set of places you've marked yourself. Switch between them by clicking a tab icon at the top of the sidebar.</p>
+    <h1>Result blocks</h1>
+    <p class="lede">Instead of a static export, a query's results can live in a note as a block that re-runs every time the note renders — a list, a table, or a chart. The Query panel's "Copy as…" dropdown generates these for you (see <a href="query-menu-panel.html">Query menu &amp; panel</a>), or you can write one by hand.</p>
 
-    <h2 id="glance">The five panels</h2>
+    <h2 id="list-table">Lists &amp; tables</h2>
+    <p><code>:::query-list</code> and <code>:::query-table</code> wrap a query with a small YAML-ish config header, then render its results live:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k"><a href="left-sidebar-notes-tree.html">Notes tree</a></div>
-        <div class="v">The default panel — your project's folder structure, and where you create, rename, and move notes.</div>
+        <div class="k"><code>columns</code></div>
+        <div class="v">Restrict and order which result columns actually show. Omit it to show every column the query returns.</div>
       </div>
       <div class="row">
-        <div class="k"><a href="left-sidebar-sources.html">Sources</a></div>
-        <div class="v">Captured web pages, PDFs, and bibliography entries, separate from your notes but citable from them.</div>
+        <div class="k"><code>link</code></div>
+        <div class="v">Which column, if any, should navigate to a note when clicked. Defaults to a column named <code>path</code>.</div>
       </div>
-      <div class="row">
-        <div class="k"><a href="left-sidebar-tags.html">Tags</a></div>
-        <div class="v">A flat, alphabetical list of every tag in the project — from frontmatter and inline <code>#tag</code> text alike.</div>
-      </div>
-      <div class="row">
-        <div class="k"><a href="left-sidebar-tables.html">Tables</a></div>
-        <div class="v">Every <code>.csv</code> file in the project, registered as a live, queryable table.</div>
-      </div>
-      <div class="row">
-        <div class="k"><a href="left-sidebar-bookmarks.html">Bookmarks</a></div>
-        <div class="v">Places you've saved yourself — a whole note, a section, or an exact line — organized in your own folders.</div>
-      </div>
+    </div>
+    <p>Table results are sortable in preview the same way the Query panel's results are — click a column header to toggle ascending/descending.</p>
+
+    <h2 id="timeseries">Timeseries charts</h2>
+    <p><code>:::query-timeseries</code> renders numeric results as a chart instead of a table:</p>
+    <div class="deflist">
+      <div class="row"><div class="k"><code>x</code></div><div class="v">The column to use as the x-axis.</div></div>
+      <div class="row"><div class="k"><code>y</code></div><div class="v">One or more columns to plot, comma-separated.</div></div>
+      <div class="row"><div class="k"><code>type</code></div><div class="v"><code>line</code>, <code>bar</code>, or <code>area</code>.</div></div>
+      <div class="row"><div class="k"><code>height</code></div><div class="v">Chart height in pixels.</div></div>
+      <div class="row"><div class="k"><code>title</code></div><div class="v">A title shown above the chart.</div></div>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
-    <div class="doc-cards">
-      <a class="doc-card" href="left-sidebar-notes-tree.html">
-        <span class="em">🌳</span>
-        <h3>Notes tree</h3>
-        <p>The file/folder tree — create, rename, and move notes.</p>
-      </a>
-      <a class="doc-card" href="left-sidebar-sources.html">
-        <span class="em">📚</span>
-        <h3>Sources</h3>
-        <p>Captured references you can cite from your notes.</p>
-      </a>
-      <a class="doc-card" href="left-sidebar-tags.html">
-        <span class="em">#️⃣</span>
-        <h3>Tags</h3>
-        <p>Every tag in the project, frontmatter and inline alike.</p>
-      </a>
-      <a class="doc-card" href="left-sidebar-tables.html">
-        <span class="em">🗄️</span>
-        <h3>Tables</h3>
-        <p>Every CSV in the project, ready to query with DuckDB.</p>
-      </a>
-      <a class="doc-card" href="left-sidebar-bookmarks.html">
-        <span class="em">🔖</span>
-        <h3>Bookmarks</h3>
-        <p>Saved locations — a note, a section, or an exact line.</p>
-      </a>
+    <div class="box">
+      <span class="label">Example</span>
+      <p><code>:::query-timeseries<br>x: month<br>y: revenue, cost<br>type: area<br>---<br>SELECT date_trunc('month', date) AS month, SUM(revenue) AS revenue, SUM(cost) AS cost FROM sales GROUP BY month ORDER BY month;<br>:::</code></p>
     </div>
+
+    <div class="shot wide">
+      <div class="icon">📊</div>
+      <div class="k">Screenshot — A query-timeseries chart rendered in preview</div>
+      <div class="d">An area chart with two series (e.g. revenue and cost) rendered inline in a note's preview pane, directly below the ```query-timeseries fence that produced it.</div>
+    </div>
+
+    <h2 id="schema">Discovering a table's schema first</h2>
+    <p>Before you write a query against a CSV-backed table, it helps to know its actual column names. Two stock SQL queries do this without you needing to remember DuckDB's syntax: <b>Describe schema</b> (<code>DESCRIBE your_table;</code>) and <b>Summarize</b> (<code>SUMMARIZE your_table;</code>, which adds per-column stats). The Query panel's SQL autocomplete also surfaces real column names as you type, once a table is registered.</p>
 
     <div class="pager">
-      <a class="prev" href="editor.html">
+      <a class="prev" href="query-runnable-cells.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Editor</span>
+        <span class="ttl">← Runnable cells</span>
       </a>
-      <a class="next" href="left-sidebar-notes-tree.html">
-        <span class="dir">Next</span>
-        <span class="ttl">Notes tree →</span>
-      </a>
+      <span></span>
     </div>
   </main>
 </div>
