@@ -14,6 +14,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+import { encryptSecret, decryptSecret } from '../secret-storage';
 
 export interface ClipperConfig {
   enabled: boolean;
@@ -40,7 +41,10 @@ export async function getClipperConfig(): Promise<ClipperConfig> {
     const parsed = JSON.parse(raw) as Partial<ClipperConfig>;
     return {
       enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_CLIPPER_CONFIG.enabled,
-      secret: typeof parsed.secret === 'string' ? parsed.secret : DEFAULT_CLIPPER_CONFIG.secret,
+      // Decrypt the secret at rest (#1326); a legacy plaintext secret passes
+      // through unchanged, so existing pairings keep working and re-encrypt on
+      // the next write.
+      secret: typeof parsed.secret === 'string' ? decryptSecret(parsed.secret) : DEFAULT_CLIPPER_CONFIG.secret,
     };
   } catch {
     return { ...DEFAULT_CLIPPER_CONFIG };
@@ -48,7 +52,11 @@ export async function getClipperConfig(): Promise<ClipperConfig> {
 }
 
 async function saveClipperConfig(config: ClipperConfig): Promise<void> {
-  await fs.writeFile(configPath(), JSON.stringify(config, null, 2), 'utf-8');
+  // The in-memory ClipperConfig.secret stays plaintext for consumers (the
+  // loopback endpoint's constant-time compare); only the on-disk copy is
+  // encrypted (#1326).
+  const onDisk: ClipperConfig = { ...config, secret: encryptSecret(config.secret) };
+  await fs.writeFile(configPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
 }
 
 /** Set the enable flag. Enabling issues a secret if none exists yet. */

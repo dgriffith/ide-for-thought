@@ -18,6 +18,16 @@ vi.mock('electron', () => ({
       return tempDir;
     },
   },
+  // Reversible fake so the secret's at-rest encryption path (#1326) is exercised.
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: (s: string) => Buffer.from('FAKEENC:' + s, 'utf-8'),
+    decryptString: (buf: Buffer) => {
+      const s = buf.toString('utf-8');
+      if (!s.startsWith('FAKEENC:')) throw new Error('bad ciphertext');
+      return s.slice('FAKEENC:'.length);
+    },
+  },
 }));
 
 import {
@@ -68,4 +78,30 @@ it('ensureClipperSecret generates once, then is stable', async () => {
   const s1 = await ensureClipperSecret();
   expect(s1).toMatch(/^[0-9a-f]{64}$/);
   expect(await ensureClipperSecret()).toBe(s1);
+});
+
+it('encrypts the secret at rest but keeps it plaintext in memory (#1326)', async () => {
+  const cfg = await setClipperEnabled(true);
+  // In-memory secret stays plaintext hex for the loopback compare.
+  expect(cfg.secret).toMatch(/^[0-9a-f]{64}$/);
+  // On-disk copy is encrypted, not the raw hex.
+  const onDisk = fs.readFileSync(path.join(tempDir, 'clipper-config.json'), 'utf-8');
+  expect(onDisk).not.toContain(cfg.secret);
+  expect((JSON.parse(onDisk).secret as string).startsWith('enc:v1:')).toBe(true);
+  // Round-trips back to the same plaintext on read.
+  expect((await getClipperConfig()).secret).toBe(cfg.secret);
+});
+
+it('reads a legacy plaintext secret unchanged, then re-encrypts on next write (#1326)', async () => {
+  const legacy = 'a'.repeat(64);
+  fs.writeFileSync(
+    path.join(tempDir, 'clipper-config.json'),
+    JSON.stringify({ enabled: true, secret: legacy }),
+  );
+  // Legacy plaintext still resolves.
+  expect((await getClipperConfig()).secret).toBe(legacy);
+  // A write (rotate) migrates the file to encrypted form.
+  await setClipperEnabled(false);
+  const onDisk = fs.readFileSync(path.join(tempDir, 'clipper-config.json'), 'utf-8');
+  expect((JSON.parse(onDisk).secret as string).startsWith('enc:v1:')).toBe(true);
 });

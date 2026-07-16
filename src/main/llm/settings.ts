@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import type { LLMSettings, WebSettings } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
+import { encryptSecret, decryptSecret } from '../secret-storage';
 
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
@@ -43,8 +44,16 @@ export async function getSettings(): Promise<LLMSettings> {
     const raw = await fs.readFile(settingsPath(), 'utf-8');
     const parsed = JSON.parse(raw) as Partial<LLMSettings>;
     const effort = resolveEffortSetting(parsed.effort);
+    // Decrypt the stored key (#1326). `decryptSecret` passes a legacy
+    // plaintext value through unchanged, so pre-encryption configs keep
+    // working. Only fall back to the env var when the field is absent —
+    // an explicitly-cleared ('') key stays cleared, matching the prior
+    // `?? env ?? ''` semantics.
+    const apiKey = typeof parsed.apiKey === 'string'
+      ? decryptSecret(parsed.apiKey)
+      : (process.env.ANTHROPIC_API_KEY ?? '');
     return {
-      apiKey: parsed.apiKey ?? process.env.ANTHROPIC_API_KEY ?? '',
+      apiKey,
       model: resolveModel(parsed.model),
       web: resolveWeb(parsed.web),
       ...(effort ? { effort } : {}),
@@ -59,5 +68,8 @@ export async function getSettings(): Promise<LLMSettings> {
 }
 
 export async function saveSettings(settings: LLMSettings): Promise<void> {
-  await fs.writeFile(settingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+  // Encrypt the API key at rest (#1326); everything else is non-sensitive.
+  // Reading back through `getSettings` decrypts it transparently.
+  const onDisk = { ...settings, apiKey: encryptSecret(settings.apiKey ?? '') };
+  await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
 }
