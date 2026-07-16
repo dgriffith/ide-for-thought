@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Document Exports</title>
-<meta name="description" content="The document-family exporters: markdown passthrough, single-note and wiki-link-closure bundles in Markdown, HTML, and PDF, and the link policies shared across them." />
+<title>Minerva — Docs — Manual Rename, Move &amp; Delete</title>
+<meta name="description" content="Renaming, moving, and deleting notes directly in the Notes tree, and what automatically updates when you do — wiki-links, relative markdown links, and what doesn't." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -67,79 +67,73 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
-    <a href="export-documents.html" class="sub active">Document exports</a>
-    <a href="export-publishing.html" class="sub">Publishing</a>
-    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
-    <a href="export-flashcards.html" class="sub">Flashcards</a>
-    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
     <a href="refactoring.html">Refactoring</a>
+    <a href="refactoring-manual.html" class="sub active">Manual rename, move &amp; delete</a>
+    <a href="refactoring-safe-delete.html" class="sub">Safe delete &amp; dangling links</a>
+    <a href="refactoring-ai-assisted.html" class="sub">AI-assisted refactors</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Document exports</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="refactoring.html">Refactoring</a><span class="sep">/</span>Manual rename, move &amp; delete</p>
 
-    <h1>Document exports</h1>
-    <p class="lede">Seven exporters covering the document family — plain markdown, and single-note vs. wiki-link-closure bundles in Markdown, HTML, and PDF.</p>
+    <h1>Manual rename, move &amp; delete</h1>
+    <p class="lede">Doing it yourself, right in the Notes tree — and what Minerva keeps consistent for you when you do.</p>
 
-    <h2 id="exporters">The exporters</h2>
+    <h2 id="actions">Right-click and drag</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">Markdown<br><span class="v" style="opacity:.7">(passthrough)</span></div>
-        <div class="v">A folder or the whole project, copied through as-is — the closest thing to "just give me the files."</div>
+        <div class="k">Rename</div>
+        <div class="v">Right-click a note → Rename. Also reachable from the command palette as <b>Rename Note…</b> (no default keyboard shortcut).</div>
       </div>
       <div class="row">
-        <div class="k">Note as Clean Markdown</div>
-        <div class="v">A single note, cleaned up for standalone reading (no project-specific cruft).</div>
+        <div class="k">Move</div>
+        <div class="v">Drag a note onto a destination folder, or use the command palette's <b>Move Note…</b> (also no default shortcut) to type a destination path instead.</div>
       </div>
       <div class="row">
-        <div class="k">Note Tree as Markdown Zip</div>
-        <div class="v">A root note's wiki-link closure, bundled as a <code>.zip</code> of markdown files.</div>
+        <div class="k">Delete</div>
+        <div class="v">Right-click → Delete. See <a href="refactoring-safe-delete.html">Safe delete &amp; dangling links</a> for what happens before it actually deletes anything.</div>
       </div>
       <div class="row">
-        <div class="k">Note as HTML</div>
-        <div class="v">A single note as a standalone <code>.html</code> file, styles and scripts embedded.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note Tree as HTML Bundle</div>
-        <div class="v">A wiki-link closure as a set of linked <code>.html</code> files.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note as PDF</div>
-        <div class="v">A single note rendered to PDF via Electron's own Chromium engine.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note Tree as Single PDF</div>
-        <div class="v">A wiki-link closure consolidated into one PDF.</div>
+        <div class="k">Cut / Copy / Paste</div>
+        <div class="v">Standard clipboard operations are also available from the right-click menu, as another way to move or duplicate notes between folders.</div>
       </div>
     </div>
 
-    <h2 id="link-policies">Link policies</h2>
-    <p>Every export needs a rule for what happens to a <code>[[wiki-link]]</code> in the output. Three policies apply across the document family:</p>
+    <div class="shot wide">
+      <div class="icon">✏️</div>
+      <div class="k">Screenshot — Right-click menu on a note</div>
+      <div class="d">The Notes tree with a note right-clicked, showing the context menu: Rename, Delete, Cut, Copy, Paste, Merge into…, and the rest of the per-note actions.</div>
+    </div>
+
+    <h2 id="auto-update">What auto-updates</h2>
+    <p>Rename or move a note, and Minerva rewrites references to it across the rest of the thoughtbase:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Drop</div>
-        <div class="v">The link disappears; its display text (or the target name) remains as plain text. Fits a single-note export, where the link's target usually isn't in the output anyway.</div>
+        <div class="k">Wiki-links</div>
+        <div class="v"><code>[[old]]</code> becomes <code>[[new]]</code> everywhere it's referenced — preserving a type prefix (<code>[[type::old]]</code> → <code>[[type::new]]</code>), display text (<code>[[old|label]]</code> → <code>[[new|label]]</code>), and an anchor (<code>[[old#heading]]</code> → <code>[[new#heading]]</code>).</div>
       </div>
       <div class="row">
-        <div class="k">Inline title</div>
-        <div class="v">The link is replaced with the target note's own title (from frontmatter or its H1). Fits content-style exports where the reader has no way to follow the link regardless.</div>
+        <div class="k">Relative markdown links &amp; images</div>
+        <div class="v">A plain <code>[text](path)</code> or <code>![alt](pic.png)</code> gets re-relativized both from the moved note's new location, and from any other note that links to it — so a relative path stays correct on both ends of the link.</div>
       </div>
-      <div class="row">
-        <div class="k">Follow to file</div>
-        <div class="v">Rewritten to a relative file link when the target is part of this export; otherwise falls back to inline title. The shape for folder/tree exports, where the output is genuinely a set of inter-linked files.</div>
-      </div>
+    </div>
+    <p>What does <b>not</b> update: source and excerpt citation markers (<code>[[cite::id]]</code>, <code>[[quote::id]]</code>) — those target a stable id, not a path, so they're unaffected by a note moving in the first place.</p>
+
+    <div class="box">
+      <span class="label">Folder renames work, but differently</span>
+      <p>Renaming a whole folder works via drag-and-drop, the same as moving one — there's just no dedicated prompt-driven shortcut for it the way single-note rename has one.</p>
     </div>
 
     <div class="pager">
-      <a class="prev" href="export.html">
+      <a class="prev" href="refactoring.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Export</span>
+        <span class="ttl">← Refactoring</span>
       </a>
-      <a class="next" href="export-publishing.html">
+      <a class="next" href="refactoring-safe-delete.html">
         <span class="dir">Next</span>
-        <span class="ttl">Publishing →</span>
+        <span class="ttl">Safe delete &amp; dangling links →</span>
       </a>
     </div>
   </main>
