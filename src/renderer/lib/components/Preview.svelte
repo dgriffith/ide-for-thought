@@ -57,7 +57,7 @@
         tableToCsv,
         outputToMarkdownClipboard
     } from '../preview/compute-output-render';
-    import { applyCslMarkers, resolveCiteLabel, resolveQuoteLabel, type CitationRenderDeps } from '../preview/citation-render';
+    import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
     import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
 
     interface Props {
@@ -201,6 +201,16 @@
     const citeMetaCache = new Map<string, CiteMeta>();
     const quoteMetaCache = new Map<string, QuoteMeta>();
 
+    // Rendered-transclusion cache (perf #1114): `${rel}\u0000${embed}` → the
+    // md.render output for that embed's sliced body. Each host re-render rebuilds
+    // the whole preview DOM, so without this every `![[embed]]` re-ran a readFile
+    // IPC + a full md.render on every keystroke-debounced render. Keyed by the
+    // resolved target + embed directive (both project-global, like the other
+    // caches), and cleared on `revision` so a save to an embedded note refreshes
+    // it (see the effect below). Loop/depth checks still run per pass — only the
+    // read+parse of an unchanged body is skipped.
+    const transclusionRenderCache = new Map<string, string>();
+
     const QUERY_PREFIXES = `PREFIX minerva: <https://minerva.dev/ontology#>
 PREFIX thought: <https://minerva.dev/ontology/thought#>
 PREFIX dc: <http://purl.org/dc/terms/>
@@ -221,15 +231,14 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         html: true,
         linkify: true,
         typographer: true,
-        highlight(str: string, lang: string) {
-            if (lang && hljs.getLanguage(lang)) {
-                try {
-                    return hljs.highlight(str, {language: lang}).value;
-                } catch { /* fall through */
-                }
-            }
-            return '';
-        },
+        // No synchronous `highlight` (perf #1114). hljs.highlight is O(code
+        // size) and, inside md.render, runs on the critical debounced-render
+        // path — a large note with many/large fences blocks the main thread
+        // before anything paints. Instead markdown-it emits plain escaped code
+        // carrying its `language-…` class, and `highlightCodeBlocks()` applies
+        // hljs to each block in a post-render pass (off the critical path,
+        // after paint). Output is identical — the same hljs span markup — just
+        // computed later.
     });
     // Disable setext (underline) headings. Minerva is ATX-only by convention —
     // the heading extractor deliberately skips `text\n---` — and leaving lheading
@@ -565,6 +574,48 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     const imageDataUrlCache = new Map<string, string>();
 
     /**
+     * Deferred syntax highlighting (perf #1114). markdown-it now emits plain
+     * escaped code with a `language-…` class (no synchronous hljs on the render
+     * path); this post-render pass applies hljs to each not-yet-highlighted
+     * block. `data-hl` guards against re-highlighting on a revision-only re-run
+     * of the post-render effect. Output matches the old inline highlight exactly
+     * — the same `hljs.highlight(code, {language}).value` markup — just off the
+     * critical path. Unknown languages are left as escaped plain text (as before).
+     * Blocks are highlighted in `requestIdleCallback` chunks so a note with many
+     * large fences yields to input between batches instead of one long task.
+     */
+    function highlightCodeBlocks(): void {
+        const root = previewEl;
+        if (!root) return;
+        const blocks = Array.from(
+            root.querySelectorAll<HTMLElement>('pre > code[class*="language-"]:not([data-hl])'),
+        );
+        if (blocks.length === 0) return;
+
+        const highlightOne = (code: HTMLElement): void => {
+            code.dataset.hl = '1';
+            const langClass = Array.from(code.classList).find((c) => c.startsWith('language-'));
+            const lang = langClass?.slice('language-'.length);
+            if (!lang || !hljs.getLanguage(lang)) return;
+            try {
+                // textContent is the raw source (markdown-it escaped it into text
+                // nodes), which is exactly what hljs.highlight expects.
+                code.innerHTML = hljs.highlight(code.textContent ?? '', { language: lang }).value;
+            } catch { /* leave the escaped plain text in place */ }
+        };
+
+        const CHUNK = 12;
+        const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 0));
+        let i = 0;
+        const pump = (): void => {
+            const end = Math.min(i + CHUNK, blocks.length);
+            for (; i < end; i++) highlightOne(blocks[i]!);
+            if (i < blocks.length) idle(pump);
+        };
+        pump();
+    }
+
+    /**
      * Post-render hydration: walk every `.local-image[data-rel]`
      * placeholder, fetch the asset bytes via the binary IPC, and
      * inline as a data URL. Cached so re-renders are O(1) per image.
@@ -673,26 +724,33 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                     continue;
                 }
 
-                let fileContent: string;
-                try {
-                    fileContent = await api.notebase.readFile(rel);
-                } catch {
-                    notice(ph, `Could not read “${target.path}”`, 'transclusion-missing');
-                    continue;
-                }
+                // Skip the readFile + slice + md.render for an unchanged embed
+                // (perf #1114): reuse the cached body HTML. The cache is cleared
+                // on `revision`, so a save to the embedded note re-renders it.
+                const cacheKey = `${rel}\u0000${embed}`;
+                let html = transclusionRenderCache.get(cacheKey);
+                if (html === undefined) {
+                    let fileContent: string;
+                    try {
+                        fileContent = await api.notebase.readFile(rel);
+                    } catch {
+                        notice(ph, `Could not read “${target.path}”`, 'transclusion-missing');
+                        continue;
+                    }
 
-                const slice = sliceTransclusion(fileContent, target);
-                if (!slice.ok) {
-                    notice(ph, slice.reason ?? 'Embedded content unavailable', 'transclusion-missing');
-                    continue;
-                }
+                    const slice = sliceTransclusion(fileContent, target);
+                    if (!slice.ok) {
+                        notice(ph, slice.reason ?? 'Embedded content unavailable', 'transclusion-missing');
+                        continue;
+                    }
 
-                renderPathOverride = rel;
-                let html: string;
-                try {
-                    html = md.render(slice.text);
-                } finally {
-                    renderPathOverride = null;
+                    renderPathOverride = rel;
+                    try {
+                        html = md.render(slice.text);
+                    } finally {
+                        renderPathOverride = null;
+                    }
+                    transclusionRenderCache.set(cacheKey, html);
                 }
 
                 const label = target.heading ? `${target.path} › ${target.heading}`
@@ -715,14 +773,14 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         root.querySelectorAll<HTMLElement>('.transclusion[data-embed]:not([data-resolved])')
             .forEach((ph) => notice(ph, 'Transclusion nested too deep', 'transclusion-loop'));
 
-        // Embedded fragments carry their own images / charts / cards / cite links —
-        // run the same post-render battery over the freshly injected subtree.
+        // Embedded fragments carry their own images / charts / cards / cite links /
+        // code fences — run the same post-render battery over the freshly injected
+        // subtree. The `data-hl` guard means the highlight pass only touches the
+        // newly-injected fences, not the host's already-highlighted ones.
         if (injected) {
+            highlightCodeBlocks();
             void hydrateLocalImages();
-            const cites = root.querySelectorAll('.cite-link');
-            cites.forEach((el) => resolveCiteLabel(citeDeps(), el as HTMLElement));
-            const quotes = root.querySelectorAll('.quote-link');
-            quotes.forEach((el) => resolveQuoteLabel(citeDeps(), el as HTMLElement));
+            void resolveCiteQuoteLabels(citeDeps());
             void hydrateMermaidBlocks(root);
             void hydrateVegaBlocks(root, content);
             hydrateCardCallouts(root);
@@ -945,6 +1003,17 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts };
     }
 
+    // Drop cached transclusion bodies whenever the graph changes (perf #1114).
+    // `revision` bumps on any note save/index — including an embedded note — so
+    // this is exactly when a cached embed body could be stale. Pure host typing
+    // doesn't bump revision, so the cache still absorbs keystroke re-renders.
+    // Runs before the post-render effect's rAF, so hydrateTransclusions sees the
+    // cleared cache.
+    $effect(() => {
+        revision;
+        transclusionRenderCache.clear();
+    });
+
     // After render, find query-block placeholders and execute queries
     $effect(() => {
         rendered; // track dependency on rendered HTML
@@ -955,12 +1024,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         activeCharts = [];
 
         requestAnimationFrame(() => {
+            // Syntax-highlight fences off the critical render path (#1114).
+            highlightCodeBlocks();
             const blocks = previewEl?.querySelectorAll('.query-block');
             blocks?.forEach((el) => executeQueryBlock(queryDeps(), el as HTMLElement));
-            const cites = previewEl?.querySelectorAll('.cite-link');
-            cites?.forEach((el) => resolveCiteLabel(citeDeps(), el as HTMLElement));
-            const quotes = previewEl?.querySelectorAll('.quote-link');
-            quotes?.forEach((el) => resolveQuoteLabel(citeDeps(), el as HTMLElement));
+            void resolveCiteQuoteLabels(citeDeps());
             // CSL marker pass — runs in parallel with the per-element
             // metadata fetches. Citeproc-rendered markers replace the
             // raw cite/quote display text per the project's CSL style.

@@ -77,36 +77,60 @@ export async function applyCslMarkers(deps: CitationRenderDeps): Promise<void> {
   deps.setBibliographyEntries(response.bibliography);
 }
 
-export async function resolveCiteLabel(deps: CitationRenderDeps, el: HTMLElement): Promise<void> {
-  const sourceId = el.dataset.sourceId;
-  if (!sourceId) return;
+/**
+ * Resolve hover-tooltip metadata for a whole batch of `.cite-link` elements in
+ * ONE IPC round-trip (perf #1114). The former per-element resolver issued a
+ * separate `api.graph.query` for each link, so a citation-heavy note fired N
+ * SPARQL round-trips on every re-render. Cached ids are applied immediately; the
+ * uncached remainder is fetched with a single `VALUES ?sid { … }` query, grouped
+ * back per source, and cached. On query failure the uncached links are left as
+ * their rendered source-id, retried on the next render (matching the old
+ * per-element fall-through).
+ */
+export async function resolveCiteLabels(deps: CitationRenderDeps, els: HTMLElement[]): Promise<void> {
+  const uncached = new Map<string, HTMLElement[]>();
+  for (const el of els) {
+    const id = el.dataset.sourceId;
+    if (!id || !el.querySelector('.link-display')) continue;
+    const cached = deps.citeMetaCache.get(id);
+    if (cached) { applyCiteMeta(el, cached); continue; }
+    const group = uncached.get(id);
+    if (group) group.push(el); else uncached.set(id, [el]);
+  }
+  if (uncached.size === 0) return;
 
-  const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
-  if (!displayEl) return;
-
-  const cached = deps.citeMetaCache.get(sourceId);
-  if (cached) {
-    applyCiteMeta(el, cached);
-    return;
+  const values = [...uncached.keys()].map((id) => `"${id.replace(/"/g, '\\"')}"`).join(' ');
+  const sparql = `PREFIX bibo: <http://purl.org/ontology/bibo/>
+      SELECT ?sid ?title ?creator ?issued ?doi ?uri WHERE {
+        VALUES ?sid { ${values} }
+        ?src minerva:sourceId ?sid .
+        OPTIONAL { ?src dc:title ?title }
+        OPTIONAL { ?src dc:creator ?creator }
+        OPTIONAL { ?src dc:issued ?issued }
+        OPTIONAL { ?src bibo:doi ?doi }
+        OPTIONAL { ?src bibo:uri ?uri }
+      }`;
+  let rows: Array<Record<string, string>>;
+  try {
+    const response = await api.graph.query(deps.queryPrefixes + sparql);
+    rows = response.results as Array<Record<string, string>>;
+  } catch {
+    return; // leave uncached links as-is; next render retries.
   }
 
-  try {
-    const idEsc = sourceId.replace(/"/g, '\\"');
-    const sparql = `PREFIX bibo: <http://purl.org/ontology/bibo/>
-        SELECT ?title ?creator ?issued ?doi ?uri WHERE {
-          ?src minerva:sourceId "${idEsc}" .
-          OPTIONAL { ?src dc:title ?title }
-          OPTIONAL { ?src dc:creator ?creator }
-          OPTIONAL { ?src dc:issued ?issued }
-          OPTIONAL { ?src bibo:doi ?doi }
-          OPTIONAL { ?src bibo:uri ?uri }
-        }`;
-    const response = await api.graph.query(deps.queryPrefixes + sparql);
-    const meta = collapseCiteRows(response.results as Array<Record<string, string>>);
-    deps.citeMetaCache.set(sourceId, meta);
-    applyCiteMeta(el, meta);
-  } catch {
-    // Fall back to the source-id already rendered.
+  // Group rows by source id — a source with multiple creators yields one row
+  // each, and `collapseCiteRows` folds them into a single CiteMeta.
+  const rowsById = new Map<string, Array<Record<string, string>>>();
+  for (const row of rows) {
+    const sid = row.sid;
+    if (sid == null) continue;
+    const group = rowsById.get(sid);
+    if (group) group.push(row); else rowsById.set(sid, [row]);
+  }
+  for (const [id, targets] of uncached) {
+    const meta = collapseCiteRows(rowsById.get(id) ?? []);
+    deps.citeMetaCache.set(id, meta);
+    for (const el of targets) applyCiteMeta(el, meta);
   }
 }
 
@@ -117,50 +141,88 @@ function applyCiteMeta(el: HTMLElement, meta: CiteMeta): void {
   el.dataset.tooltipPayload = JSON.stringify(meta);
 }
 
-export async function resolveQuoteLabel(deps: CitationRenderDeps, el: HTMLElement): Promise<void> {
-  const excerptId = el.dataset.excerptId;
-  if (!excerptId) return;
+/** Build a QuoteMeta from one SPARQL result row (excerpt + owning source). */
+function quoteMetaFromRow(row: Record<string, string> | undefined): QuoteMeta {
+  return row ? {
+    ...(row.citedText !== undefined ? { citedText: row.citedText } : {}),
+    ...(row.sourceTitle !== undefined ? { sourceTitle: row.sourceTitle } : {}),
+    ...(row.sourceCreator !== undefined ? { sourceCreator: row.sourceCreator } : {}),
+    ...(row.sourceIssued !== undefined ? { sourceYear: row.sourceIssued.slice(0, 4) } : {}),
+    ...(row.page !== undefined ? { page: row.page } : {}),
+    ...(row.pageRange !== undefined ? { pageRange: row.pageRange } : {}),
+    ...(row.locationText !== undefined ? { locationText: row.locationText } : {}),
+  } : {};
+}
 
-  const displayEl = el.querySelector<HTMLSpanElement>('.link-display');
-  if (!displayEl) return;
-
-  const cached = deps.quoteMetaCache.get(excerptId);
-  if (cached) {
-    applyQuoteMeta(el, cached);
-    return;
+/**
+ * Batched counterpart to `resolveCiteLabels` for `.quote-link` elements (perf
+ * #1114): resolve every uncached excerpt's tooltip metadata in ONE IPC round-
+ * trip via `VALUES ?eid { … }` instead of one query per link. First row per
+ * excerpt wins (mirrors the old `LIMIT 1`).
+ */
+export async function resolveQuoteLabels(deps: CitationRenderDeps, els: HTMLElement[]): Promise<void> {
+  const uncached = new Map<string, HTMLElement[]>();
+  for (const el of els) {
+    const id = el.dataset.excerptId;
+    if (!id || !el.querySelector('.link-display')) continue;
+    const cached = deps.quoteMetaCache.get(id);
+    if (cached) { applyQuoteMeta(el, cached); continue; }
+    const group = uncached.get(id);
+    if (group) group.push(el); else uncached.set(id, [el]);
   }
+  if (uncached.size === 0) return;
 
+  const values = [...uncached.keys()].map((id) => `"${id.replace(/"/g, '\\"')}"`).join(' ');
+  const sparql = `SELECT ?eid ?citedText ?sourceTitle ?sourceCreator ?sourceIssued ?page ?pageRange ?locationText WHERE {
+      VALUES ?eid { ${values} }
+      ?ex minerva:excerptId ?eid .
+      OPTIONAL { ?ex thought:citedText ?citedText }
+      OPTIONAL { ?ex thought:page ?page }
+      OPTIONAL { ?ex thought:pageRange ?pageRange }
+      OPTIONAL { ?ex thought:locationText ?locationText }
+      OPTIONAL {
+        ?ex thought:fromSource ?src .
+        OPTIONAL { ?src dc:title ?sourceTitle }
+        OPTIONAL { ?src dc:creator ?sourceCreator }
+        OPTIONAL { ?src dc:issued ?sourceIssued }
+      }
+    }`;
+  let rows: Array<Record<string, string>>;
   try {
-    const idEsc = excerptId.replace(/"/g, '\\"');
-    const sparql = `SELECT ?citedText ?sourceTitle ?sourceCreator ?sourceIssued ?page ?pageRange ?locationText WHERE {
-        ?ex minerva:excerptId "${idEsc}" .
-        OPTIONAL { ?ex thought:citedText ?citedText }
-        OPTIONAL { ?ex thought:page ?page }
-        OPTIONAL { ?ex thought:pageRange ?pageRange }
-        OPTIONAL { ?ex thought:locationText ?locationText }
-        OPTIONAL {
-          ?ex thought:fromSource ?src .
-          OPTIONAL { ?src dc:title ?sourceTitle }
-          OPTIONAL { ?src dc:creator ?sourceCreator }
-          OPTIONAL { ?src dc:issued ?sourceIssued }
-        }
-      } LIMIT 1`;
     const response = await api.graph.query(deps.queryPrefixes + sparql);
-    const row = response.results[0] as Record<string, string> | undefined;
-    const meta: QuoteMeta = row ? {
-      ...(row.citedText !== undefined ? { citedText: row.citedText } : {}),
-      ...(row.sourceTitle !== undefined ? { sourceTitle: row.sourceTitle } : {}),
-      ...(row.sourceCreator !== undefined ? { sourceCreator: row.sourceCreator } : {}),
-      ...(row.sourceIssued !== undefined ? { sourceYear: row.sourceIssued.slice(0, 4) } : {}),
-      ...(row.page !== undefined ? { page: row.page } : {}),
-      ...(row.pageRange !== undefined ? { pageRange: row.pageRange } : {}),
-      ...(row.locationText !== undefined ? { locationText: row.locationText } : {}),
-    } : {};
-    deps.quoteMetaCache.set(excerptId, meta);
-    applyQuoteMeta(el, meta);
+    rows = response.results as Array<Record<string, string>>;
   } catch {
-    // Fall back to the excerpt-id already rendered.
+    return; // leave uncached links as-is; next render retries.
   }
+
+  // Keep the first row per excerpt id (old behavior: LIMIT 1).
+  const rowById = new Map<string, Record<string, string>>();
+  for (const row of rows) {
+    const eid = row.eid;
+    if (eid != null && !rowById.has(eid)) rowById.set(eid, row);
+  }
+  for (const [id, targets] of uncached) {
+    const meta = quoteMetaFromRow(rowById.get(id));
+    deps.quoteMetaCache.set(id, meta);
+    for (const el of targets) applyQuoteMeta(el, meta);
+  }
+}
+
+/**
+ * One-shot post-render enrichment for every cite + quote link in the preview
+ * (perf #1114). Replaces the former per-element `forEach(resolveCiteLabel)` /
+ * `forEach(resolveQuoteLabel)` fan-out with two batched queries (cites, quotes)
+ * that run concurrently.
+ */
+export async function resolveCiteQuoteLabels(deps: CitationRenderDeps): Promise<void> {
+  const root = deps.previewEl;
+  if (!root) return;
+  const cites = Array.from(root.querySelectorAll<HTMLElement>('.cite-link'));
+  const quotes = Array.from(root.querySelectorAll<HTMLElement>('.quote-link'));
+  await Promise.all([
+    resolveCiteLabels(deps, cites),
+    resolveQuoteLabels(deps, quotes),
+  ]);
 }
 
 function applyQuoteMeta(el: HTMLElement, meta: QuoteMeta): void {
