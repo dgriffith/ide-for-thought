@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Document Exports</title>
-<meta name="description" content="The document-family exporters: markdown passthrough, single-note and wiki-link-closure bundles in Markdown, HTML, and PDF, and the link policies shared across them." />
+<title>Minerva — Docs — Safe Delete &amp; Dangling Links</title>
+<meta name="description" content="What Minerva checks before deleting a note other notes link to, the blocker dialog's options, and why git is the recovery path — not a built-in undo." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -67,79 +67,55 @@
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
-    <a href="export-documents.html" class="sub active">Document exports</a>
-    <a href="export-publishing.html" class="sub">Publishing</a>
-    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
-    <a href="export-flashcards.html" class="sub">Flashcards</a>
-    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
     <a href="refactoring.html">Refactoring</a>
+    <a href="refactoring-manual.html" class="sub">Manual rename, move &amp; delete</a>
+    <a href="refactoring-safe-delete.html" class="sub active">Safe delete &amp; dangling links</a>
+    <a href="refactoring-ai-assisted.html" class="sub">AI-assisted refactors</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Document exports</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="refactoring.html">Refactoring</a><span class="sep">/</span>Safe delete &amp; dangling links</p>
 
-    <h1>Document exports</h1>
-    <p class="lede">Seven exporters covering the document family — plain markdown, and single-note vs. wiki-link-closure bundles in Markdown, HTML, and PDF.</p>
+    <h1>Safe delete &amp; dangling links</h1>
+    <p class="lede">Before a delete actually happens, Minerva checks whether anything outside what you're deleting still links in — so you find out about the fallout before it happens, not after.</p>
 
-    <h2 id="exporters">The exporters</h2>
+    <h2 id="preflight">The pre-flight check</h2>
+    <p>Whatever you've selected — one note, several, or a whole folder — gets expanded to its set of <code>.md</code> files, and the graph is queried for inbound links from notes <i>outside</i> that set. This runs on every delete, whether you triggered it on a single note or a multi-selection.</p>
+
+    <h2 id="blocker">The blocker dialog</h2>
+    <p>If anything links in from outside the deletion set, a dialog replaces the normal confirm and shows which notes will be left with a dangling link:</p>
     <div class="deflist">
-      <div class="row">
-        <div class="k">Markdown<br><span class="v" style="opacity:.7">(passthrough)</span></div>
-        <div class="v">A folder or the whole project, copied through as-is — the closest thing to "just give me the files."</div>
-      </div>
-      <div class="row">
-        <div class="k">Note as Clean Markdown</div>
-        <div class="v">A single note, cleaned up for standalone reading (no project-specific cruft).</div>
-      </div>
-      <div class="row">
-        <div class="k">Note Tree as Markdown Zip</div>
-        <div class="v">A root note's wiki-link closure, bundled as a <code>.zip</code> of markdown files.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note as HTML</div>
-        <div class="v">A single note as a standalone <code>.html</code> file, styles and scripts embedded.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note Tree as HTML Bundle</div>
-        <div class="v">A wiki-link closure as a set of linked <code>.html</code> files.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note as PDF</div>
-        <div class="v">A single note rendered to PDF via Electron's own Chromium engine.</div>
-      </div>
-      <div class="row">
-        <div class="k">Note Tree as Single PDF</div>
-        <div class="v">A wiki-link closure consolidated into one PDF.</div>
-      </div>
+      <div class="row"><div class="k">Cancel</div><div class="v">Nothing is deleted.</div></div>
+      <div class="row"><div class="k">Open the first reference</div><div class="v">Jumps to the linking note so you can fix it up first, if you want to.</div></div>
+      <div class="row"><div class="k">Delete anyway</div><div class="v">Goes ahead — and skips the usual second confirmation, since the blocker dialog itself already established your intent.</div></div>
     </div>
 
-    <h2 id="link-policies">Link policies</h2>
-    <p>Every export needs a rule for what happens to a <code>[[wiki-link]]</code> in the output. Three policies apply across the document family:</p>
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Drop</div>
-        <div class="v">The link disappears; its display text (or the target name) remains as plain text. Fits a single-note export, where the link's target usually isn't in the output anyway.</div>
-      </div>
-      <div class="row">
-        <div class="k">Inline title</div>
-        <div class="v">The link is replaced with the target note's own title (from frontmatter or its H1). Fits content-style exports where the reader has no way to follow the link regardless.</div>
-      </div>
-      <div class="row">
-        <div class="k">Follow to file</div>
-        <div class="v">Rewritten to a relative file link when the target is part of this export; otherwise falls back to inline title. The shape for folder/tree exports, where the output is genuinely a set of inter-linked files.</div>
-      </div>
+    <div class="shot wide">
+      <div class="icon">🔗</div>
+      <div class="k">Screenshot — The delete blocker dialog</div>
+      <div class="d">The blocker dialog listing 2-3 notes that link in from outside the selection, with Cancel / Open first reference / Delete anyway buttons.</div>
+    </div>
+
+    <div class="box">
+      <span class="label">If nothing links in, there's nothing to see</span>
+      <p>No blockers means the normal delete confirmation runs as usual — this check is invisible when it has nothing to report. And if the graph itself is unreachable at that moment (a transient indexing hiccup), the check fails open rather than blocking your delete — you get the old, un-checked behavior for that one delete rather than being stuck.</p>
+    </div>
+
+    <div class="box">
+      <span class="label">Dangling links aren't auto-repaired, and there's no undo beyond git</span>
+      <p>Deleting anyway leaves exactly the dangling links the dialog warned you about — nothing rewrites or removes them automatically. Recovery, if you need it, is <code>git diff</code> / <code>git checkout</code> on the affected files, the same as recovering any other change. This is by design: deletion is a normal, git-backed operation, not something that needs a bespoke undo system.</p>
     </div>
 
     <div class="pager">
-      <a class="prev" href="export.html">
+      <a class="prev" href="refactoring-manual.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Export</span>
+        <span class="ttl">← Manual rename, move &amp; delete</span>
       </a>
-      <a class="next" href="export-publishing.html">
+      <a class="next" href="refactoring-ai-assisted.html">
         <span class="dir">Next</span>
-        <span class="ttl">Publishing →</span>
+        <span class="ttl">AI-assisted refactors →</span>
       </a>
     </div>
   </main>
