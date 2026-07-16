@@ -37,6 +37,16 @@ function encryptionAvailable(): boolean {
 }
 
 /**
+ * Whether OS-backed secure storage is usable on this machine — i.e. whether a
+ * secret written now would actually be encrypted at rest. Surfaced to the UI so
+ * the settings panel can tell the user the truth rather than claiming security
+ * unconditionally (#1326).
+ */
+export function secretEncryptionAvailable(): boolean {
+  return encryptionAvailable();
+}
+
+/**
  * Encode a secret for on-disk storage. Empty in → empty out. Encrypts when
  * `safeStorage` is available; otherwise returns the plaintext unchanged (same
  * as the pre-#1326 behavior).

@@ -1,10 +1,10 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { LLMSettings, WebSettings } from '../../shared/tools/types';
+import type { LLMSettings, WebSettings, ApiKeyStorage } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
-import { encryptSecret, decryptSecret } from '../secret-storage';
+import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
@@ -72,4 +72,22 @@ export async function saveSettings(settings: LLMSettings): Promise<void> {
   // Reading back through `getSettings` decrypts it transparently.
   const onDisk = { ...settings, apiKey: encryptSecret(settings.apiKey ?? '') };
   await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
+}
+
+/**
+ * Report how the stored API key is protected at rest, for the settings UI
+ * (#1326). `available` reflects the machine's secure-storage capability;
+ * `encrypted` reflects the actual on-disk form of the currently-stored key
+ * (a legacy plaintext key reads back `encrypted: false` until it's re-saved).
+ */
+export async function getApiKeyStorage(): Promise<ApiKeyStorage> {
+  let encrypted = false;
+  try {
+    const raw = await fs.readFile(settingsPath(), 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
+    encrypted = typeof parsed.apiKey === 'string' && parsed.apiKey.length > 0 && isEncrypted(parsed.apiKey);
+  } catch {
+    // No settings file yet — nothing stored, so nothing encrypted.
+  }
+  return { available: secretEncryptionAvailable(), encrypted };
 }

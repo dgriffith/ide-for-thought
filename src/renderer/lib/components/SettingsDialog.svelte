@@ -248,6 +248,7 @@
   let apiKeyInput = $state('');
   let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
   let clearApiKey = $state(false);
+  let keyStorage = $state<import('../../../shared/tools/types').ApiKeyStorage | null>(null);
 
   // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
   let loadedLlm: LLMSettings | null = null;
@@ -263,6 +264,11 @@
       model = s.model;
       effort = s.effort;
       apiKeyStatus = s.apiKey ? 'set' : 'unset';
+      try {
+        keyStorage = await api.tools.getKeyStorage();
+      } catch (e) {
+        console.error('[settings] failed to load key storage status:', e);
+      }
       const web = s.web ?? { enabled: true, allowedDomains: [], blockedDomains: [] };
       webEnabled = web.enabled;
       allowedDomainsText = web.allowedDomains.join('\n');
@@ -864,6 +870,7 @@
             bind:apiKeyInput
             bind:clearApiKey
             {apiKeyStatus}
+            {keyStorage}
           />
         {/if}
       </section>

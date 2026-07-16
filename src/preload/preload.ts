@@ -416,6 +416,7 @@ contextBridge.exposeInMainWorld('api', {
     onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.TOOL_STREAM, cb),
     getSettings: () => ipcRenderer.invoke(Channels.TOOL_GET_SETTINGS),
     setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
+    getKeyStorage: () => ipcRenderer.invoke(Channels.TOOL_GET_KEY_STORAGE),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
   skills: {

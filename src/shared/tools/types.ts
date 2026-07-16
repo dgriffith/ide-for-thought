@@ -221,6 +221,22 @@ export interface WebSettings {
   blockedDomains: string[];
 }
 
+/**
+ * At-rest storage status for the Anthropic API key (#1326), surfaced to the
+ * AI settings panel so it can indicate — honestly — whether the key is
+ * encrypted. Read-only; not part of the saved settings payload.
+ */
+export interface ApiKeyStorage {
+  /** OS secure storage (Electron safeStorage) is usable on this machine. */
+  available: boolean;
+  /**
+   * The persisted key is encrypted at rest (safeStorage-tagged form). False
+   * when no key is stored yet, or it's a legacy plaintext value not re-saved
+   * since encryption landed, or secure storage is unavailable.
+   */
+  encrypted: boolean;
+}
+
 export interface LLMSettings {
   apiKey: string;
   model: string;

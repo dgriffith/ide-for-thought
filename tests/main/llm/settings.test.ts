@@ -31,7 +31,7 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { getSettings, saveSettings } from '../../../src/main/llm/settings';
+import { getSettings, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
 import type { LLMSettings } from '../../../src/shared/tools/types';
 
 const settingsFile = () => path.join(tempDir, 'llm-settings.json');
@@ -80,5 +80,24 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
     // An explicitly-cleared key stays cleared (matches the pre-#1326 `??` chain).
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: '', model: 'claude-sonnet-5' }));
     expect((await getSettings()).apiKey).toBe('');
+  });
+
+  describe('getApiKeyStorage — settings-panel indicator (#1326)', () => {
+    it('reports available + not-encrypted when no key is stored', async () => {
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false });
+    });
+
+    it('reports encrypted after a key is saved', async () => {
+      await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
+    });
+
+    it('reports NOT-encrypted for a legacy plaintext key until it is re-saved', async () => {
+      fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-legacy', model: 'claude-sonnet-5' }));
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: false });
+      // Re-saving migrates it to encrypted, which the indicator then reflects.
+      await saveSettings(await getSettings());
+      expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
+    });
   });
 });
