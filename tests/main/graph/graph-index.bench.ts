@@ -6,8 +6,16 @@
  * a realistic number of notes, so a regression in the indexer's cost-at-scale
  * (extract title/tags/wiki-links, mutate the rdflib store, invalidate the N3
  * mirror) becomes visible as vaults grow.
+ *
+ * Seeding runs as a top-level `await`, ahead of the `describe`/`bench` calls,
+ * rather than inside `beforeAll` (perf #1109 finding): vitest's benchmark
+ * runner does not reliably await an async `beforeAll` before starting a
+ * `bench`'s iterations — confirmed empirically (a `beforeAll` here never
+ * completed before `bench` began running against still-`undefined` state).
+ * Top-level `await` is a plain module-evaluation order guarantee, so it
+ * isn't subject to that gap.
  */
-import { describe, bench, beforeAll } from 'vitest';
+import { describe, bench } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -16,24 +24,20 @@ import { projectContext, type ProjectContext } from '../../../src/main/project-c
 
 const SEED_NOTES = 500;
 
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-idxbench-'));
+const ctx: ProjectContext = projectContext(root);
+await initGraph(ctx);
+// Populate the store so indexNote runs against a non-trivial graph, not an
+// empty one — that's where the cost that matters lives.
+for (let i = 0; i < SEED_NOTES; i++) {
+  await indexNote(
+    ctx,
+    `seed-${i}.md`,
+    `# Seed ${i}\n\n${'lorem ipsum '.repeat(40)}\n\n#tag-${i % 10}\n\n[[seed-${(i + 1) % SEED_NOTES}]]\n`,
+  );
+}
+
 describe('graph indexing', () => {
-  let ctx: ProjectContext;
-
-  beforeAll(async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-idxbench-'));
-    ctx = projectContext(root);
-    await initGraph(ctx);
-    // Populate the store so indexNote runs against a non-trivial graph, not an
-    // empty one — that's where the cost that matters lives.
-    for (let i = 0; i < SEED_NOTES; i++) {
-      await indexNote(
-        ctx,
-        `seed-${i}.md`,
-        `# Seed ${i}\n\n${'lorem ipsum '.repeat(40)}\n\n#tag-${i % 10}\n\n[[seed-${(i + 1) % SEED_NOTES}]]\n`,
-      );
-    }
-  });
-
   // Re-index the same path in place (indexNote strips the note's prior triples
   // then re-adds), so each iteration is a stable steady-state cost rather than
   // a monotonically growing store.
