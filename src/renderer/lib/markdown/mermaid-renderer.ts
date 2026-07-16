@@ -16,6 +16,7 @@
 
 import { getEffectiveTheme, getThemeMode } from '../theme';
 import { normalizeColor } from '../utils/oklch';
+import { sanitizeDiagramSvg } from './sanitize-diagram-svg';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -126,7 +127,10 @@ export async function hydrateMermaidBlocks(root: HTMLElement): Promise<void> {
     try {
       const id = `mermaid-${++counter}`;
       const { svg, bindFunctions } = await api.render(id, source);
-      el.innerHTML = svg;
+      // Defense in depth behind CSP (#1331): scrub the library-generated SVG
+      // before it hits the DOM. bindFunctions runs after and re-queries the
+      // sanitised nodes by id/class (both preserved), so interactivity survives.
+      el.innerHTML = sanitizeDiagramSvg(svg);
       el.setAttribute('data-mermaid-rendered', 'ok');
       if (bindFunctions) bindFunctions(el);
     } catch (err) {
