@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<title>Minerva — Docs — Flashcards</title>
+<meta name="description" content="Turning [!card] callouts into an Anki deck: writing a card, deck resolution, and what the resulting .apkg contains." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,55 +66,50 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub active">Citing &amp; duplicates</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub active">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Flashcards</p>
 
-    <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <h1>Flashcards</h1>
+    <p class="lede">The Anki Deck exporter turns explicit <code>[!card]</code> callouts into an <code>.apkg</code> file you can import into Anki — not a blanket "turn my notes into flashcards" converter. If a note has no card callouts, it contributes nothing to the deck.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
-
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
-
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
-      </div>
-      <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
-      </div>
-      <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
-      </div>
-    </div>
-
+    <h2 id="writing">Writing a card</h2>
+    <p>A card is a callout with a <code>---</code> divider splitting the front (prompt) from the back (answer):</p>
     <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+      <span class="label">Example</span>
+      <p><code>&gt; [!card] Optional Deck ^cardid<br>&gt; What is the capital of France?<br>&gt; ---<br>&gt; **Paris**</code></p>
     </div>
+    <p>The leading <code>&gt;</code> (blockquote form) is optional — a bare <code>[!card]</code> paragraph works too, same as any other callout. Both the deck name and the <code>^cardid</code> block-id after it are optional.</p>
+
+    <h2 id="decks">Deck resolution</h2>
+    <p>A card's deck name resolves in order:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">1. Callout title</div><div class="v">Whatever comes right after <code>[!card]</code> on that line — <code>Optional Deck</code> in the example above.</div></div>
+      <div class="row"><div class="k">2. Frontmatter</div><div class="v">The note's own <code>cardDeck</code> frontmatter field, if the callout didn't specify one.</div></div>
+      <div class="row"><div class="k">3. Folder</div><div class="v">The note's folder path, mapped to a deck path (e.g. <code>notes/math/algebra.md</code> → deck <code>notes::math</code>).</div></div>
+      <div class="row"><div class="k">4. Default</div><div class="v">Notes sitting at the vault root with no deck specified any other way fall into a deck literally named <code>Default</code>.</div></div>
+    </div>
+
+    <h2 id="ids">Card identity</h2>
+    <p>A card's stable id is the trailing <code>^cardid</code> on its callout line. Cards without one get an id assigned and written back into the note automatically on first export — so re-exporting after editing a card's text updates the same Anki card instead of creating a duplicate.</p>
 
     <div class="pager">
-      <a class="prev" href="ingest-clipper.html">
+      <a class="prev" href="export-bibliography.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Browser clipper</span>
+        <span class="ttl">← Bibliography &amp; citations</span>
       </a>
-      <a class="next" href="export.html">
+      <a class="next" href="export-scopes-privacy.html">
         <span class="dir">Next</span>
-        <span class="ttl">Export →</span>
+        <span class="ttl">Scopes &amp; privacy →</span>
       </a>
     </div>
   </main>

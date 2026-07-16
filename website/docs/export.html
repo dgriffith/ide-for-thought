@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<title>Minerva — Docs — Export</title>
+<meta name="description" content="Getting content out of a thoughtbase: document/publication/citation exports, publishing to the web, bibliography settings, and what's excluded by default." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,55 +66,88 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub active">Citing &amp; duplicates</a>
-    <a href="export.html">Export</a>
+    <a href="export.html" class="active">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Export</p>
 
-    <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <h1>Export</h1>
+    <p class="lede">Twelve exporters across three families — document, publication, citation — plus git-backed publishing straight to the web. Every one shares the same underlying pipeline: pick a scope, review what's in and what's excluded, then run.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
-
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
-
+    <h2 id="glance">At a glance</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
+        <div class="k">—</div>
+        <div class="v"><a href="export-documents.html"><b>Document exports</b></a> — markdown, HTML, and PDF, single-note or bundled.</div>
       </div>
       <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
+        <div class="k">—</div>
+        <div class="v"><a href="export-publishing.html"><b>Publishing</b></a> — a browseable static site, and pushing it straight to a git remote.</div>
       </div>
       <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
+        <div class="k">—</div>
+        <div class="v"><a href="export-bibliography.html"><b>Bibliography &amp; citations</b></a> — BibTeX, Pandoc, and the citation-style settings that shape both.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="export-flashcards.html"><b>Flashcards</b></a> — an Anki deck built from <code>[!card]</code> callouts.</div>
+      </div>
+      <div class="row">
+        <div class="k">—</div>
+        <div class="v"><a href="export-scopes-privacy.html"><b>Scopes &amp; privacy</b></a> — what "export" actually includes, and what's held back by default.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+      <span class="label">Three families, not four</span>
+      <p>The Export menu groups exporters as <b>Document</b> (Markdown, HTML, PDF), <b>Publication</b> (Static Site, Annotated Source, Anki Deck), and <b>Citation</b> (BibTeX, Pandoc) — flashcards live under Publication rather than being their own category.</p>
+    </div>
+
+    <h2 id="learn-more">In depth</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="export-documents.html">
+        <span class="em">📄</span>
+        <h3>Document exports</h3>
+        <p>Markdown, HTML, and PDF — single-note or bundled by wiki-link.</p>
+      </a>
+      <a class="doc-card" href="export-publishing.html">
+        <span class="em">🌐</span>
+        <h3>Publishing</h3>
+        <p>A static site, and pushing it to a real git remote.</p>
+      </a>
+      <a class="doc-card" href="export-bibliography.html">
+        <span class="em">📚</span>
+        <h3>Bibliography &amp; citations</h3>
+        <p>BibTeX, Pandoc, and the citation-style settings behind both.</p>
+      </a>
+      <a class="doc-card" href="export-flashcards.html">
+        <span class="em">🗂️</span>
+        <h3>Flashcards</h3>
+        <p>Turn <code>[!card]</code> callouts into an Anki deck.</p>
+      </a>
+      <a class="doc-card" href="export-scopes-privacy.html">
+        <span class="em">🔒</span>
+        <h3>Scopes &amp; privacy</h3>
+        <p>What gets included, and what's excluded by default.</p>
+      </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="ingest-clipper.html">
+      <a class="prev" href="ingest-citing-duplicates.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Browser clipper</span>
+        <span class="ttl">← Citing &amp; duplicates</span>
       </a>
-      <a class="next" href="export.html">
+      <a class="next" href="export-documents.html">
         <span class="dir">Next</span>
-        <span class="ttl">Export →</span>
+        <span class="ttl">Document exports →</span>
       </a>
     </div>
   </main>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<title>Minerva — Docs — Bibliography &amp; Citations</title>
+<meta name="description" content="Getting citations out in a form other tools can use: the BibTeX and Pandoc exporters, and the Bibliography settings that control how citations render." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,55 +66,63 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub active">Citing &amp; duplicates</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub active">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Bibliography &amp; citations</p>
 
-    <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <h1>Bibliography &amp; citations</h1>
+    <p class="lede">Two exporters for getting your citations into a form other reference tools understand, plus the settings that control how a citation actually renders.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
+    <h2 id="bibtex">BibTeX</h2>
+    <p>Exports every cited source as a single <code>.bib</code> file, one entry per source, keyed with a deterministic <code>author-year-firstword</code> citekey (e.g. <code>smith-2020-functions</code> — stop-words like "the" are skipped when picking the title word). Scope to a single note, a folder, or the whole project.</p>
+    <div class="box">
+      <span class="label">Citekeys are stable per export, not forever</span>
+      <p>The same source set produces the same keys every time. But adding a new source to your library can shift a collision suffix (<code>smith-2020a</code> → <code>smith-2020b</code>) for entries it now collides with — so don't treat a citekey as a permanent identifier across exports. Sources themselves are still matched by DOI/arXiv id/etc. on re-import, not by citekey.</p>
+    </div>
 
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
+    <h2 id="pandoc">Pandoc</h2>
+    <p>For anyone who wants Word, PDF, or another format Pandoc itself produces: exports a single note as markdown (with <code>[[cite::id]]</code> rewritten to Pandoc's <code>[@citekey]</code> form) alongside a <code>bibliography.json</code> (CSL-JSON) and a generated <code>README.md</code> with the exact pandoc command to run, including your chosen citation style. There's no one-click "formatted bibliography .docx" exporter — Pandoc is the escape hatch for that, not a built-in.</p>
 
+    <h2 id="settings">Bibliography settings</h2>
+    <p>Controls how citations render across every exporter that formats them (Pandoc's generated command, and the note-html/tree-html exporters):</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
+        <div class="k">Citation style</div>
+        <div class="v">A dropdown of bundled and imported CSL styles. Defaults to APA; an unrecognized or missing style falls back to APA automatically rather than failing.</div>
       </div>
       <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
+        <div class="k">Import .csl style…</div>
+        <div class="v">Bring in a citation style Minerva doesn't ship — any valid CSL <code>.csl</code>/<code>.xml</code> file.</div>
       </div>
       <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
+        <div class="k">Locale</div>
+        <div class="v">Defaults to <code>en-US</code>, with the same fallback behavior as style. Import a custom locale the same way as a style.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+    <div class="shot wide">
+      <div class="icon">📚</div>
+      <div class="k">Screenshot — Bibliography settings</div>
+      <div class="d">The Settings → Bibliography tab: the citation style dropdown set to APA, a list of imported styles below it, and the "Import .csl style…" button.</div>
     </div>
 
     <div class="pager">
-      <a class="prev" href="ingest-clipper.html">
+      <a class="prev" href="export-publishing.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Browser clipper</span>
+        <span class="ttl">← Publishing</span>
       </a>
-      <a class="next" href="export.html">
+      <a class="next" href="export-flashcards.html">
         <span class="dir">Next</span>
-        <span class="ttl">Export →</span>
+        <span class="ttl">Flashcards →</span>
       </a>
     </div>
   </main>

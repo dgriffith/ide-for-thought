@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<title>Minerva — Docs — Export Scopes &amp; Privacy</title>
+<meta name="description" content="The scope options shared across every exporter, and the three signals that exclude a note from export by default — plus how to review and override before you run it." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -66,55 +66,67 @@
     <h4>Data &amp; workflows</h4>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
-    <a href="ingest-adding-sources.html" class="sub">Adding sources</a>
-    <a href="ingest-pdf.html" class="sub">PDF ingest</a>
-    <a href="ingest-clipper.html" class="sub">Browser clipper</a>
-    <a href="ingest-citing-duplicates.html" class="sub active">Citing &amp; duplicates</a>
     <a href="export.html">Export</a>
+    <a href="export-documents.html" class="sub">Document exports</a>
+    <a href="export-publishing.html" class="sub">Publishing</a>
+    <a href="export-bibliography.html" class="sub">Bibliography &amp; citations</a>
+    <a href="export-flashcards.html" class="sub">Flashcards</a>
+    <a href="export-scopes-privacy.html" class="sub active">Scopes &amp; privacy</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Scopes &amp; privacy</p>
 
-    <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <h1>Scopes &amp; privacy</h1>
+    <p class="lede">Every exporter shares the same two questions underneath: what counts as "in scope," and what gets held back even though it's technically in scope. Both are settled before you commit to running anything — the export preview shows you exactly what you're about to get.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
+    <h2 id="scope">Scope</h2>
+    <div class="deflist">
+      <div class="row"><div class="k">Single note</div><div class="v">Just the active note.</div></div>
+      <div class="row"><div class="k">Folder</div><div class="v">A folder and everything under it, recursively.</div></div>
+      <div class="row"><div class="k">Project</div><div class="v">The whole thoughtbase.</div></div>
+      <div class="row"><div class="k">Tree</div><div class="v">A root note's wiki-link closure — every note reachable by following links outward, breadth-first, to a max depth (default 3, to balance "capture enough context" against a runaway bundle).</div></div>
+      <div class="row"><div class="k">Source</div><div class="v">A single ingested source, for the Annotated Source exporter.</div></div>
+    </div>
 
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
+    <h2 id="privacy">What's excluded by default</h2>
+    <p>Minerva holds personal thinking, half-formed arguments, and reading notes — accidentally publishing those would be a real problem, so exports drop anything matching a private signal unless you explicitly override it. Three signals, checked in order:</p>
+    <div class="deflist">
+      <div class="row"><div class="k">1. Location</div><div class="v">The note's path is under any <code>private/</code> or <code>.private/</code> folder.</div></div>
+      <div class="row"><div class="k">2. Frontmatter</div><div class="v"><code>private: true</code>.</div></div>
+      <div class="row"><div class="k">3. Tag</div><div class="v"><code>#private</code> — either in a <code>tags:</code> frontmatter array or inline in the body.</div></div>
+    </div>
+    <p>Every exclusion comes with a human-readable reason ("under private/", "frontmatter private: true", "tagged #private") — nothing is dropped silently.</p>
 
+    <h2 id="reviewing">Reviewing before you export</h2>
+    <p>The export preview shows two lists: what's <b>included</b>, and what's <b>excluded</b> along with its reason. From there:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
+        <div class="k">Re-include an excluded note</div>
+        <div class="v">Click its row in the Excluded list — an override just for this run, not a permanent change to the note.</div>
       </div>
       <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
-      </div>
-      <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
+        <div class="k">Drop an included note</div>
+        <div class="v">Uncheck it in the Included list — it moves to Excluded with the reason "manually excluded," again just for this run.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+    <div class="shot wide">
+      <div class="icon">🔒</div>
+      <div class="k">Screenshot — The export preview dialog</div>
+      <div class="d">The Included/Excluded split view: an Included list with checkboxes (one unchecked, showing an "unchecked" count), and an Excluded list showing a few notes with reasons like "under private/" and "frontmatter private: true," one of them clicked to show it can be re-included.</div>
     </div>
 
     <div class="pager">
-      <a class="prev" href="ingest-clipper.html">
+      <a class="prev" href="export-flashcards.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Browser clipper</span>
+        <span class="ttl">← Flashcards</span>
       </a>
-      <a class="next" href="export.html">
+      <a class="next" href="maintenance.html">
         <span class="dir">Next</span>
-        <span class="ttl">Export →</span>
+        <span class="ttl">Maintenance →</span>
       </a>
     </div>
   </main>
