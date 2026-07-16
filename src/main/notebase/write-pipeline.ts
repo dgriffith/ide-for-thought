@@ -12,7 +12,10 @@
  *   3. re-run graph indexing (returns a heading-rename candidate if the
  *      edit looks like a rename of an anchored heading)
  *   4. re-run search indexing
- *   5. persist the search index (graph.ttl is a cold snapshot, #348)
+ *   5. schedule a debounced search-index persist (perf #1107 — like
+ *      graph.ttl's cold-snapshot posture, #348, but on a short timer rather
+ *      than only at release/quit, since the search index isn't otherwise
+ *      flushed on a rebuild trigger)
  *   6. broadcast NOTEBASE_REWRITTEN so open editors refresh
  *   7. broadcast NOTEBASE_HEADING_RENAME_SUGGESTED if step 3 surfaced a
  *      rename candidate
@@ -48,8 +51,8 @@ export interface WritePipelineOpts {
    *     broadcast for every touched path at the end of its loop.
    */
   suppressRewrittenBroadcast?: boolean;
-  /** Skip search.persist. Used by batch callers that will persist once
-   *  after the loop. */
+  /** Skip scheduling search.persist. Used by batch callers that will
+   *  persist once after the loop. */
   skipPersist?: boolean;
 }
 
@@ -73,7 +76,10 @@ export async function writeAndReindex(
   // model. No-op when the vector store isn't initialized; resilient internally.
   if (relativePath.endsWith('.md')) void vectors.indexNote(ctx, relativePath, content);
   if (!opts.skipPersist) {
-    await search.persist(ctx);
+    // Debounced, not immediate (perf #1107) — persist serializes the whole
+    // index, not just this note, so doing it synchronously on every save
+    // would put an O(corpus-bytes) write on the hot path of every autosave.
+    search.schedulePersist(ctx);
   }
   if (!opts.suppressRewrittenBroadcast) {
     hooks.broadcastRewritten(rootPath, [relativePath]);
