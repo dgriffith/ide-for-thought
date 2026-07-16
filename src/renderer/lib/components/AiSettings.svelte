@@ -12,6 +12,7 @@
    */
   import { MODEL_OPTIONS } from '../../../shared/tools/models';
   import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
+  import type { ApiKeyStorage } from '../../../shared/tools/types';
   import { voiceSettings, VOICE_MODEL_OPTIONS } from '../voice/voice-settings.svelte';
 
   interface Props {
@@ -20,6 +21,8 @@
     apiKeyInput: string;
     clearApiKey: boolean;
     apiKeyStatus: 'unknown' | 'set' | 'unset';
+    /** At-rest storage status of the saved key (#1326). Null while loading. */
+    keyStorage: ApiKeyStorage | null;
   }
 
   let {
@@ -28,7 +31,12 @@
     apiKeyInput = $bindable(),
     clearApiKey = $bindable(),
     apiKeyStatus,
+    keyStorage,
   }: Props = $props();
+
+  // The saved key is protected at rest only when it's actually encrypted on
+  // disk — reflect that literally, don't claim security we don't have.
+  const keyEncrypted = $derived(apiKeyStatus === 'set' && !clearApiKey && keyStorage?.encrypted === true);
 
   // '' in the <select> means "no override → built-in default"; map to/from
   // the optional `effort` prop.
@@ -67,6 +75,8 @@
       Loading…
     {:else if clearApiKey}
       API key will be cleared on save
+    {:else if keyEncrypted}
+      🔒 API key saved — encrypted at rest
     {:else if apiKeyStatus === 'set'}
       ✓ API key saved
     {:else}
@@ -90,8 +100,17 @@
     disabled={clearApiKey}
   />
   <p class="hint">
-    Keys are stored in your user data directory. The saved value is never displayed back.
-    You can also set <code>ANTHROPIC_API_KEY</code> as an environment variable.
+    {#if keyStorage?.available}
+      Your key is encrypted at rest with your operating system's secure storage
+      (Keychain on macOS, Credential Manager on Windows, libsecret on Linux).
+    {:else if keyStorage}
+      No system secure store is available here, so the key is saved as plain text
+      in your user data directory.
+    {:else}
+      The key is stored in your user data directory.
+    {/if}
+    The saved value is never displayed back. You can also set
+    <code>ANTHROPIC_API_KEY</code> as an environment variable.
   </p>
   {#if apiKeyStatus === 'set' && !clearApiKey}
     <button class="link-btn" onclick={() => { clearApiKey = true; apiKeyInput = ''; }}>

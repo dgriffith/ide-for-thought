@@ -654,6 +654,7 @@ export interface ToolsApi {
   onStream(cb: (chunk: string) => void): void;
   getSettings(): Promise<LLMSettings>;
   setSettings(settings: LLMSettings): Promise<void>;
+  getKeyStorage(): Promise<import('../../../shared/tools/types').ApiKeyStorage>;
   onInvoke(cb: (toolId: string) => void): void;
 }
 

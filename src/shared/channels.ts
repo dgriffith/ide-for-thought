@@ -397,6 +397,8 @@ export const Channels = {
   TOOL_CANCEL: 'tool:cancel',
   TOOL_GET_SETTINGS: 'tool:getSettings',
   TOOL_SET_SETTINGS: 'tool:setSettings',
+  /** At-rest storage status of the API key, for the settings panel (#1326). */
+  TOOL_GET_KEY_STORAGE: 'tool:getKeyStorage',
   /** Prepare the system prompt + first message + model for a conversational tool. */
   TOOL_PREPARE_CONVERSATION: 'tool:prepareConversation',
 
