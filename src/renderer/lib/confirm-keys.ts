@@ -69,9 +69,12 @@ export const CONFIRM_KEYS = {
   saveCellOutputFailed: 'save-cell-output-failed',
   /** Image-upload rejection toast (#455) — too-large, unsupported MIME, etc. */
   imageUploadFailed: 'image-upload-failed',
-  /** First-run Python trust dialog (#373). The dialog hides the
+  /** First-run compute trust dialog (#373, #1325). Covers every
+   *  executable fence (Python, SQL, SPARQL). The dialog hides the
    *  Don't-ask-again checkbox — consent is project-scoped, not
-   *  machine-scoped, so the localStorage suppression mustn't fire. */
+   *  machine-scoped, so the localStorage suppression mustn't fire.
+   *  The `python-trust` key string is historical (kept so existing
+   *  per-project consent still resolves). */
   pythonTrust: 'python-trust',
   exportComplete: 'export-complete',
   /** Pre-merge confirmation (#464) — surfaced before "Merge note into…" runs. */
@@ -344,9 +347,9 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
   },
   {
     key: CONFIRM_KEYS.pythonTrust,
-    title: 'Python trust prompt',
+    title: 'Compute trust prompt',
     description:
-      'First-run prompt before Python cells execute in a new thoughtbase (#373). Trust is recorded per-project in `.minerva/config.json`, not per-machine — the dialog hides the Don\'t-ask-again checkbox, and this entry is here so the suppression UI lists the key for completeness but suppressing it has no effect.',
+      'First-run prompt before any compute cell (Python, SQL, or SPARQL) executes in a new thoughtbase (#373, #1325). Trust is recorded per-project in `.minerva/config.json`, not per-machine — the dialog hides the Don\'t-ask-again checkbox, and this entry is here so the suppression UI lists the key for completeness but suppressing it has no effect.',
   },
   {
     key: CONFIRM_KEYS.exportComplete,

