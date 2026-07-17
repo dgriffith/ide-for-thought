@@ -42,6 +42,7 @@
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
+  import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import DictationIndicator from './lib/components/DictationIndicator.svelte';
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
@@ -82,6 +83,7 @@
   import { sectionAnchorAt } from './lib/markdown/headings';
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
+  import { WELCOME_NOTE_PATH, welcomeNoteContent } from '../shared/welcome-note';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
   import { loadFormatSettings } from './lib/formatter/settings';
@@ -465,6 +467,32 @@
     if (dontAskAgain) {
       try { await api.notebase.setOnboardingDismissed(true); }
       catch (e) { console.warn('[onboarding] persist dismiss failed:', e); }
+    }
+    // Dismissing onboarding (button, Escape, or click-away) leaves an empty
+    // thoughtbase with nothing to open. Seed a welcoming default note so the
+    // user lands on real prose instead of the bare editor placeholder. Only
+    // when still empty — accepting onboarding takes a different path and never
+    // reaches here, so this fires exactly for "declined onboarding". `entrypoint`
+    // (baked into the body) makes it the note that auto-opens on later loads.
+    await maybeSeedWelcomeNote();
+  }
+
+  /**
+   * Write + open the welcome note when the thoughtbase has no notes yet.
+   * Guarded on emptiness so it never clobbers an existing note or duplicates
+   * itself. `writeFile` routes through the main-process write pipeline, which
+   * indexes the new note (graph + search) exactly like any other save.
+   */
+  async function maybeSeedWelcomeNote(): Promise<void> {
+    if (!notebase.meta) return;
+    if (countNotes(notebase.files) > 0) return;
+    const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
+    try {
+      await api.notebase.writeFile(WELCOME_NOTE_PATH, welcomeNoteContent(isMac));
+      await notebase.refresh();
+      await editor.openFile(WELCOME_NOTE_PATH);
+    } catch (e) {
+      console.warn('[onboarding] welcome note seed failed:', e);
     }
   }
 
@@ -1569,7 +1597,7 @@
                 </div>
               {:else}
                 <div class="no-file">
-                  <p>Select a note from the sidebar</p>
+                  <p>Press {formatAccelerator('CmdOrCtrl+N')} to create a new note</p>
                 </div>
               {/if}
               {#if draggingTab && dropTarget?.groupId === groupId}
