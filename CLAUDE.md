@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. It manages knowledge bases backed by an RDF graph and git. The codebase repo name is `miranda` but the app is called **Minerva**.
+Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. It manages knowledge bases backed by an RDF graph. (Git is only an opt-in *publish* target — see `src/main/git/` — not automatic version control; thoughtbases are not git-backed yet.) The codebase repo name is `miranda` but the app is called **Minerva**.
 
 ## Commands
 
@@ -20,7 +20,7 @@ with `git push --no-verify` (or `SKIP_HOOKS=1 git push`).
 
 Three-process Electron app with strict context isolation:
 
-- **Main** (`src/main/`) — Node.js process. File I/O, git, graph indexing, menus, window management. All file access goes through `notebase/fs.ts` which enforces path traversal protection.
+- **Main** (`src/main/`) — Node.js process. File I/O, git publishing, graph indexing, menus, window management. All file access goes through `notebase/fs.ts` which enforces path traversal protection.
 - **Preload** (`src/preload/preload.ts`) — Bridges main and renderer via `contextBridge`. The renderer accesses everything through `window.api`.
 - **Renderer** (`src/renderer/`) — Svelte 5 UI. State managed with runes (`$state`, `$effect`, `$derived`). Two stores: `notebase.svelte.ts` (project/files) and `editor.svelte.ts` (active file/content).
 
@@ -34,7 +34,7 @@ This project uses **Svelte 5 runes** — not Svelte 4 syntax. Use `$state`, `$de
 ### UI & UX Philosophy
 This is a **professional tool**. Design accordingly:
 
-- **No danger styling.** Don't color destructive actions in red. Deleting a note is a normal operation, not a scary one — especially with git backing every project.
+- **No danger styling.** Don't color destructive actions in red. Deleting a note is a normal operation, not a scary one.
 - **Respect the user.** Every confirmation dialog must include a "Don't ask again" checkbox. Use `showConfirm(message, key, label)` in App.svelte — the `key` parameter allows each dialog type to be independently suppressed via localStorage.
 - **Stay out of the way.** Prefer keyboard shortcuts and contextual actions (right-click menus) over modal UI. Don't add warnings, toasts, or interstitials unless absolutely necessary.
 - **No hand-holding.** Don't add validation that prevents the user from doing what they asked. Don't add "are you sure?" unless there's genuine data loss risk — and even then, make it dismissable.
