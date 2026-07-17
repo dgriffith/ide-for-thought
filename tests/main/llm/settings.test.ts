@@ -22,16 +22,17 @@ vi.mock('electron', () => ({
   },
   safeStorage: {
     isEncryptionAvailable: () => true,
-    encryptString: (s: string) => Buffer.from('FAKEENC:' + s, 'utf-8'),
-    decryptString: (buf: Buffer) => {
+    encryptString: vi.fn((s: string) => Buffer.from('FAKEENC:' + s, 'utf-8')),
+    decryptString: vi.fn((buf: Buffer) => {
       const s = buf.toString('utf-8');
       if (!s.startsWith('FAKEENC:')) throw new Error('bad ciphertext');
       return s.slice('FAKEENC:'.length);
-    },
+    }),
   },
 }));
 
-import { getSettings, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
+import { safeStorage } from 'electron';
+import { getSettings, getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
 import type { LLMSettings } from '../../../src/shared/tools/types';
 
 const settingsFile = () => path.join(tempDir, 'llm-settings.json');
@@ -44,6 +45,7 @@ const base: LLMSettings = {
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-llm-settings-'));
   delete process.env.ANTHROPIC_API_KEY;
+  vi.clearAllMocks();
 });
 afterEach(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
@@ -80,6 +82,48 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
     // An explicitly-cleared key stays cleared (matches the pre-#1326 `??` chain).
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: '', model: 'claude-sonnet-5' }));
     expect((await getSettings()).apiKey).toBe('');
+  });
+
+  describe('display read + keep-on-save never touch the keychain', () => {
+    it('getSettingsForDisplay reports a key without decrypting it', async () => {
+      await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
+      vi.clearAllMocks();
+      const view = await getSettingsForDisplay();
+      expect(view.hasApiKey).toBe(true);
+      expect(view.model).toBe('claude-sonnet-5');
+      expect((view as { apiKey?: string }).apiKey).toBeUndefined(); // no plaintext leaks out
+      expect(safeStorage.decryptString).not.toHaveBeenCalled();
+    });
+
+    it('getSettingsForDisplay: hasApiKey false when cleared, true from env', async () => {
+      fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: '', model: 'claude-sonnet-5' }));
+      expect((await getSettingsForDisplay()).hasApiKey).toBe(false);
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-env';
+      fs.writeFileSync(settingsFile(), JSON.stringify({ model: 'claude-sonnet-5' }));
+      expect((await getSettingsForDisplay()).hasApiKey).toBe(true);
+    });
+
+    it('saving without an apiKey preserves the stored key verbatim, no decrypt/encrypt', async () => {
+      await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
+      const encrypted = JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).apiKey as string;
+      vi.clearAllMocks();
+      // A settings save that doesn't touch the key omits apiKey entirely.
+      await saveSettings({ model: 'claude-opus-4-8', web: base.web });
+      const after = JSON.parse(fs.readFileSync(settingsFile(), 'utf-8'));
+      expect(after.apiKey).toBe(encrypted);       // byte-for-byte preserved
+      expect(after.model).toBe('claude-opus-4-8'); // the actual edit landed
+      expect(safeStorage.decryptString).not.toHaveBeenCalled();
+      expect(safeStorage.encryptString).not.toHaveBeenCalled();
+      // And the key still decrypts for the API-call path.
+      expect((await getSettings()).apiKey).toBe('sk-ant-secret');
+    });
+
+    it('an explicit empty apiKey clears the stored key', async () => {
+      await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
+      await saveSettings({ model: base.model, web: base.web, apiKey: '' });
+      expect(JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).apiKey).toBe('');
+      expect((await getSettingsForDisplay()).hasApiKey).toBe(false);
+    });
   });
 
   describe('getApiKeyStorage — settings-panel indicator (#1326)', () => {

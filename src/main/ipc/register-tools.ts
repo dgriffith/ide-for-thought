@@ -8,8 +8,8 @@ import { pickAndImportSkill, removeUserSkill, revealSkillsFolder, type ImportedS
 import { getMenuConfig, saveMenuConfig } from '../skills/menu-config-store';
 import { toSkillInfo, type SkillCatalogInfo } from '../../shared/skills/types';
 import type { MenuConfig } from '../../shared/skills/menu-config';
-import { getSettings, saveSettings, getApiKeyStorage } from '../llm/settings';
-import type { ToolExecutionRequest, LLMSettings } from '../../shared/tools/types';
+import { getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../llm/settings';
+import type { ToolExecutionRequest, LLMSettingsUpdate } from '../../shared/tools/types';
 import { winFromEvent } from './helpers';
 
 export function registerTools(): void {
@@ -89,9 +89,10 @@ export function registerTools(): void {
     await revealSkillsFolder();
   });
 
-  ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettings());
+  // Display read: no decrypt, so opening settings never prompts the keychain.
+  ipcMain.handle(Channels.TOOL_GET_SETTINGS, () => getSettingsForDisplay());
 
-  ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, settings: LLMSettings) => saveSettings(settings));
+  ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, update: LLMSettingsUpdate) => saveSettings(update));
 
   ipcMain.handle(Channels.TOOL_GET_KEY_STORAGE, () => getApiKeyStorage());
 }

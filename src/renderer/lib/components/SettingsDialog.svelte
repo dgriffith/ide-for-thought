@@ -9,7 +9,7 @@
   } from '../appearance/settings';
   import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
   import { api } from '../ipc/client';
-  import type { LLMSettings } from '../../../shared/tools/types';
+  import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
   import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
   import {
@@ -250,8 +250,6 @@
   let clearApiKey = $state(false);
   let keyStorage = $state<import('../../../shared/tools/types').ApiKeyStorage | null>(null);
 
-  // Keep the dialog's own copy of saved LLM settings for Done-time diffing.
-  let loadedLlm: LLMSettings | null = null;
   let toolModelOverrides = $state<Record<string, string>>({});
 
   // Compute (#374): the Python-interpreter panel now lives in
@@ -260,10 +258,9 @@
   onMount(async () => {
     try {
       const s = await api.tools.getSettings();
-      loadedLlm = s;
       model = s.model;
       effort = s.effort;
-      apiKeyStatus = s.apiKey ? 'set' : 'unset';
+      apiKeyStatus = s.hasApiKey ? 'set' : 'unset';
       try {
         keyStorage = await api.tools.getKeyStorage();
       } catch (e) {
@@ -342,14 +339,10 @@
     setFontFamily(fontFamily);
     onThemeChanged();
 
-    // Web + AI — build new LLMSettings and save
-    const newApiKey = clearApiKey
-      ? ''
-      : apiKeyInput
-        ? apiKeyInput
-        : loadedLlm?.apiKey ?? '';
-    const next: LLMSettings = {
-      apiKey: newApiKey,
+    // Web + AI — build the settings update and save. The apiKey is tri-state:
+    // clear → '', a typed value → that key, otherwise OMIT it so main preserves
+    // the stored key without decrypting (the dialog never held the plaintext).
+    const next: LLMSettingsUpdate = {
       model,
       web: {
         enabled: webEnabled,
@@ -358,6 +351,7 @@
       },
       ...(effort ? { effort } : {}),
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
+      ...(clearApiKey ? { apiKey: '' } : apiKeyInput ? { apiKey: apiKeyInput } : {}),
     };
     try {
       await api.tools.setSettings(next);

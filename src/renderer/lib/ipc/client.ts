@@ -1,5 +1,5 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
-import type { ToolExecutionRequest, ToolExecutionResult, LLMSettings, ConversationToolPayload } from '../../../shared/tools/types';
+import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { ThemeMode } from '../../../shared/theme';
 
@@ -652,8 +652,8 @@ export interface ToolsApi {
   prepareConversation(request: ToolExecutionRequest): Promise<ConversationToolPayload>;
   cancel(): Promise<void>;
   onStream(cb: (chunk: string) => void): void;
-  getSettings(): Promise<LLMSettings>;
-  setSettings(settings: LLMSettings): Promise<void>;
+  getSettings(): Promise<import('../../../shared/tools/types').LLMSettingsView>;
+  setSettings(update: import('../../../shared/tools/types').LLMSettingsUpdate): Promise<void>;
   getKeyStorage(): Promise<import('../../../shared/tools/types').ApiKeyStorage>;
   onInvoke(cb: (toolId: string) => void): void;
 }
