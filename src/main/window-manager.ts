@@ -34,6 +34,13 @@ export function setMenuRebuilder(fn: () => void): void {
   menuRebuilder = fn;
 }
 
+// Same one-way-edge rationale as `menuRebuilder`: drop a closed window's
+// reported note/selection state from the menu module's per-window map.
+let menuStateCleaner: ((winId: number) => void) | null = null;
+export function setMenuStateCleaner(fn: (winId: number) => void): void {
+  menuStateCleaner = fn;
+}
+
 interface WindowContext {
   rootPath: string | null;
   graphStore: typeof graph | null;
@@ -133,6 +140,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     }
     const heldRoot = contexts.get(win.id)?.rootPath ?? null;
     contexts.delete(win.id);
+    menuStateCleaner?.(win.id);
     if (heldRoot) {
       // Fire-and-forget: window's already gone; the release just disposes
       // shared state if this was the last acquirer.

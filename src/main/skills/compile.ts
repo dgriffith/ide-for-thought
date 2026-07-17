@@ -44,6 +44,7 @@ export function compileSkill(skill: SkillDef): ThinkingToolDef {
     def.buildSystemPrompt = (ctx) => render(skill.body, ctx);
     def.buildFirstMessage = (ctx) => render(skill.firstMessage, ctx);
   }
+  if (skill.requiresNote !== undefined) def.requiresNote = skill.requiresNote;
   if (skill.group) def.group = skill.group;
   if (skill.scope && skill.scope !== 'note') def.scope = skill.scope;
   if (skill.model) def.preferredModel = skill.model;

@@ -29,6 +29,7 @@ export function skillInfoToToolDef(info: SkillInfo): ThinkingToolDef {
     ...(info.model !== undefined ? { preferredModel: info.model } : {}),
     web: { defaultEnabled: info.web },
     requiresSelection: info.requiresSelection,
+    ...(info.requiresNote !== undefined ? { requiresNote: info.requiresNote } : {}),
     buildPrompt: () => '', // never invoked in the renderer
   };
 }

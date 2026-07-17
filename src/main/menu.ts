@@ -15,7 +15,8 @@ import { restartKernel as restartPythonKernel, interruptKernel as interruptPytho
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
 import { groupToolsByGroup, hasNamedGroups } from '../shared/tools/grouping';
-import { isSourceScoped } from '../shared/tools/types';
+import { isSourceScoped, toolRequiresNote, toolRequiresSelection } from '../shared/tools/types';
+import type { MenuEditorState } from '../shared/types';
 import {
   checkForUpdatesNow,
   isUpdateDownloaded,
@@ -40,12 +41,42 @@ export function setMenuThemeMode(mode: ThemeMode): void {
   rebuildMenu();
 }
 
+// Per-window editor gating state, mirrored from each renderer. Keyed by
+// window id like `getRootPath(winId)` so a focus switch shows the right window's
+// enablement; `rebuildMenu` reads the focused window's entry.
+const editorStateByWin = new Map<number, MenuEditorState>();
+
+/** Renderer → main: record a window's note/selection state and refresh the menu
+ *  if that window is focused (its state is what's on screen). Deduped so a
+ *  no-op report costs no rebuild. */
+export function setMenuEditorState(winId: number, state: MenuEditorState): void {
+  const prev = editorStateByWin.get(winId);
+  if (prev && prev.hasEditor === state.hasEditor && prev.hasNote === state.hasNote && prev.hasSelection === state.hasSelection) return;
+  editorStateByWin.set(winId, state);
+  if (BrowserWindow.getFocusedWindow()?.id === winId) rebuildMenu();
+}
+
+/** Drop a window's editor state when it closes (called from window-manager). */
+export function clearMenuEditorState(winId: number): void {
+  editorStateByWin.delete(winId);
+}
+
 export function buildMenu(_win?: BrowserWindow): void {
   rebuildMenu();
 }
 
-/** Enablement gate applied to items that require an open thoughtbase. */
-type Gate = <T extends Electron.MenuItemConstructorOptions>(item: T) => T;
+/** Per-item preconditions beyond "a thoughtbase is open". */
+interface GateReq {
+  /** Needs any editor tab open (note/query/source) — e.g. pane commands. */
+  editor?: boolean;
+  /** Needs a note tab active. */
+  note?: boolean;
+  /** Needs a non-empty text selection (implies `note`). */
+  selection?: boolean;
+}
+/** Enablement gate. `gate(item)` requires only an open thoughtbase (the common
+ *  case); pass a `GateReq` to also require a note and/or selection. */
+type Gate = <T extends Electron.MenuItemConstructorOptions>(item: T, req?: GateReq) => T;
 
 export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
@@ -56,7 +87,20 @@ export function rebuildMenu(): Electron.MenuItemConstructorOptions[] {
   // tracks the focused window's state.
   const focusedWin = BrowserWindow.getFocusedWindow();
   const hasProject = focusedWin ? getRootPath(focusedWin.id) !== null : false;
-  const gate: Gate = (item) => ({ ...item, enabled: hasProject && (item.enabled ?? true) });
+  // Note/selection state is renderer-owned; the focused window reports it via
+  // MENU_REPORT_EDITOR_STATE. Absent (window never reported) ⇒ treat as none.
+  const editorState = focusedWin ? editorStateByWin.get(focusedWin.id) : undefined;
+  const hasEditor = editorState?.hasEditor ?? false;
+  const hasNote = editorState?.hasNote ?? false;
+  const hasSelection = editorState?.hasSelection ?? false;
+  const gate: Gate = (item, req) => {
+    const ok =
+      hasProject &&
+      (!req?.editor || hasEditor) &&
+      (!req?.note || hasNote) &&
+      (!req?.selection || hasSelection);
+    return { ...item, enabled: ok && (item.enabled ?? true) };
+  };
 
   // rebuildMenu is the assembly line: each top-level menu is produced by its
   // own builder (below), sharing `gate` (project-enablement) and the
@@ -189,11 +233,11 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Save',
         accelerator: 'CmdOrCtrl+S',
         click: () => send(Channels.MENU_SAVE),
-      }),
+      }, { note: true }),
       gate({
         label: 'Save as Template…',
         click: () => send(Channels.MENU_SAVE_AS_TEMPLATE),
-      }),
+      }, { note: true }),
       { type: 'separator' },
 
       // Ingest / Import — bringing external things in.
@@ -235,7 +279,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       gate({
         label: 'Print…',
         click: () => send(Channels.MENU_PRINT),
-      }),
+      }, { note: true }),
       gate({
         label: 'Print to PDF…',
         click: async () => {
@@ -255,7 +299,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
             await fs.writeFile(result.filePath, data);
           }
         },
-      }),
+      }, { note: true }),
       { type: 'separator' },
       {
         label: 'Open In',
@@ -264,11 +308,11 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
             label: 'Reveal in Finder',
             accelerator: 'CmdOrCtrl+Shift+R',
             click: () => send(Channels.SHELL_REVEAL_FILE),
-          }),
+          }, { note: true }),
           gate({
             label: 'Open in Default App',
             click: () => send(Channels.MENU_OPEN_IN_DEFAULT),
-          }),
+          }, { note: true }),
           gate({
             label: 'Open in Terminal',
             click: () => send(Channels.MENU_OPEN_IN_TERMINAL),
@@ -361,12 +405,12 @@ function buildEditMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Find',
         accelerator: 'CmdOrCtrl+F',
         click: () => send(Channels.MENU_FIND),
-      }),
+      }, { note: true }),
       gate({
         label: 'Find and Replace',
         accelerator: 'CmdOrCtrl+H',
         click: () => send(Channels.MENU_FIND_REPLACE),
-      }),
+      }, { note: true }),
       gate({
         label: 'Find in Notes…',
         accelerator: 'CmdOrCtrl+Shift+F',
@@ -381,12 +425,12 @@ function buildEditMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       gate({
         label: 'Insert Template…',
         click: () => send(Channels.MENU_INSERT_TEMPLATE),
-      }),
+      }, { note: true }),
       { type: 'separator' },
       gate({
         label: 'Sort Lines',
         click: () => send(Channels.MENU_SORT_LINES),
-      }),
+      }, { note: true }),
       ...(!isMac
         ? [
             { type: 'separator' as const },
@@ -429,7 +473,7 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Cycle Preview Mode',
         accelerator: 'CmdOrCtrl+Shift+P',
         click: () => send(Channels.MENU_TOGGLE_PREVIEW),
-      }),
+      }, { note: true }),
       { type: 'separator' },
       // Editor split — pane focus & layout commands (#814).
       gate({
@@ -446,17 +490,17 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Focus Next Group',
         accelerator: 'CmdOrCtrl+Alt+Right',
         click: () => send(Channels.MENU_FOCUS_NEXT_GROUP),
-      }),
+      }, { editor: true }),
       gate({
         label: 'Focus Previous Group',
         accelerator: 'CmdOrCtrl+Alt+Left',
         click: () => send(Channels.MENU_FOCUS_PREV_GROUP),
-      }),
+      }, { editor: true }),
       gate({
         label: 'Close Group',
         accelerator: 'CmdOrCtrl+Shift+W',
         click: () => send(Channels.MENU_CLOSE_GROUP),
-      }),
+      }, { editor: true }),
       { type: 'separator' },
       {
         label: 'Theme',
@@ -530,7 +574,7 @@ function buildNavigateMenu(gate: Gate): Electron.MenuItemConstructorOptions {
         label: 'Go to Line',
         accelerator: 'CmdOrCtrl+G',
         click: () => send(Channels.MENU_GOTO_LINE),
-      }),
+      }, { note: true }),
     ],
   };
 }
@@ -540,18 +584,18 @@ function buildRefactorMenu(gate: Gate): Electron.MenuItemConstructorOptions {
   return {
     label: 'Refactor',
     submenu: [
-      gate({ label: 'Rename…', click: () => send(Channels.MENU_REFACTOR_RENAME) }),
-      gate({ label: 'Move…', click: () => send(Channels.MENU_REFACTOR_MOVE) }),
-      gate({ label: 'Copy…', click: () => send(Channels.MENU_REFACTOR_COPY) }),
+      gate({ label: 'Rename…', click: () => send(Channels.MENU_REFACTOR_RENAME) }, { note: true }),
+      gate({ label: 'Move…', click: () => send(Channels.MENU_REFACTOR_MOVE) }, { note: true }),
+      gate({ label: 'Copy…', click: () => send(Channels.MENU_REFACTOR_COPY) }, { note: true }),
       { type: 'separator' },
-      gate({ label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) }),
-      gate({ label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) }),
-      gate({ label: 'Split by Heading…', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) }),
+      gate({ label: 'Extract Selection to New Note', click: () => send(Channels.MENU_REFACTOR_EXTRACT) }, { note: true, selection: true }),
+      gate({ label: 'Split Note Here', click: () => send(Channels.MENU_REFACTOR_SPLIT_HERE) }, { note: true }),
+      gate({ label: 'Split by Heading…', click: () => send(Channels.MENU_REFACTOR_SPLIT_BY_HEADING) }, { note: true }),
       { type: 'separator' },
-      gate({ label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) }),
-      gate({ label: 'Auto-link outbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) }),
-      gate({ label: 'Auto-link inbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) }),
-      gate({ label: 'Decompose Note…', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) }),
+      gate({ label: 'Auto-tag', click: () => send(Channels.MENU_REFACTOR_AUTOTAG) }, { note: true }),
+      gate({ label: 'Auto-link outbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK) }, { note: true }),
+      gate({ label: 'Auto-link inbound…', click: () => send(Channels.MENU_REFACTOR_AUTOLINK_INBOUND) }, { note: true }),
+      gate({ label: 'Decompose Note…', click: () => send(Channels.MENU_REFACTOR_DECOMPOSE) }, { note: true }),
       { type: 'separator' },
       // Deterministic markdown normalisation (issue #152 epic). Nested
       // under Refactor so the title bar stays lean.
@@ -565,7 +609,7 @@ function buildRefactorMenu(gate: Gate): Electron.MenuItemConstructorOptions {
         label: 'Insert/Update Bibliography',
         toolTip: 'Render a References section listing every source the active note cites, in the project’s configured CSL style.',
         click: () => send(Channels.MENU_BIBLIOGRAPHY),
-      }),
+      }, { note: true }),
     ],
   };
 }
@@ -585,11 +629,14 @@ function buildToolMenus(gate: Gate): Electron.MenuItemConstructorOptions[] {
     .filter((id) => getToolsByCategory(id).some((t) => !isSourceScoped(t)))
     .map((id) => {
       const tools = getToolsByCategory(id).filter((t) => !isSourceScoped(t));
-      const mkItem = (tool: typeof tools[number]) => gate({
-        label: tool.name,
-        toolTip: tool.description,
-        click: () => send(Channels.TOOL_INVOKE, tool.id),
-      });
+      const mkItem = (tool: typeof tools[number]) => gate(
+        {
+          label: tool.name,
+          toolTip: tool.description,
+          click: () => send(Channels.TOOL_INVOKE, tool.id),
+        },
+        { note: toolRequiresNote(tool), selection: toolRequiresSelection(tool) },
+      );
       // Thematic sub-grouping (#525): when any tool in the category declares
       // a `group`, render one nested submenu per group (ungrouped → General,
       // last). Otherwise stay flat — current behavior for ungrouped

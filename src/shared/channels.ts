@@ -165,6 +165,9 @@ export const Channels = {
   MENU_SET_THEME: 'menu:setTheme',
   // Renderer → main: report the current theme so the menu's radio reflects it.
   MENU_REPORT_THEME: 'menu:reportTheme',
+  // Renderer → main: report editor gating state (is a note active, is there a
+  // selection) so the native menu can gray out note/selection-only items.
+  MENU_REPORT_EDITOR_STATE: 'menu:reportEditorState',
   // Editor split — focus & pane commands (#814)
   MENU_SPLIT_RIGHT: 'menu:splitRight',
   MENU_SPLIT_DOWN: 'menu:splitDown',

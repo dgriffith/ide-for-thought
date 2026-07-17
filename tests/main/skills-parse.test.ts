@@ -49,6 +49,22 @@ Body here {{selection}}`;
     expect(skill!.context).toEqual([]);
   });
 
+  it('reads requiresNote as tri-state (absent → undefined, explicit false preserved)', () => {
+    const base = (extra: string) => `---
+name: T
+description: d
+menu: Learning
+outputMode: openConversation
+context: [fullNote]
+${extra}---
+body`;
+    // Absent: left undefined so the requiresNote derivation (from context) applies.
+    expect(parseSkill(base(''), 'stock', 'x.md').skill!.requiresNote).toBeUndefined();
+    // Explicit false must survive (the create-learning-journey opt-out).
+    expect(parseSkill(base('requiresNote: false\n'), 'stock', 'x.md').skill!.requiresNote).toBe(false);
+    expect(parseSkill(base('requiresNote: true\n'), 'stock', 'x.md').skill!.requiresNote).toBe(true);
+  });
+
   it('honors an explicit id', () => {
     const c = `---
 id: learning.summarize

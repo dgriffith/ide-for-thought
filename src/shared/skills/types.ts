@@ -84,6 +84,9 @@ export interface SkillDef {
   slashCommand?: string;
   outputNotePrefix?: string;
   requiresSelection: boolean;
+  /** Explicit override of the "needs a note" derivation (see
+   *  `toolRequiresNote`). Omit to derive from `context` / `requiresSelection`. */
+  requiresNote?: boolean;
   /** Auto-fired first user message (template). Empty = let the user start. */
   firstMessage: string;
   /** Prompt body (template) — system prompt or one-shot prompt. */
@@ -110,6 +113,8 @@ export interface SkillInfo {
   slashCommand?: string | undefined;
   outputNotePrefix?: string | undefined;
   requiresSelection: boolean;
+  /** See SkillDef.requiresNote. */
+  requiresNote?: boolean | undefined;
   source: SkillSource;
 }
 
@@ -151,6 +156,7 @@ export function toSkillInfo(s: SkillDef): SkillInfo {
     slashCommand: s.slashCommand,
     outputNotePrefix: s.outputNotePrefix,
     requiresSelection: s.requiresSelection,
+    requiresNote: s.requiresNote,
     source: s.source,
   };
 }

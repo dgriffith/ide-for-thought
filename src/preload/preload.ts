@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
-import type { SearchInNotesOptions, ReplaceInNotesOptions } from '../shared/types';
+import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 
 /**
@@ -484,6 +484,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.MENU_SET_THEME, (_e, mode: ThemeMode) => cb(mode));
     },
     reportTheme: (mode: ThemeMode) => ipcRenderer.send(Channels.MENU_REPORT_THEME, mode),
+    reportEditorState: (state: MenuEditorState) => ipcRenderer.send(Channels.MENU_REPORT_EDITOR_STATE, state),
     onSplitRight: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SPLIT_RIGHT, () => cb());
     },
