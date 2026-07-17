@@ -159,6 +159,14 @@ export interface ThinkingToolDef {
   /** When true, the tool refuses to run without a non-empty `ctx.selectedText`. The editor right-click hides it, the menu-bar entry fails fast with a clear error. */
   requiresSelection?: boolean;
   /**
+   * Whether the tool needs a note open to be useful. Absent = derived from
+   * `context` (any note/selection requirement ⇒ needs a note) OR
+   * `requiresSelection`. Set it explicitly to override the derivation — e.g.
+   * Create Learning Journey lists `context:[fullNote]` to use the note's topic
+   * when one is open, but sets `requiresNote: false` so it stays invokable with
+   * no note. Consumed via `toolRequiresNote` to gray out menu entries. */
+  requiresNote?: boolean;
+  /**
    * Template-scoped tools the agent should have access to in this
    * conversation, on top of the default toolset. Today the only entry
    * is `'ask_user'` — declare it when the prompt needs to collect a
@@ -187,6 +195,8 @@ export interface ThinkingToolInfo {
   preferredModel?: string;
   web?: ToolWebHint;
   requiresSelection?: boolean;
+  /** See ThinkingToolDef.requiresNote. */
+  requiresNote?: boolean;
 }
 
 export interface ToolExecutionRequest {
@@ -261,6 +271,39 @@ export interface LLMSettings {
  *  command palette, and the Source viewer's actions list. */
 export function isSourceScoped(tool: { scope?: ToolScope }): boolean {
   return tool.scope === 'source';
+}
+
+/** Context requirements that can only be satisfied with a note open. */
+const NOTE_CONTEXTS: readonly ContextRequirement[] = [
+  'fullNote',
+  'selectedText',
+  'selectionRange',
+  'relatedNotes',
+  'taggedNotes',
+  'claimUnderCursor',
+];
+
+/**
+ * Whether a tool needs a note open to be useful. `requiresNote` overrides when
+ * set; otherwise a selection requirement or any note-reading `context` entry
+ * implies it. Whole-thoughtbase tools (empty `context`, e.g. Find Correlations)
+ * derive to false and stay available with no note. Shared by the native menu,
+ * the editor right-click, and the command palette so all three agree. */
+export function toolRequiresNote(
+  tool: Pick<ThinkingToolInfo, 'context' | 'requiresSelection' | 'requiresNote'>,
+): boolean {
+  if (tool.requiresNote !== undefined) return tool.requiresNote;
+  if (tool.requiresSelection) return true;
+  return tool.context.some((c) => NOTE_CONTEXTS.includes(c));
+}
+
+/** Whether a tool needs a non-empty text selection (a stricter gate than
+ *  `toolRequiresNote`). Selection ⇒ note, so a `requiresSelection` tool is also
+ *  reported by `toolRequiresNote`. */
+export function toolRequiresSelection(
+  tool: Pick<ThinkingToolInfo, 'requiresSelection'>,
+): boolean {
+  return !!tool.requiresSelection;
 }
 
 export const DEFAULT_WEB_SETTINGS: WebSettings = {

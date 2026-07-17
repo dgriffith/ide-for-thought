@@ -15,6 +15,18 @@ export interface NotebaseMeta {
   name: string;
 }
 
+/** Renderer → main editor gating state (`MENU_REPORT_EDITOR_STATE`). Drives the
+ *  native menu's enablement of note/selection/editor-only items. */
+export interface MenuEditorState {
+  /** Any editor tab is open (note, query, or source). Gates pane commands whose
+   *  accelerators must keep firing for non-note tabs too. */
+  hasEditor: boolean;
+  /** A note tab is active (as opposed to a query/source tab, or none). */
+  hasNote: boolean;
+  /** The active note editor has a non-empty text selection. */
+  hasSelection: boolean;
+}
+
 export interface SearchInNotesOptions {
   pattern: string;
   caseSensitive: boolean;

@@ -206,6 +206,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onTogglePreview",
     "onToggleRightSidebar",
     "onToggleSidebar",
+    "reportEditorState",
     "reportTheme",
   ],
   "notebase": [

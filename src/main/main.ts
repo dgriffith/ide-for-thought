@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
-import { buildMenu, rebuildMenu } from './menu';
-import { createWindow, openProjectInWindow, setMenuRebuilder } from './window-manager';
+import { buildMenu, rebuildMenu, clearMenuEditorState } from './menu';
+import { createWindow, openProjectInWindow, setMenuRebuilder, setMenuStateCleaner } from './window-manager';
 import { appIconPath } from './app-icon';
 import { loadSession } from './session';
 import { registerBuiltinExecutors } from './compute/executors';
@@ -41,6 +41,7 @@ void app.whenReady().then(async () => {
   // `rebuildMenu` directly. Registered before any window is created so the
   // focus/project-change rebuild triggers are wired from the first window.
   setMenuRebuilder(rebuildMenu);
+  setMenuStateCleaner(clearMenuEditorState);
   // macOS dev dock icon (#805). A packaged .app gets its icon from the bundle
   // (packagerConfig.icon); an unpackaged `electron-forge start` shows the stock
   // Electron icon unless we set the dock icon here.

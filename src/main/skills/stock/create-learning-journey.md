@@ -5,6 +5,10 @@ description: Design an ordered learning path ending at mastery
 menu: Learning
 outputMode: openConversation
 context: [fullNote]
+# Uses the note's topic when one is open, but works from a user-named topic
+# otherwise — so it must stay available with no note (overrides the fullNote
+# derivation that would otherwise mark it note-required).
+requiresNote: false
 slashCommand: /learning-journey
 model: claude-opus-4-8
 web: true

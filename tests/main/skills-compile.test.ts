@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { compileSkill } from '../../src/main/skills/compile';
+import { parseSkill } from '../../src/main/skills/parse';
 import { buildConversationPayload } from '../../src/main/tools/executor';
 import { getTool, registerTool, unregisterTool } from '../../src/shared/tools/registry';
+import { toolRequiresNote } from '../../src/shared/tools/types';
 import type { SkillDef } from '../../src/shared/skills/types';
 
 function skill(overrides: Partial<SkillDef> = {}): SkillDef {
@@ -94,6 +98,29 @@ describe('compiled skill through the conversation payload builder', () => {
       { context: {} },
     );
     expect(payload.model).toBeUndefined();
+  });
+});
+
+describe('requiresNote', () => {
+  it('derives from context by default and the explicit override wins', () => {
+    // Default: context:[fullNote] ⇒ needs a note.
+    expect(toolRequiresNote(compileSkill(skill({ context: ['fullNote'] })))).toBe(true);
+    // Whole-thoughtbase tool (no context) ⇒ available with no note.
+    expect(toolRequiresNote(compileSkill(skill({ context: [] })))).toBe(false);
+    // Override: reads the note when present but stays available without one.
+    expect(toolRequiresNote(compileSkill(skill({ context: ['fullNote'], requiresNote: false })))).toBe(false);
+  });
+
+  it('keeps the stock Create Learning Journey available with no note (regression guard)', () => {
+    // The reported bug: "To create a learning journey you have to have a note
+    // open." The stock skill declares context:[fullNote] but must opt out.
+    const md = fs.readFileSync(
+      path.join(__dirname, '../../src/main/skills/stock/create-learning-journey.md'),
+      'utf-8',
+    );
+    const { skill: parsed, errors } = parseSkill(md, 'stock', 'stock/create-learning-journey.md');
+    expect(errors).toEqual([]);
+    expect(toolRequiresNote(compileSkill(parsed!))).toBe(false);
   });
 });
 

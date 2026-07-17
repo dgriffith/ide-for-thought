@@ -38,7 +38,7 @@
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
-  import type { SafeDeleteBlocker } from '../shared/types';
+  import type { SafeDeleteBlocker, MenuEditorState } from '../shared/types';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
@@ -222,6 +222,27 @@
   const previewComponent = $derived(previewComponents[editor.activeGroupId]);
   let toolPanelComponent = $state<ToolPanel>();
   let cursorInfo = $state<CursorInfo>({ line: 1, column: 1, selectionLength: 0, wordCount: 0 });
+
+  // Report note/selection state to main so the native menu can gray out
+  // note/selection-only items (the command palette already gates reactively;
+  // the native menu had no such signal). `cursorInfo` follows the focused pane's
+  // editor, so it doubles as the selection source. Report only on boolean flip —
+  // cursor moves and selection-length changes that don't cross empty↔non-empty
+  // send nothing, so the native menu isn't rebuilt on every keystroke. Main
+  // dedupes again as a backstop.
+  let lastEditorStateReport: MenuEditorState | null = null;
+  $effect(() => {
+    const hasEditor = !!editor.activeTab;
+    const hasNote = editor.activeTab?.type === 'note';
+    const hasSelection = hasNote && cursorInfo.selectionLength > 0;
+    if (
+      lastEditorStateReport?.hasEditor === hasEditor &&
+      lastEditorStateReport?.hasNote === hasNote &&
+      lastEditorStateReport?.hasSelection === hasSelection
+    ) return;
+    lastEditorStateReport = { hasEditor, hasNote, hasSelection };
+    api.menu.reportEditorState(lastEditorStateReport);
+  });
 
   // Drag-tab-to-split (#817) — pointer-based, NOT HTML5 DnD. A macOS native
   // drag enters a nested run-loop that suspends the page's reactivity queue, so

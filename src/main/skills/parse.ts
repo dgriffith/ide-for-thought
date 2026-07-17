@@ -157,6 +157,10 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
   const web = fm.web === undefined ? false : Boolean(fm.web);
   const model = asString(fm.model);
   const requiresSelection = Boolean(fm.requiresSelection);
+  // Tri-state: undefined ⇒ derive from context; explicit false must survive
+  // (a plain Boolean() would collapse it), so a skill can opt out of the note
+  // requirement even while listing `context:[fullNote]`.
+  const requiresNote = fm.requiresNote === undefined ? undefined : Boolean(fm.requiresNote);
   const outputNotePrefix = asString(fm.outputNotePrefix);
   const group = asString(fm.group);
 
@@ -199,6 +203,7 @@ export function parseSkill(content: string, source: SkillSource, filePath: strin
     ...(slashCommand !== undefined ? { slashCommand } : {}),
     ...(outputNotePrefix !== undefined ? { outputNotePrefix } : {}),
     requiresSelection,
+    ...(requiresNote !== undefined ? { requiresNote } : {}),
     firstMessage,
     body,
     source,

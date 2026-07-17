@@ -67,7 +67,7 @@
   }
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
-  import { isSourceScoped, type ThinkingToolInfo } from '../../../shared/tools/types';
+  import { isSourceScoped, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
   import { groupToolsByGroup, hasNamedGroups } from '../../../shared/tools/grouping';
 
   interface Props {
@@ -1031,7 +1031,7 @@
 {/if}
 
 {#snippet toolButton(tool: ThinkingToolInfo)}
-  {@const needsSelection = !!tool.requiresSelection && !contextMenu?.hasSelection}
+  {@const needsSelection = toolRequiresSelection(tool) && !contextMenu?.hasSelection}
   {@const needsClaim = (tool.context?.includes('claimUnderCursor') ?? false) && !contextMenu?.claimUri}
   <button
     onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}
