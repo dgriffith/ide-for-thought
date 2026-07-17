@@ -14,7 +14,7 @@ import { buildCommandRegistry, type CommandDeps } from '../../../src/renderer/li
 // command is enabled unless a test overrides them.
 function makeDeps(overrides: Partial<CommandDeps> = {}): CommandDeps {
   const actionNames = [
-    'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'print',
+    'newNote', 'save', 'openProject', 'newProject', 'closeProject', 'editThoughtbaseGuide', 'print',
     'saveAsTemplate', 'insertTemplate', 'dictate', 'find', 'findReplace', 'findInNotes',
     'replaceInNotes', 'gotoLine', 'sortLines', 'toggleSidebar', 'toggleRightSidebar',
     'togglePreview', 'toggleConversations', 'newConversation', 'setTheme', 'fontIncrease', 'fontDecrease',
@@ -41,7 +41,7 @@ describe('buildCommandRegistry', () => {
     const ids = buildCommandRegistry(makeDeps()).map((c) => c.id);
     expect(ids).toEqual([
       'file.newNote', 'file.save', 'file.openProject', 'file.newProject',
-      'file.closeProject', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
+      'file.closeProject', 'file.editThoughtbaseGuide', 'file.print', 'file.saveAsTemplate', 'edit.insertTemplate',
       'edit.dictate',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
@@ -110,6 +110,7 @@ describe('buildCommandRegistry', () => {
     const wiring: Record<string, keyof CommandDeps> = {
       'file.newNote': 'newNote', 'file.save': 'save', 'file.openProject': 'openProject',
       'file.newProject': 'newProject', 'file.closeProject': 'closeProject',
+      'file.editThoughtbaseGuide': 'editThoughtbaseGuide',
       'file.print': 'print', 'file.saveAsTemplate': 'saveAsTemplate',
       'edit.insertTemplate': 'insertTemplate', 'edit.dictate': 'dictate', 'edit.find': 'find',
       'edit.findReplace': 'findReplace', 'edit.findInNotes': 'findInNotes',

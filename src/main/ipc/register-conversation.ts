@@ -19,6 +19,7 @@ import type { Proposal } from '../llm/approval';
 import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
 import { currentDateContext } from '../llm/date-context';
+import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbase-doc';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
 import {
   formatComputeResultAsContext,
@@ -71,12 +72,20 @@ const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'Answer in GitHub-flavored markdown. When you reference a note, cite its relative path so the user can open it.',
 ].join('\n');
 
-function buildConversationSystemPrompt(
+async function buildConversationSystemPrompt(
   userSystem: string | undefined,
   contextBundle: ContextBundle,
   currentNotePath?: string,
-): string {
+  rootPath?: string | null,
+): Promise<string> {
   const parts = [DEFAULT_CONVERSATION_SYSTEM_PROMPT];
+  // The thoughtbase's own conventions doc (thoughtbase.md), when present, sits
+  // right after the base instructions as authoritative project context —
+  // foundational, before the per-turn/session context below.
+  const thoughtbaseBlock = thoughtbaseDocPromptBlock(rootPath ? await readThoughtbaseDoc(rootPath) : null);
+  if (thoughtbaseBlock) {
+    parts.push('', thoughtbaseBlock);
+  }
   // Dynamic per-turn context follows the static prompt. Within one session
   // (same day, same open note) it's stable, so the cached system block still
   // hits across turns; it only re-caches when the date or open note changes.
@@ -226,10 +235,11 @@ export function registerConversation(): void {
         .filter(m => m.role !== 'system')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-      const effectiveSystem = buildConversationSystemPrompt(
+      const effectiveSystem = await buildConversationSystemPrompt(
         systemPrompt ?? conv.systemPrompt,
         conv.contextBundle,
         currentNotePath,
+        rootPath,
       );
 
       if (!rootPath) {

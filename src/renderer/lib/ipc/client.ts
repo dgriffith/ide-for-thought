@@ -673,6 +673,7 @@ export interface SkillsApi {
 
 export interface MenuApi {
   onNewNote(cb: () => void): void;
+  onEditThoughtbaseDoc(cb: () => void): void;
   onSave(cb: () => void): void;
   onSaveAsTemplate(cb: () => void): void;
   onInsertTemplate(cb: () => void): void;

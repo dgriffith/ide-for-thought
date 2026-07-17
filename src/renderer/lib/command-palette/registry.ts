@@ -34,6 +34,7 @@ export interface CommandDeps {
   openProject(): void;
   newProject(): void;
   closeProject(): void;
+  editThoughtbaseGuide(): void;
   print(): void;
   saveAsTemplate(): void;
   // ── Edit ──
@@ -109,6 +110,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
     { id: 'file.closeProject', title: 'Close Thoughtbase', category: 'File',
       keybinding: formatAccelerator('CmdOrCtrl+Shift+W'),
       enabled: hasProject, run: () => deps.closeProject() },
+    { id: 'file.editThoughtbaseGuide', title: 'Edit Thoughtbase Guide…', category: 'File',
+      keybinding: null, enabled: hasProject, run: () => deps.editThoughtbaseGuide() },
     { id: 'file.print', title: 'Print…', category: 'File',
       keybinding: null, enabled: hasNote, run: () => deps.print() },
     { id: 'file.saveAsTemplate', title: 'Save as Template…', category: 'File',

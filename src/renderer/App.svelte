@@ -84,6 +84,7 @@
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { ENTRYPOINT_TAG } from '../shared/entrypoint';
   import { WELCOME_NOTE_PATH, welcomeNoteContent } from '../shared/welcome-note';
+  import { THOUGHTBASE_DOC_FILENAME, THOUGHTBASE_DOC_TEMPLATE } from '../shared/thoughtbase';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
   import { loadFormatSettings } from './lib/formatter/settings';
@@ -518,6 +519,25 @@
   }
 
   /**
+   * Open the thoughtbase guide (thoughtbase.md), creating it from a template
+   * when it doesn't exist yet. The guide is a plain-English description of the
+   * thoughtbase, injected into every conversation's system prompt. It's an
+   * ordinary root file — excluded only from indexing — so we just open it.
+   */
+  async function handleEditThoughtbaseDoc(): Promise<void> {
+    if (!notebase.meta) return;
+    try {
+      if (!(await api.notebase.fileExists(THOUGHTBASE_DOC_FILENAME))) {
+        await api.notebase.writeFile(THOUGHTBASE_DOC_FILENAME, THOUGHTBASE_DOC_TEMPLATE);
+        await notebase.refresh();
+      }
+      await editor.openFile(THOUGHTBASE_DOC_FILENAME);
+    } catch (e) {
+      console.warn('[thoughtbase] open/create guide failed:', e);
+    }
+  }
+
+  /**
    * Check whether the just-opened thoughtbase should trigger the
    * onboarding modal. Called from every project-open path (the
    * `project:opened` event AND the in-window New/Open/Open-Recent
@@ -607,6 +627,7 @@
     openProject: () => { void handleOpenThoughtbase(); },
     newProject: () => { void handleNewThoughtbase(); },
     closeProject: () => { notebase.close(); editor.clear(); },
+    editThoughtbaseGuide: () => { void handleEditThoughtbaseDoc(); },
     print: () => window.print(),
     saveAsTemplate: () => { void handleSaveAsTemplate(); },
     insertTemplate: () => { void handleInsertTemplate(); },
@@ -1070,6 +1091,7 @@
 
     // Listen for menu events from main process
     api.menu.onNewNote(() => handleNewNote());
+    api.menu.onEditThoughtbaseDoc(() => { void handleEditThoughtbaseDoc(); });
     api.menu.onSave(() => handleSave());
     api.menu.onSaveAsTemplate(() => { void handleSaveAsTemplate(); });
     api.menu.onInsertTemplate(() => { void handleInsertTemplate(); });
