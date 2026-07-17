@@ -1,4 +1,5 @@
 import { api } from '../ipc/client';
+import { getConversationsSettings } from '../conversations/settings';
 import type {
   Conversation,
   ContextBundle,
@@ -297,12 +298,13 @@ async function init(): Promise<void> {
   ensureSubscriptions();
   try {
     const ui = await api.conversations.loadUIState();
-    // Always launch hidden — even if the user closed the app with the
-    // panel visible. The intent is that the panel doesn't shove the
-    // editor up unexpectedly on every launch; the user toggles when
-    // they want it (Cmd/Ctrl+Shift+K). Persisted height + last-active
-    // tab still apply when they re-open.
-    visible = false;
+    // Launch hidden by default — the panel shouldn't shove the editor up
+    // unexpectedly on every launch; the user toggles when they want it
+    // (Cmd/Ctrl+Shift+K). The persisted `visible` is deliberately ignored.
+    // The "Open Conversations on project load" behavior setting opts into
+    // showing it on load instead. Persisted height + last-active tab still
+    // apply either way.
+    visible = getConversationsSettings().openOnLoad;
     height = ui.height || DEFAULT_HEIGHT;
     // Restore tab list from the canonical store: any active conversation is
     // an open tab. No parallel "open tabs" persisted list — the status field

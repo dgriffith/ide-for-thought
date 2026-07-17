@@ -29,6 +29,11 @@
     type BreadcrumbsSettings,
   } from '../breadcrumbs/settings';
   import {
+    getConversationsSettings,
+    setConversationsSettings,
+    type ConversationsSettings,
+  } from '../conversations/settings';
+  import {
     getFormatSettings,
     setFormatSettings,
     resetFormatToHouseStyle,
@@ -131,6 +136,12 @@
   function patchBreadcrumbs(patch: Partial<BreadcrumbsSettings>): void {
     breadcrumbs = { ...breadcrumbs, ...patch };
     setBreadcrumbsSettings(patch);
+  }
+
+  let conversations = $state<ConversationsSettings>({ ...getConversationsSettings() });
+  function patchConversations(patch: Partial<ConversationsSettings>): void {
+    conversations = { ...conversations, ...patch };
+    setConversationsSettings(patch);
   }
 
   // Formatter settings (#154). Mirror the persisted map into local state so
@@ -525,6 +536,21 @@
               Append the current section's heading chain to the breadcrumbs bar above
               the editor when the cursor sits inside a section. Updates as the cursor
               moves between sections.
+            </p>
+          </div>
+          <div class="field checkbox">
+            <label>
+              <input
+                type="checkbox"
+                checked={conversations.openOnLoad}
+                onchange={(e) => patchConversations({ openOnLoad: e.currentTarget.checked })}
+              />
+              Open Conversations on project load
+            </label>
+            <p class="hint">
+              Show the Conversations panel automatically each time a thoughtbase opens.
+              Off by default — the panel launches hidden and you toggle it with
+              ⌘/Ctrl+Shift+K.
             </p>
           </div>
           <div class="field">
