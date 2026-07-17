@@ -465,10 +465,7 @@ function buildViewMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         accelerator: 'CmdOrCtrl+Shift+K',
         click: () => send(Channels.MENU_TOGGLE_CONVERSATIONS),
       }),
-      gate({
-        label: 'New Conversation',
-        click: () => send(Channels.MENU_NEW_CONVERSATION),
-      }),
+      // "New Conversation" moved to Learning ▸ "Ask a Question" (buildToolMenus).
       gate({
         label: 'Cycle Preview Mode',
         accelerator: 'CmdOrCtrl+Shift+P',
@@ -642,12 +639,23 @@ function buildToolMenus(gate: Gate): Electron.MenuItemConstructorOptions[] {
       // last). Otherwise stay flat — current behavior for ungrouped
       // categories (Learning, Research).
       const groups = groupToolsByGroup(tools);
-      const submenu: Electron.MenuItemConstructorOptions[] = hasNamedGroups(groups)
+      const toolItems: Electron.MenuItemConstructorOptions[] = hasNamedGroups(groups)
         ? groups.map((g) => ({
             label: g.label ?? 'General',
             submenu: g.tools.map(mkItem),
           }))
         : tools.map(mkItem);
+      // "Ask a Question" opens a plain conversation — the same action the View
+      // menu used to call "New Conversation". It lives atop Learning as the
+      // simplest thinking tool. Needs no note (just a thoughtbase), so it gates
+      // like the rest of the project-only items.
+      const submenu = id === 'learning'
+        ? [
+            gate({ label: 'Ask a Question', click: () => send(Channels.MENU_NEW_CONVERSATION) }),
+            { type: 'separator' as const },
+            ...toolItems,
+          ]
+        : toolItems;
       return {
         label: CATEGORIES.find((c) => c.id === id)!.label,
         submenu,

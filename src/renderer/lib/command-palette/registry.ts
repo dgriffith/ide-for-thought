@@ -146,8 +146,6 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: hasNote, run: () => deps.togglePreview() },
     { id: 'view.toggleConversations', title: 'Toggle Conversations', category: 'View',
       keybinding: null, enabled: true, run: () => deps.toggleConversations() },
-    { id: 'view.newConversation', title: 'New Conversation', category: 'View',
-      keybinding: null, enabled: hasProject, run: () => deps.newConversation() },
     // One directly-selectable entry per theme, so each is searchable and a
     // click jumps straight to it (#1139). The active mode is marked.
     ...THEME_MODES.map((m) => ({
@@ -164,6 +162,9 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: true, run: () => deps.fontDecrease() },
     { id: 'view.fontReset', title: 'Reset Font Size', category: 'View',
       keybinding: null, enabled: true, run: () => deps.fontReset() },
+    // ── Learning ── (opens a plain conversation; the Learning menu's "Ask a Question")
+    { id: 'learning.askQuestion', title: 'Ask a Question', category: 'Learning',
+      keybinding: null, enabled: hasProject, run: () => deps.newConversation() },
     // ── Navigate ──
     { id: 'nav.quickOpen', title: 'Go to…', category: 'Navigate',
       keybinding: formatAccelerator('CmdOrCtrl+P'),

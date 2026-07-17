@@ -45,9 +45,9 @@ describe('buildCommandRegistry', () => {
       'edit.dictate',
       'edit.find', 'edit.findReplace', 'edit.findInNotes', 'edit.replaceInNotes',
       'edit.gotoLine', 'edit.sortLines', 'view.toggleSidebar', 'view.toggleRightSidebar',
-      'view.togglePreview', 'view.toggleConversations', 'view.newConversation',
+      'view.togglePreview', 'view.toggleConversations',
       'view.theme.dark', 'view.theme.light', 'view.theme.contrast', 'view.theme.system',
-      'view.fontIncrease', 'view.fontDecrease', 'view.fontReset', 'nav.quickOpen',
+      'view.fontIncrease', 'view.fontDecrease', 'view.fontReset', 'learning.askQuestion', 'nav.quickOpen',
       'nav.back', 'nav.forward', 'refactor.rename', 'refactor.move', 'refactor.copy',
       'refactor.extract', 'refactor.splitHere', 'refactor.splitByHeading',
       'refactor.autoTag', 'refactor.autoLink', 'refactor.autoLinkInbound',
@@ -116,7 +116,7 @@ describe('buildCommandRegistry', () => {
       'edit.replaceInNotes': 'replaceInNotes', 'edit.gotoLine': 'gotoLine',
       'edit.sortLines': 'sortLines', 'view.toggleSidebar': 'toggleSidebar',
       'view.toggleRightSidebar': 'toggleRightSidebar', 'view.togglePreview': 'togglePreview',
-      'view.toggleConversations': 'toggleConversations', 'view.newConversation': 'newConversation',
+      'view.toggleConversations': 'toggleConversations', 'learning.askQuestion': 'newConversation',
       // view.theme.* all dispatch to setTheme with distinct args — asserted
       // separately below, so they're excluded from the 1:1 run loop.
       'view.theme.dark': 'setTheme', 'view.theme.light': 'setTheme',
