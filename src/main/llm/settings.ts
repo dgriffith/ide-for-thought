@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { LLMSettings, WebSettings, ApiKeyStorage } from '../../shared/tools/types';
+import type { LLMSettings, LLMSettingsView, LLMSettingsUpdate, WebSettings, ApiKeyStorage } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
@@ -67,10 +67,58 @@ export async function getSettings(): Promise<LLMSettings> {
   }
 }
 
-export async function saveSettings(settings: LLMSettings): Promise<void> {
-  // Encrypt the API key at rest (#1326); everything else is non-sensitive.
-  // Reading back through `getSettings` decrypts it transparently.
-  const onDisk = { ...settings, apiKey: encryptSecret(settings.apiKey ?? '') };
+/**
+ * Display-only settings for the settings panel / model picker. Same as
+ * `getSettings` but WITHOUT decrypting the API key — reading settings to show
+ * the model, effort, or a set/unset badge must never prompt the OS keychain.
+ * The plaintext key is only ever materialized by the API-call path
+ * (`getSettings`). `hasApiKey` reports whether a key is configured (stored, or
+ * via the env var) using the raw stored value — no decrypt.
+ */
+export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
+  try {
+    const raw = await fs.readFile(settingsPath(), 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
+    const effort = resolveEffortSetting(parsed.effort);
+    const hasApiKey = typeof parsed.apiKey === 'string'
+      ? parsed.apiKey.length > 0
+      : !!process.env.ANTHROPIC_API_KEY;
+    return {
+      model: resolveModel(parsed.model),
+      web: resolveWeb(parsed.web),
+      ...(effort ? { effort } : {}),
+      hasApiKey,
+    };
+  } catch {
+    return {
+      model: DEFAULT_MODEL,
+      web: { ...DEFAULT_WEB_SETTINGS },
+      hasApiKey: !!process.env.ANTHROPIC_API_KEY,
+    };
+  }
+}
+
+/** Read the raw stored apiKey string (encrypted or legacy plaintext) without
+ *  decrypting, so a save that doesn't touch the key can preserve it verbatim. */
+async function readStoredApiKey(): Promise<string> {
+  try {
+    const raw = await fs.readFile(settingsPath(), 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
+    return typeof parsed.apiKey === 'string' ? parsed.apiKey : '';
+  } catch {
+    return '';
+  }
+}
+
+export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
+  // apiKey is tri-state (#1326): a provided string is encrypted at rest (''
+  // clears); an OMITTED apiKey preserves the stored value verbatim — no decrypt
+  // and no re-encrypt, so saving unrelated settings never touches the keychain.
+  const { apiKey: providedKey, ...rest } = update;
+  const apiKey = providedKey === undefined
+    ? await readStoredApiKey()
+    : encryptSecret(providedKey);
+  const onDisk = { ...rest, apiKey };
   await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
 }
 

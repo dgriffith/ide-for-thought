@@ -266,6 +266,36 @@ export interface LLMSettings {
   toolModelOverrides?: Record<string, string>;
 }
 
+/**
+ * Display-only view of LLM settings, returned by the read IPC. Deliberately
+ * omits the plaintext `apiKey` so reading settings for the settings panel /
+ * model picker never decrypts the stored secret (which would prompt the OS
+ * keychain). Callers that need set/unset use `hasApiKey`; the plaintext key is
+ * only ever materialized on the main-process API-call path.
+ */
+export interface LLMSettingsView {
+  model: string;
+  web?: WebSettings;
+  effort?: import('./effort').Effort;
+  toolModelOverrides?: Record<string, string>;
+  /** Whether a usable key is configured (stored, or via ANTHROPIC_API_KEY). */
+  hasApiKey: boolean;
+}
+
+/**
+ * Settings-save payload. Same as LLMSettings minus the special apiKey handling:
+ * `apiKey` is optional and tri-state — a non-empty string sets a new key, `''`
+ * clears it, and **omitting it keeps the stored key untouched** (so a save that
+ * doesn't touch the key neither decrypts nor re-encrypts it).
+ */
+export interface LLMSettingsUpdate {
+  apiKey?: string;
+  model: string;
+  web?: WebSettings;
+  effort?: import('./effort').Effort;
+  toolModelOverrides?: Record<string, string>;
+}
+
 /** Source-scoped tools (#103) live in the Source viewer; everything else is
  *  note-scoped. Applied identically by the menu, the editor right-click, the
  *  command palette, and the Source viewer's actions list. */
