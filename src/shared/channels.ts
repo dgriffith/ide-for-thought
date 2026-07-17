@@ -152,6 +152,7 @@ export const Channels = {
   MENU_OPEN_IN_DEFAULT: 'menu:openInDefault',
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
+  MENU_EDIT_THOUGHTBASE_DOC: 'menu:editThoughtbaseDoc',
   MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
   MENU_INSERT_TEMPLATE: 'menu:insertTemplate',
   MENU_SAVE: 'menu:save',

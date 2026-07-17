@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { THOUGHTBASE_DOC_FILENAME } from '../../shared/thoughtbase';
 
 /**
  * Canonical set of file extensions that Minerva indexes + lists as
@@ -13,5 +14,9 @@ import path from 'node:path';
 export const INDEXABLE_EXTS: ReadonlySet<string> = new Set(['.md', '.ttl', '.csv', '.py']);
 
 export function isIndexable(relativePath: string): boolean {
+  // The thoughtbase guide (thoughtbase.md) is meta, not knowledge — it feeds the
+  // conversation system prompt, not the graph/search. Keep it out of every index
+  // (it still lists + edits like any file; listing ≠ indexing, see fs.listFiles).
+  if (path.basename(relativePath) === THOUGHTBASE_DOC_FILENAME) return false;
   return INDEXABLE_EXTS.has(path.extname(relativePath).toLowerCase());
 }

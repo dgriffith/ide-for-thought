@@ -221,6 +221,11 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         accelerator: 'CmdOrCtrl+Shift+W',
         click: () => send(Channels.MENU_CLOSE_PROJECT),
       }),
+      gate({
+        label: 'Edit Thoughtbase Guide…',
+        toolTip: 'Open thoughtbase.md — the plain-English guide (structure, intent, conventions) shown to the assistant at the start of every conversation. Created from a template if it doesn\'t exist yet.',
+        click: () => send(Channels.MENU_EDIT_THOUGHTBASE_DOC),
+      }),
       { type: 'separator' },
 
       // Everyday note actions.

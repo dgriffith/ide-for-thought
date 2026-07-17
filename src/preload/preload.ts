@@ -459,6 +459,9 @@ contextBridge.exposeInMainWorld('api', {
     onNewNote: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_NOTE, () => cb());
     },
+    onEditThoughtbaseDoc: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_EDIT_THOUGHTBASE_DOC, () => cb());
+    },
     onSave: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE, () => cb());
     },
