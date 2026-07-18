@@ -473,4 +473,50 @@ describe('table extraction', () => {
     const result = parseMarkdown(md);
     expect(result.tables[0].rows[0]).toEqual(['foo', 'bar']);
   });
+
+  // ── Table: <caption> parsing (#1356) ─────────────────────────────────────
+  it('leaves caption/name undefined for an uncaptioned table', () => {
+    const md = '| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].caption).toBeUndefined();
+    expect(result.tables[0].name).toBeUndefined();
+  });
+
+  it('parses a caption line directly above the table', () => {
+    const md = 'Table: Q3 Sales\n| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].caption).toBe('Q3 Sales');
+    expect(result.tables[0].name).toBe('Q3_Sales');
+  });
+
+  it('allows one blank line between the caption and the table', () => {
+    const md = 'Table: Revenue\n\n| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].caption).toBe('Revenue');
+    expect(result.tables[0].name).toBe('Revenue');
+  });
+
+  it('is case-insensitive on the Table: prefix', () => {
+    const md = 'table: Foo\n| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].caption).toBe('Foo');
+  });
+
+  it('sanitizes a digit-leading caption to a valid SQL identifier', () => {
+    const md = 'Table: 2024 Experiment\n| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].name).toBe('t_2024_Experiment');
+  });
+
+  it('ignores a Table: line not followed by a table', () => {
+    const md = 'Table: Orphan caption\n\nJust a paragraph, no table.';
+    const result = parseMarkdown(md);
+    expect(result.tables).toEqual([]);
+  });
+
+  it('does not attach a preceding paragraph as a caption', () => {
+    const md = 'Some intro text\n| A | B |\n|---|---|\n| 1 | 2 |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].caption).toBeUndefined();
+  });
 });

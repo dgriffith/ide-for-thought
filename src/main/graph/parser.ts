@@ -1,5 +1,6 @@
 import YAML from 'yaml';
 import { splitAnchor } from '../../shared/slug';
+import { slugifyTableName } from '../../shared/table-name';
 
 export interface ParsedLink {
   /** Bare target path/id with any `#anchor` stripped. */
@@ -15,6 +16,17 @@ export interface ParsedLink {
 export interface ParsedTable {
   headers: string[];
   rows: string[][];
+  /**
+   * Raw human caption from a Pandoc-style `Table: <caption>` line directly
+   * above the table (#1356). Only present when such a line exists; uncaptioned
+   * tables stay graph-only and are never SQL-registered.
+   */
+  caption?: string;
+  /**
+   * `caption` sanitized to a DuckDB-safe SQL identifier via `slugifyTableName`.
+   * Present iff `caption` is. This is the name the table is `SELECT`-able by.
+   */
+  name?: string;
 }
 
 /** A frontmatter value after YAML parsing — preserves type info the indexer needs. */
@@ -253,10 +265,29 @@ function extractTables(content: string): ParsedTable[] {
     }
 
     if (headers.length > 0 && rows.length > 0) {
-      tables.push({ headers, rows });
+      const caption = captionAbove(lines, i);
+      if (caption) {
+        tables.push({ headers, rows, caption, name: slugifyTableName(caption) });
+      } else {
+        tables.push({ headers, rows });
+      }
     }
     i = j;
   }
 
   return tables;
+}
+
+// Pandoc-style `Table: <caption>` line directly above a table's header row
+// (#1356). Case-insensitive; one blank line between the caption and the table
+// is allowed. Returns the trimmed caption text, or null when there's no caption.
+const TABLE_CAPTION_RE = /^Table:\s*(.+)$/i;
+
+function captionAbove(lines: string[], headerIndex: number): string | null {
+  let above = lines[headerIndex - 1]?.trim();
+  if (above === '') above = lines[headerIndex - 2]?.trim(); // skip one blank line
+  if (!above) return null;
+  const m = above.match(TABLE_CAPTION_RE);
+  const caption = m?.[1]?.trim();
+  return caption ? caption : null;
 }
