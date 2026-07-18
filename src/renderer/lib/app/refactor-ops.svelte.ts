@@ -30,6 +30,11 @@ import {
   removeTagsFromContent,
   extractTagsFromContent,
 } from '../../../shared/refactor/auto-tag';
+import {
+  setPropertyInContent,
+  removePropertyFromContent,
+  extractPropertyKeysFromContent,
+} from '../../../shared/refactor/frontmatter-properties';
 import { expandSelectionToNoteFiles } from '../sidebar-tree-utils';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { CONFIRM_KEYS } from '../confirm-keys';
@@ -56,7 +61,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const dialogs = getDialogStore();
   const busy = getBusyStore();
   const flow = getRefactorFlowStore();
-  const { showPrompt, showConfirm } = dialogs;
+  const { showPrompt, showConfirm, showAddPropertyDialog } = dialogs;
 
   /**
    * After a renderer-initiated bulk write (tag add/remove, entrypoint toggle),
@@ -280,8 +285,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * operation should touch. Returns null when nothing applies — the
    * caller surfaces the "no .md files" dialog.
    */
-  function bulkTagTargets(fallbackPath?: string, fallbackIsDir?: boolean): string[] | null {
-    const sel = ctx.getSidebar()?.getSelectionPaths() ?? [];
+  function bulkTagTargets(fallbackPath?: string, fallbackIsDir?: boolean, ignoreSelection = false): string[] | null {
+    // The editor right-click acts on the note being edited, so it passes
+    // `ignoreSelection` to bypass any sidebar multi-selection.
+    const sel = ignoreSelection ? [] : (ctx.getSidebar()?.getSelectionPaths() ?? []);
     if (sel.length > 0) {
       return expandSelectionToNoteFiles(new Set(sel), notebase.files);
     }
@@ -301,9 +308,9 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * (mergeTagsIntoContent handles that). Per-batch: failures are
    * collected into a summary instead of aborting.
    */
-  async function handleAddTag(targetPath?: string, targetIsDir?: boolean) {
+  async function handleAddTag(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir);
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
     if (targets === null || targets.length === 0) {
       await showConfirm(
         'The selection contains no .md files to tag.',
@@ -356,9 +363,9 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
    * tags it can plausibly remove). Per-note removal is
    * case-insensitive.
    */
-  async function handleRemoveTag(targetPath?: string, targetIsDir?: boolean) {
+  async function handleRemoveTag(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
     if (!notebase.meta) return;
-    const targets = bulkTagTargets(targetPath, targetIsDir);
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
     if (targets === null || targets.length === 0) {
       await showConfirm(
         'The selection contains no .md files to tag.',
@@ -469,6 +476,130 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
     }
     await showConfirm(msg, CONFIRM_KEYS.bulkTagComplete, 'OK');
+  }
+
+  /**
+   * Add (or update) a frontmatter property across the selection (or a single
+   * target from the editor menu). Prompts for the key — autocompleted from the
+   * thoughtbase's frontmatter-key vocabulary — then a value, and upserts
+   * `key: value` into each note. `tags` is routed to Add Tag instead.
+   */
+  async function handleAddProperty(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    if (!notebase.meta) return;
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
+    if (targets === null || targets.length === 0) {
+      await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
+      return;
+    }
+
+    let keyVocab: string[] = [];
+    try { keyVocab = (await api.graph.frontmatterKeys()).filter((k) => k !== 'tags'); }
+    catch { /* vocab is a nicety; the dialog still works without it */ }
+
+    const noun = `${targets.length} note${targets.length === 1 ? '' : 's'}`;
+    // Name + value on one panel (not two sequential prompts).
+    const entered = await showAddPropertyDialog(`Add property to ${noun}`, keyVocab);
+    if (!entered) return;
+    const key = entered.name.trim();
+    if (!key) return;
+    if (key === 'tags') {
+      await showConfirm('Tags have their own action — use "Add Tag" instead.', CONFIRM_KEYS.bulkPropertyFailed, 'OK');
+      return;
+    }
+    const value = entered.value;
+
+    const changedPaths: string[] = [];
+    const failures: Array<{ path: string; error: string }> = [];
+    for (const path of targets) {
+      try {
+        const content = await api.notebase.readFile(path);
+        const { content: next, changed } = setPropertyInContent(content, key, value);
+        if (changed) {
+          await api.notebase.writeFile(path, next);
+          changedPaths.push(path);
+        }
+      } catch (err) {
+        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    await syncOpenTabsToDisk(changedPaths);
+    await reportBulkPropertySummary('Add', key, targets.length, changedPaths.length, failures);
+  }
+
+  /**
+   * Remove a frontmatter property across the selection (or the editor's note).
+   * Prompts with the union of property keys actually present, so it only offers
+   * something removable.
+   */
+  async function handleRemoveProperty(targetPath?: string, targetIsDir?: boolean, opts?: { targetOnly?: boolean }) {
+    if (!notebase.meta) return;
+    const targets = bulkTagTargets(targetPath, targetIsDir, opts?.targetOnly);
+    if (targets === null || targets.length === 0) {
+      await showConfirm('The selection contains no .md files to edit.', CONFIRM_KEYS.bulkTagNoSelection, 'OK');
+      return;
+    }
+
+    const keySet = new Set<string>();
+    const readFailures: Array<{ path: string; error: string }> = [];
+    const cache = new Map<string, string>();
+    for (const path of targets) {
+      try {
+        const content = await api.notebase.readFile(path);
+        cache.set(path, content);
+        for (const k of extractPropertyKeysFromContent(content)) keySet.add(k);
+      } catch (err) {
+        readFailures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (keySet.size === 0) {
+      await showConfirm(
+        'None of the selected notes have properties to remove.',
+        CONFIRM_KEYS.bulkPropertyNoKeysOnSelection,
+        'OK',
+      );
+      return;
+    }
+    const noun = `${targets.length} note${targets.length === 1 ? '' : 's'}`;
+    const rawKey = await showPrompt(`Remove property from ${noun}:`, { suggestions: [...keySet].sort() });
+    if (!rawKey) return;
+    const key = rawKey.trim();
+    if (!key) return;
+
+    const changedPaths: string[] = [];
+    const failures: Array<{ path: string; error: string }> = [...readFailures];
+    for (const path of targets) {
+      if (!cache.has(path)) continue;
+      try {
+        const { content: next, removed } = removePropertyFromContent(cache.get(path)!, key);
+        if (removed) {
+          await api.notebase.writeFile(path, next);
+          changedPaths.push(path);
+        }
+      } catch (err) {
+        failures.push({ path, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    await syncOpenTabsToDisk(changedPaths);
+    await reportBulkPropertySummary('Remove', key, targets.length, changedPaths.length, failures);
+  }
+
+  async function reportBulkPropertySummary(
+    op: 'Add' | 'Remove',
+    key: string,
+    total: number,
+    changed: number,
+    failures: Array<{ path: string; error: string }>,
+  ): Promise<void> {
+    const verb = op === 'Add' ? 'set' : 'removed';
+    let msg = `${verb} "${key}" on ${changed} of ${total} note${total === 1 ? '' : 's'}.`;
+    if (failures.length > 0) {
+      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
+      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
+      msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
+    }
+    await showConfirm(msg, CONFIRM_KEYS.bulkPropertyComplete, 'OK');
   }
 
   /**
@@ -630,7 +761,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   return {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
-    handleAddTag, handleRemoveTag, handleToggleEntrypoint,
+    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   };
 }

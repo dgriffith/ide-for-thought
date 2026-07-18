@@ -10,6 +10,7 @@
   import SnippetPickerDialog from './SnippetPickerDialog.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import OpenTargetDialog from './OpenTargetDialog.svelte';
+  import AddPropertyDialog from './AddPropertyDialog.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
 
   const dialogs = getDialogStore();
@@ -58,5 +59,14 @@
     onThisWindow={() => dialogs.resolveOpenTarget('this')}
     onNewWindow={() => dialogs.resolveOpenTarget('new')}
     onCancel={() => dialogs.resolveOpenTarget('cancel')}
+  />
+{/if}
+
+{#if dialogs.addProperty}
+  <AddPropertyDialog
+    message={dialogs.addProperty.message}
+    keySuggestions={dialogs.addProperty.keySuggestions}
+    onConfirm={(v) => dialogs.confirmAddProperty(v)}
+    onCancel={() => dialogs.cancelAddProperty()}
   />
 {/if}

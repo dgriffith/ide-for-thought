@@ -37,6 +37,9 @@ export const CONFIRM_KEYS = {
   bulkTagComplete: 'bulk-tag-complete',
   bulkTagNoSelection: 'bulk-tag-no-selection',
   bulkTagNoTagsOnSelection: 'bulk-tag-no-tags-on-selection',
+  bulkPropertyFailed: 'bulk-property-failed',
+  bulkPropertyComplete: 'bulk-property-complete',
+  bulkPropertyNoKeysOnSelection: 'bulk-property-no-keys-on-selection',
   formatFailed: 'format-failed',
   formatComplete: 'format-complete',
   formatAllConfirm: 'format-all-confirm',
@@ -218,6 +221,24 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Remove Tag: selection has no tags',
     description:
       'Shown when Remove Tag is invoked on a selection whose notes have no frontmatter tags — there is nothing to remove.',
+  },
+  {
+    key: CONFIRM_KEYS.bulkPropertyComplete,
+    title: 'Add/Remove Property complete',
+    description:
+      'Summary dialog after an Add Property / Remove Property operation finishes (counts of notes changed and any per-note failures).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkPropertyFailed,
+    title: 'Add/Remove Property failed',
+    description:
+      'Shown when a property operation fails outright (e.g. fetching the frontmatter-key vocabulary errored before the loop started).',
+  },
+  {
+    key: CONFIRM_KEYS.bulkPropertyNoKeysOnSelection,
+    title: 'Remove Property: selection has no properties',
+    description:
+      'Shown when Remove Property is invoked on a selection whose notes have no frontmatter properties — there is nothing to remove.',
   },
   {
     key: CONFIRM_KEYS.formatFailed,

@@ -44,12 +44,24 @@ export interface OpenTargetState {
   message: string;
   resolve: (value: OpenTargetChoice) => void;
 }
+/** Name + value collected on one panel by the "Add Property" dialog. */
+export interface AddPropertyResult {
+  name: string;
+  value: string;
+}
+export interface AddPropertyState {
+  message: string;
+  /** Frontmatter-key vocabulary for the name field's autocomplete. */
+  keySuggestions: string[];
+  resolve: (value: AddPropertyResult | null) => void;
+}
 
 let prompt = $state<PromptState | null>(null);
 let newNote = $state<NewNoteState | null>(null);
 let snippet = $state<SnippetPickerState | null>(null);
 let confirm = $state<ConfirmState | null>(null);
 let openTarget = $state<OpenTargetState | null>(null);
+let addProperty = $state<AddPropertyState | null>(null);
 
 export function getDialogStore() {
   const confirmSuppression = getConfirmSuppressionStore();
@@ -97,6 +109,11 @@ export function getDialogStore() {
     return new Promise((resolve) => { snippet = { templates, resolve }; });
   }
 
+  /** Collect a frontmatter property's name + value on a single panel. */
+  function showAddPropertyDialog(message: string, keySuggestions: string[]): Promise<AddPropertyResult | null> {
+    return new Promise((resolve) => { addProperty = { message, keySuggestions, resolve }; });
+  }
+
   /** Pure open-target prompt — always shows. App.svelte wraps this with the
    *  "no project open → 'this'" shortcut, which is app logic, not dialog logic. */
   function askOpenTarget(message: string): Promise<OpenTargetChoice> {
@@ -124,16 +141,21 @@ export function getDialogStore() {
     const r = openTarget?.resolve; openTarget = null; r?.(choice);
   }
 
+  function confirmAddProperty(value: AddPropertyResult) { const r = addProperty?.resolve; addProperty = null; r?.(value); }
+  function cancelAddProperty() { const r = addProperty?.resolve; addProperty = null; r?.(null); }
+
   return {
     get prompt() { return prompt; },
     get newNote() { return newNote; },
     get snippet() { return snippet; },
     get confirm() { return confirm; },
     get openTarget() { return openTarget; },
+    get addProperty() { return addProperty; },
     showPrompt,
     showNewNoteDialog,
     showConfirm,
     showSnippetPicker,
+    showAddPropertyDialog,
     askOpenTarget,
     confirmPrompt,
     cancelPrompt,
@@ -144,6 +166,8 @@ export function getDialogStore() {
     confirmConfirm,
     cancelConfirm,
     resolveOpenTarget,
+    confirmAddProperty,
+    cancelAddProperty,
   };
 }
 
@@ -154,4 +178,5 @@ export function __resetDialogsForTests(): void {
   snippet = null;
   confirm = null;
   openTarget = null;
+  addProperty = null;
 }

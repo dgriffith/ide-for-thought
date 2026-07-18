@@ -886,7 +886,7 @@
   const {
     handleExtractSelection, handleSplitByHeading, handleSplitHere,
     handleAutoLink, handleAutoLinkInbound, handleAutoLinkInboundApply, handleAutoLinkApply,
-    handleAddTag, handleRemoveTag, handleToggleEntrypoint,
+    handleAddTag, handleRemoveTag, handleAddProperty, handleRemoveProperty, handleToggleEntrypoint,
     handleFormat, handleBibliography, handleAutoTag, handleAutoTagApply,
   } = createRefactorOps(refactorOpsCtx);
 
@@ -1327,6 +1327,8 @@
           onDelete={handleDelete}
           onAddTag={handleAddTag}
           onRemoveTag={handleRemoveTag}
+          onAddProperty={handleAddProperty}
+          onRemoveProperty={handleRemoveProperty}
           onFormat={() => handleFormat()}
           onRename={handleRename}
           onMerge={handleMerge}
@@ -1518,6 +1520,10 @@
                           onAutoLink={() => void handleAutoLink(note.relativePath)}
                           onAutoLinkInbound={() => void handleAutoLinkInbound(note.relativePath)}
                           onFormatCurrentNote={() => handleFormat()}
+                          onAddTagCurrentNote={() => void handleAddTag(note.relativePath, false, { targetOnly: true })}
+                          onRemoveTagCurrentNote={() => void handleRemoveTag(note.relativePath, false, { targetOnly: true })}
+                          onAddPropertyCurrentNote={() => void handleAddProperty(note.relativePath, false, { targetOnly: true })}
+                          onRemovePropertyCurrentNote={() => void handleRemoveProperty(note.relativePath, false, { targetOnly: true })}
                           onUploadError={(message) => {
                             void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
                           }}
