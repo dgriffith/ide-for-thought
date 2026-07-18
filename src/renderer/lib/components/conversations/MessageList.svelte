@@ -90,6 +90,13 @@
     return `${t.id}:${msgIndex}:${ci}`;
   }
 
+  /** Display name for a message's sender. The assistant turn is presented as
+   *  "Minerva" (the app) in the conversation UI; the underlying message role is
+   *  still `assistant` — this only relabels what the user sees. */
+  function roleLabel(role: string): string {
+    return role === 'assistant' ? 'Minerva' : role;
+  }
+
   /** Note this conversation cites *into*: its anchor note, else whatever the
    *  editor currently shows. Null when there's nowhere to record the edge. */
   function citeTargetPath(t: TabRuntime): string | null {
@@ -130,7 +137,7 @@
   {#if msg.role !== 'system'}
     <div class="msg {msg.role}">
       <div class="msg-role">
-        <span>{msg.role}</span>
+        <span>{roleLabel(msg.role)}</span>
         {#if msg.role === 'assistant'}
           {@const turnCost = formatTurnCost(msg)}
           {#if turnCost}
@@ -168,7 +175,7 @@
 
   {#if tab.streaming}
     <div class="msg assistant streaming">
-      <div class="msg-role">assistant</div>
+      <div class="msg-role">{roleLabel('assistant')}</div>
       {#if tab.streamedChunks}
         <!-- Stream the assistant's partial text through markdown-it so tool-call
              indicators (`_🔍 …_`) and any markdown the model emits mid-stream
