@@ -128,6 +128,12 @@
     onAutoLink?: () => void;
     onAutoLinkInbound?: () => void;
     onFormatCurrentNote?: () => void;
+    /** Frontmatter metadata actions on the note being edited (mirrors the
+     *  sidebar's tag menu). */
+    onAddTagCurrentNote?: () => void;
+    onRemoveTagCurrentNote?: () => void;
+    onAddPropertyCurrentNote?: () => void;
+    onRemovePropertyCurrentNote?: () => void;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
     /** Live list of Sources for `[[cite::…]]` autocomplete. */
@@ -196,6 +202,10 @@
     onAutoLink,
     onAutoLinkInbound,
     onFormatCurrentNote,
+    onAddTagCurrentNote,
+    onRemoveTagCurrentNote,
+    onAddPropertyCurrentNote,
+    onRemovePropertyCurrentNote,
     getNotePaths,
     getSources,
     getAliases,
@@ -1166,6 +1176,26 @@
           </div>
         </div>
       {/each}
+    {/if}
+    {#if onAddTagCurrentNote || onRemoveTagCurrentNote || onAddPropertyCurrentNote || onRemovePropertyCurrentNote}
+      <div class="separator"></div>
+      <div class="submenu-item" onmouseenter={adjustSubmenu}>
+        <span class="submenu-trigger">Metadata<Icon name="chevronRight" size={10} /></span>
+        <div class="submenu">
+          {#if onAddTagCurrentNote}
+            <button onclick={() => handleMenuAction(() => onAddTagCurrentNote?.())}>Add Tag&hellip;</button>
+          {/if}
+          {#if onRemoveTagCurrentNote}
+            <button onclick={() => handleMenuAction(() => onRemoveTagCurrentNote?.())}>Remove Tag&hellip;</button>
+          {/if}
+          {#if onAddPropertyCurrentNote}
+            <button onclick={() => handleMenuAction(() => onAddPropertyCurrentNote?.())}>Add Property&hellip;</button>
+          {/if}
+          {#if onRemovePropertyCurrentNote}
+            <button onclick={() => handleMenuAction(() => onRemovePropertyCurrentNote?.())}>Remove Property&hellip;</button>
+          {/if}
+        </div>
+      </div>
     {/if}
     <div class="separator"></div>
     {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound}

@@ -59,6 +59,8 @@
     onDelete: (relativePath: string, isDirectory: boolean) => void;
     onAddTag?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
     onRemoveTag?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
+    onAddProperty?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
+    onRemoveProperty?: ((relativePath: string, isDirectory: boolean) => void) | undefined;
     /** Format the current sidebar selection (every .md under the selected
      *  files/folders, recursing into directories). The handler reads the
      *  selection itself; the right-clicked item is promoted into it before
@@ -85,7 +87,7 @@
     onExternalDrop?: ((destDirectory: string, files: FileList) => void) | undefined;
   }
 
-  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop }: Props = $props();
+  let { files, activeFilePath, depth = 0, canPaste = false, expanded, selection, focusedPath, onToggleDir, onItemClick, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onContextMenuTarget, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onExternalDrop }: Props = $props();
 
   let contextMenu = $state<{ x: number; y: number; dir: string; target?: string | undefined; targetIsDir?: boolean | undefined; targetIsEntrypoint?: boolean | null } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
@@ -238,6 +240,8 @@
             {onDelete}
             {onAddTag}
             {onRemoveTag}
+            {onAddProperty}
+            {onRemoveProperty}
             {onFormat}
             {onContextMenuTarget}
             {onRename}
@@ -338,7 +342,7 @@
           <button onclick={() => { void api.shell.openInTerminal(contextMenu!.target); contextMenu = null; }}>Open in Terminal</button>
         </div>
       </div>
-      {#if onAddTag || onRemoveTag || onFormat}
+      {#if onAddTag || onRemoveTag || onAddProperty || onRemoveProperty || onFormat}
         <div class="separator"></div>
         {#if onAddTag}
           <button onclick={() => { onAddTag(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
@@ -348,6 +352,16 @@
         {#if onRemoveTag}
           <button onclick={() => { onRemoveTag(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
             Remove Tag…
+          </button>
+        {/if}
+        {#if onAddProperty}
+          <button onclick={() => { onAddProperty(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+            Add Property…
+          </button>
+        {/if}
+        {#if onRemoveProperty}
+          <button onclick={() => { onRemoveProperty(contextMenu!.target!, contextMenu!.targetIsDir!); contextMenu = null; }}>
+            Remove Property…
           </button>
         {/if}
         {#if onFormat}
