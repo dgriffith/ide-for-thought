@@ -642,35 +642,67 @@ export function findNotesLinkingTo(ctx: ProjectContext, targetRelativePath: stri
   return [...seen];
 }
 
+/** Muted badge colour for frontmatter (key-typed) backlinks, so they read as
+ *  first-class but stay visually distinct from the typed-body-link vocabulary. */
+const FRONTMATTER_LINK_COLOR = '#9399b2';
+
+/** Humanize a predicate's local name into a badge label: `seeAlso`→"See Also",
+ *  `meta-related`→"Related", `subject`→"Subject", `wasDerivedFrom`→"Was Derived From". */
+function humanizePredicateLocal(local: string): string {
+  const key = local.startsWith('meta-') ? local.slice('meta-'.length) : local;
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
 export function backlinks(ctx: ProjectContext, relativePath: string): Backlink[] {
   const state = getState(ctx);
   if (!state) return [];
   const { store } = state;
 
-  const targetBase = noteUri(state, relativePath).value;
+  const targetSym = noteUri(state, relativePath);
+  const targetBase = targetSym.value;
   const results: Backlink[] = [];
 
+  const push = (sourceNode: $rdf.NamedNode, linkType: string, linkLabel: string, linkColor: string) => {
+    const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
+    const sourcePath = pathStmts[0]?.object.value ?? '';
+    if (!sourcePath.endsWith('.md')) return; // only note sources (skip folders/tags/claims)
+    const titleStmts = store.statementsMatching(sourceNode, DC('title'), undefined);
+    results.push({
+      source: sourcePath,
+      sourceTitle: titleStmts[0]?.object.value ?? sourceNode.value,
+      linkType, linkLabel, linkColor,
+    });
+  };
+
+  // Pass 1 — typed body links (exact + anchored target IRI). These own the
+  // richest badges (per-type label + colour from the link-type registry).
+  const typedPredIris = new Set<string>();
   for (const lt of LINK_TYPES) {
     if (lt.targetKind && lt.targetKind !== 'note') continue;
-    const stmts = store.statementsMatching(undefined, linkPredicate(lt), undefined);
-    for (const st of stmts) {
+    typedPredIris.add(linkPredicate(lt).value);
+    for (const st of store.statementsMatching(undefined, linkPredicate(lt), undefined)) {
       const objValue = st.object.value;
       if (objValue !== targetBase && !objValue.startsWith(`${targetBase}#`)) continue;
-      const sourceNode = st.subject;
-      const pathStmts = store.statementsMatching(sourceNode, MINERVA('relativePath'), undefined);
-      const titleStmts = store.statementsMatching(sourceNode, DC('title'), undefined);
-
-      const sourcePath = pathStmts[0]?.object.value ?? '';
-      if (!sourcePath) continue;
-
-      results.push({
-        source: sourcePath,
-        sourceTitle: titleStmts[0]?.object.value ?? sourceNode.value,
-        linkType: lt.name,
-        linkLabel: lt.label,
-        linkColor: lt.color,
-      });
+      if (st.subject.equals(targetSym)) continue; // a note doesn't backlink itself
+      push(st.subject as $rdf.NamedNode, lt.name, lt.label, lt.color);
     }
+  }
+
+  // Pass 2 — every OTHER inbound edge at the note: frontmatter key-typed links
+  // (`about:`→dc:subject, `see-also:`→thought:seeAlso, custom `meta-*` keys, …).
+  // Object-indexed so it's cheap; a derived label + neutral colour keeps
+  // frontmatter links first-class in the panel instead of invisible. Predicates
+  // already surfaced by pass 1 and the note's own self-statements are skipped.
+  for (const st of store.statementsMatching(undefined, undefined, targetSym)) {
+    if (typedPredIris.has(st.predicate.value)) continue;
+    if (st.subject.equals(targetSym)) continue;
+    const iri = st.predicate.value;
+    const local = iri.slice(Math.max(iri.lastIndexOf('#'), iri.lastIndexOf('/')) + 1);
+    push(st.subject as $rdf.NamedNode, iri, humanizePredicateLocal(local), FRONTMATTER_LINK_COLOR);
   }
 
   return results;
