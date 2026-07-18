@@ -21,6 +21,7 @@ import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { resolveWikiLinkTarget } from '../../shared/wiki-link-resolver';
+import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
 import { parseCsv } from '../../shared/csv-parse';
 import { isIndexable } from '../notebase/indexable-files';
@@ -203,71 +204,75 @@ function resolveFrontmatterPredicate(key: string) {
   }
 }
 
-/** Match [[target]] or [[target|display]] (no typed-link prefix — values are bare refs). */
-const FRONTMATTER_WIKILINK_RE = /^\[\[([^[\]\n|]+)(?:\|[^\]]+)?\]\]$/;
+/** Whole frontmatter value that is a single wiki-link — `[[…]]` and nothing
+ *  else. The inner is then parsed by the shared body grammar (`parseWikiInner`)
+ *  so type prefixes and anchors are honoured, not swept into the target. */
+const WHOLE_WIKILINK_RE = /^\[\[([^\]\n]+?)\]\]$/;
 
 /**
- * Turn a typed frontmatter scalar into an rdflib term.
- * - `"[[notes/foo]]"` → note URI (so backlinks work)
- * - `42`              → xsd:integer literal
- * - `3.14`            → xsd:decimal literal
- * - `true`/`false`    → xsd:boolean literal
- * - `Date`            → xsd:dateTime literal
- * - `"2024-01-15"`    → xsd:date literal (ISO-date shape)
- * - other string      → plain string literal
+ * Turn a frontmatter scalar into a graph edge — `{ predicate, term }`. The
+ * caller supplies `keyPredicate` (derived from the frontmatter key); a value
+ * with its own typed wiki-link overrides it.
+ *
+ * Wiki-link values are parsed with the SAME grammar as body links so a
+ * frontmatter link renders IDENTICALLY to a body one (same predicate, same
+ * anchored target IRI):
+ * - `[[supports::x]]` — the link's own `type::` wins, mapped through
+ *   `LINK_TYPES` exactly like a body `[[supports::x]]`, overriding `keyPredicate`.
+ * - `[[x#heading]]` / `[[x#^block]]` — the anchor resolves + appends via the
+ *   shared `resolveLinkTarget`, just as in the body.
+ * - `[[x]]` / `[[x|display]]` — untyped: keeps `keyPredicate` (the
+ *   frontmatter-key-as-type feature); the display alias is cosmetic and dropped.
+ * - `[[sources/<id>]]` — the actual source node (#474 convention), untyped.
+ *
+ * Non-link scalars keep `keyPredicate`: `42`→xsd:integer, `3.14`→xsd:decimal,
+ * `true`→xsd:boolean, `Date`/ISO shapes→xsd:date(Time)/gYear, a bare `https://…`
+ * →an IRI node, everything else→a plain string literal.
  */
-function frontmatterValueToTerm(
+function frontmatterValueToEdge(
   value: Exclude<FrontmatterValue, null | FrontmatterValue[]>,
-  projectBaseUri: string,
-  rc?: LinkResolveCtx,
+  state: GraphState,
+  keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
+  rc: LinkResolveCtx,
 ) {
-  if (value instanceof Date) {
-    return $rdf.lit(value.toISOString(), undefined, XSD('dateTime'));
-  }
-  if (typeof value === 'boolean') {
-    return $rdf.lit(String(value), undefined, XSD('boolean'));
-  }
+  type Term = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
+  const plain = (term: Term) => ({ predicate: keyPredicate, term });
+
+  if (value instanceof Date) return plain($rdf.lit(value.toISOString(), undefined, XSD('dateTime')));
+  if (typeof value === 'boolean') return plain($rdf.lit(String(value), undefined, XSD('boolean')));
   if (typeof value === 'number') {
     const datatype = Number.isInteger(value) ? 'integer' : 'decimal';
-    return $rdf.lit(String(value), undefined, XSD(datatype));
+    return plain($rdf.lit(String(value), undefined, XSD(datatype)));
   }
-  // Strings: try wiki-link first, then date shapes, then plain.
-  const wiki = value.match(FRONTMATTER_WIKILINK_RE);
-  if (wiki && projectBaseUri) {
-    const target = wiki[1]!.trim();
-    // `[[sources/<id>]]` materialises as the actual source URI rather
-    // than a phantom note path (#474). Lets `about: [[sources/foo]]`
-    // become a real edge from this note to the foo source, queryable
-    // alongside the cite/quote backlinks the source detail collects.
-    if (target.startsWith('sources/')) {
-      const sourceId = target.slice('sources/'.length);
-      if (sourceId) return $rdf.sym(uriHelpers.sourceUri(projectBaseUri, sourceId));
+
+  // Whole-value wiki-link → parse with the body grammar for full parity.
+  const inner = state.baseUri ? value.match(WHOLE_WIKILINK_RE) : null;
+  if (inner) {
+    const link = parseWikiInner(inner[1]!);
+    // #474: a bare `[[sources/<id>]]` edges to the actual source node. A typed
+    // `[[cite::<id>]]` reaches a source through resolveLinkTarget's targetKind.
+    if (!link.type && link.target.startsWith('sources/')) {
+      const sourceId = link.target.slice('sources/'.length);
+      if (sourceId) return plain(sourceUri(state, sourceId));
     }
-    // Resolve like navigation / body links (#1142) so a frontmatter
-    // `see-also: [[Term]]` edges to the real glossary/Term.md, not a phantom
-    // root Term.md. Falls back to the literal path (for a not-yet-created note).
-    const noteRel = (rc && resolveWikiLinkTarget(target, rc.files, rc.aliases))
-      || (target.endsWith('.md') ? target : `${target}.md`);
-    return $rdf.sym(uriHelpers.noteUri(projectBaseUri, noteRel));
+    // getLinkType falls back to `references` for untyped/unknown types — same as
+    // the body path — so an untyped link resolves as a note. The predicate,
+    // though, only switches to the link type when one was written explicitly;
+    // otherwise the frontmatter key stays authoritative.
+    const linkType = getLinkType(link.type ?? 'references');
+    const predicate = link.type ? linkPredicate(linkType) : keyPredicate;
+    const anchor = link.anchor ? link.anchor.slice(1) : undefined; // parseWikiInner keeps the leading '#'
+    return { predicate, term: resolveLinkTarget(state, linkType, link.target, rc, anchor) };
   }
-  // Bare absolute URI → IRI node. Lets a frontmatter key like
-  // `supports: https://minerva.dev/c/claim-…` materialise as a real
-  // graph edge to that node, rather than as an opaque string literal.
-  // The tail check excludes whitespace so we don't mis-classify a
-  // longer string that happens to start with a URL.
-  if (/^https?:\/\/\S+$/.test(value)) {
-    return $rdf.sym(value);
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return $rdf.lit(value, undefined, XSD('date'));
-  }
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
-    return $rdf.lit(value, undefined, XSD('dateTime'));
-  }
-  if (/^\d{4}$/.test(value)) {
-    return $rdf.lit(value, undefined, XSD('gYear'));
-  }
-  return $rdf.lit(value);
+
+  // Bare absolute URI → IRI node (e.g. `supports: https://minerva.dev/c/claim-…`).
+  // The tail check excludes whitespace so a longer string that merely starts
+  // with a URL isn't mis-classified.
+  if (/^https?:\/\/\S+$/.test(value)) return plain($rdf.sym(value));
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return plain($rdf.lit(value, undefined, XSD('date')));
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return plain($rdf.lit(value, undefined, XSD('dateTime')));
+  if (/^\d{4}$/.test(value)) return plain($rdf.lit(value, undefined, XSD('gYear')));
+  return plain($rdf.lit(value));
 }
 
 /**
@@ -408,7 +413,7 @@ export async function indexNote(
   // store; flag the N3 mirror as stale once, at the boundary, instead
   // of after every internal store.add.
   invalidate(state);
-  const { store, baseUri, headingsPerNote } = state;
+  const { store, headingsPerNote } = state;
 
   const subject = noteUri(state, relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
@@ -528,10 +533,12 @@ export async function indexNote(
     // publishing directives (#1136) — a publication concern, kept out of the
     // graph (and it's an object, not a materialisable scalar anyway).
     if (key === 'title' || key === 'tags' || key === 'publish') continue;
-    const predicate = resolveFrontmatterPredicate(key);
+    const keyPredicate = resolveFrontmatterPredicate(key);
     for (const v of flattenFrontmatterScalars(value)) {
-      const term = frontmatterValueToTerm(v, baseUri, linkCtx);
-      if (term) store.add(subject, predicate, term, graph);
+      // A typed wiki-link value (`[[supports::x]]`) overrides keyPredicate with
+      // its own type; everything else stays under the key's predicate.
+      const edge = frontmatterValueToEdge(v, state, keyPredicate, linkCtx);
+      if (edge) store.add(subject, edge.predicate, edge.term, graph);
     }
   }
 
