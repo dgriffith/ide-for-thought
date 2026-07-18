@@ -61,7 +61,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const dialogs = getDialogStore();
   const busy = getBusyStore();
   const flow = getRefactorFlowStore();
-  const { showPrompt, showConfirm } = dialogs;
+  const { showPrompt, showConfirm, showAddPropertyDialog } = dialogs;
 
   /**
    * After a renderer-initiated bulk write (tag add/remove, entrypoint toggle),
@@ -494,19 +494,19 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
 
     let keyVocab: string[] = [];
     try { keyVocab = (await api.graph.frontmatterKeys()).filter((k) => k !== 'tags'); }
-    catch { /* vocab is a nicety; the prompt still works without it */ }
+    catch { /* vocab is a nicety; the dialog still works without it */ }
 
     const noun = `${targets.length} note${targets.length === 1 ? '' : 's'}`;
-    const rawKey = await showPrompt(`Add property to ${noun} — name:`, { suggestions: keyVocab });
-    if (!rawKey) return;
-    const key = rawKey.trim();
+    // Name + value on one panel (not two sequential prompts).
+    const entered = await showAddPropertyDialog(`Add property to ${noun}`, keyVocab);
+    if (!entered) return;
+    const key = entered.name.trim();
     if (!key) return;
     if (key === 'tags') {
       await showConfirm('Tags have their own action — use "Add Tag" instead.', CONFIRM_KEYS.bulkPropertyFailed, 'OK');
       return;
     }
-    const value = await showPrompt(`Value for "${key}":`);
-    if (value === null) return; // cancelled (empty string is allowed)
+    const value = entered.value;
 
     const changedPaths: string[] = [];
     const failures: Array<{ path: string; error: string }> = [];
