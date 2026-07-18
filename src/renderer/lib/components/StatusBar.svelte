@@ -31,6 +31,14 @@
     onShowBacklinks?: () => void;
     /** Semantic-index backfill progress (#836); null hides the indicator. */
     backfill?: { done: number; total: number } | null;
+    /** Toggle voice dictation into the editor — same action as the right-click
+     *  "Dictate" and ⌘⇧V. */
+    onToggleDictation: () => void;
+    /** True while dictation is capturing for the editor; highlights the mic. */
+    dictationActive?: boolean;
+    /** True when the pane shows preview only (no editor to dictate into) — the
+     *  mic greys out. */
+    dictationDisabled?: boolean;
   }
 
   let {
@@ -39,6 +47,7 @@
     isDirty = false, hasActiveNote = false,
     onGotoLine, onSelectTheme, onShowInspections, onShowBacklinks,
     backfill = null,
+    onToggleDictation, dictationActive = false, dictationDisabled = false,
   }: Props = $props();
 
   let themeMenuOpen = $state(false);
@@ -90,6 +99,20 @@
     {/if}
   </div>
   <div class="status-right">
+    <button
+      class="status-item clickable mic"
+      class:active={dictationActive}
+      onclick={onToggleDictation}
+      disabled={dictationDisabled}
+      aria-pressed={dictationActive}
+      aria-label="Dictate"
+      title={dictationDisabled
+        ? 'Dictation isn’t available while previewing'
+        : dictationActive ? 'Stop dictation (Cmd+Shift+V)' : 'Dictate — voice to text (Cmd+Shift+V)'}
+    >
+      <Icon name="mic" size={12} />
+    </button>
+    <span class="rule" aria-hidden="true"></span>
     {#if backfill}
       <span class="status-item faint" title="Building semantic search index in the background">
         <Icon name="sparkle" size={12} />
@@ -196,6 +219,21 @@
   }
   .status-item.clickable:hover {
     color: var(--text);
+  }
+
+  /* Dictation mic (#voice): accent while capturing, greyed + inert while the
+     pane is showing preview (nothing to dictate into). */
+  .status-item.clickable.mic.active,
+  .status-item.clickable.mic.active:hover {
+    color: var(--accent);
+  }
+  .status-item.clickable.mic:disabled {
+    color: var(--text-faint);
+    cursor: default;
+    opacity: 0.5;
+  }
+  .status-item.clickable.mic:disabled:hover {
+    color: var(--text-faint);
   }
 
   /* Mono cells get tabular-nums so digit columns line up — L47 · C23,

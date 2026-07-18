@@ -45,6 +45,7 @@
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import DictationIndicator from './lib/components/DictationIndicator.svelte';
   import { toggleEditorDictation } from './lib/editor/dictation';
+  import { getVoiceStore } from './lib/voice/voice.svelte';
   import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import PublishDialog from './lib/components/PublishDialog.svelte';
@@ -113,6 +114,7 @@
   const toolPanel = getToolPanelStore();
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
+  const voice = getVoiceStore();
   // Position-bearing bookmarks are resolved per pane at the Editor mount via
   // `collectBookmarksForPath(bookmarkStore.tree, <that pane's file>)` (#813),
   // so each split pane shows its own file's gutter flags (#756).
@@ -1673,6 +1675,9 @@
               rightSidebarVisible = true;
               rightSidebar?.showPanel('backlinks');
             }}
+            onToggleDictation={() => { void toggleEditorDictation(editorComponent?.getView() ?? null); }}
+            dictationActive={voice.surface === 'editor' && voice.busy}
+            dictationDisabled={editor.viewMode === 'preview'}
           />
           <ToolPanel
             bind:this={toolPanelComponent}
