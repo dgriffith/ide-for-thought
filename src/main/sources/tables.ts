@@ -4,7 +4,11 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
-import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
+import {
+  indexCsvTable, unindexCsvTable, unindexAllCsvTables,
+  indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
+  type CsvTableColumn,
+} from '../graph/index';
 import { parseMarkdown, type ParsedTable } from '../graph/parser';
 import { slugifyTableName } from '../../shared/table-name';
 import { serializeCsv } from '../../shared/csv-parse';
@@ -418,6 +422,10 @@ export async function registerMarkdownTable(
     entries.push({ name: tableName, tableIndex, caption: table.caption ?? tableName });
     noteTables.set(notePath, entries);
     tableToNote.set(tableName, notePath);
+    // Mirror the CSV path's graph overlay so SPARQL sees a typed, named table
+    // node joined back to the note (#1360). Non-fatal — the table is queryable
+    // via SQL even if the graph write is skipped.
+    await indexMarkdownTableShape(ctx, notePath, tableName, tableIndex, table.caption ?? tableName);
     return { ok: true, name: tableName };
   } catch (err) {
     console.warn(
@@ -442,8 +450,47 @@ export async function unregisterNoteTables(ctx: ProjectContext, notePath: string
       await connection.run(`DROP TABLE IF EXISTS "${name}"`);
     } catch { /* table may already be gone */ }
     tableToNote.delete(name);
+    unindexMarkdownTable(ctx, name); // drop the graph overlay too (#1360)
   }
   noteTables.delete(notePath);
+}
+
+/**
+ * Fetch column names + DuckDB types from information_schema for a registered
+ * markdown table and write the graph-parity overlay (#1360). Mirrors
+ * `indexCsvTableShape`; failures log but don't throw — the table is still
+ * SQL-queryable even if the graph entry didn't land.
+ */
+async function indexMarkdownTableShape(
+  ctx: ProjectContext,
+  notePath: string,
+  tableName: string,
+  tableIndex: number,
+  caption: string,
+): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  const safeName = tableName.replace(/'/g, "''");
+  try {
+    const reader = await state.connection.runAndReadAll(
+      `SELECT column_name, data_type, ordinal_position ` +
+      `FROM information_schema.columns ` +
+      `WHERE table_name = '${safeName}' AND table_schema = 'main' ` +
+      `ORDER BY ordinal_position`,
+    );
+    const rows = reader.getRowObjectsJS() as Record<string, unknown>[];
+    const columns: CsvTableColumn[] = rows.map((r) => ({
+      name: String(r.column_name),
+      duckdbType: String(r.data_type),
+      index: Number(r.ordinal_position) - 1,
+    }));
+    indexMarkdownTable(ctx, { tableName, notePath, tableIndex, caption, columns });
+  } catch (err) {
+    console.warn(
+      `[tables] Failed to index markdown table '${tableName}' into graph: ` +
+      (err instanceof Error ? err.message : String(err)),
+    );
+  }
 }
 
 /**
@@ -532,9 +579,12 @@ export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ coun
   const state = getState(ctx);
   if (!state) return { count: 0, collisions: [] };
   const { rootPath } = state;
-  // Drop any note tables from a previous sweep so a note deleted while the app
-  // was closed (or since the last "Rebuild All Indexes") doesn't linger — the
-  // walk below only revisits notes that still exist.
+  // Wipe stale markdown-table overlays up front (mirrors registerAllCsvs) so a
+  // note deleted while the app was closed doesn't linger in the graph; each
+  // registered table rewrites its own overlay below.
+  unindexAllNoteTables(ctx);
+  // Drop any DuckDB note tables from a previous sweep too — the walk below only
+  // revisits notes that still exist.
   for (const notePath of [...state.noteTables.keys()]) {
     await unregisterNoteTables(ctx, notePath);
   }
