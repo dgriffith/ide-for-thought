@@ -8,6 +8,7 @@ import {
   runQuery,
   registerAllCsvs,
   registerAllNoteTables,
+  listTables,
   onCsvTableCollision,
 } from '../../../src/main/sources/tables';
 import { projectContext } from '../../../src/main/project-context-types';
@@ -61,6 +62,26 @@ describe('registerAllNoteTables (#1358)', () => {
     // `sales` still resolves to the CSV's columns, not the note's.
     const cols = await runQuery(ctx, "SELECT column_name FROM information_schema.columns WHERE table_name = 'sales' ORDER BY ordinal_position");
     if (cols.ok) expect(cols.rows.map((r) => r.column_name)).toEqual(['x', 'y']);
+  });
+
+  it('listTables labels tables by source (csv file vs note) with caption + index', async () => {
+    await write('data.csv', 'x,y\n1,2\n');
+    await write('report.md', 'Table: findings\n| metric | value |\n|--------|-------|\n| n | 5 |');
+    await registerAllCsvs(ctx);
+    await registerAllNoteTables(ctx);
+
+    const tables = await listTables(ctx);
+    const csv = tables.find((t) => t.name === 'data');
+    const note = tables.find((t) => t.name === 'findings');
+
+    expect(csv?.source).toBe('csv');
+    expect(csv?.caption).toBeUndefined();
+
+    expect(note?.source).toBe('note');
+    expect(note?.relativePath).toBe('report.md');
+    expect(note?.caption).toBe('findings');
+    expect(note?.tableIndex).toBe(0);
+    expect(note?.columns).toEqual(['metric', 'value']);
   });
 
   it('drops a note table on a subsequent sweep after the note is deleted', async () => {

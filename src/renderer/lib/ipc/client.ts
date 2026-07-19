@@ -143,9 +143,16 @@ export type TablesQueryResult =
 
 export interface TableInfo {
   name: string;
+  /** CSV file path for `source: 'csv'`; the source note's path for `'note'`. */
   relativePath: string;
   columns: string[];
   rowCount: number;
+  /** Where the table came from — a standalone `.csv` file or a note's `Table:` caption (#1359). */
+  source: 'csv' | 'note';
+  /** Note tables only: the raw human caption. */
+  caption?: string;
+  /** Note tables only: position in the note's table list. */
+  tableIndex?: number;
 }
 
 export interface TablesApi {

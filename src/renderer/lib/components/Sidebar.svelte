@@ -76,11 +76,12 @@
     onMineReferences?: (source: import('../../../shared/types').SourceMetadata) => Promise<void>;
     onTableClick?: (tableName: string) => void;
     onOpenCsv?: (relativePath: string) => void;
+    onOpenNote?: (relativePath: string) => void;
     onExternalDrop?: (destDirectory: string, files: FileList) => void;
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -635,8 +636,8 @@
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {...(onSourceSelect !== undefined ? { onSourceSelect } : {})} />
     {:else if activePanel === 'tables'}
-      {#if onTableClick && onOpenCsv}
-        <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} />
+      {#if onTableClick && onOpenCsv && onOpenNote}
+        <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} {onOpenNote} />
       {/if}
     {:else if activePanel === 'bookmarks'}
       {#if onShowPrompt}

@@ -26,7 +26,7 @@ interface TablesState {
    * the note's full `parsed.tables` list (captioned or not), matching the
    * graph's positional `…/table/<index>` addressing.
    */
-  noteTables: Map<string, { name: string; tableIndex: number }[]>;
+  noteTables: Map<string, { name: string; tableIndex: number; caption: string }[]>;
   /**
    * tableName → notePath. Shares the identifier namespace with `tableToPath`
    * so a markdown table can't collide with a CSV (or another note table).
@@ -53,9 +53,16 @@ export type QueryResult =
 
 export interface TableInfo {
   name: string;
+  /** CSV file path for `source: 'csv'`; the source note's path for `'note'`. */
   relativePath: string;
   columns: string[];
   rowCount: number;
+  /** Where the table came from — a standalone `.csv` file or a note's `Table:` caption (#1359). */
+  source: 'csv' | 'note';
+  /** Note tables only: the raw human caption, to label the row + jump to the table. */
+  caption?: string;
+  /** Note tables only: position in the note's `parsed.tables` list. */
+  tableIndex?: number;
 }
 
 /** Open an in-memory DuckDB for the given project. Idempotent per project. */
@@ -408,7 +415,7 @@ export async function registerMarkdownTable(
       `read_csv_auto('${escaped}', header=true, null_padding=true)`,
     );
     const entries = noteTables.get(notePath) ?? [];
-    entries.push({ name: tableName, tableIndex });
+    entries.push({ name: tableName, tableIndex, caption: table.caption ?? tableName });
     noteTables.set(notePath, entries);
     tableToNote.set(tableName, notePath);
     return { ok: true, name: tableName };
@@ -563,24 +570,42 @@ export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ coun
   return { count, collisions };
 }
 
-/** Every registered CSV's table name, relative path, column names, and row count. */
+/** Row count + ordered column names for a registered table, via DuckDB. */
+async function tableShape(ctx: ProjectContext, name: string): Promise<{ columns: string[]; rowCount: number }> {
+  const countR = await runQuery(ctx, `SELECT COUNT(*) AS n FROM "${name}"`);
+  const colsR = await runQuery(ctx,
+    `SELECT column_name FROM information_schema.columns ` +
+    `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main' ` +
+    `ORDER BY ordinal_position`,
+  );
+  return {
+    rowCount: countR.ok ? Number(countR.rows[0]?.n ?? 0) : 0,
+    columns: colsR.ok ? colsR.rows.map((r) => String(r.column_name)) : [],
+  };
+}
+
+/**
+ * Every registered table — standalone `.csv` files and captioned markdown
+ * tables (#1359) — with its name, source, relative path, columns, and row
+ * count. Both kinds live in one DuckDB connection, so this is the single
+ * source of truth the Tables panel and SQL autocomplete read.
+ */
 export async function listTables(ctx: ProjectContext): Promise<TableInfo[]> {
   const state = getState(ctx);
   if (!state) return [];
   const out: TableInfo[] = [];
   for (const [relativePath, name] of state.pathToTable.entries()) {
-    const quoted = `"${name}"`;
-    const countR = await runQuery(ctx, `SELECT COUNT(*) AS n FROM ${quoted}`);
-    const colsR = await runQuery(ctx,
-      `SELECT column_name FROM information_schema.columns ` +
-      `WHERE table_name = '${name.replace(/'/g, "''")}' AND table_schema = 'main' ` +
-      `ORDER BY ordinal_position`,
-    );
-    const rowCount = countR.ok ? Number(countR.rows[0]?.n ?? 0) : 0;
-    const columns = colsR.ok ? colsR.rows.map((r) => String(r.column_name)) : [];
-    out.push({ name, relativePath, columns, rowCount });
+    const { columns, rowCount } = await tableShape(ctx, name);
+    out.push({ name, relativePath, columns, rowCount, source: 'csv' });
   }
-  out.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  for (const [notePath, entries] of state.noteTables.entries()) {
+    for (const { name, tableIndex, caption } of entries) {
+      const { columns, rowCount } = await tableShape(ctx, name);
+      out.push({ name, relativePath: notePath, columns, rowCount, source: 'note', caption, tableIndex });
+    }
+  }
+  // Group by file, then by name so multiple tables in one note order stably.
+  out.sort((a, b) => a.relativePath.localeCompare(b.relativePath) || a.name.localeCompare(b.name));
   return out;
 }
 

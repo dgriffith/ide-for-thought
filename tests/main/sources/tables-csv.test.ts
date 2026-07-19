@@ -277,8 +277,8 @@ describe('CSV pipeline: register / list / unregister (#233)', () => {
 
     const a = tables.find((t) => t.name === 'a');
     const b = tables.find((t) => t.name === 'nested_b');
-    expect(a).toEqual({ name: 'a', relativePath: 'a.csv', columns: ['x', 'y'], rowCount: 2 });
-    expect(b).toEqual({ name: 'nested_b', relativePath: 'nested/b.csv', columns: ['p', 'q', 'r'], rowCount: 1 });
+    expect(a).toEqual({ name: 'a', relativePath: 'a.csv', columns: ['x', 'y'], rowCount: 2, source: 'csv' });
+    expect(b).toEqual({ name: 'nested_b', relativePath: 'nested/b.csv', columns: ['p', 'q', 'r'], rowCount: 1, source: 'csv' });
   });
 
   it('returns a structured collision result when two CSVs derive the same table name (#354)', async () => {

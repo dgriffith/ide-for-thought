@@ -7,9 +7,10 @@
   interface Props {
     onTableClick: (tableName: string) => void;
     onOpenCsv: (relativePath: string) => void;
+    onOpenNote: (relativePath: string) => void;
   }
 
-  let { onTableClick, onOpenCsv }: Props = $props();
+  let { onTableClick, onOpenCsv, onOpenNote }: Props = $props();
 
   let tables = $state<TableInfo[]>([]);
   let filter = $state('');
@@ -52,7 +53,7 @@
 
 <div class="tables-panel">
   {#if tables.length === 0}
-    <div class="empty">No tables yet. Drop a CSV into the thoughtbase.</div>
+    <div class="empty">No tables yet. Drop a CSV into the thoughtbase, or add a <code>Table:</code> caption above a markdown table.</div>
   {:else}
     <div class="filter-row">
       <input
@@ -68,10 +69,13 @@
           class="table-item"
           onclick={() => onTableClick(t.name)}
           oncontextmenu={(e) => handleContextMenu(e, t)}
-          title={t.relativePath}
+          title={t.source === 'note' ? `${t.caption} — ${t.relativePath}` : t.relativePath}
         >
-          <div class="table-name">{t.name}</div>
-          <div class="table-meta">{t.rowCount} {t.rowCount === 1 ? 'row' : 'rows'} · {t.columns.length} {t.columns.length === 1 ? 'col' : 'cols'}</div>
+          <div class="table-name">
+            {t.name}
+            <span class="source-tag" class:note={t.source === 'note'}>{t.source}</span>
+          </div>
+          <div class="table-meta">{t.rowCount} {t.rowCount === 1 ? 'row' : 'rows'} · {t.columns.length} {t.columns.length === 1 ? 'col' : 'cols'}{#if t.source === 'note'} · {t.relativePath}{/if}</div>
         </button>
       {/each}
       {#if visible.length === 0}
@@ -95,9 +99,15 @@
       Copy Table Name
     </button>
     <div class="separator"></div>
-    <button onclick={() => { onOpenCsv(contextMenu!.table.relativePath); contextMenu = null; }}>
-      Open CSV
-    </button>
+    {#if contextMenu.table.source === 'note'}
+      <button onclick={() => { onOpenNote(contextMenu!.table.relativePath); contextMenu = null; }}>
+        Open Note
+      </button>
+    {:else}
+      <button onclick={() => { onOpenCsv(contextMenu!.table.relativePath); contextMenu = null; }}>
+        Open CSV
+      </button>
+    {/if}
     <button onclick={() => { void api.shell.revealFile(contextMenu!.table.relativePath); contextMenu = null; }}>
       Reveal in Finder
     </button>
@@ -167,6 +177,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .source-tag {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    background: var(--bg-button);
+    border-radius: 3px;
+    padding: 0 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .source-tag.note {
+    color: var(--accent);
   }
 
   .table-meta {
