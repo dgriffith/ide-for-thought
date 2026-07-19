@@ -15,13 +15,7 @@
    */
   import Icon from './Icon.svelte';
   import SegmentedControl from './ui/SegmentedControl.svelte';
-
-  export interface OnboardingAnswers {
-    subject: string;
-    expertise: 'beginner' | 'familiar' | 'expert';
-    use: string;
-    depth: 'quick' | 'moderate' | 'deep';
-  }
+  import type { OnboardingAnswers } from '../../../shared/onboarding';
 
   interface Props {
     onAccept: (answers: OnboardingAnswers, dontAskAgain: boolean) => void;
