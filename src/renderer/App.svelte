@@ -42,12 +42,13 @@
   import type { SafeDeleteBlocker, MenuEditorState } from '../shared/types';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
-  import { buildCommandRegistry, type CommandDeps } from './lib/command-palette/registry';
+  import { buildCommandRegistry } from './lib/command-palette/registry';
+  import { createCommandKeymap, type CommandKeymapCtx } from './lib/app/command-keymap';
   import { formatAccelerator } from './lib/command-palette/format-accelerator';
   import DictationIndicator from './lib/components/DictationIndicator.svelte';
   import { toggleEditorDictation } from './lib/editor/dictation';
   import { getVoiceStore } from './lib/voice/voice.svelte';
-  import { handleKeydown, type KeymapDeps } from './lib/keymap/handle-keydown';
+  import { handleKeydown } from './lib/keymap/handle-keydown';
   import ExportDialog from './lib/components/ExportDialog.svelte';
   import PublishDialog from './lib/components/PublishDialog.svelte';
   import AboutDialog from './lib/components/AboutDialog.svelte';
@@ -455,62 +456,59 @@
    *  so while the palette is closed the derived depends solely on
    *  `showCommandPalette` and navigation no longer touches it.
    */
-  const commandDeps: CommandDeps = {
-    hasProject: () => !!notebase.meta,
-    hasNote: () => !!editor.activeFilePath,
-    hasActiveNoteTab: () => editor.activeTab?.type === 'note',
-    canGoBack: () => nav.canGoBack,
-    canGoForward: () => nav.canGoForward,
+  // The command-palette + global-keymap dependency tables live in
+  // ./lib/app/command-keymap.ts (#1084). The factory pulls the stores itself
+  // (predicates, active-note guards, close-project, font dance) and takes the
+  // App-local ops handlers + focused-pane editor ref + UI-chrome $state via ctx.
+  // Both tables are fully typed, so a mis-wired binding is a compile error.
+  const { commandDeps, keymapDeps } = createCommandKeymap({
+    getEditorComponent: () => editorComponent,
     newNote: () => { void handleNewNote(); },
     save: () => { void handleSave(); },
     openProject: () => { void handleOpenThoughtbase(); },
     newProject: () => { void handleNewThoughtbase(); },
-    closeProject: () => { notebase.close(); editor.clear(); },
     editThoughtbaseGuide: () => { void handleEditThoughtbaseDoc(); },
-    print: () => window.print(),
     saveAsTemplate: () => { void handleSaveAsTemplate(); },
     insertTemplate: () => { void handleInsertTemplate(); },
-    dictate: () => { void toggleEditorDictation(editorComponent?.getView() ?? null); },
-    find: () => editorComponent?.openFind(),
-    findReplace: () => editorComponent?.openFindReplace(),
-    findInNotes: () => { findInNotesMode = 'find'; },
-    replaceInNotes: () => { findInNotesMode = 'replace'; },
-    gotoLine: () => { showGotoLine = true; },
-    sortLines: () => editorComponent?.runSortLines(),
-    toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
-    toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
-    togglePreview: () => cycleViewMode(),
-    toggleConversations: () => conversationsStore.toggle(),
-    newConversation: () => { void newConversation(); },
-    setTheme: (mode) => handleSelectTheme(mode),
-    currentTheme: () => themeLabel,
-    fontIncrease: () => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
-    fontDecrease: () => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; },
-    fontReset: () => { editorComponent?.resetFontSize(); editorFontSize = 14; },
-    quickOpen: () => { void refreshSourcesCache(); void refreshSavedQueriesCache(); showGotoNote = true; },
-    navBack: () => { void handleNavBack(); },
-    navForward: () => { void handleNavForward(); },
-    renameActive: () => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); },
-    moveActive: () => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); },
-    copyActive: () => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); },
     extractSelection: () => { void handleExtractSelection(); },
     splitHere: () => { void handleSplitHere(); },
     splitByHeading: () => { void handleSplitByHeading(); },
-    autoTagActive: () => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); },
-    autoLinkActive: () => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); },
-    autoLinkInboundActive: () => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); },
-    decomposeActive: () => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); },
     format: () => { void handleFormat(); },
+    bibliography: () => { void handleBibliography(); },
+    newConversation: () => { void newConversation(); },
+    openConversation: () => { void openConversation(); },
     ingestUrl: () => { void handleIngestUrlAsSource(); },
     ingestIdentifier: () => { void handleIngestIdentifier(); },
     ingestFile: () => { void handleIngestFileAsSource(); },
     importBibtex: () => { void handleImportBibtex(); },
     importZoteroRdf: () => { void handleImportZoteroRdf(); },
-    bibliography: () => { void handleBibliography(); },
-    newQuery: () => editor.openQuery(),
-    editSavedQueries: () => { showEditSavedQueries = true; },
-    openSettings: () => { showSettings = true; },
-  };
+    navBack: () => { void handleNavBack(); },
+    navForward: () => { void handleNavForward(); },
+    rename: (p) => { void handleRename(p); },
+    move: (p) => { void handleMoveWithPrompt(p); },
+    copy: (p) => { void handleCopyWithPrompt(p); },
+    autoTag: (p) => { void handleAutoTag(p); },
+    autoLink: (p) => { void handleAutoLink(p); },
+    autoLinkInbound: (p) => { void handleAutoLinkInbound(p); },
+    decompose: (p) => { void handleDecompose(p); },
+    selectTheme: (mode) => handleSelectTheme(mode),
+    cycleTheme: () => handleCycleTheme(),
+    getThemeLabel: () => themeLabel,
+    cycleViewMode: () => cycleViewMode(),
+    refreshSourcesCache: () => { void refreshSourcesCache(); },
+    refreshSavedQueriesCache: () => { void refreshSavedQueriesCache(); },
+    getEditorFontSize: () => editorFontSize,
+    setEditorFontSize: (n) => { editorFontSize = n; },
+    setFindInNotesMode: (mode) => { findInNotesMode = mode; },
+    setShowGotoLine: (v) => { showGotoLine = v; },
+    setShowGotoNote: (v) => { showGotoNote = v; },
+    toggleQuickOpen: () => { showGotoNote = !showGotoNote; },
+    setShowEditSavedQueries: (v) => { showEditSavedQueries = v; },
+    setShowSettings: (v) => { showSettings = v; },
+    toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
+    toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
+    toggleCommandPalette: () => { showCommandPalette = !showCommandPalette; },
+  } satisfies CommandKeymapCtx);
   const commands = $derived<Command[]>(
     showCommandPalette ? buildCommandRegistry(commandDeps) : [],
   );
@@ -808,26 +806,6 @@
   function cycleViewMode() {
     editor.cycleViewMode();
   }
-
-  // Global keyboard shortcuts live in lib/keymap/handle-keydown.ts (#670);
-  // this object injects the state predicates + actions they dispatch to.
-  const keymapDeps: KeymapDeps = {
-    hasProject: () => !!notebase.meta,
-    hasActiveTab: () => !!editor.activeTab,
-    hasActiveIndex: () => editor.activeIndex >= 0,
-    toggleCommandPalette: () => { showCommandPalette = !showCommandPalette; },
-    navBack: () => { void handleNavBack(); },
-    navForward: () => { void handleNavForward(); },
-    cyclePreview: () => cycleViewMode(),
-    toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
-    cycleTheme: () => handleCycleTheme(),
-    newNote: () => { void handleNewNote(); },
-    closeActiveTab: () => { editor.closeTab(editor.activeIndex); },
-    toggleQuickOpen: () => { showGotoNote = !showGotoNote; },
-    openGotoLine: () => { showGotoLine = true; },
-    newQuery: () => editor.openQuery(),
-    openConversation: () => { void openConversation(); },
-  };
 
   onMount(() => {
     initTheme();
