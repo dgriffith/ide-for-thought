@@ -79,11 +79,14 @@ describe('partitionTables', () => {
     expect(byName.ghost).toBeUndefined();
   });
 
-  it('shows a self-defined-and-queried table only under Defined, not Referenced', () => {
+  it('shows a self-defined-and-queried table in BOTH sections', () => {
     const content = '```sql\nSELECT * FROM sales\n```';
     const { defined, referenced } = partitionTables(content, registered, NOTE, '');
     expect(defined.map((t) => t.name)).toContain('sales');
-    expect(referenced.map((r) => r.name)).not.toContain('sales');
+    // Referenced mirrors the SQL — the table isn't hidden just because the
+    // note also defines it. Its `info` resolves (it's a registered table).
+    const salesRef = referenced.find((r) => r.name === 'sales');
+    expect(salesRef?.info?.name).toBe('sales');
   });
 
   it('applies the search filter to both sections (name and caption)', () => {

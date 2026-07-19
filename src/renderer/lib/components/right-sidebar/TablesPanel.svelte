@@ -9,8 +9,9 @@
    *    captioned markdown tables (#1356–#1360) — registered tables whose
    *    `source === 'note'` and `relativePath` is the active note.
    *
-   * A table the note both defines and queries appears only under Defined. Each
-   * row opens `SELECT * FROM <name>` in a new query tab.
+   * A table the note both defines and queries appears in both sections (they
+   * answer different questions). Each row opens `SELECT * FROM <name>` in a new
+   * query tab.
    *
    * Polished per IMPLEMENTATION.md §13.5: tables icon + mono name + rows × cols
    * stat in mono-faint + right-aligned SELECT * accent button.

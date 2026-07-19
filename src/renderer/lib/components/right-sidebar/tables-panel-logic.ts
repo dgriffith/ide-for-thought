@@ -11,8 +11,10 @@
  *    captioned markdown tables (#1356–#1360), i.e. registered tables whose
  *    `source === 'note'` and `relativePath` is the active note.
  *
- * A table a note both defines and queries is shown only under Defined (its more
- * meaningful home), so it isn't listed twice.
+ * A table a note both defines and queries appears in BOTH sections — they
+ * answer different questions ("what this note creates" vs. "what it reads"), so
+ * Referenced faithfully mirrors the note's SQL rather than hiding a `FROM`
+ * target just because the note also defines it.
  */
 import type { TableInfo } from '../../ipc/client';
 
@@ -81,9 +83,10 @@ export function partitionTables(
     .sort((a, b) => (a.tableIndex ?? 0) - (b.tableIndex ?? 0) || a.name.localeCompare(b.name))
     .filter((t) => matches(t.name, q) || matches(t.caption ?? '', q));
 
-  const definedNames = new Set(defined.map((t) => t.name));
+  // Referenced mirrors the note's SQL exactly — a table the note also defines
+  // still appears here (and again under Defined); the two sections answer
+  // different questions, so the overlap is meaningful, not a duplicate.
   const referenced = extractReferencedTableNames(content)
-    .filter((name) => !definedNames.has(name))
     .filter((name) => matches(name, q))
     .map((name) => ({ name, info: byName.get(name) }));
 

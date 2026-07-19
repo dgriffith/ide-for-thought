@@ -51,6 +51,18 @@ it('opens SELECT * FROM <name> when a row is clicked', async () => {
   expect(onOpenQuery).toHaveBeenCalledWith('SELECT * FROM sales');
 });
 
+it('lists a table the note both defines and queries in both sections', async () => {
+  // Queries `sales` (which this note also defines) plus the csv `people`.
+  const content = '```sql\nSELECT * FROM sales JOIN people\n```';
+  const { findByText, getByText, getAllByText } = render(TablesPanel, {
+    props: { content, activeFilePath: NOTE, revision: 0, onOpenQuery: vi.fn() },
+  });
+  await findByText('Referenced · 2'); // sales + people
+  expect(getByText('Defined in this note · 1')).toBeTruthy();
+  // `sales` appears once under Referenced and once under Defined.
+  expect(getAllByText('sales')).toHaveLength(2);
+});
+
 it('shows the empty state when the note has no tables at all', async () => {
   h.api.tables.list.mockResolvedValue([]);
   const { findByText } = render(TablesPanel, {
