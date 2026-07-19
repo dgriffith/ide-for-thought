@@ -16,7 +16,7 @@
   import type { CursorInfo } from './lib/components/Editor.svelte';
   import Preview from './lib/components/Preview.svelte';
   import SourceDetail from './lib/components/SourceDetail.svelte';
-  import { onMount, tick } from 'svelte';
+  import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
   import { getEditorStore } from './lib/stores/editor.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
@@ -30,6 +30,7 @@
   import { createTemplateOps, type TemplateOpsCtx } from './lib/app/template-ops';
   import { createConversationOps, type ConversationOpsCtx } from './lib/app/conversation-ops';
   import { createProjectOps, type ProjectOpsCtx } from './lib/app/project-ops';
+  import { registerAppIpc, type IpcWiringCtx } from './lib/app/ipc-wiring';
   import DialogHost from './lib/components/DialogHost.svelte';
   import { getDialogStore } from './lib/stores/dialogs.svelte';
   import { getLinkDrag } from './lib/stores/link-drag.svelte';
@@ -76,7 +77,6 @@
     lineBookmarkName,
   } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
-  import { getToolPanelStore } from './lib/stores/tool-panel.svelte';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
@@ -84,10 +84,7 @@
   import { isMissingApiKeyError } from '../shared/llm-errors';
   import { runCellWithTrust } from './lib/compute/run-cell-with-trust';
   import { findRunnableFences, RUNNABLE_LANGUAGE_SET } from '../shared/compute/fences';
-  import { loadFormatSettings } from './lib/formatter/settings';
   import { toggleTaskOnLine } from './lib/editor/task-toggle';
-  import { registerSkillInfos } from './lib/tools/tool-registry';
-  import { applyMenuConfig } from '../shared/skills/menu-config';
 
 
   const notebase = getNotebaseStore();
@@ -107,7 +104,6 @@
     if (t) lastNotePath = t.relativePath;
   });
   const nav = getNavigationStore();
-  const toolPanel = getToolPanelStore();
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
   const voice = getVoiceStore();
@@ -755,54 +751,6 @@
     void sidebar?.revealFile(relativePath);
   }
 
-  // Refresh tags when notebase opens
-  const originalOpen = notebase.open;
-  notebase.open = async () => {
-    const result = await originalOpen();
-    setTimeout(() => {
-      sidebar?.refreshTags();
-      sidebar?.refreshSources();
-      sidebar?.refreshTables();
-      void refreshSourcesCache();
-    }, 100);
-    return result;
-  };
-
-  // Main broadcasts when the sources watcher reindexes or removes a source.
-  // Refresh the sidebar Sources panel AND the editor autocomplete cache so
-  // newly-ingested sources become reachable without a manual reload.
-  api.sources.onChanged(() => {
-    sidebar?.refreshSources();
-    void refreshSourcesCache();
-  });
-
-  // Main broadcasts after the initial CSV scan and on every register/unregister
-  // from the watcher — keeps the sidebar Tables panel in lockstep.
-  api.tables.onChanged(() => {
-    sidebar?.refreshTables();
-  });
-
-  // Semantic-index backfill progress (#836): a quiet status-bar indicator while
-  // the corpus embeds in the background. Cleared on completion (running:false).
-  api.embeddings.onBackfillProgress((p) => {
-    embeddingProgress = p.running && p.total > 0 ? { done: p.done, total: p.total } : null;
-  });
-
-  // CSV table-name collision (#354): two CSVs would land on the
-  // same DuckDB table name; the second was skipped. Show a
-  // suppressible toast pointing at `table_name:` as the fix.
-  api.tables.onNameCollision((collision) => {
-    void showConfirm(
-      `Two CSVs would use the same DuckDB table name "${collision.tableName}":\n\n` +
-      `  • ${collision.existingPath}  (active)\n` +
-      `  • ${collision.attemptedPath}  (skipped)\n\n` +
-      `Add \`table_name: <unique-name>\` to a companion .md alongside one of them to disambiguate.`,
-      CONFIRM_KEYS.tableNameCollision,
-      'OK',
-      { hideDontAskAgain: false },
-    );
-  });
-
   function cycleViewMode() {
     editor.cycleViewMode();
   }
@@ -814,236 +762,71 @@
     api.menu.reportTheme(themeLabel);
     initAppearance();
 
-    // Pull skill metadata loaded by main (#625) into the renderer registry so
-    // the tool panel / command palette / slash commands see skills alongside
-    // hardcoded tools. Fire-and-forget — skills enrich the menus when ready.
-    void (async () => {
-      try {
-        const cat = await api.skills.list();
-        // Apply the per-machine menu config (#630): only enabled skills, in
-        // their effective menu and configured order, reach the palette / slash.
-        registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
-      } catch (err) {
-        console.warn('[skills] failed to load skill list:', err);
-      }
-    })();
-
-    // Auto-save
-    editor.onAutoSaved = () => {
-      sidebar?.refreshTags();
-      rightSidebar?.refresh();
-      graphRevision++;
-      void refreshBacklinkCount();
-      void refreshAliasMap();
-    };
-    window.addEventListener('beforeunload', () => {
-      // Capture current editor state before persisting — the Editor
-      // only saves on unmount, which hasn't happened yet on window close
-      if (editor.activeFilePath && editorComponent) {
-        editor.saveEditorState(
-          editor.activeFilePath,
-          editorComponent.getOffset(),
-          editorComponent.getView()?.scrollDOM.scrollTop ?? 0,
-        );
-      }
-      editor.flushAutoSave();
-      editor.persistTabs();
-    });
-
-    // Listen for menu events from main process
-    api.menu.onNewNote(() => handleNewNote());
-    api.menu.onEditThoughtbaseDoc(() => { void handleEditThoughtbaseDoc(); });
-    api.menu.onSave(() => handleSave());
-    api.menu.onSaveAsTemplate(() => { void handleSaveAsTemplate(); });
-    api.menu.onInsertTemplate(() => { void handleInsertTemplate(); });
-    api.menu.onCycleTheme(() => handleCycleTheme());
-    api.menu.onSetTheme((mode) => handleSelectTheme(mode));
-    api.menu.onFontIncrease(() => { editorComponent?.changeFontSize(1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
-    api.menu.onFontDecrease(() => { editorComponent?.changeFontSize(-1); editorFontSize = editorComponent?.currentFontSize() ?? editorFontSize; });
-    api.menu.onFontReset(() => { editorComponent?.resetFontSize(); editorFontSize = 14; });
-    api.menu.onToggleSidebar(() => { sidebarVisible = !sidebarVisible; });
-    api.menu.onToggleRightSidebar(() => { rightSidebarVisible = !rightSidebarVisible; });
-    api.menu.onToggleConversations(() => conversationsStore.toggle());
-    api.menu.onNewConversation(() => { void newConversation(); });
-    api.menu.onTogglePreview(() => cycleViewMode());
-    // Editor split — pane focus & layout commands (#814).
-    api.menu.onSplitRight(() => editor.splitGroup(editor.activeGroupId, 'horizontal'));
-    api.menu.onSplitDown(() => editor.splitGroup(editor.activeGroupId, 'vertical'));
-    api.menu.onFocusNextGroup(() => editor.focusNextGroup());
-    api.menu.onFocusPrevGroup(() => editor.focusPreviousGroup());
-    api.menu.onCloseGroup(() => editor.closeActiveGroup());
-    api.menu.onOpenProject(() => handleOpenThoughtbase());
-    api.menu.onNewProject(() => handleNewThoughtbase());
-    api.menu.onOpenRecentProject((p) => handleOpenRecentThoughtbase(p));
-    api.menu.onCloseProject(() => {
-      notebase.close();
-      editor.clear();
-    });
-    api.menu.onClearRecent(() => api.notebase.clearRecent());
-    api.menu.onNavBack(() => handleNavBack());
-    api.menu.onNavForward(() => handleNavForward());
-    api.menu.onGotoLine(() => { if (editor.activeTab) showGotoLine = true; });
-    api.menu.onQuickOpen(() => {
-      // Lazily refresh the palette's source + query backing data so
-      // its scope chip counts are fresh when the user opens it.
-      void refreshSourcesCache();
-      void refreshSavedQueriesCache();
-      showGotoNote = true;
-    });
-    api.menu.onNewQuery(() => editor.openQuery());
-    api.menu.onOpenStockQuery(({ query, language }) => editor.openQuery(query, language));
-    api.menu.onEditSavedQueries(() => { showEditSavedQueries = true; });
-    api.menu.onSortLines(() => editorComponent?.runSortLines());
-    api.menu.onFind(() => editorComponent?.openFind());
-    api.menu.onFindReplace(() => editorComponent?.openFindReplace());
-    api.menu.onFindInNotes(() => { findInNotesMode = 'find'; });
-    api.menu.onReplaceInNotes(() => { findInNotesMode = 'replace'; });
-    api.menu.onPrint(() => window.print());
-    api.menu.onAbout(() => { showAbout = true; });
-    api.menu.onShortcuts(() => { showShortcuts = true; });
-    api.menu.onOpenInDefault(() => { if (editor.activeFilePath) void api.shell.openInDefault(editor.activeFilePath); });
-    api.menu.onOpenInTerminal(() => { void api.shell.openInTerminal(editor.activeFilePath ?? undefined); });
-    api.menu.onOpenSettings(() => { showSettings = true; });
-
-    // Refactor menu (issue #172)
-    api.menu.onRefactorRename(() => { if (editor.activeFilePath) void handleRename(editor.activeFilePath); });
-    api.menu.onRefactorMove(() => { if (editor.activeFilePath) void handleMoveWithPrompt(editor.activeFilePath); });
-    api.menu.onRefactorCopy(() => { if (editor.activeFilePath) void handleCopyWithPrompt(editor.activeFilePath); });
-    api.menu.onRefactorExtract(() => handleExtractSelection());
-    api.menu.onRefactorSplitHere(() => handleSplitHere());
-    api.menu.onRefactorSplitByHeading(() => handleSplitByHeading());
-    api.menu.onRefactorAutoTag(() => { if (editor.activeFilePath) void handleAutoTag(editor.activeFilePath); });
-    api.menu.onRefactorAutoLink(() => { if (editor.activeFilePath) void handleAutoLink(editor.activeFilePath); });
-    api.menu.onRefactorAutoLinkInbound(() => { if (editor.activeFilePath) void handleAutoLinkInbound(editor.activeFilePath); });
-    api.menu.onRefactorDecompose(() => { if (editor.activeFilePath) void handleDecompose(editor.activeFilePath); });
-
-    // Format menu (issue #153)
-    api.menu.onFormat(() => handleFormat());
-
-    // Insert/Update Bibliography (#113)
-    api.menu.onBibliography(() => { void handleBibliography(); });
-
-    // Ingest URL (#93)
-    api.menu.onIngestUrl(() => handleIngestUrlAsSource());
-    api.menu.onIngestIdentifier(() => handleIngestIdentifier());
-    api.menu.onIngestFile(() => handleIngestFileAsSource());
-    api.menu.onImportBibtex(() => handleImportBibtex());
-    api.menu.onImportZoteroRdf(() => handleImportZoteroRdf());
-    api.menu.onExport((groupId) => { exportDialogGroup = groupId; });
-    api.menu.onPublish(() => { publishDialogOpen = true; });
-
-    // Progress updates during a bulk import — rewrites the busy-overlay
-    // label in place so the user sees running counts on large imports.
-    // One handler per stream; both funnel into the same busyLabel so the
-    // user doesn't care which import is running.
-    const progressToBusyLabel = ({ done, total, currentTitle }: { done: number; total: number; currentTitle: string }) => {
-      if (busy.label) {
-        const short = currentTitle.length > 60 ? currentTitle.slice(0, 57) + '…' : currentTitle;
-        busy.setLabel(`Importing ${done}/${total}: ${short}`);
-      }
-    };
-    api.sources.onImportBibtexProgress(progressToBusyLabel);
-    api.sources.onImportZoteroRdfProgress(progressToBusyLabel);
-
-    // External file changes (watcher-driven) — refresh the sidebar so files
-    // added / deleted in Finder show up without a restart. Debounced because
-    // the watcher also fires for internal ops that already called refresh(),
-    // and a burst of watcher events (e.g. ingesting a source tree) shouldn't
-    // produce a burst of listFiles round-trips.
-    let treeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-    const scheduleTreeRefresh = () => {
-      if (treeRefreshTimer) clearTimeout(treeRefreshTimer);
-      treeRefreshTimer = setTimeout(() => {
-        treeRefreshTimer = null;
-        void notebase.refresh();
-      }, 200);
-    };
-    api.notebase.onFileCreated(scheduleTreeRefresh);
-    api.notebase.onFileDeleted((deletedPath) => {
-      editor.closeTabsForDeletedPath(deletedPath);
-      scheduleTreeRefresh();
-    });
-
-    // Notebase rename/rewrite notifications from main — keep open tabs
-    // consistent with disk so the next auto-save doesn't overwrite a
-    // link rewrite silently.
-    api.notebase.onRenamed((transitions) => {
-      editor.applyRenameTransitions(transitions);
-      bookmarkStore.applyRenameTransitions(transitions);
-    });
-    api.notebase.onRewritten(async (paths) => {
-      for (const p of paths) {
-        if (editor.isPathDirty(p)) {
-          const keepDisk = await showConfirm(
-            `"${p}" was updated on disk by a link rewrite. Discard your unsaved edits and load the new version?`,
-            CONFIRM_KEYS.rewriteConflict,
-            'Load disk',
-          );
-          if (!keepDisk) continue;
-        }
-        await editor.reloadTabFromDisk(p);
-      }
-    });
-
-    api.notebase.onHeadingRenameSuggested(async (candidate) => {
-      // Keep the user's own section bookmarks pointing at the renamed
-      // heading (#755). Local metadata, no content mutation — do it
-      // unconditionally, even when nothing links to the heading.
-      bookmarkStore.retargetSectionAnchor(candidate.relativePath, candidate.oldSlug, candidate.newSlug);
-      // Only offer to rewrite OTHER notes' incoming links when some exist.
-      const n = candidate.incomingLinkCount;
-      if (n === 0) return;
-      const msg =
-        `The heading "${candidate.oldText}" in ${candidate.relativePath} looks like it was renamed ` +
-        `to "${candidate.newText}". Update ${n} incoming link${n === 1 ? '' : 's'}?`;
-      const ok = await showConfirm(msg, CONFIRM_KEYS.headingRenameSuggestion, 'Update links');
-      if (!ok) return;
-      await api.notebase.renameAnchor(candidate.relativePath, candidate.oldSlug, candidate.newSlug);
-    });
-
-    // Tools for Thought — stream listener (once)
-    api.tools.onStream((chunk) => {
-      toolPanel.appendChunk(chunk);
-    });
-
-    api.tools.onInvoke((toolId) => handleToolInvoke(toolId));
-
-    api.menu.onProjectOpened(async (meta) => {
-      await notebase.openPath(meta.rootPath);
-      await editor.restoreTabs();
-      await bookmarkStore.load();
-      await loadFormatSettings();
-      sidebar?.refreshTags();
-      sidebar?.refreshSources();
-      sidebar?.refreshTables();
-      await refreshSourcesCache();
-      await refreshAliasMap();
-      // Inspections hidden for v1.0: count polling disabled so the status-bar
-      // badge stays hidden (inspectionCount stays 0). Restore the
-      // setTimeout/setInterval(refreshInspectionCount) to re-enable.
-      // Restore cursor/scroll for every pane's active note tab after the
-      // split layout has rendered and each pane's Editor has mounted (#816 —
-      // restore is now multi-group, not just the focused pane).
-      await tick();
-      requestAnimationFrame(() => {
-        for (const grp of editor.groups) {
-          const noteTab = editor.noteTabForGroup(grp.id);
-          if (noteTab?.cursorOffset != null) {
-            editorComponents[grp.id]?.restorePosition(noteTab.cursorOffset, noteTab.scrollTop);
-          }
-        }
-      });
-
-      // Offer the onboarding journey on empty thoughtbases. Files have
-      // already been loaded by `notebase.openPath` above, so the count
-      // is current. Helper is shared with the in-window New/Open paths.
-      await maybeShowOnboarding();
-      // Auto-open any `entrypoint`-tagged notes when restoreTabs left
-      // the editor with no note tabs. Runs after the onboarding check
-      // because an empty thoughtbase has no entrypoints anyway, but
-      // ordering doesn't matter beyond that.
-      await maybeOpenEntrypoints();
-    });
+    // All main↔renderer event wiring — the native-menu command bindings, the
+    // sources/tables/embeddings/notebase-watcher/tools broadcasts, import
+    // progress, the auto-save + beforeunload lifecycle hooks, the notebase.open
+    // refresh patch, and the project-open restore flow — lives in
+    // ./lib/app/ipc-wiring.ts (#1084). Stores are pulled there; App bridges its
+    // ops handlers, component refs, and UI-chrome $state via ctx.
+    registerAppIpc({
+      getEditorComponent: () => editorComponent,
+      getEditorComponents: () => editorComponents,
+      getSidebar: () => sidebar,
+      getRightSidebar: () => rightSidebar,
+      bumpGraphRevision: () => { graphRevision++; },
+      getEditorFontSize: () => editorFontSize,
+      setEditorFontSize: (n) => { editorFontSize = n; },
+      toggleSidebar: () => { sidebarVisible = !sidebarVisible; },
+      toggleRightSidebar: () => { rightSidebarVisible = !rightSidebarVisible; },
+      setShowGotoLine: (v) => { showGotoLine = v; },
+      setShowGotoNote: (v) => { showGotoNote = v; },
+      setShowEditSavedQueries: (v) => { showEditSavedQueries = v; },
+      setShowAbout: (v) => { showAbout = v; },
+      setShowShortcuts: (v) => { showShortcuts = v; },
+      setShowSettings: (v) => { showSettings = v; },
+      setPublishDialogOpen: (v) => { publishDialogOpen = v; },
+      setFindInNotesMode: (m) => { findInNotesMode = m; },
+      setExportDialogGroup: (g) => { exportDialogGroup = g; },
+      setEmbeddingProgress: (p) => { embeddingProgress = p; },
+      refreshSourcesCache: () => refreshSourcesCache(),
+      refreshAliasMap: () => refreshAliasMap(),
+      refreshSavedQueriesCache: () => { void refreshSavedQueriesCache(); },
+      refreshBacklinkCount: () => { void refreshBacklinkCount(); },
+      newNote: () => { void handleNewNote(); },
+      editThoughtbaseGuide: () => { void handleEditThoughtbaseDoc(); },
+      save: () => { void handleSave(); },
+      saveAsTemplate: () => { void handleSaveAsTemplate(); },
+      insertTemplate: () => { void handleInsertTemplate(); },
+      cycleTheme: () => handleCycleTheme(),
+      selectTheme: (mode) => handleSelectTheme(mode),
+      openThoughtbase: () => { void handleOpenThoughtbase(); },
+      newThoughtbase: () => { void handleNewThoughtbase(); },
+      openRecentThoughtbase: (p) => { void handleOpenRecentThoughtbase(p); },
+      navBack: () => { void handleNavBack(); },
+      navForward: () => { void handleNavForward(); },
+      rename: (p) => { void handleRename(p); },
+      move: (p) => { void handleMoveWithPrompt(p); },
+      copy: (p) => { void handleCopyWithPrompt(p); },
+      extractSelection: () => { void handleExtractSelection(); },
+      splitHere: () => { void handleSplitHere(); },
+      splitByHeading: () => { void handleSplitByHeading(); },
+      autoTag: (p) => { void handleAutoTag(p); },
+      autoLink: (p) => { void handleAutoLink(p); },
+      autoLinkInbound: (p) => { void handleAutoLinkInbound(p); },
+      decompose: (p) => { void handleDecompose(p); },
+      format: () => { void handleFormat(); },
+      bibliography: () => { void handleBibliography(); },
+      ingestUrl: () => { void handleIngestUrlAsSource(); },
+      ingestIdentifier: () => { void handleIngestIdentifier(); },
+      ingestFile: () => { void handleIngestFileAsSource(); },
+      importBibtex: () => { void handleImportBibtex(); },
+      importZoteroRdf: () => { void handleImportZoteroRdf(); },
+      toolInvoke: (id) => { void handleToolInvoke(id); },
+      newConversation: () => { void newConversation(); },
+      cycleViewMode: () => cycleViewMode(),
+      maybeShowOnboarding: () => maybeShowOnboarding(),
+      maybeOpenEntrypoints: () => maybeOpenEntrypoints(),
+    } satisfies IpcWiringCtx);
   });
 
   /** Count .md notes anywhere in the tree (recursive over folder
