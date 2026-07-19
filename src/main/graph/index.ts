@@ -42,11 +42,12 @@ export type {
 // — it's internal-only.
 export {
   indexNote, indexCsvTable, unindexCsvTable, unindexAllCsvTables,
+  indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
   removeNote, indexSource, removeSource, parseSourceIdFromPath,
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
   indexAllNotes,
 } from './indexers';
-export type { CsvTableColumn, CsvTableShape, HeadingRenameCandidate } from './indexers';
+export type { CsvTableColumn, CsvTableShape, MarkdownTableShape, HeadingRenameCandidate } from './indexers';
 import { addOntologyToStore } from './indexers';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
