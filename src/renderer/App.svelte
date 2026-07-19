@@ -1345,6 +1345,7 @@
           onMineReferences={handleMineReferences}
           onTableClick={(name) => editor.openQuery(`SELECT * FROM ${name}`, 'sql')}
           onOpenCsv={(rel) => handleFileSelect(rel)}
+          onOpenNote={(rel) => handleFileSelect(rel)}
           onExternalDrop={handleExternalDrop}
           canPaste={clipboard.current !== null}
         />
