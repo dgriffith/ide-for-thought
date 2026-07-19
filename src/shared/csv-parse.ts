@@ -50,6 +50,21 @@ export function parseCsv(text: string): ParsedCsv {
   };
 }
 
+/**
+ * Serialize headers + rows to RFC-4180 CSV text (comma-delimited, `\n`
+ * line breaks). A field is quoted only when it contains a comma, a double
+ * quote, or a line break; embedded quotes are doubled. Used by the
+ * markdown-table → DuckDB path (#1357) to hand a captioned table's cells to
+ * DuckDB's CSV sniffer so type inference matches the standalone-`.csv` path.
+ */
+export function serializeCsv(headers: string[], rows: string[][]): string {
+  const esc = (field: string): string =>
+    /[",\r\n]/.test(field) ? '"' + field.replace(/"/g, '""') + '"' : field;
+  const lines = [headers.map(esc).join(',')];
+  for (const row of rows) lines.push(row.map(esc).join(','));
+  return lines.join('\n');
+}
+
 function splitRecords(text: string): string[][] {
   const out: string[][] = [];
   let cur: string[] = [];

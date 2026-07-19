@@ -1,9 +1,13 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
+import { parseMarkdown, type ParsedTable } from '../graph/parser';
 import { slugifyTableName } from '../../shared/table-name';
+import { serializeCsv } from '../../shared/csv-parse';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
@@ -16,6 +20,18 @@ interface TablesState {
   pathToTable: Map<string, string>;
   /** tableName → relativePath, so we can detect + warn on collisions. */
   tableToPath: Map<string, string>;
+  /**
+   * notePath → the captioned markdown tables registered from that note (#1357).
+   * A note can hold several captioned tables; `tableIndex` is the position in
+   * the note's full `parsed.tables` list (captioned or not), matching the
+   * graph's positional `…/table/<index>` addressing.
+   */
+  noteTables: Map<string, { name: string; tableIndex: number }[]>;
+  /**
+   * tableName → notePath. Shares the identifier namespace with `tableToPath`
+   * so a markdown table can't collide with a CSV (or another note table).
+   */
+  tableToNote: Map<string, string>;
 }
 
 // Dispose closes the in-memory DuckDB (connection then instance) before the
@@ -54,6 +70,8 @@ export async function initTablesDb(ctx: ProjectContext): Promise<void> {
     connection,
     pathToTable: new Map(),
     tableToPath: new Map(),
+    noteTables: new Map(),
+    tableToNote: new Map(),
   });
 }
 
@@ -170,6 +188,13 @@ export type RegisterCsvResult =
   | { ok: true }
   | { ok: false; reason: 'collision'; collision: CsvTableCollision }
   | { ok: false; reason: 'inactive' }
+  | { ok: false; reason: 'error'; error: unknown };
+
+export type RegisterTableResult =
+  | { ok: true; name: string }
+  | { ok: false; reason: 'collision'; collision: CsvTableCollision }
+  | { ok: false; reason: 'inactive' }
+  | { ok: false; reason: 'uncaptioned' }
   | { ok: false; reason: 'error'; error: unknown };
 
 /**
@@ -321,6 +346,124 @@ export async function unregisterCsv(ctx: ProjectContext, relativePath: string): 
   pathToTable.delete(relativePath);
   tableToPath.delete(tableName);
   unindexCsvTable(ctx, tableName);
+}
+
+// ── Markdown tables (#1357) ─────────────────────────────────────────────────
+
+/**
+ * Materialize a captioned markdown table into the shared DuckDB as a real
+ * TABLE (not a VIEW — an embedded table has no backing file to `read_csv`
+ * lazily). The rows are serialized to CSV text and loaded through DuckDB's
+ * CSV sniffer so **type inference matches the standalone-`.csv` path** (a
+ * numeric column comes back numeric).
+ *
+ * Opt-in: only tables carrying a `name` (from a `Table: <caption>` line, #1356)
+ * are registered; uncaptioned tables stay graph-only and return `uncaptioned`.
+ *
+ * Names share one identifier namespace with CSV tables and other note tables,
+ * so a clash is skipped + surfaced via the same collision toast (#354). CSV
+ * tables win — callers register all CSVs before note tables (see #1358).
+ *
+ * Precondition: the caller has already dropped this note's prior tables (via
+ * `unregisterNoteTables`) — `reregisterNoteTables` does this. A lingering
+ * entry for `notePath` therefore means a sibling table in the same note
+ * already claimed the name (two identical captions), which is also skipped.
+ */
+export async function registerMarkdownTable(
+  ctx: ProjectContext,
+  notePath: string,
+  table: ParsedTable,
+  tableIndex: number,
+): Promise<RegisterTableResult> {
+  const state = getState(ctx);
+  if (!state) return { ok: false, reason: 'inactive' };
+  const { rootPath, connection, tableToPath, tableToNote, noteTables } = state;
+  const tableName = table.name;
+  if (!tableName) return { ok: false, reason: 'uncaptioned' };
+
+  const existingPath = tableToPath.get(tableName) ?? tableToNote.get(tableName);
+  if (existingPath) {
+    console.warn(
+      `[tables] Table name collision: '${tableName}' from note '${notePath}' ` +
+      `is already used by '${existingPath}'. Skipping the markdown table. ` +
+      `Rename the 'Table:' caption to disambiguate.`,
+    );
+    const collision = { tableName, existingPath, attemptedPath: notePath };
+    // A same-note duplicate (both paths identical) is a user typo, not a
+    // cross-source clash — skip it quietly rather than firing a confusing toast.
+    if (existingPath !== notePath) emitCollision(rootPath, collision);
+    return { ok: false, reason: 'collision', collision };
+  }
+
+  // Round-trip the cells through a temp CSV so DuckDB's sniffer types them.
+  const csvText = serializeCsv(table.headers, table.rows);
+  const tmpPath = path.join(os.tmpdir(), `minerva-mdtable-${crypto.randomUUID()}.csv`);
+  try {
+    await fs.writeFile(tmpPath, csvText, 'utf-8');
+    const escaped = tmpPath.replace(/'/g, "''");
+    // header=true: we always emit a header row, so don't leave it to sniffing.
+    // null_padding=true: tolerate short rows in a hand-written markdown table.
+    await connection.run(
+      `CREATE OR REPLACE TABLE "${tableName}" AS SELECT * FROM ` +
+      `read_csv_auto('${escaped}', header=true, null_padding=true)`,
+    );
+    const entries = noteTables.get(notePath) ?? [];
+    entries.push({ name: tableName, tableIndex });
+    noteTables.set(notePath, entries);
+    tableToNote.set(tableName, notePath);
+    return { ok: true, name: tableName };
+  } catch (err) {
+    console.warn(
+      `[tables] Failed to register markdown table '${tableName}' from ` +
+      `'${notePath}': ` + (err instanceof Error ? err.message : String(err)),
+    );
+    return { ok: false, reason: 'error', error: err };
+  } finally {
+    await fs.rm(tmpPath, { force: true }).catch(() => { /* best-effort cleanup */ });
+  }
+}
+
+/** Drop every DuckDB table registered from a note. No-op if none were. */
+export async function unregisterNoteTables(ctx: ProjectContext, notePath: string): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  const { connection, noteTables, tableToNote } = state;
+  const entries = noteTables.get(notePath);
+  if (!entries) return;
+  for (const { name } of entries) {
+    try {
+      await connection.run(`DROP TABLE IF EXISTS "${name}"`);
+    } catch { /* table may already be gone */ }
+    tableToNote.delete(name);
+  }
+  noteTables.delete(notePath);
+}
+
+/**
+ * Re-parse a note and re-register its captioned tables: drop the note's prior
+ * tables, then register each captioned one afresh. This is the entry the file
+ * watcher + boot sweep call (#1358); a note edit can add/remove/rename a
+ * caption or change rows, so a full drop-then-register keeps DuckDB in sync.
+ */
+export async function reregisterNoteTables(
+  ctx: ProjectContext,
+  notePath: string,
+  content: string,
+): Promise<{ count: number; collisions: CsvTableCollision[] }> {
+  const state = getState(ctx);
+  if (!state) return { count: 0, collisions: [] };
+  await unregisterNoteTables(ctx, notePath);
+  const parsed = parseMarkdown(content);
+  let count = 0;
+  const collisions: CsvTableCollision[] = [];
+  for (let i = 0; i < parsed.tables.length; i++) {
+    const table = parsed.tables[i]!;
+    if (!table.name) continue; // uncaptioned → graph-only, skip SQL registration
+    const result = await registerMarkdownTable(ctx, notePath, table, i);
+    if (result.ok) count++;
+    else if (result.reason === 'collision') collisions.push(result.collision);
+  }
+  return { count, collisions };
 }
 
 /**
