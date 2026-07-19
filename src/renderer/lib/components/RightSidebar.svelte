@@ -256,7 +256,7 @@
     {:else if activePanel === 'tags'}
       <TagsPanel {content} {onFileSelect} onSourceSelect={onOpenSource} />
     {:else if activePanel === 'tables'}
-      <TablesPanel {content} {onOpenQuery} />
+      <TablesPanel {activeFilePath} {content} {revision} {onOpenQuery} />
     {:else if activePanel === 'citations'}
       <CitationsPanel {activeFilePath} {content} {revision} {onOpenSource} {onOpenExcerpt} />
     {:else if activePanel === 'bookmarks'}
