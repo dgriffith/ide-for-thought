@@ -1,76 +1,97 @@
 <script lang="ts">
   /**
-   * Per-note Tables panel: extracts DuckDB table references from the
-   * active note's SQL fences (```sql blocks + any `language: sql` query
-   * fences). Each distinct table name becomes a clickable row that opens
-   * `SELECT * FROM <name>` in a new query tab.
+   * Per-note Tables panel — two sections (user request):
+   *  - **Referenced**: DuckDB tables the note's SQL fences read (```sql blocks +
+   *    any `language: sql` query fences), parsed from the body via
+   *    `extractReferencedTableNames`. May point at tables defined elsewhere or
+   *    at names that aren't registered.
+   *  - **Defined in this note**: tables materialized from *this* note's
+   *    captioned markdown tables (#1356–#1360) — registered tables whose
+   *    `source === 'note'` and `relativePath` is the active note.
    *
-   * Polished per IMPLEMENTATION.md §13.5: tables icon + mono name +
-   * rows × cols stat in mono-faint + right-aligned SELECT * accent
-   * button. Hover keeps the whole row clickable so the existing
-   * one-click-to-query muscle memory still works.
+   * A table the note both defines and queries appears only under Defined. Each
+   * row opens `SELECT * FROM <name>` in a new query tab.
+   *
+   * Polished per IMPLEMENTATION.md §13.5: tables icon + mono name + rows × cols
+   * stat in mono-faint + right-aligned SELECT * accent button.
    */
   import { api } from '../../ipc/client';
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
   import type { TableInfo } from '../../ipc/client';
+  import { partitionTables } from './tables-panel-logic';
 
   interface Props {
     content: string;
+    activeFilePath: string | null;
+    /** Bumped by the sidebar's refresh() on save/auto-save — re-lists tables so
+     *  the Defined section reflects newly registered / dropped note tables. */
+    revision: number;
     onOpenQuery: (sql: string) => void;
   }
 
-  let { content, onOpenQuery }: Props = $props();
+  let { content, activeFilePath, revision, onOpenQuery }: Props = $props();
 
-  let registeredTables = $state<Map<string, TableInfo>>(new Map());
+  let registered = $state<TableInfo[]>([]);
   let search = $state('');
 
   async function refreshTables() {
     try {
-      const list = await api.tables.list();
-      registeredTables = new Map(list.map((t) => [t.name, t]));
-    } catch { /* tables db not ready — keep empty map */ }
+      registered = await api.tables.list();
+    } catch { /* tables db not ready — keep empty list */ }
   }
 
-  $effect(() => { void refreshTables(); });
+  // Re-list on mount and whenever `revision` bumps (a save may have registered
+  // or dropped this note's tables).
+  $effect(() => { void revision; void refreshTables(); });
 
-  // Pull out SQL fences first so we don't false-positive on "FROM" in
-  // prose. Matches both ```sql and the query-directive fences that
-  // carry language: sql metadata.
-  const sqlFenceRe = /```(?:sql|query(?:-table|-list)?)\b[^\n]*\n([\s\S]*?)```/gi;
-  // Very small grammar: table name after FROM / JOIN / INTO, optionally
-  // schema-qualified. Good enough for the common shapes; complex SQL
-  // (CTEs with aliases, derived tables) will over-report and the
-  // existence filter below sorts out the noise.
-  const tableRefRe = /\b(?:FROM|JOIN|INTO)\s+("[^"]+"|`[^`]+`|[a-zA-Z_][\w.]*)/gi;
-
-  const tables = $derived(() => {
-    const seen = new Set<string>();
-    let m: RegExpExecArray | null;
-    sqlFenceRe.lastIndex = 0;
-    while ((m = sqlFenceRe.exec(content)) !== null) {
-      const body = m[1]!;
-      tableRefRe.lastIndex = 0;
-      let t: RegExpExecArray | null;
-      while ((t = tableRefRe.exec(body)) !== null) {
-        const raw = t[1]!;
-        const unquoted = raw.replace(/^["`]|["`]$/g, '');
-        // Strip schema prefix for display + matching — DuckDB registers
-        // CSVs as bare names in the default schema.
-        const bare = unquoted.split('.').pop()!;
-        if (bare) seen.add(bare);
-      }
-    }
-    const q = search.trim().toLowerCase();
-    const all = [...seen].sort();
-    return q ? all.filter((n) => n.toLowerCase().includes(q)) : all;
-  });
+  const parts = $derived(partitionTables(content, registered, activeFilePath, search));
+  const total = $derived(parts.defined.length + parts.referenced.length);
 
   function handleSelectStar(e: MouseEvent, name: string) {
     e.stopPropagation();
     onOpenQuery(`SELECT * FROM ${name}`);
   }
 </script>
+
+<!-- A div, not a button: the row carries an inner "SELECT *" button, and a
+     button can't contain a button. role/tabindex/onkeydown keep it
+     keyboard-accessible. `info` is the registered table, or undefined for a
+     referenced name that isn't a live DuckDB table. -->
+{#snippet tableRow(name: string, info: TableInfo | undefined, caption: string | undefined)}
+  <div
+    class="row"
+    class:dead={info === undefined}
+    role="button"
+    tabindex="0"
+    onclick={() => onOpenQuery(`SELECT * FROM ${name}`)}
+    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenQuery(`SELECT * FROM ${name}`); } }}
+    title={info
+      ? `${caption ? `${caption} · ` : ''}${name} · ${info.rowCount} × ${info.columns.length}`
+      : `${name} (not registered)`}
+  >
+    {#if info}
+      <Icon name="tables" size={14} color="var(--text-muted)" />
+    {:else}
+      <Icon name="warn" size={13} color="var(--rust)" />
+    {/if}
+    <span class="name-col">
+      <span class="name">{name}</span>
+      {#if info}
+        <span class="stat">{info.rowCount} × {info.columns.length}</span>
+      {:else}
+        <span class="stat dead-stat">not registered</span>
+      {/if}
+    </span>
+    {#if info}
+      <button
+        class="select-btn"
+        onclick={(e) => handleSelectStar(e, name)}
+        title="SELECT * FROM {name}"
+      >SELECT *</button>
+    {/if}
+  </div>
+{/snippet}
 
 <div class="tables-panel">
   <Ribbon
@@ -79,47 +100,21 @@
     searchPlaceholder="Find table…"
   />
   <div class="scroll">
-    {#if tables().length === 0}
-      <div class="empty">No tables referenced</div>
+    {#if total === 0}
+      <div class="empty">No tables</div>
     {:else}
-      <div class="count">{tables().length} table{tables().length !== 1 ? 's' : ''}</div>
-      {#each tables() as name}
-        {@const info = registeredTables.get(name)}
-        {@const known = info !== undefined}
-        <!-- A div, not a button: the row carries an inner "SELECT *" button, and
-             a button can't contain a button. role/tabindex/onkeydown keep it
-             keyboard-accessible. -->
-        <div
-          class="row"
-          class:dead={!known}
-          role="button"
-          tabindex="0"
-          onclick={() => onOpenQuery(`SELECT * FROM ${name}`)}
-          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenQuery(`SELECT * FROM ${name}`); } }}
-          title={known ? `${name} · ${info.rowCount} × ${info.columns.length}` : `${name} (not registered)`}
-        >
-          {#if known}
-            <Icon name="tables" size={14} color="var(--text-muted)" />
-          {:else}
-            <Icon name="warn" size={13} color="var(--rust)" />
-          {/if}
-          <span class="name-col">
-            <span class="name">{name}</span>
-            {#if known}
-              <span class="stat">{info.rowCount} × {info.columns.length}</span>
-            {:else}
-              <span class="stat dead-stat">not registered</span>
-            {/if}
-          </span>
-          {#if known}
-            <button
-              class="select-btn"
-              onclick={(e) => handleSelectStar(e, name)}
-              title="SELECT * FROM {name}"
-            >SELECT *</button>
-          {/if}
-        </div>
-      {/each}
+      {#if parts.referenced.length > 0}
+        <div class="section-header">Referenced · {parts.referenced.length}</div>
+        {#each parts.referenced as r (r.name)}
+          {@render tableRow(r.name, r.info, undefined)}
+        {/each}
+      {/if}
+      {#if parts.defined.length > 0}
+        <div class="section-header">Defined in this note · {parts.defined.length}</div>
+        {#each parts.defined as t (t.name)}
+          {@render tableRow(t.name, t, t.caption)}
+        {/each}
+      {/if}
     {/if}
   </div>
 </div>
@@ -136,12 +131,19 @@
     overflow-y: auto;
     padding: 4px 0;
   }
-  .count {
+  /* Section label above each group (Referenced / Defined in this note). The
+     first sits flush; later ones get a top rule + spacing to separate groups. */
+  .section-header {
     padding: 6px 12px 4px;
     font-family: var(--font-mono);
     font-size: 10.5px;
     color: var(--text-faint);
     letter-spacing: 0.04em;
+  }
+  .section-header ~ .section-header {
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
   }
 
   /* Row (§13.5) — icon + (name + stat stacked) + right-aligned SELECT *
