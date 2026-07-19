@@ -3,6 +3,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import { indexCsvTable, unindexCsvTable, unindexAllCsvTables, type CsvTableColumn } from '../graph/index';
+import { slugifyTableName } from '../../shared/table-name';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 import { loadCsvSchema, buildReadCsvSql } from './csv-schema';
@@ -113,17 +114,9 @@ export async function runQuery(ctx: ProjectContext, sql: string): Promise<QueryR
  * Identifiers that would start with a digit get a `t_` prefix.
  */
 export function deriveTableName(relativePath: string): string {
-  const withoutExt = relativePath.replace(/\.csv$/i, '');
-  // Separator-ish characters collapse to a single underscore; anything else
-  // non-alphanumeric just drops out.
-  let name = withoutExt
-    .replace(/[/\\.\-\s]+/g, '_')
-    .replace(/[^a-zA-Z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  if (!name) name = 'table';
-  if (/^[0-9]/.test(name)) name = 't_' + name;
-  return name;
+  // Strip the CSV extension, then apply the shared identifier sanitizer so the
+  // CSV and markdown-table (#1356) paths agree on names + collide in one namespace.
+  return slugifyTableName(relativePath.replace(/\.csv$/i, ''));
 }
 
 /**
