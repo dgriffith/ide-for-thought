@@ -82,6 +82,9 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
         search.indexAllNotes(ctx),
       ]);
       await tables.registerAllCsvs(ctx);
+      // Captioned markdown tables register after CSVs so a name shared by both
+      // resolves deterministically — CSV wins, note table is skipped (#1358).
+      await tables.registerAllNoteTables(ctx);
       // Re-project conversation JSON into the graph after notes are
       // indexed (so contextNote IRIs resolve against a populated note
       // namespace). Also self-heals stale relative-path triples from

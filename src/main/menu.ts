@@ -342,6 +342,8 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
             search.indexAllNotes(ctx),
           ]);
           await tables.registerAllCsvs(ctx);
+          // Note tables after CSVs — CSV wins on a shared name (#1358).
+          await tables.registerAllNoteTables(ctx);
           if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
         },
       }),
