@@ -92,6 +92,8 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
     await ensureMinervaDir();
     await tables.initTablesDb(ctx);
     await tables.registerAllCsvs(ctx);
+    // Captioned markdown tables register after CSVs — CSV wins on a name clash.
+    await tables.registerAllNoteTables(ctx);
   })());
   const ensureVectors = () => (vectorsReady ??= (async () => {
     await ensureMinervaDir();

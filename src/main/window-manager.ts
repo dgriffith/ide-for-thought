@@ -385,6 +385,11 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
         search.indexNote(projectCtx, relativePath, content);
+        // Captioned markdown tables in the note re-register in DuckDB (#1358).
+        if (relativePath.toLowerCase().endsWith('.md')) {
+          const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
+          if (r.changed && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        }
         debouncedPersist();
       } catch (err) {
         // Usually a race (file deleted between events), but log so real bugs
@@ -413,6 +418,10 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         const content = await notebaseFs.readFile(rootPath, relativePath);
         await graph.indexNote(projectCtx, relativePath, content);
         search.indexNote(projectCtx, relativePath, content);
+        if (relativePath.toLowerCase().endsWith('.md')) {
+          const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
+          if (r.changed && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        }
         debouncedPersist();
       } catch (err) {
         console.warn(`[watcher] indexing failed for ${relativePath}:`, err);
@@ -435,6 +444,12 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       try {
         search.removeNote(projectCtx, relativePath);
         graph.removeNote(projectCtx, relativePath);
+        // Drop any DuckDB tables the deleted note owned (#1358). A rename
+        // surfaces as delete+create, so the create half re-registers them.
+        if (relativePath.toLowerCase().endsWith('.md')) {
+          await tables.unregisterNoteTables(projectCtx, relativePath);
+          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+        }
       } catch (err) {
         console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
       }

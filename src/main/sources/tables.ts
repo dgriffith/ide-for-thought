@@ -449,9 +449,13 @@ export async function reregisterNoteTables(
   ctx: ProjectContext,
   notePath: string,
   content: string,
-): Promise<{ count: number; collisions: CsvTableCollision[] }> {
+): Promise<{ count: number; collisions: CsvTableCollision[]; changed: boolean }> {
   const state = getState(ctx);
-  if (!state) return { count: 0, collisions: [] };
+  if (!state) return { count: 0, collisions: [], changed: false };
+  // Whether the note owned any tables before this pass — combined with the new
+  // count/collisions below, lets the watcher skip a TABLES_CHANGED broadcast
+  // when an ordinary (caption-less) note is saved.
+  const hadBefore = state.noteTables.has(notePath);
   await unregisterNoteTables(ctx, notePath);
   const parsed = parseMarkdown(content);
   let count = 0;
@@ -463,7 +467,7 @@ export async function reregisterNoteTables(
     if (result.ok) count++;
     else if (result.reason === 'collision') collisions.push(result.collision);
   }
-  return { count, collisions };
+  return { count, collisions, changed: hadBefore || count > 0 || collisions.length > 0 };
 }
 
 /**
@@ -501,6 +505,57 @@ export async function registerAllCsvs(ctx: ProjectContext): Promise<{ count: num
         const result = await registerCsv(ctx, rel);
         if (result.ok) count++;
         else if (result.reason === 'collision') collisions.push(result.collision);
+      }
+    }
+  }
+  await walk(rootPath);
+  return { count, collisions };
+}
+
+/**
+ * Scan the thoughtbase on project open and register every captioned markdown
+ * table (#1358). Mirrors `registerAllCsvs`'s walker. **Must run after
+ * `registerAllCsvs`** so a CSV and a note table that derive the same name
+ * resolve deterministically — the CSV wins and the note table is skipped.
+ *
+ * Returns the count of registered tables plus collisions (routed to the same
+ * toast as CSV collisions).
+ */
+export async function registerAllNoteTables(ctx: ProjectContext): Promise<{ count: number; collisions: CsvTableCollision[] }> {
+  const state = getState(ctx);
+  if (!state) return { count: 0, collisions: [] };
+  const { rootPath } = state;
+  // Drop any note tables from a previous sweep so a note deleted while the app
+  // was closed (or since the last "Rebuild All Indexes") doesn't linger — the
+  // walk below only revisits notes that still exist.
+  for (const notePath of [...state.noteTables.keys()]) {
+    await unregisterNoteTables(ctx, notePath);
+  }
+  let count = 0;
+  const collisions: CsvTableCollision[] = [];
+  async function walk(dirPath: string) {
+    let entries: import('node:fs').Dirent[];
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
+        const rel = path.relative(rootPath, fullPath);
+        let content: string;
+        try {
+          content = await fs.readFile(fullPath, 'utf-8');
+        } catch {
+          continue;
+        }
+        const result = await reregisterNoteTables(ctx, rel, content);
+        count += result.count;
+        collisions.push(...result.collisions);
       }
     }
   }
