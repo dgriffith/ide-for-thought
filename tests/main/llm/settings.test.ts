@@ -144,4 +144,29 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
       expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
     });
   });
+
+  describe('per-skill model overrides round-trip (#...)', () => {
+    it('reads back the saved override map — the API path and the settings view', async () => {
+      await saveSettings({ ...base, toolModelOverrides: { 'extract-key-claims': 'claude-opus-4-8' } });
+      expect((await getSettings()).toolModelOverrides).toEqual({ 'extract-key-claims': 'claude-opus-4-8' });
+      expect((await getSettingsForDisplay()).toolModelOverrides).toEqual({ 'extract-key-claims': 'claude-opus-4-8' });
+    });
+
+    it('omits the field entirely when no overrides are stored', async () => {
+      await saveSettings({ ...base });
+      expect((await getSettings()).toolModelOverrides).toBeUndefined();
+      expect((await getSettingsForDisplay()).toolModelOverrides).toBeUndefined();
+    });
+
+    it('drops empty / non-string entries and an empty map', async () => {
+      fs.writeFileSync(settingsFile(), JSON.stringify({
+        model: 'claude-sonnet-5',
+        toolModelOverrides: { good: 'claude-opus-4-8', blank: '', bad: 42 },
+      }));
+      expect((await getSettings()).toolModelOverrides).toEqual({ good: 'claude-opus-4-8' });
+
+      fs.writeFileSync(settingsFile(), JSON.stringify({ model: 'claude-sonnet-5', toolModelOverrides: {} }));
+      expect((await getSettings()).toolModelOverrides).toBeUndefined();
+    });
+  });
 });
