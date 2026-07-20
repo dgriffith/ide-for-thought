@@ -35,6 +35,21 @@ function resolveEffortSetting(stored: unknown): Effort | undefined {
   return isEffort(stored) ? stored : undefined;
 }
 
+/**
+ * Validate the persisted per-skill model override map (skill id → model id).
+ * Returns undefined when absent/empty so the field stays omitted, matching the
+ * optional shape. Without this, a saved override is written to disk but never
+ * read back — so it silently never applies (in the UI *or* at runtime).
+ */
+function resolveToolModelOverrides(stored: unknown): Record<string, string> | undefined {
+  if (!stored || typeof stored !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  for (const [id, model] of Object.entries(stored as Record<string, unknown>)) {
+    if (typeof model === 'string' && model) out[id] = model;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'llm-settings.json');
 }
@@ -52,11 +67,13 @@ export async function getSettings(): Promise<LLMSettings> {
     const apiKey = typeof parsed.apiKey === 'string'
       ? decryptSecret(parsed.apiKey)
       : (process.env.ANTHROPIC_API_KEY ?? '');
+    const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
     return {
       apiKey,
       model: resolveModel(parsed.model),
       web: resolveWeb(parsed.web),
       ...(effort ? { effort } : {}),
+      ...(toolModelOverrides ? { toolModelOverrides } : {}),
     };
   } catch {
     return {
@@ -83,10 +100,12 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
     const hasApiKey = typeof parsed.apiKey === 'string'
       ? parsed.apiKey.length > 0
       : !!process.env.ANTHROPIC_API_KEY;
+    const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
     return {
       model: resolveModel(parsed.model),
       web: resolveWeb(parsed.web),
       ...(effort ? { effort } : {}),
+      ...(toolModelOverrides ? { toolModelOverrides } : {}),
       hasApiKey,
     };
   } catch {
