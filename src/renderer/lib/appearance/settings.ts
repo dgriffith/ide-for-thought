@@ -13,6 +13,11 @@ interface PresetDef {
   label: string;
   /** null means: don't set --content-font-family, let --font-mono win. */
   css: string | null;
+  /** A specific named face this preset depends on that may not be installed
+   *  (#...). Set only for presets whose primary family is a concrete face (not
+   *  a generic/system keyword), so the Appearance panel can hint when it falls
+   *  through to a fallback. */
+  probe?: string;
 }
 
 export const FONT_FAMILY_PRESETS: Record<FontFamilyPreset, PresetDef> = {
@@ -29,10 +34,12 @@ export const FONT_FAMILY_PRESETS: Record<FontFamilyPreset, PresetDef> = {
   jetbrainsMono: {
     label: 'JetBrains Mono',
     css: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+    probe: 'JetBrains Mono',
   },
   berkeleyMono: {
     label: 'Berkeley Mono',
     css: '"Berkeley Mono", "TX-02", ui-monospace, SFMono-Regular, Menlo, monospace',
+    probe: 'Berkeley Mono',
   },
   systemMono: {
     label: 'System mono',
