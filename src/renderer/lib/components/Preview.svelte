@@ -377,9 +377,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         const srcIdx = tok.attrIndex('src');
         if (srcIdx < 0) return self.renderToken(tokens, idx, options);
         const src = tok.attrs![srcIdx]![1];
-        if (/^(?:https?:|data:|file:|blob:|mailto:)/i.test(src) || src.startsWith('//')) {
-            // Absolute / data URL — render normally.
+        if (/^(?:data:|file:|blob:|mailto:)/i.test(src)) {
+            // Inline / already-local — render unchanged.
             return self.renderToken(tokens, idx, options);
+        }
+        if (/^https?:/i.test(src) || src.startsWith('//')) {
+            // External network image — emit a cacheable placeholder. The remote
+            // `src` is the immediate/offline-uncached fallback; the post-render
+            // pass swaps in a locally-cached copy so it survives offline once
+            // viewed (#...).
+            const url = src.startsWith('//') ? `https:${src}` : src;
+            const altIdx = tok.attrIndex('alt');
+            const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
+            const titleIdx = tok.attrIndex('title');
+            const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
+            return `<img class="remote-image" data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title} loading="lazy" />`;
         }
         const rel = resolveRelativeImagePath(src, renderPathOverride ?? notePath);
         const altIdx = tok.attrIndex('alt');
@@ -660,6 +672,43 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }));
     }
 
+    /** url → data URL of a cached external image; survives re-renders. */
+    const remoteImageCache = new Map<string, string>();
+
+    /**
+     * Post-render: swap each external `![](https://…)` image for a
+     * locally-cached copy (#...) so remote images render offline once viewed.
+     * `api.images.cacheExternal(url)` returns cached bytes — fetching + caching
+     * on a miss when online — as a data URL. A null result (offline + uncached,
+     * or not an image) leaves the remote `<img>` src as the fallback.
+     */
+    async function hydrateRemoteImages(): Promise<void> {
+        const root = previewEl;
+        if (!root || typeof api.images?.cacheExternal !== 'function') return;
+        const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.remote-image[data-remote-src]'));
+        await Promise.all(imgs.map(async (img) => {
+            const url = img.dataset.remoteSrc;
+            if (!url) return;
+            const cached = remoteImageCache.get(url);
+            if (cached) { if (img.src !== cached) img.src = cached; return; }
+            try {
+                const asset = await api.images.cacheExternal(url);
+                if (!asset) return; // offline + uncached — keep the remote fallback
+                const view: Uint8Array = asset.bytes instanceof Uint8Array ? asset.bytes : new Uint8Array(asset.bytes);
+                let bin = '';
+                const CHUNK = 0x8000;
+                for (let i = 0; i < view.length; i += CHUNK) {
+                    bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
+                }
+                const dataUrl = `data:${asset.mime || 'application/octet-stream'};base64,${btoa(bin)}`;
+                remoteImageCache.set(url, dataUrl);
+                img.src = dataUrl;
+            } catch (err) {
+                console.warn('[preview] remote image hydration failed for', url, err);
+            }
+        }));
+    }
+
     /** id → data URL of a cached YouTube poster; survives re-renders. */
     const youtubeThumbCache = new Map<string, string>();
 
@@ -817,6 +866,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (injected) {
             highlightCodeBlocks();
             void hydrateLocalImages();
+            void hydrateRemoteImages();
             void hydrateYouTubeThumbnails();
             void resolveCiteQuoteLabels(citeDeps());
             void hydrateMermaidBlocks(root);
@@ -1076,6 +1126,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // binary IPC, swap in a data URL. Cached per-path so re-renders
             // skip the round-trip.
             void hydrateLocalImages();
+            void hydrateRemoteImages();
             void hydrateYouTubeThumbnails();
             // Transclusion hydration (#906) — resolve `![[note]]` / `![[note#H]]` /
             // `![[note^block]]` embeds, slicing + re-rendering the target inline.

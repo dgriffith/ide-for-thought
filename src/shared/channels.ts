@@ -9,6 +9,9 @@ export const Channels = {
   /** Write a binary blob (image / pdf / etc.) under a project-relative
    *  path. Used by the editor's image-upload-on-drop path (#455). */
   NOTEBASE_WRITE_BINARY: 'notebase:writeBinary',
+  /** Cached-or-fetched bytes for an external `![](https://…)` image, so notes
+   *  with remote images render offline once viewed. */
+  IMAGES_CACHE_EXTERNAL: 'images:cacheExternal',
   /** Cheap existence check — used by the upload path to dedupe
    *  content-hashed assets (#455). */
   NOTEBASE_FILE_EXISTS: 'notebase:fileExists',

@@ -201,6 +201,10 @@ contextBridge.exposeInMainWorld('api', {
     getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
     getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
   },
+  images: {
+    // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).
+    cacheExternal: (url: string) => ipcRenderer.invoke(Channels.IMAGES_CACHE_EXTERNAL, url),
+  },
   youtube: {
     // Cached-or-fetched poster bytes for a video id (offline cache, #...).
     thumbnail: (id: string) => ipcRenderer.invoke(Channels.YOUTUBE_THUMBNAIL, id),
