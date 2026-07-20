@@ -7,6 +7,7 @@ import { renameWithLinkRewrites } from '../notebase/rename';
 import { mergeNotes, previewMergeNotes } from '../notebase/merge';
 import { renameAnchor } from '../notebase/rename-anchor';
 import { renameSource, renameExcerpt } from '../notebase/rename-source-excerpt';
+import { getOrFetchRemoteImage } from '../images/remote-image-cache';
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -150,6 +151,12 @@ export function registerNotebase(): void {
   // a video id, or null when unavailable (offline + uncached).
   handle(Channels.YOUTUBE_THUMBNAIL, withRootPath(async (rootPath, id: string) =>
     getOrFetchThumbnail(rootPath, id),
+  ));
+
+  // Offline cache for external `![](https://…)` images (#...) — cached-or-fetched
+  // bytes + mime, or null when unavailable (offline + uncached / not an image).
+  handle(Channels.IMAGES_CACHE_EXTERNAL, withRootPath(async (rootPath, url: string) =>
+    getOrFetchRemoteImage(rootPath, url),
   ));
 
   handle(Channels.NOTEBASE_FILE_EXISTS, async (e, relativePath: string) => {

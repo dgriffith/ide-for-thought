@@ -56,7 +56,7 @@ describe('preload contextBridge contract (#676)', () => {
     expect(Object.keys(api()).sort()).toEqual([
       'app', 'bibliography', 'bookmarks', 'citations', 'clipper', 'collections', 'compute',
       'conversations', 'csl', 'embeddings', 'export', 'files', 'formatter', 'git', 'graph',
-      'links', 'menu', 'notebase', 'proposals', 'publish', 'queries',
+      'images', 'links', 'menu', 'notebase', 'proposals', 'publish', 'queries',
       'refactor', 'search', 'shell', 'sites', 'skills', 'sources', 'tables',
       'tabs', 'tags', 'templates', 'tools', 'view', 'youtube',
     ]);

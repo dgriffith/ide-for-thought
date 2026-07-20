@@ -460,6 +460,12 @@ export interface AppApi {
   getShortcuts(): Promise<ShortcutGroup[]>;
 }
 
+export interface ImagesApi {
+  /** Cached-or-fetched bytes + mime for an external image URL, or null when
+   *  unavailable (offline + not yet cached, non-image, or oversized). */
+  cacheExternal(url: string): Promise<{ bytes: Uint8Array; mime: string } | null>;
+}
+
 export interface YoutubeApi {
   /** Cached-or-fetched poster thumbnail bytes for a video id, or null when
    *  unavailable (offline + not yet cached). */
@@ -779,6 +785,7 @@ export interface IdeApi {
   publish: PublishApi;
   shell: ShellApi;
   app: AppApi;
+  images: ImagesApi;
   youtube: YoutubeApi;
   view: ViewApi;
   bookmarks: BookmarksApi;
