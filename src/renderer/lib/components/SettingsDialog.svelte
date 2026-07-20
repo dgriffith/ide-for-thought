@@ -8,6 +8,8 @@
     type FontFamilyPreset,
   } from '../appearance/settings';
   import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
+  import { clampFontSize, parseStoredFontSize, MIN_FONT, MAX_FONT, DEFAULT_FONT } from '../editor/font-size';
+  import { setZoom, getStoredZoom, MIN_ZOOM, MAX_ZOOM } from '../appearance/zoom';
   import { api } from '../ipc/client';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
@@ -52,6 +54,9 @@
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
+    /** Apply an absolute editor font size (px) — the Appearance panel's numeric
+     *  control. App reconfigures the live editor(s) + persists. */
+    onApplyFontSize: (px: number) => void;
     onThemeChanged: () => void;
     onClose: () => void;
     /** Tab to land on when the dialog opens. Defaults to 'editor'. The
@@ -60,7 +65,7 @@
     initialTab?: TabId | undefined;
   }
 
-  let { onApplyEditor, onThemeChanged, onClose, initialTab }: Props = $props();
+  let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
   type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
@@ -210,6 +215,23 @@
   // Appearance settings
   let theme = $state<ThemeMode>(getThemeMode());
   let fontFamily = $state<FontFamilyPreset>(getFontFamily());
+  // Editor font size (px) + whole-window zoom (%). Font size seeds from the
+  // stored value; zoom reads the *live* frame factor in onMount so the field
+  // reflects whatever the View-menu zoom shortcuts left on screen.
+  let editorFontSize = $state(clampFontSize(parseStoredFontSize(localStorage.getItem('editorFontSize'))));
+  let zoomPercent = $state(Math.round(getStoredZoom() * 100));
+
+  function applyEditorFontSize(px: number): void {
+    if (!Number.isFinite(px)) return; // ignore an empty / mid-edit field
+    editorFontSize = clampFontSize(px);
+    onApplyFontSize(editorFontSize);
+  }
+
+  function applyZoomPercent(percent: number): void {
+    if (!Number.isFinite(percent)) return;
+    const applied = setZoom(percent / 100);
+    zoomPercent = Math.round(applied * 100);
+  }
 
   // Font presets as an array for the select
   const fontPresets = Object.entries(FONT_FAMILY_PRESETS).map(([id, def]) => ({
@@ -267,6 +289,9 @@
   // ComputeSettings.svelte (self-contained).
 
   onMount(async () => {
+    // Reflect the live window zoom (the View-menu shortcuts may have changed it
+    // since it was last persisted).
+    zoomPercent = Math.round(api.view.getZoomFactor() * 100);
     try {
       const s = await api.tools.getSettings();
       model = s.model;
@@ -498,6 +523,46 @@
             </select>
             <p class="hint">
               Applies to the markdown editor and preview. App chrome always uses the system font.
+            </p>
+          </div>
+          <div class="field">
+            <label for="editor-font-size">Editor font size</label>
+            <div class="inline-num">
+              <input
+                id="editor-font-size"
+                type="number"
+                min={MIN_FONT}
+                max={MAX_FONT}
+                step="1"
+                value={editorFontSize}
+                onchange={(e) => applyEditorFontSize(parseInt(e.currentTarget.value, 10))}
+              />
+              <span class="unit">px</span>
+              <button class="btn-inline" onclick={() => applyEditorFontSize(DEFAULT_FONT)}>Reset</button>
+            </div>
+            <p class="hint">
+              Size of the text in the source editor only ({MIN_FONT}–{MAX_FONT}px). Also
+              adjustable with <kbd>⌘⇧=</kbd> / <kbd>⌘⇧-</kbd>.
+            </p>
+          </div>
+          <div class="field">
+            <label for="window-zoom">Window zoom</label>
+            <div class="inline-num">
+              <input
+                id="window-zoom"
+                type="number"
+                min={Math.round(MIN_ZOOM * 100)}
+                max={Math.round(MAX_ZOOM * 100)}
+                step="10"
+                value={zoomPercent}
+                onchange={(e) => applyZoomPercent(parseInt(e.currentTarget.value, 10))}
+              />
+              <span class="unit">%</span>
+              <button class="btn-inline" onclick={() => applyZoomPercent(100)}>Reset</button>
+            </div>
+            <p class="hint">
+              Scales the whole window — sidebar, toolbar, dialogs, and the editor together.
+              Also adjustable with <kbd>⌘+</kbd> / <kbd>⌘-</kbd> / <kbd>⌘0</kbd>.
             </p>
           </div>
 
@@ -1096,6 +1161,29 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     font-size: 12px;
+  }
+
+  /* A number input paired with a unit label and a small Reset button. */
+  .inline-num {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inline-num .unit {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .btn-inline {
+    padding: 4px 10px;
+    background: var(--bg-button, var(--bg));
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .btn-inline:hover {
+    border-color: var(--accent);
   }
 
   .field input[type="text"],
