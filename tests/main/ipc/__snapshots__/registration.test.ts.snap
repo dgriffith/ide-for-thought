@@ -216,5 +216,6 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "tool:getSettings",
   "tool:prepareConversation",
   "tool:setSettings",
+  "youtube:thumbnail",
 ]
 `;

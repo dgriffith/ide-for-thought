@@ -660,6 +660,43 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }));
     }
 
+    /** id → data URL of a cached YouTube poster; survives re-renders. */
+    const youtubeThumbCache = new Map<string, string>();
+
+    /**
+     * Post-render: swap each YouTube card's remote poster for a locally-cached
+     * copy (#...). `api.youtube.thumbnail(id)` returns cached bytes — fetching +
+     * caching on a miss when online — so the poster survives offline once
+     * viewed. A null result (offline + uncached) leaves the remote `<img>` src
+     * as the fallback, which is the pre-cache behavior.
+     */
+    async function hydrateYouTubeThumbnails(): Promise<void> {
+        const root = previewEl;
+        if (!root || typeof api.youtube?.thumbnail !== 'function') return;
+        const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.youtube-thumb[data-youtube-id]'));
+        await Promise.all(imgs.map(async (img) => {
+            const id = img.dataset.youtubeId;
+            if (!id) return;
+            const cached = youtubeThumbCache.get(id);
+            if (cached) { if (img.src !== cached) img.src = cached; return; }
+            try {
+                const bytes = await api.youtube.thumbnail(id);
+                if (!bytes) return; // offline + uncached — keep the remote fallback
+                const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+                let bin = '';
+                const CHUNK = 0x8000;
+                for (let i = 0; i < view.length; i += CHUNK) {
+                    bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
+                }
+                const url = `data:image/jpeg;base64,${btoa(bin)}`;
+                youtubeThumbCache.set(id, url);
+                img.src = url;
+            } catch (err) {
+                console.warn('[preview] youtube thumbnail hydration failed for', id, err);
+            }
+        }));
+    }
+
     /**
      * Transclusion hydration (#906). Walk `.transclusion[data-embed]`
      * placeholders, resolve each `![[target]]` to a note, slice out the
@@ -780,6 +817,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         if (injected) {
             highlightCodeBlocks();
             void hydrateLocalImages();
+            void hydrateYouTubeThumbnails();
             void resolveCiteQuoteLabels(citeDeps());
             void hydrateMermaidBlocks(root);
             void hydrateVegaBlocks(root, content);
@@ -1038,6 +1076,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // binary IPC, swap in a data URL. Cached per-path so re-renders
             // skip the round-trip.
             void hydrateLocalImages();
+            void hydrateYouTubeThumbnails();
             // Transclusion hydration (#906) — resolve `![[note]]` / `![[note#H]]` /
             // `![[note^block]]` embeds, slicing + re-rendering the target inline.
             void hydrateTransclusions();

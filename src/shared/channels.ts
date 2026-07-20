@@ -405,6 +405,8 @@ export const Channels = {
   TOOL_GET_KEY_STORAGE: 'tool:getKeyStorage',
   /** Actively validate an API key against Anthropic (a free models.list GET). */
   TOOL_CHECK_CONNECTION: 'tool:checkConnection',
+  /** Cached-or-fetched YouTube poster thumbnail bytes for a video id (offline). */
+  YOUTUBE_THUMBNAIL: 'youtube:thumbnail',
   /** Prepare the system prompt + first message + model for a conversational tool. */
   TOOL_PREPARE_CONVERSATION: 'tool:prepareConversation',
 

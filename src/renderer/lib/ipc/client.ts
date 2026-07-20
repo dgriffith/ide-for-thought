@@ -460,6 +460,12 @@ export interface AppApi {
   getShortcuts(): Promise<ShortcutGroup[]>;
 }
 
+export interface YoutubeApi {
+  /** Cached-or-fetched poster thumbnail bytes for a video id, or null when
+   *  unavailable (offline + not yet cached). */
+  thumbnail(id: string): Promise<Uint8Array | null>;
+}
+
 /** Whole-window zoom (#...). Synchronous wrappers over the renderer's own
  *  `webFrame`, so no promises. */
 export interface ViewApi {
@@ -773,6 +779,7 @@ export interface IdeApi {
   publish: PublishApi;
   shell: ShellApi;
   app: AppApi;
+  youtube: YoutubeApi;
   view: ViewApi;
   bookmarks: BookmarksApi;
   clipper: ClipperApi;
