@@ -460,6 +460,13 @@ export interface AppApi {
   getShortcuts(): Promise<ShortcutGroup[]>;
 }
 
+/** Whole-window zoom (#...). Synchronous wrappers over the renderer's own
+ *  `webFrame`, so no promises. */
+export interface ViewApi {
+  getZoomFactor(): number;
+  setZoomFactor(factor: number): void;
+}
+
 export interface BookmarksApi {
   load(): Promise<BookmarkNode[]>;
   save(tree: BookmarkNode[]): Promise<void>;
@@ -763,6 +770,7 @@ export interface IdeApi {
   publish: PublishApi;
   shell: ShellApi;
   app: AppApi;
+  view: ViewApi;
   bookmarks: BookmarksApi;
   clipper: ClipperApi;
   conversations: ConversationsApi;

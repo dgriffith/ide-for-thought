@@ -77,6 +77,8 @@
     lineBookmarkName,
   } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
+  import { applyStoredZoom } from './lib/appearance/zoom';
+  import { clampFontSize } from './lib/editor/font-size';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
@@ -761,6 +763,9 @@
     // in sync with what the renderer loaded from localStorage (#1139).
     api.menu.reportTheme(themeLabel);
     initAppearance();
+    // Restore the persisted whole-window zoom (#...) — the View-menu zoom roles
+    // don't persist on their own.
+    applyStoredZoom();
 
     // All main↔renderer event wiring — the native-menu command bindings, the
     // sources/tables/embeddings/notebase-watcher/tools broadcasts, import
@@ -1481,6 +1486,16 @@
         saveEditorSettings(s);
         editorComponent?.applySettings(s);
         numberedHeadings = s.numberedHeadings;
+      }}
+      onApplyFontSize={(px) => {
+        // The Settings numeric control sets an absolute editor font size.
+        // Apply to every open pane so a split view stays consistent, mirror the
+        // status-bar value, and persist even when no editor is mounted.
+        const next = clampFontSize(px);
+        editorFontSize = next;
+        const editors = Object.values(editorComponents).filter((e): e is Editor => e !== undefined);
+        if (editors.length > 0) for (const ec of editors) ec.setFontSize(next);
+        else localStorage.setItem('editorFontSize', String(next));
       }}
       onThemeChanged={() => {
         themeLabel = getThemeMode();

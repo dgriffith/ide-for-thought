@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, webFrame } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState } from '../shared/types';
@@ -200,6 +200,13 @@ contextBridge.exposeInMainWorld('api', {
   app: {
     getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
     getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
+  },
+  // Whole-window zoom (#...). Wraps the renderer's own `webFrame` — the same
+  // frame zoom the View menu's zoom roles drive — so the Settings control and
+  // the menu shortcuts stay in sync. Synchronous: no IPC round-trip.
+  view: {
+    getZoomFactor: (): number => webFrame.getZoomFactor(),
+    setZoomFactor: (factor: number): void => webFrame.setZoomFactor(factor),
   },
   shell: {
     revealFile: (relativePath?: string) =>

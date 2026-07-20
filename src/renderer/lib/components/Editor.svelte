@@ -280,6 +280,17 @@
     }
   }
 
+  /** Set the editor font size to an absolute px value (clamped) — the Settings
+   *  panel's numeric control (#...). Persists + reconfigures like the
+   *  increment/decrement commands, just to a specific size. */
+  export function setFontSize(px: number) {
+    const next = clampFontSize(px);
+    localStorage.setItem('editorFontSize', String(next));
+    if (view) {
+      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(next)) });
+    }
+  }
+
   export function currentFontSize(): number {
     return getFontSize();
   }
