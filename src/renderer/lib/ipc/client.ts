@@ -464,6 +464,9 @@ export interface YoutubeApi {
   /** Cached-or-fetched poster thumbnail bytes for a video id, or null when
    *  unavailable (offline + not yet cached). */
   thumbnail(id: string): Promise<Uint8Array | null>;
+  /** Cached-or-fetched video title (via oEmbed) for a video id, or null when
+   *  unavailable. */
+  title(id: string): Promise<string | null>;
 }
 
 /** Whole-window zoom (#...). Synchronous wrappers over the renderer's own

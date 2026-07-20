@@ -33,7 +33,11 @@ export function renderYouTubeFence(body: string): string {
   }
 
   const thumb = thumbnailUrl(ref.id);
+  // A user caption always wins. Only when there's none do we mark the generic
+  // label so the preview's post-render pass can swap in the cached real title.
+  const hasCaption = caption.length > 0;
   const label = caption || 'Watch on YouTube';
+  const genericTitleAttr = hasCaption ? '' : ` data-youtube-title-id="${escapeAttr(ref.id)}"`;
   // `ref.url` and `thumb` are built from a validated 11-char id, so they carry
   // no user-controlled characters; `label` is user text and must be escaped.
   return `<a class="youtube-embed" href="${escapeAttr(ref.url)}" data-youtube-url="${escapeAttr(ref.url)}"`
@@ -46,7 +50,7 @@ export function renderYouTubeFence(body: string): string {
     + `<span class="youtube-embed-play" aria-hidden="true"></span>`
     + `</span>`
     + `<span class="youtube-embed-caption">`
-    + `<span class="youtube-embed-label">${escapeHtml(label)}</span>`
+    + `<span class="youtube-embed-label"${genericTitleAttr}>${escapeHtml(label)}</span>`
     + `<span class="youtube-embed-host">youtube.com</span>`
     + `</span>`
     + `</a>`;

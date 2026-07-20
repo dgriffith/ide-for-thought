@@ -697,6 +697,41 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }));
     }
 
+    /** id → real video title, cached so re-renders skip the round-trip. */
+    const youtubeTitleCache = new Map<string, string>();
+
+    /**
+     * Post-render: replace a YouTube card's generic "Watch on YouTube" label
+     * with the real (cached) title (#...). Only labels marked
+     * `data-youtube-title-id` are touched — a user caption is left alone.
+     * `api.youtube.title(id)` returns the cached title, fetching + caching via
+     * oEmbed on a miss when online; a null result leaves the generic label.
+     */
+    async function hydrateYouTubeTitles(): Promise<void> {
+        const root = previewEl;
+        if (!root || typeof api.youtube?.title !== 'function') return;
+        const labels = Array.from(root.querySelectorAll<HTMLElement>('.youtube-embed-label[data-youtube-title-id]'));
+        await Promise.all(labels.map(async (labelEl) => {
+            const id = labelEl.dataset.youtubeTitleId;
+            if (!id) return;
+            const apply = (title: string) => {
+                labelEl.textContent = title;
+                const card = labelEl.closest<HTMLAnchorElement>('a.youtube-embed');
+                if (card) card.title = `${title} — opens in your browser`;
+            };
+            const cached = youtubeTitleCache.get(id);
+            if (cached) { apply(cached); return; }
+            try {
+                const title = await api.youtube.title(id);
+                if (!title) return; // offline / no title — keep the generic label
+                youtubeTitleCache.set(id, title);
+                apply(title);
+            } catch (err) {
+                console.warn('[preview] youtube title hydration failed for', id, err);
+            }
+        }));
+    }
+
     /**
      * Transclusion hydration (#906). Walk `.transclusion[data-embed]`
      * placeholders, resolve each `![[target]]` to a note, slice out the
@@ -818,6 +853,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             highlightCodeBlocks();
             void hydrateLocalImages();
             void hydrateYouTubeThumbnails();
+            void hydrateYouTubeTitles();
             void resolveCiteQuoteLabels(citeDeps());
             void hydrateMermaidBlocks(root);
             void hydrateVegaBlocks(root, content);
@@ -1077,6 +1113,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // skip the round-trip.
             void hydrateLocalImages();
             void hydrateYouTubeThumbnails();
+            void hydrateYouTubeTitles();
             // Transclusion hydration (#906) — resolve `![[note]]` / `![[note#H]]` /
             // `![[note^block]]` embeds, slicing + re-rendering the target inline.
             void hydrateTransclusions();

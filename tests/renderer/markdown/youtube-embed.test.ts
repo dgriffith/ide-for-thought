@@ -21,6 +21,14 @@ describe('renderYouTubeFence', () => {
     expect(captioned).toContain('>Rick Astley — Never Gonna Give You Up<');
   });
 
+  it('marks a generic label for title lookup, but leaves a user caption alone', () => {
+    // No caption → the label carries data-youtube-title-id so the preview can
+    // swap in the real title.
+    expect(renderYouTubeFence(`https://youtu.be/${ID}`)).toContain(`data-youtube-title-id="${ID}"`);
+    // With a caption, the label is NOT marked — the user's text wins.
+    expect(renderYouTubeFence(`https://youtu.be/${ID}\nMy caption`)).not.toContain('data-youtube-title-id');
+  });
+
   it('escapes a caption so it cannot inject markup', () => {
     const html = renderYouTubeFence(`https://youtu.be/${ID}\n<img src=x onerror=alert(1)>`);
     expect(html).not.toContain('<img src=x');

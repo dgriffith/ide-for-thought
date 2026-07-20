@@ -202,8 +202,9 @@ contextBridge.exposeInMainWorld('api', {
     getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
   },
   youtube: {
-    // Cached-or-fetched poster bytes for a video id (offline cache, #...).
+    // Cached-or-fetched poster bytes + title for a video id (offline cache, #...).
     thumbnail: (id: string) => ipcRenderer.invoke(Channels.YOUTUBE_THUMBNAIL, id),
+    title: (id: string) => ipcRenderer.invoke(Channels.YOUTUBE_TITLE, id),
   },
   // Whole-window zoom (#...). Wraps the renderer's own `webFrame` — the same
   // frame zoom the View menu's zoom roles drive — so the Settings control and

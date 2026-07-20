@@ -10,11 +10,12 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 
-import { getOrFetchThumbnail } from '../../../src/main/youtube/thumbnail-cache';
+import { getOrFetchThumbnail, getOrFetchTitle } from '../../../src/main/youtube/thumbnail-cache';
 
 const ID = 'dQw4w9WgXcQ';
 let root: string;
 const cacheFile = (id: string) => path.join(root, '.minerva', 'cache', 'youtube', `${id}.jpg`);
+const titleFile = (id: string) => path.join(root, '.minerva', 'cache', 'youtube', `${id}.json`);
 
 beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-yt-'));
@@ -66,6 +67,42 @@ describe('getOrFetchThumbnail', () => {
     vi.stubGlobal('fetch', fetchSpy);
     expect(await getOrFetchThumbnail(root, 'short')).toBeNull();
     expect(await getOrFetchThumbnail(root, '../../etc/passwd')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('getOrFetchTitle', () => {
+  it('returns a cached title without a network call', async () => {
+    await fsp.mkdir(path.dirname(titleFile(ID)), { recursive: true });
+    await fsp.writeFile(titleFile(ID), JSON.stringify({ title: 'Never Gonna Give You Up' }));
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    expect(await getOrFetchTitle(root, ID)).toBe('Never Gonna Give You Up');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('fetches via oEmbed and caches the title on a miss', async () => {
+    stubFetch(async () => ({ ok: true, json: async () => ({ title: 'A Real Title' }) }));
+    expect(await getOrFetchTitle(root, ID)).toBe('A Real Title');
+    expect(JSON.parse(await fsp.readFile(titleFile(ID), 'utf-8'))).toEqual({ title: 'A Real Title' });
+  });
+
+  it('returns null (nothing cached) when oEmbed is not ok', async () => {
+    stubFetch(async () => ({ ok: false }));
+    expect(await getOrFetchTitle(root, ID)).toBeNull();
+    expect(fs.existsSync(titleFile(ID))).toBe(false);
+  });
+
+  it('returns null when the response has no usable title', async () => {
+    stubFetch(async () => ({ ok: true, json: async () => ({ title: '   ' }) }));
+    expect(await getOrFetchTitle(root, ID)).toBeNull();
+  });
+
+  it('rejects an invalid id without a network call', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await getOrFetchTitle(root, 'nope')).toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

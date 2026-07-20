@@ -42,6 +42,7 @@ export interface ChannelMap {
   'notebase:readBinary': (relativePath: string) => Uint8Array;
   'notebase:writeBinary': (relativePath: string, bytes: Uint8Array) => void;
   'youtube:thumbnail': (id: string) => Uint8Array | null;
+  'youtube:title': (id: string) => string | null;
   'notebase:fileExists': (relativePath: string) => boolean;
   'notebase:writeFile': (relativePath: string, content: string) => void;
   'notebase:createFile': (relativePath: string) => void;
