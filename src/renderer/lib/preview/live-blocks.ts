@@ -3,6 +3,7 @@
  * the Preview pane:
  *   - `:::query-backlinks` — the notes that wiki-link to the current note (#1137)
  *   - `:::query-semantic`  — notes semantically similar to free query text (#1128)
+ *   - `:::query-search`    — full-text keyword matches for free query text (#...)
  *
  * The block plumbing (parse → execute → inject) lives in Preview.svelte; the
  * data fetch is a direct IPC. These string-only builders keep the selection +
@@ -10,7 +11,7 @@
  * nothing is written back to the note or graph.
  */
 import { escapeHtml, escapeAttr } from './text';
-import type { Backlink, RelatedNote } from '../../../shared/types';
+import type { Backlink, RelatedNote, SearchResult } from '../../../shared/types';
 
 function clampLimit(raw: string | undefined, fallback: number, max = 50): number {
   const n = Number.parseInt(raw ?? '', 10);
@@ -87,4 +88,38 @@ export function buildSemanticHtml(notes: RelatedNote[], config: Record<string, s
     return `<li>${head}${section}${snippet}</li>`;
   });
   return `${titleHtml}<ul class="query-result-list semantic-block"${compact ? ' data-compact="1"' : ''}>${items.join('')}</ul>`;
+}
+
+// ── Full-text search block (#...) ────────────────────────────────────────────
+// Keyword full-text search over the persisted index (MiniSearch, via
+// `api.search.query`), the same index the `search_notes` agent tool uses. The
+// parallel to the semantic block, but ranked by term match rather than meaning.
+
+/** Apply the block's `limit`, optional `minScore`, and self-exclusion (a note
+ *  matching its own search text shouldn't list itself). */
+export function selectSearchResults(
+  rows: SearchResult[],
+  config: Record<string, string>,
+  selfPath?: string | null,
+): SearchResult[] {
+  let out = selfPath ? rows.filter((r) => r.relativePath !== selfPath) : rows;
+  const minScore = Number.parseFloat(config.minScore ?? '');
+  if (Number.isFinite(minScore)) out = out.filter((r) => r.score >= minScore);
+  return out.slice(0, clampLimit(config.limit, 10));
+}
+
+export function buildSearchHtml(rows: SearchResult[], config: Record<string, string>): string {
+  const titleHtml = titleHtmlFor(config);
+  if (rows.length === 0) return `${titleHtml}<p class="query-empty">No matches</p>`;
+  // `compact: true` → link only; otherwise show the matched-context snippet.
+  const compact = config.compact === 'true' || config.compact === 'on';
+  const showSnippet = !compact && config.snippet !== 'false' && config.snippet !== 'off';
+  const items = rows.map((r) => {
+    const link = `<a class="wiki-link" data-target="${escapeAttr(r.relativePath)}">${escapeHtml(r.title || r.relativePath)}</a>`;
+    // Reuse the semantic block's snippet styling — same muted-context treatment.
+    const snippet = showSnippet && r.snippet
+      ? `<div class="semantic-snippet">${escapeHtml(r.snippet)}</div>` : '';
+    return `<li>${link}${snippet}</li>`;
+  });
+  return `${titleHtml}<ul class="query-result-list search-block"${compact ? ' data-compact="1"' : ''}>${items.join('')}</ul>`;
 }

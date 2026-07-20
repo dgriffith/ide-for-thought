@@ -9,8 +9,10 @@ import {
   semanticKinds,
   selectSemanticNotes,
   buildSemanticHtml,
+  selectSearchResults,
+  buildSearchHtml,
 } from '../../../src/renderer/lib/preview/live-blocks';
-import type { Backlink, RelatedNote } from '../../../src/shared/types';
+import type { Backlink, RelatedNote, SearchResult } from '../../../src/shared/types';
 
 const bl = (over: Partial<Backlink>): Backlink => ({
   source: 'notes/a.md', sourceTitle: 'A', linkType: 'references', linkLabel: '', linkColor: '#888', ...over,
@@ -87,5 +89,41 @@ describe('semantic block (#1128)', () => {
 
   it('quiet empty state', () => {
     expect(buildSemanticHtml([], {})).toContain('No related notes');
+  });
+});
+
+describe('full-text search block (#...)', () => {
+  const sr = (over: Partial<SearchResult>): SearchResult => ({
+    relativePath: 'notes/x.md', title: 'X', snippet: 'a match', score: 5, ...over,
+  });
+
+  it('applies limit, minScore, and self-exclusion', () => {
+    const rows = [
+      sr({ relativePath: '1.md', score: 9 }),
+      sr({ relativePath: '2.md', score: 4 }),
+      sr({ relativePath: 'self.md', score: 8 }),
+    ];
+    expect(selectSearchResults(rows, {}, 'self.md').map((r) => r.relativePath)).toEqual(['1.md', '2.md']);
+    expect(selectSearchResults(rows, { minScore: '5' }).map((r) => r.relativePath)).toEqual(['1.md', 'self.md']);
+    expect(selectSearchResults(rows, { limit: '1' })).toHaveLength(1);
+  });
+
+  it('renders ranked note links with a snippet by default', () => {
+    const html = buildSearchHtml([sr({ relativePath: 'notes/raft.md', title: 'Raft', snippet: '…consensus…' })], {});
+    expect(html).toContain('data-target="notes/raft.md"');
+    expect(html).toContain('Raft');
+    expect(html).toContain('…consensus…');
+    expect(html).toContain('search-block');
+  });
+
+  it('compact mode drops the snippet; title falls back to the path', () => {
+    const html = buildSearchHtml([sr({ title: '', relativePath: 'notes/y.md', snippet: 'ctx' })], { compact: 'true' });
+    expect(html).not.toContain('ctx');
+    expect(html).toContain('notes/y.md');
+    expect(html).toContain('data-compact="1"');
+  });
+
+  it('quiet empty state', () => {
+    expect(buildSearchHtml([], {})).toContain('No matches');
   });
 });

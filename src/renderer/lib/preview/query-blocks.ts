@@ -16,6 +16,8 @@ import {
   semanticKinds,
   selectSemanticNotes,
   buildSemanticHtml,
+  selectSearchResults,
+  buildSearchHtml,
 } from './live-blocks';
 
 export interface QueryBlockDeps {
@@ -54,6 +56,23 @@ export async function executeQueryBlock(deps: QueryBlockDeps, el: HTMLElement): 
     } catch (e) {
       console.warn('[query-backlinks] failed:', e);
       el.innerHTML = buildBacklinksHtml([], config);
+    }
+    return;
+  }
+
+  // Full-text search block (#...): keyword search over the persisted MiniSearch
+  // index (api.search.query — the same index the search_notes agent tool uses),
+  // rendered as ranked note links. Read-only.
+  if (type === 'search') {
+    const q = (query ?? '').trim();
+    if (!q) { el.innerHTML = buildSearchHtml([], config); return; }
+    el.innerHTML = '<span class="query-loading">Loading...</span>';
+    try {
+      const results = await api.search.query(q);
+      el.innerHTML = buildSearchHtml(selectSearchResults(results, config, deps.notePath), config);
+    } catch (e) {
+      console.warn('[query-search] failed:', e);
+      el.innerHTML = buildSearchHtml([], config);
     }
     return;
   }
