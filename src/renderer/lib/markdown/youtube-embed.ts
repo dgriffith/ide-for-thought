@@ -39,7 +39,10 @@ export function renderYouTubeFence(body: string): string {
   return `<a class="youtube-embed" href="${escapeAttr(ref.url)}" data-youtube-url="${escapeAttr(ref.url)}"`
     + ` target="_blank" rel="noopener noreferrer" title="${escapeAttr(label)} — opens in your browser">`
     + `<span class="youtube-embed-thumb">`
-    + `<img src="${escapeAttr(thumb)}" alt="${escapeAttr(label)}" loading="lazy" />`
+    // The remote `img.youtube.com` src is the immediate/offline fallback; the
+    // preview's post-render pass swaps in a cached local copy (via
+    // `data-youtube-id`) so the poster survives offline once viewed (#...).
+    + `<img class="youtube-thumb" data-youtube-id="${escapeAttr(ref.id)}" src="${escapeAttr(thumb)}" alt="${escapeAttr(label)}" loading="lazy" />`
     + `<span class="youtube-embed-play" aria-hidden="true"></span>`
     + `</span>`
     + `<span class="youtube-embed-caption">`

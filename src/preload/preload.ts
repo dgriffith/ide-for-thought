@@ -201,6 +201,10 @@ contextBridge.exposeInMainWorld('api', {
     getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
     getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
   },
+  youtube: {
+    // Cached-or-fetched poster bytes for a video id (offline cache, #...).
+    thumbnail: (id: string) => ipcRenderer.invoke(Channels.YOUTUBE_THUMBNAIL, id),
+  },
   // Whole-window zoom (#...). Wraps the renderer's own `webFrame` — the same
   // frame zoom the View menu's zoom roles drive — so the Settings control and
   // the menu shortcuts stay in sync. Synchronous: no IPC round-trip.
