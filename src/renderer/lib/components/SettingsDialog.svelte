@@ -7,6 +7,7 @@
     FONT_FAMILY_PRESETS,
     type FontFamilyPreset,
   } from '../appearance/settings';
+  import { isFontInstalled } from '../appearance/font-detect';
   import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
   import { clampFontSize, parseStoredFontSize, MIN_FONT, MAX_FONT, DEFAULT_FONT } from '../editor/font-size';
   import { setZoom, getStoredZoom, MIN_ZOOM, MAX_ZOOM } from '../appearance/zoom';
@@ -238,6 +239,12 @@
     id: id as FontFamilyPreset,
     label: def.label,
   }));
+
+  // Soft "font not installed" hint (#...): only the named-face presets carry a
+  // `probe`; the check is a heuristic, so this never blocks the choice — it just
+  // makes the silent fallback visible. Re-evaluated when the selection changes.
+  const fontProbe = $derived(FONT_FAMILY_PRESETS[fontFamily].probe);
+  const fontMissing = $derived(fontProbe !== undefined && !isFontInstalled(fontProbe));
 
   // Privileged sites now live in SitesSettings.svelte (self-contained panel).
 
@@ -524,6 +531,12 @@
             <p class="hint">
               Applies to the markdown editor and preview. App chrome always uses the system font.
             </p>
+            {#if fontMissing && fontProbe}
+              <p class="hint font-missing">
+                “{fontProbe}” doesn’t appear to be installed — the editor will use a fallback font.
+                Install {fontProbe}, or pick another option.
+              </p>
+            {/if}
           </div>
           <div class="field">
             <label for="editor-font-size">Editor font size</label>
@@ -1241,6 +1254,13 @@
     color: var(--text-muted);
     font-size: 11px;
     line-height: 1.45;
+  }
+
+  /* Soft "font not installed" advisory — the sanctioned signal color (--rust),
+     not danger-red, and non-blocking. */
+  .hint.font-missing {
+    color: var(--rust);
+    margin-top: 4px;
   }
 
   .hint code {
