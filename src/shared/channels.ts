@@ -403,6 +403,8 @@ export const Channels = {
   TOOL_SET_SETTINGS: 'tool:setSettings',
   /** At-rest storage status of the API key, for the settings panel (#1326). */
   TOOL_GET_KEY_STORAGE: 'tool:getKeyStorage',
+  /** Actively validate an API key against Anthropic (a free models.list GET). */
+  TOOL_CHECK_CONNECTION: 'tool:checkConnection',
   /** Prepare the system prompt + first message + model for a conversational tool. */
   TOOL_PREPARE_CONVERSATION: 'tool:prepareConversation',
 

@@ -11,6 +11,8 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import type { Citation, TurnUsage } from '../../../shared/types';
+import type { ConnectionCheckResult } from '../../../shared/tools/types';
+import { toConnectionResult } from '../connection-error';
 import type { Effort } from '../../../shared/tools/effort';
 import type {
   ChatMessage,
@@ -219,5 +221,11 @@ export class AnthropicProvider implements LLMProvider {
     stream.on('text', (delta) => onDelta(delta));
     const finalMessage = await stream.finalMessage();
     return { text: extractText(finalMessage.content), usage: foldUsage(emptyUsage(), finalMessage.usage) };
+  }
+
+  async checkConnection(): Promise<ConnectionCheckResult> {
+    // A minimal authenticated GET: no tokens spent, model-agnostic. Any success
+    // means the key is accepted.
+    return toConnectionResult(() => this.client.models.list({ limit: 1 }));
   }
 }

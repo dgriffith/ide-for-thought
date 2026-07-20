@@ -9,6 +9,7 @@ import { getMenuConfig, saveMenuConfig } from '../skills/menu-config-store';
 import { toSkillInfo, type SkillCatalogInfo } from '../../shared/skills/types';
 import type { MenuConfig } from '../../shared/skills/menu-config';
 import { getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../llm/settings';
+import { checkConnection } from '../llm/validate';
 import type { ToolExecutionRequest, LLMSettingsUpdate } from '../../shared/tools/types';
 import { winFromEvent } from './helpers';
 
@@ -95,4 +96,10 @@ export function registerTools(): void {
   ipcMain.handle(Channels.TOOL_SET_SETTINGS, (_e, update: LLMSettingsUpdate) => saveSettings(update));
 
   ipcMain.handle(Channels.TOOL_GET_KEY_STORAGE, () => getApiKeyStorage());
+
+  // Active key validation for the settings "Check connection" button — an
+  // unsaved typed key (if any) takes precedence over the stored one.
+  ipcMain.handle(Channels.TOOL_CHECK_CONNECTION, (_e, candidateKey?: string) =>
+    checkConnection(candidateKey),
+  );
 }

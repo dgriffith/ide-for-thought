@@ -44,3 +44,12 @@ export async function getProvider(): Promise<ResolvedProvider> {
     effort: settings.effort,
   };
 }
+
+/**
+ * Build a provider bound to an explicit key, bypassing stored settings — used
+ * by the "Check connection" validator to test an unsaved typed key. Keeps
+ * provider construction (and the SDK) behind the seam.
+ */
+export function createProviderForKey(apiKey: string): LLMProvider {
+  return new AnthropicProvider(apiKey);
+}

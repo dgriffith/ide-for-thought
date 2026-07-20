@@ -424,6 +424,8 @@ contextBridge.exposeInMainWorld('api', {
     getSettings: () => ipcRenderer.invoke(Channels.TOOL_GET_SETTINGS),
     setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
     getKeyStorage: () => ipcRenderer.invoke(Channels.TOOL_GET_KEY_STORAGE),
+    checkConnection: (candidateKey?: string) =>
+      ipcRenderer.invoke(Channels.TOOL_CHECK_CONNECTION, candidateKey),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
   skills: {
