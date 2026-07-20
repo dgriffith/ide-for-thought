@@ -38,12 +38,26 @@ const WATCH_HOSTS = new Set(['youtube.com', 'youtube-nocookie.com']);
  *   - `youtube.com/watch?v=ID`
  *   - `youtu.be/ID`
  *   - `youtube.com/embed/ID`, `/shorts/ID`, `/live/ID`
+ *   - a bare 11-char video id (`dQw4w9WgXcQ`)
+ *   - any of the above without a scheme (`youtube.com/watch?v=ID`, `youtu.be/ID`)
  * and tolerates extra query params (`&t=`, `&list=`, …). A `t=` / `start=`
  * offset is preserved on the canonical URL so "start at 1:30" survives.
  */
 export function parseYouTubeUrl(input: string): YouTubeRef | null {
-  const raw = input.trim();
+  let raw = input.trim();
   if (!raw) return null;
+
+  // A bare video id (no URL at all) — the shortest thing a `youtube` fence can
+  // carry. Build the canonical watch URL from it directly.
+  if (ID_RE.test(raw)) return { id: raw, url: `https://www.youtube.com/watch?v=${raw}` };
+
+  // Tolerate a schemeless URL by giving it one so `new URL` can parse it —
+  // pasting the address-bar text without the `https://` is the common case.
+  // Anchored to known YouTube hosts so this can't turn a `javascript:…` (or any
+  // other scheme) string into something that slips past the protocol check.
+  if (/^(?:www\.|m\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)\//i.test(raw)) {
+    raw = `https://${raw}`;
+  }
 
   let u: URL;
   try {

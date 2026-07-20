@@ -41,6 +41,24 @@ describe('parseYouTubeUrl', () => {
     expect(parseYouTubeUrl(`https://www.youtube.com/watch?v=${ID}&start=45`)?.start).toBe(45);
   });
 
+  it('accepts a bare 11-char video id', () => {
+    expect(parseYouTubeUrl(ID)).toEqual({ id: ID, url: `https://www.youtube.com/watch?v=${ID}` });
+    expect(parseYouTubeUrl(`  ${ID}  `)?.id).toBe(ID); // trimmed
+  });
+
+  it('accepts schemeless YouTube URLs (address-bar paste without https://)', () => {
+    expect(parseYouTubeUrl(`youtube.com/watch?v=${ID}`)?.id).toBe(ID);
+    expect(parseYouTubeUrl(`www.youtube.com/watch?v=${ID}`)?.id).toBe(ID);
+    expect(parseYouTubeUrl(`youtu.be/${ID}`)?.id).toBe(ID);
+    expect(parseYouTubeUrl(`m.youtube.com/watch?v=${ID}`)?.id).toBe(ID);
+  });
+
+  it('does not let the schemeless shortcut smuggle another scheme past the protocol check', () => {
+    // Not anchored to a YouTube host → left as-is → rejected by the protocol guard.
+    expect(parseYouTubeUrl(`javascript:alert(1)//youtube.com/watch?v=${ID}`)).toBeNull();
+    expect(parseYouTubeUrl(`data:text/html,youtube.com/watch?v=${ID}`)).toBeNull();
+  });
+
   it('rejects non-YouTube and malformed URLs', () => {
     expect(parseYouTubeUrl('https://vimeo.com/12345')).toBeNull();
     expect(parseYouTubeUrl('https://example.com/watch?v=dQw4w9WgXcQ')).toBeNull();
