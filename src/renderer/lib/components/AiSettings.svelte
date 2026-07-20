@@ -12,7 +12,7 @@
    */
   import { MODEL_OPTIONS } from '../../../shared/tools/models';
   import { EFFORT_LEVELS, type Effort } from '../../../shared/tools/effort';
-  import type { ApiKeyStorage } from '../../../shared/tools/types';
+  import type { ApiKeyStorage, ConnectionCheckResult } from '../../../shared/tools/types';
   import { voiceSettings, VOICE_MODEL_OPTIONS } from '../voice/voice-settings.svelte';
 
   interface Props {
@@ -23,6 +23,9 @@
     apiKeyStatus: 'unknown' | 'set' | 'unset';
     /** At-rest storage status of the saved key (#1326). Null while loading. */
     keyStorage: ApiKeyStorage | null;
+    /** Actively validate a key against Anthropic — the typed value if present,
+     *  else the stored one. */
+    onCheckConnection: (candidateKey: string) => Promise<ConnectionCheckResult>;
   }
 
   let {
@@ -32,11 +35,35 @@
     clearApiKey = $bindable(),
     apiKeyStatus,
     keyStorage,
+    onCheckConnection,
   }: Props = $props();
 
   // The saved key is protected at rest only when it's actually encrypted on
   // disk — reflect that literally, don't claim security we don't have.
   const keyEncrypted = $derived(apiKeyStatus === 'set' && !clearApiKey && keyStorage?.encrypted === true);
+
+  // "Check connection" — a presence check (✓ API key saved) doesn't prove
+  // Anthropic will accept the key; this fires a real request on demand.
+  let checking = $state(false);
+  let checkResult = $state<ConnectionCheckResult | null>(null);
+  // A stale result must not linger after the key text changes.
+  $effect(() => { void apiKeyInput; checkResult = null; });
+  // Nothing to check when clearing, or when there's neither a stored key nor a
+  // typed one.
+  const canCheck = $derived(!clearApiKey && (apiKeyStatus === 'set' || apiKeyInput.trim().length > 0));
+
+  async function runCheck() {
+    if (checking) return;
+    checking = true;
+    checkResult = null;
+    try {
+      checkResult = await onCheckConnection(apiKeyInput);
+    } catch (e) {
+      checkResult = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      checking = false;
+    }
+  }
 
   // '' in the <select> means "no override → built-in default"; map to/from
   // the optional `effort` prop.
@@ -112,6 +139,16 @@
     The saved value is never displayed back. You can also set
     <code>ANTHROPIC_API_KEY</code> as an environment variable.
   </p>
+  <div class="check-conn">
+    <button class="btn-check" onclick={runCheck} disabled={!canCheck || checking}>
+      {checking ? 'Checking…' : 'Check connection'}
+    </button>
+    {#if checkResult}
+      <span class="check-result" class:ok={checkResult.ok} class:bad={!checkResult.ok}>
+        {#if checkResult.ok}✓ Connected — Anthropic accepted the key.{:else}✗ {checkResult.error}{/if}
+      </span>
+    {/if}
+  </div>
   {#if apiKeyStatus === 'set' && !clearApiKey}
     <button class="link-btn" onclick={() => { clearApiKey = true; apiKeyInput = ''; }}>
       Clear saved key
@@ -214,4 +251,30 @@
   .api-key-status.saved {
     color: var(--accent);
   }
+
+  /* Check-connection row: a small button + an inline result. Success uses
+     --sage, failure --rust (signal colors, not red — per CLAUDE.md). */
+  .check-conn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .btn-check {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-button, var(--bg));
+    color: var(--text);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .btn-check:hover:not(:disabled) { border-color: var(--accent); }
+  .btn-check:disabled { opacity: 0.5; cursor: default; }
+  .check-result {
+    font-size: 11px;
+  }
+  .check-result.ok { color: var(--sage); }
+  .check-result.bad { color: var(--rust); }
 </style>

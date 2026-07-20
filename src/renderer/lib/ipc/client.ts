@@ -669,6 +669,9 @@ export interface ToolsApi {
   getSettings(): Promise<import('../../../shared/tools/types').LLMSettingsView>;
   setSettings(update: import('../../../shared/tools/types').LLMSettingsUpdate): Promise<void>;
   getKeyStorage(): Promise<import('../../../shared/tools/types').ApiKeyStorage>;
+  /** Actively validate an API key against Anthropic. Pass the unsaved typed key
+   *  to test it before saving; omit/empty to test the stored key. */
+  checkConnection(candidateKey?: string): Promise<import('../../../shared/tools/types').ConnectionCheckResult>;
   onInvoke(cb: (toolId: string) => void): void;
 }
 

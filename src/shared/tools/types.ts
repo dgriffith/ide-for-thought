@@ -247,6 +247,15 @@ export interface ApiKeyStorage {
   encrypted: boolean;
 }
 
+/** Result of an active "check connection" against Anthropic (#...). Unlike the
+ *  `hasApiKey` presence flag, this reflects whether Anthropic actually accepts
+ *  the key. */
+export interface ConnectionCheckResult {
+  ok: boolean;
+  /** Human-readable reason when `ok` is false. */
+  error?: string;
+}
+
 export interface LLMSettings {
   apiKey: string;
   model: string;

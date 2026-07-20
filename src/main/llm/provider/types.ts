@@ -14,6 +14,7 @@
  */
 import type { Citation, TurnUsage } from '../../../shared/types';
 import type { Effort } from '../../../shared/tools/effort';
+import type { ConnectionCheckResult } from '../../../shared/tools/types';
 
 /**
  * A provider-neutral tool declaration — the JSON-Schema shape the model sees.
@@ -147,4 +148,8 @@ export interface LLMProvider {
     req: CompletionRequest,
     onDelta?: (delta: string) => void,
   ): Promise<CompletionResult>;
+  /** Validate the configured key with a cheap, token-free request — powers the
+   *  settings "Check connection" button. Never throws: failures come back as
+   *  `{ ok: false, error }`. */
+  checkConnection(): Promise<ConnectionCheckResult>;
 }

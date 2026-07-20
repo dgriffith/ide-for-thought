@@ -956,6 +956,7 @@
             bind:clearApiKey
             {apiKeyStatus}
             {keyStorage}
+            onCheckConnection={(candidateKey) => api.tools.checkConnection(candidateKey)}
           />
         {/if}
       </section>

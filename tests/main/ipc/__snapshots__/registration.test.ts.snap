@@ -210,6 +210,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "templates:list",
   "templates:saveAs",
   "tool:cancel",
+  "tool:checkConnection",
   "tool:execute",
   "tool:getKeyStorage",
   "tool:getSettings",
