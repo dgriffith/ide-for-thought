@@ -164,6 +164,31 @@ export function collectBookmarksForPath(
   return out;
 }
 
+/**
+ * Bookmarks targeting `relativePath`, each paired with the display path of its
+ * containing folder — the ancestor folder names joined by `separator`, or an
+ * empty string for a top-level bookmark. Powers the note-scoped Bookmarks panel
+ * so a bookmark's folder placement isn't invisible there (it used to flatten
+ * the tree and drop the folder entirely).
+ */
+export function collectNoteBookmarksWithFolder(
+  nodes: readonly BookmarkNode[],
+  relativePath: string,
+  separator = ' / ',
+): Array<{ bookmark: Bookmark; folder: string }> {
+  const out: Array<{ bookmark: Bookmark; folder: string }> = [];
+  const walk = (ns: readonly BookmarkNode[], path: string[]) => {
+    for (const n of ns) {
+      if (n.type === 'folder') walk(n.children, [...path, n.name]);
+      else if (n.relativePath === relativePath) {
+        out.push({ bookmark: n, folder: path.join(separator) });
+      }
+    }
+  };
+  walk(nodes, []);
+  return out;
+}
+
 // ── Tree helpers ─────────────────────────────────────────────────────────
 
 function findNode(nodes: BookmarkNode[], id: string): BookmarkNode | null {

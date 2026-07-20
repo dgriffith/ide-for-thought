@@ -12,12 +12,17 @@ import { render, fireEvent, cleanup } from '@testing-library/svelte';
 import type { BookmarkNode } from '../../../../src/shared/types';
 
 const { treeRef } = vi.hoisted(() => ({ treeRef: { current: [] as BookmarkNode[] } }));
-vi.mock('../../../../src/renderer/lib/stores/bookmarks.svelte', () => ({
-  getBookmarksStore: () => ({
-    get tree() { return treeRef.current; },
-    remove: vi.fn(),
-  }),
-}));
+// Keep the real `collectNoteBookmarksWithFolder` (pure) — override only the store.
+vi.mock('../../../../src/renderer/lib/stores/bookmarks.svelte', async (importActual) => {
+  const actual = await importActual<typeof import('../../../../src/renderer/lib/stores/bookmarks.svelte')>();
+  return {
+    ...actual,
+    getBookmarksStore: () => ({
+      get tree() { return treeRef.current; },
+      remove: vi.fn(),
+    }),
+  };
+});
 
 import BookmarksPanel from '../../../../src/renderer/lib/components/right-sidebar/BookmarksPanel.svelte';
 
@@ -78,6 +83,28 @@ describe('right-sidebar BookmarksPanel (#755)', () => {
     expect(onOpenAtOffset).toHaveBeenCalledWith(ACTIVE, 142);
     expect(onNavigate).not.toHaveBeenCalled();
     expect(onFileSelect).not.toHaveBeenCalled();
+  });
+
+  it('shows the containing-folder path for a nested bookmark, and none for a root one', () => {
+    treeRef.current = [
+      { type: 'bookmark', id: 'root', name: 'Top', relativePath: ACTIVE },
+      {
+        type: 'folder', id: 'f1', name: 'Research', children: [
+          {
+            type: 'folder', id: 'f2', name: 'Papers', children: [
+              { type: 'bookmark', id: 'deep', name: 'Deep one', relativePath: ACTIVE },
+            ],
+          },
+        ],
+      },
+    ];
+    const { getByText, queryAllByText } = render(BookmarksPanel, {
+      activeFilePath: ACTIVE, onFileSelect: vi.fn(),
+    });
+    // The nested bookmark shows its folder path; the root one shows no folder.
+    expect(getByText('Research / Papers')).toBeTruthy();
+    expect(queryAllByText(/Research/)).toHaveLength(1);
+    expect(getByText('Top')).toBeTruthy();
   });
 
   it('prefers the section anchor over a stored offset when both are present', async () => {

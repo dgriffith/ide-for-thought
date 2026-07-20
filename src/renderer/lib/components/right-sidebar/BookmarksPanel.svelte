@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { getBookmarksStore } from '../../stores/bookmarks.svelte';
-  import type { Bookmark, BookmarkNode } from '../../../../shared/types';
+  import { getBookmarksStore, collectNoteBookmarksWithFolder } from '../../stores/bookmarks.svelte';
+  import type { Bookmark } from '../../../../shared/types';
   import Icon from '../Icon.svelte';
 
   interface Props {
@@ -32,21 +32,11 @@
 
   const bookmarks = getBookmarksStore();
 
-  /** Walk the bookmarks tree and collect every bookmark whose
-   *  `relativePath` matches the active note. The project-wide tree's
-   *  folder structure is purely organisational, so we flatten it. */
-  function flatten(nodes: BookmarkNode[], out: Bookmark[] = []): Bookmark[] {
-    for (const n of nodes) {
-      if (n.type === 'folder') flatten(n.children, out);
-      else out.push(n);
-    }
-    return out;
-  }
-
-  const forActiveNote = $derived<Bookmark[]>(
-    activeFilePath
-      ? flatten(bookmarks.tree).filter((b) => b.relativePath === activeFilePath)
-      : [],
+  // The bookmarks for the active note, each paired with its containing-folder
+  // path so placement is visible here (this panel used to flatten the tree and
+  // drop the folder entirely). Top-level bookmarks carry an empty folder.
+  const forActiveNote = $derived(
+    activeFilePath ? collectNoteBookmarksWithFolder(bookmarks.tree, activeFilePath) : [],
   );
 </script>
 
@@ -57,16 +47,24 @@
     <p class="empty">No bookmarks for this note</p>
   {:else}
     <div class="bookmark-list">
-      {#each forActiveNote as bm (bm.id)}
+      {#each forActiveNote as { bookmark: bm, folder } (bm.id)}
         <div class="bm-item">
           <button
             type="button"
             class="bm-open"
             onclick={() => openBookmark(bm)}
-            title={bm.anchor ? `${bm.relativePath} › ${bm.name}` : bm.name}
+            title={folder ? `${folder} / ${bm.name}` : bm.name}
           >
             <Icon name={bmIcon(bm)} size={13} color="var(--text-faint)" />
-            <span class="bm-name">{bm.name}</span>
+            <span class="bm-text">
+              <span class="bm-name">{bm.name}</span>
+              {#if folder}
+                <span class="bm-folder">
+                  <Icon name="folder" size={10} color="var(--text-faint)" />
+                  {folder}
+                </span>
+              {/if}
+            </span>
           </button>
           <button
             type="button"
@@ -129,9 +127,26 @@
     cursor: pointer;
     text-align: left;
   }
-  .bm-name {
+  .bm-text {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .bm-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Containing-folder path — muted secondary line so placement is visible
+     without competing with the bookmark name. */
+  .bm-folder {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    color: var(--text-faint);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

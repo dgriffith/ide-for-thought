@@ -10,7 +10,8 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: { bookmarks: { save: vi.fn(), load: vi.fn() } },
 }));
 
-import { getBookmarksStore } from '../../../src/renderer/lib/stores/bookmarks.svelte';
+import { getBookmarksStore, collectNoteBookmarksWithFolder } from '../../../src/renderer/lib/stores/bookmarks.svelte';
+import type { BookmarkNode } from '../../../src/shared/types';
 
 const store = getBookmarksStore();
 
@@ -54,5 +55,42 @@ describe('retargetSectionAnchor (#755)', () => {
     expect(store.retargetSectionAnchor('notes/foo.md', 'intro', 'preamble')).toBe(2);
     expect(bm('one')).toMatchObject({ anchor: 'preamble' });
     expect(bm('two')).toMatchObject({ anchor: 'preamble' });
+  });
+});
+
+describe('collectNoteBookmarksWithFolder (#...)', () => {
+  const tree: BookmarkNode[] = [
+    { type: 'bookmark', id: 'root', name: 'At root', relativePath: 'note.md' },
+    {
+      type: 'folder', id: 'f1', name: 'Research', children: [
+        { type: 'bookmark', id: 'r1', name: 'In Research', relativePath: 'note.md' },
+        {
+          type: 'folder', id: 'f2', name: 'Papers', children: [
+            { type: 'bookmark', id: 'p1', name: 'Deep', relativePath: 'note.md' },
+            { type: 'bookmark', id: 'p2', name: 'Other note', relativePath: 'other.md' },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it('pairs each matching bookmark with its containing-folder path', () => {
+    const rows = collectNoteBookmarksWithFolder(tree, 'note.md');
+    expect(rows.map((r) => [r.bookmark.name, r.folder])).toEqual([
+      ['At root', ''],              // top-level → empty folder
+      ['In Research', 'Research'],
+      ['Deep', 'Research / Papers'], // nested → joined path
+    ]);
+  });
+
+  it('excludes bookmarks for other notes', () => {
+    const rows = collectNoteBookmarksWithFolder(tree, 'other.md');
+    expect(rows.map((r) => r.bookmark.name)).toEqual(['Other note']);
+    expect(rows[0]!.folder).toBe('Research / Papers');
+  });
+
+  it('honors a custom separator', () => {
+    const rows = collectNoteBookmarksWithFolder(tree, 'note.md', ' › ');
+    expect(rows.find((r) => r.bookmark.name === 'Deep')!.folder).toBe('Research › Papers');
   });
 });
