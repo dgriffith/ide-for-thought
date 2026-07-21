@@ -474,6 +474,22 @@ describe('table extraction', () => {
     expect(result.tables[0].rows[0]).toEqual(['foo', 'bar']);
   });
 
+  it('treats an escaped pipe as literal cell content, not a delimiter', () => {
+    // `a \| b` is one cell in preview; it must extract as one cell too, with
+    // the pipe unescaped so the CSVW value matches what's rendered.
+    const md = '| Expr | Note |\n|------|------|\n| a \\| b | ok |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].headers).toEqual(['Expr', 'Note']);
+    expect(result.tables[0].rows).toEqual([['a | b', 'ok']]);
+  });
+
+  it('handles escaped pipes in headers and multiple per cell', () => {
+    const md = '| x \\| y | z |\n|---|---|\n| p \\| q \\| r | s |';
+    const result = parseMarkdown(md);
+    expect(result.tables[0].headers).toEqual(['x | y', 'z']);
+    expect(result.tables[0].rows).toEqual([['p | q | r', 's']]);
+  });
+
   // ── Table: <caption> parsing (#1356) ─────────────────────────────────────
   it('leaves caption/name undefined for an uncaptioned table', () => {
     const md = '| A | B |\n|---|---|\n| 1 | 2 |';

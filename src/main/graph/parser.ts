@@ -230,6 +230,35 @@ function sanitizeFrontmatterValue(value: unknown): FrontmatterValue | undefined 
   return undefined;
 }
 
+/**
+ * Split a table row's inner text (leading/trailing `|` already stripped) into
+ * trimmed cells, honoring GFM's `\|` escape: a backslash-escaped pipe is
+ * literal cell content, not a column delimiter. Escaped pipes are unescaped in
+ * the result, so the value stored in the CSVW triples matches what the preview
+ * renders — a cell written `a \| b` extracts as the single cell `a | b`
+ * instead of splitting into misaligned columns.
+ */
+function splitTableCells(inner: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  for (let k = 0; k < inner.length; k++) {
+    const ch = inner[k]!;
+    if (ch === '\\' && inner[k + 1] === '|') {
+      current += '|';
+      k++; // consume the escaped pipe so it isn't treated as a delimiter
+      continue;
+    }
+    if (ch === '|') {
+      cells.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
 function extractTables(content: string): ParsedTable[] {
   const tables: ParsedTable[] = [];
   const lines = content.split('\n');
@@ -245,10 +274,7 @@ function extractTables(content: string): ParsedTable[] {
     if (!sepLine || !/^\|[\s:?-]+(\|[\s:?-]+)+\|$/.test(sepLine)) { i++; continue; }
 
     // Parse headers
-    const headers = headerLine
-      .slice(1, -1)
-      .split('|')
-      .map(h => h.trim());
+    const headers = splitTableCells(headerLine.slice(1, -1));
 
     // Parse data rows
     const rows: string[][] = [];
@@ -256,11 +282,7 @@ function extractTables(content: string): ParsedTable[] {
     while (j < lines.length) {
       const rowLine = lines[j]!.trim();
       if (!rowLine.startsWith('|') || !rowLine.endsWith('|')) break;
-      const cells = rowLine
-        .slice(1, -1)
-        .split('|')
-        .map(c => c.trim());
-      rows.push(cells);
+      rows.push(splitTableCells(rowLine.slice(1, -1)));
       j++;
     }
 
