@@ -52,13 +52,14 @@ export function setFormatSettings(patch: Partial<FormatSettings>): FormatSetting
 }
 
 /**
- * Restore the curated house style by clearing every explicit enable/disable
- * override — each rule falls back to its default (on for the house-style set,
- * off otherwise). Per-rule config overrides are intentionally left untouched;
- * this only resets *which* rules run, not how they’re configured.
+ * Restore the curated house style by clearing *every* override — both the
+ * explicit enable/disable map and any per-rule config tuning. Each rule falls
+ * back to its default: on for the house-style set, off otherwise, and each
+ * running with its own `defaultConfig`. This is a full reset to the shipped
+ * defaults, not just a reset of which rules run.
  */
 export function resetFormatToHouseStyle(): FormatSettings {
-  settings = { enabled: {}, configs: { ...settings.configs } };
+  settings = { enabled: {}, configs: {} };
   api.formatter.saveSettings(settings).catch(() => { /* swallow — retried on next change */ });
   return settings;
 }

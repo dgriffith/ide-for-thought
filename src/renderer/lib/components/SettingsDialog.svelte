@@ -163,8 +163,13 @@
     };
     setFormatSettings({ enabled: { [id]: on } });
   }
-  // True when no rule has an explicit override — i.e. already at house style.
-  let atHouseStyle = $derived(Object.keys(formatter.enabled).length === 0);
+  // True when nothing overrides the shipped defaults — no enable/disable
+  // toggles and no per-rule config tuning. Both must be clear, or "Restore
+  // house style" would stay disabled while a tuned config still lingered.
+  let atHouseStyle = $derived(
+    Object.keys(formatter.enabled).length === 0 &&
+    Object.keys(formatter.configs).length === 0,
+  );
   function restoreHouseStyle(): void {
     const next = resetFormatToHouseStyle();
     formatter = {
@@ -813,7 +818,7 @@
                 disabled={atHouseStyle}
                 onclick={restoreHouseStyle}
               >Restore house style</button>
-              <span class="hint">Clears your overrides and re-enables the default curated set.</span>
+              <span class="hint">Clears every override — rule toggles and per-rule tuning alike — back to the default curated set.</span>
             </div>
           {/if}
 
