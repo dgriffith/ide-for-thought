@@ -95,7 +95,7 @@
       label: 'Authoring',
       items: [
         { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
-        { id: 'formatter',    label: 'Formatter',    sub: 'On-save rules' },
+        { id: 'formatter',    label: 'Formatter',    sub: 'House style · format rules' },
         { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
       ],
     },
