@@ -12,6 +12,7 @@ import { buildParseCache } from './parse-cache';
 import { HOUSE_STYLE_RULE_IDS } from './house-style';
 import { PASTE_SAFE_RULE_IDS } from './paste-safe';
 import { CATEGORY_ORDER, getRule, listAllRules } from './registry';
+import { readFrontmatterKey } from './rules/yaml/helpers';
 import type { EnabledRule, FormatContext, FormatterRule } from './types';
 
 export interface FormatSettings {
@@ -35,6 +36,15 @@ export function isRuleEnabled(settings: FormatSettings, ruleId: string): boolean
   return settings.enabled[ruleId] ?? HOUSE_STYLE_RULE_IDS.has(ruleId);
 }
 
+/**
+ * Whether a note has opted out of formatting via `format: false` in its
+ * frontmatter. Only an explicit boolean `false` opts out; a missing key,
+ * missing frontmatter, or any other value formats as normal.
+ */
+export function isFormatOptedOut(content: string): boolean {
+  return readFrontmatterKey(content, buildParseCache(content), 'format') === false;
+}
+
 export const DEFAULT_FORMAT_SETTINGS: FormatSettings = {
   enabled: {},
   configs: {},
@@ -49,6 +59,13 @@ export function formatContent(
   settings: FormatSettings,
   ctx?: FormatContext,
 ): string {
+  // Per-note opt-out: `format: false` in the frontmatter exempts a single
+  // note from formatting, without a per-file toggle in settings. The rest of
+  // the batch (folder / sidebar selection) is unaffected. Paste formatting
+  // goes through `formatPasteSafe`, which sees a fragment with no frontmatter,
+  // so it's untouched by this guard.
+  if (isFormatOptedOut(content)) return content;
+
   const enabledRules = resolveEnabled(settings);
   if (enabledRules.length === 0) return content;
 
