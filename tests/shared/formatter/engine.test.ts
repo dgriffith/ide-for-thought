@@ -3,6 +3,7 @@ import {
   formatContent,
   formatContentToFixedPoint,
   formatPasteSafe,
+  isFormatOptedOut,
   isRuleEnabled,
   resolveEnabled,
   DEFAULT_FORMAT_SETTINGS,
@@ -122,6 +123,53 @@ describe('formatter engine (issue #153)', () => {
       configs: {},
     });
     expect(out).toBe('a\n\nb');
+  });
+});
+
+describe('per-note opt-out (format: false)', () => {
+  beforeEach(__resetRuleRegistryForTests);
+
+  const upper = () => registerRule(rule({ id: 'to-upper', apply: (c) => c.toUpperCase() }));
+  const settings = { enabled: { 'to-upper': true }, configs: {} };
+
+  it('skips formatting a note with `format: false` in the frontmatter', () => {
+    upper();
+    const input = '---\nformat: false\n---\nhello';
+    expect(formatContent(input, settings)).toBe(input);
+    expect(isFormatOptedOut(input)).toBe(true);
+  });
+
+  it('formats a note with `format: true`', () => {
+    upper();
+    const input = '---\nformat: true\n---\nhello';
+    expect(formatContent(input, settings)).toBe(input.toUpperCase());
+    expect(isFormatOptedOut(input)).toBe(false);
+  });
+
+  it('formats a note with unrelated frontmatter and no `format` key', () => {
+    upper();
+    const input = '---\ntitle: Note\n---\nhello';
+    expect(formatContent(input, settings)).toBe(input.toUpperCase());
+    expect(isFormatOptedOut(input)).toBe(false);
+  });
+
+  it('formats a note with no frontmatter at all', () => {
+    upper();
+    expect(formatContent('hello', settings)).toBe('HELLO');
+    expect(isFormatOptedOut('hello')).toBe(false);
+  });
+
+  it('only an explicit boolean false opts out — the string "false" still formats', () => {
+    upper();
+    const input = '---\nformat: "false"\n---\nhello';
+    expect(formatContent(input, settings)).toBe(input.toUpperCase());
+    expect(isFormatOptedOut(input)).toBe(false);
+  });
+
+  it('the fixed-point runner also honours the opt-out', () => {
+    upper();
+    const input = '---\nformat: false\n---\nhello';
+    expect(formatContentToFixedPoint(input, settings)).toBe(input);
   });
 });
 
