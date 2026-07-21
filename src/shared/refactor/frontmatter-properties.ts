@@ -4,8 +4,11 @@
  * "Add Property" / "Remove Property" menu actions.
  *
  * A property is any frontmatter key other than `tags` (which has its own
- * Add/Remove Tag actions). Values are written as string scalars — the menu
- * flow is a text prompt; richer typing lives in the Properties panel.
+ * Add/Remove Tag actions). Values are typed: the "Add Property" dialog now
+ * collects a type (string / number / boolean / date) alongside the value, so
+ * `setPropertyInContent` takes the already-coerced JS value and lets the YAML
+ * serializer render it — a real boolean `false` becomes `key: false`, not
+ * `key: "false"`.
  */
 import YAML from 'yaml';
 
@@ -33,17 +36,18 @@ export function extractPropertyKeysFromContent(content: string): string[] {
 
 export interface SetPropertyResult {
   content: string;
-  /** False when the key was already set to this exact string (no write needed). */
+  /** False when the key already held this exact value (no write needed). */
   changed: boolean;
 }
 
 /**
  * Upsert `key: value` into the note's frontmatter, creating the block when the
- * note has none. `value` is stored as a string scalar (YAML quotes it as
- * needed — so a `[[wiki-link]]` value survives round-trip). No-op when the key
- * already holds the same string.
+ * note has none. `value` is a JS scalar (string, number, or boolean); the YAML
+ * serializer renders it in the right shape and quotes strings as needed — so a
+ * `[[wiki-link]]` string survives round-trip while a boolean `false` stays a
+ * boolean. No-op when the key already holds the same value.
  */
-export function setPropertyInContent(content: string, key: string, value: string): SetPropertyResult {
+export function setPropertyInContent(content: string, key: string, value: unknown): SetPropertyResult {
   const match = content.match(FRONTMATTER_RE);
   let fm: Record<string, unknown> = {};
   if (match) {

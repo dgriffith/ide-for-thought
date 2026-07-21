@@ -1,10 +1,20 @@
 <script lang="ts">
   /**
-   * Add-Property dialog — collects a frontmatter property's name AND value on
-   * one panel (vs. two sequential prompts). Mirrors PromptDialog's chrome; the
-   * name field autocompletes from the thoughtbase's frontmatter-key vocabulary.
+   * Add-Property dialog — collects a frontmatter property's name, type, AND
+   * value on one panel (vs. two sequential prompts). Mirrors PromptDialog's
+   * chrome; the name field autocompletes from the thoughtbase's
+   * frontmatter-key vocabulary, and the value uses the same type-aware editor
+   * the Properties panel does, so a real boolean / number / date is written
+   * rather than a stringified one.
    */
   import type { AddPropertyResult } from '../stores/dialogs.svelte';
+  import PropertyValueEditor from './PropertyValueEditor.svelte';
+  import {
+    SCALAR_TYPES,
+    coerceScalar,
+    isValidScalar,
+    type ScalarType,
+  } from '../../../shared/refactor/property-shape';
 
   interface Props {
     message: string;
@@ -16,25 +26,29 @@
   let { message, keySuggestions, onConfirm, onCancel }: Props = $props();
 
   let name = $state('');
-  let value = $state('');
+  let type = $state<ScalarType>('string');
+  /** Raw text for string/number/date; the boolean uses `boolValue`. */
+  let text = $state('');
+  let boolValue = $state(false);
   let nameEl = $state<HTMLInputElement>();
-  let valueEl = $state<HTMLInputElement>();
   const listId = `add-property-keys-${Math.random().toString(36).slice(2, 9)}`;
 
-  const canConfirm = $derived(name.trim().length > 0);
+  const canConfirm = $derived(
+    name.trim().length > 0 && (type === 'boolean' || isValidScalar(type, text)),
+  );
   function submit() {
-    if (canConfirm) onConfirm({ name: name.trim(), value });
+    if (!canConfirm) return;
+    const value = type === 'boolean' ? boolValue : coerceScalar(type, text);
+    onConfirm({ name: name.trim(), value });
   }
 
   function onOverlayKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') onCancel();
   }
   function onNameKeydown(e: KeyboardEvent) {
-    // Enter on the name field advances to value rather than submitting, so the
-    // value isn't skipped by a reflexive Enter.
-    if (e.key === 'Enter') { e.preventDefault(); valueEl?.focus(); }
-  }
-  function onValueKeydown(e: KeyboardEvent) {
+    // Enter on the name field submits directly — the value has a sensible
+    // default per type (empty string / 0 / false / today-less date), so a
+    // reflexive Enter after typing a key still does something useful.
     if (e.key === 'Enter') { e.preventDefault(); submit(); }
   }
 
@@ -70,18 +84,29 @@
           </datalist>
         {/if}
       </label>
-      <label class="field">
-        <span class="field-label">Value</span>
-        <input
-          bind:this={valueEl}
-          bind:value
-          onkeydown={onValueKeydown}
-          type="text"
-          class="input"
-          autocomplete="off"
-          placeholder="e.g. draft"
-        />
-      </label>
+      <div class="field-row">
+        <label class="field type-field">
+          <span class="field-label">Type</span>
+          <select class="input select" bind:value={type}>
+            {#each SCALAR_TYPES as t}
+              <option value={t}>{t}</option>
+            {/each}
+          </select>
+        </label>
+        <div class="field value-field">
+          <span class="field-label">Value</span>
+          <div class="value-slot">
+            <PropertyValueEditor
+              {type}
+              {text}
+              checked={boolValue}
+              onInput={(raw) => { text = raw; }}
+              onCommit={(raw) => { text = raw; }}
+              onToggle={(c) => { boolValue = c; }}
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
     <footer class="card-footer">
@@ -179,6 +204,34 @@
   .input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
+  }
+  .field-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .type-field {
+    flex: 0 0 120px;
+  }
+  .value-field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .select {
+    appearance: auto;
+    cursor: pointer;
+  }
+  /* Match the taller .input chrome so the editor lines up with the select. */
+  .value-slot :global(.pve-input) {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-color: var(--border-strong);
+    font-size: 14px;
+  }
+  .value-slot {
+    display: flex;
+    align-items: center;
+    min-height: 37px;
   }
 
   .card-footer {

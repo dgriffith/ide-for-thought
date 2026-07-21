@@ -44,10 +44,12 @@ export interface OpenTargetState {
   message: string;
   resolve: (value: OpenTargetChoice) => void;
 }
-/** Name + value collected on one panel by the "Add Property" dialog. */
+/** Name + typed value collected on one panel by the "Add Property" dialog.
+ *  `value` is an already-coerced JS scalar (string / number / boolean, or a
+ *  `YYYY-MM-DD` string for dates), ready to hand to `setPropertyInContent`. */
 export interface AddPropertyResult {
   name: string;
-  value: string;
+  value: unknown;
 }
 export interface AddPropertyState {
   message: string;

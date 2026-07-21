@@ -23,6 +23,14 @@
   import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
   import type { IconName } from '../icons/registry';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
+  import PropertyValueEditor from '../PropertyValueEditor.svelte';
+  import {
+    SCALAR_TYPES,
+    isScalarType,
+    coerceScalar,
+    scalarToText,
+    type ScalarType,
+  } from '../../../../shared/refactor/property-shape';
 
   /** Type-icon mapping per §13.1. The icon signals the value shape at
    *  a glance so a row reads as "number" or "list" without parsing
@@ -296,6 +304,44 @@
     setKeyValue(key, value);
   }
 
+  // ── Scalar editor glue (shared PropertyValueEditor) ───────────────
+  // The four scalar widgets are rendered by PropertyValueEditor; the panel
+  // keeps owning debounce (text/number) and immediate commit (boolean/date),
+  // so typing behaviour is unchanged from the inline version.
+
+  function scalarText(row: Row): string {
+    const s = row.shape;
+    if (s.kind === 'string') return drafts[row.key] ?? s.value;
+    if (s.kind === 'number') return drafts[row.key] ?? String(s.value);
+    if (s.kind === 'date') return s.value;
+    return '';
+  }
+  function onScalarInput(row: Row, raw: string): void {
+    if (row.shape.kind === 'string') scheduleFlush(row.key, raw, commitString);
+    else if (row.shape.kind === 'number') scheduleFlush(row.key, raw, commitNumber);
+  }
+  function onScalarCommit(row: Row, raw: string): void {
+    if (row.shape.kind === 'string') commitString(row.key, raw);
+    else if (row.shape.kind === 'number') commitNumber(row.key, raw);
+    else if (row.shape.kind === 'date') commitDate(row.key, raw);
+  }
+
+  // ── Type switcher ─────────────────────────────────────────────────
+  // The type icon on a scalar row is a button: it opens a small menu that
+  // re-types the value. The current value is stringified and re-coerced to
+  // the chosen type (e.g. string "false" → boolean false), then committed.
+
+  let typeMenuKey = $state<string | null>(null);
+  function toggleTypeMenu(key: string): void {
+    typeMenuKey = typeMenuKey === key ? null : key;
+  }
+  function changeType(row: Row, next: ScalarType): void {
+    typeMenuKey = null;
+    if (row.shape.kind === next) return;
+    const current = 'value' in row.shape ? scalarToText(row.shape.value) : '';
+    setKeyValue(row.key, coerceScalar(next, current));
+  }
+
   function scheduleFlush(key: string, value: string, fn: (k: string, v: string) => void): void {
     drafts[key] = value;
     if (flushTimer) clearTimeout(flushTimer);
@@ -518,13 +564,48 @@
       {#each rows as row (row.key)}
         {@const canonical = isCanonical(row.key)}
         <div class="row" class:canonical data-row-key={row.key}>
-          <span class="type-icon" title={row.shape.kind}>
-            <Icon
-              name={typeIcon(row.shape.kind)}
-              size={12}
-              color={canonical ? 'var(--accent)' : 'var(--text-faint)'}
-            />
-          </span>
+          {#if isScalarType(row.shape.kind)}
+            <div class="type-switch">
+              <button
+                class="type-icon type-icon-btn"
+                title="Change type ({row.shape.kind})"
+                aria-haspopup="menu"
+                aria-expanded={typeMenuKey === row.key}
+                onclick={() => toggleTypeMenu(row.key)}
+              >
+                <Icon
+                  name={typeIcon(row.shape.kind)}
+                  size={12}
+                  color={canonical ? 'var(--accent)' : 'var(--text-faint)'}
+                />
+              </button>
+              {#if typeMenuKey === row.key}
+                <button class="type-menu-backdrop" aria-label="Close type menu" onclick={() => (typeMenuKey = null)}></button>
+                <div class="type-menu" role="menu">
+                  {#each SCALAR_TYPES as t}
+                    <button
+                      class="type-menu-item"
+                      class:selected={t === row.shape.kind}
+                      role="menuitemradio"
+                      aria-checked={t === row.shape.kind}
+                      onclick={() => changeType(row, t)}
+                    >
+                      <Icon name={typeIcon(t)} size={11} />
+                      <span>{t}</span>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <span class="type-icon" title={row.shape.kind}>
+              <Icon
+                name={typeIcon(row.shape.kind)}
+                size={12}
+                color={canonical ? 'var(--accent)' : 'var(--text-faint)'}
+              />
+            </span>
+          {/if}
           <input
             class="key"
             type="text"
@@ -533,35 +614,14 @@
             spellcheck="false"
           />
           <div class="value">
-            {#if row.shape.kind === 'string'}
-              <input
-                type="text"
-                value={drafts[row.key] ?? row.shape.value}
-                oninput={(e) => scheduleFlush(row.key, e.currentTarget.value, commitString)}
-                onblur={(e) => commitString(row.key, e.currentTarget.value)}
-                spellcheck="false"
-              />
-            {:else if row.shape.kind === 'number'}
-              <input
-                type="number"
-                value={drafts[row.key] ?? String(row.shape.value)}
-                oninput={(e) => scheduleFlush(row.key, e.currentTarget.value, commitNumber)}
-                onblur={(e) => commitNumber(row.key, e.currentTarget.value)}
-              />
-            {:else if row.shape.kind === 'boolean'}
-              <label class="bool">
-                <input
-                  type="checkbox"
-                  checked={row.shape.value}
-                  onchange={(e) => commitBoolean(row.key, e.currentTarget.checked)}
-                />
-                <span>{row.shape.value ? 'true' : 'false'}</span>
-              </label>
-            {:else if row.shape.kind === 'date'}
-              <input
-                type="date"
-                value={row.shape.value}
-                onchange={(e) => commitDate(row.key, e.currentTarget.value)}
+            {#if isScalarType(row.shape.kind)}
+              <PropertyValueEditor
+                type={row.shape.kind}
+                text={scalarText(row)}
+                checked={row.shape.kind === 'boolean' ? row.shape.value : false}
+                onInput={(raw) => onScalarInput(row, raw)}
+                onCommit={(raw) => onScalarCommit(row, raw)}
+                onToggle={(c) => commitBoolean(row.key, c)}
               />
             {:else if row.shape.kind === 'string-list'}
               <div class="chips">
@@ -708,6 +768,66 @@
     justify-content: center;
     flex-shrink: 0;
   }
+  .type-switch {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+  .type-icon-btn {
+    padding: 2px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    line-height: 0;
+  }
+  .type-icon-btn:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-inset);
+  }
+  .type-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: none;
+    border: none;
+    cursor: default;
+  }
+  .type-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 41;
+    display: flex;
+    flex-direction: column;
+    min-width: 116px;
+    padding: 4px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  .type-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .type-menu-item:hover {
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    color: var(--text);
+  }
+  .type-menu-item.selected {
+    color: var(--accent);
+  }
 
   .row .key {
     background: none;
@@ -755,15 +875,6 @@
   .row .value > input[type="date"]:focus {
     border-color: var(--accent);
     outline: none;
-  }
-
-  .bool {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-muted);
-    cursor: pointer;
-    user-select: none;
   }
 
   .chips {

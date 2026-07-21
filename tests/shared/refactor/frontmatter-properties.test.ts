@@ -34,6 +34,27 @@ describe('setPropertyInContent', () => {
     // Quoted → not eaten into a nested array on re-parse.
     expect(content).toMatch(/about: "\[\[some-note\]\]"|about: '\[\[some-note\]\]'/);
   });
+
+  it('writes a real boolean, not the string "false"', () => {
+    const { content, changed } = setPropertyInContent('# N', 'format', false);
+    expect(changed).toBe(true);
+    // Unquoted boolean — this is what the format-opt-out reads back as `=== false`.
+    expect(content).toContain('format: false');
+    expect(content).not.toContain('format: "false"');
+  });
+
+  it('writes a real number', () => {
+    const { content } = setPropertyInContent('# N', 'count', 3);
+    expect(content).toContain('count: 3');
+    expect(content).not.toContain('count: "3"');
+  });
+
+  it('is a no-op when a typed value is unchanged', () => {
+    const src = '---\nformat: false\n---\n# N';
+    const res = setPropertyInContent(src, 'format', false);
+    expect(res.changed).toBe(false);
+    expect(res.content).toBe(src);
+  });
 });
 
 describe('removePropertyFromContent', () => {
