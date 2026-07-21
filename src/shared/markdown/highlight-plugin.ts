@@ -12,10 +12,13 @@
  * before `emphasis` so `**==X==**` resolves outermost-emphasis ↦
  * inner-highlight without delimiter races.
  *
+ * A highlight may span soft line breaks within a paragraph, the same
+ * way `**strong**` and `*emphasis*` do; a blank line ends the paragraph
+ * (and the block), so a highlight never reaches across it.
+ *
  * Rejects, following Pandoc convention:
  *   - `===` runs (three or more equals — heading-rule territory)
  *   - empty bodies
- *   - newlines inside the body (inline-only)
  *   - whitespace immediately after the opening `==` or before the
  *     closing `==` (matches strong/em — keeps `== test ==` in prose
  *     from accidentally highlighting)
@@ -29,6 +32,23 @@ export type HighlightColor = typeof HIGHLIGHT_PALETTE[number];
 const PALETTE_SET = new Set<string>(HIGHLIGHT_PALETTE);
 
 const COLOR_PREFIX_RE = /^([a-z]+):/;
+
+/**
+ * True when the line starting at `pos` is blank (only spaces/tabs/CR
+ * before the next newline or end-of-text). A blank line ends a markdown
+ * paragraph, so `scanHighlights` treats it as a hard stop — the flat-text
+ * scanner's stand-in for the preview plugin's per-block `posMax` bound.
+ */
+function isBlankLineAt(text: string, pos: number): boolean {
+  let k = pos;
+  while (k < text.length) {
+    const c = text.charCodeAt(k);
+    if (c === 0x0a) return true; // reached the next newline with only blanks
+    if (c !== 0x20 && c !== 0x09 && c !== 0x0d) return false;
+    k++;
+  }
+  return true; // end of text — nothing more to highlight into
+}
 
 export interface HighlightMatch {
   /** Offset of the opening `==` in the input. */
@@ -48,7 +68,8 @@ export interface HighlightMatch {
  *
  *   - `===` runs are not delimiters (forward OR backward)
  *   - empty bodies are not delimiters
- *   - newlines inside the body end the match
+ *   - a single newline is spanned; a blank line ends the paragraph and
+ *     stops the match (the flat-text stand-in for the plugin's per-block bound)
  *   - whitespace adjacent to either delimiter rejects (matches strong/em)
  *
  * `offset` is added to each result so the caller can pass a slice of
@@ -64,13 +85,15 @@ export function scanHighlights(text: string, offset = 0): HighlightMatch[] {
     const afterOpen = text.charCodeAt(i + 2);
     if (afterOpen === 0x20 || afterOpen === 0x09 || afterOpen === 0x0a) { i++; continue; }
 
-    // Scan for the closing `==`, rejecting at newlines so highlights
-    // stay strictly inline (the preview plugin does the same).
+    // Scan for the closing `==`. A single newline is fine — the highlight
+    // spans it, matching the preview plugin — but a blank line ends the
+    // paragraph, and the preview's inline scan can't reach past a block
+    // boundary, so we stop there too to keep the two surfaces in sync.
     let j = i + 2;
     let closing = -1;
     while (j < text.length - 1) {
       const c = text.charCodeAt(j);
-      if (c === 0x0a) break;
+      if (c === 0x0a && isBlankLineAt(text, j + 1)) break;
       if (
         c === 0x3d &&
         text.charCodeAt(j + 1) === 0x3d &&
@@ -126,11 +149,14 @@ function highlightInline(state: StateInline, silent: boolean): boolean {
   if (afterOpen === 0x20 || afterOpen === 0x09 || afterOpen === 0x0a) return false;
 
   // Scan forward for the closing `==` that isn't itself part of `===`.
+  // Soft newlines inside the body are allowed — a highlight spans line
+  // breaks the same way emphasis does. `state.posMax` already bounds the
+  // scan to this paragraph, so a blank line (which ends the block) is an
+  // automatic stop; we never reach across a paragraph break.
   let scan = bodyStart;
   let closingPos = -1;
   while (scan < state.posMax - 1) {
     const c = state.src.charCodeAt(scan);
-    if (c === 0x0a) return false;
     if (
       c === 0x3d &&
       state.src.charCodeAt(scan + 1) === 0x3d &&
