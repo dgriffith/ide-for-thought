@@ -78,9 +78,22 @@ describe('highlight plugin (#468)', () => {
     expect(html).not.toContain('<mark');
   });
 
-  it('does not match across a newline', () => {
-    const html = md().render('==open\nbut not closed on same line==');
+  it('spans a soft newline within a paragraph (like strong/em)', () => {
+    const html = md().render('==open\nand closed on the next line==');
+    expect(html).toContain('<mark');
+    expect(html).toContain('open\nand closed on the next line');
+  });
+
+  it('does not reach across a blank line (paragraph boundary)', () => {
+    const html = md().render('==open\n\nclosed after a blank line==');
     expect(html).not.toContain('<mark');
+  });
+
+  it('spans multiple soft newlines but stops at the paragraph', () => {
+    // Whole three-line paragraph highlights; the following paragraph is untouched.
+    const html = md().render('==a\nb\nc==\n\nplain ==d== tail');
+    expect(html).toContain('<mark class="hl">a\nb\nc</mark>');
+    expect(html).toContain('<mark class="hl">d</mark>');
   });
 
   it('rejects whitespace-padded bodies (== test ==)', () => {
@@ -136,8 +149,22 @@ describe('scanHighlights (editor decoration shared scanner)', () => {
     expect(scanHighlights('===nope=== and ===yep===')).toEqual([]);
   });
 
-  it('does not cross newlines', () => {
-    expect(scanHighlights('==open\nclose==')).toEqual([]);
+  it('spans a single newline', () => {
+    expect(scanHighlights('==open\nclose==')).toEqual([{ from: 0, to: 14, color: null }]);
+  });
+
+  it('stops at a blank line (paragraph boundary)', () => {
+    // The span across the blank line never closes, so nothing matches here;
+    // a self-contained highlight in the second paragraph still does.
+    expect(scanHighlights('==open\n\nclose==')).toEqual([]);
+    expect(scanHighlights('==a\nb==\n\n==c==')).toEqual([
+      { from: 0, to: 7, color: null },
+      { from: 9, to: 14, color: null },
+    ]);
+  });
+
+  it('stops at a whitespace-only line, not just a bare blank line', () => {
+    expect(scanHighlights('==open\n   \nclose==')).toEqual([]);
   });
 
   it('rejects whitespace-padded bodies', () => {
