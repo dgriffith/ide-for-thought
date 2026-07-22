@@ -31,7 +31,9 @@ export interface ParsedTable {
 
 /** A frontmatter value after YAML parsing — preserves type info the indexer needs. */
 export type FrontmatterScalar = string | number | boolean | Date | null;
-export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[];
+/** A nested YAML mapping. The indexer materialises it as a blank node. */
+export interface FrontmatterMap { [key: string]: FrontmatterValue }
+export type FrontmatterValue = FrontmatterScalar | FrontmatterValue[] | FrontmatterMap;
 
 export interface ParsedNote {
   title: string | null;
@@ -212,7 +214,11 @@ function extractFrontmatter(content: string): Record<string, FrontmatterValue> {
   return result;
 }
 
-function sanitizeFrontmatterValue(value: unknown): FrontmatterValue | undefined {
+/** Deepest nesting level a frontmatter mapping is materialised to before we
+ *  stop recursing — a guard against pathological / cyclic structures. */
+const MAX_FRONTMATTER_DEPTH = 8;
+
+function sanitizeFrontmatterValue(value: unknown, depth = 0): FrontmatterValue | undefined {
   if (value === null || value === undefined) return null;
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     return value;
@@ -221,12 +227,23 @@ function sanitizeFrontmatterValue(value: unknown): FrontmatterValue | undefined 
   if (Array.isArray(value)) {
     const items: FrontmatterValue[] = [];
     for (const item of value) {
-      const s = sanitizeFrontmatterValue(item);
+      const s = sanitizeFrontmatterValue(item, depth + 1);
       if (s !== undefined && s !== null) items.push(s);
     }
     return items;
   }
-  // Drop nested objects — they'd require predicate decisions we don't have.
+  // Nested mapping — kept (the indexer materialises it as a blank node with the
+  // sub-keys as its own predicates). Recurse so deeply-nested maps and lists
+  // survive; bail past the depth cap. An empty map (nothing sanitisable inside)
+  // collapses to `undefined` so no dangling blank node is emitted.
+  if (typeof value === 'object' && depth < MAX_FRONTMATTER_DEPTH) {
+    const map: FrontmatterMap = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const s = sanitizeFrontmatterValue(v, depth + 1);
+      if (s !== undefined && k.trim()) map[k.trim()] = s;
+    }
+    return Object.keys(map).length > 0 ? map : undefined;
+  }
   return undefined;
 }
 

@@ -175,6 +175,109 @@ title: Frontmatter Title
     expect(titles).toEqual(['Frontmatter Title']);
   });
 
+  it('materialises a nested mapping as a blank node with sub-key predicates', async () => {
+    await indexNote(ctx, 'paper.md', `---
+address:
+  city: Paris
+  zip: "75001"
+---
+# Paper
+`);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?city ?zip ?blank WHERE {
+        ?note minerva:relativePath "paper.md" ;
+              minerva:meta-address ?addr .
+        ?addr minerva:meta-city ?city ;
+              minerva:meta-zip ?zip .
+        BIND(isBlank(?addr) AS ?blank)
+      } LIMIT 1
+    `);
+    const row = (results as Array<Record<string, string>>)[0];
+    expect(row.city).toBe('Paris');
+    expect(row.zip).toBe('75001');
+    expect(String(row.blank)).toContain('true'); // the mapping is a blank node
+  });
+
+  it('types nested scalars (a nested integer stays xsd:integer)', async () => {
+    await indexNote(ctx, 'paper.md', `---
+stats:
+  count: 42
+---
+# Paper
+`);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?count WHERE {
+        ?note minerva:relativePath "paper.md" ; minerva:meta-stats/minerva:meta-count ?count .
+      } LIMIT 1
+    `);
+    expect((results as Array<{ count: string }>)[0].count).toBe('42');
+  });
+
+  it('recurses into deeply nested mappings', async () => {
+    await indexNote(ctx, 'paper.md', `---
+meta:
+  geo:
+    lat: "48.8"
+---
+# Paper
+`);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?lat WHERE {
+        ?note minerva:relativePath "paper.md" ;
+              minerva:meta-meta/minerva:meta-geo/minerva:meta-lat ?lat .
+      } LIMIT 1
+    `);
+    expect((results as Array<{ lat: string }>)[0].lat).toBe('48.8');
+  });
+
+  it('emits one blank node per element for a list of mappings', async () => {
+    // `contributors` is a non-canonical key (unlike `authors`, which aliases
+    // dc:creator), so it materialises under minerva:meta-contributors.
+    await indexNote(ctx, 'paper.md', `---
+contributors:
+  - name: Alice
+  - name: Bob
+---
+# Paper
+`);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?name WHERE {
+        ?note minerva:relativePath "paper.md" ; minerva:meta-contributors/minerva:meta-name ?name .
+      } ORDER BY ?name
+    `);
+    expect((results as Array<{ name: string }>).map(r => r.name)).toEqual(['Alice', 'Bob']);
+  });
+
+  it('emits nothing for an empty mapping (no dangling blank node)', async () => {
+    await indexNote(ctx, 'paper.md', `---
+blankish: {}
+---
+# Paper
+`);
+    const { results } = await queryGraph(ctx, `
+      SELECT ?x WHERE { ?note minerva:relativePath "paper.md" ; minerva:meta-blankish ?x . }
+    `);
+    expect(results).toEqual([]);
+  });
+
+  it('does not accumulate blank-node triples across re-index', async () => {
+    const note = `---
+address:
+  city: Paris
+---
+# Paper
+`;
+    await indexNote(ctx, 'paper.md', note);
+    await indexNote(ctx, 'paper.md', note); // re-index the same content
+    const { results } = await queryGraph(ctx, `
+      SELECT ?city WHERE {
+        ?note minerva:relativePath "paper.md" ; minerva:meta-address/minerva:meta-city ?city .
+      }
+    `);
+    // Exactly one — the prior blank node was cleared with the note's named graph.
+    expect((results as Array<{ city: string }>).map(r => r.city)).toEqual(['Paris']);
+  });
+
   it('does NOT materialise the publish: block as a graph predicate (#1136)', async () => {
     await indexNote(ctx, 'card.md', [
       '---', 'title: Card', 'publish:', '  image: https://ex.com/c.png', '  background: "#faf3e0"',

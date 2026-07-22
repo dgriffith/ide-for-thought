@@ -322,9 +322,14 @@ describe('frontmatter extraction', () => {
     expect(result.frontmatter).toEqual({});
   });
 
-  it('drops nested objects (no sensible predicate mapping)', () => {
+  it('preserves a nested object as a map (materialised as a blank node when indexed)', () => {
     const result = parseMarkdown('---\nauthor:\n  name: Ada\n  orcid: 0000\n---');
-    expect(result.frontmatter.author).toBeUndefined();
+    expect(result.frontmatter.author).toEqual({ name: 'Ada', orcid: 0 });
+  });
+
+  it('drops a nested object that has nothing materialisable inside (empty map)', () => {
+    const result = parseMarkdown('---\nempty: {}\n---');
+    expect(result.frontmatter.empty).toBeUndefined();
   });
 });
 
