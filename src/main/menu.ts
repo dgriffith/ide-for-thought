@@ -14,7 +14,7 @@ import { listSavedQueries } from './saved-queries';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
 import { getToolsByCategory, CATEGORIES } from '../shared/tools/registry';
-import { groupToolsByGroup, hasNamedGroups } from '../shared/tools/grouping';
+import { groupToolsByGroup, flattenGroupedMenu } from '../shared/tools/grouping';
 import { isSourceScoped, toolRequiresNote, toolRequiresSelection } from '../shared/tools/types';
 import type { MenuEditorState } from '../shared/types';
 import {
@@ -641,17 +641,21 @@ function buildToolMenus(gate: Gate): Electron.MenuItemConstructorOptions[] {
         },
         { note: toolRequiresNote(tool), selection: toolRequiresSelection(tool) },
       );
-      // Thematic sub-grouping (#525): when any tool in the category declares
-      // a `group`, render one nested submenu per group (ungrouped → General,
-      // last). Otherwise stay flat — current behavior for ungrouped
-      // categories (Learning, Research).
+      // Thematic sub-grouping (#525): a tool's optional `group` renders as a
+      // nested submenu. Ungrouped tools stay inline (like the Source tools
+      // menu) instead of being collected into a "General" submenu — so adding
+      // a group to one skill nests just that skill rather than restructuring
+      // the whole category. With no named groups, `groupToolsByGroup` returns a
+      // single ungrouped bucket, so the menu renders flat exactly as before.
       const groups = groupToolsByGroup(tools);
-      const toolItems: Electron.MenuItemConstructorOptions[] = hasNamedGroups(groups)
-        ? groups.map((g) => ({
-            label: g.label ?? 'General',
-            submenu: g.tools.map(mkItem),
-          }))
-        : tools.map(mkItem);
+      const toolItems: Electron.MenuItemConstructorOptions[] = flattenGroupedMenu<
+        typeof tools[number],
+        Electron.MenuItemConstructorOptions
+      >(
+        groups,
+        mkItem,
+        (label, ts) => ({ label, submenu: ts.map(mkItem) }),
+      );
       // "Ask a Question" opens a plain conversation — the same action the View
       // menu used to call "New Conversation". It lives atop Learning as the
       // simplest thinking tool. Needs no note (just a thoughtbase), so it gates

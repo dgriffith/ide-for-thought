@@ -68,7 +68,7 @@
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
   import { isSourceScoped, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
-  import { groupToolsByGroup, hasNamedGroups } from '../../../shared/tools/grouping';
+  import { groupToolsByGroup } from '../../../shared/tools/grouping';
 
   interface Props {
     /**
@@ -1172,18 +1172,22 @@
         <div class="submenu-item" onmouseenter={adjustSubmenu}>
           <span class="submenu-trigger">{menu.label}<Icon name="chevronRight" size={10} /></span>
           <div class="submenu">
-            {#if hasNamedGroups(menu.groups)}
-              {#each menu.groups as group (group.label ?? 'General')}
+            <!-- Named groups nest into submenus; ungrouped skills stay inline
+                 (like the Source tools menu) rather than being swept into a
+                 "General" bucket, so adding a group to one skill is a local
+                 change, not a menu-wide restructure. -->
+            {#each menu.groups as group (group.label ?? ' ungrouped')}
+              {#if group.label}
                 <div class="submenu-item" onmouseenter={adjustSubmenu}>
-                  <span class="submenu-trigger">{group.label ?? 'General'}<Icon name="chevronRight" size={10} /></span>
+                  <span class="submenu-trigger">{group.label}<Icon name="chevronRight" size={10} /></span>
                   <div class="submenu">
                     {#each group.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
                   </div>
                 </div>
-              {/each}
-            {:else}
-              {#each menu.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
-            {/if}
+              {:else}
+                {#each group.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
+              {/if}
+            {/each}
           </div>
         </div>
       {/each}

@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { groupToolsByGroup, hasNamedGroups, type GroupableTool } from '../../src/shared/tools/grouping';
+import {
+  groupToolsByGroup,
+  hasNamedGroups,
+  flattenGroupedMenu,
+  type GroupableTool,
+} from '../../src/shared/tools/grouping';
 
 const t = (id: string, group?: string): GroupableTool & { id: string } => ({ id, group });
 
@@ -37,5 +42,38 @@ describe('groupToolsByGroup', () => {
     const groups = groupToolsByGroup([t('a', 'X'), t('b', 'Y')]);
     expect(groups.map((g) => g.label)).toEqual(['X', 'Y']);
     expect(groups.every((g) => g.label !== null)).toBe(true);
+  });
+});
+
+describe('flattenGroupedMenu (nest named, inline ungrouped)', () => {
+  // Render each tool as `id` and each submenu as `Label>[ids]` so ordering +
+  // nesting are legible in one string per item.
+  const flat = (x: GroupableTool & { id: string }) => x.id;
+  const submenu = (label: string, ts: (GroupableTool & { id: string })[]) =>
+    `${label}>[${ts.map((x) => x.id).join(',')}]`;
+  const render = (tools: (GroupableTool & { id: string })[]) =>
+    flattenGroupedMenu(groupToolsByGroup(tools), flat, submenu);
+
+  it('renders a fully-ungrouped menu flat', () => {
+    expect(render([t('a'), t('b'), t('c')])).toEqual(['a', 'b', 'c']);
+  });
+
+  it('nests only the grouped skill; ungrouped stay inline (the gotcha scenario)', () => {
+    // One skill grouped among three ungrouped: just that skill nests. The
+    // others are NOT swept into a "General" submenu.
+    expect(render([t('a'), t('b', 'Planning'), t('c')])).toEqual([
+      'Planning>[b]',
+      'a',
+      'c',
+    ]);
+  });
+
+  it('nests each named group and keeps the trailing ungrouped bucket inline', () => {
+    expect(render([
+      t('a', 'Generation'),
+      t('b', 'Planning'),
+      t('c', 'Generation'),
+      t('loose'),
+    ])).toEqual(['Generation>[a,c]', 'Planning>[b]', 'loose']);
   });
 });
