@@ -8,10 +8,12 @@
  *
  * Pure and order-preserving: groups appear in first-appearance order (which
  * follows the menu config's ordering), and ungrouped tools collect into a
- * trailing bucket (`label: null`, rendered as "General"). If no tool in the
- * list declares a group, the result is a single null-labelled bucket — the
- * caller treats that as "render flat", preserving current behavior for
- * categories nobody has grouped (Learning, Research).
+ * trailing `label: null` bucket. Menus render named groups as nested submenus
+ * and the ungrouped bucket *inline* (not as a "General" submenu), so grouping
+ * one skill nests just that skill instead of restructuring the whole category.
+ * If no tool in the list declares a group, the result is a single null-labelled
+ * bucket — rendered flat, exactly as an ungrouped category (Learning, Research)
+ * looks today.
  */
 
 export interface GroupableTool {
@@ -50,4 +52,22 @@ export function groupToolsByGroup<T extends GroupableTool>(tools: T[]): ToolGrou
 /** True when the partition warrants nested submenus (≥1 named group). */
 export function hasNamedGroups<T>(groups: ToolGroup<T>[]): boolean {
   return groups.some((g) => g.label !== null);
+}
+
+/**
+ * Flatten a partition for a menu that nests each named group into a submenu but
+ * keeps ungrouped tools inline, in place. `submenu(label, tools)` builds a
+ * nested item; ungrouped tools are emitted individually via `flat(tool)`.
+ *
+ * This is what makes grouping *local*: adding a `group` to one skill nests only
+ * that skill, leaving every ungrouped skill exactly where it was — instead of
+ * collecting them all into a "General" submenu. With no named groups the whole
+ * list is one ungrouped bucket, so every tool renders flat.
+ */
+export function flattenGroupedMenu<T, R>(
+  groups: ToolGroup<T>[],
+  flat: (tool: T) => R,
+  submenu: (label: string, tools: T[]) => R,
+): R[] {
+  return groups.flatMap((g) => (g.label ? [submenu(g.label, g.tools)] : g.tools.map(flat)));
 }
