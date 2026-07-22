@@ -17,7 +17,7 @@ import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { parseMarkdown, type ParsedTable, type FrontmatterValue } from './parser';
+import { parseMarkdown, type ParsedTable, type FrontmatterValue, type FrontmatterMap } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { resolveWikiLinkTarget } from '../../shared/wiki-link-resolver';
@@ -152,7 +152,9 @@ function flattenFrontmatterStrings(value: FrontmatterValue): string[] {
   return [];
 }
 
-type FrontmatterScalarNonNull = Exclude<FrontmatterValue, null | FrontmatterValue[]>;
+// A non-null leaf scalar — excludes lists AND nested maps (maps materialise as
+// blank nodes in emitFrontmatterValue, never as a single edge).
+type FrontmatterScalarNonNull = string | number | boolean | Date;
 
 /**
  * Reconstitute YAML-eaten wiki-link shorthand. The user writes
@@ -184,12 +186,66 @@ function recoverYamlEatenWikiLink(value: FrontmatterValue): FrontmatterValue {
   return value;
 }
 
-/** Flatten nested arrays, dropping nulls. Scalars pass through in typed form. */
-function flattenFrontmatterScalars(value: FrontmatterValue): FrontmatterScalarNonNull[] {
+function isFrontmatterMap(value: FrontmatterValue): value is FrontmatterMap {
+  return typeof value === 'object' && value !== null
+    && !Array.isArray(value) && !(value instanceof Date);
+}
+
+/**
+ * Emit the graph triples for one frontmatter value under `subject` (the note
+ * IRI at the top level, a blank node when recursing into a nested mapping):
+ *
+ *  - scalar / wiki-link → one edge via `frontmatterValueToEdge`
+ *  - list               → one edge per element, all under `keyPredicate`
+ *  - nested mapping      → a fresh blank node linked under `keyPredicate`, with
+ *    the map's own keys becoming `minerva:meta-<subkey>` predicates on that
+ *    blank node (recursively). RDF's idiomatic way to carry structured
+ *    metadata — so `address: { city: … }` is queryable via
+ *    `?note minerva:meta-address/minerva:meta-city ?c` instead of being dropped.
+ *    Nested keys always take the `meta-` form (not canonical mapping): a nested
+ *    structure is opaque user data, so its keys stay predictable rather than
+ *    sometimes resolving to dc:/schema:/… predicates. The blank node is linked
+ *    in only if it received at least one child triple, so an
+ *    all-unmaterialisable map leaves nothing.
+ *
+ * `depth` caps recursion (matches the parser's own sanitise cap).
+ */
+function emitFrontmatterValue(
+  state: GraphState,
+  store: $rdf.IndexedFormula,
+  subject: $rdf.NamedNode | $rdf.BlankNode,
+  keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
+  value: FrontmatterValue,
+  graph: $rdf.NamedNode,
+  rc: LinkResolveCtx,
+  depth: number,
+): void {
+  if (depth > 8) return;
   const recovered = recoverYamlEatenWikiLink(value);
-  if (recovered === null || recovered === undefined) return [];
-  if (Array.isArray(recovered)) return recovered.flatMap(flattenFrontmatterScalars);
-  return [recovered];
+  if (recovered === null || recovered === undefined) return;
+  if (Array.isArray(recovered)) {
+    for (const item of recovered) {
+      emitFrontmatterValue(state, store, subject, keyPredicate, item, graph, rc, depth + 1);
+    }
+    return;
+  }
+  if (isFrontmatterMap(recovered)) {
+    const bnode = $rdf.blankNode();
+    let childCount = 0;
+    for (const [subkey, subval] of Object.entries(recovered)) {
+      const before = store.statements.length;
+      // Nested keys are always `meta-<subkey>` — predictable, opaque data
+      // (not run through canonical key mapping like top-level keys are).
+      emitFrontmatterValue(
+        state, store, bnode, MINERVA(`meta-${subkey}`), subval, graph, rc, depth + 1,
+      );
+      if (store.statements.length > before) childCount++;
+    }
+    if (childCount > 0) store.add(subject, keyPredicate, bnode, graph);
+    return;
+  }
+  const edge = frontmatterValueToEdge(recovered, state, keyPredicate, rc);
+  if (edge) store.add(subject, edge.predicate, edge.term, graph);
 }
 
 function resolveFrontmatterPredicate(key: string) {
@@ -230,7 +286,7 @@ const WHOLE_WIKILINK_RE = /^\[\[([^\]\n]+?)\]\]$/;
  * →an IRI node, everything else→a plain string literal.
  */
 function frontmatterValueToEdge(
-  value: Exclude<FrontmatterValue, null | FrontmatterValue[]>,
+  value: FrontmatterScalarNonNull,
   state: GraphState,
   keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
   rc: LinkResolveCtx,
@@ -533,13 +589,10 @@ export async function indexNote(
     // publishing directives (#1136) — a publication concern, kept out of the
     // graph (and it's an object, not a materialisable scalar anyway).
     if (key === 'title' || key === 'tags' || key === 'publish') continue;
-    const keyPredicate = resolveFrontmatterPredicate(key);
-    for (const v of flattenFrontmatterScalars(value)) {
-      // A typed wiki-link value (`[[supports::x]]`) overrides keyPredicate with
-      // its own type; everything else stays under the key's predicate.
-      const edge = frontmatterValueToEdge(v, state, keyPredicate, linkCtx);
-      if (edge) store.add(subject, edge.predicate, edge.term, graph);
-    }
+    // A typed wiki-link value (`[[supports::x]]`) overrides keyPredicate with
+    // its own type; a nested mapping materialises as a blank node; everything
+    // else stays a scalar edge under the key's predicate.
+    emitFrontmatterValue(state, store, subject, resolveFrontmatterPredicate(key), value, graph, linkCtx, 0);
   }
 
   // Embedded turtle blocks — parse into the note's named graph
