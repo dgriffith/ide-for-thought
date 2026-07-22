@@ -17,7 +17,9 @@ export const readNote: NotebaseTool = {
       '(e.g. "notes/topics/llm-trust.md"). Returns the raw markdown including ' +
       'any frontmatter. Use this when you have a path from search_notes, from ' +
       'a wiki-link in another note, or from a graph query, and need the full ' +
-      'text.',
+      'text. This reads plain notes only — for an ingested source (a `[source]` ' +
+      'hit from search_related, identified by a source id rather than a path) ' +
+      'use read_source instead.',
     input_schema: {
       type: 'object',
       properties: {
