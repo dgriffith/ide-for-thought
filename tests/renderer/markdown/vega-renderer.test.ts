@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import { __test } from '../../../src/renderer/lib/markdown/vega-renderer';
 
-const { findUrlRefs } = __test;
+const { findUrlRefs, applyResponsiveWidth } = __test;
 
 function urls(spec: unknown): string[] {
   const acc: string[] = [];
@@ -92,5 +92,57 @@ describe('findUrlRefs (vega remote-data guardrail)', () => {
     // Depth guard caps recursion at 64; a url below that is simply not reached.
     // The point is it returns without throwing.
     expect(() => urls(deep)).not.toThrow();
+  });
+});
+
+describe('applyResponsiveWidth (fit charts to the note column)', () => {
+  const widthOf = (spec: unknown, mode: 'vega' | 'vega-lite' = 'vega-lite') =>
+    (applyResponsiveWidth(spec, mode) as { width?: unknown }).width;
+
+  it('injects width:"container" into a unit spec with no width', () => {
+    expect(widthOf({ mark: 'bar', encoding: {} })).toBe('container');
+  });
+
+  it('injects width:"container" into a layered spec with no width', () => {
+    expect(widthOf({ layer: [{ mark: 'line' }, { mark: 'point' }] })).toBe('container');
+  });
+
+  it('leaves an explicit numeric width untouched (author intent honored)', () => {
+    const spec = { mark: 'bar', width: 800 };
+    expect(applyResponsiveWidth(spec, 'vega-lite')).toBe(spec); // same reference, unmodified
+    expect(widthOf(spec)).toBe(800);
+  });
+
+  it('leaves an explicit "container" width as-is', () => {
+    expect(widthOf({ mark: 'bar', width: 'container' })).toBe('container');
+  });
+
+  it('does not touch multi-view composites (container is invalid there)', () => {
+    for (const key of ['hconcat', 'vconcat', 'concat', 'facet', 'repeat']) {
+      const spec = { [key]: [{ mark: 'bar' }] };
+      expect(applyResponsiveWidth(spec, 'vega-lite')).toBe(spec);
+      expect((spec as { width?: unknown }).width).toBeUndefined();
+    }
+  });
+
+  it('does not touch a spec that is neither a unit nor a layer', () => {
+    const spec = { data: { values: [] } }; // no mark / layer
+    expect(applyResponsiveWidth(spec, 'vega-lite')).toBe(spec);
+  });
+
+  it('leaves full vega specs alone (different sizing mechanism)', () => {
+    const spec = { marks: [], scales: [] };
+    expect(applyResponsiveWidth(spec, 'vega')).toBe(spec);
+  });
+
+  it('is a no-op on non-object specs', () => {
+    expect(applyResponsiveWidth(null, 'vega-lite')).toBe(null);
+    expect(applyResponsiveWidth([{ mark: 'bar' }], 'vega-lite')).toEqual([{ mark: 'bar' }]);
+  });
+
+  it('does not mutate the input spec', () => {
+    const spec = { mark: 'bar', encoding: { x: {} } };
+    applyResponsiveWidth(spec, 'vega-lite');
+    expect('width' in spec).toBe(false);
   });
 });

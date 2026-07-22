@@ -393,10 +393,11 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
 .vega-block .vega-embed {
   width: 100%;
 }
-.vega-block svg {
-  max-width: 100%;
-  height: auto;
-}
+/* No `max-width: 100%` on the SVG: that scaled the whole chart down (text and
+ * all) to fit, which is what made wide charts look cramped. Charts without an
+ * explicit width get `width: "container"` from the renderer and lay out to this
+ * column; a chart that sets its own pixel width renders at that size and this
+ * block's `overflow-x: auto` scrolls it. */
 .vega-block[data-vega-rendered="pending"]::before {
   content: 'Rendering chart\2026';
   color: var(--text-muted);
