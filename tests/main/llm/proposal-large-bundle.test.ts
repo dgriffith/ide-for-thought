@@ -22,8 +22,6 @@ import {
   proposeWrite,
   approveProposal,
   getProposal,
-  resetPolicy,
-  setPolicy,
 } from '../../../src/main/llm/approval';
 import { initGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
@@ -78,8 +76,6 @@ describe('large-bundle approval (the 27-note silent-failure regression)', () => 
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-large-bundle-'));
     ctx = projectContext(root);
     await initGraph(ctx);
-    resetPolicy();
-    setPolicy('component_creation', 'requires_approval');
   });
 
   afterEach(async () => {
@@ -94,9 +90,8 @@ describe('large-bundle approval (the 27-note silent-failure regression)', () => 
       note: 'Distributed Consensus journey',
       proposedBy: 'unit-test',
     });
-    expect(proposal).not.toBeNull();
 
-    const fetched = await getProposal(ctx, proposal!.uri);
+    const fetched = await getProposal(ctx, proposal.uri);
     expect(fetched).not.toBeNull();
     // Critical: payloads survived the JSON-in-Turtle-literal round trip.
     // If escaping is broken, parsePayloads() returns [] silently.
@@ -120,7 +115,7 @@ describe('large-bundle approval (the 27-note silent-failure regression)', () => 
       note: 'Distributed Consensus journey',
       proposedBy: 'unit-test',
     });
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     expect(fs.existsSync(path.join(root, 'notes/journey-parent.md'))).toBe(true);
     for (let i = 1; i <= 26; i++) {

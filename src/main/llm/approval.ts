@@ -13,10 +13,8 @@
 import * as graph from '../graph/index';
 import type { ProjectContext } from '../project-context-types';
 import type {
-  ApprovalTier,
   ApproveResult,
   AppliedRecord,
-  OperationType,
   Proposal,
   ProposalPayload,
   ProposedWrite,
@@ -32,7 +30,6 @@ import {
 // Re-export the public surface so importers of './llm/approval' are unaffected
 // by the split.
 export type {
-  ApprovalTier,
   ApproveResult,
   OperationType,
   Proposal,
@@ -40,65 +37,6 @@ export type {
   ProposedWrite,
 } from './proposal-types';
 export { getProposal, listProposals, stripTurtleCodeFence } from './proposal-persistence';
-
-// ── Default Policy ─────────────────────────────────────────────────────────
-
-const DEFAULT_POLICY: Record<OperationType, ApprovalTier> = {
-  new_claim: 'requires_approval',
-  evidence_link: 'requires_approval',
-  component_creation: 'requires_approval',
-  confidence_update: 'notify_only',
-  status_change: 'notify_only',
-  tag_addition: 'autonomous',
-  staleness_flag: 'autonomous',
-  // A move/rename restructures the vault + rewrites links across notes — always
-  // reviewed (#911).
-  note_refactor: 'requires_approval',
-  // Deleting a note is destructive — always reviewed, never autonomous.
-  note_delete: 'requires_approval',
-  // Rewriting a note's body in place replaces human-authored content — always
-  // reviewed via the diff card (#936).
-  note_rewrite: 'requires_approval',
-  // Upserting LLM-proposed source metadata (abstract / TL;DR) — reviewed via the
-  // source-property card (#943).
-  source_properties: 'requires_approval',
-};
-
-let policyOverrides: Partial<Record<OperationType, ApprovalTier>> = {};
-
-export function getApprovalTier(operationType: OperationType): ApprovalTier {
-  return policyOverrides[operationType] ?? DEFAULT_POLICY[operationType] ?? 'requires_approval';
-}
-
-export function setPolicy(operationType: OperationType, tier: ApprovalTier): void {
-  policyOverrides[operationType] = tier;
-}
-
-export function resetPolicy(): void {
-  policyOverrides = {};
-}
-
-// ── Established-node escalation ──────────────────────────────────────────────
-
-/**
- * The Trust Principle's established-node escalation (#656): a write that
- * touches any human-vetted (`thought:hasStatus thought:established`) node
- * escalates to `requires_approval` regardless of its operation type — so the
- * LLM can't silently re-tag, flag, or otherwise mutate an established claim
- * via an `autonomous`/`notify_only` op. Returns true if any of `uris` is
- * established.
- */
-async function anyNodeEstablished(ctx: ProjectContext, uris: string[]): Promise<boolean> {
-  if (uris.length === 0) return false;
-  const values = uris.map((u) => `<${u}>`).join(' ');
-  const r = await graph.queryGraph(ctx, `
-    SELECT ?n WHERE {
-      VALUES ?n { ${values} }
-      ?n thought:hasStatus thought:established .
-    } LIMIT 1
-  `);
-  return r.results.length > 0;
-}
 
 /**
  * Reject a bundle containing a payload kind that has no apply handler (#665).
@@ -123,41 +61,24 @@ function assertWiredPayloads(payloads: ProposalPayload[]): void {
 // ── Proposal lifecycle ───────────────────────────────────────────────────────
 
 /**
- * Submit a proposed bundle. Based on the operation's approval tier:
- * - requires_approval: persists a pending Proposal, returns it.
- * - notify_only: applies the bundle immediately, persists an approved
- *   Proposal for audit.
- * - autonomous: applies the bundle immediately, no proposal record.
+ * Submit a proposed bundle. Every write is filed as a *pending* `thought:Proposal`
+ * and applied only when the user approves it — the Trust Principle invariant:
+ * the LLM proposes, the human confirms. There are no lower-trust tiers, so an
+ * established-node escalation is unnecessary (nothing can bypass review to begin
+ * with). Returns the pending proposal.
  */
-export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal | null> {
+export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal> {
   assertWiredPayloads(write.payloads);
-  let tier = getApprovalTier(write.operationType);
   const now = new Date().toISOString();
   const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * 86400000).toISOString();
 
-  // Established-node escalation (#656). Computed before the tier dispatch so it
-  // can pull an autonomous/notify_only write up to requires_approval when it
-  // touches a human-vetted node — the Trust Principle invariant CLAUDE.md
-  // documents. Collected here (not after the autonomous return) so the check
-  // covers autonomous ops too.
-  const affectsNodeUris = collectAffectsNodes(ctx, write.payloads);
-  if (tier !== 'requires_approval' && await anyNodeEstablished(ctx, affectsNodeUris)) {
-    tier = 'requires_approval';
-  }
-
-  if (tier === 'autonomous') {
-    await applyBundle(ctx, write.payloads);
-    return null;
-  }
-
-  const uri = proposalUri();
   const proposal: Proposal = {
-    uri,
-    status: tier === 'notify_only' ? 'approved' : 'pending',
+    uri: proposalUri(),
+    status: 'pending',
     operationType: write.operationType,
     payloads: write.payloads,
     note: write.note,
-    affectsNodeUris,
+    affectsNodeUris: collectAffectsNodes(ctx, write.payloads),
     conversationUri: write.conversationUri,
     proposedBy: write.proposedBy,
     proposedAt: now,
@@ -165,11 +86,6 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   };
 
   await writeProposalToGraph(ctx, proposal);
-
-  if (tier === 'notify_only') {
-    await applyBundle(ctx, write.payloads);
-  }
-
   return proposal;
 }
 

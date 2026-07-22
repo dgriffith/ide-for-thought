@@ -13,8 +13,6 @@ import os from 'node:os';
 import {
   proposeWrite,
   approveProposal,
-  resetPolicy,
-  setPolicy,
   type ProposalPayload,
 } from '../../../src/main/llm/approval';
 import { buildExcerptTtl } from '../../../src/main/sources/create-excerpt';
@@ -28,8 +26,6 @@ beforeEach(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-claims-bundle-'));
   ctx = projectContext(root);
   await initGraph(ctx);
-  resetPolicy();
-  setPolicy('component_creation', 'requires_approval');
 });
 afterEach(async () => { await fsp.rm(root, { recursive: true, force: true }); });
 
@@ -81,8 +77,7 @@ describe('claims bundle (#104)', () => {
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation', payloads: bundle(), note: 'claims', proposedBy: 'unit-test',
     });
-    expect(proposal).not.toBeNull();
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     // Excerpt .ttl on disk.
     expect(fs.existsSync(path.join(root, '.minerva', 'excerpts', `${EXCERPT_ID}.ttl`))).toBe(true);
@@ -120,7 +115,7 @@ describe('claims bundle (#104)', () => {
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation', payloads, note: 'rollback', proposedBy: 'unit-test',
     });
-    await expect(approveProposal(ctx, proposal!.uri)).rejects.toBeTruthy();
+    await expect(approveProposal(ctx, proposal.uri)).rejects.toBeTruthy();
     // The excerpt .ttl written by the first payload must be rolled back.
     expect(fs.existsSync(path.join(root, '.minerva', 'excerpts', `${EXCERPT_ID}.ttl`))).toBe(false);
   });

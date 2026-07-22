@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { proposeWrite, approveProposal, getApprovalTier } from '../../../src/main/llm/approval';
+import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import { initGraph, indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
 import { projectContext } from '../../../src/main/project-context-types';
@@ -45,9 +45,8 @@ function refactor(fromPath: string, toPath: string) {
 
 describe('note-refactor proposal (#911)', () => {
   it('is requires_approval — files as pending, not auto-applied', async () => {
-    expect(getApprovalTier('note_refactor')).toBe('requires_approval');
     const proposal = await refactor('raft.md', 'algorithms/raft.md');
-    expect(proposal).not.toBeNull();
+    expect(proposal.status).toBe('pending');
     // Nothing moved yet — it's pending review.
     expect(exists('raft.md')).toBe(true);
     expect(exists('algorithms/raft.md')).toBe(false);
@@ -55,7 +54,7 @@ describe('note-refactor proposal (#911)', () => {
 
   it('on approval moves the note and rewrites inbound links', async () => {
     const proposal = await refactor('raft.md', 'algorithms/raft.md');
-    expect((await approveProposal(ctx(), proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx(), proposal.uri)).ok).toBe(true);
 
     expect(exists('raft.md')).toBe(false);
     expect(exists('algorithms/raft.md')).toBe(true);
@@ -76,7 +75,7 @@ describe('note-refactor proposal (#911)', () => {
       note: 'refactor + bad triples',
       proposedBy: 'unit-test',
     });
-    await expect(approveProposal(ctx(), proposal!.uri)).rejects.toThrow();
+    await expect(approveProposal(ctx(), proposal.uri)).rejects.toThrow();
 
     // The vault is exactly as it was: note back, destination gone, links verbatim.
     expect(exists('raft.md')).toBe(true);
@@ -88,7 +87,7 @@ describe('note-refactor proposal (#911)', () => {
   it('rejects a colliding destination at approval time', async () => {
     await seed('archive.md', '# Archive\n\nexisting');
     const proposal = await refactor('raft.md', 'archive.md');
-    await expect(approveProposal(ctx(), proposal!.uri)).rejects.toThrow(/already exists/);
+    await expect(approveProposal(ctx(), proposal.uri)).rejects.toThrow(/already exists/);
     // Both notes untouched.
     expect(await read('archive.md')).toContain('existing');
     expect(exists('raft.md')).toBe(true);

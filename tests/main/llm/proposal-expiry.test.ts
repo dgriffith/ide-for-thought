@@ -53,8 +53,7 @@ describe('proposal expiry + lifecycle (#1000)', () => {
       proposedBy: 'unit-test',
       ...(expiryDays !== undefined ? { expiryDays } : {}),
     });
-    expect(p).not.toBeNull();
-    return p!;
+    return p;
   }
 
   it('expires a pending proposal whose autoExpires is in the past', async () => {

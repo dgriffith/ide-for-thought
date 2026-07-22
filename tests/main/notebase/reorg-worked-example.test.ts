@@ -62,7 +62,7 @@ describe('reorg worked example (#915)', () => {
       kind: 'note-refactor', fromPath: i.fromPath, toPath: i.toPath,
     }));
     const proposal = await proposeWrite(ctx(), { operationType: 'note_refactor', payloads, note: 'reorg', proposedBy: 'unit-test' });
-    expect((await approveProposal(ctx(), proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx(), proposal.uri)).ok).toBe(true);
 
     // Tidy: every note now lives under its topic folder.
     for (const p of ['distributed-systems/raft.md', 'distributed-systems/paxos.md', 'cooking/risotto.md', 'cooking/stock.md']) {
