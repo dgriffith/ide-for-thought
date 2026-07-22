@@ -1200,6 +1200,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     function handleClick(e: MouseEvent) {
         const el = e.target as HTMLElement;
+        // Dismiss any open hover tooltip first. Clicking a wiki-link navigates
+        // the preview and replaces the DOM before a `mouseout` can fire on the
+        // now-destroyed link, which otherwise leaves the tooltip stuck onscreen
+        // over the newly-loaded note. A click means "acting, not hovering".
+        dismissTooltip();
         if (handleTaskCheckboxClick(el)) return;
         for (const [selector, handler] of clickRoutes) {
             const matched = el.closest<HTMLElement>(selector);
@@ -1619,7 +1624,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // relatedTarget can be null when cursor leaves the window — dismiss anyway
         const to = e.relatedTarget as Node | null;
         if (to && leaving.contains(to)) return;
-        hoverToken++; // cancel any in-flight wiki-link fetch (#1132)
+        dismissTooltip();
+    }
+
+    /** Hide the hover tooltip and cancel any in-flight wiki-link fetch (#1132)
+     *  so a late-resolving read can't re-show it. */
+    function dismissTooltip() {
+        hoverToken++;
         tooltipVisible = false;
     }
 
