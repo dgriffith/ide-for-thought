@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { proposeWrite, approveProposal, getApprovalTier } from '../../../src/main/llm/approval';
+import { proposeWrite, approveProposal } from '../../../src/main/llm/approval';
 import { initGraph, indexNote, disposeProject as disposeGraph } from '../../../src/main/graph/index';
 import { initSearch, indexNote as searchIndex, disposeProject as disposeSearch } from '../../../src/main/search/index';
 import { projectContext } from '../../../src/main/project-context-types';
@@ -45,15 +45,14 @@ function del(...paths: string[]) {
 
 describe('note-delete proposal', () => {
   it('is requires_approval — files as pending, deletes nothing yet', async () => {
-    expect(getApprovalTier('note_delete')).toBe('requires_approval');
     const proposal = await del('stale.md');
-    expect(proposal).not.toBeNull();
+    expect(proposal.status).toBe('pending');
     expect(exists('stale.md')).toBe(true);
   });
 
   it('on approval deletes the note (leaving inbound links to dangle)', async () => {
     const proposal = await del('stale.md');
-    expect((await approveProposal(ctx(), proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx(), proposal.uri)).ok).toBe(true);
 
     expect(exists('stale.md')).toBe(false);
     // Inbound link is intentionally left dangling, matching manual delete.
@@ -71,7 +70,7 @@ describe('note-delete proposal', () => {
       note: 'delete + bad triples',
       proposedBy: 'unit-test',
     });
-    await expect(approveProposal(ctx(), proposal!.uri)).rejects.toThrow();
+    await expect(approveProposal(ctx(), proposal.uri)).rejects.toThrow();
 
     // The deleted note is back, content byte-for-byte.
     expect(exists('stale.md')).toBe(true);

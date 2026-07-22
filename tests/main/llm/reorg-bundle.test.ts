@@ -46,7 +46,7 @@ describe('batch note-refactor bundle (#914)', () => {
       { kind: 'note-refactor', fromPath: 'b.md', toPath: 'notes/b.md' },
       { kind: 'note-refactor', fromPath: 'c.md', toPath: 'notes/c.md' },
     ]);
-    expect((await approveProposal(ctx(), p!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx(), p.uri)).ok).toBe(true);
 
     expect(exists('notes/b.md')).toBe(true);
     expect(exists('notes/c.md')).toBe(true);
@@ -65,7 +65,7 @@ describe('batch note-refactor bundle (#914)', () => {
       { kind: 'note-refactor', fromPath: 'a.md', toPath: 'notes/a.md' },
       { kind: 'note-refactor', fromPath: 'b.md', toPath: 'c.md' }, // b.md already moved away → source missing
     ]);
-    await expect(approveProposal(ctx(), p!.uri)).rejects.toThrow();
+    await expect(approveProposal(ctx(), p.uri)).rejects.toThrow();
 
     // Vault is exactly as it started — nothing half-applied.
     expect(exists('b.md')).toBe(true);

@@ -126,17 +126,23 @@ All LLM-originated graph mutations **must** go through the approval engine (`src
 3. Only approved proposals mutate the graph
 4. Proposals that aren't reviewed auto-expire after a configurable window
 
-### Approval Tiers
+### One tier: everything is proposed
 
-Operations are classified by trust level:
+Every LLM-originated write is filed as a **pending** `thought:Proposal` and
+applied only when the user approves it — there is no lower-trust tier. An
+operation's `operationType` (new_claim, note_rewrite, component_creation,
+note_refactor, note_delete, source_properties, …) is descriptive metadata for
+the review UI, **not** a trust level. Even the "quiet" paths conform: auto-tag,
+for instance, files a normal `note_rewrite` proposal and self-approves it only
+after the user accepted the tags on the conversation card.
 
-| Tier | Operations | Behavior |
-|------|-----------|----------|
-| `requires_approval` | New claims, evidence links, component creation | Queued as pending proposal; user must approve |
-| `notify_only` | Confidence updates, status changes | Applied immediately but surfaced in activity feed |
-| `autonomous` | Tag additions, staleness flags | Applied silently |
-
-Nodes with `thought:hasStatus thought:established` automatically escalate to `requires_approval` regardless of operation type.
+> **Historical note:** earlier designs sketched `notify_only` (apply + audit)
+> and `autonomous` (apply silently) tiers, with an established-node escalation to
+> pull them up to `requires_approval`. No write path ever used them, so the tiers
+> and their orphan operation types (tag_addition, staleness_flag,
+> confidence_update, status_change) were removed. If a genuine lower-trust
+> operation is ever needed, re-introduce a tier deliberately rather than assuming
+> one exists.
 
 ### Code Review Checklist for LLM/Graph PRs
 

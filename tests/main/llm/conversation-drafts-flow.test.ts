@@ -28,7 +28,6 @@ import {
   proposeWrite,
   approveProposal,
   listProposals,
-  resetPolicy,
 } from '../../../src/main/llm/approval';
 import { initGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
@@ -60,7 +59,6 @@ describe('conversation drafts: propose_notes → user-approve → file', () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-drafts-'));
     ctx = projectContext(root);
     await initGraph(ctx);
-    resetPolicy();
   });
 
   afterEach(async () => {

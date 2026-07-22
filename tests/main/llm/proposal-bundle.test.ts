@@ -17,8 +17,6 @@ import {
   proposeWrite,
   approveProposal,
   getProposal,
-  resetPolicy,
-  setPolicy,
 } from '../../../src/main/llm/approval';
 import { initGraph, queryGraph } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
@@ -33,7 +31,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-bundle-'));
     ctx = projectContext(root);
     await initGraph(ctx);
-    resetPolicy();
   });
 
   afterEach(async () => {
@@ -41,7 +38,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
   });
 
   it('a graph-triples-only bundle applies through approve and lands in the store', async () => {
-    setPolicy('component_creation', 'requires_approval');
     const claimUri = 'https://minerva.dev/c/single-payload';
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation',
@@ -53,8 +49,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'one triples payload',
       proposedBy: 'unit-test',
     });
-    expect(proposal).not.toBeNull();
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     const r = await queryGraph(ctx, `
       PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -65,7 +60,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
   });
 
   it('a note-only bundle applies through approve and lands the file on disk', async () => {
-    setPolicy('component_creation', 'requires_approval');
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [{
@@ -76,8 +70,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'one note payload',
       proposedBy: 'unit-test',
     });
-    expect(proposal).not.toBeNull();
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     const onDisk = await fsp.readFile(path.join(root, 'notes/from-bundle.md'), 'utf-8');
     expect(onDisk).toContain('From bundle');
@@ -88,7 +81,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     // documenting that claim. Order matters: the triples reference
     // the note's URI, so the note must already exist (and be
     // indexed) when the triples are applied. Triples-last.
-    setPolicy('component_creation', 'requires_approval');
     const claimUri = 'https://minerva.dev/c/note-and-triples';
     const noteIri = 'https://example/project/note/notes/explanation';
 
@@ -110,7 +102,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'note + triples',
       proposedBy: 'unit-test',
     });
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     expect(fs.existsSync(path.join(root, 'notes/explanation.md'))).toBe(true);
     const r = await queryGraph(ctx, `
@@ -126,7 +118,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     // triples payload throws because the turtle is malformed. The
     // engine must undo the note write so the bundle's all-or-nothing
     // contract holds.
-    setPolicy('component_creation', 'requires_approval');
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [
@@ -146,7 +137,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'should fail and roll back',
       proposedBy: 'unit-test',
     });
-    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow();
+    await expect(approveProposal(ctx, proposal.uri)).rejects.toThrow();
     expect(fs.existsSync(path.join(root, 'notes/should-be-rolled-back.md'))).toBe(false);
   });
 
@@ -155,7 +146,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
     await fsp.writeFile(path.join(root, 'notes/colliding.md'), 'pre-existing\n', 'utf-8');
 
-    setPolicy('component_creation', 'requires_approval');
     const proposal = await proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [{
@@ -166,7 +156,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       note: 'collision test',
       proposedBy: 'unit-test',
     });
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     // Original file untouched.
     expect(await fsp.readFile(path.join(root, 'notes/colliding.md'), 'utf-8'))
@@ -176,30 +166,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       .toBe('proposed content\n');
   });
 
-  it('autonomous-tier bundles apply immediately and skip proposal persistence', async () => {
-    setPolicy('tag_addition', 'autonomous');
-    const result = await proposeWrite(ctx, {
-      operationType: 'tag_addition',
-      payloads: [{
-        kind: 'graph-triples',
-        turtle: '<https://ex/auto> a thought:Tag .',
-        affectsNodeUris: ['https://ex/auto'],
-      }],
-      note: 'auto-applied',
-      proposedBy: 'unit-test',
-    });
-    expect(result).toBeNull(); // autonomous → no proposal record returned
-
-    const r = await queryGraph(ctx, `
-      PREFIX thought: <https://minerva.dev/ontology/thought#>
-      SELECT ?type WHERE { <https://ex/auto> a ?type . }
-    `);
-    expect((r.results as Array<{ type: string }>).map(x => x.type))
-      .toContain('https://minerva.dev/ontology/thought#Tag');
-  });
-
   it('round-trips payloads through getProposal — list → fetch reconstitutes the bundle shape', async () => {
-    setPolicy('component_creation', 'requires_approval');
     const claimUri = 'https://minerva.dev/c/roundtrip';
     const original = await proposeWrite(ctx, {
       operationType: 'component_creation',
@@ -219,7 +186,7 @@ describe('ProposalBundle apply + rollback (#418)', () => {
       proposedBy: 'unit-test',
     });
 
-    const fetched = await getProposal(ctx, original!.uri);
+    const fetched = await getProposal(ctx, original.uri);
     expect(fetched).not.toBeNull();
     expect(fetched!.payloads).toHaveLength(2);
     expect(fetched!.payloads[0].kind).toBe('note');
@@ -234,7 +201,6 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     // are filed under #414/#415/follow-ups), but they have no apply dispatcher
     // yet. Rather than file a proposal that explodes at the user's Approve
     // click, proposeWrite rejects an un-wired kind at creation (#665).
-    setPolicy('component_creation', 'requires_approval');
     await expect(proposeWrite(ctx, {
       operationType: 'component_creation',
       payloads: [{

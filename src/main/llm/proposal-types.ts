@@ -3,16 +3,16 @@
 // registry (`apply-dispatch.ts`), and persistence (`proposal-persistence.ts`)
 // can all depend on it without a cycle.
 
-export type ApprovalTier = 'requires_approval' | 'notify_only' | 'autonomous';
-
+// Every LLM-originated write is filed as a pending `thought:Proposal` and
+// applied only on human approval — there are no lower-trust tiers. (The old
+// `notify_only` / `autonomous` tiers and their orphan operation types —
+// tag_addition, staleness_flag, confidence_update, status_change — were removed
+// because no write path ever used them; auto-tag, for instance, files a normal
+// `note_rewrite` proposal like everything else.)
 export type OperationType =
   | 'new_claim'
   | 'evidence_link'
-  | 'confidence_update'
-  | 'tag_addition'
-  | 'staleness_flag'
   | 'component_creation'
-  | 'status_change'
   | 'note_refactor'
   | 'note_delete'
   | 'note_rewrite'
@@ -119,7 +119,9 @@ export type ProposalPayload =
 export type PayloadOf<K extends ProposalPayload['kind']> = Extract<ProposalPayload, { kind: K }>;
 
 export interface ProposedWrite {
-  /** Drives approval-tier policy lookup. */
+  /** Labels the proposal in the review UI and audit trail. Every write is
+   *  filed as a pending proposal regardless of type — this is descriptive
+   *  metadata, not a trust tier. */
   operationType: OperationType;
   /** Side effects to apply, in order. Triples-last is the convention
    *  callers should follow; rollback assumes file-system payloads

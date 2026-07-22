@@ -23,8 +23,6 @@ import os from 'node:os';
 import {
   proposeWrite,
   approveProposal,
-  resetPolicy,
-  setPolicy,
   stripTurtleCodeFence,
 } from '../../../src/main/llm/approval';
 import { initGraph, queryGraph } from '../../../src/main/graph/index';
@@ -70,8 +68,6 @@ describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-turtle-fence-'));
     ctx = projectContext(root);
     await initGraph(ctx);
-    resetPolicy();
-    setPolicy('component_creation', 'requires_approval');
   });
 
   afterEach(async () => {
@@ -94,9 +90,8 @@ describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-
       note: 'fenced turtle from LLM',
       proposedBy: 'unit-test',
     });
-    expect(proposal).not.toBeNull();
     // This is the call that was throwing before the fix.
-    expect((await approveProposal(ctx, proposal!.uri)).ok).toBe(true);
+    expect((await approveProposal(ctx, proposal.uri)).ok).toBe(true);
 
     const r = await queryGraph(ctx, `
       PREFIX thought: <https://minerva.dev/ontology/thought#>
@@ -125,7 +120,7 @@ describe('approval engine: tolerates fenced graph-triples payloads (#420 follow-
       note: 'should fail and roll back',
       proposedBy: 'unit-test',
     });
-    await expect(approveProposal(ctx, proposal!.uri)).rejects.toThrow();
+    await expect(approveProposal(ctx, proposal.uri)).rejects.toThrow();
     expect(fs.existsSync(path.join(root, 'notes/should-roll-back.md'))).toBe(false);
   });
 });
