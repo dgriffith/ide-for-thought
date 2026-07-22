@@ -135,6 +135,31 @@ function buildThemeConfig(): Record<string, unknown> {
 }
 
 /**
+ * Make a chart fit the note column instead of rendering at a fixed pixel size
+ * that CSS then has to squish (which shrinks the axis text too). For a
+ * Vega-Lite spec that hasn't set its own `width`, inject `width: "container"`
+ * so Vega lays the chart out to the available width — labels stay full-size and
+ * axes re-tick. A spec that *does* set an explicit width is left alone: the
+ * author asked for that size, and `.vega-block` scrolls if it's wider than the
+ * column.
+ *
+ * `width: "container"` is only valid on single-view (unit) and layered specs,
+ * not multi-view composites (concat / facet / repeat), so those are skipped —
+ * as are full `vega` specs, which size through a different mechanism.
+ */
+function applyResponsiveWidth(spec: unknown, mode: 'vega' | 'vega-lite'): unknown {
+  if (mode !== 'vega-lite') return spec;
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return spec;
+  const s = spec as Record<string, unknown>;
+  if ('width' in s) return spec; // author set an explicit size — honor it
+  const isComposite =
+    'hconcat' in s || 'vconcat' in s || 'concat' in s || 'facet' in s || 'repeat' in s;
+  if (isComposite) return spec;
+  if (!('mark' in s) && !('layer' in s)) return spec; // not a sizable single view
+  return { ...s, width: 'container' };
+}
+
+/**
  * Recursively collect every `url` string in the spec. Any present `url` is a
  * remote/file fetch we refuse by default (#829) — inline `data.values` carry
  * no `url`. (#832 will introduce a safe local-vault data form resolved before
@@ -292,6 +317,10 @@ export async function hydrateVegaBlocks(root: HTMLElement, noteContent = ''): Pr
       }
     }
 
+    // Fit the chart to the note column (unless it set its own width). Done last,
+    // after data resolution and the security scans, so it can't affect them.
+    spec = applyResponsiveWidth(spec, mode);
+
     try {
       // No DOMPurify pass here (#1331): vega-embed builds the chart with safe
       // DOM construction (createElementNS/setAttribute via its SVG renderer),
@@ -359,4 +388,4 @@ function escapeHtml(s: string): string {
 
 // Exported for unit tests — the spec-scan and JSON guardrail are the security
 // surface and deserve direct coverage without a DOM/vega-embed round-trip.
-export const __test = { findUrlRefs };
+export const __test = { findUrlRefs, applyResponsiveWidth };
