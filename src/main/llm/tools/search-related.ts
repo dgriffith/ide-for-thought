@@ -84,7 +84,9 @@ export const searchRelated: NotebaseTool = {
       'note ("what else is like this one"). Optionally restrict with `kinds` ' +
       '(e.g. ["excerpt"] to mine the research library). Each result names its ' +
       'kind, the matched section, and a similarity score (0–1); a `[source]` / ' +
-      '`[excerpt]` tag marks library hits (use read_note only for plain notes).\n' +
+      '`[excerpt]` tag marks library hits. Read a full hit by kind: `read_source` ' +
+      'for a `[source]`, `read_note` for a plain note (untagged); an `[excerpt]` ' +
+      'is anchored to a source, so read its `[source]` for the surrounding text.\n' +
       'Choosing among the search tools: use search_related for "find things ' +
       'like / about this" by meaning; use search_notes for exact keywords or ' +
       'phrases; use query_graph for structural questions (links, tags, types, ' +
