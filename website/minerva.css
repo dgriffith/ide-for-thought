@@ -130,6 +130,19 @@ ul.feat li span { color: var(--text-muted); }
 .shot.wide { min-height: 300px; }
 .shot.hero-shot { min-height: 420px; margin-top: 44px; }
 
+/* Real captured screenshots (swap-marketing-shots.mjs replaces the .shot
+   placeholders above with these once website/img/<id>.png exists). */
+.shot-img {
+  margin: 8px 0; border: 1px solid var(--border-strong); border-radius: 12px;
+  overflow: hidden; background: var(--bg-inset);
+}
+.shot-img img { display: block; width: 100%; height: auto; }
+.shot-img figcaption {
+  font-size: 0.82rem; color: var(--text-muted); text-align: center; padding: 9px 14px;
+  border-top: 1px solid var(--border);
+}
+.shot-img.hero-shot { margin-top: 44px; }
+
 /* ---- Author-fill markers (visible only in draft) ---- */
 .fill { background: #2b2740; border: 1px dashed var(--indigo); border-radius: 10px; padding: 16px 20px; margin: 14px 0; color: var(--text-muted); font-size: 0.95rem; }
 @supports (background: color-mix(in oklch, red 50%, transparent)) {

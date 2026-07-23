@@ -106,11 +106,10 @@
       <a class="btn btn-ghost" href="#control">You're in control</a>
     </div>
 
-    <div class="shot hero-shot">
-      <div class="icon">🖼️</div>
-      <div class="k">Screenshot — Hero</div>
-      <div class="d">Full app window: sidebar with a thoughtbase, a note open in split view (source + live preview), and the query panel visible. Use the dark theme.</div>
-    </div>
+    <figure class="shot-img hero-shot">
+      <img src="img/index-hero.png" alt="Full app window: sidebar with a thoughtbase, a note open in split view (source + live preview), and the query panel visible. Use the dark theme." loading="lazy" />
+      <figcaption>Hero</figcaption>
+    </figure>
   </div>
 </header>
 
@@ -125,11 +124,10 @@
       <div class="card"><span class="em">🔗</span><h3>Linked, not filed</h3><p>Connect any note to any other with a link — cite it, support it, contradict it, build on it. Follow the threads instead of hunting through folders.</p></div>
       <div class="card"><span class="em">🤝</span><h3>Yours and the AI's, together</h3><p>Write by hand when you want to, or let the AI draft, summarize, and gather — with you approving what actually lands. Either way, it's yours to keep.</p></div>
     </div>
-    <div class="shot wide">
-      <div class="icon">🗺️</div>
-      <div class="k">Screenshot — A thoughtbase</div>
-      <div class="d">A view that conveys "richly linked notes": several notes visible with wiki-links between them, a mix of media (text, a chart, an image, a source), and hover-preview of a linked note. The connections should read at a glance.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/thoughtbase-depth.png" alt="A view that conveys &quot;richly linked notes&quot;: several notes visible with wiki-links between them, a mix of media (text, a chart, an image, a source), and hover-preview of a linked note. The connections should read at a glance." loading="lazy" />
+      <figcaption>A thoughtbase</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -150,11 +148,10 @@
         </ul>
       </div>
       <div class="col-shot">
-        <div class="shot">
-          <div class="icon">✍️</div>
-          <div class="k">Screenshot — Editor / split view</div>
-          <div class="d">A note in split mode showing wiki-links, a callout, a KaTeX equation, and a live Vega-Lite chart rendering in the preview pane.</div>
-        </div>
+        <figure class="shot-img">
+      <img src="img/editor-split.png" alt="A note in split mode showing wiki-links, a callout, a KaTeX equation, and a live Vega-Lite chart rendering in the preview pane." loading="lazy" />
+      <figcaption>Editor / split view</figcaption>
+    </figure>
       </div>
     </div>
   </div>
@@ -176,7 +173,7 @@
         </ul>
       </div>
       <div class="col-shot">
-        <div class="shot">
+        <div class="shot" data-shot="ai-from-graph">
           <div class="icon">🕸️</div>
           <div class="k">Screenshot — AI answering from the graph</div>
           <div class="d">The AI in conversation surfacing an insight from the thoughtbase — an answer with citations linking back to the specific notes it drew on. (Optionally, the SPARQL query panel tucked alongside to show direct querying.)</div>
@@ -200,11 +197,10 @@
       <div class="card"><span class="em">🔎</span><h3>Find Outliers</h3><p>Flag anomalous values in tabular data, with the reasoning written up as a reviewable note.</p></div>
       <div class="card"><span class="em">🔗</span><h3>Find Correlations</h3><p>Surface the strongest relationships across your data before you go looking for them by hand.</p></div>
     </div>
-    <div class="shot wide">
-      <div class="icon">📊</div>
-      <div class="k">Screenshot — Data analysis</div>
-      <div class="d">A note acting as a notebook: a Python (or SQL) code fence over a CSV table with its output — a chart or table — rendered inline below the cell.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/data-analysis.png" alt="A note acting as a notebook: a Python (or SQL) code fence over a CSV table with its output — a chart or table — rendered inline below the cell." loading="lazy" />
+      <figcaption>Data analysis</figcaption>
+    </figure>
   </div>
 </section>
 
@@ -257,7 +253,7 @@
     </div>
     <p class="lede center" style="margin: 26px auto 0;">Nearly 50 skills in all — and the set is yours to extend and organize.</p>
 
-    <div class="shot wide">
+    <div class="shot wide" data-shot="skills-menu">
       <div class="icon">🧰</div>
       <div class="k">Screenshot — Skills menu</div>
       <div class="d">One of the menus (Analysis) open, showing grouped skills; or the conversation panel mid-run with a skill result streaming in.</div>
@@ -285,7 +281,7 @@
         </ul>
       </div>
       <div class="col-shot">
-        <div class="shot">
+        <div class="shot" data-shot="proposal-review">
           <div class="icon">✅</div>
           <div class="k">Screenshot — Proposal review</div>
           <div class="d">The proposals queue / side-by-side review showing a pending AI proposal with approve &amp; reject actions.</div>
@@ -329,7 +325,7 @@
         </ul>
       </div>
       <div class="col-shot">
-        <div class="shot">
+        <div class="shot" data-shot="clipper-source">
           <div class="icon">📎</div>
           <div class="k">Screenshot — Clipper + source</div>
           <div class="d">The browser clipper popup on a webpage on one side; the imported source's viewer in Minerva with an anchored excerpt on the other.</div>
@@ -371,7 +367,7 @@
       <div class="chip">Pandoc <span>· DOCX, EPUB &amp; more</span></div>
       <div class="chip">RDF / Turtle <span>· your knowledge, portably</span></div>
     </div>
-    <div class="shot wide">
+    <div class="shot wide" data-shot="export-menu">
       <div class="icon">📤</div>
       <div class="k">Screenshot — Export menu</div>
       <div class="d">The format-first Export menu open, showing the export families; optionally a published static-site page rendered in a browser.</div>

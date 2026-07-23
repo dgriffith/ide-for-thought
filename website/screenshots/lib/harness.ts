@@ -16,8 +16,11 @@ const projectRoot = path.resolve(__dirname, '..', '..', '..');
 /** Curated demo thoughtbase. Copied per-run so captures can't dirty it. */
 const DEMO_VAULT = path.join(os.homedir(), 'vaults', 'demo');
 
-/** Where captured PNGs land. */
+/** Where captured docs PNGs land. */
 export const IMG_DIR = path.join(projectRoot, 'website', 'docs', 'img');
+
+/** Where captured marketing-site PNGs land (index/features/getting-started). */
+export const MARKETING_IMG_DIR = path.join(projectRoot, 'website', 'img');
 
 /** Fixed capture geometry (logical px). 2× scale is applied at launch. */
 export const WINDOW = { width: 1440, height: 900 };
@@ -117,9 +120,9 @@ export async function setView(win: Page, mode: 'Source' | 'Side by side' | 'Prev
 
 /** Write a PNG into website/docs/img. Pass a Locator to crop, or omit for the
  *  full window. */
-export async function shoot(win: Page, id: string, locator?: import('@playwright/test').Locator): Promise<void> {
-  fs.mkdirSync(IMG_DIR, { recursive: true });
-  const out = path.join(IMG_DIR, `${id}.png`);
+export async function shoot(win: Page, id: string, locator?: import('@playwright/test').Locator, dir: string = IMG_DIR): Promise<void> {
+  fs.mkdirSync(dir, { recursive: true });
+  const out = path.join(dir, `${id}.png`);
   if (locator) await locator.screenshot({ path: out });
   else await win.screenshot({ path: out });
 }
