@@ -2,7 +2,7 @@ import { dialog } from 'electron';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
-import { computeConsentGuard, consentStatus, grantConsent } from '../compute/consent';
+import { computeConsentGuard, consentStatus, grantConsent, listConsent, revokeConsent } from '../compute/consent';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
 import {
   getPythonSettings,
@@ -68,6 +68,15 @@ export function registerCompute(): void {
   handle(Channels.COMPUTE_GRANT_CONSENT, withRootPath((rootPath, language: string, code: string, scope: 'cell' | 'project') => {
     grantConsent(rootPath, language, code, scope === 'project' ? 'project' : 'cell');
   }));
+
+  // Trust management (#1413): list/revoke consent across every thoughtbase this
+  // machine has trusted. These span projects (revoke targets an explicit path,
+  // not the open one), so they're machine-scoped rather than withRootPath.
+  handle(Channels.COMPUTE_LIST_CONSENT, () => listConsent());
+
+  handle(Channels.COMPUTE_REVOKE_CONSENT, (_e, rootPath: string) => {
+    revokeConsent(rootPath);
+  });
 
   handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
     const win = winFromEvent(e);

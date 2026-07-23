@@ -219,7 +219,7 @@ export interface FilesApi {
 }
 
 export type { CellOutput, CellResult } from '../../../shared/compute/types';
-import type { CellResult } from '../../../shared/compute/types';
+import type { CellResult, ComputeConsentSummary } from '../../../shared/compute/types';
 
 export interface CitationAuditPayload {
   /** Resolved style id after fallback (e.g. 'apa'). */
@@ -426,6 +426,13 @@ export interface ComputeApi {
    * per-machine, so consent never travels with a shared thoughtbase. */
   consentStatus(language: string, code: string): Promise<'cell' | 'blanket' | 'none'>;
   grantConsent(language: string, code: string, scope: 'cell' | 'project'): Promise<void>;
+  /**
+   * Trust management (#1413). `listConsent` returns every thoughtbase this
+   * machine has trusted for compute (blanket + per-cell counts) for the
+   * Settings → Compute list; `revokeConsent` clears a thoughtbase's grants so
+   * its cells prompt eyes-on-code again. */
+  listConsent(): Promise<ComputeConsentSummary[]>;
+  revokeConsent(rootPath: string): Promise<void>;
 }
 
 export interface ShellApi {

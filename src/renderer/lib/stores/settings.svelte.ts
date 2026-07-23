@@ -51,5 +51,8 @@ export function getSettingsStore() {
     setPythonSettings: (settings: { pythonPath: string }) =>
       api.compute.setPythonSettings(settings),
     restartPythonKernel: () => api.compute.restartPythonKernel(),
+    /** Revoke a thoughtbase's compute trust (#1413) — its cells prompt
+     *  eyes-on-code again on the next run. */
+    revokeComputeConsent: (rootPath: string) => api.compute.revokeConsent(rootPath),
   };
 }

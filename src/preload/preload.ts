@@ -187,6 +187,8 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.COMPUTE_CONSENT_STATUS, language, code),
     grantConsent: (language: string, code: string, scope: 'cell' | 'project') =>
       invoke(Channels.COMPUTE_GRANT_CONSENT, language, code, scope),
+    listConsent: () => invoke(Channels.COMPUTE_LIST_CONSENT),
+    revokeConsent: (rootPath: string) => invoke(Channels.COMPUTE_REVOKE_CONSENT, rootPath),
   },
   publish: {
     listExporters: () => invoke(Channels.PUBLISH_LIST_EXPORTERS),

@@ -23,7 +23,14 @@ vi.mock('electron', () => ({
 }));
 
 // Import after the mock so the module captures the stubbed `app`.
-import { cellHash, consentStatus, grantConsent, computeConsentGuard } from '../../../src/main/compute/consent';
+import {
+  cellHash,
+  consentStatus,
+  grantConsent,
+  computeConsentGuard,
+  listConsent,
+  revokeConsent,
+} from '../../../src/main/compute/consent';
 
 const PROJECT = '/some/thoughtbase';
 const OTHER = '/other/thoughtbase';
@@ -81,5 +88,48 @@ describe('compute consent (#1412)', () => {
     expect(cellHash('python', 'print(1)')).toBe(cellHash('PYTHON', 'print(1)'));
     expect(cellHash('python', 'print(1)')).not.toBe(cellHash('python', 'print(2)'));
     expect(cellHash('python', 'x')).not.toBe(cellHash('sql', 'x'));
+  });
+});
+
+describe('compute trust management (#1413)', () => {
+  it('listConsent is empty before anything is trusted', () => {
+    expect(listConsent()).toEqual([]);
+  });
+
+  it('listConsent summarizes blanket trust and per-cell counts per project', () => {
+    grantConsent(PROJECT, 'python', 'print(1)', 'cell');
+    grantConsent(PROJECT, 'python', 'print(2)', 'cell');
+    grantConsent(OTHER, 'python', '', 'project');
+
+    const summary = listConsent();
+    expect(summary).toHaveLength(2);
+    const proj = summary.find((s) => s.rootPath === PROJECT);
+    const other = summary.find((s) => s.rootPath === OTHER);
+    expect(proj).toEqual({ rootPath: PROJECT, blanket: false, cellCount: 2 });
+    expect(other).toEqual({ rootPath: OTHER, blanket: true, cellCount: 0 });
+  });
+
+  it('revokeConsent drops both blanket trust and remembered cells for a project', () => {
+    grantConsent(PROJECT, 'python', 'print(1)', 'cell');
+    grantConsent(PROJECT, 'python', '', 'project');
+    expect(consentStatus(PROJECT, 'python', 'print(1)')).toBe('cell');
+
+    revokeConsent(PROJECT);
+    expect(consentStatus(PROJECT, 'python', 'print(1)')).toBe('none');
+    expect(consentStatus(PROJECT, 'python', 'anything()')).toBe('none');
+    expect(listConsent()).toEqual([]);
+  });
+
+  it('revokeConsent only touches the named project', () => {
+    grantConsent(PROJECT, 'python', 'print(1)', 'cell');
+    grantConsent(OTHER, 'python', 'print(1)', 'cell');
+    revokeConsent(PROJECT);
+    expect(consentStatus(OTHER, 'python', 'print(1)')).toBe('cell');
+    expect(listConsent().map((s) => s.rootPath)).toEqual([OTHER]);
+  });
+
+  it('revokeConsent on an untrusted project is a no-op', () => {
+    expect(() => revokeConsent('/never/trusted')).not.toThrow();
+    expect(listConsent()).toEqual([]);
   });
 });
