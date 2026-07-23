@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Query Menu &amp; Panel</title>
-<meta name="description" content="The Query menu and the dedicated Query panel: New Query, the Stock Queries library, Saved Queries, and what the panel itself looks like." />
+<title>Minerva — Docs — Query menu &amp; panel</title>
+<meta name="description" content="The Query menu and the Query panel: start a new query, pick a ready-made one, save your own, and drop results into a note." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -79,77 +79,77 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="query.html">Query</a><span class="sep">/</span>Query menu &amp; panel</p>
 
     <h1>Query menu &amp; panel</h1>
-    <p class="lede">A dedicated tab for exploring your graph and tables — separate from a runnable code cell in a note, though it shares the same execution engine underneath.</p>
+    <p class="lede">A dedicated tab for asking questions of your knowledge base — the links between your notes, or the data in your tables — and getting back a results table you can sort, save, or drop into a note.</p>
 
     <h2 id="menu">The Query menu</h2>
+    <p>Everything starts from the Query menu:</p>
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd></div>
-        <div class="v"><b>New Query</b> — opens a fresh Query panel tab, empty and ready to write in.</div>
+        <div class="v"><b>New Query</b> — opens a fresh, empty Query panel ready to write in.</div>
       </div>
       <div class="row">
         <div class="k">Stock Queries</div>
-        <div class="v">A submenu of ready-made queries, split into a SPARQL branch and a SQL branch (see below) — pick one to open it pre-filled in a new panel.</div>
+        <div class="v">A library of ready-made queries for common questions. Pick one to open it pre-filled, then run it as-is or tweak it (see below).</div>
       </div>
       <div class="row">
         <div class="k">Saved Queries</div>
-        <div class="v">Your own saved queries, in two scopes you can toggle between: <b>Thoughtbase</b> (saved with this project) and <b>Global</b> (available across every project). Saved queries can be edited from this menu too.</div>
+        <div class="v">Queries you've saved yourself. You can keep one <b>with this project</b> or make it <b>available everywhere</b>, and re-open or edit any of them here.</div>
       </div>
     </div>
 
-    <h2 id="panel">The panel itself</h2>
-    <p>The Query panel is a split view: an editor on top (40% of the height by default) and a results table below (60%). A language dropdown switches the editor between SPARQL and SQL mid-query — useful when you're not sure yet which one answers your question. The toolbar has Run, Save, and Format, plus the last run's execution time and result count.</p>
+    <h2 id="panel">The panel</h2>
+    <p>The panel has a place to write your query on top and the results below. You can ask two kinds of questions — one that follows the links and connections between your notes, and one that queries the data in your tables — and a dropdown switches between the two. The toolbar has Run, Save, and Format buttons, and shows how long the last run took and how many results it found.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Results table</div>
-        <div class="v">Sortable — click a column header to toggle ascending/descending.</div>
+        <div class="v">Click a column heading to sort by it; click again to reverse the order.</div>
       </div>
       <div class="row">
         <div class="k">Copy as…</div>
-        <div class="v">Turns the current results into something you can paste into a note: <b>List</b> or <b>Table</b> (a <code>:::query-list</code> / <code>:::query-table</code> block, re-run live every time the note renders — see <a href="query-result-blocks.html">Result blocks</a>), or <b>Executable block</b> (a plain <code>```sparql</code>/<code>```sql</code> fence with your exact query, so you can keep refining it in the note itself — see <a href="query-runnable-cells.html">Runnable cells</a>).</div>
+        <div class="v">Turns the current results into something you can paste into a note — a <b>List</b> or <b>Table</b> that stays live and refreshes each time you view the note (see <a href="query-result-blocks.html">Result blocks</a>), or an <b>editable cell</b> holding your exact query so you can keep refining it inside the note (see <a href="query-runnable-cells.html">Runnable cells</a>).</div>
       </div>
       <div class="row">
         <div class="k">Export CSV</div>
-        <div class="v">Saves the current results table to a <code>.csv</code> file on disk — a one-off export, not a live block.</div>
+        <div class="v">Saves the current results as a spreadsheet file — a one-time snapshot, not a live block.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗂️</div>
-      <div class="k">Screenshot — Query panel</div>
-      <div class="d">The Query panel with a SPARQL query in the top editor pane and a sortable results table below; the language dropdown, Run/Save/Format toolbar, and the "Copy as…" dropdown all visible.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/query-menu-panel.png" alt="The Query panel: a query written in the top pane, a sortable results table below, and the toolbar with the Run, Save, Format, and &quot;Copy as…&quot; controls." loading="lazy" />
+      <figcaption>Screenshot — Query panel</figcaption>
+    </figure>
 
-    <h2 id="stock-sparql">Stock SPARQL queries</h2>
-    <p>Twelve queries covering common graph questions, ready to run or adapt:</p>
+    <h2 id="stock-links">Ready-made questions about your notes</h2>
+    <p>A set of ready-made queries for common questions about how your notes connect, ready to run or adapt:</p>
     <div class="deflist">
       <div class="row"><div class="k">All notes with tags</div><div class="v">Every note alongside the tags filed on it.</div></div>
-      <div class="row"><div class="k">Backlinks to note</div><div class="v">Edit the target path in the query, then run it to see everything that links in.</div></div>
-      <div class="row"><div class="k">Orphan notes</div><div class="v">Notes with no inbound or outbound links.</div></div>
-      <div class="row"><div class="k">Most-linked notes</div><div class="v">Ranked by incoming link count.</div></div>
-      <div class="row"><div class="k">Recently modified</div><div class="v">Notes ordered by last-modified time.</div></div>
+      <div class="row"><div class="k">Backlinks to note</div><div class="v">Name a note, then run it to see everything that links in.</div></div>
+      <div class="row"><div class="k">Orphan notes</div><div class="v">Notes with no links in or out.</div></div>
+      <div class="row"><div class="k">Most-linked notes</div><div class="v">Ranked by how many notes link to them.</div></div>
+      <div class="row"><div class="k">Recently modified</div><div class="v">Notes ordered by when you last changed them.</div></div>
       <div class="row"><div class="k">All tags with counts</div><div class="v">Every tag in use, and how many notes carry it.</div></div>
-      <div class="row"><div class="k">Notes in folder</div><div class="v">Edit the folder path in the query to scope it.</div></div>
-      <div class="row"><div class="k">Typed outgoing links</div><div class="v">A note's typed links (<code>supports</code>, <code>rebuts</code>, etc.) grouped by type.</div></div>
-      <div class="row"><div class="k">Typed backlinks</div><div class="v">The typed-link equivalent of Backlinks to note.</div></div>
-      <div class="row"><div class="k">All sources with authors/year</div><div class="v">Every ingested source and its bibliographic basics.</div></div>
+      <div class="row"><div class="k">Notes in folder</div><div class="v">Name a folder to list the notes inside it.</div></div>
+      <div class="row"><div class="k">Typed outgoing links</div><div class="v">A note's labelled links (such as <i>supports</i> or <i>rebuts</i>) grouped by kind.</div></div>
+      <div class="row"><div class="k">Typed backlinks</div><div class="v">The same, for labelled links pointing in.</div></div>
+      <div class="row"><div class="k">All sources with authors and year</div><div class="v">Every source you've added, with its basic citation details.</div></div>
       <div class="row"><div class="k">Most-cited sources</div><div class="v">Sources ranked by how many notes cite them.</div></div>
-      <div class="row"><div class="k">Sources missing metadata</div><div class="v">Sources without an author, year, or title — candidates to clean up.</div></div>
+      <div class="row"><div class="k">Sources missing details</div><div class="v">Sources without an author, year, or title — good candidates to tidy up.</div></div>
     </div>
 
-    <h2 id="stock-sql">Stock SQL queries</h2>
+    <h2 id="stock-tables">Ready-made questions about your tables</h2>
     <div class="deflist">
-      <div class="row"><div class="k">All tables</div><div class="v">Schema introspection — lists every table registered from a markdown table or CSV.</div></div>
-      <div class="row"><div class="k">Describe schema</div><div class="v"><code>DESCRIBE your_table;</code> — column names and types for a table you name.</div></div>
-      <div class="row"><div class="k">Summarize</div><div class="v"><code>SUMMARIZE your_table;</code> — per-column stats (min/max/nulls/approx-unique) via DuckDB's built-in.</div></div>
-      <div class="row"><div class="k">Null rate per column</div><div class="v">How complete each column actually is.</div></div>
-      <div class="row"><div class="k">Top values for a column</div><div class="v">A quick frequency count, edited to name the column you care about.</div></div>
+      <div class="row"><div class="k">All tables</div><div class="v">Lists every table you can query.</div></div>
+      <div class="row"><div class="k">Describe a table</div><div class="v">The column names and types for a table you name.</div></div>
+      <div class="row"><div class="k">Summarize a table</div><div class="v">Quick per-column stats such as smallest and largest values and how many entries are blank.</div></div>
+      <div class="row"><div class="k">Blanks per column</div><div class="v">How complete each column actually is.</div></div>
+      <div class="row"><div class="k">Top values for a column</div><div class="v">A quick count of the most common values in a column you name.</div></div>
     </div>
 
     <div class="box">
-      <span class="label">Saved query scope</span>
-      <p>A query saved as <b>Thoughtbase</b>-scoped travels with the project (useful for a query specific to this notebase's structure); one saved as <b>Global</b> shows up no matter which project you have open (useful for a general-purpose query like "orphan notes" you want everywhere). Switch scopes from the Saved Queries submenu.</p>
+      <span class="label">Where a saved query lives</span>
+      <p>When you save a query, you choose whether it belongs to <b>this project</b> — handy for something tailored to how this knowledge base is set up — or is <b>available everywhere</b>, so a general-purpose query like "orphan notes" follows you into every project. You can switch this later from the Saved Queries menu.</p>
     </div>
 
     <div class="pager">

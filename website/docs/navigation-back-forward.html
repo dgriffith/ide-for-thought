@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Back / Forward</title>
-<meta name="description" content="How Minerva's back/forward history stack works: the Cmd+[ / Cmd+] shortcuts, the toolbar buttons, and which navigation actions push a history entry versus which bypass it." />
+<meta name="description" content="Step back and forward through the notes, sources, and queries you've been viewing, using the ⌘[ and ⌘] shortcuts or the arrows in the title bar." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -82,69 +82,63 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Back / forward</p>
 
     <h1>Back / forward</h1>
-    <p class="lede">Minerva keeps a position history as you move between notes, sources, and query tabs — <kbd>⌘</kbd><kbd>[</kbd> steps back, <kbd>⌘</kbd><kbd>]</kbd> steps forward (<kbd>Ctrl</kbd> on Windows/Linux), and the same two arrows sit in the title bar. It behaves like a browser history stack, with one distinction worth knowing: not every way of landing on a note counts as a step in that history.</p>
+    <p class="lede">As you move between notes, sources, and queries, Minerva remembers where you've been — so you can retrace your steps. Press <kbd>⌘</kbd><kbd>[</kbd> to go back and <kbd>⌘</kbd><kbd>]</kbd> to go forward (use <kbd>Ctrl</kbd> on Windows and Linux), or click the two arrows in the title bar. It works just like the back and forward buttons in a web browser.</p>
 
-    <h2 id="controls">Controls</h2>
+    <h2 id="controls">The controls</h2>
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>[</kbd></div>
-        <div class="v"><b>Back.</b> Returns to the previous recorded position. Disabled (and the toolbar button greyed out) when there's nothing behind you.</div>
+        <div class="v"><b>Back.</b> Returns you to the previous place you were. Dimmed when there's nothing behind you.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>]</kbd></div>
-        <div class="v"><b>Forward.</b> Re-applies a position you just came back from. Disabled once the forward stack is empty.</div>
+        <div class="v"><b>Forward.</b> Returns you to a place you just came back from. Dimmed once you've caught back up to where you started.</div>
       </div>
       <div class="row">
-        <div class="k">Toolbar arrows</div>
-        <div class="v">Two buttons at the left edge of the title bar, before the breadcrumb — the same back/forward affordance as a browser's, wired to the same shortcuts. Each is disabled exactly when its shortcut would be a no-op.</div>
+        <div class="k">Title-bar arrows</div>
+        <div class="v">Two arrow buttons at the left edge of the title bar do the same thing as the shortcuts. Each dims when there's nowhere to go in that direction.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">◀️▶️</div>
-      <div class="k">Screenshot — Title bar back/forward buttons</div>
-      <div class="d">The left edge of the title bar showing the back and forward chevron buttons beside the vertical divider, with the back button active (dark) and the forward button disabled (dim), followed by the breadcrumb path of the active note.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/navigation-back-forward.png" alt="The two arrow buttons at the left edge of the title bar, just before the breadcrumb trail for the note you're viewing. The back arrow is active and the forward arrow is dimmed." loading="lazy" />
+      <figcaption>Screenshot — the back and forward arrows</figcaption>
+    </figure>
 
-    <p>A position isn't just a note — it's a note <em>and</em> a place in it. Going back returns you to the same scroll/cursor offset you were at, not just the top of the file. Query tabs and source views are tracked in the same stack, so stepping back out of a SPARQL query or a source detail view works the same way.</p>
+    <p>Going back doesn't just reopen a note — it returns you to the exact spot you were reading, not the top of the note. Sources and queries are remembered the same way, so you can step back out of a query or a source you were looking at just as easily.</p>
 
     <h2 id="what-counts">What counts as a step</h2>
-    <p>Every navigation records the position you're <em>leaving</em> before it moves you — so the history stack is really a trail of where you've been, not where you're going. The open question for any given way of jumping to a note is whether it leaves a trail at all:</p>
+    <p>Most ways of moving around leave a trail you can walk back along, but a couple don't:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Sidebar click</div>
-        <div class="v"><b>Recorded.</b> Selecting a note in the left sidebar tree records the position you left and the one you land on.</div>
+        <div class="k">Clicking in the sidebar</div>
+        <div class="v"><b>Remembered.</b> Opening a note from the sidebar records where you came from and where you landed.</div>
       </div>
       <div class="row">
-        <div class="k"><a href="navigation-wiki-links.html">Wiki-link</a> click</div>
-        <div class="v"><b>Recorded.</b> Following <code>[[a link]]</code> in preview or source pushes a history entry, same as a sidebar click — link-hopping through a chain of notes builds a full trail you can walk back out of.</div>
+        <div class="k">Following a <a href="navigation-wiki-links.html">wiki-link</a></div>
+        <div class="v"><b>Remembered.</b> Clicking a <code>[[link]]</code> to hop from one note to another builds a trail, so you can walk right back out of a chain of linked notes.</div>
       </div>
       <div class="row">
         <div class="k"><a href="navigation-quick-switch.html">Quick switch</a> (<kbd>⌘</kbd><kbd>P</kbd>)</div>
-        <div class="v"><b>Recorded.</b> Jumping to a note, source, or saved query from the Quick Switch palette records a step, the same as clicking it in the sidebar would.</div>
+        <div class="v"><b>Remembered.</b> Jumping to a note, source, or saved query from Quick Switch records a step, just like clicking it in the sidebar.</div>
       </div>
       <div class="row">
-        <div class="k"><a href="navigation-search.html">Find in Notes</a> result</div>
-        <div class="v"><b>Not recorded.</b> Jumping to a match from Find in Notes opens the file and moves the cursor directly — it doesn't push a history entry. Back skips over these jumps entirely.</div>
+        <div class="k">A <a href="navigation-search.html">search</a> result</div>
+        <div class="v"><b>Not remembered.</b> Jumping straight to a search match doesn't add a step, so Back skips past it.</div>
       </div>
       <div class="row">
-        <div class="k">Back / forward itself</div>
-        <div class="v">Moving through the stack doesn't add to it — stepping back and forward repeatedly doesn't grow the trail or create duplicate entries.</div>
+        <div class="k">Back and forward themselves</div>
+        <div class="v">Retracing your steps doesn't add new ones, so you can step back and forth freely without cluttering the trail.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">A fresh navigation clears what's ahead</span>
-      <p>Step back a few notes, then click a wiki-link or open something new from the sidebar — the forward stack is discarded at that point, exactly like a browser tab. The notes you stepped back past aren't gone from history in general, but the specific "forward" path to them is; you'd have to navigate to them again to revisit them.</p>
+      <span class="label">Going somewhere new clears the way forward</span>
+      <p>If you step back a few notes and then head off in a new direction — clicking a link or opening something from the sidebar — the forward trail is cleared, just like in a web browser. To revisit those notes you'd navigate to them again.</p>
     </div>
 
-    <h2 id="notes">A few more details</h2>
-    <ul>
-      <li><b>History is capped.</b> The back stack holds at most 100 entries; once full, the oldest position is dropped as a new one is added.</li>
-      <li><b>Repeat visits don't duplicate.</b> Recording a position that's effectively the same as the one you're already on — same note, cursor within roughly 20 characters, or the same query tab — is skipped rather than pushed as a new step.</li>
-      <li><b>History doesn't survive a project switch.</b> Opening a different thoughtbase starts a fresh, empty stack.</li>
-    </ul>
+    <p>Your trail is per-project: opening a different thoughtbase starts fresh with an empty history.</p>
 
     <div class="pager">
       <a class="prev" href="navigation-breadcrumbs.html">

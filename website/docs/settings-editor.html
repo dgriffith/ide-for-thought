@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Editor</title>
-<meta name="description" content="The Editor tab in Settings — tab size, word wrap, line numbers, whitespace, frontmatter collapsing, and numbered section headings, with their defaults." />
+<meta name="description" content="The Editor tab in Settings — tab size, word wrap, line numbers, whitespace, collapsing note properties, and numbered section headings." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,48 +88,39 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Editor</p>
 
     <h1>Editor</h1>
-    <p class="lede">The Editor tab in <b>Settings</b> holds the handful of preferences that change how the markdown editor and its preview behave while you type — tab size, wrapping, line numbers, whitespace visibility, frontmatter collapsing, and numbered section headings. These are per-machine editing preferences, distinct from the <a href="editor.html">Editor</a> doc section, which covers the editing surface itself rather than its settings.</p>
-
-    <h2 id="settings">Settings</h2>
-    <p>Six fields, all with sensible defaults — most people never need to open this tab:</p>
+    <p class="lede">These are the few preferences that fine-tune how it feels to write in Minerva. Most people never need to open this tab — the defaults are sensible — but if you like your editor set up a certain way, here's where to do it.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Tab size</div>
-        <div class="v">Number input, range 1–8. Default <b>2</b>. Controls how many spaces a tab or auto-indent inserts.</div>
+        <div class="v">How far a tab or automatic indent moves the text. Default <b>2</b>.</div>
       </div>
       <div class="row">
         <div class="k">Word wrap</div>
-        <div class="v">Checkbox. Default <b>on</b>. Long lines wrap to fit the editor width instead of scrolling horizontally.</div>
+        <div class="v">Default <b>on</b>. Long lines wrap to fit the width of the editor instead of running off the right edge.</div>
       </div>
       <div class="row">
         <div class="k">Show line numbers</div>
-        <div class="v">Checkbox. Default <b>on</b>. Toggles the gutter running down the left edge of the editor.</div>
+        <div class="v">Default <b>on</b>. Shows numbers down the left edge of the editor.</div>
       </div>
       <div class="row">
         <div class="k">Show whitespace</div>
-        <div class="v">Checkbox. Default <b>off</b>. Renders spaces and tabs as visible marks — useful for chasing down stray trailing whitespace or mixed indentation.</div>
+        <div class="v">Default <b>off</b>. Marks spaces and tabs with faint dots and arrows — handy when you want to see exactly how a line is indented.</div>
       </div>
       <div class="row">
-        <div class="k">Always collapse frontmatter</div>
-        <div class="v">Checkbox. Default <b>off</b>. Automatically folds the YAML <a href="notes-frontmatter.html">frontmatter</a> block at the top of a note when it's opened, instead of leaving it expanded.</div>
+        <div class="k">Always collapse properties</div>
+        <div class="v">Default <b>off</b>. Automatically folds the <a href="notes-frontmatter.html">properties</a> block at the top of a note when you open it, so you land straight in the writing. Click to unfold it any time.</div>
       </div>
       <div class="row">
         <div class="k">Numbered section headings</div>
-        <div class="v">Checkbox. Default <b>off</b>. Prefixes each H2 in the <b>preview</b> with a "§ 01" section numeral — H1 and H3+ are untouched, and the raw markdown source is untouched too, since the numeral is a rendered decoration, not text written into the file. Best for long-form essays; leave off for journals and lists.</div>
+        <div class="v">Default <b>off</b>. Adds a section number in front of each second-level heading when you read a note — nice for long essays, distracting for journals and lists. It's just a reading touch; your headings aren't changed, and turning it off removes the numbers again.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">⚙️</div>
-      <div class="k">Screenshot — Settings → Editor tab</div>
-      <div class="d">The Editor tab of the Settings dialog: the Tab size number field followed by checkbox rows for Word wrap, Show line numbers, Show whitespace, Always collapse frontmatter, and Numbered section headings, the last two with their explanatory hint text visible beneath the label.</div>
-    </div>
-
-    <div class="box">
-      <span class="label">Preview-only, not source</span>
-      <p>Numbered section headings is purely a rendering choice: it changes what the preview pane shows, via a CSS counter on the H2 elements, and never rewrites the note's markdown. Turning it off again removes the numerals from the preview immediately — there's nothing in the file to clean up either way.</p>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-editor.png" alt="The Editor tab, showing the tab size field and the toggles for word wrap, line numbers, whitespace, collapsing properties, and numbered section headings." loading="lazy" />
+      <figcaption>The Editor settings</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="settings.html">

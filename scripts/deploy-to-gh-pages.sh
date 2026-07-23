@@ -39,6 +39,11 @@ fi
 rm -rf "$WORKTREE_DIR"/*
 cp -r website/* "$WORKTREE_DIR/"
 
+# Strip dev-only files that live under website/ but aren't part of the
+# published site: the Playwright screenshot harness (specs, fixtures, helpers)
+# and the internal README. The captured images live in docs/img/ and DO ship.
+rm -rf "$WORKTREE_DIR/screenshots" "$WORKTREE_DIR/README.txt"
+
 # Commit and push
 cd "$WORKTREE_DIR"
 git add .

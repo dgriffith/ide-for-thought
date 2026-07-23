@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — PDF Ingest</title>
-<meta name="description" content="Ingesting a PDF: text-layer extraction for the normal case, and the in-app OCR handoff for scanned PDFs with no text layer." />
+<title>Minerva — Docs — PDF ingest</title>
+<meta name="description" content="Adding a PDF to your thoughtbase, and how Minerva handles scanned PDFs that need text recognition." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,34 +80,34 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>PDF ingest</p>
 
     <h1>PDF ingest</h1>
-    <p class="lede">Most PDFs have a text layer Minerva can read directly. The exceptions — scanned pages with no underlying text — get a short, explicit OCR step instead of either failing outright or silently ingesting nothing useful.</p>
+    <p class="lede">Add a PDF and Minerva pulls its text in so you can read, search, and cite it alongside your notes. Most PDFs come in cleanly. Scanned documents — pages that are really just images of text — get one extra step.</p>
 
-    <h2 id="text-layer">Text-layer PDFs</h2>
-    <p>The normal case, whether the PDF came from a local file or a URL: Minerva extracts the text page by page and persists three things under <code>.minerva/sources/&lt;id&gt;/</code> — <code>original.pdf</code> (the raw bytes), <code>body.md</code> (the extracted text, with a <code>&lt;!-- page N --&gt;</code> marker before each page's content), and <code>meta.ttl</code> (whatever title, author, and date the PDF's own <code>/Info</code> dictionary provided).</p>
+    <h2 id="text-layer">Most PDFs</h2>
+    <p>Whether you add a PDF from your computer or from a link, Minerva reads its text page by page and saves it as a source, along with any title, author, and date the PDF already carries. From there it behaves like any other source you've added: readable, searchable, and ready to cite.</p>
 
-    <h2 id="ocr">Scanned PDFs — the OCR handoff</h2>
-    <p>When a PDF has no text layer, Minerva still saves <code>original.pdf</code> and a stub <code>meta.ttl</code>, but <code>body.md</code> stays empty until you complete OCR. The app detects this and hands off to an in-app OCR pass — Tesseract.js, running right in the renderer, no external service — which you confirm before it runs.</p>
+    <h2 id="ocr">Scanned PDFs</h2>
+    <p>Some PDFs are scans, so their pages are pictures rather than text Minerva can read. When that happens, Minerva offers to recognize the text for you and asks before it starts. This runs entirely on your own machine.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">If you run OCR</div>
-        <div class="v">Each page is recognized and the result becomes <code>body.md</code>, with <code>thought:extractionMethod</code> stamped <code>"ocr"</code> on the source (as opposed to <code>"text-layer"</code> for the normal case) — so you can tell later which sources came through which path.</div>
+        <div class="k">If you run it</div>
+        <div class="v">Minerva reads each page and fills in the text, so the PDF becomes fully readable and searchable like any other source.</div>
       </div>
       <div class="row">
         <div class="k">If you skip it</div>
-        <div class="v">The source stays on disk with <code>original.pdf</code> and its metadata intact — you can open the source later and run OCR then. Nothing is lost by skipping; the body is just a placeholder until you do.</div>
+        <div class="v">The PDF is still saved with its details intact. Nothing is lost — you can open it later and run text recognition whenever you like.</div>
       </div>
     </div>
 
     <div class="shot wide">
       <div class="icon">🔍</div>
-      <div class="k">Screenshot — The OCR confirmation prompt</div>
-      <div class="d">The dialog shown right after ingesting a scanned PDF: page count, a short explanation that no text layer was found, and Run OCR / Skip buttons.</div>
+      <div class="k">Screenshot — Offer to recognize a scanned PDF</div>
+      <div class="d">A short prompt appears after you add a scanned PDF, telling you how many pages it has and letting you start text recognition or skip it for now.</div>
     </div>
 
     <div class="box">
-      <span class="label">Two things worth knowing up front</span>
-      <p><b>Encrypted PDFs are rejected with a clean error</b> rather than ingesting a broken source — decrypt it first if you need it in your thoughtbase. And <b>a PDF's source id is always a content hash</b>, never a DOI pulled from the file, even when the PDF's metadata has one — PDFs rarely embed a DOI reliably enough to key on, so the id is based on the file's own bytes instead. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what this means if the same paper also arrives later via its DOI or arXiv id.</p>
+      <span class="label">Good to know</span>
+      <p>A password-protected PDF can't be added until you remove its protection first. And if the same paper reaches you more than one way — say, a PDF now and a link later — see <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for how Minerva keeps them tidy.</p>
     </div>
 
     <div class="pager">

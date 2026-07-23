@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Citing Sources &amp; Duplicates</title>
-<meta name="description" content="Referencing an ingested source from a note with cite and quote links, and what happens when the same source is ingested more than once." />
+<meta name="description" content="How to cite a source from a note, and what happens when you bring the same source in more than once." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,32 +80,33 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Citing &amp; duplicates</p>
 
     <h1>Citing sources &amp; duplicates</h1>
-    <p class="lede">Once a source is ingested, referencing it from a note is a typed link, same as linking to another note — and re-ingesting the same source again is designed to be harmless.</p>
+    <p class="lede">A source is a paper, article, or document you've brought into Minerva to work from. Once it's in, you can cite it from any note, and bringing the same source in again won't clobber what you already have.</p>
 
-    <h2 id="citing">Citing what you brought in</h2>
-    <p>Write <code>[[cite::sourceId]]</code> to cite a source, or <code>[[quote::excerptId]]</code> to cite a specific excerpt — the same <a href="notes-links.html#types">typed-link syntax</a> used for linking notes to each other. The <a href="right-sidebar-citations.html">Citations panel</a> in the right sidebar rolls these up per note: one row per source, with cite/quote counts and — for quotes — the specific passage and its locator.</p>
+    <h2 id="citing">Citing a source in a note</h2>
+    <p>To reference a source while writing, type <code>[[cite::</code> and pick the source, or <code>[[quote::</code> to point at a specific excerpt you've saved from it. This is the same linking you use to connect one note to another.</p>
+    <p>The <a href="right-sidebar-citations.html">Citations panel</a> on the right gathers all of these for the note you're reading: one row per source, how many times you've cited it, and the exact passage for any quotes.</p>
 
-    <h2 id="duplicates">Duplicate detection</h2>
-    <p>Every source's id is derived from its most stable identifier (DOI, arXiv id, PubMed id, ISBN, or a hash of its URL or content — see <a href="ingest-adding-sources.html">Adding sources</a>), so ingesting the same paper twice by the <i>same</i> route produces the <i>same</i> id every time. That turns dedup into a simple existence check: if a source folder for that id already exists, nothing gets overwritten.</p>
+    <h2 id="duplicates">Bringing in the same source twice</h2>
+    <p>If you try to bring in a source you already have, Minerva recognizes it and simply opens the copy you've got instead of making a second one. Your work is protected:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Body untouched</div>
-        <div class="v">If you've hand-edited a source's <code>body.md</code> since it was ingested, re-ingesting the same id leaves your edits alone.</div>
+        <div class="k">Your edits stay</div>
+        <div class="v">If you've edited a source since bringing it in, doing it again leaves your changes untouched.</div>
       </div>
       <div class="row">
-        <div class="k">Metadata merged, not overwritten</div>
-        <div class="v">If the second ingest turns up metadata the first one didn't have (say, an upstream tag or a field CrossRef fills in), it's added into the existing <code>meta.ttl</code> rather than replacing it.</div>
+        <div class="k">Details are added, not replaced</div>
+        <div class="v">If the second attempt turns up details the first one missed, they're folded into what you already have rather than overwriting it.</div>
       </div>
       <div class="row">
-        <div class="k">You're told, not left guessing</div>
-        <div class="v">Re-ingesting a source you already have opens the existing source and says so plainly: <i>"Already ingested: '&lt;title&gt;'. Opened the existing source."</i></div>
+        <div class="k">You're told what happened</div>
+        <div class="v">Minerva says plainly that you already have this source, and opens it for you.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">The one real gap: different identifiers, same paper</span>
-      <p>If the same paper reaches you two different ways before either has been cross-referenced — an arXiv URL today, its DOI next month — Minerva has no way to know they're the same thing, since the two ids are computed independently. They land as two separate source folders. The fix is a manual one: right-click a source in the <a href="left-sidebar-sources.html">Sources panel</a> and choose <b>Merge into…</b>, pick the other entry, and confirm — its excerpts and citations move over, and the duplicate is removed. Not automatic, but a couple of clicks once you notice it.</p>
+      <span class="label">Same source, two different ways in</span>
+      <p>If the same paper reaches you by two different routes — a web link today, a formal reference next month — Minerva may not realize they're the same and will keep both. When you notice, right-click one in the <a href="left-sidebar-sources.html">Sources panel</a>, choose <b>Merge into…</b>, pick the other, and confirm. Its excerpts and citations move over and the extra copy goes away.</p>
     </div>
 
     <div class="pager">

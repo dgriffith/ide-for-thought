@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Callouts &amp; Cards</title>
-<meta name="description" content="Callout blocks in Minerva notes: the blockquote and bare-paragraph syntax that triggers one, the 14 built-in kinds, collapsible callouts, and how a [!card] callout differs from a plain one." />
+<title>Minerva — Docs — Callouts</title>
+<meta name="description" content="Callouts turn a passage into a titled, colored box — a note, tip, warning, or quote — that stands out from the surrounding text." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub active">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub active">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -87,40 +90,40 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Callouts &amp; cards</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Callouts</p>
 
-    <h1>Callouts &amp; cards</h1>
-    <p class="lede">A callout turns an ordinary blockquote into a titled, colored box — a note, a tip, a warning-equivalent, a flashcard. The syntax is Obsidian's <code>[!type]</code> convention: a blockquote whose first line names a kind. Minerva also accepts a lenient bare form with no leading <code>&gt;</code>, and one kind — <code>card</code> — renders as a front/back flashcard instead of a plain note box.</p>
+    <h1>Callouts</h1>
+    <p class="lede">A callout is a titled, colored box that makes a passage stand out from the text around it — a note, a tip, a warning, a quote. You write one as a quote block that starts by naming its kind. (One kind, the card, becomes a two-sided flashcard — that has its own <a href="notes-flashcards.html">Flashcards</a> page.)</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>A callout's marker line is <code>[!type]</code>, optionally followed by <code>+</code> or <code>-</code> to make it collapsible, and an optional custom title. Everything after the marker line — inside the blockquote — is the callout body.</p>
+    <h2 id="syntax">Writing a callout</h2>
+    <p>Start a quote block and make its first line <code>[!type]</code>, where <code>type</code> is the kind you want. Everything below that first line becomes the body of the box.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>&gt; [!type]</code></div>
-        <div class="v"><b>Standard form.</b> A blockquote whose first line is <code>[!type]</code>. Every following <code>&gt;</code>-prefixed line is the body. This is the same syntax Obsidian and GitHub use.</div>
+        <div class="k"><code>&gt; [!tip]</code></div>
+        <div class="v"><b>The usual form.</b> A quote block whose first line names the kind. Every following quoted line is the body.</div>
       </div>
       <div class="row">
-        <div class="k"><code>[!type]</code></div>
-        <div class="v"><b>Bare form (lenient extension).</b> A top-level paragraph starting with <code>[!type]</code> becomes a callout even without the leading <code>&gt;</code>. It always renders non-collapsible — there's no blockquote container to attach a disclosure to. Only fires at the top level; a <code>[!type]</code> line nested inside a list or another blockquote is left alone.</div>
+        <div class="k"><code>[!note]</code></div>
+        <div class="v"><b>Shorthand.</b> A plain paragraph that begins with <code>[!type]</code> also becomes a callout, even without the leading <code>&gt;</code>. This form is always shown fully expanded.</div>
       </div>
       <div class="row">
-        <div class="k"><code>&gt; [!type]+</code></div>
-        <div class="v"><b>Collapsible, default-expanded.</b> Renders as a <code>&lt;details open&gt;</code>/<code>&lt;summary&gt;</code> pair instead of a plain <code>&lt;div&gt;</code>, so it's keyboard-operable and starts open.</div>
+        <div class="k"><code>&gt; [!tip]+</code></div>
+        <div class="v"><b>Collapsible, starts open.</b> Add a <code>+</code> and the box can be folded shut with a click, but begins expanded.</div>
       </div>
       <div class="row">
-        <div class="k"><code>&gt; [!type]-</code></div>
-        <div class="v"><b>Collapsible, default-collapsed.</b> Same as above but starts closed — the body is hidden until clicked.</div>
+        <div class="k"><code>&gt; [!tip]-</code></div>
+        <div class="v"><b>Collapsible, starts closed.</b> Add a <code>-</code> and the body stays hidden until you click to open it.</div>
       </div>
       <div class="row">
-        <div class="k"><code>&gt; [!type] Custom title</code></div>
-        <div class="v"><b>Custom title.</b> Text after the marker (and fold flag) replaces the kind's default title in the title bar. Whitespace here is restricted to spaces/tabs, so a title can't accidentally swallow the body's first line.</div>
+        <div class="k"><code>&gt; [!tip] Your own title</code></div>
+        <div class="v"><b>Custom title.</b> Any text after the marker replaces the kind's default title at the top of the box.</div>
       </div>
     </div>
 
-    <p>A complete example, plus the bare form:</p>
+    <p>An example, plus the shorthand form:</p>
 <pre><code>&gt; [!warning] Before you continue
-&gt; This rewrites every note's frontmatter in place. Commit first.
+&gt; This changes every note. Back up your work first.
 
 &gt; [!tip]-
 &gt; Collapsed by default — click to expand.
@@ -128,63 +131,51 @@
 [!note]
 No leading &gt; required — this still becomes a callout.</code></pre>
 
-    <h2 id="kinds">Supported kinds</h2>
-    <p>Fourteen kinds are recognized by name; each has a default icon, a default title (used when you don't supply a custom one), and a color drawn from the existing palette — nothing new, no red/danger styling. An unrecognized kind (e.g. <code>[!random]</code>) still renders as a callout: it falls back to a generic dot icon and the accent color, with the kind name capitalized as its title.</p>
+    <h2 id="kinds">The kinds you can use</h2>
+    <p>Each kind comes with its own icon, a default title, and a color. Pick whichever fits what you're saying — and if you type a kind that isn't in the list, it still works: it just gets a neutral dot icon and its name as the title, which makes it easy to invent your own labels.</p>
 
     <div class="deflist">
-      <div class="row"><div class="k"><code>note</code></div><div class="v">Default title "Note". Accent-colored.</div></div>
-      <div class="row"><div class="k"><code>info</code></div><div class="v">Default title "Info". Iris-colored.</div></div>
-      <div class="row"><div class="k"><code>tip</code></div><div class="v">Default title "Tip". Sage-colored.</div></div>
-      <div class="row"><div class="k"><code>success</code></div><div class="v">Default title "Success". Sage-colored, checkmark icon.</div></div>
-      <div class="row"><div class="k"><code>question</code></div><div class="v">Default title "Question". Accent-colored, "?" icon.</div></div>
-      <div class="row"><div class="k"><code>warning</code></div><div class="v">Default title "Warning". The warmest tone in the set (an amber/rust shade, not red) with a triangle icon — Minerva's stand-in for danger styling.</div></div>
-      <div class="row"><div class="k"><code>failure</code></div><div class="v">Default title "Failure". Same warm tone as <code>warning</code>, "✗" icon.</div></div>
-      <div class="row"><div class="k"><code>danger</code></div><div class="v">Default title "Danger". Same warm tone as <code>warning</code> — Minerva has no separate red danger color, per house style.</div></div>
-      <div class="row"><div class="k"><code>bug</code></div><div class="v">Default title "Bug". Iris-colored.</div></div>
-      <div class="row"><div class="k"><code>example</code></div><div class="v">Default title "Example". Iris-colored.</div></div>
-      <div class="row"><div class="k"><code>quote</code></div><div class="v">Default title "Quote". Muted-text colored rather than an accent — reads as a citation, not an alert.</div></div>
-      <div class="row"><div class="k"><code>abstract</code></div><div class="v">Default title "Abstract". Iris-colored.</div></div>
-      <div class="row"><div class="k"><code>todo</code></div><div class="v">Default title "Todo". Accent-colored, checkbox icon.</div></div>
-      <div class="row"><div class="k"><code>card</code></div><div class="v">Default title "Card". Renders as a flashcard rather than a plain note box — see below.</div></div>
+      <div class="row"><div class="k"><code>note</code></div><div class="v">A general aside.</div></div>
+      <div class="row"><div class="k"><code>info</code></div><div class="v">Background or context.</div></div>
+      <div class="row"><div class="k"><code>tip</code></div><div class="v">A helpful suggestion.</div></div>
+      <div class="row"><div class="k"><code>success</code></div><div class="v">Something that worked, marked with a checkmark.</div></div>
+      <div class="row"><div class="k"><code>question</code></div><div class="v">An open question.</div></div>
+      <div class="row"><div class="k"><code>warning</code></div><div class="v">Something to be careful about, in a warm amber tone.</div></div>
+      <div class="row"><div class="k"><code>failure</code></div><div class="v">Something that didn't work.</div></div>
+      <div class="row"><div class="k"><code>danger</code></div><div class="v">A strong caution.</div></div>
+      <div class="row"><div class="k"><code>bug</code></div><div class="v">A known problem.</div></div>
+      <div class="row"><div class="k"><code>example</code></div><div class="v">A worked example.</div></div>
+      <div class="row"><div class="k"><code>quote</code></div><div class="v">A quotation — styled quietly, so it reads as a citation.</div></div>
+      <div class="row"><div class="k"><code>abstract</code></div><div class="v">A summary or overview.</div></div>
+      <div class="row"><div class="k"><code>todo</code></div><div class="v">Something still to do.</div></div>
+      <div class="row"><div class="k"><code>card</code></div><div class="v">A two-sided flashcard with a front and back — see <a href="notes-flashcards.html">Flashcards</a>.</div></div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗒️</div>
-      <div class="k">Screenshot — Callout kinds in preview</div>
-      <div class="d">A rendered note stacking three blocks top to bottom: a "Note" callout in the accent color with its pencil icon, a "Warning" callout in the warm amber tone with its triangle icon (no red anywhere), and below them a "Card" callout showing its front-side prompt text above a dashed divider with a collapsed "Show answer" disclosure.</div>
-    </div>
-
-    <h2 id="cards">Card-style callouts</h2>
-    <p><code>[!card]</code> is syntactically an ordinary callout — same marker, same blockquote body — but it's treated differently once inside: an <code>&lt;hr&gt;</code> (a <code>---</code> line) in the body splits it into a front and a back, the way a flashcard's prompt and answer are two separate things. Minerva's preview hydrates this after render by moving everything after the divider into a collapsed <b>Show answer</b> disclosure, so the front stands alone until you choose to reveal the back — the divider itself is replaced by the disclosure's summary line.</p>
-    <p>A card without a <code>---</code> divider is left untouched — it just renders as a front with no answer to reveal, same as a malformed or front-only card.</p>
-    <p>A card's title line also has one more piece of machinery: a trailing <code>^id</code> block-id (used to anchor the card for spaced-repetition review) is stripped from the displayed title, leaving only the deck name you wrote — or the default "Card" title if the marker line held nothing but an id.</p>
-
-<pre><code>&gt; [!card] Biology deck
-&gt; What organelle produces most of a cell's ATP?
-&gt; ---
-&gt; The mitochondrion.</code></pre>
+    <figure class="shot-img">
+      <img src="img/notes-callouts.png" alt="A note showing three boxes stacked top to bottom: a &quot;Note&quot; callout with a pencil icon, a &quot;Warning&quot; callout in a warm amber tone with a triangle icon, and a collapsed &quot;Tip&quot; callout with a lightbulb icon waiting to be clicked open." loading="lazy" />
+      <figcaption>Callout kinds in a note</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Unrecognized kinds still work</span>
-      <p>A kind that isn't in the built-in list doesn't fail to render — it becomes a callout styled with the accent color and a generic dot icon, titled with the capitalized kind name (or your custom title, if you supplied one). This makes ad hoc kinds safe to use for personal conventions.</p>
+      <span class="label">Invent your own kinds</span>
+      <p>You aren't limited to the kinds above. Type any name — say <code>[!idea]</code> — and it still renders as a tidy box, titled with that name. This makes callouts a flexible way to mark up your notes however you like.</p>
     </div>
 
-    <h2 id="nesting">Nesting and nuances</h2>
+    <h2 id="nesting">Good to know</h2>
     <ul>
-      <li><b>Nesting works for free.</b> A callout inside a callout is just a nested blockquote — Minerva's core render rule walks every <code>blockquote_open</code> token independently, so nested callouts need no special-case syntax.</li>
-      <li><b>Bare callouts can't collapse.</b> Because the lenient no-<code>&gt;</code> form has no blockquote container, <code>+</code>/<code>-</code> fold flags on a bare <code>[!type]</code> line are meaningless — collapsibility requires the standard blockquote form.</li>
-      <li><b>Kind names are case-insensitive.</b> <code>[!Warning]</code> and <code>[!warning]</code> resolve to the same kind; the stored kind is always lowercased.</li>
-      <li><b>Collapsible callouts render as <code>&lt;details&gt;</code>.</b> That means keyboard operability (focus, <kbd>Enter</kbd>/<kbd>Space</kbd> to toggle) comes from the browser, not from custom script.</li>
+      <li><b>Callouts can nest.</b> Put a callout inside another callout to group related boxes.</li>
+      <li><b>Only quote-block callouts fold.</b> The shorthand form (no leading <code>&gt;</code>) is always fully shown; to make a box collapsible, use the quote-block form with <code>+</code> or <code>-</code>.</li>
+      <li><b>Kind names ignore capitalization.</b> <code>[!Warning]</code> and <code>[!warning]</code> mean the same thing.</li>
     </ul>
 
     <div class="pager">
-      <a class="prev" href="notes-links.html">
+      <a class="prev" href="notes-tasks.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Links</span>
+        <span class="ttl">← Task lists</span>
       </a>
-      <a class="next" href="notes-math.html">
+      <a class="next" href="notes-images.html">
         <span class="dir">Next</span>
-        <span class="ttl">Math →</span>
+        <span class="ttl">Images →</span>
       </a>
     </div>
   </main>

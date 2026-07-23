@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — View Modes</title>
-<meta name="description" content="The three ways to view a note in Minerva — Source, Preview, and side-by-side Editor+Preview — and how to switch between them with the toolbar buttons or the cycle shortcut." />
+<meta name="description" content="The three ways to look at a note in Minerva — Source, Preview, and Side by side — and how to switch between them." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,60 +80,46 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>View modes</p>
 
     <h1>View modes</h1>
-    <p class="lede">Every open note has a view mode: raw markdown in the editor, the rendered read-only page, or both side by side. It's a per-pane setting — a <a href="viewing-options-split-panes-windows.html">split pane</a> can show one note in Source while another shows a different note in Preview — and switching modes never touches the file on disk, so it's a free, reversible way to look at the same content differently.</p>
+    <p class="lede">You can look at a note three ways: as the plain text you type, as the finished, formatted page, or with both side by side. Each pane sets its own mode, so you can be editing one note while reading another in the same window. Switching modes never changes your note — it's just a different way to look at the same content.</p>
 
     <h2 id="modes">The three modes</h2>
-    <p>The mode lives on the pane (called a "group" internally), not on the note itself — reopen a note later and it comes back in whatever mode that pane was last set to, not whatever mode it was in when you closed it (<code>src/renderer/lib/stores/editor.svelte.ts:576</code> — <code>setViewMode(mode, groupId)</code> sets it per group).</p>
+    <p>The mode belongs to the pane, not the note. Reopen a note later and it appears in whatever mode that pane was last set to.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Source</div>
-        <div class="v">The raw <code>.md</code> text in the CodeMirror editor — what you'll want for anything mechanical: fixing a wiki-link, editing frontmatter, working inside a code fence. Labeled <b>Source</b> on the toolbar.</div>
+        <div class="v">The plain text you type, ready to edit. This is where you'll want to be for hands-on work: fixing a link, adjusting a note's properties, or writing inside a cell.</div>
       </div>
       <div class="row">
         <div class="k">Preview</div>
-        <div class="v">The fully rendered, read-only page — headings, callouts, math, diagrams, charts, and embedded media all render live. Labeled <b>Preview</b> on the toolbar.</div>
+        <div class="v">The finished, read-only page, with everything formatted the way it will look — headings, callouts, math, diagrams, charts, and embedded media all shown live.</div>
       </div>
       <div class="row">
-        <div class="k">Editor + Preview</div>
-        <div class="v">Source on the left, rendered Preview on the right, in the same pane. Internally this is the <code>editor-preview</code> mode; the toolbar calls it <b>Side by side</b>.</div>
+        <div class="k">Side by side</div>
+        <div class="v">Your text on the left and the formatted page on the right, in the same pane, so you can write and see the result at once.</div>
       </div>
     </div>
 
-    <p>These three are exactly the values of the <code>ViewMode</code> union — <code>'source' | 'preview' | 'editor-preview'</code> (<code>src/renderer/lib/stores/editor.svelte.ts:92</code>). A plain-text file (no markdown rendering — see <a href="notes.html">Notes</a>) skips the toggle entirely and only shows Source, since a Preview of plain text would just be an empty pane.</p>
+    <p>A plain-text file has nothing to format, so it only shows Source — the toggle doesn't appear.</p>
 
-    <div class="shot wide">
-      <div class="icon">🪟</div>
-      <div class="k">Screenshot — Editor + Preview split mode</div>
-      <div class="d">A note pane in "Side by side" mode: the CodeMirror source editor on the left with raw markdown and an open code fence, and the rendered Preview pane on the right showing the same content formatted, separated by a hairline divider. The toolbar above shows Source / Side by side / Preview with "Side by side" highlighted as active.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/viewing-options-view-modes.png" alt="A note in Side by side mode: your text on the left and the same content formatted on the right, split by a thin divider. Above the note, the Source / Side by side / Preview buttons show Side by side as the active choice." loading="lazy" />
+      <figcaption>Screenshot — Side by side mode</figcaption>
+    </figure>
 
     <h2 id="switching">Switching modes</h2>
-    <p>Two ways to change a pane's mode, both acting on the same underlying <code>editor.setViewMode()</code> / <code>editor.cycleViewMode()</code> calls:</p>
+    <p>There are two ways to change a pane's mode:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Toolbar buttons</div>
-        <div class="v">Three buttons above the note — <b>Source</b>, <b>Side by side</b>, <b>Preview</b> — jump straight to that mode regardless of what it's currently showing. Each calls <code>editor.setViewMode('source' | 'editor-preview' | 'preview', groupId)</code> directly (<code>src/renderer/App.svelte:1360-1372</code>); there's no cycling involved, so you can go from Source straight to Preview without passing through the split view.</div>
+        <div class="v">Three buttons above the note — <b>Source</b>, <b>Side by side</b>, <b>Preview</b> — jump straight to that mode from wherever you are, so you can go from editing to the finished page in one click.</div>
       </div>
       <div class="row">
         <div class="k">Cycle shortcut — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div>
-        <div class="v">Steps the active pane through the three modes in order: <b>Source → Preview → Editor + Preview → Source</b> (<code>cycleViewMode()</code>, <code>src/renderer/lib/stores/editor.svelte.ts:580-585</code>). Bound globally as <kbd>Cmd</kbd><kbd>Shift</kbd><kbd>P</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>P</kbd> (<code>src/renderer/lib/keymap/handle-keydown.ts:52-55</code>) and also reachable from the View menu as <b>Cycle Preview Mode</b> (<code>src/main/menu.ts:428-432</code>).</div>
+        <div class="v">Steps the active pane through the three modes in order: <b>Source → Preview → Side by side → Source</b>. The same command is in the View menu as <b>Cycle Preview Mode</b>.</div>
       </div>
     </div>
-
-    <div class="box">
-      <span class="label">Why ⌘P was taken already</span>
-      <p>Minerva binds <kbd>⌘</kbd><kbd>P</kbd> to <a href="navigation-quick-switch.html">Quick switch</a> rather than a preview toggle, unlike some other markdown editors — so the cycle shortcut adds <kbd>⇧</kbd> instead. See <a href="navigation-command-palette.html">Command palette</a> for the related <kbd>⌘</kbd><kbd>K</kbd> binding.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No scroll sync in Side by side.</b> The source and preview panes scroll independently — scrolling one does not move the other. Each pane just remembers its own scroll position for restoring the note later (<code>src/renderer/lib/components/Editor.svelte:932-933</code>); they aren't linked to each other.</li>
-      <li><b>Cursor and scroll position survive a mode switch.</b> Toggling between Source, Preview, and Side by side doesn't remount the editor — it's only swapping which pane(s) are visible around it — so your cursor offset and scroll position in the source editor are exactly where you left them when you switch back to Source.</li>
-      <li><b>The mode belongs to the pane, not the note.</b> Split your window into two panes, put one in Preview and one in Source, and that assignment sticks per pane even as you switch which note is open in it.</li>
-      <li><b>Plain-text files have no toggle.</b> A file that Minerva treats as plain text (not markdown) has nothing to render, so the Source/Side by side/Preview toolbar doesn't appear for it at all — you're always in Source for those.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="viewing-options.html">

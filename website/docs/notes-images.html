@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Images</title>
-<meta name="description" content="Embedding and viewing images in Minerva notes: markdown image syntax, drag-and-drop and paste uploads, how images are stored and referenced relative to your project, rendering behavior in preview and editor, and supported image formats." />
+<meta name="description" content="Add images to your notes in Minerva: drag and drop, paste, or type a link, view them inline, and click to enlarge." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub active">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub active">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,161 +93,83 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Images</p>
 
     <h1>Images</h1>
-    <p class="lede">Embed images in your notes using standard markdown syntax. Minerva supports common image formats — PNG, JPEG, GIF, WebP, SVG, and AVIF — and stores them in your project alongside your notes. Upload images by dragging and dropping, pasting from your clipboard, or typing the path directly. In preview, images are displayed inline and can be clicked to enlarge; in the editor, broken or missing images are flagged so you can spot them immediately.</p>
+    <p class="lede">Drop a picture into a note and it just shows up. The quickest way to add one is to drag it in or paste it from your clipboard — Minerva keeps a copy with your notes so it's always there. Images appear inline as you read, and a click enlarges them to full screen.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>Images use the standard markdown syntax: <code>![alt text](path/to/image)</code>. The alt text describes the image for accessibility and appears as a tooltip when you hover over it in the preview. The path can be relative to your note's directory, project-relative, or an absolute URL.</p>
+    <h2 id="uploading">Adding an image</h2>
+    <p>There are three easy ways to get an image into a note.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>![alt](path/image.png)</code></div>
-        <div class="v"><b>Basic image.</b> Displays the image inline at its natural size. The alt text is required for accessibility; write a brief, accurate description of what the image shows.</div>
+        <div class="k">Drag and drop</div>
+        <div class="v"><b>Drag a picture into the note.</b> Grab an image file from your desktop or a folder and drop it where you're writing. Minerva tucks a copy away with your notes and drops the image in at your cursor.</div>
       </div>
       <div class="row">
-        <div class="k"><code>![](path/image.png)</code></div>
-        <div class="v"><b>Empty alt text.</b> Allowed when the image is purely decorative, but discouraged — even decorative images benefit from a description. Use sparingly.</div>
+        <div class="k">Paste</div>
+        <div class="v"><b>Copy an image, then paste.</b> Take a screenshot or copy a picture from the web and paste it in with <kbd>⌘V</kbd> (or <kbd>Ctrl</kbd>+<kbd>V</kbd>). It appears right away.</div>
       </div>
       <div class="row">
-        <div class="k"><code>![alt](../../assets/image.png)</code></div>
-        <div class="v"><b>Relative path with parent traversal.</b> A path starting with <code>../</code> goes up one level for each <code>../</code>, making it easy to reference images stored outside the note's directory. Minerva normalizes all <code>..</code> segments so there's no way to escape the project root.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>![alt](image.png)</code></div>
-        <div class="v"><b>Sibling reference.</b> A bare filename looks for the image in the same directory as the note. Useful for images stored right alongside the note file.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>![alt](https://example.com/image.png)</code></div>
-        <div class="v"><b>Absolute URL.</b> External images pass through unchanged. They're fetched when the note is viewed and displayed inline just like local images.</div>
+        <div class="k">Type a link</div>
+        <div class="v"><b>Point to an image you already have.</b> If a picture is already in your notes, or lives online, you can write a link to it yourself (see below).</div>
       </div>
     </div>
 
-    <p>A complete example:</p>
-<pre><code>## My diagram
+    <p>Paste or drop the same picture twice and Minerva reuses the one copy it already has, so your notes stay tidy.</p>
 
-This is how the system works:
+    <h2 id="syntax">Writing an image link by hand</h2>
+    <p>To type an image link yourself, use this shape: an exclamation mark, a short description in square brackets, then the location of the picture in parentheses.</p>
 
-![System architecture](./architecture.png)
+<pre><code>![System architecture](architecture.png)</code></pre>
 
-The diagram above shows the flow from input to output.</code></pre>
+    <p>The description in the brackets is the picture's caption for anyone who can't see it, and it shows as a tooltip when you hover. The part in parentheses can point to a picture stored with your notes or to a web address.</p>
 
-    <h2 id="uploading">Uploading images</h2>
-    <p>You can upload images in three ways: drag and drop, paste from clipboard, or manual entry. All uploads are stored in your project's <code>.minerva/assets/inline/</code> directory, a hidden folder that Minerva manages for you.</p>
+    <h2 id="rendering">Viewing images</h2>
+    <p>As you read a note, images show up right in the flow of your writing. Click one to open it full screen so you can see the detail, then click away or press <kbd>Esc</kbd> to close it.</p>
 
-    <h3 id="drag-drop">Drag and drop</h3>
-    <p>Drag an image file from Finder (or your file explorer) into the editor. The image is uploaded and a markdown link is inserted at the cursor. The path is computed relative to the note's directory so it resolves correctly regardless of where the note lives in your project.</p>
-
-    <h3 id="paste">Paste from clipboard</h3>
-    <p>Copy an image (e.g., a screenshot or a photo from your browser) and paste it into the editor with <kbd>⌘V</kbd> (or <kbd>Ctrl</kbd>+<kbd>V</kbd>). The image is uploaded and inserted immediately. If your system clipboard contains multiple items (image and text, for example), only the image is used.</p>
-
-    <h3 id="manual">Manual paths</h3>
-    <p>Type or paste an image path directly into the markdown. This works for images you've already moved into your project. A relative path like <code>![alt](../photos/sunset.jpg)</code> resolves relative to the note's directory.</p>
-
-    <h2 id="storage">How images are stored</h2>
-    <p>When you upload an image via drag and drop or paste, Minerva:</p>
-    <ol>
-      <li>Validates the image format (must be PNG, JPEG, GIF, WebP, SVG, or AVIF).</li>
-      <li>Computes a SHA-256 hash of the file content and uses the first 12 hex characters as a prefix.</li>
-      <li>Sanitizes the original filename (if available) to remove unsafe characters.</li>
-      <li>Writes the file to <code>.minerva/assets/inline/</code> with a name like <code>a1b2c3d4e5f6-screenshot.png</code>.</li>
-      <li>Inserts a markdown link at the cursor with a path relative to the note's directory.</li>
-    </ol>
-
-    <p>The hash prefix gives you automatic deduplication: if you paste the same screenshot twice, or drag the same file in two different notes, Minerva detects the match by hash and stores it only once. This keeps your project lean.</p>
-
-    <div class="box">
-      <span class="label">File size limit</span>
-      <p>Images can be up to 5 MB. Larger files are rejected with a message. If you need to embed a large image, compress it first using your image editor or a tool like <code>ImageOptim</code> (Mac) or <code>FileOptimizer</code> (Windows).</p>
-    </div>
-
-    <h2 id="rendering">How images render</h2>
-    <p>In preview, images are displayed inline at their natural size. Clicking an image opens a lightbox view — a full-screen overlay of the image with a close button (or press <kbd>Esc</kbd>). This lets you see details and inspect the full resolution without leaving your note.</p>
-
-    <p>In the source editor, image references appear as syntax-highlighted links.</p>
-
-    <div class="shot wide">
-      <div class="icon">🖼️</div>
-      <div class="k">Screenshot — Image in preview and lightbox</div>
-      <div class="d">A note with an embedded image displayed inline in preview. A cursor pointer indicates the image is clickable, and an inset shows the full-screen lightbox view that opens when the image is clicked.</div>
-    </div>
-
-    <p>Local images (those with relative paths or stored in your project) are fetched and converted to data URLs for display. This means the preview doesn't need network access to show your images — they're always available.</p>
+    <figure class="shot-img">
+      <img src="img/notes-images.png" alt="A picture displayed inline within a note. Clicking it opens a full-screen view so you can inspect the detail without leaving your writing." loading="lazy" />
+      <figcaption>An image in a note, and full screen</figcaption>
+    </figure>
 
     <h2 id="formats">Supported formats</h2>
-    <p>Minerva accepts the following image formats:</p>
+    <p>You can add the most common kinds of picture:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">PNG</div>
-        <div class="v">Lossless compression, supports transparency. Best for diagrams, screenshots, and graphics.</div>
+        <div class="v">Crisp and supports transparency. Best for diagrams, screenshots, and graphics.</div>
       </div>
       <div class="row">
         <div class="k">JPEG</div>
-        <div class="v">Lossy compression, smaller file sizes. Best for photographs and complex images.</div>
+        <div class="v">Smaller files. Best for photographs.</div>
       </div>
       <div class="row">
         <div class="k">GIF</div>
-        <div class="v">Lossless, supports animation. Animated GIFs play in preview.</div>
+        <div class="v">Supports animation, which plays as you read.</div>
       </div>
       <div class="row">
         <div class="k">WebP</div>
-        <div class="v">Modern format with better compression than PNG and JPEG. Increasingly supported across tools.</div>
+        <div class="v">A modern format that keeps files small.</div>
       </div>
       <div class="row">
         <div class="k">SVG</div>
-        <div class="v">Scalable vector graphics. Perfect for diagrams, icons, and line art. Embedded SVGs scale to any size without pixelation.</div>
+        <div class="v">Line art that stays sharp at any size. Great for diagrams and icons.</div>
       </div>
       <div class="row">
         <div class="k">AVIF</div>
-        <div class="v">Newest format with excellent compression and quality. Best for new projects if compatibility isn't a concern.</div>
+        <div class="v">A newer format with excellent quality at small file sizes.</div>
       </div>
     </div>
 
-    <p>Other formats (TIFF, BMP, HEIC, etc.) are rejected when you try to upload them. External images linked via URL can be in any format your browser supports, but uploads are restricted to these six to keep your project portable and future-proof.</p>
-
-    <h2 id="relative-paths">Understanding relative paths</h2>
-    <p>All image paths in markdown are resolved relative to the note's directory, not the project root. This matters when your notes and images are organized in folders.</p>
-
-    <p><b>Example directory structure:</b></p>
-<pre><code>my-project/
-  articles/
-    research.md
-    figures/
-      diagram.png
-  archive/
-    old-note.md
-  assets/
-    logo.png</code></pre>
-
-    <p>In <code>articles/research.md</code>, you'd link the diagram as:</p>
-<pre><code>![Diagram](./figures/diagram.png)</code></pre>
-
-    <p>The <code>./</code> means "current directory" (the <code>articles/</code> folder). To reference the logo from `articles/research.md`, you'd go up one level and into <code>assets/</code>:</p>
-<pre><code>![Logo](../assets/logo.png)</code></pre>
-
-    <p>And from `archive/old-note.md`, the same logo is reached by going up one level (to the project root) and into <code>assets/</code>:</p>
-<pre><code>![Logo](../assets/logo.png)</code></pre>
-
-    <p>Minerva normalizes paths automatically, so even if you write <code>../articles/../assets/logo.png</code>, it resolves to <code>../assets/logo.png</code> and works correctly. Paths are also protected — there's no way to use <code>..</code> to escape outside your project root.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Missing or broken paths.</b> If a relative path points to a file that doesn't exist or can't be read, the image renders with a broken-image indicator in preview (usually a missing-image icon), and the source editor highlights it visually. Check the path and make sure the file exists in the right location.</li>
-      <li><b>Case sensitivity.</b> On macOS and Windows, filenames are case-insensitive by default, but uploaded images use lowercase stems for deduplication. If you reference an image as <code>MyPhoto.jpg</code> and it's stored as <code>myphoto.jpg</code>, you might see inconsistent behavior on Linux (which is case-sensitive). Use consistent lowercase filenames or use the exact case returned by drag-and-drop uploads.</li>
-      <li><b>Special characters in filenames.</b> When you drag a file with spaces or special characters (e.g., <code>My Screenshot (2).png</code>), Minerva sanitizes the stored filename to <code>my-screenshot-2.png</code> for filesystem safety. The markdown reference is still inserted correctly, but don't manually rename or move files in the <code>.minerva/assets/inline/</code> directory — Minerva expects the hashed names to be stable.</li>
-      <li><b>External images and offline viewing.</b> Images linked by absolute URL (e.g., <code>https://example.com/image.png</code>) are fetched when you view the note. Without a network connection, the preview shows a broken-image icon. Local images work offline because they're stored in your project.</li>
-      <li><b>SVG injection and security.</b> SVG files embedded in notes run as part of the document, so they can include JavaScript or other embedded content. Minerva runs SVGs in a sandboxed context with strict CSP rules, so malicious scripts can't escape the preview. Still, be cautious with SVGs from untrusted sources — treat them like any executable code.</li>
-      <li><b>Very large images.</b> While Minerva stores images up to 5 MB, displaying very large images (e.g., 10000×10000 pixels) can slow down the preview or use a lot of memory. If you need high-resolution images, consider breaking them into tiles or using a lower-resolution version for the note.</li>
-      <li><b>Renamed or moved notes.</b> When you rename a note or move it to a different directory, the relative image paths break if you move the note without updating the image references. Use the file explorer or the refactoring tools to move notes — Minerva updates paths automatically when it can. If you move a note manually, the image links will have broken paths until you fix them.</li>
-    </ul>
+    <p>Pictures can be up to 5 MB each. If you have something larger, shrink it in your image editor first.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-tables.html">
+      <a class="prev" href="notes-callouts.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Tables &amp; CSV</span>
+        <span class="ttl">← Callouts</span>
       </a>
-      <a class="next" href="notes-media.html">
+      <a class="next" href="notes-tables.html">
         <span class="dir">Next</span>
-        <span class="ttl">Media →</span>
+        <span class="ttl">Tables &amp; CSV →</span>
       </a>
     </div>
   </main>

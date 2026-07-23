@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — What Thinking Tools Are</title>
-<meta name="description" content="A thinking tool is a skill — a markdown file with YAML frontmatter and a template prompt body — not a hardcoded feature, and every one you see in the Learning, Research, and Analysis menus is one." />
+<meta name="description" content="Thinking tools are skills: ready-made prompts that live in the Learning, Research, and Analysis menus, which you can use as-is or write your own." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,56 +80,33 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>What thinking tools are</p>
 
     <h1>What thinking tools are</h1>
-    <p class="lede">Every entry in the <b>Learning</b>, <b>Research</b>, and <b>Analysis</b> menus is a <b>skill</b> — a markdown file with a block of YAML frontmatter and a prompt body, not a feature built into the app. Minerva reads skill files at startup, and what they declare (a name, which menu they belong to, what context they need) is what you see on the menu. There is no separate, hardcoded catalog of tools to fall back on: the file <i>is</i> the tool.</p>
+    <p class="lede">Thinking tools are ready-made ways to put AI to work on your notes. Each one lives in the <b>Learning</b>, <b>Research</b>, or <b>Analysis</b> menu, and behind every entry is a <b>skill</b>: a saved instruction for the AI, together with a name and a home menu. Pick one and it runs against whatever you have open or selected.</p>
 
-    <h2 id="not-hardcoded">A skill, not a hardcoded tool</h2>
-    <p>Earlier versions of Minerva shipped roughly 35 individual tools as TypeScript code — one file per tool, each wired by hand into a menu, the command palette, and the conversation engine. That registry is gone. Every one of those tools is now a skill file: plain markdown, readable and editable like any note, requiring no rebuild of the app to change. Here's the frontmatter and opening lines of a real stock skill, <code>src/main/skills/stock/add-term-to-glossary.md</code>:</p>
+    <h2 id="what-is-a-skill">A skill is a reusable instruction</h2>
+    <p>Think of a skill as a small, purpose-built assistant. It knows one job — add a term to your glossary, steelman an argument, find tensions in a note — and it carries the instructions for doing that job well. When you choose a skill, Minerva hands the AI those instructions along with the right context (the note you're in, or the text you've selected) and starts a conversation.</p>
 
-    <pre><code>---
-id: learning.add-term-to-glossary
-name: Add Term to Glossary
-description: Add one term to the existing glossary, matching its conventions
-menu: Learning
-outputMode: openConversation
-context: [selectedText, fullNote]
-slashCommand: /add-term-to-glossary
-model: claude-sonnet-5
-web: true
-firstMessage: "{{#if selection}}Add \"{{selection | trim}}\" to the glossary.{{/if}}"
----
-You add a single term to the user's **existing** glossary, matching the
-conventions already in use.</code></pre>
+    <p>Because each skill is a single, plain file, they're easy to browse, tweak, and share. Nothing about a skill is locked inside the app — you can write your own, adjust one you like, or turn one off entirely.</p>
 
-    <p>The frontmatter is declarative — which menu (<code>Learning</code>), what triggers it (a <code>/add-term-to-glossary</code> slash command, a menu click), what context to gather before running (the current selection and the active note). The body underneath is the actual prompt, written in a small non-executing template language (<code>{{selection}}</code>, <code>{{#if note}}…{{/if}}</code>) so one file adapts to whether a note is open or something is selected, instead of shipping separate code paths for each case. Minerva turns this into a running tool through a fixed pipeline, all under <code>src/main/skills/</code>: <code>parse.ts</code> reads the frontmatter and body, <code>loader.ts</code> assembles the full catalog, <code>compile.ts</code> turns each valid skill into a <code>ThinkingToolDef</code>, and <code>register.ts</code> adds it to the shared tool registry the menu bar, command palette, and conversation engine all read from. The renderer never sees the prompt text itself — it gets a serializable <code>SkillInfo</code> summary via <code>api.skills.list()</code> and builds its own copy of the registry from that.</p>
-
-    <h2 id="stock-vs-user">Stock skills vs. user skills</h2>
-    <p>Skills come from two places, and the distinction matters for what you can change:</p>
+    <h2 id="stock-vs-user">Built-in skills and your own</h2>
+    <p>Skills come from two places:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Location</div>
-        <div class="v"><b>Stock:</b> <code>src/main/skills/stock/*.md</code>, bundled into the app at build time via Vite's <code>import.meta.glob</code> — around 50 files today, covering the default Learning, Research, and Analysis catalog. <b>User:</b> <code>~/.minerva/skills/</code> on your machine — either a bare <code>my-skill.md</code> file or a folder with a <code>SKILL.md</code> inside it (the folder form is for a skill that ships assets alongside its prompt). User skills apply across every thoughtbase you open on that machine, not just one project.</div>
+        <div class="k">Built-in skills</div>
+        <div class="v">Minerva ships with a full set of skills covering the default Learning, Research, and Analysis menus — enough to be useful the moment you open the app.</div>
       </div>
       <div class="row">
-        <div class="k">Loaded when</div>
-        <div class="v">Stock skills are embedded at build time — they ship inside the app itself, no filesystem read required. User skills are read from disk at runtime, on app startup, and again whenever you hit <b>Reload</b> in Settings → Skills after editing a file by hand.</div>
-      </div>
-      <div class="row">
-        <div class="k">Can it override?</div>
-        <div class="v">No. Stock loads first and claims every id it defines; a user skill whose <code>id</code> collides with a stock skill is rejected outright rather than replacing it — user skills are <b>additive only</b>. To change how a stock skill behaves, disable it in Settings → Skills and author your own from scratch (copying the stock file as a starting point is the normal way to do this).</div>
+        <div class="k">Your own skills</div>
+        <div class="v">You can add skills of your own. They appear alongside the built-in ones and are available in every thoughtbase you open on that computer. After you add or change one by hand, use <b>Reload</b> in Settings → Skills to pick up the change.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">Additive, not overriding — where this is enforced</span>
-      <p>The rule lives in <code>src/main/skills/loader.ts</code>. <code>loadSkillCatalog()</code> loads stock skills first and inserts them into an id-keyed map (lines 98–104); it then loads user skills and, for each one, checks whether its id already exists in that map (lines 105–115). If the existing entry came from stock, the user skill is rejected with the error <code>id "…" is already a stock skill; user skills can't override stock</code> — it never reaches the catalog. The same file's header comment states the invariant directly: "User skills are additive only: a user skill whose id collides with a stock skill is rejected (it can't shadow stock)." A rejected skill doesn't take down the rest of your catalog, either — parsing is error-isolated per file, so one bad or colliding skill is reported (Settings → Skills lists load errors) while every other skill loads normally.</p>
-    </div>
+    <p>Your skills add to the built-in set rather than replacing it. If you'd rather a built-in skill worked differently, turn it off in Settings → Skills and write your own version — starting from a copy of the one you liked is the easiest way to do this.</p>
 
-    <div class="shot wide">
-      <div class="icon">🧠</div>
-      <div class="k">Screenshot — A thinking-tools menu open</div>
-      <div class="d">The menu bar's Analysis menu open, showing a flat list of skill entries (Steelman, Find Tensions, Murphyjitsu, Doublecrux, Antithesize) each with its short description beneath the name, matching the card layout skills declare via `name` and `description` in frontmatter.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/thinking-tools-what-they-are.png" alt="The Analysis menu open, listing skills such as Steelman, Find Tensions, Murphyjitsu, Doublecrux, and Antithesize, each with a short description beneath its name." loading="lazy" />
+      <figcaption>A thinking-tools menu open</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="thinking-tools.html">

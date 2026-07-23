@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — The Writing Surface</title>
-<meta name="description" content="How Minerva's Source editor renders markdown live inline as you type — styled headers, emphasis, and links in place of raw syntax — and how the pane relates to the file on disk." />
+<meta name="description" content="How the editor styles your writing as you type — headers, emphasis, and links come to life in place, without ever hiding what you actually typed." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,60 +81,49 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>The writing surface</p>
 
     <h1>The writing surface</h1>
-    <p class="lede">The Source pane isn't a plain textarea with a monospace font bolted on. It's a single CodeMirror surface that understands markdown as you type — headers, emphasis, and links render styled in place, in the same pane you're editing, rather than staying inert characters until you switch to Preview. This page is about that pane's own character. For how Source relates to Preview and Side by side as separate view modes, see <a href="viewing-options-view-modes.html">View modes</a>.</p>
+    <p class="lede">The editor styles your writing as you type. Headings, emphasis, links, and more come to life right where you wrote them — you never have to switch to a preview to see how your note is shaping up. This page is about the editing pane itself. For how it sits alongside Preview and Side by side, see <a href="viewing-options-view-modes.html">View modes</a>.</p>
 
-    <h2 id="live-rendering">What "live inline rendering" means</h2>
-    <p>Minerva parses the buffer with <code>@codemirror/lang-markdown</code> and applies a token-driven highlight style directly on top of it (<code>src/renderer/lib/components/Editor.svelte:470</code>, <code>src/renderer/lib/editor/minerva-highlight.ts</code>). A heading line isn't just gray text with a <code>#</code> in front — the whole line is styled bold and in the accent color the moment CodeMirror recognizes it as a heading. Bold and italic spans pick up real <code>font-weight</code> and <code>font-style</code> the moment you close the <code>**</code> or <code>_</code>. Wiki-links and URLs get a soft rounded chip and become clickable (<code>src/renderer/lib/editor/link-decorations.ts:165-173</code>).</p>
+    <h2 id="live-rendering">Your writing, styled as you type</h2>
+    <p>As soon as the editor recognizes a piece of markup, it styles it in place. A heading turns bold and colored the moment you start the line with <code>#</code>. Bold and italic text takes on real weight and slant as soon as you close it. Links become clickable, and highlights get a tinted background — all while you keep typing.</p>
 
-    <p>The important distinction from Obsidian-style "live preview" editors: Minerva never hides the markdown delimiters. The <code>#</code>, <code>**</code>, <code>==</code>, and <code>[[</code>/<code>]]</code> stay on screen, styled through, rather than disappearing until your cursor lands nearby. A comment in the highlight-span source states the convention directly: <i>"We don't hide the <code>==</code> delimiters — keeping them visible is the convention for inline markup... the user can see exactly what they wrote"</i> (<code>src/renderer/lib/editor/highlight-decorations.ts:6-9</code>). There's no cursor-triggered reveal because nothing is ever concealed — what you see is always the literal file content, styled, not a rendered substitute.</p>
+    <p>The one thing the editor never does is hide what you typed. The <code>#</code>, <code>**</code>, <code>==</code>, and <code>[[ ]]</code> markers stay right where you put them, styled along with the text rather than vanishing when your cursor moves away. You always see exactly what's in your note, just dressed up — so nothing is ever a surprise when you look at it again later.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Headers</div>
-        <div class="v">Styled bold, in the accent color, as soon as the line parses as a heading. The <code>#</code> markers stay visible as part of the line (<code>t.heading</code>, <code>minerva-highlight.ts:102</code>).</div>
+        <div class="k">Headings</div>
+        <div class="v">Turn bold and colored as soon as the line starts with <code>#</code>. The <code>#</code> markers stay visible.</div>
       </div>
       <div class="row">
-        <div class="k">Bold / italic / strikethrough</div>
-        <div class="v"><code>**bold**</code>, <code>_italic_</code>, and <code>~~struck~~</code> render with real weight, slant, or a line-through the moment the span closes — the asterisks, underscores, and tildes stay visible, just styled along with the text (<code>minerva-highlight.ts:103-105</code>).</div>
+        <div class="k">Bold, italic, strikethrough</div>
+        <div class="v"><code>**bold**</code>, <code>_italic_</code>, and <code>~~struck~~</code> take on real weight, slant, or a line-through the moment you close them — the markers stay on screen, just styled along with the text.</div>
       </div>
       <div class="row">
-        <div class="k">Highlights — <code>==text==</code></div>
-        <div class="v">A tinted background matching the same color the Preview pane uses, painted live while typing. Delimiters are intentionally not hidden (<code>src/renderer/lib/editor/highlight-decorations.ts</code>).</div>
+        <div class="k">Highlights</div>
+        <div class="v"><code>==text==</code> picks up a tinted background as you type it.</div>
       </div>
       <div class="row">
-        <div class="k">Wiki-links &amp; URLs</div>
-        <div class="v">A soft accent-tinted chip, no underline, cursor turns into a pointer on hover — a mark decoration, not a widget, so the caret can still move through the link text to edit it (<code>src/renderer/lib/editor/link-decorations.ts:178-194</code>). Hovering one briefly also pops a preview tooltip of the target note (<code>src/renderer/lib/editor/link-preview.ts</code>).</div>
+        <div class="k">Links</div>
+        <div class="v">Wiki links and web addresses become soft, clickable chips. You can still move your cursor through the link text to edit it, and hovering one briefly shows a preview of where it leads.</div>
       </div>
       <div class="row">
-        <div class="k">Footnote refs &amp; definitions</div>
-        <div class="v"><code>[^label]</code> renders underlined and clickable, jumping between a reference and its definition on click; hovering a reference pops a tooltip of the definition body (<code>src/renderer/lib/editor/footnote-decorations.ts</code>, <code>footnote-preview.ts</code>).</div>
+        <div class="k">Footnotes</div>
+        <div class="v">A footnote marker becomes clickable, jumping between the reference and its note at the bottom; hovering shows the footnote's text.</div>
       </div>
       <div class="row">
-        <div class="k">Runnable code fences</div>
-        <div class="v">A ▶ run marker appears in the gutter next to any executable fence (SPARQL, SQL, Python); results write back into the note as a companion <code>```output</code> block right below the fence, not into a separate panel (<code>src/renderer/lib/editor/compute-cells.ts</code>).</div>
+        <div class="k">Runnable cells</div>
+        <div class="v">A run marker appears next to any cell you can run, and its results are written back into the note just below it — no separate panel to check. See <a href="notes-code.html">Code &amp; queries</a>.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">✍️</div>
-      <div class="k">Screenshot — Live inline rendering in the Source pane</div>
-      <div class="d">The Source editor showing a heading rendered bold in the accent color with its "#" still visible, a bold span with its "**" markers intact, and a wiki-link rendered as a rounded accent-tinted chip — with the text cursor visibly resting inside the bold span to show that the raw "**" characters remain on screen rather than disappearing while editing.</div>
-    </div>
-
-    <h2 id="not-a-textarea">Not a textarea, and not a second copy of the file</h2>
-    <p>Two things follow from the pane being CodeMirror rather than a bare <code>&lt;textarea&gt;</code>: it understands markdown structure well enough to fold the frontmatter block, match brackets, and drive autocomplete — see <a href="editor-link-autocomplete.html">Link autocomplete</a> — and it renders through <a href="viewing-options-themes.html">theme</a> tokens, so switching themes re-skins the editor's syntax colors along with everything else, live, with no rebuild.</p>
+    <figure class="shot-img">
+      <img src="img/editor-writing-surface.png" alt="A note in the editor: a heading in bold color with its &quot;#&quot; still showing, bold text with its &quot;**&quot; markers intact, and a wiki link shown as a rounded chip — the cursor resting inside the bold text to show that your markup stays on screen while you edit." loading="lazy" />
+      <figcaption>Writing styled as you type</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">The pane is the file, not a preview of it</span>
-      <p>What you're looking at in Source is the exact text of the <code>.md</code> file on disk, styled — not a separate rendering pass like Preview's. There's no intermediate "draft" state: every keystroke is the buffer, and every save re-indexes it into the knowledge graph immediately, the same as any other edit. See <a href="notes.html#lifecycle">Notes</a> for how saves feed <code>.minerva/graph.ttl</code>.</p>
+      <span class="label">Themes come along</span>
+      <p>The editor takes on whatever <a href="viewing-options-themes.html">theme</a> you choose. Switch themes and your writing re-colors instantly, right along with the rest of the app.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Plain-text files skip all of this.</b> A file Minerva treats as plain text (not markdown) gets the bare editing buffer with no markdown language, no link/footnote/highlight decorations, and no compute-cell gutter — <code>Editor.svelte:467-535</code> gates the entire markdown rendering stack behind a markdown check.</li>
-      <li><b>Delimiters are never hidden.</b> If you're coming from an editor that conceals <code>**</code>/<code>#</code>/<code>[[…]]</code> until the cursor is nearby, expect Minerva's Source pane to look "busier" — that's deliberate, so what you see always matches what's actually in the file.</li>
-      <li><b>Links are marks, not widgets.</b> The chip styling on a wiki-link doesn't replace the text with something else — you can still click into the middle of <code>[[Some Note]]</code> and edit the target directly, because the brackets and text are still real, editable characters underneath the styling.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="editor.html">

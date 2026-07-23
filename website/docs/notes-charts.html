@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Charts</title>
-<meta name="description" content="Embedding Vega and Vega-Lite charts in Minerva notes: the vega-lite and vega fence syntax, the JSON spec format, live data from SPARQL/SQL/tables/cells, and how charts render inline." />
+<meta name="description" content="Add live, interactive charts to your notes — draw them from a chart type in the menu, or feed them live data from a query, a table, or a compute cell." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub active">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,14 +93,15 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Charts</p>
 
     <h1>Charts</h1>
-    <p class="lede">Put a <a href="https://vega.github.io/vega-lite/">Vega-Lite</a> or <a href="https://vega.github.io/vega/">Vega</a> JSON spec in a fenced code block and the preview renders it as a live, interactive chart — hover for tooltips, use the built-in menu to export a PNG or SVG. Data can be inlined in the spec, or bound to a SPARQL query, a DuckDB table, or a compute cell's output, so a chart can track the graph or a dataset instead of a frozen snapshot.</p>
+    <p class="lede">You can drop a live, interactive chart right into a note. Hover any bar or point for a tooltip, and use the chart's corner menu to save it as an image. A chart can hold its own numbers, or draw from live data elsewhere in your project — a query over your knowledge base, a table, or the output of a compute cell — so it stays up to date instead of freezing a snapshot.</p>
 
-    <h2 id="syntax">The <code>vega-lite</code> and <code>vega</code> fences</h2>
-    <p>A chart is a fenced code block whose language is <code>vega-lite</code> or <code>vega</code>, containing a JSON chart specification. Both fences render through the same engine — <a href="https://github.com/vega/vega-embed">vega-embed</a> compiles and draws either — so the only difference is which spec dialect you're writing.</p>
+    <h2 id="insert">Adding a chart</h2>
+    <p>The quickest way is to right-click in the editor and choose <b>Elements → Chart…</b>. Pick a shape — Bar, Line, Area, Scatter, Time Series, or Pie — and Minerva drops in a ready-made chart with sample numbers already in place, with your cursor sitting in the data so your first edit is just swapping in your own values.</p>
+
+    <p>A chart lives in a chart cell that holds a short specification describing what to draw. Here is what a simple bar chart looks like:</p>
 
 <pre><code>```vega-lite
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "data": { "values": [
     { "category": "A", "value": 28 },
     { "category": "B", "value": 55 },
@@ -112,69 +116,39 @@
 }
 ```</code></pre>
 
-    <p>To insert one, right-click in the editor and choose <b>Elements → Chart…</b>. The submenu offers Bar, Line, Area, Scatter, Time Series, and Pie — each drops a complete, valid, inline-data spec with the cursor already inside the data array, so the first edit is just replacing the sample values. <b>From SPARQL</b>, <b>From Table</b>, and <b>From Cell</b> scaffold a data-bound chart instead (see below); <b>Empty Block</b> drops a bare <code>```vega-lite</code> fence for writing a spec from scratch.</p>
+    <p>You describe the data, the shape to draw, and which values go on each axis; Minerva works out the axes, scales, and legend for you. That concise style covers ordinary bar, line, area, scatter, and pie charts. For a chart that needs finer control than the concise style allows, there is also a more detailed form where you spell out every part yourself — reach for it only when you need something the concise style can't express.</p>
 
-    <h2 id="dialects">Vega-Lite vs. Vega</h2>
-    <p>Minerva tells the two dialects apart by the fence's language tag, not by inspecting the JSON — a <code>```vega</code> fence is always compiled as full Vega, a <code>```vega-lite</code> fence always as Vega-Lite.</p>
+    <h2 id="rendering">How it looks</h2>
+    <p>The chart draws right in the note, sized to fit the column so it never spills off the side. It's fully interactive: hover a bar or point for a tooltip, and open the "⋯" menu in the corner to save the chart as an image. Colors follow your current theme automatically, so a chart looks at home whether you're in a light or dark look — though any color you set yourself is always kept.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k"><code>```vega-lite</code></div>
-        <div class="v"><b>Vega-Lite — the concise, declarative form.</b> You describe data, a mark type, and encodings; Vega-Lite works out axes, scales, and legends. This is what every Insert-menu scaffold produces, and what you want for ordinary bar/line/area/scatter/pie charts.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>```vega</code></div>
-        <div class="v"><b>Full Vega — the low-level grammar.</b> You specify scales, axes, and marks explicitly. Reach for it only when a chart needs something Vega-Lite's higher-level vocabulary can't express.</div>
-      </div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-charts.png" alt="A note with a bar chart drawn inline, sized to the width of the column. A tooltip shows the value of the bar under the pointer, and the &quot;⋯&quot; menu for saving the chart sits in the corner." loading="lazy" />
+    </figure>
 
-    <h2 id="rendering">How it renders</h2>
-    <p>The chart renders inline as an SVG, sized to the width of the note column — a spec's own <code>width</code>/<code>height</code> are honored, but the drawing scales to fit rather than overflowing into a horizontal scrollbar. It's genuinely interactive: hover a mark for a tooltip, and an "⋯" menu in the corner offers PNG/SVG export and viewing the spec (raw and compiled). While a chart is being drawn the block shows a brief "Rendering chart…" placeholder.</p>
-
-    <p>Chart colors follow the current theme automatically — background, axis lines, gridlines, and the default category palette are drawn from the same tokens as the rest of the UI, so a chart looks at home in dark, light, or high-contrast mode without any styling in the spec. An explicit color in your spec's own encoding still wins.</p>
-
-    <div class="shot wide">
-      <div class="icon">📊</div>
-      <div class="d">A rendered note showing a vega-lite bar chart fenced block: the chart drawn as an SVG bar chart sized to the note column width, a tooltip visible on a hovered bar, and the "⋯" export menu in the corner of the chart block.</div>
-    </div>
-
-    <h2 id="data">Sourcing data</h2>
-    <p>The ordinary way to supply data is inline, in the spec's own <code>data.values</code> array, as in the example above. For a chart that should track something else in the project, Minerva also recognizes four binding forms in place of <code>values</code> — each resolves to rows just before the chart renders:</p>
+    <h2 id="data">Live data</h2>
+    <p>The simple approach is to list your numbers right in the chart, as above. But a chart can also pull its data from elsewhere in your project so it updates as that data changes. In place of listing values, point the chart at one of these:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>"data": { "sparql": "…" }</code></div>
-        <div class="v">Runs the query against the project's knowledge graph; each result row becomes a data point.</div>
+        <div class="k">A query over your knowledge base</div>
+        <div class="v">Each result becomes a point on the chart, so the chart reflects your notes as they grow and change.</div>
       </div>
       <div class="row">
-        <div class="k"><code>"data": { "sql": "…" }</code></div>
-        <div class="v">Runs the query against registered DuckDB tables.</div>
+        <div class="k">A table</div>
+        <div class="v">Draw straight from a table of data you've brought into your project.</div>
       </div>
       <div class="row">
-        <div class="k"><code>"data": { "table": "name" }</code></div>
-        <div class="v">Shorthand for <code>SELECT * FROM name</code> against a registered table.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>"data": { "cell": "cell-id" }</code></div>
-        <div class="v">Reads the stored tabular output of a compute cell elsewhere in the note. The cell must have been run at least once — an unrun cell has no output to read.</div>
+        <div class="k">A compute cell's output</div>
+        <div class="v">Chart the results of a compute cell elsewhere in the note. Run that cell at least once first, so there's an output to draw from.</div>
       </div>
     </div>
 
-    <p>A data-bound chart gets a refresh (⟳) button on its fence toolbar that inline charts don't need — click it to re-run the query and redraw without editing the note, useful after the graph or a table has changed. Values coming back from SPARQL are strings; Minerva coerces any column that's numeric in every row to a number first, so quantitative encodings (sums, axes, sorting) behave rather than sorting "10" before "9".</p>
+    <p>A chart that draws from live data gets a refresh button, so after the underlying data changes you can redraw it in place without touching the note.</p>
 
     <div class="box">
-      <span class="label">Inline data only — no remote URLs</span>
-      <p>A Vega/Vega-Lite spec can normally point <code>data</code> at a <code>url</code> to fetch a file or a network resource. Minerva refuses that: a note can arrive from an import, the clipper, or someone else's shared vault, so a chart spec is untrusted input, and rendering it must not make an arbitrary network or filesystem request. A spec with a <code>url</code> anywhere in it renders a "Remote data disabled" notice instead of a chart — inline <code>data.values</code>, or one of the SPARQL/SQL/table/cell bindings above, are the only supported sources.</p>
+      <span class="label">Data stays in your project</span>
+      <p>A chart draws only from numbers in the note or from data already in your project — it won't reach out to the web to fetch anything. This keeps notes that arrive from an import or from someone else safe to open and view.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Invalid JSON fails the whole block.</b> If the fence body doesn't parse as JSON, the chart is replaced with an inline "Vega error" showing the parse error — fix the syntax and it re-renders. A structurally valid spec that Vega-Lite/Vega itself rejects (unknown mark type, missing required encoding, and so on) surfaces the same way, with the library's own error message.</li>
-      <li><b>Fence language picks the dialect, not the JSON.</b> Pasting a full Vega spec into a <code>```vega-lite</code> fence (or vice versa) doesn't auto-detect — it just gets compiled by the wrong engine and fails. Match the fence tag to the spec you're writing.</li>
-      <li><b>A <code>url</code> anywhere in the spec blocks the whole chart</b>, even nested inside a layer or transform — not just at the top level. See the callout above.</li>
-      <li><b>Cell-bound charts need the cell to have run.</b> <code>data.cell</code> reads a stored output block from earlier in the note; if that compute cell hasn't been executed yet (or its last run errored), the chart shows "Chart data unavailable" instead of drawing empty axes.</li>
-      <li><b>Sizing follows the note column, not the spec's raw pixel size.</b> A wide fixed-width spec doesn't force a horizontal scrollbar — it scales down to fit. If a chart looks cramped, that's usually the note column, not the spec.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="notes-diagrams.html">

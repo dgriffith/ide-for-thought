@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Runnable Query Cells</title>
-<meta name="description" content="Fenced SPARQL and SQL code blocks that run in place in a note, the prefixes auto-injected into every SPARQL query, and how markdown tables become queryable SQL tables." />
+<title>Minerva — Docs — Runnable Cells</title>
+<meta name="description" content="Write a query inside a note and run it in place, with the results appearing right below." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -79,34 +79,21 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="query.html">Query</a><span class="sep">/</span>Runnable cells</p>
 
     <h1>Runnable cells</h1>
-    <p class="lede">A fenced <code>```sparql</code> or <code>```sql</code> code block in a note isn't just a syntax-highlighted example — it's a query you can actually run, with the result landing right below it. Same run mechanism as <code>```python</code> cells, covered in <a href="editor.html">Editor</a>.</p>
+    <p class="lede">A query written inside a note isn't just an example to read — it's live. Run it right where it sits, and the answer appears just below. It's a natural way to keep a question and its answer together in your notes.</p>
 
-    <h2 id="running">Running a query cell</h2>
-    <p>Click the ▶ icon in the gutter next to a <code>```sparql</code> or <code>```sql</code> fence, or place your cursor in it and press <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>. The result lands in a sibling <code>```output</code> block immediately after — the editor manages that block for you; don't hand-write one, since it gets overwritten on the next run.</p>
+    <h2 id="running">Running a query</h2>
+    <p>Start a query cell and mark it as a SPARQL or SQL query. A run button appears beside it — click it, or place your cursor in the cell and press <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>. The results appear in their own block directly underneath. Minerva keeps that results block up to date for you, so there's no need to write one yourself.</p>
 
-    <div class="shot wide">
-      <div class="icon">▶️</div>
-      <div class="k">Screenshot — A runnable SPARQL cell mid-note</div>
-      <div class="d">A ```sparql fence with the ▶ gutter icon visible, and the resulting ```output block underneath showing a small results table.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/query-runnable-cells.png" alt="A query cell with its run button, and the results appearing just below it as a small table." loading="lazy" />
+      <figcaption>A query cell in the middle of a note</figcaption>
+    </figure>
 
-    <h2 id="prefixes">Auto-injected prefixes</h2>
-    <p>You only need to write the <code>SELECT</code>/<code>ASK</code>/<code>CONSTRUCT</code> body — these are already in scope for every SPARQL cell (and every query run from the Query panel):</p>
-    <div class="deflist">
-      <div class="row"><div class="k"><code>minerva:</code></div><div class="v">Minerva's own ontology — notes, tags, links.</div></div>
-      <div class="row"><div class="k"><code>thought:</code></div><div class="v">The Thought ontology — claims, grounds, warrants, and the rest of the epistemic vocabulary.</div></div>
-      <div class="row"><div class="k"><code>dc:</code></div><div class="v">Dublin Core — titles, creators, dates.</div></div>
-      <div class="row"><div class="k"><code>rdf:</code> / <code>rdfs:</code></div><div class="v">The RDF and RDF Schema basics — <code>rdf:type</code>, <code>rdfs:label</code>, and so on.</div></div>
-      <div class="row"><div class="k"><code>xsd:</code> / <code>csvw:</code> / <code>prov:</code></div><div class="v">Typed literals, CSV-table metadata, and provenance.</div></div>
-    </div>
+    <h2 id="prefixes">Shorthand that's always ready</h2>
+    <p>When you write a SPARQL query, you can jump straight to asking your question — the common shorthands for referring to your notes, tags, links, claims, titles, dates, and other everyday concepts are already available. You don't have to declare them each time.</p>
 
-    <h2 id="sql-tables">Tables from markdown</h2>
-    <p>A markdown table in your notes is queryable as SQL the moment it's saved — column headers become the schema, via CSVW. The table's name is auto-derived from the CSV's relative path (e.g. <code>notes/data/2024-experiment.csv</code> becomes <code>notes_data_2024_experiment</code>), or you can set one explicitly with <code>table_name</code> in that file's frontmatter. See <a href="notes-tables.html">Tables &amp; CSV</a> for how a table gets registered in the first place, and <a href="query-menu-panel.html">Query menu &amp; panel</a>'s Stock SQL queries for how to check a table's schema before you write against it.</p>
-
-    <div class="box">
-      <span class="label">SQL executor details</span>
-      <p>SQL cells run through DuckDB. Values that don't map cleanly to JSON — BigInt, dates, nested types — are normalized on the way out (BigInt to a plain number when it fits safely, otherwise a string; dates to ISO strings) so the output block is always valid JSON.</p>
-    </div>
+    <h2 id="sql-tables">Querying your tables</h2>
+    <p>Any table you add to your notes can be queried with SQL as soon as you save it — the column headings become the fields you can ask about. See <a href="notes-tables.html">Tables &amp; CSV</a> for how tables work, and the <a href="query-menu-panel.html">Query menu &amp; panel</a> for ready-made queries that show you a table's columns before you write against it.</p>
 
     <div class="pager">
       <a class="prev" href="query-menu-panel.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Font Size &amp; Zoom</title>
-<meta name="description" content="Two separate ways to make text bigger or smaller in Minerva — the editor's own font-size setting, and whole-window zoom on the entire UI — and how they interact." />
+<meta name="description" content="Two ways to make things bigger or smaller in Minerva — the editor's own text size, and zoom for the whole window — and how they work together." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,38 +80,29 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>Font size &amp; zoom</p>
 
     <h1>Font size &amp; zoom</h1>
-    <p class="lede">Minerva has two separate controls for making text bigger or smaller, and they don't do the same thing. <b>Editor font size</b> resizes only the text inside the CodeMirror source editor. <b>Zoom</b> scales the entire window — sidebar, toolbar, dialogs, and the editor along with everything else. They're independent settings that happen to compound, since zoom scales the whole rendered page including whatever the editor's own font size is currently set to.</p>
+    <p class="lede">Minerva gives you two ways to make things bigger or smaller, and they do different jobs. <b>Editor font size</b> changes only the text you're writing in. <b>Zoom</b> scales the whole window at once — sidebars, menus, dialogs, and your writing together. Reach for whichever fits: bump the editor text when you just want more comfortable writing, or zoom the window when everything feels too small.</p>
 
-    <h2 id="mechanisms">The two mechanisms</h2>
+    <h2 id="mechanisms">The two controls</h2>
     <div class="deflist">
       <div class="row">
         <div class="k">Editor font size</div>
-        <div class="v">Resizes text in the <a href="editor.html">source editor</a> only — the sidebar, toolbar, and dialogs stay the same size. <kbd>⌘</kbd><kbd>⇧</kbd><kbd>=</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>=</kbd> increases it, <kbd>⌘</kbd><kbd>⇧</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>-</kbd> decreases it, in steps of 1px each press (View → Increase/Decrease Editor Font Size, <code>src/main/menu.ts:482-491</code>). View → Reset Editor Font Size has no default shortcut. Ranges from 10px to 24px, default 14px (<code>src/renderer/lib/editor/font-size.ts:10-12</code>), and persists across restarts in <code>localStorage</code> under <code>editorFontSize</code> (<code>src/renderer/lib/components/Editor.svelte:253-254</code>). There's no Settings-panel slider for it — the menu items and shortcuts are the only way to change it.</div>
+        <div class="v">Changes only the size of the text in the <a href="editor.html">editor</a> — the rest of the window stays put. Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>=</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>=</kbd> to make it larger and <kbd>⌘</kbd><kbd>⇧</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>-</kbd> to make it smaller, a step at a time. You'll also find these under View, along with a command to reset to the default size. Your choice is remembered the next time you open Minerva.</div>
       </div>
       <div class="row">
         <div class="k">Zoom</div>
-        <div class="v">Scales the whole window's UI — everything renders bigger or smaller together, not just the editor. <kbd>⌘</kbd><kbd>+</kbd> / <kbd>Ctrl</kbd><kbd>+</kbd> zooms in, <kbd>⌘</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>-</kbd> zooms out, <kbd>⌘</kbd><kbd>0</kbd> / <kbd>Ctrl</kbd><kbd>0</kbd> resets to actual size (View → Actual Size / <em>(unlabeled zoom in/out)</em>, <code>src/main/menu.ts:478-480</code>). These are Electron's built-in <code>resetZoom</code> / <code>zoomIn</code> / <code>zoomOut</code> menu roles, which drive <code>webContents</code>'s zoom factor directly — Minerva doesn't implement its own zoom logic or clamp it to a custom range.</div>
+        <div class="v">Scales everything in the window together, not just the editor. Press <kbd>⌘</kbd><kbd>+</kbd> / <kbd>Ctrl</kbd><kbd>+</kbd> to zoom in, <kbd>⌘</kbd><kbd>-</kbd> / <kbd>Ctrl</kbd><kbd>-</kbd> to zoom out, and <kbd>⌘</kbd><kbd>0</kbd> / <kbd>Ctrl</kbd><kbd>0</kbd> to return to normal size. The same commands live under View.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🔍</div>
-      <div class="k">Screenshot — View menu, zoom &amp; font size section</div>
-      <div class="d">The View menu open, scrolled to the lower section showing "Actual Size", the unlabeled zoom in/out items, and below a separator "Increase Editor Font Size", "Decrease Editor Font Size", and "Reset Editor Font Size" — illustrating that these are two adjacent but distinct groups of commands.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/viewing-options-font-size-zoom.png" alt="The View menu open to its lower section, showing the zoom commands (zoom in, zoom out, and back to normal size) grouped just above the separate commands for making the editor text larger, smaller, or reset to default." loading="lazy" />
+      <figcaption>The zoom and font size commands in the View menu</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">They compound, not replace</span>
-      <p>Zoom scales the entire rendered page, and the editor's font size is just a CSS pixel value on that page — so zooming in on a window where you've already bumped the editor font up to 20px gives you 20px text rendered at, say, 110% larger again. If text looks too big, check both controls rather than assuming one setting reset the other.</p>
+      <span class="label">The two stack together</span>
+      <p>Because zoom scales the whole window, it also scales whatever editor text size you've set. If you've already made the editor text larger and then zoom in as well, the text grows twice. If things look bigger than expected, check both controls — neither one resets the other.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Zoom resets every launch; editor font size doesn't.</b> Editor font size is saved to <code>localStorage</code> and survives restarts. Zoom is Electron's in-memory <code>webContents</code> zoom factor — Minerva doesn't persist it anywhere, so a zoomed window goes back to 100% the next time you open the app.</li>
-      <li><b>Zoom has no reset shortcut for the editor specifically.</b> <kbd>⌘</kbd><kbd>0</kbd> resets whole-window zoom to 100%; it does not touch your editor font-size setting. To get the editor back to its default 14px, use View → Reset Editor Font Size.</li>
-      <li><b>Editor font size is clamped, zoom isn't (by Minerva).</b> The editor setting can't go below 10px or above 24px — the menu commands simply stop moving it further once you hit either end. Zoom uses Chromium's own built-in limits, which are much wider and not something Minerva restricts.</li>
-      <li><b>No Settings-panel control for either.</b> Both are menu commands (with keyboard shortcuts) rather than fields in <a href="settings.html">Settings</a> — there's nothing to type a specific pixel size or zoom percentage into.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="viewing-options-themes.html">

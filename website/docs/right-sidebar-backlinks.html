@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Backlinks</title>
-<meta name="description" content="The Backlinks panel lists every note that links to the one you're viewing, grouped by link type or sorted alphabetically, with a click to jump straight to the source." />
+<meta name="description" content="The Backlinks panel shows every note that links to the one you're reading, so you can see what refers here and jump straight to it." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,55 +88,41 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Backlinks</p>
 
     <h1>Backlinks</h1>
-    <p class="lede">The <b>Backlinks</b> panel lists every note that links to the one you currently have open — the incoming side of the link graph, as opposed to the note's own <a href="right-sidebar-outgoing-links.html">outgoing links</a>. It's driven entirely by the graph index, so the list updates as soon as another note's link is saved, without you touching the current note at all.</p>
-
-    <div class="box">
-      <span class="label">How a backlink gets here</span>
-      <p>This page is about the panel's own UI — grouping, sorting, and click behavior. For how wiki-links resolve to a target, what the twelve typed-link predicates mean, and how a link gets indexed into the graph as a triple in the first place, see <a href="notes-links.html#backlinks">Notes → Links → Backlinks</a>.</p>
-    </div>
+    <p class="lede">The <b>Backlinks</b> panel shows every note that links to the one you're reading. It's the reverse of the note's own <a href="right-sidebar-outgoing-links.html">outgoing links</a>: instead of where this note points, it tells you what points here. The list keeps itself up to date, so when you link to this note from somewhere else, it appears here automatically.</p>
 
     <h2 id="layout">Reading the panel</h2>
-    <p>Each row is a source note that links to the current one, with a small notes icon and the source note's title — never its raw file path, though the path is available as the row's tooltip. A header line above the list gives a running total: <i>"N linked mentions"</i>. If a note links to the current one more than once (say, via two different typed links), each link is its own row — the count is mentions, not distinct notes.</p>
+    <p>Each row is a note that links to the one you're viewing, shown by its title. A line at the top gives a running total. If a note links here more than once, each link is its own row, so the count reflects mentions rather than distinct notes.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Filter box</div>
-        <div class="v">Typing into the ribbon's search field narrows the list to source notes whose title or path contains the query, live as you type. It searches only what's already loaded for the current note — it isn't a project-wide search.</div>
+        <div class="k">Search</div>
+        <div class="v">Type in the search field to narrow the list to notes whose titles match, live as you type.</div>
       </div>
       <div class="row">
-        <div class="k">Sort: By type (default)</div>
-        <div class="v">Rows are grouped into collapsible sections, one per link type, each with a colored square and mono-cased label (e.g. <code>SUPPORTS</code>, <code>REFERENCES</code>) matching that type's color from <a href="notes-links.html">typed links</a>, plus a count. Click a group header — or its chevron — to collapse or expand it; the ribbon's collapse-all / expand-all buttons act on every group at once.</div>
+        <div class="k">Group by type</div>
+        <div class="v">By default, links are grouped into collapsible sections by the kind of link — for example "supports" or "references" — each with a color and a count. Click a section header to fold it away, or use the buttons at the top to collapse or expand everything at once.</div>
       </div>
       <div class="row">
-        <div class="k">Sort: Alphabetical</div>
-        <div class="v">Switching the sort dropdown to "Alphabetical" drops the type grouping entirely and lists every backlink as one flat list, ordered by source note title. Each row instead carries its own small colored badge showing that link's type, since the grouping that would otherwise convey it is gone.</div>
+        <div class="k">Sort alphabetically</div>
+        <div class="v">Switch the sort option to list every backlink in one flat list ordered by title. Each row then carries a small colored badge showing its link type.</div>
       </div>
       <div class="row">
-        <div class="k">Click a row</div>
-        <div class="v">Opens the source note in the editor. This is real navigation, not a preview — the current note's own panel state (search text, sort choice, collapsed groups) is left as you had it, ready for when you navigate back.</div>
+        <div class="k">Click to open</div>
+        <div class="v">Click a row to open that note. When you come back, the panel is just as you left it — your search text and folded sections are remembered.</div>
       </div>
       <div class="row">
-        <div class="k">Drag a row</div>
-        <div class="v">A backlink row can be picked up and dropped the same way a sidebar file can — useful for dragging a source note into a note body as a new link, or into another drop target that accepts a note reference.</div>
+        <div class="k">Drag to reuse</div>
+        <div class="v">Drag a row into another note to drop in a link to it, the same way you can drag a note from the sidebar.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🔗</div>
-      <div class="k">Screenshot — Backlinks panel, grouped by type</div>
-      <div class="d">The right-sidebar Backlinks panel with the sort dropdown set to "By type," showing two expanded type groups — each with a colored square, mono type label, and count — and one collapsed group, above a flat row of ungrouped backlinks; the ribbon's filter field, sort selector, and expand/collapse-all buttons are visible at the top.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-backlinks.png" alt="The Backlinks panel grouped by link type, showing a couple of expanded sections — each with a color, a label, and a count — and one folded section, with the search field and sort control at the top." loading="lazy" />
+      <figcaption>Screenshot — Backlinks panel, grouped by type</figcaption>
+    </figure>
 
-    <h2 id="empty">No backlinks</h2>
-    <p>A note with nothing pointing at it shows <i>"No backlinks found"</i> in place of the list — this is expected for a new note, a leaf note, or anything you haven't linked to yet, not an error state. If backlinks exist but your filter text doesn't match any of them, the message changes to <i>"No matches"</i> instead, so you can tell at a glance whether the panel is empty because nothing links here or because your search is too narrow.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The panel only knows about the graph, not the disk.</b> A link that hasn't been saved yet — still sitting in an unsaved editor buffer — isn't indexed, so it won't appear as a backlink anywhere until the source note is saved.</li>
-      <li><b>Same source, multiple rows.</b> If a note links to the current one through more than one typed link, it shows up once per link, not deduplicated into a single row — the mention count in the header reflects this.</li>
-      <li><b>Collapsed-group state doesn't persist across notes.</b> Switching to a different note resets which type groups are collapsed; it isn't remembered per-note.</li>
-    </ul>
-
+    <h2 id="empty">When nothing links here</h2>
+    <p>If no note links to the one you're viewing, the panel says <i>"No backlinks found."</i> That's normal for a brand-new note or one you simply haven't linked to yet. If backlinks do exist but your search doesn't match any of them, it says <i>"No matches"</i> instead, so you can tell whether the panel is empty because nothing links here or because your search is too narrow.</p>
     <div class="pager">
       <a class="prev" href="right-sidebar.html">
         <span class="dir">Previous</span>

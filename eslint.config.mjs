@@ -38,6 +38,11 @@ export default tseslint.config(
       // of the app's Node/Electron TS project. Type-check via
       // `pnpm typecheck:clipper`; its pure logic is covered by tests/clipper.
       'clipper/**',
+      // The marketing/docs site and its Playwright screenshot harness are a
+      // separate concern from app source — the harness runs under Playwright's
+      // own TS transpile, not the app's TS project, so the type-aware parser
+      // has no tsconfig for it. Not linted here.
+      'website/**',
     ],
   },
   js.configs.recommended,

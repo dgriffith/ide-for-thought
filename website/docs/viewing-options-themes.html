@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Themes</title>
-<meta name="description" content="Minerva ships Dark, Light, and High Contrast themes plus a System option, switched instantly from Settings, the status bar, or a shortcut — a whole-app appearance choice, not a per-note one." />
+<meta name="description" content="Choose how Minerva looks: Dark, Light, or High Contrast, plus a System option that follows your computer. Switch instantly from Settings, the status bar, or a shortcut." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,63 +80,53 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>Themes</p>
 
     <h1>Themes</h1>
-    <p class="lede">Minerva ships three appearance themes — Dark, Light, and High Contrast — plus a System option that follows your OS setting. Switching is instant: pick one from Settings, the status bar, or a shortcut, and the whole app repaints immediately. There's no restart, and no per-note override — theme is a whole-app setting.</p>
+    <p class="lede">A theme sets how the whole app looks. Minerva offers three — Dark, Light, and High Contrast — plus a System option that follows your computer's own light-or-dark setting. Switching is instant and applies everywhere; there's no per-note override.</p>
 
     <h2 id="themes">The themes</h2>
-    <p>Every theme is a set of CSS custom properties (<code>--bg</code>, <code>--text</code>, <code>--accent</code>, <code>--border</code>, and related tokens) defined in <code>src/renderer/styles/global.css</code>. The default tier lives on <code>:root</code>; the other two are keyed off a <code>data-theme</code> attribute on <code>&lt;html&gt;</code>, so switching is a single attribute swap rather than a stylesheet reload.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Dark <span style="color:var(--text-faint);font-weight:400;">(default)</span></div>
-        <div class="v">Minerva's default look — a warm, Catppuccin-inspired dark palette ("Honey"): ink-toned backgrounds, soft warm-white text, and a honeyed amber accent. Defined on <code>:root</code> with no <code>data-theme</code> attribute set.</div>
+        <div class="v">A warm, dark look: deep ink backgrounds, soft warm-white text, and a honeyed amber accent.</div>
       </div>
       <div class="row">
         <div class="k">Light</div>
-        <div class="v">The same warm palette inverted onto a pale paper background, with darker text and a deeper amber accent — reads like the dark theme's daytime twin rather than a generic light mode. <code>[data-theme="light"]</code>.</div>
+        <div class="v">The same warm palette on a pale paper background, with darker text — the daytime twin of the dark theme rather than a plain white mode.</div>
       </div>
       <div class="row">
         <div class="k">High Contrast</div>
-        <div class="v">A stark black-on-white palette with a dark title bar retained over the light body. Signal colors (sage, rust, iris) and highlight tints are individually darkened so every combination clears WCAG AA (4.5:1). Built for maximum legibility, not aesthetics. <code>[data-theme="contrast"]</code>.</div>
+        <div class="v">A stark, high-legibility black-on-white look with strong, clearly separated colors. Built for readability first.</div>
       </div>
       <div class="row">
         <div class="k">System</div>
-        <div class="v">Not a fourth palette — it follows your OS light/dark setting, resolving to Dark or Light and updating live if you change your OS appearance while Minerva is open. This is the default on a fresh install.</div>
+        <div class="v">Follows your computer's light or dark setting, and updates on its own if you change that setting while Minerva is open. This is what you start with on a fresh install.</div>
       </div>
     </div>
 
     <h2 id="switching">Switching themes</h2>
-    <p>Three equivalent ways to change the theme, all reading from and writing to the same list so labels never drift between surfaces:</p>
+    <p>Change the theme any of three ways — the change takes effect right away:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Settings → Appearance</div>
-        <div class="v">Open Settings and select the <b>Appearance</b> tab, then choose a theme from the <b>Theme</b> dropdown. The change applies live as you pick — no "Apply" or "OK" step needed, and no restart.</div>
+        <div class="v">Open Settings, go to the <b>Appearance</b> tab, and pick a theme from the <b>Theme</b> menu. It applies as you choose — there's no confirm step.</div>
       </div>
       <div class="row">
         <div class="k">Status bar</div>
-        <div class="v">Click the theme label in the status bar to open a small picker listing all four options; click one to switch immediately.</div>
+        <div class="v">Click the theme name at the bottom of the window to open a quick picker, then click the one you want.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></div>
-        <div class="v">Cycles through Dark → Light → High Contrast → System → Dark, without opening any menu.</div>
+        <div class="v">Cycles through Dark, Light, High Contrast, and System without opening a menu.</div>
       </div>
     </div>
 
-    <p>Your choice is stored in <code>localStorage</code>, so it's per-machine — it isn't part of the project and doesn't travel with the notebase or sync between devices.</p>
+    <p>Your theme choice is remembered on this computer. It's a personal appearance setting, so it isn't part of your notes and won't follow them to another device.</p>
 
-    <div class="shot wide">
-      <div class="icon">🎨</div>
-      <div class="k">Screenshot — Theme picker in Settings</div>
-      <div class="d">The Settings dialog's Appearance tab, showing the "Theme" field with its dropdown open over the four options (Dark, Light, High Contrast, System) and the hint line below it noting the status-bar picker and the ⌘⇧T shortcut; the content-font field sits directly beneath.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Whole-app, not per-note.</b> There's no way to pin one note or window to a different theme — every open window reflects the same stored preference.</li>
-      <li><b>"System" isn't a distinct palette.</b> It's an auto-selector that resolves to the Dark or Light token set depending on your OS appearance, and updates live if the OS setting changes while Minerva is running.</li>
-      <li><b>No custom CSS override.</b> Themes are fixed token sets shipped with the app; there's currently no user stylesheet or theme-editing surface to define your own.</li>
-      <li><b>Exports don't inherit your theme.</b> HTML and PDF exports (<code>src/main/publish/exporters/note-html/style.ts</code>) use their own fixed, print-friendly light stylesheet, independent of whichever app theme is active — a note exported while you're in High Contrast or Dark looks the same as one exported in Light.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/viewing-options-themes.png" alt="The Appearance tab in Settings, with the Theme menu open on its four choices: Dark, Light, High Contrast, and System." loading="lazy" />
+      <figcaption>Screenshot — Theme picker in Settings</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="viewing-options-view-modes.html">

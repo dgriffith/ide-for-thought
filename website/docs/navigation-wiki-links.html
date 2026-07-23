@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Wiki-links Navigation</title>
-<meta name="description" content="Following wiki-links in Minerva: click-to-navigate in preview and source, hover preview of the target note, and what actually happens when a link's target doesn't exist yet." />
+<title>Minerva — Docs — Wiki-links</title>
+<meta name="description" content="Following wiki-links in Minerva: click a link to jump to the note it points to, and peek at where it leads by hovering." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -82,52 +82,33 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Wiki-links</p>
 
     <h1>Wiki-links</h1>
-    <p class="lede">A <code>[[Note Name]]</code> link is clickable wherever it's rendered. This page covers the navigation experience — following a link, previewing its target on hover, and what happens when the target doesn't exist — not the link syntax itself. For the <code>[[type::target#anchor|display]]</code> grammar, the twelve typed-link types, and resolution priority, see <a href="notes-links.html">Links</a>.</p>
+    <p class="lede">A wiki-link, written as <code>[[Note Name]]</code>, connects one note to another. Wherever a link appears, you can click it to jump straight to the note it points to. This page is about moving around by following links; for how to write them, see <a href="notes-links.html">Links</a>.</p>
 
     <h2 id="following">Following a link</h2>
-    <p>The click gesture depends on which pane you're in — preview has no "edit the link text" concern, so it can afford a plain click where the source editor can't:</p>
+    <p>Clicking a wiki-link takes you to the note it names. This works the same whether you're reading a note or writing one.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Preview</div>
-        <div class="v">A plain click on a rendered <code>[[...]]</code> link follows it — no modifier key needed. There's nothing to edit in rendered output, so a click can't be ambiguous with placing a cursor.</div>
+        <div class="k">While reading</div>
+        <div class="v">Click a link to follow it — no modifier key needed.</div>
       </div>
       <div class="row">
-        <div class="k">Source editor</div>
-        <div class="v">A plain click follows the link, same as preview. <kbd>⌘</kbd>-click (or <kbd>Ctrl</kbd>-click) instead places the cursor inside it, so you can edit the target or display text — the same convention the editor uses for footnotes. See <a href="notes-links.html#resolving">Links</a>.</div>
+        <div class="k">While writing</div>
+        <div class="v">A plain click still follows the link. To place your cursor inside the link and edit it instead, hold <kbd>⌘</kbd> (or <kbd>Ctrl</kbd>) as you click.</div>
       </div>
       <div class="row">
-        <div class="k">Hover</div>
-        <div class="v">Hovering a link (in preview) shows a popover with the target note's title and its opening snippet, without navigating. See <a href="#hover">below</a>.</div>
-      </div>
-      <div class="row">
-        <div class="k">Unresolved target</div>
-        <div class="v">Clicking a link whose target doesn't match any note does nothing visible — no new note is created, and no error dialog appears. See <a href="#gotchas">Gotchas</a>.</div>
+        <div class="k">A link that leads nowhere</div>
+        <div class="v">If a link names a note that doesn't exist, clicking it simply does nothing — no note is created and no error appears.</div>
       </div>
     </div>
 
-    <p>Both contexts resolve the target through the same resolver used for graph indexing — a link goes to the same place whether you click it in preview, in source, or reach it from the Backlinks panel. See <a href="notes-links.html#resolving">how a target resolves</a> for the exact match order.</p>
+    <h2 id="hover">Peek before you jump</h2>
+    <p>Rest your pointer on a link, without clicking, and a small popover shows the title of the note it points to along with a few lines from its opening. It's just a peek — move away and it disappears, and nothing changes. If the link leads to a note that doesn't exist, the popover says so quietly instead of showing an excerpt.</p>
 
-    <h2 id="hover">Hover preview</h2>
-    <p>Hovering a wiki-link in preview — without clicking — opens a small popover showing the target note's title and a truncated opening excerpt (or the relevant heading/block section, if the link has an anchor). It's read-only: moving the pointer away dismisses it, and nothing about the current note or the target changes. The read is cached briefly per path so re-hovering the same link doesn't refetch it every time.</p>
-
-    <div class="shot wide">
-      <div class="icon">👁️</div>
-      <div class="k">Screenshot — Wiki-link hover preview</div>
-      <div class="d">A rendered note with the pointer resting on an inline wiki-link, showing a small popover beneath it with the target note's title in bold and a two-line excerpt of its opening text.</div>
-    </div>
-
-    <p>If the target doesn't resolve to any note, the popover shows a quiet <em>"target" not found</em> line instead of an excerpt — this is the only place the navigation UI distinguishes a resolved link from an unresolved one. See <a href="#gotchas">Gotchas</a>.</p>
-
-    <h2 id="graph">Links and the knowledge graph</h2>
-    <p>Every wiki-link is indexed on save as a triple from the source note to its resolved target, regardless of whether you ever click it — following a link and indexing it are independent of each other. The link's type (or <code>references</code>, untyped) becomes the triple's predicate, which is what powers the right sidebar's Backlinks panel and SPARQL queries over the graph. Clicking to navigate doesn't write anything; it only reads the already-indexed resolution. See <a href="notes-links.html#backlinks">Backlinks</a>.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>An unresolved link does not create the note.</b> Clicking a <code>[[...]]</code> link whose target doesn't match any existing note does not create a new note and does not show an error dialog — the click is silently a no-op. Under the hood, navigation resolves the target and, on no match, falls back to treating it as a literal <code>target.md</code> path; opening that path reads the file from disk, which rejects because the file doesn't exist, and nothing catches that rejection. No tab opens, nothing changes on screen. If you're expecting a link to work and it doesn't, check the Backlinks panel or a graph query to see how the target actually resolved.</li>
-      <li><b>Unresolved links look identical to resolved ones.</b> There's no distinct color or underline style for a link that doesn't resolve — the only tell in the UI is the hover popover's <em>"target" not found</em> line, covered above.</li>
-      <li><b>Preview and source editor agree on the click gesture only up to a point.</b> Both follow a link on plain click; only the source editor treats <kbd>⌘</kbd>/<kbd>Ctrl</kbd>-click specially (to place the cursor for editing). Preview has no modifier behavior to speak of — a modified click still just follows the link.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/navigation-wiki-links.png" alt="A note with the pointer resting on a link, showing a small popover beneath it with the linked note's title and a couple of lines of its opening text." loading="lazy" />
+      <figcaption>Screenshot — Peeking at a linked note</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="navigation-quick-switch.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Proposals</title>
-<meta name="description" content="The Proposals panel is where the Trust Principle lives in the UI: every AI-originated graph write waits here as a diffable, single-keystroke approve/reject decision before it touches your notes." />
+<meta name="description" content="The Proposals panel is where every change the AI wants to make to your notes waits for your approval — review it, then approve or reject with a single keystroke." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,71 +88,55 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Proposals</p>
 
     <h1>Proposals</h1>
-    <p class="lede">The Proposals panel is where <b>the LLM proposes, the human confirms</b> — the most important design decision in Minerva — becomes a screen you actually look at. Every graph write an AI operation wants to make waits here as a reviewable card until you approve or reject it; nothing lands in <code>.minerva/graph.ttl</code> on the strength of a model's say-so alone.</p>
+    <p class="lede">In Minerva, the AI never changes your notes on its own. When it wants to add a claim, link some evidence, tag a note, or rewrite a passage, it files the change here first — as a card you can read and decide on. This panel is where <b>the AI suggests and you confirm</b>. Nothing lands in your knowledge base until you say so.</p>
 
     <h2 id="what">What shows up here</h2>
-    <p>A proposal is a <code>thought:Proposal</code> node created by the approval engine (<code>src/main/llm/approval.ts</code>) whenever an LLM operation's approval tier is <code>requires_approval</code> — new claims, evidence links, component creation, note refactors/deletes, in-place note rewrites, and proposed source properties all file this way by default. Each card bundles one or more <b>payloads</b> — a new note, a block of graph triples, or both — that apply atomically: approve lands the whole bundle, reject discards the whole bundle, never half of one.</p>
+    <p>Every change the AI wants to make becomes a card in this list — a new note, a set of connections between notes, a rewrite, a deletion, or a set of properties for a source. Each card applies as a whole: approving it makes all of its changes at once, and rejecting it makes none of them. You never end up with half a change.</p>
 
-    <div class="box">
-      <span class="label">Not scoped to the open note</span>
-      <p>Unlike every other panel in the right sidebar, Proposals is not filtered to the file you currently have open — <code>ProposalsPanel.svelte</code> is handed only a <code>revision</code> counter to know when to refresh, not an <code>activeFilePath</code>. It lists every proposal in the project regardless of which note is active, with a status-tab filter (<b>All / Pending / Approved / Rejected</b>) defaulting to <b>All</b> so the panel doubles as an audit trail — most everyday AI operations (auto-tag, auto-link) are actually <code>autonomous</code> or <code>notify_only</code> tier and apply immediately with nothing to review, so a panel that only ever showed "Pending" would look empty most of the time.</p>
-    </div>
+    <p>Unlike the other right-sidebar panels, Proposals isn't limited to the note you happen to have open. It lists every proposal in your project, with tabs to filter by <b>All</b>, <b>Pending</b>, <b>Approved</b>, or <b>Rejected</b>. That makes the panel a running record of everything the AI has suggested — not just what's still waiting on you.</p>
 
     <h2 id="review">Reviewing a proposal</h2>
-    <p>Click a card to expand it. Each payload is a separate collapsible row — click one to preview its actual content: a note's full text, or the raw Turtle for a graph-triples payload. This is the diff view: you're reading exactly what will be written, not a paraphrase of it, before you decide.</p>
+    <p>Click a card to expand it, then click any part inside to preview its exact contents — the full text of a note, or the specific connections being added. You're always reading precisely what will be written, not a summary of it, before you decide.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Approve — <kbd>y</kbd></div>
-        <div class="v">Applies the proposal's full payload bundle via the approval engine's <code>approveProposal()</code> and flips its status to <code>approved</code>. The keystroke only fires while a card is expanded (selected) — <code>handleKeydown</code> checks <code>selectedUri</code> first. A success banner reports exactly what landed (note paths included, up to three, then "+N more").</div>
+        <div class="v">Makes the change and marks the card approved. A short banner confirms what landed, including which notes were affected.</div>
       </div>
       <div class="row">
         <div class="k">Reject — <kbd>n</kbd></div>
-        <div class="v">Calls <code>rejectProposal()</code>, which flips status to <code>rejected</code> and applies nothing. The proposal node stays in the graph as a rejected record — rejecting doesn't delete it, so the audit trail shows what the AI suggested even when you turned it down.</div>
+        <div class="v">Discards the change and marks the card rejected. The card stays in your history, so you can always see what the AI suggested even when you turned it down.</div>
       </div>
       <div class="row">
         <div class="k">Close — <kbd>s</kbd> / <kbd>Esc</kbd></div>
-        <div class="v">Collapses the expanded card without changing anything. Pure UI state, not a decision.</div>
+        <div class="v">Collapses the card without deciding either way.</div>
       </div>
       <div class="row">
-        <div class="k">Status tabs</div>
-        <div class="v">All / Pending / Approved / Rejected, filtering the list client-side by the proposal's stored status. Search and a Newest-first / By-type sort sit above the tabs for finding one proposal in a long history.</div>
+        <div class="k">Find a proposal</div>
+        <div class="v">The status tabs, a search box, and a sort control (newest first, or grouped by kind) sit above the list to help you find one card in a long history.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗳️</div>
-      <div class="k">Screenshot — Reviewing a pending proposal</div>
-      <div class="d">The Proposals panel with the Pending tab selected and one card expanded: the status pill, operation type, and proposer badge at the top; an expanded graph-triples payload row showing raw Turtle for a new claim; and the Approve (y) / Reject (n) / Close (s) button row at the bottom of the card.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-proposals.png" alt="The Proposals panel with the Pending tab selected and one card expanded, showing what kind of change it is, who proposed it, a preview of exactly what would be added, and the Approve, Reject, and Close buttons." loading="lazy" />
+      <figcaption>Screenshot — Reviewing a pending proposal</figcaption>
+    </figure>
 
-    <h2 id="tiers">Why some AI writes never appear here</h2>
-    <p>Not every LLM operation is a proposal. The approval engine classifies each operation type into one of three tiers, and only <code>requires_approval</code> ever creates a card you review:</p>
+    <h2 id="audit">Every AI change lands here</h2>
+    <p>There's no side door: every change the AI makes to your knowledge base passes through this panel, so it's a complete record of what the AI has touched. The only difference is which tab a proposal lands under.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>requires_approval</code></div>
-        <div class="v">New claims, evidence links, component creation, note refactors and deletes, note rewrites, source-property proposals. Filed as a pending <code>thought:Proposal</code> and held until you act on it.</div>
+        <div class="k">Waiting on you</div>
+        <div class="v">New claims, evidence links, rewrites, deletions, and source properties all wait under <b>Pending</b> and happen only after you approve — the everyday case.</div>
       </div>
       <div class="row">
-        <div class="k"><code>notify_only</code></div>
-        <div class="v">Confidence updates, status changes. Applied immediately, but still recorded as an already-<code>approved</code> proposal — so it shows up here under the Approved tab as a record of what happened, not a decision to make.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>autonomous</code></div>
-        <div class="v">Tag additions, staleness flags. Applied immediately with no proposal node at all — nothing to find in this panel, at any status.</div>
+        <div class="k">Already approved</div>
+        <div class="v">A few actions you sign off on elsewhere — like accepting suggested tags or links right on a conversation — are recorded straight under <b>Approved</b>. They still appear here as a record of what happened, so nothing is hidden.</div>
       </div>
     </div>
 
-    <p>One escalation cuts across all three: any write that touches a node already marked <code>thought:hasStatus thought:established</code> is forced up to <code>requires_approval</code> regardless of its own tier, so the AI can't quietly re-tag or re-flag something you've already vetted.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>"Expiry" isn't a background timer.</b> CLAUDE.md describes proposals as auto-expiring after "a configurable window," and every proposal does carry an <code>autoExpires</code> timestamp — seven days out by default (<code>write.expiryDays ?? 7</code> in <code>approval.ts</code>). But nothing sweeps the graph on a schedule to enforce it: <code>expireProposals()</code> only flips overdue pending proposals to <code>expired</code> when something actually calls it (wired to the <code>proposal:expire</code> IPC channel). A stale pending proposal past its window will keep showing as <b>Pending</b> in the panel — not silently vanish — until that check runs.</li>
-      <li><b>Approve and Reject are no-ops on anything but a pending proposal.</b> Both buttons are disabled once a card is already <code>approved</code>, <code>rejected</code>, or <code>expired</code> (tooltip reads "Already {status}"), and the underlying IPC calls return <code>false</code> for the same reason rather than erroring — the panel surfaces that as "may already be approved/rejected, or its payload has gone stale."</li>
-      <li><b>Approving with an empty payload bundle throws, not silently succeeds.</b> <code>approveProposal()</code> deliberately refuses to flip status on a proposal with zero payloads — that shape means something upstream filed the proposal wrong, and the engine would rather surface the bug than approve a no-op.</li>
-      <li><b>Editing or deleting the target note first doesn't invalidate the proposal.</b> A <code>note</code> payload writes to a <code>relativePath</code> at approval time, resolved fresh (suffixed <code>-2</code>, <code>-3</code>, … on a collision); a <code>graph-triples</code> payload merges Turtle into the store regardless of what's since changed on disk. If the note you were editing when a proposal was filed has since moved or been deleted, approving still applies the bundle against the project as it is <i>now</i>, which can land somewhere you don't expect — review the expanded payload preview rather than assuming it still matches what prompted the proposal.</li>
-    </ul>
+    <p>Either way, the change is here and you can inspect it. Nothing the AI does to your notes skips this panel.</p>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-properties.html">

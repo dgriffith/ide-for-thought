@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Browser Clipper</title>
-<meta name="description" content="The Minerva Clipper Chrome extension: installing and pairing it, and the two ways to capture a page — curate-then-save, or an instant keyboard-shortcut save." />
+<meta name="description" content="Save the web page you're reading straight into Minerva with the browser clipper — either curate it first, or grab it instantly with a keyboard shortcut." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,25 +80,22 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Browser clipper</p>
 
     <h1>Browser clipper</h1>
-    <p class="lede">A Chrome extension that saves the page you're reading into your thoughtbase without leaving the browser — your current selection rides along as a linked excerpt. The browser sends Minerva the rendered HTML it can see, so authenticated and paywalled pages extract correctly; the app does the actual Readability extraction, not the extension.</p>
+    <p class="lede">The browser clipper saves the page you're reading straight into Minerva, without leaving your browser. Because it captures the page exactly as your browser shows it, pages that need you to be signed in — or that sit behind a paywall — come across cleanly. If you've highlighted some text on the page, that selection is saved too, as a linked excerpt.</p>
 
-    <h2 id="install">Install &amp; pair</h2>
+    <h2 id="install">Set it up</h2>
+    <p>Add the clipper to your browser, then pair it once with Minerva so the two can talk to each other.</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">1. Build</div>
-        <div class="v"><code>pnpm build:clipper</code> → <code>clipper/dist/</code>. Chrome only for now; installs unpacked (Developer mode → Load unpacked → pick <code>clipper/dist</code>) — a Chrome Web Store listing is still on the way.</div>
+        <div class="k">1. Add it</div>
+        <div class="v">Install the clipper in your browser, then pin it so its button stays visible in the toolbar.</div>
       </div>
       <div class="row">
-        <div class="k">2. Pin it</div>
-        <div class="v">Click the puzzle-piece Extensions icon in Chrome's toolbar and pin <b>Minerva Clipper</b> so its button stays visible.</div>
+        <div class="k">2. Get a code</div>
+        <div class="v">In Minerva, open <b>Settings → Browser Clipper</b> with a thoughtbase open, turn it on, and copy the pairing code shown there.</div>
       </div>
       <div class="row">
         <div class="k">3. Pair</div>
-        <div class="v">In Minerva: <b>Settings → Browser Clipper</b> → enable it with a thoughtbase open, and copy the pairing code shown there.</div>
-      </div>
-      <div class="row">
-        <div class="k">4. Confirm</div>
-        <div class="v">In the extension's options page, paste the pairing code and pair. <b>Test connection</b> confirms the secret is valid and whether a thoughtbase is currently open to receive captures.</div>
+        <div class="v">Paste that code into the clipper's settings and pair. A <b>Test connection</b> button confirms everything is linked and that Minerva is open and ready to receive pages.</div>
       </div>
     </div>
 
@@ -106,24 +103,19 @@
     <div class="deflist">
       <div class="row">
         <div class="k">Curate, then save</div>
-        <div class="v">Click the toolbar button to open a popup showing the page title and the exact source id the save will produce (e.g. <code>arxiv-2604.18561</code>) before you commit — add tags and a note, then hit Save.</div>
+        <div class="v">Click the clipper button to open a small window showing the page title. Add tags and a note if you like, then hit Save.</div>
       </div>
       <div class="row">
         <div class="k">Instant save</div>
-        <div class="v"><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> on any page — no popup, defaults only. A badge flashes <b>✓</b> on success, <b>!</b> on failure, <b>?</b> if the extension isn't paired yet.</div>
+        <div class="v">Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> on Windows) on any page to save it right away, with no window to fill in. A quick badge on the button confirms it worked.</div>
       </div>
     </div>
-    <p>Either way, a text selection on the page at the moment you capture is saved as a linked excerpt on the resulting source — the same excerpt mechanism used elsewhere in Minerva, anchored to the captured text.</p>
+    <p>Either way, any text you've highlighted on the page when you capture is saved as a linked excerpt on the new source, tied to the exact words you picked out.</p>
 
     <div class="shot wide">
       <div class="icon">✂️</div>
-      <div class="k">Screenshot — The clipper popup mid-capture</div>
-      <div class="d">The extension's popup open over a web page, showing the page title, the source id preview, a tags field, and a note field, with the Save button visible.</div>
-    </div>
-
-    <div class="box">
-      <span class="label">Security posture, briefly</span>
-      <p>The extension talks to a loopback-only server (<code>127.0.0.1</code>) that Minerva runs while a thoughtbase is open, authenticating every request with the shared secret from pairing. The endpoint only accepts requests from the extension's own <code>chrome-extension://</code> origin — a content script or the page itself can't reach it directly, which is why capture (reading the page) and send (talking to Minerva) are handled by separate parts of the extension.</p>
+      <div class="k">Screenshot — Saving a page with the clipper</div>
+      <div class="d">The clipper's window open over a web page, showing the page title, a place for tags, a place for a note, and a Save button.</div>
     </div>
 
     <div class="pager">

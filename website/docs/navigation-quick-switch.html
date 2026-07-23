@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Quick Switch</title>
-<meta name="description" content="Quick switch (⌘P) is Minerva's fuzzy jump-to-anything picker: match notes, sources, and saved queries by title or path and open the highlighted result with Enter." />
+<meta name="description" content="Quick switch (⌘P) lets you jump straight to a note, source, or saved query by typing its name." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -82,123 +82,94 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Quick switch</p>
 
     <h1>Quick switch</h1>
-    <p class="lede">Press <kbd>⌘</kbd><kbd>P</kbd> (or <kbd>Ctrl</kbd><kbd>P</kbd>) and start typing to jump straight to a note, a source, or a saved query by name — no mouse, no browsing the sidebar tree. Results narrow as you type, ranked by how well they match; arrow keys and <kbd>Enter</kbd> take you the rest of the way.</p>
+    <p class="lede">Press <kbd>⌘</kbd><kbd>P</kbd> (or <kbd>Ctrl</kbd><kbd>P</kbd>) and start typing to jump straight to a note, a source, or a saved query by name. The list narrows as you type, and the arrow keys plus <kbd>Enter</kbd> take you the rest of the way — no mouse, no hunting through the sidebar.</p>
 
-    <h2 id="opening">Opening it</h2>
-    <p>Quick switch lives in its own dialog, titled "Go to…" — <code>GotoNoteDialog.svelte</code> in the source tree, though nothing in the UI calls it that. The shortcut is <kbd>⌘</kbd><kbd>P</kbd> / <kbd>Ctrl</kbd><kbd>P</kbd>, deliberately following Obsidian's convention for quick-open rather than the VS Code / Linear-style <kbd>⌘</kbd><kbd>K</kbd> Minerva uses for its <a href="navigation-command-palette.html">command palette</a>.</p>
-
-    <div class="box">
-      <span class="label">Not <kbd>⌘</kbd><kbd>O</kbd></span>
-      <p><kbd>⌘</kbd><kbd>O</kbd> / <kbd>Ctrl</kbd><kbd>O</kbd> is bound to <b>Open Thoughtbase…</b> — it opens a different knowledge-base project entirely. It has nothing to do with switching notes inside the current one. If quick switch doesn't seem to be responding, check you're pressing <kbd>P</kbd>, not <kbd>O</kbd>.</p>
-    </div>
-
-    <h2 id="scope">A multi-scope picker</h2>
-    <p>Quick switch isn't limited to notes. Whenever the current project has sources or saved queries, the dialog shows a row of filter chips and searches across all three kinds at once:</p>
+    <h2 id="scope">Search notes, sources, and queries</h2>
+    <p>Quick switch isn't limited to notes. When your project also has sources or saved queries, a row of filter chips appears and the picker searches across all three at once:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">All</div>
-        <div class="v">Default scope. Matches notes, sources, and saved queries together, each result labeled with a kind icon.</div>
+        <div class="v">The default. Matches notes, sources, and saved queries together, each labeled with a small icon showing what it is.</div>
       </div>
       <div class="row">
         <div class="k">Notes</div>
-        <div class="v">Matches against a note's title and its relative path in the project tree.</div>
+        <div class="v">Matches on a note's title and its location in your folders.</div>
       </div>
       <div class="row">
         <div class="k">Sources</div>
-        <div class="v">Matches against a source's title and byline. Only shown when the project has at least one source.</div>
+        <div class="v">Matches on a source's title and author. Shown only when you have at least one source.</div>
       </div>
       <div class="row">
         <div class="k">Queries</div>
-        <div class="v">Matches against a saved query's name and description. Only shown when the project has at least one saved query.</div>
+        <div class="v">Matches on a saved query's name and description. Shown only when you have at least one saved query.</div>
       </div>
     </div>
 
-    <p>Each chip shows a live count. If a project has no sources and no saved queries yet, the chip row doesn't appear at all and quick switch behaves as a plain notes picker.</p>
+    <p>Each chip shows how many results it holds. If you don't have any sources or saved queries yet, the chips simply don't appear and quick switch acts as a plain notes picker.</p>
 
-    <div class="shot wide">
-      <div class="icon">⌘</div>
-      <div class="k">Screenshot — Quick switch with mixed results</div>
-      <div class="d">The "Go to…" dialog open with the All scope chip active, showing a mixed result list: a note row with its folder-path chip and relative-time stamp, a source row with its byline, and a saved-query row with its description, each prefixed with a small kind icon.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/navigation-quick-switch.png" alt="The picker open with the All filter active, showing a mixed list: a note with its folder location, a source with its author, and a saved query with its description, each marked with a small icon for its kind." loading="lazy" />
+      <figcaption>Screenshot — Quick switch with mixed results</figcaption>
+    </figure>
 
-    <h2 id="matching">How matching works</h2>
-    <p>As you type, every candidate in the active scope is scored against the query and re-sorted; a query that matches nothing scores zero and drops out of the list. Several matching strategies are tried, from most to least exact:</p>
+    <h2 id="matching">Typing to find things</h2>
+    <p>You don't have to type a title exactly. Quick switch is forgiving, so a few well-chosen letters usually surface what you want:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Substring — name</div>
-        <div class="v">The query appears anywhere in the title. Highest-ranked match.</div>
+        <div class="k">Part of the name</div>
+        <div class="v">Type any run of letters that appears in the title. This gives the strongest match.</div>
       </div>
       <div class="row">
-        <div class="k">First letters</div>
-        <div class="v">Each typed character matches the first letter of successive words — <code>rf</code> matches "Raft Foundations."</div>
+        <div class="k">Initials</div>
+        <div class="v">Type the first letter of each word — "rf" finds "Raft Foundations."</div>
       </div>
       <div class="row">
-        <div class="k">camelCase initials</div>
-        <div class="v">Each typed character matches a capitalized letter in the name, the way it would in an identifier.</div>
-      </div>
-      <div class="row">
-        <div class="k">Substring — path / secondary</div>
-        <div class="v">The query appears in the note's relative path, a source's byline, or a query's description.</div>
-      </div>
-      <div class="row">
-        <div class="k">Fuzzy subsequence</div>
-        <div class="v">The typed characters appear in order somewhere in the name (or, ranked lower still, the secondary field) — not necessarily together. The lowest-ranked way to match, and a useful fallback when you only half-remember a title.</div>
+        <div class="k">Scattered letters</div>
+        <div class="v">Type letters that appear in order but not together — a handy fallback when you only half-remember a title.</div>
       </div>
     </div>
 
-    <p>With an empty query, every item in the active scope scores zero and the list falls back to the project's original file-tree order — it is not sorted by recency. Each row does show a relative modification time, but that's informational only; it doesn't drive the ranking.</p>
-
-    <div class="box">
-      <span class="label">Regex queries</span>
-      <p>If what you type contains a regex metacharacter (<code>. * + ? ^ $ { } ( ) | [ ] \</code>), Minerva tries it as a regular expression against names and paths first, falling back to the fuzzy strategies above if the pattern is invalid. This is a real capability, not an edge case to avoid — typing something like <code>^draft-</code> or <code>2024-\d\d</code> narrows results the way a full regex search would, without leaving the quick switch dialog.</p>
-    </div>
+    <p>Quick switch also looks at a note's folder location, a source's author, and a query's description, so those can help pin down a match too. Before you type anything, the list simply shows your items in their normal order.</p>
 
     <h2 id="keys">Keyboard control</h2>
-    <p>Once the dialog is open, the mouse is optional:</p>
+    <p>Once the picker is open, you can do everything from the keyboard:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>↑</kbd> / <kbd>↓</kbd></div>
-        <div class="v">Move the highlighted result.</div>
+        <div class="v">Move the highlight up and down the list.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>Enter</kbd></div>
-        <div class="v">Open the highlighted result — a note opens in the editor, a source opens in the Source viewer, a saved query runs in a query tab.</div>
+        <div class="v">Open the highlighted result — a note opens for editing, a source opens in the source viewer, a saved query runs.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>Esc</kbd></div>
-        <div class="v">Close the dialog without navigating.</div>
+        <div class="v">Close without going anywhere.</div>
       </div>
     </div>
 
-    <p>The footer echoes this — <code>↑↓ navigate · ↵ open · esc close</code> — alongside a running count of the current result list, and the input carries a small "⌘P" hint chip so the shortcut is visible even if you opened the dialog some other way.</p>
-
-    <h2 id="contrast">Quick switch vs. the command palette vs. Search</h2>
-    <p>Minerva has three separate ways to jump around, and they're deliberately not merged into one box:</p>
+    <h2 id="contrast">Quick switch, command palette, and search</h2>
+    <p>Minerva gives you three ways to get around, each suited to a different question:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Quick switch — <kbd>⌘</kbd><kbd>P</kbd></div>
-        <div class="v">Jump to a <i>thing</i> — a note, source, or saved query — by title or path. No actions, no commands.</div>
+        <div class="v">Jump to a <i>thing</i> — a note, source, or saved query — by name.</div>
       </div>
       <div class="row">
         <div class="k">Command palette — <kbd>⌘</kbd><kbd>K</kbd></div>
-        <div class="v">Run an <i>action</i> — a menu command, a skill, a setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
+        <div class="v">Run an <i>action</i> — a command or setting — by name. See <a href="navigation-command-palette.html">Command palette</a>.</div>
       </div>
       <div class="row">
         <div class="k">Search</div>
-        <div class="v">Find a <i>passage</i> — full-text search over note body content, not just titles and paths. See <a href="navigation-search.html">Search</a>.</div>
+        <div class="v">Find a <i>passage</i> — search the text inside your notes, not just their titles. See <a href="navigation-search.html">Search</a>.</div>
       </div>
     </div>
 
-    <p>If you know roughly what a note is called, quick switch is the fastest route to it. If you're trying to recall something you know you wrote but can't remember the title of, reach for Search instead — quick switch never looks inside a note's content.</p>
-
-    <h2 id="related">Related</h2>
-    <ul>
-      <li>The Merge Note picker (invoked from a note's right-click menu) reuses the same dialog in a notes-only configuration — no scope chips, since there's nothing to switch between.</li>
-    </ul>
+    <p>If you roughly know what a note is called, quick switch is the fastest way to it. If you remember something you wrote but not its title, reach for Search instead — quick switch matches names, not the words inside a note.</p>
 
     <div class="pager">
       <a class="prev" href="navigation-command-palette.html">

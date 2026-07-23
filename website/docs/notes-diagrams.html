@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Diagrams</title>
-<meta name="description" content="Mermaid diagrams in Minerva notes: the mermaid fence syntax, which diagram types render, how the app's theme colors carry into the diagram, and what happens when a diagram has a syntax error." />
+<meta name="description" content="Draw live diagrams inside a note — flowcharts, sequence diagrams, and more — by writing them in a simple text syntax." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub active">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,10 +93,10 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Diagrams</p>
 
     <h1>Diagrams</h1>
-    <p class="lede">A <code>mermaid</code> fence renders as a live diagram wherever it appears in a note — flowcharts, sequence diagrams, and anything else <a href="https://mermaid.js.org" target="_blank" rel="noopener">Mermaid</a>'s own syntax supports. Minerva doesn't restrict which Mermaid diagram types you can draw; it hands your fence content straight to the Mermaid library and draws whatever comes back as inline SVG, recolored to match the note around it.</p>
+    <p class="lede">You can draw diagrams right inside a note — flowcharts, sequence diagrams, and more — by describing them in a simple text syntax. When you preview the note, your description turns into a clean, finished diagram, so you never have to fiddle with boxes and arrows by hand.</p>
 
-    <h2 id="syntax">The <code>mermaid</code> fence</h2>
-    <p>A diagram is a fenced code block whose language is <code>mermaid</code>. Everything inside the fence is Mermaid's own diagram-definition language — Minerva doesn't parse or validate it beyond handing it to the renderer.</p>
+    <h2 id="syntax">Writing a diagram</h2>
+    <p>Add a cell labelled <code>mermaid</code> and describe the diagram inside it. Each line names a step and how it connects to the next. To drop one in quickly, right-click in the editor and choose <b>Elements → Mermaid Diagram</b>; you'll get an empty cell with your cursor ready inside.</p>
 
 <pre><code>```mermaid
 flowchart LR
@@ -102,15 +105,13 @@ flowchart LR
   B -- no --> A
 ```</code></pre>
 
-    <p>To insert one, right-click in the editor and choose <b>Elements → Mermaid Diagram</b> — it drops an empty fence with the cursor inside, ready for a diagram definition.</p>
-
-    <h2 id="types">Diagram types</h2>
-    <p>The fence renderer (<code>renderMermaidFence</code> in <code>Preview.svelte</code>) does no type-checking on the content — it escapes the fence body and hands it to Mermaid's <code>render()</code> call as-is, in <code>mermaid-renderer.ts</code>. That means any diagram type Mermaid itself understands works in a Minerva note: flowcharts, sequence diagrams, class diagrams, state diagrams, ER diagrams, Gantt charts, and the rest of Mermaid's grammar. Two of the most common are worth a quick reference:</p>
+    <h2 id="types">Kinds of diagrams</h2>
+    <p>Many diagram styles are supported — flowcharts, sequence diagrams, class and state diagrams, entity relationships, timelines, and more. Two of the most useful:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>flowchart</code></div>
-        <div class="v"><b>Flowchart.</b> Nodes and directional edges — <code>LR</code> (left-to-right), <code>TD</code> (top-down), and the other Mermaid layout directions all work.
+        <div class="k">Flowchart</div>
+        <div class="v"><b>Boxes and arrows.</b> Show steps and how they branch. You can lay it out left-to-right (<code>LR</code>) or top-down (<code>TD</code>).
 <pre><code>```mermaid
 flowchart TD
   Start --> Decision{OK?}
@@ -120,8 +121,8 @@ flowchart TD
         </div>
       </div>
       <div class="row">
-        <div class="k"><code>sequenceDiagram</code></div>
-        <div class="v"><b>Sequence diagram.</b> Participants and the messages passed between them, in order.
+        <div class="k">Sequence diagram</div>
+        <div class="v"><b>Who talks to whom.</b> Show the participants and the messages passing between them, in order.
 <pre><code>```mermaid
 sequenceDiagram
   Alice->>Bob: Question
@@ -131,26 +132,15 @@ sequenceDiagram
       </div>
     </div>
 
-    <h2 id="rendering">How it renders</h2>
-    <p>In preview, the fence becomes a bordered block with a collapse toggle in its toolbar — the same convention as other fence types — and the diagram itself renders as inline SVG below it. Rendering is lazy: Minerva dynamic-imports the Mermaid library the first time a diagram needs drawing, rather than bundling it into the app's startup path.</p>
-
-    <div class="shot wide">
-      <div class="icon">🗺️</div>
-      <div class="k">Screenshot — Mermaid flowchart in preview</div>
-      <div class="d">A rendered note with a mermaid-fence flowchart: a small decision-branch diagram drawn as SVG, sitting inside a bordered fence block with a collapse toggle in its toolbar, colors matching the surrounding dark theme.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-diagrams.png" alt="A finished note showing a small decision-branch flowchart, drawn neatly in its own block with colors that match the rest of the note." loading="lazy" />
+      <figcaption>A flowchart in a note</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Theme colors carry into the diagram</span>
-      <p>Minerva initializes Mermaid on the <code>base</code> theme and overrides its variables with the app's own Catppuccin tokens — background, text, borders, node fill, and accent all come from the same CSS custom properties the rest of the note uses. Switch Minerva's theme (dark, light, or contrast) and diagrams redraw to match; there's no separate diagram theme to configure.</p>
+      <span class="label">Diagrams match your theme</span>
+      <p>Diagrams use the same colors as the note around them. Switch between light, dark, or high-contrast, and your diagrams redraw to match — there's nothing extra to set up.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>A syntax error renders inline, not as raw text.</b> If Mermaid can't parse the fence content, the block shows a small "Mermaid error" panel with the underlying error message in place of the diagram — the rest of the note keeps rendering normally. Fix the definition and the diagram appears in its place.</li>
-      <li><b>Re-rendering is idempotent.</b> A diagram block is marked once it's rendered, so re-running the preview's hydration pass (for example after an unrelated edit elsewhere in the note) doesn't redraw diagrams that already succeeded.</li>
-      <li><b>No live player, no external calls.</b> Rendering happens entirely locally through the bundled Mermaid library — nothing about a diagram's content is sent anywhere.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="notes-math.html">

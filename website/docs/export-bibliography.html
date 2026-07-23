@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Bibliography &amp; Citations</title>
-<meta name="description" content="Getting citations out in a form other tools can use: the BibTeX and Pandoc exporters, and the Bibliography settings that control how citations render." />
+<meta name="description" content="Get your citations out for use in other reference and writing tools, and choose the style your citations appear in." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,40 +81,35 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Bibliography &amp; citations</p>
 
     <h1>Bibliography &amp; citations</h1>
-    <p class="lede">Two exporters for getting your citations into a form other reference tools understand, plus the settings that control how a citation actually renders.</p>
+    <p class="lede">When you cite sources in your notes, Minerva can hand your citations off to other reference and writing tools, and let you choose the style your citations appear in.</p>
 
-    <h2 id="bibtex">BibTeX</h2>
-    <p>Exports every cited source as a single <code>.bib</code> file, one entry per source, keyed with a deterministic <code>author-year-firstword</code> citekey (e.g. <code>smith-2020-functions</code> — stop-words like "the" are skipped when picking the title word). Scope to a single note, a folder, or the whole project.</p>
-    <div class="box">
-      <span class="label">Citekeys are stable per export, not forever</span>
-      <p>The same source set produces the same keys every time. But adding a new source to your library can shift a collision suffix (<code>smith-2020a</code> → <code>smith-2020b</code>) for entries it now collides with — so don't treat a citekey as a permanent identifier across exports. Sources themselves are still matched by DOI/arXiv id/etc. on re-import, not by citekey.</p>
-    </div>
+    <h2 id="bibtex">Export a reference list</h2>
+    <p>Minerva can gather every source you've cited and save it as a standard reference list that most citation managers and academic writing tools can open. Each source becomes one entry with a short, readable citation key like <em>smith-2020-functions</em>. You choose how much to include: a single note, a folder, or your whole project.</p>
 
-    <h2 id="pandoc">Pandoc</h2>
-    <p>For anyone who wants Word, PDF, or another format Pandoc itself produces: exports a single note as markdown (with <code>[[cite::id]]</code> rewritten to Pandoc's <code>[@citekey]</code> form) alongside a <code>bibliography.json</code> (CSL-JSON) and a generated <code>README.md</code> with the exact pandoc command to run, including your chosen citation style. There's no one-click "formatted bibliography .docx" exporter — Pandoc is the escape hatch for that, not a built-in.</p>
+    <h2 id="pandoc">Export for Word, PDF, and beyond</h2>
+    <p>If you want a finished document in Word, PDF, or another format, Minerva can export a note together with its citations and a matching reference file, ready to convert with a document-conversion tool of your choice. It comes with clear step-by-step instructions and uses the citation style you've picked.</p>
 
-    <h2 id="settings">Bibliography settings</h2>
-    <p>Controls how citations render across every exporter that formats them (Pandoc's generated command, and the note-html/tree-html exporters):</p>
+    <h2 id="settings">Choose your citation style</h2>
+    <p>Minerva formats your citations in whatever style you prefer, and the same choice applies everywhere your citations appear.</p>
     <div class="deflist">
       <div class="row">
         <div class="k">Citation style</div>
-        <div class="v">A dropdown of bundled and imported CSL styles. Defaults to APA; an unrecognized or missing style falls back to APA automatically rather than failing.</div>
+        <div class="v">Pick from a list of common styles. APA is the default.</div>
       </div>
       <div class="row">
-        <div class="k">Import .csl style…</div>
-        <div class="v">Bring in a citation style Minerva doesn't ship — any valid CSL <code>.csl</code>/<code>.xml</code> file.</div>
+        <div class="k">Import a style</div>
+        <div class="v">Bring in a citation style Minerva doesn't already include.</div>
       </div>
       <div class="row">
-        <div class="k">Locale</div>
-        <div class="v">Defaults to <code>en-US</code>, with the same fallback behavior as style. Import a custom locale the same way as a style.</div>
+        <div class="k">Language</div>
+        <div class="v">Set the language used when formatting citations. You can import an additional language the same way you import a style.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">📚</div>
-      <div class="k">Screenshot — Bibliography settings</div>
-      <div class="d">The Settings → Bibliography tab: the citation style dropdown set to APA, a list of imported styles below it, and the "Import .csl style…" button.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/export-bibliography.png" alt="The bibliography settings, showing the citation style set to APA, the styles you've added, and the button to import another one." loading="lazy" />
+      <figcaption>Screenshot — Choosing a citation style</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="export-publishing.html">

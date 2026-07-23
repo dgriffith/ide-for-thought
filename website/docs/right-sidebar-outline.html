@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Outline</title>
-<meta name="description" content="The Outline panel renders a live, collapsible heading tree for the current note — H1 through H6 — so you can scan a long note's structure at a glance and click any heading to jump the editor there." />
+<meta name="description" content="The Outline panel shows a collapsible map of every heading in the current note, so you can scan its structure at a glance and click any heading to jump there." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,42 +88,29 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Outline</p>
 
     <h1>Outline</h1>
-    <p class="lede">The Outline panel renders every heading in the current note — <code>#</code> through <code>######</code> — as a collapsible tree, indented to match heading depth, so you can scan a long note's structure without scrolling through it. Click any heading to move the editor's cursor there and scroll it into view.</p>
+    <p class="lede">The Outline panel is a map of the note you're reading. It lists every heading as an indented tree, so you can take in the shape of a long note at a glance, and click any heading to jump straight to that section.</p>
 
-    <h2 id="how-it-works">How it works</h2>
-    <p>The panel re-parses the note's raw text on every change and rebuilds the tree from scratch — there's no separate "refresh" step and no stale state to worry about. Headings are recognized with a plain ATX-style match (a run of 1–6 <code>#</code> characters, a space, then the heading text); Setext-style headings (text underlined with <code>===</code> or <code>---</code>) aren't recognized, because Minerva notes don't use that form. The same parser also powers the editor's cursor-aware breadcrumb chain above the note, so the two stay in lockstep by construction rather than by convention.</p>
+    <p>The outline updates itself as you write — add, rename, or remove a heading and the tree keeps up automatically. Deeper headings are tucked under the higher-level ones above them, mirroring the way you've organized the note.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Nesting</div>
-        <div class="v">A heading is indented under whichever shallower heading precedes it — <code>##</code> nests under the last <code>#</code>, <code>###</code> nests under the last <code>##</code>, and so on. A heading with no shallower heading above it (or a document that only uses one level) sits flush at the root.</div>
-      </div>
-      <div class="row">
-        <div class="k">Collapse / expand</div>
-        <div class="v">Any heading with subheadings gets a disclosure triangle. Click it to fold that branch, or use the ribbon's expand-all / collapse-all buttons to act on the whole tree at once. A heading with no children shows a blank spacer instead of a triangle — nothing to toggle.</div>
+        <div class="k">Collapse and expand</div>
+        <div class="v">Any heading that has subheadings shows a small triangle. Click it to fold that section away, or use the buttons above the tree to collapse or expand everything at once — handy for zooming out on a big note.</div>
       </div>
       <div class="row">
         <div class="k">Filter</div>
-        <div class="v">The ribbon's search field filters headings by text as you type. Filtering ignores the collapsed state of any ancestor — a match stays visible even inside a folded branch — but it doesn't re-nest results into their own mini-tree; each match still renders at its normal indent depth.</div>
+        <div class="v">Start typing in the search field above the tree to narrow the outline to headings that match. Matches stay visible even if they sit inside a folded section.</div>
       </div>
       <div class="row">
-        <div class="k">Click-to-scroll</div>
-        <div class="v">Clicking a heading (not its disclosure triangle) places the editor's cursor at the start of that heading's line and scrolls it to the vertical center of the view. It's a real cursor placement, the same as jumping to a search result — not a transient visual highlight — so you can start typing right away.</div>
+        <div class="k">Jump to a section</div>
+        <div class="v">Click a heading and the note scrolls to it, dropping your cursor at the start of that line so you can begin editing right away.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗒️</div>
-      <div class="k">Screenshot — Outline panel for a multi-heading note</div>
-      <div class="d">The right sidebar's Outline panel open on a note with several H2 sections, one of them expanded to show nested H3 subheadings indented beneath it and a sibling H2 collapsed to a single triangle-prefixed row; the ribbon's filter field and expand-all/collapse-all buttons sit above the tree.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No headings, no tree.</b> A note with no <code>#</code>-style headings shows a plain "No headings" message in place of the list — there's nothing to scan and nothing to click.</li>
-      <li><b>Duplicate heading text is fine.</b> The panel doesn't require unique heading text; two sections both titled "Notes" show up as two separate rows, each jumping to its own line. Nothing here is keyed by text — every row is tied to the line the heading actually appears on.</li>
-      <li><b>Long headings truncate, they don't wrap.</b> A heading whose text is wider than the sidebar is cut off with an ellipsis rather than wrapping to a second line, to keep every row a single scannable line height.</li>
-    </ul>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-outline.png" alt="The Outline panel open beside a long note. Top-level sections are listed in order, one expanded to reveal its subheadings indented beneath it and another folded to a single row. A search field and collapse/expand buttons sit above the tree." loading="lazy" />
+      <figcaption>The Outline panel for a note with several sections</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-outgoing-links.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Tables (Note)</title>
-<meta name="description" content="The right sidebar's Tables panel scans the current note's SQL fences for table references and lets you open a SELECT * query against any that are registered — it's the SQL/DuckDB pipeline, not a markdown-table or CSVW browser." />
+<meta name="description" content="The right sidebar's Tables panel lists the data tables the current note's queries reference and shows which of them are available to query." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,53 +88,33 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Tables</p>
 
     <h1>Tables</h1>
-    <p class="lede">The right sidebar's Tables panel is not a markdown-table browser. It scans the current note's <code>```sql</code> fences for table references and shows you, per note, which of those names are actually registered — the same registration the <a href="left-sidebar-tables.html">left sidebar's Tables panel</a> maintains for every <code>.csv</code> file in the project. Click a row to open a <code>SELECT *</code> against it in a new query tab.</p>
-
-    <div class="box">
-      <span class="label">Not the CSVW panel it sounds like</span>
-      <p>It would be reasonable to guess that a right-sidebar, per-note "Tables" panel lists the <a href="notes-tables.html">markdown tables</a> in the current note — the ones extracted into the graph as CSVW. It doesn't. This panel is part of the SQL/DuckDB pipeline: it reads SQL fences, not pipe tables, and its rows link to registered <code>.csv</code> files, not to CSVW <code>csvw:Table</code> nodes in the graph. If you want to see a note's markdown tables, look at the note itself in preview; if you want their extracted triples, use Graph &gt; Query. See <a href="notes-tables.html#gotchas">the Tables &amp; CSV gotchas</a> for the graph side, and <a href="left-sidebar-tables.html">Left sidebar — Tables</a> for the project-wide version of this same DuckDB registry.</p>
-    </div>
+    <p class="lede">When a note contains a query against your data, this panel lists the tables that query relies on and tells you, at a glance, which of them are available. Click a table to open it in a fresh query tab and see all of its rows.</p>
 
     <h2 id="contents">What's in the list</h2>
-    <p>The panel scans the current note's source for fenced blocks marked <code>```sql</code> (or a query-directive fence carrying <code>language: sql</code> metadata) and pulls out every name that follows a <code>FROM</code>, <code>JOIN</code>, or <code>INTO</code> keyword. Each distinct name becomes one row, sorted alphabetically. This is a lightweight scan, not a SQL parser — it's tuned for the common shapes and can over-report on more complex queries (CTEs with aliases, derived tables), which is why the next check matters.</p>
+    <p>The panel looks through the current note for data queries and gathers the names of every table those queries read from. Each distinct name gets its own row, listed alphabetically, along with whether it's available to query.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Registered row</div>
-        <div class="v">A tables icon, the table's name in monospace, and its row count × column count in a muted stat line. The whole row is clickable and opens <code>SELECT * FROM &lt;name&gt;</code> in a new query tab. Hovering also reveals a right-aligned <b>SELECT *</b> button that does the same thing — a discoverable shortcut to the row's default click behavior, not a second action.</div>
+        <div class="k">Available table</div>
+        <div class="v">Shows the table's name and its size — the number of rows and columns. Click the row to open it in a new query tab and browse everything in it. A shortcut button appears when you hover, doing the same thing.</div>
       </div>
       <div class="row">
-        <div class="k">Unregistered row</div>
-        <div class="v">A warning icon and the name in a rust tint, with "not registered" in place of the row/column stat. This is a name your SQL fence references that doesn't match any <code>.csv</code> currently registered in the project — typically a typo, or a file that hasn't been added yet. The row isn't clickable; there's no query to run against a table that doesn't exist.</div>
+        <div class="k">Missing table</div>
+        <div class="v">A name your query mentions that doesn't match any table currently in the project — usually a typo, or a data file you haven't added yet. It's marked "not registered" and can't be clicked, since there's nothing to open.</div>
       </div>
     </div>
 
-    <p>A search field at the top filters the list by name. If the note has no SQL fences at all, the panel reads "No tables referenced."</p>
+    <p>Use the search box at the top to filter the list by name. If the note doesn't query any data, the panel simply reads "No tables referenced."</p>
 
-    <div class="shot wide">
-      <div class="icon">🗂️</div>
-      <div class="k">Screenshot — Tables panel for a note with SQL fences</div>
-      <div class="d">The right sidebar's Tables tab for a note containing two ```sql code fences: a resolved row for "sessions" showing "1,204 × 6" with a tables icon and, on hover, a right-aligned SELECT * button; and an unregistered row for "sesssions" (a typo) shown with a warning icon, rust-tinted name, and "not registered" in place of a row/column stat.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-tables.png" alt="The Tables tab for a note with two data queries: an available table, &quot;sessions,&quot; showing its size of 1,204 rows by 6 columns with a shortcut button on hover; and a missing table, &quot;sesssions&quot; (a typo), marked &quot;not registered&quot; and shown in a warning tint." loading="lazy" />
+      <figcaption>Screenshot — Tables panel for a note that queries data</figcaption>
+    </figure>
 
-    <h2 id="relationship">How this relates to the left sidebar's Tables panel</h2>
-    <p>Both panels read from the same underlying registry — the project's registered <code>.csv</code> files, queryable as DuckDB tables. The difference is scope and direction:</p>
+    <h2 id="relationship">This panel and the left sidebar</h2>
+    <p>The <a href="left-sidebar-tables.html">left sidebar's Tables panel</a> lists every data table in your whole project, so you can browse and query all of them. This panel is narrower and note-focused: it shows only the tables the current note's queries depend on, and flags any that are missing. In short, the left sidebar answers "what data do I have?" while this one answers "does this note's queries have what they need?"</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Left sidebar</div>
-        <div class="v">Every registered table in the project, independent of any note. Browsing-first: filter, click to query, right-click for more (open the CSV, reveal in Finder, copy the name). See <a href="left-sidebar-tables.html">Left sidebar — Tables</a>.</div>
-      </div>
-      <div class="row">
-        <div class="k">Right sidebar (this panel)</div>
-        <div class="v">Only the table names the current note's own SQL fences reference, cross-checked against that same registry. Note-first: it answers "which of the tables this note's queries depend on actually exist?" rather than "what tables do I have?"</div>
-      </div>
-    </div>
-
-    <p>Neither panel edits or registers tables directly — registration happens by dropping a <code>.csv</code> file into the project, which Minerva picks up automatically.</p>
-
-    <h2 id="empty">No SQL fences</h2>
-    <p>A note with no <code>```sql</code> fences (or query-directive fences) shows "No tables referenced," the same empty state as a note that has SQL fences with no <code>FROM</code>/<code>JOIN</code>/<code>INTO</code> clause. If a search filter is active and nothing matches, the list itself is simply empty under the count line rather than swapping to a distinct "no matches" message.</p>
+    <p>You add a table by dropping a data file into your project — Minerva picks it up automatically, and it then becomes available everywhere you can query.</p>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-footnotes.html">

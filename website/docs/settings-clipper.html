@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Clipper</title>
-<meta name="description" content="The Clipper tab of Settings: enabling the browser-clipper loopback server, pairing a browser extension with the one-time pairing code, and regenerating it." />
+<meta name="description" content="The Clipper tab of Settings: turn on the browser clipper and pair it with your browser so you can save web pages straight into Minerva." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,53 +88,24 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Clipper</p>
 
     <h1>Clipper</h1>
-    <p class="lede">A companion browser extension can send the page you're reading straight into Minerva as a Source. This tab turns that path on, and shows the one-time pairing code the extension needs to talk to it. Everything here takes effect immediately — there's no separate "apply" step.</p>
+    <p class="lede">The clipper lets you save the web page you're reading straight into Minerva as a source, using a small companion add-on for your browser. This tab turns that on and shows the one-time code that links your browser to Minerva.</p>
 
-    <h2 id="enable">Enable browser clipper</h2>
-    <p>The checkbox starts (or stops) a small HTTP server bound to <code>127.0.0.1</code> the moment you toggle it — not when you close the dialog. Turning it on issues a secret the first time one doesn't already exist; turning it off tears the server down entirely, so nothing is listening on this machine unless the checkbox is checked <i>and</i> a thoughtbase is open.</p>
-
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Enable browser clipper</div>
-        <div class="v">Off by default. Checking it starts the loopback server right away; unchecking it stops the server right away. Because a stop/restart is triggered on every change to this tab (including Regenerate, below), an already-running clip in flight in the browser can fail if it lands mid-restart — rare in practice, since the restart is near-instant.</div>
-      </div>
-      <div class="row">
-        <div class="k">Listening port</div>
-        <div class="v">Shown next to the pairing code once the server is running. Minerva prefers a fixed port (41599) so the extension doesn't need reconfiguring across restarts, but falls back to an OS-assigned ephemeral port if something else on the machine is already using it — the pairing code always carries whichever port is actually live, so pairing still works either way.</div>
-      </div>
-    </div>
+    <h2 id="enable">Turn on the clipper</h2>
+    <p>Check <b>Enable browser clipper</b> to switch the feature on, and uncheck it to switch it off. That's all it takes — the change happens as soon as you click, and nothing is left listening for your browser when the box is unchecked.</p>
 
     <h2 id="pairing">The pairing code</h2>
-    <p>Once enabled and running, a masked field shows the pairing code — <b>Reveal</b> swaps it to plain text, <b>Copy</b> puts it on the clipboard. Paste it into the browser extension once; the extension decodes it into the port and a shared secret and uses that secret on every subsequent request, in a header the loopback server checks with a constant-time comparison before it will process anything.</p>
+    <p>Once the clipper is on, a pairing code appears. It's hidden by default; <b>Reveal</b> shows it and <b>Copy</b> puts it on your clipboard. Paste it into the browser add-on once, and from then on your browser can send pages to Minerva. You only need to do this a single time.</p>
 
-    <div class="box">
-      <span class="label">What's actually in the code</span>
-      <p>The pairing code isn't the raw secret — it's the port and secret together, JSON-encoded and then base64url'd into one opaque string, so there's exactly one thing to copy-paste rather than two fields to fill in separately in the extension. Decoding is symmetric: the same encode/decode pair is shared between the app and the extension, so a change to the format only has to happen in one place.</p>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-clipper.png" alt="The Clipper tab with the clipper switched on: the pairing code is revealed, with buttons to hide it again or copy it, and a Regenerate code button below for starting fresh." loading="lazy" />
+      <figcaption>Screenshot — the Clipper tab with the pairing code shown</figcaption>
+    </figure>
 
-    <div class="shot wide">
-      <div class="icon">🔌</div>
-      <div class="k">Screenshot — Settings → Clipper, pairing code revealed</div>
-      <div class="d">The Clipper tab with "Enable browser clipper" checked: below it, the Pairing code field showing the revealed base64url token, Reveal (toggled to "Hide") and Copy buttons beside it, a hint naming the listening port, and below that the "Regenerate code" button with its invalidation warning.</div>
-    </div>
+    <h2 id="regenerate">Regenerate the code</h2>
+    <p><b>Regenerate code</b> creates a brand-new pairing code and retires the old one. Any browser you'd already paired will stop working until you copy the new code and paste it in again. Use this if you want to re-pair from scratch.</p>
 
-    <h2 id="regenerate">Regenerate code</h2>
-    <p><b>Regenerate code</b> rotates the shared secret on the server side and persists the new one — it's not a cosmetic reshuffle of the display. The old secret stops being accepted the instant the server restarts with the new config, so any browser extension still holding the previous pairing code starts getting rejected on its next request. There's no grace period and no way to un-rotate; re-pairing means opening Settings again, copying the new code, and pasting it into the extension.</p>
-
-    <h2 id="no-project">When no thoughtbase is open</h2>
-    <p>The server itself only runs while a thoughtbase is open — a clip needs somewhere to write the resulting Source. If you enable the clipper before opening one, the tab shows a hint instead of a pairing code:</p>
-
-    <div class="box">
-      <span class="label">Fallback hint</span>
-      <p>"Open a thoughtbase to start the clipper and reveal its pairing code." The checkbox stays checked (the setting itself is saved), but the port and pairing-code fields don't appear until a project is actually open. Even a request that reaches the endpoint while no thoughtbase is open is answered, just with an error rather than a write — the ingest route responds <code>503 No thoughtbase open</code> rather than silently dropping the clip.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Regenerating breaks the currently-paired extension.</b> This is the main surprise: rotating the code isn't additive. The moment you click Regenerate, the extension's stored secret is worthless, and its next clip attempt fails until you paste the fresh code into it.</li>
-      <li><b>The setting is per-machine, not per-project.</b> Like the rest of Settings' local config, enable state and the secret live under your user data directory, not inside the thoughtbase's <code>.minerva/</code> folder — so pairing done on one computer doesn't travel with the project to another.</li>
-      <li><b>The secret survives ordinary restarts.</b> Quitting and reopening Minerva (or closing and reopening a thoughtbase) keeps the same secret, so a paired extension keeps working without you needing to re-pair — only an explicit Regenerate, or hand-editing the on-disk config, invalidates it.</li>
-    </ul>
+    <h2 id="no-project">Open a thoughtbase first</h2>
+    <p>The clipper needs somewhere to file the pages you save, so it only runs while a thoughtbase is open. If you turn it on before opening one, you'll see a reminder to open a thoughtbase, and the pairing code appears once you do. Your choice to enable the clipper is remembered in the meantime.</p>
 
     <div class="pager">
       <a class="prev" href="settings-sources.html">

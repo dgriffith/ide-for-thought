@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Bibliography</title>
-<meta name="description" content="The Bibliography tab in Settings — choosing a CSL citation style, importing additional styles and locales, and how the setting feeds Refactor → Insert/Update Bibliography." />
+<meta name="description" content="The Bibliography tab in Settings — choose the citation style Minerva uses for your reference lists, and add more styles or languages." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,44 +88,34 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Bibliography</p>
 
     <h1>Bibliography</h1>
-    <p class="lede">The Bibliography tab in <b>Settings</b> picks the CSL (Citation Style Language) style Minerva renders your bibliography in, and lets you import additional styles or locales beyond the bundled set. It's the only setting behind <b>Refactor → Insert/Update Bibliography</b> — there's no separate citation formatting anywhere else, and no live connection to a reference manager. Bringing in an existing library — Zotero, BibTeX, or otherwise — is a one-time file import from the Sources panel, covered in <a href="left-sidebar-sources.html#adding">Left sidebar → Sources</a>, along with the <code>[[cite::id]]</code> / <code>[[quote::id]]</code> link syntax that actually produces a citation.</p>
+    <p class="lede">The Bibliography tab in <b>Settings</b> is where you choose the citation style Minerva uses when it builds a reference list for a note — APA, MLA, Chicago, and a few others come ready to use, and you can add more if you need them. The style you pick here is used whenever you run <b>Refactor → Insert/Update Bibliography</b>. Adding sources to cite is a separate step, covered in <a href="left-sidebar-sources.html#adding">Left sidebar → Sources</a>.</p>
 
-    <h2 id="settings">Settings</h2>
+    <h2 id="settings">What you can set</h2>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Citation style</div>
-        <div class="v">Dropdown. Default <b>APA (7th edition)</b>. Choose from six bundled CSL styles — APA, MLA (9th edition), Chicago (author–date), Chicago (notes &amp; bibliography), IEEE, and Vancouver (NLM citation-sequence) — plus anything you've imported yourself (labeled "(imported)" in the list). Stored per-project in <code>.minerva/config.json</code>, so different thoughtbases can follow different style guides. This is the style <b>Refactor → Insert/Update Bibliography</b> renders with; there's no per-note override.</div>
+        <div class="v">Pick the style your references are written in. APA is the default, and you can also choose MLA, Chicago (author–date), Chicago (notes &amp; bibliography), IEEE, or Vancouver — plus any style you've added yourself. Each project keeps its own choice, so different collections of notes can follow different style guides.</div>
       </div>
       <div class="row">
-        <div class="k">Imported styles</div>
-        <div class="v">Drop a <code>.csl</code> file into <code>.minerva/csl-styles/</code>, or use the <b>Import .csl style…</b> button to pick one with a file dialog. Either way it shows up in the Citation style dropdown above (and in the export dialog's style picker) immediately — no restart. Each imported style is listed here with a <b>Remove</b> action. The <a href="https://www.zotero.org/styles">Zotero Style Repository</a> publishes 10,000+ open CSL styles if the bundled six don't match what you need.</div>
+        <div class="k">Add a style</div>
+        <div class="v">Need a style that isn't in the list? Use <b>Import style…</b> to add one, and it appears in the Citation style menu right away. Styles you've added are listed here, each with a <b>Remove</b> button.</div>
       </div>
       <div class="row">
-        <div class="k">Imported locales</div>
-        <div class="v">Optional. The only bundled locale is <b>en-US</b> — it supplies the translated terms citeproc renders into a citation or bibliography entry (things like "and", "ed.", "no date", month names), not sort order, which each CSL style defines on its own. Import a CSL locale XML file via <b>Import locale .xml…</b> to render in another language; official locales live at <a href="https://github.com/citation-style-language/locales">github.com/citation-style-language/locales</a>. Imported locales land in <code>.minerva/csl-locales/</code> and are listed here with a <b>Remove</b> action. There's no picker to select which locale is active — Minerva always renders with en-US unless you're using a style that hardcodes a different one internally.</div>
+        <div class="k">Add a language</div>
+        <div class="v">By default, references are written using English wording — the small words citation styles add, like "and", "ed.", or "no date". If you want your references written in another language, use <b>Import language…</b> to add it. Added languages are listed here, each with a <b>Remove</b> button.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">📖</div>
-      <div class="k">Screenshot — Settings → Bibliography tab</div>
-      <div class="d">The Bibliography tab of the Settings dialog: the Citation style dropdown (APA selected, with imported styles marked "(imported)" further down the list), the Imported styles section showing an empty state and an "Import .csl style…" button with the Zotero Style Repository link in its hint text, and the Imported locales section below it with its own import button and locales.citation-style-language.org link.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-bibliography.png" alt="The Bibliography tab: a menu for choosing your citation style with APA selected, a section for adding your own styles, and a section below it for adding other languages." loading="lazy" />
+      <figcaption>Screenshot — the Bibliography settings</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">This tab formats citations — it doesn't create them</span>
-      <p>Nothing here writes a citation into a note. You cite a source with <code>[[cite::sourceId]]</code> or quote a saved excerpt with <code>[[quote::excerptId]]</code> in the note body, then run <b>Refactor → Insert/Update Bibliography</b> to scan the note for those links and render a <code>## References</code> section in the style configured on this tab. Re-running it is idempotent — it replaces its own previously-rendered block (tracked by an HTML comment pair) without disturbing any prose you've added around it, so it's safe to run again after adding more citations.</p>
+      <span class="label">This tab formats your references — it doesn't create them</span>
+      <p>Choosing a style here doesn't add a citation to a note. You cite a source or quote a saved excerpt using a link in your note, then run <b>Refactor → Insert/Update Bibliography</b> to gather those citations into a tidy References section written in the style you picked here. You can run it again any time you add more citations — it simply refreshes the same References section and leaves the rest of your writing untouched.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Styles and locales live in separate directories.</b> An imported <code>.csl</code> file goes in <code>.minerva/csl-styles/</code>; an imported locale XML goes in <code>.minerva/csl-locales/</code> — dropping one in the other's folder means it's silently never picked up.</li>
-      <li><b>The style choice is per-project, not global.</b> Switching thoughtbases can mean switching bibliography styles too — check this tab if a freshly-opened project's References section renders differently than you expected.</li>
-      <li><b>An imported style or locale with the same id as a bundled one wins.</b> Project files always take precedence over the bundled set on a filename collision, so you can override, say, <code>apa.csl</code> with your own variant without touching app source — but it also means a badly-named import can silently shadow a built-in style.</li>
-      <li><b>No live reference-manager connection.</b> There's no Zotero or Mendeley account to sign into here — building up a library happens once, via <b>File → Import BibTeX…</b> / <b>Import Zotero RDF…</b> or one-at-a-time ingest in the Sources panel. See <a href="left-sidebar-sources.html">Left sidebar → Sources</a> for those flows.</li>
-      <li><b>A cited id citeproc can't resolve doesn't block the rest.</b> Insert/Update Bibliography still renders every entry it can; unresolved ids are surfaced separately rather than failing the whole command.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="settings-formatter.html">

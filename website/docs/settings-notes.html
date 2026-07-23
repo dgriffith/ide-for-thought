@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Notes</title>
-<meta name="description" content="The Notes tab in Settings — where refactored notes and excerpt notes land by default, the folder and filename template tokens, and the link and body templates that wrap them." />
+<meta name="description" content="The Notes tab in Settings — where notes you split off and excerpt notes land, how they're named, and the templates that shape them." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,78 +88,66 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Notes</p>
 
     <h1>Notes</h1>
-    <p class="lede">The Notes tab in <b>Settings</b> controls where the note-creating commands file what they create — <b>Extract Selection</b>, <b>Split Here</b>, and <b>Split by Heading</b> (the <em>Refactoring</em> subsection), and <b>New note from excerpt</b> (the <em>Excerpt notes</em> subsection) — plus the templates that shape what gets written into the new note and left behind in the source.</p>
+    <p class="lede">Minerva has commands that turn one note into several — pulling a selection into its own note, or splitting a long note apart. The <b>Notes</b> settings tab decides where those new notes go and how they're named, plus what gets left behind in the note you split from.</p>
 
-    <h2 id="refactoring">Refactoring</h2>
-    <p>These settings apply to the three note-splitting commands. They're per-machine preferences, not part of a project — Minerva keeps them in your browser profile's local storage, so they follow you across every thoughtbase you open on this machine but don't travel with a project to another computer.</p>
+    <h2 id="refactoring">Splitting notes</h2>
+    <p>These settings apply whenever you extract a selection into a new note or split a note into pieces. They're personal preferences for this computer, so they apply to every knowledge base you open here.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Destination for new notes</div>
-        <div class="v">Dropdown with three options: <b>Same folder as source note</b> (default), <b>Thoughtbase root</b>, or <b>Custom folder (template)</b>. Applies to Extract Selection, Split Here, and Split by Heading alike.</div>
+        <div class="k">Where new notes go</div>
+        <div class="v">Choose to file each new note in the <b>same folder as the note you split from</b> (the default), at the <b>top of your knowledge base</b>, or in a <b>folder you name</b>.</div>
       </div>
       <div class="row">
-        <div class="k">Custom folder template</div>
-        <div class="v">Only shown when destination is <b>Custom folder (template)</b>. A text field for a project-relative path built from tokens, e.g. <code>notes/{{date:YYYY}}/{{date:MM}}</code>. Left blank, it resolves to the thoughtbase root.</div>
+        <div class="k">Custom folder</div>
+        <div class="v">Shown when you choose to name your own folder. Type the folder path, optionally using the placeholders below to sort notes by date — for example, into a folder for the current year and month. Left blank, new notes land at the top of your knowledge base.</div>
       </div>
       <div class="row">
-        <div class="k">Filename prefix</div>
-        <div class="v">Text field, empty by default. Prepended to every refactored note's generated filename, using the same token syntax as the folder template — e.g. <code>{{date:YYYYMMDDHHmm}}-</code> for a Zettelkasten-style timestamp prefix.</div>
+        <div class="k">Filename start</div>
+        <div class="v">Text you'd like added to the front of every new note's name. You can use the date placeholders below — for instance, to start each filename with a timestamp.</div>
       </div>
       <div class="row">
-        <div class="k">Normalize heading levels in extracted notes</div>
-        <div class="v">Checkbox, off by default. When the extracted body's shallowest heading is H2 or deeper, shifts every heading up so it becomes H1. Only touches the new note's body — the source note is never rewritten.</div>
+        <div class="k">Tidy up heading levels</div>
+        <div class="v">When on, if the extracted text starts at a lower heading level, its headings are lifted so the note begins with a top-level heading. Only the new note is adjusted; the note you split from is untouched.</div>
       </div>
       <div class="row">
-        <div class="k">Transclude by default</div>
-        <div class="v">Checkbox, off by default. When on, refactor commands leave behind <code>![[new-note]]</code> in the source instead of <code>[[new-note]]</code>, so the preview inlines the extracted content rather than just linking to it. Disabled (greyed out) whenever a link template is set below, since the template takes over that decision.</div>
+        <div class="k">Embed instead of link</div>
+        <div class="v">When on, the note you split from shows the extracted content inline rather than just a link to it. If you set a link template below, that takes over and this option turns off.</div>
       </div>
       <div class="row">
         <div class="k">Link template</div>
-        <div class="v">Multi-line text field, empty by default. What to put in the source note in place of the extracted content. Blank means Minerva falls back to a plain wiki-link, or a transclusion if the toggle above is on. Precedence is: link template, if set, always wins over the transclude toggle.</div>
+        <div class="v">What to leave in the original note in place of the extracted text. Leave it blank for a plain link (or an inline embed if the option above is on). If you fill it in, it always wins.</div>
       </div>
       <div class="row">
-        <div class="k">Refactored note template</div>
-        <div class="v">Multi-line text field, empty by default. Wraps the body of every note these commands create. Blank means the extracted content is used as-is, unwrapped.</div>
+        <div class="k">New note template</div>
+        <div class="v">A wrapper for the body of every new note these commands create — handy for adding standard properties or a heading. Leave it blank to use the extracted text as-is.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗒️</div>
-      <div class="k">Screenshot — Settings → Notes tab, Refactoring</div>
-      <div class="d">The Refactoring subsection of the Notes settings tab: the Destination dropdown with Custom folder selected and its revealed folder-template field, the Filename prefix field, the Normalize heading levels and Transclude by default checkboxes with their hint text, and the Link template and Refactored note template textareas below.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-notes.png" alt="The settings for splitting notes: where new notes go, the filename start, the tidy-headings and embed options, and the two template boxes for the link left behind and the new note's wrapper." loading="lazy" />
+      <figcaption>Screenshot — the Notes settings tab</figcaption>
+    </figure>
 
-    <h3 id="tokens">Template tokens</h3>
-    <p>The destination template, filename prefix, link template, and refactored-note template all share one token syntax. A token is anything inside double braces:</p>
+    <h3 id="tokens">Placeholders</h3>
+    <p>In any of these template fields you can drop in placeholders that Minerva fills in automatically. Write each one inside double braces:</p>
 
-    <pre><code>{{date}}               ISO date (YYYY-MM-DD) in local time
-{{date:FORMAT}}        Custom date format — FORMAT is built from YYYY, MM, DD, HH, mm, ss
-{{title}}              The source note's title
-{{source}}             The source note's project-relative path
-{{new_note_title}}     The new (extracted) note's title
-{{new_note_content}}   The new note's raw body — only available in the refactored-note template</code></pre>
+    <pre><code>{{date}}               Today's date
+{{date:FORMAT}}        A date in a format you choose (using YYYY, MM, DD, HH, mm, ss)
+{{title}}              The title of the note you split from
+{{new_note_title}}     The title of the new note
+{{new_note_content}}   The extracted text — for the new note template</code></pre>
 
-    <p>Not every template accepts every token — <code>{{new_note_content}}</code> only makes sense in the refactored-note template, since it's the one place the extracted body is available to insert. The destination and filename-prefix templates realistically only need <code>{{date:…}}</code> and <code>{{title}}</code>, but all six are recognized wherever a template field appears.</p>
-
-    <div class="box">
-      <span class="label">Unknown tokens render as nothing</span>
-      <p>A token Minerva doesn't recognize — a typo, or one borrowed from the wrong field — quietly resolves to an empty string rather than raising an error or leaving the literal <code>{{…}}</code> in the output. That keeps a mistyped token from leaking brace characters into a filename, but it also means a silently-wrong template just produces a slightly-off result with no warning. The one template with a real failure mode is the <b>refactored-note template</b>: it wraps the extracted body wherever <code>{{new_note_content}}</code> appears, so a template that omits that token entirely discards the extracted content — the new note is created from the template text alone, with nothing to show for the selection you just extracted.</p>
-    </div>
+    <p>Use whichever placeholders fit the field. The extracted-text placeholder only belongs in the <b>New note template</b>, and it's the important one: if you set that template but leave the placeholder out, the new note is built from your template alone and the text you just extracted has nowhere to go. A placeholder Minerva doesn't recognize simply fills in as nothing.</p>
 
     <h2 id="excerpt-notes">Excerpt notes</h2>
-    <p>A single setting, separate from Refactoring because it's stored differently: this one is per-project, not per-machine.</p>
+    <p>When you turn a highlighted passage into its own note, this setting picks where it lands. Unlike the settings above, it belongs to the knowledge base itself, so everyone working in that knowledge base shares it.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Default destination folder</div>
-        <div class="v">Text field, placeholder "(project root)". The project-relative folder where <b>New note from excerpt</b> lands. Leave it blank and excerpts land at the thoughtbase root; the folder is created automatically on the first write if it doesn't already exist.</div>
+        <div class="k">Destination folder</div>
+        <div class="v">The folder where new excerpt notes go. Leave it blank and they land at the top of your knowledge base. The folder is created for you the first time it's needed.</div>
       </div>
-    </div>
-
-    <div class="box">
-      <span class="label">Where this lives on disk</span>
-      <p>Unlike the Refactoring settings above, the excerpt destination folder is stored in the project itself, at <code>.minerva/config.json</code>, under an <code>excerpt.noteFolder</code> key. That makes it a project convention rather than a personal one — it travels with the project if you sync or git-track <code>.minerva/</code>, the same way <a href="left-sidebar.html">bookmarks</a> do. It's telling Minerva where excerpts belong within <em>this</em> project's structure, not expressing a personal habit the way the Refactoring defaults do.</p>
     </div>
 
     <div class="pager">

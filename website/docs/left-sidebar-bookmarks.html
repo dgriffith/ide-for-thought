@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Bookmarks</title>
-<meta name="description" content="The Bookmarks panel saves whole-note, section, or exact-line locations in a folder tree of your own making, and jumps straight back to them — including a raw character offset that isn't remapped if you edit heavily above it." />
+<meta name="description" content="The Bookmarks tab saves places you want to return to — a whole note, a section, or an exact line — in a folder tree you name and organize yourself." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,66 +81,45 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Bookmarks</p>
 
     <h1>Bookmarks</h1>
-    <p class="lede">The Bookmarks tab is a folder tree of saved locations you name and organize yourself — a whole note, a section under a heading, or an exact line. Click any entry and Minerva opens the note and jumps straight to that spot. Unlike <a href="left-sidebar-notes-tree.html">Notes</a> or <a href="left-sidebar-tags.html">Tags</a>, this tree isn't derived from the project — every node in it exists because you put it there.</p>
+    <p class="lede">The Bookmarks tab is a folder tree of saved places you want to return to — a whole note, a section under a heading, or an exact line. Click any entry and Minerva opens the note and jumps straight to that spot. Unlike <a href="left-sidebar-notes-tree.html">Notes</a> or <a href="left-sidebar-tags.html">Tags</a>, nothing appears here automatically — every entry is one you chose to save.</p>
 
     <h2 id="creating">Creating a bookmark</h2>
-    <p>There's no keybinding for it — bookmarks are created from context menus, in three flavors depending on what you right-click and where the cursor is:</p>
+    <p>You make bookmarks from right-click menus. There are three kinds, depending on how precise you want to be:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Bookmark This Note</div>
-        <div class="v">Whole-file bookmark. Available from the editor's right-click menu, the tab bar's context menu, and a note's context menu in the <a href="left-sidebar-notes-tree.html">Notes tree</a>. Stores just the note's path — no offset, no anchor — and opens like clicking the note anywhere else.</div>
+        <div class="v">Saves a whole note. You can reach it by right-clicking in the editor, on a tab, or on a note in the <a href="left-sidebar-notes-tree.html">Notes tree</a>. Selecting it later just opens the note.</div>
       </div>
       <div class="row">
         <div class="k">Bookmark Section</div>
-        <div class="v">Editor right-click menu only. Bookmarks the nearest heading at or above the cursor, named after the heading text. If the cursor isn't inside any section, Minerva tells you so and stops — "No section heading above the cursor to bookmark. Place the cursor inside a section first."</div>
+        <div class="v">Right-click in the editor to save the section your cursor is in. It's named after that section's heading. If your cursor isn't under any heading, Minerva lets you know and asks you to place it inside a section first.</div>
       </div>
       <div class="row">
         <div class="k">Bookmark Line</div>
-        <div class="v">Editor right-click menu only. Bookmarks the exact cursor position as a character offset. The name is auto-derived from the line's trimmed text (truncated at 60 characters with an ellipsis), or "Line <var>N</var>" if the line is blank.</div>
+        <div class="v">Right-click in the editor to save the exact spot your cursor is on. Minerva names it from the text on that line, or "Line N" if the line is blank.</div>
       </div>
     </div>
 
-    <p>New bookmarks land at the root of the tree. From there, drag one onto a folder row to file it — or right-click any folder to create a new one first via <b>+ Folder</b> in the panel header.</p>
+    <p>New bookmarks appear at the top level of the tree. From there you can drag one onto a folder to file it away, or make a folder first with the <b>+ Folder</b> button in the panel header.</p>
 
-    <div class="shot wide">
-      <div class="icon">🔖</div>
-      <div class="k">Screenshot — Bookmarks panel with a mixed tree</div>
-      <div class="d">The left sidebar's Bookmarks tab showing a "+ Folder" button in the header, a search field, and a tree with one open folder containing a section bookmark (outline icon) and a line bookmark (dot icon), plus a whole-note bookmark (filled bookmark icon) at the root — each row showing its name on top and its relative path below in a smaller monospace font.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-bookmarks.png" alt="The Bookmarks tab in the left sidebar, with a &quot;+ Folder&quot; button and a search box at the top. One folder is open, holding a saved section and a saved line, with a whole-note bookmark sitting at the top level. Each entry shows its name with the note it points to underneath." loading="lazy" />
+      <figcaption>Screenshot — the Bookmarks tab</figcaption>
+    </figure>
 
-    <h2 id="storage">What's stored, and where</h2>
-    <p>Each bookmark is one of three kinds, distinguished by which optional fields it carries on top of a name and a target path:</p>
-
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Whole-note</div>
-        <div class="v">Just <code>relativePath</code>. Neither <code>cursorOffset</code> nor <code>anchor</code> is set.</div>
-      </div>
-      <div class="row">
-        <div class="k">Section</div>
-        <div class="v"><code>anchor</code> — a heading slug, the same one <code>[[note#slug]]</code> wiki-links resolve against. Selecting it opens the note and scrolls to that heading, the same navigation path a wiki-link to that anchor would take.</div>
-      </div>
-      <div class="row">
-        <div class="k">Line</div>
-        <div class="v"><code>cursorOffset</code> — a raw character offset into the file's plain-text content, captured at creation time. This is the "saved character offset" the bookmark jumps back to.</div>
-      </div>
-    </div>
-
-    <p>The whole tree — folders and bookmarks together, in <code>BookmarkNode[]</code> form — is written to <code>.minerva/bookmarks.json</code> in the project root, debounced 500ms after any change. It's a plain project file alongside <code>.minerva/graph.ttl</code>, not an entry in the knowledge graph itself: bookmarks aren't queryable via SPARQL, and creating one doesn't touch <code>graph.ttl</code>. Because the file lives inside the project folder, bookmarks travel with the project across machines if you sync or git-track <code>.minerva/</code>, and they're shared by everyone with access to that folder — there's no per-user or per-device bookmark set.</p>
-
-    <h2 id="selecting">Selecting a bookmark</h2>
-    <p>Clicking a bookmark row routes by kind: a section bookmark opens the note and scrolls to its anchor; a line bookmark opens the note and restores the cursor to its saved offset; a whole-note bookmark just opens the note. Line bookmarks use a different jump primitive than <a href="navigation-search.html">Search</a> results — Search hands off a line/column pair to <code>gotoLineColumn()</code>, while a line bookmark hands off a raw character offset to the editor's <code>restorePosition(offset)</code>, which clamps the offset to the document's current length, places the cursor there, and scrolls it to the vertical center of the view. Functionally the destination looks the same either way — cursor placed, view centered, ready to type — the two panels just start from different units (line+column vs. a single offset).</p>
+    <h2 id="selecting">Jumping to a bookmark</h2>
+    <p>Click any bookmark to go there. A whole-note bookmark opens the note; a section bookmark opens the note and scrolls to the heading; a line bookmark opens the note and drops your cursor at the saved spot, centered in view and ready to type.</p>
 
     <div class="box">
-      <span class="label">A line bookmark's offset doesn't track edits between sessions</span>
-      <p>The number stored in <code>cursorOffset</code> is a snapshot from the moment you created the bookmark — it is <em>not</em> re-derived from the note's current content when you select it later. If you insert or delete a large amount of text above the bookmarked line after saving, the offset no longer points at the same character, and the bookmark can land you a few lines off, or mid-word. (There is a live position-mapping mechanism, but it only runs inside the editor's in-memory CodeMirror state while a file stays open in the current session — it resets the moment the tab closes or the app restarts, since only the raw offset is what's actually persisted to <code>bookmarks.json</code>.) Renaming or moving the note itself is safe — the bookmark's <code>relativePath</code> is rewritten automatically to follow it — and renaming the heading a section bookmark points at is also safe, since its slug is retargeted to match. It's specifically heavy edits <em>above</em> a line bookmark's position that can cause drift.</p>
+      <span class="label">A saved line can drift if you edit heavily above it</span>
+      <p>A line bookmark remembers the exact position it had when you made it. If you later add or remove a lot of text above that line, the bookmark can land you a little off — a few lines away, or mid-word. Renaming or moving the note, or renaming the heading a section bookmark points at, is always safe: those bookmarks follow along automatically. It's only heavy editing above a saved line that can throw it off.</p>
     </div>
 
     <h2 id="managing">Renaming, moving, and deleting</h2>
-    <p>Right-click any bookmark or folder for <b>Rename</b> and <b>Delete</b>. Renaming only changes the label shown in the tree — it has no effect on what the bookmark points at. Reordering and filing is drag-and-drop: drag a bookmark onto a folder to move it inside, or onto the tree's empty background to move it back to the root. Deleting a folder deletes everything nested inside it — there's no separate "empty the folder first" step, and no confirmation dialog either; a bookmark is a pointer to a note, not the note itself, so removing one is low-stakes.</p>
+    <p>Right-click any bookmark or folder to <b>Rename</b> or <b>Delete</b> it. Renaming changes only the label in the tree — it doesn't change where the bookmark points. To reorganize, drag a bookmark onto a folder to file it inside, or onto empty space to move it back to the top level. Deleting a folder removes everything inside it, with no confirmation — a bookmark is just a pointer to a note, never the note itself, so removing one is harmless.</p>
 
-    <p>The panel header also has a search field (filters the tree to bookmarks and folders whose name matches, keeping a matching folder visible even if none of its children match) and expand-all / collapse-all controls for the folder tree.</p>
+    <p>The search box in the panel header filters the tree to matching names, and the header also has controls to expand or collapse the whole tree at once.</p>
 
     <div class="pager">
       <a class="prev" href="left-sidebar-tables.html">

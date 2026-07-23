@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Frontmatter</title>
-<meta name="description" content="YAML frontmatter in Minerva notes: the --- delimited block, the recognized keys and their value shapes, how frontmatter feeds the graph index and the right-sidebar Properties panel, and common YAML pitfalls." />
+<title>Minerva — Docs — Properties</title>
+<meta name="description" content="Properties are the structured details at the top of a note — its title, tags, author, and dates — that you can edit in the note or through the Properties panel." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub active">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub active">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -87,13 +90,13 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Frontmatter</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Properties</p>
 
-    <h1>Frontmatter</h1>
-    <p class="lede">Frontmatter is a block of YAML at the top of a note, fenced by <code>---</code> lines, that carries structured metadata the prose itself doesn't. Minerva parses it three ways at once: a handful of keys drive the app directly (a note's title, its tags), everything else becomes a graph triple on the note, and the whole block renders as an editable property list in the right sidebar — so the YAML, the graph, and the panel are always three views of the same data.</p>
+    <h1>Properties</h1>
+    <p class="lede">Properties are a small block of structured details at the top of a note — its title, tags, author, dates, and anything else you want to record about it. You can edit them right in the note text or through the Properties panel in the right sidebar, and the two always stay in step.</p>
 
-    <h2 id="syntax">The frontmatter block</h2>
-    <p>A note's frontmatter must be the very first thing in the file: an opening <code>---</code> on line one, a closing <code>---</code> on its own line below, and valid YAML in between.</p>
+    <h2 id="syntax">The properties block</h2>
+    <p>Properties live at the very top of a note, between a pair of <code>---</code> lines. Each line inside is a simple <code>name: value</code> pair. Everything after the closing <code>---</code> is the note itself.</p>
 
 <pre><code>---
 title: The Attention Schema
@@ -103,161 +106,63 @@ created: 2024-03-01
 
 The body of the note starts here.</code></pre>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k"><code>---</code></div>
-        <div class="v"><b>Opening fence.</b> Must be the first line of the file — nothing, not even a blank line, can come before it. Minerva only recognizes frontmatter that starts at byte zero.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>key: value</code></div>
-        <div class="v"><b>A property.</b> Standard YAML mapping syntax. Order is preserved when Minerva rewrites the block, and comments in the YAML survive edits made from the source editor.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>---</code> (closing)</div>
-        <div class="v"><b>Closing fence.</b> A second line containing only <code>---</code>. Everything between the fences is parsed as one YAML document; everything after the closing fence is the note body.</div>
-      </div>
-    </div>
+    <p>The opening <code>---</code> has to be the first thing in the note, with nothing above it. If a property is mistyped — a stray quote, a crooked indent — the Properties panel points out what needs fixing, and the note still opens and works normally in the meantime.</p>
 
-    <p>If the YAML between the fences doesn't parse — a bad indent, an unclosed quote — the Properties panel shows the parse error and disables structured editing until you fix it in the source editor. The rest of the app degrades gracefully: a note with unparseable frontmatter still opens, indexes its links and body tags, and falls back to its filename for a title.</p>
-
-    <h2 id="keys">Recognized keys</h2>
-    <p>Minerva ships with a set of <b>canonical</b> keys it understands well enough to map onto a specific graph predicate or a specific piece of app behavior. A generous set of aliases map onto the same canonical keys — write <code>author</code> or <code>authors</code> and both land as the same predicate as <code>creator</code>. You are not limited to this list — see <a href="#custom">Custom keys</a> below.</p>
+    <h2 id="keys">Properties Minerva knows</h2>
+    <p>You can name a property anything you like, but Minerva gives special meaning to a handful of common ones. If you spell one a natural way — <code>author</code> instead of <code>creator</code>, say — Minerva understands it and tidies it to its standard name for you.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><code>title</code></div>
-        <div class="v"><b>String.</b> Becomes the note's title everywhere in the app — sidebar, tab, backlinks, graph queries — overriding the first-<code>H1</code> fallback. Indexed as <code>dc:title</code>, not as a generic metadata triple.</div>
+        <div class="v">The note's title, shown everywhere in the app. Without it, Minerva falls back to the note's first heading.</div>
       </div>
       <div class="row">
         <div class="k"><code>tags</code></div>
-        <div class="v"><b>List of strings.</b> Merged with any inline <code>#tag</code> tags found in the note body into one tag set. A tag that only exists in frontmatter is indexed exactly like a body tag.</div>
+        <div class="v">A list of tags. These join up with any <code>#tags</code> you write in the body, so it's one combined set either way.</div>
       </div>
       <div class="row">
-        <div class="k"><code>aliases</code> <span style="opacity:.6">(alias: <code>alias</code>)</span></div>
-        <div class="v"><b>List of strings</b> (a single string also works). Alternate names this note resolves under for <code>[[wiki-links]]</code> — see <a href="notes-links.html#resolving">Links → How a target resolves</a>. Aliases containing <code>[</code>, <code>]</code>, <code>|</code>, <code>#</code>, or a newline are silently dropped, since they couldn't be written as a working <code>[[alias]]</code> anyway.</div>
+        <div class="k"><code>aliases</code></div>
+        <div class="v">Other names this note can be found under when you write <code>[[wiki links]]</code>. See <a href="notes-links.html#resolving">Links</a>.</div>
       </div>
       <div class="row">
-        <div class="k"><code>creator</code> <span style="opacity:.6">(aliases: <code>author</code>, <code>authors</code>)</span></div>
-        <div class="v"><b>String.</b> Dublin Core author/creator.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>description</code>, <code>abstract</code></div>
-        <div class="v"><b>String.</b> Dublin Core description fields — a summary distinct from the note body.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>publisher</code>, <code>subject</code></div>
-        <div class="v"><b>String.</b> Dublin Core publisher and subject.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>language</code> <span style="opacity:.6">(alias: <code>lang</code>)</span></div>
-        <div class="v"><b>String.</b> Dublin Core language.</div>
+        <div class="k"><code>creator</code>, <code>description</code>, <code>publisher</code>, <code>language</code></div>
+        <div class="v">Who wrote it, a short summary, who published it, and what language it's in.</div>
       </div>
       <div class="row">
         <div class="k"><code>about</code></div>
-        <div class="v"><b>String</b> (typically a <code>[[wiki-link]]</code>). Declares which source or note this note is <em>about</em> — maps onto the same predicate as <code>subject</code>, so the two are interchangeable.</div>
+        <div class="v">Which note or source this note is about — usually written as a <code>[[wiki link]]</code>.</div>
       </div>
       <div class="row">
-        <div class="k"><code>created</code>, <code>modified</code></div>
-        <div class="v"><b>Date</b> (<code>YYYY-MM-DD</code>) or datetime. Dublin Core timestamps. Note <code>modified</code> here is distinct from the file's actual on-disk mtime, which the graph indexer tracks separately regardless of frontmatter.</div>
+        <div class="k"><code>created</code>, <code>modified</code>, <code>issued</code></div>
+        <div class="v">Dates, written as <code>YYYY-MM-DD</code>. Handy for when a note was made or when its source was published.</div>
       </div>
       <div class="row">
-        <div class="k"><code>issued</code> <span style="opacity:.6">(aliases: <code>date</code>, <code>year</code>)</span></div>
-        <div class="v"><b>Date, datetime, or number.</b> Publication date of the underlying source.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>doi</code>, <code>isbn</code></div>
-        <div class="v"><b>String.</b> Bibliographic identifiers (BIBO).</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>uri</code> <span style="opacity:.6">(alias: <code>url</code>)</span></div>
-        <div class="v"><b>String.</b> Bibliographic URI/URL of the source.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>pages</code> <span style="opacity:.6">(alias: <code>pageRange</code>)</span>, <code>volume</code>, <code>issue</code>, <code>numPages</code></div>
-        <div class="v"><b>String or number.</b> Bibliographic locators.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>inContainer</code></div>
-        <div class="v"><b>String</b> (typically a <code>[[wiki-link]]</code>). schema.org container reference — the journal, book, or site a source appears in.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>accessedAt</code>, <code>archivedAt</code></div>
-        <div class="v"><b>Date or datetime.</b> When a web source was accessed or archived — used by the source-tracking Research tools.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>supports</code>, <code>rebuts</code></div>
-        <div class="v"><b>String</b> (a <code>[[wiki-link]]</code> to a claim). Argumentation edges — materializes a <code>thought:supports</code> or <code>thought:rebuts</code> triple from this note to the target claim, same relationship a typed <code>[[supports::…]]</code> link expresses inline.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>claim-kind</code> <span style="opacity:.6">(alias: <code>claimKind</code>)</span>, <code>source-text</code> <span style="opacity:.6">(alias: <code>sourceText</code>)</span></div>
-        <div class="v"><b>String.</b> Claim-mining metadata written by the Decompose-into-Claims tool.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>extracted-by</code> <span style="opacity:.6">(alias: <code>extractedBy</code>)</span>, <code>extracted-from</code> <span style="opacity:.6">(alias: <code>extractedFrom</code>)</span></div>
-        <div class="v"><b>String.</b> Provenance for LLM-extracted claims — which tool or model produced this note, and what note or excerpt it was extracted from.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>decomposes</code></div>
-        <div class="v"><b>String</b> (a <code>[[wiki-link]]</code>). Points a decomposition note back at the source note it breaks down.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>confidence</code> <span style="opacity:.6">(alias: <code>confidenceValue</code>)</span></div>
-        <div class="v"><b>Number, 0.0–1.0.</b> Per-claim confidence score.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>term</code>, <code>disambiguation</code></div>
-        <div class="v"><b>String.</b> Glossary-note metadata: the term itself and a disambiguating note for when a term name collides.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>seeAlso</code> <span style="opacity:.6">(alias: <code>see-also</code>)</span></div>
-        <div class="v"><b>List of <code>[[wiki-links]]</code>.</b> Related glossary terms.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>derived_from</code></div>
-        <div class="v"><b>String</b> (a <code>[[wiki-link]]</code>). PROV-O provenance for a note derived from another — maps to <code>prov:wasDerivedFrom</code>.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>derived_at</code>, <code>derived_from_cell</code></div>
-        <div class="v"><b>Datetime / string.</b> Companion provenance fields written alongside <code>derived_from</code> for compute-cell-derived notes.</div>
+        <div class="k">Source details</div>
+        <div class="v">When a note stands in for something you read, you can record the usual bibliographic details — its web address, publication, page range, and identifiers like a DOI or ISBN. The research tools fill many of these in for you.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">Aliases get rewritten, not preserved</span>
-      <p>Aliases exist so you aren't penalized for a natural spelling (<code>author</code> instead of <code>creator</code>), not as a second permanent form. Minerva's formatter canonicalizes frontmatter keys when it formats a note — an alias you typed gets rewritten to its canonical form on save. Write whichever one you want in the moment; don't expect the alias spelling to stick around.</p>
-    </div>
+    <p>That's the common set; you're free to add your own properties alongside them, and Minerva will also add properties on its own when its research and thinking tools file claims, summaries, and where things came from.</p>
 
-    <h2 id="custom">Custom keys</h2>
-    <p>Any key outside the canonical list is not rejected or dropped — it's indexed as-is. Minerva turns it into a graph triple using a generated predicate of the form <code>minerva:meta-&lt;key&gt;</code>, so a project-specific field like <code>status: draft</code> becomes a real, queryable edge even though Minerva has no built-in opinion about what <code>status</code> means. The Properties panel shows custom keys the same way it shows canonical ones — full editing, just without the accent-colored key and without appearing in the canonical-key quick-add suggestions.</p>
-    <p>One key is the exception: a <code>publish:</code> block (used by the static-site publishing feature) is deliberately excluded from graph indexing — it's a nested object of publication directives, not metadata about the note itself.</p>
+    <h2 id="custom">Your own properties</h2>
+    <p>Any property Minerva doesn't already know is kept exactly as you wrote it — nothing is dropped. A field of your own like <code>status: draft</code> is saved with the note and can be searched and used just like the built-in ones, so you can organize notes around whatever matters to your work.</p>
+    <p>One property changes how a note behaves: setting <code>format: false</code> tells Minerva to leave that note's layout alone when you tidy up formatting elsewhere — an escape hatch for notes you prefer to arrange by hand. The <a href="settings-formatter.html#exempt">formatting settings</a> explain the options.</p>
 
-    <h2 id="values">Value shapes</h2>
-    <p>The Properties panel infers a type-specific editor from each value's YAML shape — a checkbox for booleans, a chip list for string arrays, a date picker for anything matching <code>YYYY-MM-DD</code>, a clickable chip for a single <code>[[wiki-link]]</code> value, and a raw YAML view (read-only in the panel, editable in source) for anything shaped like a nested object or a mixed-type list.</p>
+    <h2 id="values">Editing in the panel</h2>
+    <p>The Properties panel gives each value the right kind of editor for its shape: a checkbox for yes/no values, removable chips for a list of tags, a date picker for dates, and a clickable chip for a linked note. More complex values stay editable in the note text.</p>
 
-    <div class="shot wide">
-      <div class="icon">🗒️</div>
-      <div class="k">Screenshot — Properties panel</div>
-      <div class="d">The right-sidebar Properties panel open on a note with a mix of frontmatter: a "title" string row, a "tags" row rendered as removable chips, a "created" row with a date-picker input, a "confidence" row rendered as a number field, an "about" row rendered as a clickable wiki-link chip, and one custom key (e.g. "status: draft") shown with a muted, non-accent key color and a plain string input, plus the "+ Add property" row with a few canonical-key suggestion chips beneath it.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The opening fence must be line one.</b> A blank line, a comment, or any character before the first <code>---</code> means Minerva doesn't treat the block as frontmatter at all — it's read as ordinary note text instead.</li>
-      <li><b>Indentation is significant.</b> Frontmatter is YAML, so it inherits YAML's indentation rules. A misaligned nested value is a parse error, not a best-effort guess — and a parse error disables the structured Properties editor until it's fixed in source.</li>
-      <li><b>Unquoted values can silently change type.</b> <code>date: 2024-03-01</code> parses as a date, not a string; <code>version: 1.0</code> parses as a number; <code>enabled: yes</code> parses as a boolean, not the string <code>"yes"</code>. If you want a literal string that happens to look like something else, quote it: <code>version: "1.0"</code>.</li>
-      <li><b>A bracketed wiki-link in a list-like key gets eaten by YAML.</b> Writing <code>about: [[sources/foo]]</code> looks like a wiki-link, but bare <code>[…]</code> is YAML's array syntax — the outer brackets start a list and the inner brackets start a nested list, so YAML parses it as a one-element array containing a one-element array containing the string <code>sources/foo</code>. Minerva specifically detects this exact shape and recovers the intended <code>[[sources/foo]]</code> wiki-link, but any messier variant (a real multi-item list, extra text around the brackets) is left as whatever YAML actually parsed. When a value is meant to be a wiki-link, it's safest to quote it — <code>about: "[[sources/foo]]"</code> — so YAML never sees it as array syntax in the first place.</li>
-      <li><b>Nested objects don't reach the graph.</b> A frontmatter value that's a mapping (not a scalar or a flat list) has no obvious predicate to materialize, so the indexer drops it rather than guess. The Properties panel still shows it — as read-only YAML — so it isn't invisible, just not queryable.</li>
-      <li><b><code>modified:</code> in frontmatter isn't the file's real mtime.</b> The graph's <code>dc:modified</code> triple is sourced from the file's actual on-disk modification time, independent of anything you write under a <code>modified:</code> key. Use the canonical key if you want to record something else — a "content last reviewed" date, for instance — without it conflicting with the real timestamp.</li>
-    </ul>
-
+    <figure class="shot-img panel">
+      <img src="img/notes-frontmatter.png" alt="The Properties panel in the right sidebar, open on a note. It shows a title, a row of tags as removable chips, a created date with a date picker, a linked &quot;about&quot; note as a clickable chip, and a custom &quot;status&quot; field — with an &quot;Add property&quot; row at the bottom for adding more." loading="lazy" />
+      <figcaption>The Properties panel</figcaption>
+    </figure>
     <div class="pager">
-      <a class="prev" href="notes-rdf.html">
+      <a class="prev" href="notes-links.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Turtle / RDF</span>
+        <span class="ttl">← Links</span>
       </a>
-      <a class="next" href="navigation.html">
+      <a class="next" href="notes-highlights.html">
         <span class="dir">Next</span>
-        <span class="ttl">Navigation →</span>
+        <span class="ttl">Highlights →</span>
       </a>
     </div>
   </main>

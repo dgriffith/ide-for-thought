@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Behaviors</title>
-<meta name="description" content="The Behaviors tab of Settings: sidebar auto-reveal, breadcrumb heading chains, and the per-dialog list that lets you re-enable any confirmation you've told Minerva to stop asking about." />
+<meta name="description" content="The Behaviors settings: two small app-wide toggles, plus a list that lets you switch confirmation dialogs back on after you've told Minerva to stop asking." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,43 +88,31 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Behaviors</p>
 
     <h1>Behaviors</h1>
-    <p class="lede">Two small app-wide toggles, plus a control panel for every confirmation dialog you've ever told Minerva to stop asking about. Nothing here changes what Minerva can do — it only changes how much it interrupts you while doing it.</p>
+    <p class="lede">Two small toggles that fine-tune how the app follows along as you work, plus a place to switch confirmation prompts back on after you've told Minerva to stop asking. Nothing here changes what Minerva can do — only how much it chimes in while you do it.</p>
 
     <h2 id="toggles">Behavior toggles</h2>
-    <p>These two checkboxes sit at the top of the tab and take effect immediately — no restart, no reopening the current note.</p>
+    <p>These two checkboxes take effect right away.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Auto-reveal active file in sidebar</div>
-        <div class="v">When the active editor changes, scroll the matching row into view in the Notes panel and expand its parent folders. It never collapses anything you've already opened by hand — it only ever reveals, never rearranges the tree around you.</div>
+        <div class="v">As you move between notes, the sidebar scrolls to highlight the one you're viewing and opens the folders it lives in. It only ever reveals — it never closes folders you opened yourself.</div>
       </div>
       <div class="row">
         <div class="k">Show heading chain in breadcrumbs</div>
-        <div class="v">Appends the current section's heading chain to the breadcrumbs bar above the editor when the cursor sits inside a section, updating live as the cursor moves. See <a href="navigation-breadcrumbs.html">Breadcrumbs</a> for how the chain itself is built and what it looks like.</div>
+        <div class="v">When your cursor is inside a section, the breadcrumb bar above the editor shows the headings leading down to it, updating as you move around. See <a href="navigation-breadcrumbs.html">Breadcrumbs</a> for more.</div>
       </div>
     </div>
 
     <h2 id="confirmations">Confirmation dialogs</h2>
-    <p>Every <code>showConfirm(...)</code> call site in Minerva is registered once, up front, in a single list (<code>CONFIRM_REGISTRY</code>) — a title, a description, and a stable key. The Behaviors tab renders that registry as one checkbox per dialog: checked means the dialog still asks, unchecked means you've suppressed it. Unchecking a row here does exactly what ticking "Don't ask again" does the moment the dialog appears — there's no separate suppression mechanism to learn.</p>
+    <p>Whenever Minerva asks you to confirm something — deleting a note, closing a conversation, and so on — the prompt includes a "Don't ask again" option. Once you use it, that prompt stops appearing. This list is where you can turn any of them back on.</p>
 
-    <p>Because the list is generated from the registry rather than hand-maintained on this page, it grows every time a new confirmation is added to the app — deletes, collisions, batch-operation summaries, LLM-tool failures, and more all show up as their own row with their own independent switch. Suppressing one dialog never silences another, even when two dialogs cover similar-sounding situations (for instance, a failed save is a different key from a failed format, so muting one leaves the other asking).</p>
+    <p>Each prompt gets its own row with a checkbox: checked means it still asks, unchecked means you've silenced it. Turning one off here is the same as ticking "Don't ask again" when the prompt shows up. Every prompt is independent — silencing one never quiets another, even when two cover similar situations.</p>
 
-    <div class="shot wide">
-      <div class="icon">🔕</div>
-      <div class="k">Screenshot — Settings → Behaviors, confirmation dialogs list</div>
-      <div class="d">The Behaviors tab scrolled to the Confirmation dialogs section: the "auto-reveal" and "heading chain" toggles above, then a long checklist of dialog rows, each with a bolded title, a checkbox, and a one-line description underneath — Delete file or folder, Close conversation, Format batch complete, and so on, all independently checked or unchecked.</div>
-    </div>
-
-    <div class="box">
-      <span class="label">Leftover keys from older builds</span>
-      <p>Suppressed dialogs are stored in <code>localStorage</code> as a flat set of keys, with no reference back to the registry. If a build removes or renames a confirmation, a key you suppressed in an older version can outlive the dialog it belonged to. Rather than silently drop that key — which would make it impossible to ever undo — the Behaviors tab diffs the stored set against the current registry and lists anything it doesn't recognize under its own "Unknown confirmation" rows, showing the raw key instead of a friendly title. Unchecking one of those is the only way to clear it; there's no bulk "clean up" action.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>A few dialogs hide the checkbox entirely.</b> The first-run Python trust prompt and the "no API key configured" prompt both omit "Don't ask again" on purpose — Python trust is scoped per-project (recorded in <code>.minerva/config.json</code>, not per-machine localStorage), and the missing-key prompt is the thing that tells you LLM features are blocked, so silencing it would just return you to a confusing silent failure. Both still get a row here for completeness, but toggling the Python-trust row has no effect since suppression was never how that one worked.</li>
-      <li><b>Suppression is per-machine.</b> The underlying <code>localStorage</code> set doesn't travel with the project — reopening the same thoughtbase on another computer asks every dialog again until you re-suppress it there too.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/settings-behaviors.png" alt="The Behaviors settings scrolled to the confirmations section: the two toggles at the top, then a checklist of prompts — each with a title, a checkbox, and a one-line description, such as Delete file or folder or Close conversation — all switched on or off on their own." loading="lazy" />
+      <figcaption>Screenshot — the Behaviors settings, confirmation list</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="settings-appearance.html">

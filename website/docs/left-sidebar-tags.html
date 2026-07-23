@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Tags</title>
-<meta name="description" content="The left sidebar's Tags panel: a flat, alphabetical chip list of every tag from frontmatter and inline #tag syntax, with per-tag note/source counts and click-to-filter results." />
+<meta name="description" content="The left sidebar's Tags panel: an alphabetical list of every tag in your project, with counts, that you click to see what carries each tag." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,72 +81,63 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Tags</p>
 
     <h1>Tags</h1>
-    <p class="lede">The Tags panel is a flat, alphabetical list of every tag in your project — pulled from frontmatter and from inline <code>#tag</code> text alike — rendered as chips you click to see what carries that tag. It's a browsing and filtering tool, not an editor: tags themselves are added and removed from a note's own text or its Properties panel, not from here.</p>
+    <p class="lede">Tags are simple labels you attach to notes to group related material. The Tags panel gathers every tag in your project into one alphabetical list, and clicking a tag shows you everything that carries it. It's a way to browse and filter — you add and remove tags in a note itself, not here.</p>
 
     <h2 id="sources">Where tags come from</h2>
-    <p>A tag can be written two ways, and both land in the same place. Minerva doesn't distinguish a "frontmatter tag" from a "body tag" once they're indexed — they're merged into one deduplicated set per note and written to the graph as identical <code>minerva:hasTag</code> edges.</p>
+    <p>There are two ways to tag a note, and both feed the same list.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Frontmatter list</div>
-        <div class="v"><code>tags: [neuroscience, consciousness]</code> in the YAML block at the top of a note. See <a href="notes-frontmatter.html#keys">Frontmatter — Recognized keys</a> for the full value shape.</div>
+        <div class="k">In a note's properties</div>
+        <div class="v">List tags in the properties at the top of a note, for example <code>tags: [neuroscience, consciousness]</code>. See <a href="notes-frontmatter.html#keys">Properties</a> for details.</div>
       </div>
       <div class="row">
-        <div class="k">Inline <code>#tag</code></div>
-        <div class="v">Anywhere in the note body, a <code>#</code> at the start of a line or after whitespace, immediately followed by a letter — <code>#draft</code>, <code>#project/ui</code>. It stops at the next character that isn't a letter, digit, underscore, hyphen, or slash.</div>
+        <div class="k">Inline while writing</div>
+        <div class="v">Type a <code>#</code> directly followed by a word anywhere in a note — <code>#draft</code>, <code>#project/ui</code>. The tag runs until the next space or punctuation.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Why <code># Heading</code> doesn't become a tag</span>
-      <p>An ATX heading like <code># Heading</code> or <code>## Subheading</code> has a space between the <code>#</code> and the text, and the tag pattern requires a letter <em>immediately</em> after the <code>#</code> — so ordinary headings are never mistaken for tags. Write <code>#tag</code> with no space to tag something; write <code>#&nbsp;Heading</code> with a space for a heading. Tags inside fenced or inline code spans are also ignored — code is stripped from the note before tag extraction runs, so a <code>#</code> in a code sample never pollutes your tag list.</p>
+      <span class="label">Headings aren't tags</span>
+      <p>A heading like <code># Heading</code> has a space after the <code>#</code>, so it's never mistaken for a tag. To tag something, write <code>#tag</code> with no space. A <code>#</code> inside a code sample is ignored too, so it won't clutter your tag list.</p>
     </div>
 
     <h2 id="panel">What the panel shows</h2>
-    <p>Tags render as a wrapped grid of chips, sorted alphabetically by tag name — not by frequency, recency, or anything else. Each chip's label is the tag name prefixed with <code>#</code>, followed by a count.</p>
+    <p>Tags appear as chips sorted alphabetically, each labelled with the tag name and a count.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Count</div>
-        <div class="v">The number next to a tag's name is how many notes (and, if the <b>sources</b> toggle is on, sources) carry it — hovering a chip shows the exact breakdown, e.g. "3 notes, 1 source." A note or source is only counted once per tag even if the tag appears many times in its body.</div>
+        <div class="v">The number tells you how many notes carry the tag — and how many sources too, when the sources toggle is on. Hover a chip for the exact breakdown, such as "3 notes, 1 source."</div>
       </div>
       <div class="row">
         <div class="k">Chip size</div>
-        <div class="v">Tags in the top quartile by combined note+source count render slightly larger than the rest — a quick visual cue for which tags dominate the project, recomputed automatically as the tag list changes. It's a sizing hint only; it doesn't change sort order or behavior.</div>
+        <div class="v">Your most-used tags appear slightly larger, a quick visual cue for which topics dominate your project.</div>
       </div>
       <div class="row">
-        <div class="k">Accent tags</div>
-        <div class="v"><code>entrypoint</code> and <code>open-question</code> always render in the accent color, regardless of their count — Minerva treats these two as navigationally significant rather than ordinary labels.</div>
+        <div class="k">Highlighted tags</div>
+        <div class="v">A couple of special tags — <code>entrypoint</code> and <code>open-question</code> — always stand out in the accent color, because they mark places worth returning to.</div>
       </div>
       <div class="row">
         <div class="k">Sources toggle</div>
-        <div class="v">A checkbox above the tag list, on by default, that includes tagged sources alongside tagged notes — in both the displayed counts and in a selected tag's results below. Turning it off narrows everything to notes only.</div>
+        <div class="v">A checkbox above the list, on by default, includes tagged sources alongside tagged notes. Turn it off to see notes only.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🏷️</div>
-      <div class="k">Screenshot — Tags panel with a tag selected</div>
-      <div class="d">The left sidebar's Tags tab: a wrapped row of pill-shaped tag chips of mixed size sorted alphabetically, one chip (e.g. #neuroscience) shown in its active/pressed state, with a "Tagged #neuroscience" section beneath listing matching note titles and a couple of source rows marked with a small SRC badge — the "sources" checkbox above the chip grid shown checked.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-tags.png" alt="A wrapped row of tag chips sorted alphabetically, with one chip highlighted as selected. Beneath it, a &quot;Tagged #neuroscience&quot; section lists the matching notes and sources." loading="lazy" />
+      <figcaption>The Tags panel with a tag selected</figcaption>
+    </figure>
 
     <h2 id="selecting">Selecting a tag</h2>
-    <p>Clicking a chip is the panel's only interaction — there's no separate search box for the tag list itself. It queries the graph for every note and source carrying that exact tag and lists their titles directly beneath the chip grid, under a "Tagged #name" header. Clicking a listed note opens it in the editor; clicking a listed source opens the source viewer.</p>
+    <p>Click a chip to see everything that carries that tag. Matching notes and sources are listed right below the chips. Click a note to open it in the editor, or a source to open it in the source viewer.</p>
 
-    <p>Only one tag can be active at a time — selecting a chip doesn't add to a running filter, it replaces whichever tag was previously selected. Clicking the already-active chip again deselects it and clears the results, which is also how you back out of a tag filter entirely.</p>
+    <p>One tag is active at a time — clicking another chip switches to it. Click the active chip again to deselect it and clear the results.</p>
 
     <div class="box">
-      <span class="label">This filters a results list, not the notes tree</span>
-      <p>Selecting a tag doesn't change what's visible in the <a href="left-sidebar-notes-tree.html">Notes tree</a> panel — the two are independent. It produces its own flat list of matching titles inside the Tags panel itself; switch to the Notes tab and the full, unfiltered tree is exactly as you left it.</p>
+      <span class="label">This is a separate list</span>
+      <p>Selecting a tag doesn't change what's shown in the <a href="left-sidebar-notes-tree.html">Notes tree</a>. It builds its own list of matches inside the Tags panel; your full notes list stays exactly as you left it.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No tag hierarchy in this panel.</b> The <code>/</code> in a tag like <code>project/ui</code> is valid syntax and is stored and matched as a literal tag string — but this panel shows it as one flat chip alongside every other tag, not as a nested tree with parent/child rollup. (A nested-tag tree does exist elsewhere, in the right sidebar's Properties-adjacent tags view — a different panel from the one described on this page.)</li>
-      <li><b>Selecting a tag is an exact match, not a prefix match.</b> Selecting <code>project</code> shows only notes tagged exactly <code>#project</code> — notes tagged only <code>#project/ui</code> won't appear in its results.</li>
-      <li><b>Empty project shows a hint, not a blank pane.</b> With no tags indexed anywhere, the panel reads "No tags yet" instead of an empty grid.</li>
-      <li><b>The panel doesn't add or remove tags.</b> To tag a note, edit its frontmatter or type <code>#tag</code> in the body (or use the Properties panel's tag chips in the right sidebar); the Tags panel only ever reads what's already indexed.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="left-sidebar-sources.html">

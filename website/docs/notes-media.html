@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Media</title>
-<meta name="description" content="Embedding YouTube videos in Minerva notes: the youtube fence syntax, accepted URL forms and timestamps, the click-to-open poster card, and how embeds degrade on export." />
+<meta name="description" content="Embed a YouTube video in a note: paste the link, get a clickable poster card that opens the video in your browser." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub active">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub active">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,79 +93,41 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Media</p>
 
     <h1>Media</h1>
-    <p class="lede">Media in Minerva means YouTube. Put a video URL in a <code>youtube</code> fence and the preview draws a poster card — the video's thumbnail with a play button — that opens the video in your default browser when you click it. Minerva deliberately doesn't run a live player inside the app: no third-party frame or script ever loads in your notes, and nothing is fetched from YouTube until you actually view a note containing an embed.</p>
+    <p class="lede">You can drop a YouTube video into any note. Minerva shows it as a tidy poster card — the video's thumbnail with a play button — and clicking the card opens the video in your web browser. The video plays where you already watch videos, not inside your notes.</p>
 
-    <h2 id="syntax">The <code>youtube</code> fence</h2>
-    <p>A media embed is a fenced code block whose language is <code>youtube</code>. The first non-empty line is the video URL; any lines after it become an optional caption, shown on the card in place of the default "Watch on YouTube" label.</p>
+    <h2 id="syntax">Adding a video</h2>
+    <p>The easiest way is to right-click in the editor and choose <b>Elements → YouTube Video</b>. That drops in an empty video cell with the cursor ready for you to paste a link.</p>
+
+    <p>A video cell holds the link on its first line. Anything you type on the lines below becomes a caption, shown under the card in place of the default "Watch on YouTube" label:</p>
 
 <pre><code>```youtube
 https://www.youtube.com/watch?v=aBcDeFgHiJk
 Feynman on how rubber bands work
 ```</code></pre>
 
-    <p>To insert one, right-click in the editor and choose <b>Elements → YouTube Video</b> — it drops an empty fence with the cursor inside, ready for a pasted URL.</p>
+    <h2 id="urls">Any YouTube link works</h2>
+    <p>Paste the link in whatever form you have it — the one from the address bar, the one the Share button copies, a Shorts link, or a link pulled from an embed snippet. Minerva sorts it out and tidies it up, dropping tracking bits along the way, so the card always points to a clean link to the video.</p>
 
-    <h2 id="urls">Accepted URL forms</h2>
-    <p>Paste the URL in whatever shape YouTube gave you — the address bar, the Share button, or an embed snippet all work. Minerva recognizes:</p>
+    <p>If your link starts the video at a particular moment — a "start at 1:30" link — that offset is kept. Click the card and the video opens right at that point.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k"><code>youtube.com/watch?v=ID</code></div>
-        <div class="v"><b>Standard watch URL.</b> The address-bar form. Extra query parameters (<code>&amp;list=</code>, <code>&amp;si=</code>, <code>&amp;feature=</code>, …) are tolerated and stripped.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>youtu.be/ID</code></div>
-        <div class="v"><b>Share link.</b> The short form the Share button copies.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>…/shorts/ID</code></div>
-        <div class="v"><b>Shorts.</b> A Short embeds like any other video.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>…/embed/ID</code> <code>…/live/ID</code> <code>…/v/ID</code></div>
-        <div class="v"><b>Embed, live, and legacy paths.</b> Useful when you're pasting a URL dug out of an <code>&lt;iframe&gt;</code> snippet. The privacy domain <code>youtube-nocookie.com</code> is accepted too.</div>
-      </div>
-    </div>
+    <h2 id="rendering">The poster card</h2>
+    <p>In the reading view, the video appears as a poster card: the thumbnail with a play button, your caption beneath it, and a small line showing that the link leads to YouTube. Click the card to open the video in your browser.</p>
 
-    <p><code>www.</code> and <code>m.</code> prefixes and <code>http</code> vs. <code>https</code> don't matter. Whatever form you paste, Minerva normalizes it to a clean <code>youtube.com/watch?v=ID</code> link with tracking parameters removed — that normalized URL is what opens when you click the card.</p>
+    <figure class="shot-img">
+      <img src="img/notes-media.png" alt="A note showing a video as a poster card: the thumbnail with a centered play button, a caption below it, and a line noting the link goes to YouTube." loading="lazy" />
+      <figcaption>Screenshot — a video poster card</figcaption>
+    </figure>
 
-    <h3 id="timestamps">Timestamps</h3>
-    <p>A <code>t=</code> or <code>start=</code> parameter survives normalization, so a "start at 1:30" link keeps its offset. Both the bare-seconds form (<code>t=90</code>) and the colloquial forms (<code>t=90s</code>, <code>t=2m30s</code>, <code>t=1h2m3s</code>) are understood; the canonical link becomes <code>watch?v=ID&amp;t=90s</code>.</p>
-
-    <h2 id="rendering">How the card renders</h2>
-    <p>In preview, the fence becomes a poster card: the video's thumbnail with a play button over it, your caption (or "Watch on YouTube") beneath, and a <code>youtube.com</code> host line so it's obvious where a click leads. Clicking the card — or focusing it and pressing <kbd>Enter</kbd>; it's an ordinary link — opens the video in your default browser, at the timestamp if the URL carried one.</p>
-
-    <div class="shot wide">
-      <div class="icon">🎬</div>
-      <div class="k">Screenshot — YouTube poster card in preview</div>
-      <div class="d">A rendered note with a youtube-fence poster card: the video thumbnail with a centered play button, a caption line below it, and the youtube.com host label.</div>
-    </div>
-
-    <div class="box">
-      <span class="label">Why not an inline player?</span>
-      <p>An embedded player means YouTube's scripts and cookies running inside your knowledge base. Minerva's renderer forbids third-party frames outright, so the card is the whole story: the only network request is for the static thumbnail image, made when you view the note, and playback happens in your browser where you already manage that relationship.</p>
-    </div>
-
-    <h2 id="export">On export</h2>
-    <p>The interactive card is meaningless in an exported file, so when you publish or export a note each <code>youtube</code> fence degrades to a linked thumbnail — the poster image wrapped in a link to the video, <code>[![caption](thumbnail)](watch-url)</code> in markdown terms. A reader of the exported artifact still sees the poster and can click through to watch.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Paste a full URL, scheme and all.</b> A bare video id or a schemeless <code>youtube.com/watch?v=…</code> doesn't parse — the fence renders an "Unrecognized YouTube URL" error in its place. Copy the complete <code>https://</code> URL from the browser or the Share button. The error is inline and harmless; fix the URL and the card appears.</li>
-      <li><b>One video per fence.</b> Only the first non-empty line is read as the URL. A second URL on a later line isn't a second embed — it's caption text.</li>
-      <li><b>Videos only, not playlists or channels.</b> Playlist, channel, and <code>@handle</code> URLs don't resolve. A watch URL that carries a <code>&amp;list=</code> parameter embeds fine, but the playlist context is dropped — the card links to that single video.</li>
-      <li><b>No title lookup.</b> Fetching the real title would mean calling YouTube every time the note renders, which Minerva won't do. The card shows your caption or the generic "Watch on YouTube" — write a caption if the note should read well.</li>
-      <li><b>Offline, the thumbnail is blank.</b> The poster image comes from <code>img.youtube.com</code> when the note is viewed. Without a network the card still renders — caption, play button, working link — just without the picture, and the image fills in next time you view the note online.</li>
-    </ul>
+    <p>When you export or publish a note, the card becomes a clickable thumbnail image so anyone reading the exported note can still see the poster and click through to watch.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-images.html">
+      <a class="prev" href="notes-flashcards.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Images</span>
+        <span class="ttl">← Flashcards</span>
       </a>
-      <a class="next" href="notes-footnotes.html">
+      <a class="next" href="notes-math.html">
         <span class="dir">Next</span>
-        <span class="ttl">Footnotes →</span>
+        <span class="ttl">Math →</span>
       </a>
     </div>
   </main>

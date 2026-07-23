@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Breadcrumbs</title>
-<meta name="description" content="The breadcrumb trail above the note title: how it derives from the active file's folder path, clicking a segment to reveal that folder in the sidebar, and how it updates when you switch notes." />
+<meta name="description" content="The breadcrumb trail above the note title shows where the current note lives, and lets you jump back to its folder in the sidebar with a click." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -82,53 +82,36 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Breadcrumbs</p>
 
     <h1>Breadcrumbs</h1>
-    <p class="lede">A thin bar sits above the note title showing where the current file lives in your folder tree — each folder in the path, then the note's own name. It's a persistent read-out, not a menu: there's nothing to open or trigger, just a live trail that tells you where you are and a fast way to jump back to that spot in the sidebar.</p>
+    <p class="lede">A thin bar above the note title shows where the current note sits in your folders — each folder along the way, then the note's own name. It's just a signpost telling you where you are, plus a quick way to jump back to that folder in the sidebar.</p>
 
     <h2 id="trail">What the trail shows</h2>
-    <p>The bar renders one segment per folder in the active file's project-relative path, followed by the note's own name as the final segment. A project note at <code>research/interviews/q3-notes.md</code> shows as <code>research › interviews › q3-notes</code>.</p>
+    <p>The bar lists each folder that contains the note, from the outermost inward, ending with the note's own name. A note filed under research, then interviews, shows as <b>research › interviews › q3-notes</b>. A note that isn't inside any folder shows just its own name.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Folder segment</div>
-        <div class="v">One per directory in the path. Clickable — jumps to that folder in the sidebar (see below). A note at the project root has no folder segments at all; the bar shows only the leaf.</div>
+        <div class="k">Folder steps</div>
+        <div class="v">One for each folder the note lives inside. Click any of them to reveal that folder in the sidebar.</div>
       </div>
       <div class="row">
-        <div class="k">Leaf segment</div>
-        <div class="v">The current note's own name, always last. Rendered in italic to distinguish it from the folder chain, and set off with <code>aria-current="page"</code>. <b>Not clickable</b> — you're already looking at it, so there's nothing for a click to do.</div>
+        <div class="k">The note's name</div>
+        <div class="v">Always last, shown in italic. It isn't clickable — you're already looking at it.</div>
       </div>
       <div class="row">
-        <div class="k">Heading chain <span style="opacity:0.7;font-weight:400;">(optional)</span></div>
-        <div class="v">If <b>Settings → Workspace → Behaviors</b> has "show heading chain" turned on, a <code>·</code> separator and the chain of headings your cursor currently sits under trail after the leaf, each one clickable to jump the editor to that heading's line. Off by default — recomputes as you move the cursor, which some people find distracting in a bar that otherwise only changes on tab switches.</div>
+        <div class="k">Heading trail <span style="opacity:0.7;font-weight:400;">(optional)</span></div>
+        <div class="v">You can turn on an extra trail of the headings your cursor currently sits under, in <b>Settings → Behaviors</b>. Click a heading to jump straight to it in the note. It's off by default because it updates as you move around, which some people find busy.</div>
       </div>
     </div>
 
-    <p>The project root itself isn't a segment — the trail starts at the first real folder under it. If a note lives directly in the project root, the breadcrumb bar shows only its leaf name with no folder segments before it.</p>
+    <figure class="shot-img">
+      <img src="img/navigation-breadcrumbs.png" alt="The thin breadcrumb bar above a note's title, showing a folder path like &quot;research › interviews › transcripts&quot; in muted text followed by the note's name in italic, with the folder steps highlighting as clickable on hover." loading="lazy" />
+      <figcaption>Screenshot — Breadcrumb trail for a note in nested folders</figcaption>
+    </figure>
 
-    <div class="shot wide">
-      <div class="icon">🍞</div>
-      <div class="k">Screenshot — Breadcrumb trail for a nested note</div>
-      <div class="d">The thin breadcrumb bar above a note's title, showing a multi-segment folder path (e.g. "research › interviews › transcripts") in muted text followed by the current note's name in italic, with the folder segments visibly clickable on hover.</div>
-    </div>
+    <h2 id="clicking">Clicking a folder</h2>
+    <p>Click any folder in the trail to reveal it in the sidebar: Minerva switches to the Notes panel, opens that folder and everything above it, and scrolls it into view — so you can see what else is filed alongside the note you're reading.</p>
 
-    <h2 id="clicking">Clicking a segment</h2>
-    <p>Clicking any folder segment reveals that folder in the left sidebar: it switches the sidebar to the Notes panel, expands the clicked folder and every ancestor above it, and scrolls it into view. It doesn't select or highlight a row — just expands the tree and brings the folder on screen so you can see what else lives alongside the current note.</p>
-
-    <div class="box">
-      <span class="label">The leaf is inert</span>
-      <p>The note's own name at the end of the trail isn't a button. There's no "reveal current file" click target there — use the tab's right-click menu ("Reveal in Sidebar") if you want that instead, which additionally selects the file and expands only its ancestors, not the file itself as a folder.</p>
-    </div>
-
-    <h2 id="updates">Updating as you switch notes</h2>
-    <p>The trail is derived directly from the active tab's file path, so it updates the instant you switch tabs or open a different note — no separate refresh step. There's no debounce on the folder chain itself; only the optional heading chain (when a cursor moves inside a heading) is throttled slightly so rapid cursor movement doesn't thrash the recomputation.</p>
-
-    <p>The bar disappears entirely when no note is open — there's nothing to show a path for on an empty pane.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No keyboard shortcut.</b> Breadcrumbs are a persistent display element, not a triggered action — there's nothing to invoke from the command palette or bind a key to. Click a segment, or use the sidebar directly.</li>
-      <li><b>Long paths shrink the folders, not the leaf.</b> When the trail is too wide for the pane, folder segments truncate with an ellipsis first — the leaf (your current note) is pinned to always stay fully visible, so a deeply nested path loses its middle folders before it ever crowds out the file you're looking at.</li>
-      <li><b>The root/project name never appears.</b> The trail is relative to the project, not the filesystem — you won't see your project's own folder name as a leading segment.</li>
-    </ul>
+    <h2 id="updates">As you move around</h2>
+    <p>The trail updates the moment you switch to a different note or tab. When no note is open, the bar simply isn't there.</p>
 
     <div class="pager">
       <a class="prev" href="navigation-search.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Markdown Formatting</title>
-<meta name="description" content="A quick-reference table of every markdown syntax Minerva renders — basics like headers and lists in full, plus a one-line pointer to the dedicated page for anything more elaborate." />
+<meta name="description" content="A scannable reference to the markdown Minerva understands — headings, emphasis, lists, and more — with pointers to the fuller pages for richer content." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,99 +81,97 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Markdown formatting</p>
 
     <h1>Markdown formatting</h1>
-    <p class="lede">Minerva renders standard markdown, plus a set of extensions for research and knowledge work. This page is a scannable reference — syntax on the left, what it renders as on the right — not a tutorial. The basics are covered in full below; anything more elaborate links out to its own page with the complete syntax and behavior.</p>
+    <p class="lede">You write notes in Minerva using markdown — plain text with a few simple marks that turn into formatting. This page is a quick reference: the mark you type on the left, what it becomes on the right. The everyday basics are covered in full here; richer content links out to its own page.</p>
 
     <h2 id="basics">The basics</h2>
-    <p>Headers, emphasis, lists, blockquotes, and inline code follow standard CommonMark, with one deliberate deviation noted below.</p>
+    <p>Headings, emphasis, lists, quotes, and inline code work the way you'd expect from markdown.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><code># … ######</code></div>
-        <div class="v">Headings, level 1 through 6 — <code># H1</code>, <code>## H2</code>, and so on. Minerva is <b>ATX-only</b>: the underline style (<code>Heading\n---</code>) is deliberately disabled, so a line followed by a row of dashes stays plain text rather than becoming a heading. Every rendered heading gets a stable id for <a href="notes-links.html">wiki-link</a> anchors like <code>[[note#heading]]</code>.</div>
+        <div class="v">Headings, from large to small — <code># H1</code>, <code>## H2</code>, and so on down to six levels. You can jump straight to any heading from another note with a link like <code>[[note#heading]]</code>. See <a href="notes-links.html">Links</a>.</div>
       </div>
       <div class="row">
         <div class="k"><code>**bold**</code> / <code>__bold__</code></div>
-        <div class="v">Both delimiters work — <b>bold text</b>.</div>
+        <div class="v">Either style gives you <b>bold text</b>.</div>
       </div>
       <div class="row">
         <div class="k"><code>*italic*</code> / <code>_italic_</code></div>
-        <div class="v">Both delimiters work — <em>italic text</em>.</div>
+        <div class="v">Either style gives you <em>italic text</em>.</div>
       </div>
       <div class="row">
         <div class="k"><code>- item</code> / <code>* item</code> / <code>1. item</code></div>
-        <div class="v">Unordered lists (either <code>-</code> or <code>*</code>) and ordered lists (any number followed by <code>.</code>). Indent a nested item by four spaces to sublist it. A list item starting with <code>[ ]</code> or <code>[x]</code> becomes an interactive checkbox instead — see <a href="notes-tasks.html">Task lists</a>.</div>
+        <div class="v">Bulleted lists (start a line with <code>-</code> or <code>*</code>) and numbered lists (a number followed by <code>.</code>). Indent an item to tuck it under the one above. Start an item with <code>[ ]</code> or <code>[x]</code> and it becomes a checkbox you can tick — see <a href="notes-tasks.html">Task lists</a>.</div>
       </div>
       <div class="row">
         <div class="k"><code>&gt; quoted text</code></div>
-        <div class="v">A blockquote, indented and set off with a rule along the left edge. Prefix the first line with <code>[!type]</code> — <code>[!note]</code>, <code>[!tip]</code>, <code>[!warning]</code>, <code>[!card]</code>, and more — and it becomes a titled, colored callout instead of a plain quote. See <a href="notes-callouts.html">Callouts &amp; cards</a>.</div>
+        <div class="v">A quote, set off with a line along the left edge. Begin the first line with a tag like <code>[!note]</code>, <code>[!tip]</code>, or <code>[!warning]</code> and it turns into a titled, colored callout instead. See <a href="notes-callouts.html">Callouts</a>.</div>
       </div>
       <div class="row">
         <div class="k"><code>---</code></div>
-        <div class="v">A horizontal rule, as long as it sits on its own line with a blank line before and after. The one exception: three dashes as the very first line of the file instead opens a YAML <a href="notes-frontmatter.html">frontmatter</a> block, closed by a matching <code>---</code> further down.</div>
+        <div class="v">Three dashes on their own line draw a horizontal divider. (Three dashes at the very top of a note instead start a <a href="notes-frontmatter.html">properties</a> block.)</div>
       </div>
       <div class="row">
         <div class="k"><code>`inline code`</code></div>
-        <div class="v">Monospaced <code>inline code</code>, no syntax highlighting.</div>
+        <div class="v">Wrap a word in backticks for <code>inline code</code> in a monospaced font.</div>
       </div>
       <div class="row">
-        <div class="k"><code>```lang … ```</code></div>
-        <div class="v">A fenced code block, syntax-highlighted by language. Fence a block <code>sparql</code>, <code>sql</code>, or <code>python</code> and it becomes a runnable cell with its result written back into the note. See <a href="notes-code.html">Code &amp; compute cells</a>.</div>
+        <div class="k">code cells</div>
+        <div class="v">Set off a block of code and label it with a language for syntax coloring. Label a cell <code>sparql</code>, <code>sql</code>, or <code>python</code> and you can run it, with the result written back into the note. See <a href="notes-code.html">Code &amp; compute cells</a>.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">✍️</div>
-      <div class="k">Screenshot — Basic markdown rendered in Preview</div>
-      <div class="d">A note's Preview pane showing an H2 heading, a paragraph with bold and italic phrases, an unordered list with a nested sub-item, a blockquote, a horizontal rule, and an inline code span, all rendered together to show how the basics look side by side.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/editor-markdown-formatting.png" alt="A note showing a heading, a paragraph with bold and italic words, a bulleted list with a nested item, a quote, a divider, and an inline code span — the everyday building blocks side by side." loading="lazy" />
+      <figcaption>The basics, rendered</figcaption>
+    </figure>
 
     <h2 id="more">Everything else</h2>
-    <p>These have their own page with full syntax, rendering details, and any gotchas — this row is just a pointer:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k"><a href="notes-links.html">Links &amp; wiki-links</a></div>
-        <div class="v"><code>[[Note Title]]</code> resolves and renders as a live link into the knowledge graph; standard <code>[text](url)</code> links also work. Links can carry a relationship type, like <em>supports</em> or <em>rebuts</em>.</div>
+        <div class="k"><a href="notes-links.html">Links</a></div>
+        <div class="v">Type <code>[[Note Title]]</code> to link to another note; ordinary <code>[text](url)</code> web links work too. A link can also carry a relationship, like <em>supports</em> or <em>rebuts</em>.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-images.html">Images</a></div>
-        <div class="v">Standard <code>![alt](path)</code> syntax. PNG, JPEG, GIF, WebP, SVG, and AVIF render inline and can be clicked to enlarge.</div>
+        <div class="v">Drop in an image with <code>![alt](path)</code>. It shows inline and enlarges when clicked.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-tables.html">Tables</a></div>
-        <div class="v">Standard pipe-delimited markdown tables — header row, alignment row, data rows. Every table is also parsed into the graph as CSVW structured data on save.</div>
+        <div class="v">Build a table with rows of cells separated by <code>|</code> bars. Minerva also treats each table as data you can query.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-footnotes.html">Footnotes</a></div>
-        <div class="v">An inline <code>[^id]</code> marker paired with a <code>[^id]: definition</code> anywhere in the file, collected at the bottom of the note.</div>
+        <div class="v">Drop a marker like <code>[^1]</code> in your text and define it anywhere in the note; the definitions gather at the bottom.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-highlights.html">Highlights</a></div>
-        <div class="v">Wrap text in <code>==double equals==</code> for a tinted inline highlight span.</div>
+        <div class="v">Wrap text in <code>==double equals==</code> to give it a highlighter tint.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-tasks.html">Task lists</a></div>
-        <div class="v">A list item starting with <code>[ ]</code> or <code>[x]</code> renders as a clickable checkbox that writes its state straight back to the source.</div>
+        <div class="v">A list item that starts with <code>[ ]</code> or <code>[x]</code> becomes a checkbox you can click to mark done.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-math.html">Math</a></div>
-        <div class="v"><code>$inline$</code> and <code>$$display$$</code> LaTeX, rendered with KaTeX — the same convention as Pandoc.</div>
+        <div class="v">Write mathematical notation between <code>$</code> for inline or <code>$$</code> for a centered formula.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-diagrams.html">Diagrams</a></div>
-        <div class="v">A <code>```mermaid</code> fence renders as a live diagram — flowcharts, sequence diagrams, and anything else Mermaid draws.</div>
+        <div class="v">Describe a flowchart, sequence diagram, and more in a diagram cell and Minerva draws it for you.</div>
       </div>
       <div class="row">
         <div class="k"><a href="notes-charts.html">Charts</a></div>
-        <div class="v">A Vega or Vega-Lite JSON spec in a fenced code block renders as an interactive chart, optionally bound to a live SPARQL query or dataset.</div>
+        <div class="v">Add a chart cell to turn your data into an interactive graph, optionally fed by a live query.</div>
       </div>
       <div class="row">
-        <div class="k"><a href="notes-callouts.html">Callouts &amp; cards</a></div>
-        <div class="v">A blockquote whose first line is <code>[!type]</code> becomes a titled note/tip/warning-style box; <code>[!card]</code> renders as a front/back flashcard.</div>
+        <div class="k"><a href="notes-callouts.html">Callouts</a></div>
+        <div class="v">A quote that opens with a tag like <code>[!tip]</code> becomes a titled callout box; <code>[!card]</code> makes a two-sided flashcard.</div>
       </div>
       <div class="row">
-        <div class="k"><a href="notes-rdf.html">Turtle / RDF</a></div>
-        <div class="v">A <code>```turtle</code> fence lets you hand-author graph triples directly in a note; Minerva merges them into <code>.minerva/graph.ttl</code> on save.</div>
+        <div class="k"><a href="notes-rdf.html">Graph facts</a></div>
+        <div class="v">Write structured facts directly in a note and Minerva folds them into your knowledge base.</div>
       </div>
     </div>
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Related</title>
-<meta name="description" content="The Related panel surfaces notes, sources, and excerpts that are semantically similar to the one you're viewing, ranked by embedding similarity — distinct from the explicit, authored connections in Backlinks and Outgoing links." />
+<meta name="description" content="The Related panel suggests notes, sources, and excerpts that read like the one you're viewing — connections found by meaning, not by links you typed." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,52 +88,39 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Related</p>
 
     <h1>Related</h1>
-    <p class="lede">The <b>Related</b> panel suggests notes, sources, and quoted excerpts that read like the one you're viewing — without either side having to link to the other. It's computed entirely from semantic embedding similarity, not from anything you've written or linked, which makes it the one right-sidebar panel that surfaces connections you never authored.</p>
+    <p class="lede">The <b>Related</b> panel suggests notes, sources, and quoted excerpts that read like the one you're viewing — without either side having to link to the other. It finds connections by meaning, so it's the one panel that surfaces things you never thought to link together.</p>
 
     <div class="box">
-      <span class="label">Implicit, not explicit</span>
-      <p><a href="right-sidebar-backlinks.html">Backlinks</a> and <a href="right-sidebar-outgoing-links.html">Outgoing links</a> both read the knowledge graph — they only ever show connections that exist because a wiki-link was typed somewhere. Related reads a separate vector store instead: it has no idea whether two notes link to each other, only whether their text is close in meaning. A note can be full of related suggestions while having zero backlinks, and a heavily-linked note can have nothing related if nothing else in the project resembles its content.</p>
+      <span class="label">Found by meaning, not by links</span>
+      <p><a href="right-sidebar-backlinks.html">Backlinks</a> and <a href="right-sidebar-outgoing-links.html">Outgoing links</a> only ever show connections you made by typing a wiki-link. Related is different: it doesn't care whether two notes link to each other, only whether they cover similar ground. A note with no links at all can be full of related suggestions, and a heavily-linked note may have nothing related if nothing else you've written resembles it.</p>
     </div>
 
-    <h2 id="how-it-works">How ranking works</h2>
-    <p>Every note, source body, and quoted excerpt in the project is split into sections and embedded into a 384-dimension vector using a local model — <code>all-MiniLM-L6-v2</code>, run fully offline through onnxruntime-web (WASM), not a cloud API and not transformers.js. Embedding happens automatically as you save; there's no separate "reindex" command to remember to run. The panel then ranks every other item by cosine similarity to the current note's own stored sections, taking each candidate's single best-matching section, and lists the closest matches first.</p>
+    <h2 id="how-it-works">How matches are chosen</h2>
+    <p>Minerva compares the meaning of the note you're viewing against everything else in your project and lists the closest matches first. Matching happens quietly on its own as you write and save — there's nothing to run or refresh.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">What's ranked</div>
-        <div class="v">Semantic similarity only — cosine distance between embedding vectors. There's no graph-proximity component (shared tags, shared links, or folder location don't factor in at all); two notes can be textually similar despite never having been linked, tagged alike, or filed near each other.</div>
-      </div>
-      <div class="row">
         <div class="k">What's compared</div>
-        <div class="v">The current note's stored section vectors against every other indexed note, source body, and highlighted excerpt in the project — three corpora in one ranked list, distinguished by a small kind icon on each row.</div>
+        <div class="v">Your current note against every other note, source, and highlighted excerpt in the project — all three appear in one ranked list, each marked with a small icon showing what kind of item it is.</div>
       </div>
       <div class="row">
-        <div class="k">Similarity score</div>
-        <div class="v">Shown as a short bar next to each title rather than a raw number, with the exact percentage in its tooltip. It's a deliberately quiet affordance — a muted bar, not a scary red/green gauge — since a low score isn't a problem to fix, just a weaker match.</div>
+        <div class="k">How closeness is shown</div>
+        <div class="v">A short bar next to each title, with the exact percentage in its tooltip. It's meant to be read at a glance — a low match isn't a problem to fix, just a looser connection.</div>
       </div>
     </div>
 
-    <h2 id="reading">Reading a row</h2>
-    <p>Each result shows a kind icon, the title, the similarity bar, the heading of the best-matching section (when the source has headings), and a short snippet of the matching text. Clicking a note or excerpt row navigates straight to that section; clicking a source opens the source viewer. A row can also be picked up and dragged into the editor to insert a wiki-link, the same as dragging a file from the sidebar.</p>
+    <h2 id="reading">Reading a result</h2>
+    <p>Each result shows what kind of item it is, its title, the closeness bar, the heading of the part that matched best, and a short snippet of that text. Click a note or excerpt to jump straight to the matching section; click a source to open it. You can also drag any result into the editor to drop in a link to it, just like dragging a file from the sidebar.</p>
 
     <div class="box">
       <span class="label">Suggesting a link</span>
-      <p>A related note that scores highly (above roughly 45% similarity) and isn't already linked to the current note in either direction gets a subtle left-edge accent plus a small link button — a low-key nudge that this might be worth an explicit link, not a demand. Clicking it inserts a <code>[[wiki-link]]</code> under a "See also" heading; the × next to it dismisses the suggestion for that specific note pair, remembered locally so it doesn't keep resurfacing. A note that's already linked via Backlinks or Outgoing links can still appear here — being related and being linked aren't mutually exclusive — it simply won't get the suggest affordance.</p>
+      <p>When a note is a strong match and isn't already linked to the one you're viewing, it gets a gentle accent and a small link button — a quiet nudge that it might be worth connecting, not a demand. Clicking it drops a link to that note under a "See also" heading. The × beside it dismisses that one suggestion so it won't keep coming back. A note that's already linked can still show up here — being related and being linked aren't the same thing — it just won't get the nudge.</p>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🧭</div>
-      <div class="k">Screenshot — Related panel with a link suggestion</div>
-      <div class="d">The right sidebar's Related panel listing several results — a mix of note and source kind icons, each with a muted similarity bar, a section-heading breadcrumb, and a two-line snippet — with the top row showing the faint left-edge accent and link/dismiss buttons that mark an unlinked, high-similarity suggestion.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>A brand-new note has nothing to compare yet.</b> Related depends on the note's own content already being embedded; a note you just created and haven't saved with any real text yet won't have a meaningful vector, so the panel reads as empty rather than showing weak or irrelevant matches.</li>
-      <li><b>A small project may not have enough to suggest.</b> With only a handful of notes, or notes that don't overlap in subject matter, "No related notes found" is a normal, expected result — it isn't a sign anything is broken.</li>
-      <li><b>Indexing takes a moment on a project that's new to semantic search.</b> The first time embeddings are enabled for a thoughtbase, a background backfill has to embed the existing corpus; until that finishes, the panel shows an indexing message rather than treating an empty result as final.</li>
-      <li><b>Semantic search can be unavailable entirely.</b> If the vector store isn't initialized for the current project, the panel says so plainly instead of pretending there are no matches.</li>
-    </ul>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-related.png" alt="The Related panel listing several results — a mix of notes and sources, each with a closeness bar, the heading that matched, and a short snippet — with the top row showing the accent and link and dismiss buttons that mark a strong, not-yet-linked suggestion." loading="lazy" />
+      <figcaption>Screenshot — Related panel with a link suggestion</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-tags.html">
