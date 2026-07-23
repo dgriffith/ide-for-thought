@@ -1,6 +1,7 @@
-import { ipcMain, dialog } from 'electron';
+import { dialog } from 'electron';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
@@ -11,42 +12,42 @@ import { withRootPath, withRootPathOr } from './helpers';
 
 export function registerGraph(): void {
   // Graph
-  ipcMain.handle(Channels.GRAPH_QUERY, withRootPath((rootPath, sparql: string) =>
+  handle(Channels.GRAPH_QUERY, withRootPath((rootPath, sparql: string) =>
     graph.queryGraph(projectContext(rootPath), sparql)));
 
   // Tables (DuckDB)
-  ipcMain.handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, (rootPath, sql: string) =>
+  handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, (rootPath, sql: string) =>
     tables.runQuery(projectContext(rootPath), sql)));
 
-  ipcMain.handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
+  handle(Channels.TABLES_LIST, withRootPathOr<[], TableInfo[] | Promise<TableInfo[]>>([], (rootPath) =>
     tables.listTables(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, withRootPathOr(null, (rootPath) =>
+  handle(Channels.GRAPH_SCHEMA_FOR_COMPLETION, withRootPathOr(null, (rootPath) =>
     graph.schemaForCompletion(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_SOURCE_DETAIL, withRootPathOr(null, (rootPath, sourceId: string) =>
+  handle(Channels.GRAPH_SOURCE_DETAIL, withRootPathOr(null, (rootPath, sourceId: string) =>
     graph.getSourceDetail(projectContext(rootPath), sourceId)));
 
-  ipcMain.handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPathOr(null, (rootPath, excerptId: string) =>
+  handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPathOr(null, (rootPath, excerptId: string) =>
     graph.getExcerptSource(projectContext(rootPath), excerptId)));
 
-  ipcMain.handle(Channels.GRAPH_ALIAS_MAP, withRootPathOr({}, (rootPath) =>
+  handle(Channels.GRAPH_ALIAS_MAP, withRootPathOr({}, (rootPath) =>
     graph.getAliasMap(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_ALIAS_ENTRIES, withRootPathOr([], (rootPath) =>
+  handle(Channels.GRAPH_ALIAS_ENTRIES, withRootPathOr([], (rootPath) =>
     graph.getAliasEntries(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.GRAPH_FRONTMATTER_KEYS, withRootPathOr([], (rootPath) =>
+  handle(Channels.GRAPH_FRONTMATTER_KEYS, withRootPathOr([], (rootPath) =>
     graph.getAllFrontmatterKeys(projectContext(rootPath))));
 
   // Inspections
-  ipcMain.handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
+  handle(Channels.INSPECTIONS_LIST, withRootPathOr([], (rootPath) =>
     healthChecks.getInspections(projectContext(rootPath))));
-  ipcMain.handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], (rootPath) =>
+  handle(Channels.INSPECTIONS_RUN, withRootPathOr<[], Inspection[] | Promise<Inspection[]>>([], (rootPath) =>
     healthChecks.runAllChecks(projectContext(rootPath))));
 
   // Grounding check — fuzzy match a claim against graph labels
-  ipcMain.handle(Channels.GRAPH_GROUND_CHECK, withRootPathOr<[string], unknown[] | Promise<unknown[]>>([], async (rootPath, claimText: string) => {
+  handle(Channels.GRAPH_GROUND_CHECK, withRootPathOr<[string], { node: string; label: string; type: string }[] | Promise<{ node: string; label: string; type: string }[]>>([], async (rootPath, claimText: string) => {
     const escaped = claimText.replace(/"/g, '\\"').replace(/\n/g, ' ');
     const results = await graph.queryGraph(projectContext(rootPath), `
       PREFIX dc: <http://purl.org/dc/terms/>
@@ -59,11 +60,13 @@ export function registerGraph(): void {
         FILTER(CONTAINS(LCASE(?label), LCASE("${escaped}")))
       } LIMIT 5
     `);
-    return results.results;
+    // The SELECT projects exactly ?node ?label ?type — narrow the generic
+    // row shape to the typed contract the renderer consumes.
+    return results.results as { node: string; label: string; type: string }[];
   }));
 
   // Graph management
-  ipcMain.handle(Channels.GRAPH_EXPORT, withRootPathOr(undefined, async (rootPath) => {
+  handle(Channels.GRAPH_EXPORT, withRootPathOr(undefined, async (rootPath) => {
     const result = await dialog.showSaveDialog({
       title: 'Export Graph',
       defaultPath: 'graph.ttl',

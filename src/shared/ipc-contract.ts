@@ -37,6 +37,7 @@ import type {
   NeighborhoodResult,
   NeighborhoodHop,
   RelatedNotesResult,
+  SourceDetail,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 
@@ -148,4 +149,39 @@ export interface ChannelMap {
   // Embeddings (semantic search)
   'embeddings:related': (relativePath: string, limit?: number) => RelatedNotesResult;
   'embeddings:searchText': (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) => RelatedNotesResult;
+
+  // Graph
+  'graph:query': (sparql: string) => { results: unknown[]; columns: string[]; error?: string };
+  'graph:groundCheck': (claimText: string) => { node: string; label: string; type: string }[];
+  'graph:export': () => void;
+  'graph:sourceDetail': (sourceId: string) => SourceDetail | null;
+  'graph:excerptSource': (excerptId: string) => { sourceId: string } | null;
+  'graph:schemaForCompletion': () =>
+    | { prefixes: Array<{ prefix: string; iri: string }>; predicates: Array<{ iri: string; prefixed?: string }>; classes: Array<{ iri: string; prefixed?: string }> }
+    | null;
+  'graph:aliasMap': () => Record<string, string>;
+  'graph:aliasEntries': () => Array<{ alias: string; relativePath: string }>;
+  'graph:frontmatterKeys': () => string[];
+
+  // Inspections (graph health checks)
+  'inspections:list': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[];
+  'inspections:run': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[];
+
+  // Tables (DuckDB)
+  'tables:query': (sql: string) =>
+    | { ok: true; columns: string[]; rows: Record<string, unknown>[] }
+    | { ok: false; error: string };
+  'tables:list': () => Array<{
+    name: string;
+    relativePath: string;
+    columns: string[];
+    rowCount: number;
+    source: 'csv' | 'note';
+    caption?: string;
+    tableIndex?: number;
+  }>;
+
+  // App / build metadata
+  'app:getInfo': () => { name: string; version: string; commit: string; buildDate: string; electron: string; chrome: string; node: string };
+  'app:getShortcuts': () => Array<{ menu: string; items: Array<{ label: string; keys: string }> }>;
 }

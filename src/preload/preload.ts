@@ -114,17 +114,17 @@ contextBridge.exposeInMainWorld('api', {
     commit: (message: string) => invoke(Channels.GIT_COMMIT, message),
   },
   graph: {
-    query: (sparql: string) => ipcRenderer.invoke(Channels.GRAPH_QUERY, sparql),
-    groundCheck: (claimText: string) => ipcRenderer.invoke(Channels.GRAPH_GROUND_CHECK, claimText),
-    inspections: () => ipcRenderer.invoke(Channels.INSPECTIONS_LIST),
-    runInspections: () => ipcRenderer.invoke(Channels.INSPECTIONS_RUN),
-    export: () => ipcRenderer.invoke(Channels.GRAPH_EXPORT),
-    sourceDetail: (sourceId: string) => ipcRenderer.invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
-    excerptSource: (excerptId: string) => ipcRenderer.invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
-    schemaForCompletion: () => ipcRenderer.invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
-    aliasMap: () => ipcRenderer.invoke(Channels.GRAPH_ALIAS_MAP),
-    aliasEntries: () => ipcRenderer.invoke(Channels.GRAPH_ALIAS_ENTRIES),
-    frontmatterKeys: () => ipcRenderer.invoke(Channels.GRAPH_FRONTMATTER_KEYS),
+    query: (sparql: string) => invoke(Channels.GRAPH_QUERY, sparql),
+    groundCheck: (claimText: string) => invoke(Channels.GRAPH_GROUND_CHECK, claimText),
+    inspections: () => invoke(Channels.INSPECTIONS_LIST),
+    runInspections: () => invoke(Channels.INSPECTIONS_RUN),
+    export: () => invoke(Channels.GRAPH_EXPORT),
+    sourceDetail: (sourceId: string) => invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
+    excerptSource: (excerptId: string) => invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
+    schemaForCompletion: () => invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
+    aliasMap: () => invoke(Channels.GRAPH_ALIAS_MAP),
+    aliasEntries: () => invoke(Channels.GRAPH_ALIAS_ENTRIES),
+    frontmatterKeys: () => invoke(Channels.GRAPH_FRONTMATTER_KEYS),
   },
   embeddings: {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
@@ -135,8 +135,8 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.EMBEDDINGS_SEARCH_TEXT, query, opts),
   },
   tables: {
-    query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
-    list: () => ipcRenderer.invoke(Channels.TABLES_LIST),
+    query: (sql: string) => invoke(Channels.TABLES_QUERY, sql),
+    list: () => invoke(Channels.TABLES_LIST),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.TABLES_CHANGED, () => cb());
     },
@@ -198,8 +198,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
   },
   app: {
-    getInfo: () => ipcRenderer.invoke(Channels.APP_GET_INFO),
-    getShortcuts: () => ipcRenderer.invoke(Channels.APP_GET_SHORTCUTS),
+    getInfo: () => invoke(Channels.APP_GET_INFO),
+    getShortcuts: () => invoke(Channels.APP_GET_SHORTCUTS),
   },
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).
