@@ -260,7 +260,7 @@ export default tseslint.config(
           // settings: clipper / tools / bibliography / csl / sites / skills / compute
           'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
           'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
-          'interruptPythonKernel|saveCellOutput|setPythonTrust|' +
+          'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
           // publish / proposals / graph actions
           'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
           // conversations

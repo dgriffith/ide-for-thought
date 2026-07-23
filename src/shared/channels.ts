@@ -545,6 +545,12 @@ export const Channels = {
   /** Grant consent for this cell (`scope: 'cell'`) or the whole thoughtbase
    *  (`scope: 'project'`). Stored per-machine, never in the thoughtbase. */
   COMPUTE_GRANT_CONSENT: 'compute:grantConsent',
+  /** List every thoughtbase this machine has granted compute trust to, for the
+   *  Settings → Compute management list (#1413). */
+  COMPUTE_LIST_CONSENT: 'compute:listConsent',
+  /** Revoke all compute consent (blanket + remembered cells) for a thoughtbase
+   *  so its cells prompt eyes-on-code again (#1413). */
+  COMPUTE_REVOKE_CONSENT: 'compute:revokeConsent',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

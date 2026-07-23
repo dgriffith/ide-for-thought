@@ -53,3 +53,15 @@ export interface KernelMimeBundle {
   mime: string;
   data: unknown;
 }
+
+/**
+ * One thoughtbase's compute-trust standing on this machine (#1413), surfaced in
+ * Settings → Compute so the user can see and revoke what they've trusted.
+ * `blanket` = "trust all compute in this thoughtbase"; `cellCount` = individual
+ * cells consented eyes-on-code.
+ */
+export interface ComputeConsentSummary {
+  rootPath: string;
+  blanket: boolean;
+  cellCount: number;
+}

@@ -8,9 +8,32 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import type { ComputeConsentSummary } from '../../../shared/compute/types';
   import { getSettingsStore } from '../stores/settings.svelte';
 
   const settings = getSettingsStore();
+
+  /** Thoughtbases this machine has trusted for compute (#1413). */
+  let consent = $state<ComputeConsentSummary[]>([]);
+
+  async function loadConsent(): Promise<void> {
+    try {
+      consent = await api.compute.listConsent();
+    } catch (e) {
+      console.error('[settings] failed to load compute consent:', e);
+    }
+  }
+
+  async function revokeConsent(rootPath: string): Promise<void> {
+    await settings.revokeComputeConsent(rootPath);
+    await loadConsent();
+  }
+
+  /** Last path segment for the prominent label; the full path sits muted below. */
+  function baseName(p: string): string {
+    const parts = p.replace(/[/\\]+$/, '').split(/[/\\]/);
+    return parts[parts.length - 1] || p;
+  }
 
   let pythonPathInput = $state('');
   /** What's saved to disk; used to detect dirty state. */
@@ -72,7 +95,10 @@
     }
   }
 
-  onMount(loadComputeSettings);
+  onMount(() => {
+    void loadComputeSettings();
+    void loadConsent();
+  });
 </script>
 
 <div class="field">
@@ -157,6 +183,42 @@
     <em>Save &amp; Restart Kernel</em> so the next cell runs
     against the new env.
   </p>
+</div>
+
+<div class="field trust-field">
+  <label id="trust-heading">Trusted thoughtbases</label>
+  <p class="hint">
+    Compute cells run with real access to your machine, so each cell is
+    reviewed before its first run and the choice is remembered
+    <strong>per-machine</strong> (it never travels with a shared
+    thoughtbase). Revoke a thoughtbase here to make its cells prompt for
+    review again.
+  </p>
+
+  {#if consent.length === 0}
+    <p class="empty">No thoughtbases are trusted for compute yet.</p>
+  {:else}
+    <ul class="trust-list" aria-labelledby="trust-heading">
+      {#each consent as entry (entry.rootPath)}
+        <li class="trust-row">
+          <div class="trust-id">
+            <span class="trust-name">{baseName(entry.rootPath)}</span>
+            <span class="trust-path" title={entry.rootPath}>{entry.rootPath}</span>
+          </div>
+          <span class="trust-badge" class:blanket={entry.blanket}>
+            {#if entry.blanket}
+              Trusts all compute
+            {:else}
+              {entry.cellCount} {entry.cellCount === 1 ? 'cell' : 'cells'}
+            {/if}
+          </span>
+          <button class="action-btn" onclick={() => { void revokeConsent(entry.rootPath); }}>
+            Revoke
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 </div>
 
 <style>
@@ -266,5 +328,67 @@
     gap: 6px;
     align-items: center;
     margin: 8px 0;
+  }
+
+  /* Trusted-thoughtbases list (#1413). */
+  .trust-field {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .empty {
+    margin: 8px 0 0 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-style: italic;
+  }
+  .trust-list {
+    list-style: none;
+    margin: 8px 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .trust-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    background: var(--bg-button);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .trust-id {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+  .trust-name {
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .trust-path {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .trust-badge {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .trust-badge.blanket {
+    color: var(--accent);
+    border-color: var(--accent);
   }
 </style>

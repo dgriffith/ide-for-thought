@@ -40,7 +40,7 @@ import type {
   SourceDetail,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
-import type { CellResult, CellOutput } from './compute/types';
+import type { CellResult, CellOutput, ComputeConsentSummary } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
 import type { FormatSettings } from './formatter/engine';
@@ -302,6 +302,8 @@ export interface ChannelMap {
   'compute:browsePython': () => string | null;
   'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';
   'compute:grantConsent': (language: string, code: string, scope: 'cell' | 'project') => void;
+  'compute:listConsent': () => ComputeConsentSummary[];
+  'compute:revokeConsent': (rootPath: string) => void;
   'compute:saveCellOutput': (input: {
     sourcePath: string;
     cellLanguage: string;
