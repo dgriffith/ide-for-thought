@@ -45,6 +45,71 @@ _project_root = os.environ.get('MINERVA_PROJECT_ROOT')
 if _project_root and _project_root not in sys.path:
     sys.path.insert(1, _project_root)
 
+
+_LOCAL_HOSTS = frozenset({'127.0.0.1', '::1', 'localhost', '', '0.0.0.0'})
+
+
+def _is_local_address(address):
+    """True for addresses the network guard always permits (#1413).
+
+    AF_UNIX addresses are a str/bytes path (not a tuple) — always local; this is
+    how the kernel's own RPC channel to the main process rides, so it must never
+    be blocked. AF_INET/AF_INET6 addresses are a `(host, port, ...)` tuple; we
+    permit loopback only.
+    """
+    if not isinstance(address, tuple) or not address:
+        return True
+    host = address[0]
+    if host in _LOCAL_HOSTS:
+        return True
+    # 127.0.0.0/8 is entirely loopback.
+    return isinstance(host, str) and host.startswith('127.')
+
+
+def install_network_guard():
+    """Block outbound network from user cells unless explicitly allowed (#1413).
+
+    Defense-in-depth, NOT a hard sandbox. A determined cell can still shell out
+    (`subprocess`) or re-enter libc via `ctypes`; real capability containment is
+    the OS sandbox (#1329). But nearly every *accidental* or LLM-authored
+    exfiltration path — `requests`, `urllib`, `http.client`, a raw socket,
+    `pandas.read_csv('https://…')` — funnels through `socket.connect`, so
+    guarding it there makes "phone home" fail by default. Loopback + AF_UNIX
+    stay open so the kernel's RPC channel and localhost dev services keep working.
+
+    Enabled unless MINERVA_ALLOW_NETWORK == '1' (the Settings → Compute toggle).
+    """
+    if os.environ.get('MINERVA_ALLOW_NETWORK') == '1':
+        return
+    import socket
+
+    orig_connect = socket.socket.connect
+    orig_connect_ex = socket.socket.connect_ex
+
+    def _blocked(address):
+        raise OSError(
+            'Network access is disabled for Minerva compute cells. Enable it in '
+            'Settings → Compute if you trust this code (host: {!r}).'.format(
+                address[0] if isinstance(address, tuple) and address else address
+            )
+        )
+
+    def guarded_connect(self, address):
+        if not _is_local_address(address):
+            _blocked(address)
+        return orig_connect(self, address)
+
+    def guarded_connect_ex(self, address):
+        if not _is_local_address(address):
+            _blocked(address)
+        return orig_connect_ex(self, address)
+
+    socket.socket.connect = guarded_connect
+    socket.socket.connect_ex = guarded_connect_ex
+
+
+install_network_guard()
+
 namespaces = {}
 
 

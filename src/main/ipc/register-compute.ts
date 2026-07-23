@@ -48,6 +48,7 @@ export function registerCompute(): void {
   handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (_e, settings: PythonSettings) => {
     await setPythonSettings({
       pythonPath: typeof settings?.pythonPath === 'string' ? settings.pythonPath : '',
+      allowNetwork: settings?.allowNetwork === true,
     });
   });
 
