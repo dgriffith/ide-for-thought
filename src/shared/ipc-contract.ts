@@ -56,6 +56,16 @@ import type {
 } from './tools/types';
 import type { SkillCatalogInfo } from './skills/types';
 import type { MenuConfig } from './skills/menu-config';
+import type {
+  SourceMetadata,
+  CollectionsFile,
+  Collection,
+  SmartCollection,
+  SmartCollectionPredicate,
+  ReadStatus,
+} from './types';
+import type { ParsedReference } from './mine-references';
+import type { ResolveCandidate } from './resolve-stub';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -343,6 +353,81 @@ export interface ChannelMap {
   'skills:remove': (id: string) => void;
   'skills:reveal': () => void;
   'skills:menuConfig:set': (config: MenuConfig) => MenuConfig;
+
+  // Sources — ingest
+  'sources:ingestUrl': (url: string) => { sourceId: string; relativePath: string; duplicate: boolean; title: string; kind?: 'web' | 'pdf' | 'text'; pageCount?: number; needsOcr?: boolean };
+  'sources:ingestIdentifier': (identifier: string) => { sourceId: string; relativePath: string; duplicate: boolean; title: string; kind: 'doi' | 'arxiv' | 'pubmed'; pdfSaved: boolean; pdfError: string | null };
+  'sources:ingestSmart': (rawInput: string) => { sourceId: string; duplicate: boolean; title: string; route: 'identifier' | 'url' };
+  'sources:ingestFile': () => { sourceId: string; relativePath: string; duplicate: boolean; title: string; kind?: 'web' | 'pdf' | 'text'; pageCount?: number; needsOcr?: boolean } | null;
+  'sources:importBibtex': () => {
+    imported: Array<{ sourceId: string; title: string }>;
+    duplicate: Array<{ sourceId: string; title: string }>;
+    failed: Array<{ key: string; reason: string }>;
+    parseErrors: number;
+    totalEntries: number;
+  } | null;
+  'sources:importZoteroRdf': () => {
+    imported: Array<{ sourceId: string; title: string; pdfAttached: boolean }>;
+    duplicate: Array<{ sourceId: string; title: string }>;
+    failed: Array<{ subject: string; reason: string }>;
+    totalItems: number;
+  } | null;
+
+  // Sources — read / manage
+  'sources:readPdf': (sourceId: string) => Uint8Array;
+  'sources:hasPdf': (sourceId: string) => boolean;
+  'sources:finishPdfOcr': (sourceId: string, pages: string[]) => void;
+  'sources:listAll': () => SourceMetadata[];
+  'sources:delete': (sourceId: string) => { sourceId: string; excerptsRemoved: number };
+  'sources:merge': (params: { srcId: string; destId: string }) => {
+    destId: string;
+    removedId: string;
+    excerptsMoved: number;
+    notesRewritten: number;
+    metadataAdded: string[];
+    artifactsCopied: string[];
+  };
+  'sources:setReadStatus': (params: { sourceId: string; status: ReadStatus | null }) => void;
+  'sources:setTitle': (params: { sourceId: string; title: string }) => void;
+  'sources:setReadDueBy': (params: { sourceId: string; dueBy: string | null }) => void;
+  'sources:addTag': (params: { sourceId: string; tag: string }) => void;
+  'sources:removeTag': (params: { sourceId: string; tag: string }) => void;
+  'sources:queueMembers': (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') => SourceMetadata[];
+  'sources:stripUpstreamTags': (sourceId: string) => { removed: number };
+
+  // Sources — references (#106/#107)
+  'sources:mineReferences': (sourceId: string) => ParsedReference[];
+  'sources:createReferenceStubs': (params: { sourceId: string; refs: ParsedReference[] }) => {
+    created: Array<{ sourceId: string; title: string }>;
+    matchedExisting: Array<{ sourceId: string; title: string }>;
+    skipped: Array<{ reason: string; raw: string }>;
+  };
+  'sources:resolveStub': (sourceId: string) => ResolveCandidate[];
+  'sources:applyStubResolution': (params: { sourceId: string; doi: string }) => { ok: boolean };
+
+  // Sources — excerpts
+  'sources:createExcerpt': (params: { sourceId: string; citedText: string; page?: number | null; pageRange?: string | null; locationText?: string | null }) => { excerptId: string; relativePath: string; duplicate: boolean };
+
+  // Ingest settings (per-machine)
+  'ingest:getSettings': () => { importUpstreamTags: boolean };
+  'ingest:setSettings': (settings: { importUpstreamTags: boolean }) => void;
+
+  // Excerpt → note folder default (#101)
+  'excerpt:getNoteFolder': () => string;
+  'excerpt:setNoteFolder': (folder: string) => void;
+
+  // Collections (#470)
+  'collections:list': () => CollectionsFile;
+  'collections:create': (args: { name: string; parent?: string | null }) => Collection;
+  'collections:rename': (args: { id: string; name: string }) => void;
+  'collections:delete': (id: string) => void;
+  'collections:addSource': (args: { collectionId: string; sourceId: string }) => void;
+  'collections:removeSource': (args: { collectionId: string; sourceId: string }) => void;
+  'collections:createSmart': (args: { name: string; predicate: SmartCollectionPredicate }) => SmartCollection;
+  'collections:renameSmart': (args: { id: string; name: string }) => void;
+  'collections:deleteSmart': (id: string) => void;
+  'collections:updateSmartPredicate': (args: { id: string; predicate: SmartCollectionPredicate }) => void;
+  'collections:smartMembers': (id: string) => SourceMetadata[];
 }
 
 /** A configured "Publish → git remote" destination (#254). Mirror of the

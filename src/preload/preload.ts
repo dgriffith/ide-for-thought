@@ -328,54 +328,54 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY, relativePath, accepted),
   },
   sources: {
-    ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
+    ingestUrl: (url: string) => invoke(Channels.SOURCES_INGEST_URL, url),
     ingestIdentifier: (identifier: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
-    ingestFile: () => ipcRenderer.invoke(Channels.SOURCES_INGEST_FILE),
-    readPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_READ_PDF, sourceId),
-    hasPdf: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_HAS_PDF, sourceId),
-    getExcerptNoteFolder: () => ipcRenderer.invoke(Channels.EXCERPT_GET_NOTE_FOLDER),
+      invoke(Channels.SOURCES_INGEST_IDENTIFIER, identifier),
+    ingestFile: () => invoke(Channels.SOURCES_INGEST_FILE),
+    readPdf: (sourceId: string) => invoke(Channels.SOURCES_READ_PDF, sourceId),
+    hasPdf: (sourceId: string) => invoke(Channels.SOURCES_HAS_PDF, sourceId),
+    getExcerptNoteFolder: () => invoke(Channels.EXCERPT_GET_NOTE_FOLDER),
     setExcerptNoteFolder: (folder: string) =>
-      ipcRenderer.invoke(Channels.EXCERPT_SET_NOTE_FOLDER, folder),
+      invoke(Channels.EXCERPT_SET_NOTE_FOLDER, folder),
     finishPdfOcr: (sourceId: string, pages: string[]) =>
-      ipcRenderer.invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
-    importBibtex: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_BIBTEX),
+      invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
+    importBibtex: () => invoke(Channels.SOURCES_IMPORT_BIBTEX),
     onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
       subscribeIpc(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, cb),
-    importZoteroRdf: () => ipcRenderer.invoke(Channels.SOURCES_IMPORT_ZOTERO_RDF),
+    importZoteroRdf: () => invoke(Channels.SOURCES_IMPORT_ZOTERO_RDF),
     onImportZoteroRdfProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
       subscribeIpc(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, cb),
-    listAll: () => ipcRenderer.invoke(Channels.SOURCES_LIST_ALL),
-    delete: (sourceId: string) => ipcRenderer.invoke(Channels.SOURCES_DELETE, sourceId),
+    listAll: () => invoke(Channels.SOURCES_LIST_ALL),
+    delete: (sourceId: string) => invoke(Channels.SOURCES_DELETE, sourceId),
     merge: (srcId: string, destId: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_MERGE, { srcId, destId }),
+      invoke(Channels.SOURCES_MERGE, { srcId, destId }),
     setReadStatus: (sourceId: string, status: 'unread' | 'reading' | 'read' | 'skipped' | null) =>
-      ipcRenderer.invoke(Channels.SOURCES_SET_READ_STATUS, { sourceId, status }),
+      invoke(Channels.SOURCES_SET_READ_STATUS, { sourceId, status }),
     setTitle: (sourceId: string, title: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_SET_TITLE, { sourceId, title }),
+      invoke(Channels.SOURCES_SET_TITLE, { sourceId, title }),
     setReadDueBy: (sourceId: string, dueBy: string | null) =>
-      ipcRenderer.invoke(Channels.SOURCES_SET_READ_DUE_BY, { sourceId, dueBy }),
+      invoke(Channels.SOURCES_SET_READ_DUE_BY, { sourceId, dueBy }),
     addTag: (sourceId: string, tag: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_ADD_TAG, { sourceId, tag }),
+      invoke(Channels.SOURCES_ADD_TAG, { sourceId, tag }),
     removeTag: (sourceId: string, tag: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_REMOVE_TAG, { sourceId, tag }),
+      invoke(Channels.SOURCES_REMOVE_TAG, { sourceId, tag }),
     queueMembers: (view: 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished') =>
-      ipcRenderer.invoke(Channels.SOURCES_QUEUE_MEMBERS, view),
+      invoke(Channels.SOURCES_QUEUE_MEMBERS, view),
     stripUpstreamTags: (sourceId: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_STRIP_UPSTREAM_TAGS, sourceId),
-    getIngestSettings: () => ipcRenderer.invoke(Channels.INGEST_GET_SETTINGS),
+      invoke(Channels.SOURCES_STRIP_UPSTREAM_TAGS, sourceId),
+    getIngestSettings: () => invoke(Channels.INGEST_GET_SETTINGS),
     setIngestSettings: (settings: { importUpstreamTags: boolean }) =>
-      ipcRenderer.invoke(Channels.INGEST_SET_SETTINGS, settings),
+      invoke(Channels.INGEST_SET_SETTINGS, settings),
     ingestSmart: (rawInput: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_INGEST_SMART, rawInput),
+      invoke(Channels.SOURCES_INGEST_SMART, rawInput),
     mineReferences: (sourceId: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_MINE_REFERENCES, sourceId),
-    createReferenceStubs: (sourceId: string, refs: unknown[]) =>
-      ipcRenderer.invoke(Channels.SOURCES_CREATE_REFERENCE_STUBS, { sourceId, refs }),
+      invoke(Channels.SOURCES_MINE_REFERENCES, sourceId),
+    createReferenceStubs: (sourceId: string, refs: Parameters<ChannelMap['sources:createReferenceStubs']>[0]['refs']) =>
+      invoke(Channels.SOURCES_CREATE_REFERENCE_STUBS, { sourceId, refs }),
     resolveStub: (sourceId: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_RESOLVE_STUB, sourceId),
+      invoke(Channels.SOURCES_RESOLVE_STUB, sourceId),
     applyStubResolution: (sourceId: string, doi: string) =>
-      ipcRenderer.invoke(Channels.SOURCES_APPLY_STUB_RESOLUTION, { sourceId, doi }),
+      invoke(Channels.SOURCES_APPLY_STUB_RESOLUTION, { sourceId, doi }),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
     },
@@ -385,31 +385,31 @@ contextBridge.exposeInMainWorld('api', {
       page?: number | null;
       pageRange?: string | null;
       locationText?: string | null;
-    }) => ipcRenderer.invoke(Channels.SOURCES_CREATE_EXCERPT, params),
+    }) => invoke(Channels.SOURCES_CREATE_EXCERPT, params),
     onExcerptsChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.EXCERPTS_CHANGED, () => cb());
     },
   },
   collections: {
-    list: () => ipcRenderer.invoke(Channels.COLLECTIONS_LIST),
+    list: () => invoke(Channels.COLLECTIONS_LIST),
     create: (args: { name: string; parent?: string | null }) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_CREATE, args),
+      invoke(Channels.COLLECTIONS_CREATE, args),
     rename: (id: string, name: string) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_RENAME, { id, name }),
-    remove: (id: string) => ipcRenderer.invoke(Channels.COLLECTIONS_DELETE, id),
+      invoke(Channels.COLLECTIONS_RENAME, { id, name }),
+    remove: (id: string) => invoke(Channels.COLLECTIONS_DELETE, id),
     addSource: (collectionId: string, sourceId: string) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_ADD_SOURCE, { collectionId, sourceId }),
+      invoke(Channels.COLLECTIONS_ADD_SOURCE, { collectionId, sourceId }),
     removeSource: (collectionId: string, sourceId: string) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_REMOVE_SOURCE, { collectionId, sourceId }),
+      invoke(Channels.COLLECTIONS_REMOVE_SOURCE, { collectionId, sourceId }),
     createSmart: (args: { name: string; predicate: { kind: 'tags'; allOf: string[] } }) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_CREATE_SMART, args),
+      invoke(Channels.COLLECTIONS_CREATE_SMART, args),
     renameSmart: (id: string, name: string) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_RENAME_SMART, { id, name }),
-    removeSmart: (id: string) => ipcRenderer.invoke(Channels.COLLECTIONS_DELETE_SMART, id),
+      invoke(Channels.COLLECTIONS_RENAME_SMART, { id, name }),
+    removeSmart: (id: string) => invoke(Channels.COLLECTIONS_DELETE_SMART, id),
     updateSmartPredicate: (id: string, predicate: { kind: 'tags'; allOf: string[] }) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, { id, predicate }),
+      invoke(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, { id, predicate }),
     smartMembers: (id: string) =>
-      ipcRenderer.invoke(Channels.COLLECTIONS_SMART_MEMBERS, id),
+      invoke(Channels.COLLECTIONS_SMART_MEMBERS, id),
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.COLLECTIONS_CHANGED, () => cb());
     },
