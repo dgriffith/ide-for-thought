@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Web</title>
-<meta name="description" content="The Web tab in Settings: the master switch for web access in conversations, and the allowed/blocked domain lists that scope where web_search and web_fetch can go." />
+<meta name="description" content="The Web tab in Settings: turn web access on or off for conversations, and choose which sites the assistant may draw from." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,44 +88,34 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Web</p>
 
     <h1>Web</h1>
-    <p class="lede">Three controls live on this tab, and they only matter to conversations: a master switch for web access, and two domain lists that scope where <code>web_search</code> and <code>web_fetch</code> are allowed to go once that switch is on. See <a href="conversations-chatting.html">Chatting with the AI</a> for what those two tools actually do and how their results show up as citations — this page is just the Settings surface that governs them.</p>
+    <p class="lede">When you chat with the assistant, it can reach out to the web to answer questions that go beyond your own notes. This tab decides whether it may do that, and which sites it's allowed to draw from. To see how web results appear in a conversation, visit <a href="conversations-chatting.html">Chatting with the AI</a>.</p>
 
-    <h2 id="controls">The three settings</h2>
-    <p>All three are per-machine, take effect on the next conversation turn, and require no restart.</p>
+    <h2 id="controls">The settings</h2>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Enable web access for conversations</div>
-        <div class="v">The master switch. On, the assistant may call <code>web_search</code> and <code>web_fetch</code> when it judges a turn needs something outside your thoughtbase. Off, neither tool is offered to the model at all — it's not that a call is blocked or refused, the tool definitions simply aren't in the request the model sees, so it has no way to attempt one. On by default for a fresh install.</div>
+        <div class="v">The main switch. When it's on, the assistant can look things up on the web whenever a question needs information beyond your notes. When it's off, it works only from what's already in your thoughtbase. On by default.</div>
       </div>
       <div class="row">
-        <div class="k">Allowed domains</div>
-        <div class="v">A textarea, one domain per line (e.g. <code>arxiv.org</code>). Empty by default. If it holds any entries, web searches and fetches are restricted to just those domains — an allowlist, not a suggestion. Leave it blank to search the whole web.</div>
+        <div class="k">Allowed sites</div>
+        <div class="v">List trusted sites here, one per line (for example, <code>arxiv.org</code>), and the assistant will search and read only those. Leave it blank to let it search the whole web.</div>
       </div>
       <div class="row">
-        <div class="k">Blocked domains</div>
-        <div class="v">Same format, one domain per line. Excludes the listed domains from results — but only when the allowlist above is empty. As soon as you put anything in Allowed domains, Blocked domains stops having any effect, because Minerva sends the API one filter or the other, never both at once.</div>
+        <div class="k">Blocked sites</div>
+        <div class="v">List sites here, one per line, to keep them out of web results. This applies only when the allowed-sites list is empty.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Allowlist wins outright</span>
-      <p>The precedence isn't a merge or an intersection — it's a straight either/or. Minerva checks the allowed-domains list first: non-empty, and that becomes the domain filter sent with both <code>web_search</code> and <code>web_fetch</code>, full stop. Only when the allowlist is empty does it fall back to sending the blocked-domains list instead. A blocklist you'd carefully built up goes silently inert the moment you add even one entry to Allowed domains — there's no warning for this, so if web results suddenly seem to be missing sources you expected, check whether Allowed domains has something in it.</p>
+      <span class="label">Good to know</span>
+      <p>If you fill in the allowed-sites list, it takes over completely and your blocked-sites list is ignored — the assistant sticks to your trusted sites and nothing else. So if web results seem to be leaving out sources you expected, check whether you've added anything to the allowed-sites list.</p>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🌐</div>
-      <div class="k">Screenshot — Settings → Web tab</div>
-      <div class="d">The Settings dialog's Web tab: the "Enable web access for conversations" checkbox at top with its hint line about web_search/web_fetch beneath it, followed by the "Allowed domains" textarea (placeholder "One domain per line (e.g. arxiv.org)") and its hint, then the "Blocked domains" textarea (placeholder "One domain per line") and its hint noting it's ignored when an allowlist is set.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Turning web access off disables both textareas.</b> They gray out along with the rest of the tab's controls rather than just becoming inert — a visual confirmation that nothing typed into them matters while the master switch is off, not just a functional one.</li>
-      <li><b>The blocklist doesn't layer on top of the allowlist.</b> If you want to allow a broad set of sites except a couple of bad ones, that combination isn't expressible here — Allowed domains and Blocked domains are mutually exclusive from the model's perspective, matching how the underlying web tools accept one filter or the other, never both.</li>
-      <li><b>This setting doesn't touch anything outside conversations.</b> Citing a source into your library, fetching a page from the Clipper, and other web-touching features elsewhere in Minerva aren't gated by this toggle — it only governs whether the assistant can call <code>web_search</code>/<code>web_fetch</code> mid-conversation.</li>
-    </ul>
-
+    <figure class="shot-img">
+      <img src="img/settings-web.png" alt="A switch to turn web access on or off for conversations, followed by two boxes: one for sites the assistant may draw from, and one for sites to keep out." loading="lazy" />
+      <figcaption>The Web tab in Settings</figcaption>
+    </figure>
     <div class="pager">
       <a class="prev" href="settings-bibliography.html">
         <span class="dir">Previous</span>

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Code &amp; Compute Cells</title>
-<meta name="description" content="Code fences in Minerva notes: plain syntax-highlighted blocks versus runnable sparql, sql, and python cells, how to run them, and where their output lands in the note." />
+<meta name="description" content="Add code to a note with syntax highlighting, or make a cell runnable and see its result land right in the note." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub active">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,81 +93,66 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Code &amp; compute cells</p>
 
     <h1>Code &amp; compute cells</h1>
-    <p class="lede">Every fenced code block in a note gets syntax highlighting. A handful of languages get more than that: mark a fence <code>sparql</code>, <code>sql</code>, or <code>python</code> and it becomes a runnable cell — a small ▶ appears, and running it writes the result back into the note as an output block sitting right under the code. The rest of the note stays a normal, portable markdown file the whole time.</p>
+    <p class="lede">Drop a block of code into any note and it comes out neatly color-highlighted. Three kinds go further — queries over your knowledge base, queries over your tables, and Python — and become <b>runnable</b>: a small ▶ appears, and running the cell drops its result right into the note, just below the code.</p>
 
-    <h2 id="syntax">Plain fences vs. runnable fences</h2>
-    <p>The distinction is entirely the language tag on the opening fence. Everything else about the fence — the triple backticks, the indentation, how it looks in preview — is identical.</p>
+    <h2 id="syntax">Plain code vs. runnable cells</h2>
+    <p>What decides whether a cell just looks nice or actually runs is the language you label it with.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">```<i>lang</i></div>
-        <div class="v"><b>Plain fence.</b> Any language your syntax highlighter recognizes — <code>js</code>, <code>rust</code>, <code>bash</code>, <code>yaml</code>, and so on — renders with color highlighting and nothing else. There's no fixed list to check against: if it's not one of the three runnable tags below, Minerva highlights it and leaves it alone.</div>
+        <div class="k">Any language</div>
+        <div class="v"><b>Plain.</b> Label a cell with a language — JavaScript, Rust, shell, and so on — and it's shown with color highlighting to make it easy to read. Nothing runs; it's there for reference.</div>
       </div>
       <div class="row">
-        <div class="k"><code>```sparql</code></div>
-        <div class="v"><b>Runnable.</b> Runs against the current project's knowledge graph — the same engine behind the Query panel. Returns a table of variable bindings.</div>
+        <div class="k">Knowledge base</div>
+        <div class="v"><b>Runnable.</b> Ask a question of your project's knowledge base and get back a table of answers — the same kind of question you'd ask from the Query panel.</div>
       </div>
       <div class="row">
-        <div class="k"><code>```sql</code></div>
-        <div class="v"><b>Runnable.</b> Runs against the project's DuckDB instance — the same connection behind CSV/table sources. Returns a table of rows.</div>
+        <div class="k">Tables</div>
+        <div class="v"><b>Runnable.</b> Query the data in your imported tables and spreadsheets, and get back a table of matching rows.</div>
       </div>
       <div class="row">
-        <div class="k"><code>```python</code></div>
-        <div class="v"><b>Runnable.</b> Executes in a persistent local Python process, one per project. Also matches the <code>py</code> and <code>python3</code> aliases. Returns text, a pandas table, JSON, an inline image (matplotlib, PIL), or rich HTML, depending on what the cell produces.</div>
+        <div class="k">Python</div>
+        <div class="v"><b>Runnable.</b> Run a bit of Python. The result can be text, a table, an inline image or chart — whatever the code produces.</div>
       </div>
     </div>
-
-    <p>An unlabeled fence — bare ``` ``` with no language at all — is always plain. Minerva only turns on the run affordance when it recognizes the tag.</p>
 
     <h2 id="running">Running a cell</h2>
-    <p>A runnable fence gets a small toolbar in both the source editor and the rendered preview:</p>
+    <p>A runnable cell shows a small ▶ button, whether you're writing the note or reading it in preview. You can run one a few ways:</p>
     <ul>
-      <li><b>Click ▶</b> — on the fence's gutter marker in the editor, or the toolbar button in preview. The icon swaps to a muted <code>…</code> while the cell runs.</li>
-      <li><b><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Enter</kbd></b> (or <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Enter</kbd>) — runs the fence the cursor is currently inside, from the editor.</li>
-      <li><b>Recompute all</b> — the toolbar button above the note re-runs every runnable fence top to bottom, stopping at the first error. It only appears when the note has at least one runnable fence.</li>
+      <li><b>Click ▶</b> next to the cell. It shows a brief pause while the cell runs.</li>
+      <li><b><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Enter</kbd></b> (or <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>Enter</kbd>) runs the cell your cursor is in.</li>
+      <li><b>Recompute all</b>, above the note, re-runs every runnable cell from top to bottom. It appears whenever a note has at least one.</li>
     </ul>
-    <p>Editor and preview stay in sync either way: a run from the preview's ▶ button routes through the same trust gate and writes the same doc edit as a run from the editor gutter, so the fence and its output look identical regardless of which surface triggered the run.</p>
 
     <h2 id="output">Where output goes</h2>
-    <p>A cell's result is written into the note itself, as an <code>output</code> fence immediately below the source fence — not a floating panel that disappears when you close the note. Re-running a cell replaces its existing output block in place. What that block renders as depends on the result's shape: a table for SPARQL bindings, SQL rows, or a pandas DataFrame; preformatted text; pretty-printed JSON; an inline image; or sanitized HTML for something like a Seaborn plot's rich repr. A failed cell — a SPARQL syntax error, a bad SQL statement, a Python exception — writes an error block instead, styled distinctly from a normal result, with the interpreter's message.</p>
+    <p>A cell's result is written into the note itself, right below the cell — not a panel that vanishes when you close the note. Run the cell again and its result is refreshed in place. Depending on what the cell produces, the result might be a table, a block of text, an image, or a chart. If something goes wrong, you get a clearly-marked error with the message instead, so you can fix the cell and try again.</p>
 
-    <div class="shot wide">
-      <div class="icon">▶</div>
-      <div class="k">Screenshot — Runnable cell with output</div>
-      <div class="d">A note in preview showing a python fence with its ▶/Recompute toolbar, followed immediately by its rendered output block — a small table (a pandas DataFrame) with a "Showing N of M rows" truncation footer beneath it.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-code.png" alt="A note showing a Python cell with its ▶ button, and just beneath it the result it produced — a small table of data." loading="lazy" />
+      <figcaption>Screenshot — Runnable cell with output</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Large results are capped, not dropped</span>
-      <p>Table output — from SQL, SPARQL, or a DataFrame — is capped at a fixed row count per cell. When a result is truncated the output block shows "Showing <i>N</i> of <i>M</i> rows" so you know there's more data than you're seeing, rather than silently hiding it. Narrow the query if you need the rest.</p>
+      <span class="label">Big results are trimmed, not hidden</span>
+      <p>Very large tables are shown up to a generous limit. When there's more, the result notes how many rows you're seeing out of the total, so you always know there's more — just narrow your query to see the rest.</p>
     </div>
 
-    <h2 id="python">Python specifics</h2>
-    <p>The Python kernel is a real local process — the same permissions as Minerva itself, not a browser sandbox. It can read and write files, make network requests, and import anything installed in the interpreter Minerva is configured to use (Settings → Compute). Because of that, Minerva asks for confirmation once per project before running any Python cell; declining leaves the cell unrun until you approve it or re-run it later. There's no per-cell red warning styling — it's a single one-time prompt, and approving it is remembered for the rest of the project.</p>
-    <p>Cells in the same note share a namespace: a variable or import from one Python cell is visible to a later cell in that note, in run order. Cells in different notes never share state. SQL and SPARQL fences have no such state to share — each run is an independent query.</p>
+    <h2 id="python">A note on Python</h2>
+    <p>Python cells run on your own machine and can do real work — read and write files, reach the network, and use whatever you have installed. Because of that, Minerva asks you to confirm once per project before it runs Python; after that it remembers your choice. You can point Minerva at the Python you want to use in Settings → Compute.</p>
+    <p>Within a single note, Python cells build on each other: a value or import from an earlier cell is available to later ones. Cells in different notes stay separate, and each knowledge-base or table query stands on its own.</p>
 
-    <h2 id="trust">Approval and the knowledge graph</h2>
-    <p>Running a fence yourself — clicking ▶, pressing the shortcut, or using Recompute all — is a direct action you took, so it executes immediately with no approval step, the same way typing in a note doesn't ask for approval. Fences you write and run are ordinary local computation, not an AI-originated change, so the approval engine (the review step that gates AI proposals before they reach the graph) doesn't apply to them.</p>
-    <p>Both engines run the query you wrote, in full: a <code>sparql</code> fence executes through the same SPARQL engine as the Query panel, and a <code>sql</code> fence executes through the same DuckDB connection as your table sources. Every stock example is a read (<code>SELECT</code>, a graph pattern), and that's the intended use — but nothing in the compute shell parses your query to reject a write statement first. Treat a runnable fence with the same care as running a query in the Query panel itself. The SQL side has a natural backstop: that DuckDB connection is an in-memory instance rebuilt from your CSV sources each time the project opens, not a persisted database, so nothing a <code>sql</code> fence does to it outlives the session.</p>
-    <p>The one place a compute cell touches the graph on its own is unrelated to what the cell does: when the AI proposes a cell inside a conversation (rather than you writing one directly in a note) and you click Run on that proposal, Minerva records a <code>thought:ComputeProposal</code> audit entry — what ran, when, and that it was already approved by your click. That's provenance for a thing you just confirmed, not a new claim awaiting review, so it isn't queued through the pending-proposal flow the way an AI-proposed claim or link would be.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The runnable list is exactly three languages.</b> <code>sparql</code>, <code>sql</code>, and <code>python</code> (plus the <code>py</code> / <code>python3</code> aliases for the last one). Everything else — including close cousins like <code>graphql</code> or <code>bash</code> — is highlighted only; there's no way to make an arbitrary language executable from within a note.</li>
-      <li><b>Case matters in spirit, not literally.</b> The language tag is matched case-insensitively, so <code>SPARQL</code> and <code>Sql</code> still get the run affordance — but stick to lowercase; it's what every stock example and the highlighter both expect.</li>
-      <li><b>An output block isn't free-standing.</b> It's tied to the fence directly above it. Insert a paragraph or heading between a source fence and its output block and Minerva can no longer tell they're related — re-running writes a fresh block instead of replacing the orphaned one.</li>
-      <li><b>Declining the Python trust prompt doesn't block SPARQL or SQL.</b> The prompt only gates Python's arbitrary-process execution — a <code>sparql</code> or <code>sql</code> fence always runs when you click ▶, whatever the query says. Write cells the way you'd write anything you're about to run yourself.</li>
-      <li><b>Recompute all stops on the first error.</b> It's a top-to-bottom re-run, not a best-effort sweep — fix the failing cell and run again to continue past it.</li>
-    </ul>
+    <h2 id="trust">Running is always your call</h2>
+    <p>A cell only ever runs when you run it — by clicking ▶, pressing the shortcut, or choosing Recompute all. Since you're the one asking, it just runs, the same way typing in a note doesn't need approval. Cells run the query you wrote exactly as written, so treat them with the same care you'd give any query you run yourself.</p>
 
     <div class="pager">
       <a class="prev" href="notes-charts.html">
         <span class="dir">Previous</span>
         <span class="ttl">← Charts</span>
       </a>
-      <a class="next" href="notes-tables.html">
+      <a class="next" href="notes-query.html">
         <span class="dir">Next</span>
-        <span class="ttl">Tables &amp; CSV →</span>
+        <span class="ttl">Query cells →</span>
       </a>
     </div>
   </main>

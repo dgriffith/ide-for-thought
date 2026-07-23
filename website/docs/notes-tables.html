@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Tables &amp; CSV</title>
-<meta name="description" content="Markdown tables in Minerva notes: standard pipe-delimited syntax and alignment markers, and how every table on a note is extracted into the knowledge graph as CSVW triples during indexing." />
+<title>Minerva — Docs — Tables</title>
+<meta name="description" content="Write tables in your notes with simple markdown, control column alignment, and have every table also become data you can search and query." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub active">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub active">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -89,36 +92,36 @@
   <main class="docs-content">
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Tables &amp; CSV</p>
 
-    <h1>Tables &amp; CSV</h1>
-    <p class="lede">Markdown tables render the way you'd expect — a header row, an alignment row, and as many data rows as you like. What's less obvious is that every table in a note is also read as data: on each save, Minerva parses its rows and columns into the knowledge graph using CSVW, the W3C vocabulary for describing tabular data. You don't opt in — a table is always both a formatted block in your text and a small dataset in the graph.</p>
+    <h1>Tables</h1>
+    <p class="lede">You can add a table to any note with a few keystrokes: a row of column headings, a line beneath it, and as many rows of data as you like. Tables render cleanly in your notes — and, quietly, every table also becomes data you can search and pull together across your knowledge base.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>Minerva uses standard GFM (GitHub-Flavored Markdown) pipe tables. A leading and trailing <code>|</code> on each row is conventional but not load-bearing for rendering — what matters is the separator row between the header and the data.</p>
+    <h2 id="syntax">Writing a table</h2>
+    <p>A table is a header row, a divider line just below it, and one or more rows of data. Separate the cells in each row with a vertical bar. The divider line is what turns those rows into a table rather than ordinary text.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><code>| A | B |</code></div>
-        <div class="v"><b>Header row.</b> One line, cells separated by <code>|</code>. Becomes the column names for both rendering and graph extraction.</div>
+        <div class="v"><b>Header row.</b> The column names, separated by vertical bars.</div>
       </div>
       <div class="row">
         <div class="k"><code>|---|---|</code></div>
-        <div class="v"><b>Separator row.</b> Required immediately after the header. Marks where the header ends and data begins — without it, the lines above and below are just a paragraph, not a table.</div>
+        <div class="v"><b>Divider line.</b> Goes right under the header and marks where the column names end and the data begins.</div>
       </div>
       <div class="row">
         <div class="k"><code>:---</code></div>
-        <div class="v"><b>Left-align</b> the column (also the default with no colon).</div>
+        <div class="v"><b>Left-align</b> a column (this is also the default).</div>
       </div>
       <div class="row">
         <div class="k"><code>---:</code></div>
-        <div class="v"><b>Right-align</b> the column — handy for numeric data.</div>
+        <div class="v"><b>Right-align</b> a column — handy for numbers.</div>
       </div>
       <div class="row">
         <div class="k"><code>:---:</code></div>
-        <div class="v"><b>Center-align</b> the column.</div>
+        <div class="v"><b>Center-align</b> a column.</div>
       </div>
       <div class="row">
         <div class="k"><code>| a \| b |</code></div>
-        <div class="v"><b>Escaped pipe.</b> A backslash before a pipe inside a cell renders it as a literal <code>|</code> instead of a column break.</div>
+        <div class="v"><b>A literal bar.</b> Put a backslash before a vertical bar to show it inside a cell instead of starting a new column.</div>
       </div>
     </div>
 
@@ -129,38 +132,24 @@
 | 2     | treatment |        0.61 |
 | 3     | treatment |        0.58 |</code></pre>
 
-    <div class="shot wide">
-      <div class="icon">📊</div>
-      <div class="k">Screenshot — Rendered table in preview</div>
-      <div class="d">The rendered preview of the trial/condition/effect-size table above: a bordered table with a bold header row, the first column left-aligned, the second column centered, and the numeric third column right-aligned.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-tables.png" alt="The table above as it appears in a note: a bold header row over neatly bordered rows, with the first column left-aligned, the middle column centered, and the numbers on the right lined up along their right edge." loading="lazy" />
+      <figcaption>A finished table in a note</figcaption>
+    </figure>
 
-    <p>Rendering is unmodified GFM — the same table syntax you'd write for GitHub. There's no support for merged or spanned cells (no colspan/rowspan); each cell is exactly one row by one column.</p>
+    <p>Each cell is a single box — one row tall and one column wide. Cells can't be merged or made to span across neighbours.</p>
 
-    <h2 id="csvw">How tables become CSVW</h2>
-    <p>On every index pass, Minerva walks each note's parsed tables and writes them into <code>.minerva/graph.ttl</code> using <a href="https://www.w3.org/ns/csvw#" target="_blank" rel="noopener">CSVW</a> — the real W3C namespace, not a Minerva-specific one. Each table becomes a <code>csvw:Table</code> linked to its note with <code>csvw:inNote</code>; each header becomes a <code>csvw:Column</code> with a <code>csvw:name</code> and <code>csvw:columnIndex</code>; each data row becomes a <code>csvw:Row</code>; and each row/column intersection becomes a <code>csvw:Cell</code> carrying the cell's value. <code>csvw</code> is one of the prefixes auto-injected into every query, so you can reach this data from Graph &gt; Query without declaring the namespace yourself.</p>
-
-    <div class="box">
-      <span class="label">Every table, no opt-in</span>
-      <p>There's no caption, id, or frontmatter flag that marks a table as "graph-worthy." Any syntactically valid table — header row, separator row, at least one data row — is extracted automatically. A table with a header and separator but zero data rows is the one exception: it's dropped silently, both from rendering as a meaningful table and from the graph. There's no way to write a markdown table that's decorative-only and keep it out of the graph; if you don't want tabular content indexed, it can't be a markdown table.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Alignment is display-only.</b> The <code>:---</code> / <code>---:</code> / <code>:---:</code> markers control text alignment in preview and nowhere else — that information isn't captured when a table is extracted into the graph. A SPARQL query over a table's cells can't tell you which columns were right-aligned.</li>
-      <li><b>Escaped pipes render correctly but don't extract correctly.</b> Preview handles <code>\|</code> as a literal pipe character inside a cell. The graph indexer's table parser doesn't — it splits naively on every <code>|</code>, so a cell written as <code>a \| b</code> shows up as one cell in preview but as extra, misaligned cells in the CSVW triples. Avoid literal pipes in cell content if you plan to query that table.</li>
-      <li><b>Tables inside code fences aren't extracted.</b> A pipe table written as an example inside a fenced code block renders as code, not a table, and is correctly excluded from graph indexing.</li>
-      <li><b>This isn't the CSV/DuckDB pipeline.</b> The right sidebar's <b>Tables</b> panel lists tables referenced by <code>```sql</code> fences and registered <code>.csv</code> files in your project — a separate, SQL-oriented feature. It doesn't show markdown tables or CSVW data. The only way to see a markdown table's extracted triples today is a graph query.</li>
-    </ul>
+    <h2 id="data">Tables are also data</h2>
+    <p>Beyond looking tidy, every table you write becomes part of your knowledge base as structured data, with its columns and values ready to be searched and combined. That means you can ask questions across the tables scattered through your notes — pulling figures together, comparing rows, or gathering everything under a given column — from the Query view. You don't have to mark a table as special or turn anything on; any well-formed table is picked up automatically as soon as you have a header, a divider line, and at least one row of data.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-code.html">
+      <a class="prev" href="notes-images.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Code &amp; compute cells</span>
+        <span class="ttl">← Images</span>
       </a>
-      <a class="next" href="notes-images.html">
+      <a class="next" href="notes-footnotes.html">
         <span class="dir">Next</span>
-        <span class="ttl">Images →</span>
+        <span class="ttl">Footnotes →</span>
       </a>
     </div>
   </main>

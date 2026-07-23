@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Turtle / RDF</title>
-<meta name="description" content="Embedding raw Turtle in a Minerva note: the ```turtle fence that marks a block for graph indexing, the this: self-reference prefix, and how the triples merge into .minerva/graph.ttl." />
+<meta name="description" content="Add hand-authored facts to a note with a turtle cell, so you can state relationships in your knowledge base more precisely than Minerva could infer on its own." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub active">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,27 +93,12 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Turtle / RDF</p>
 
     <h1>Turtle / RDF</h1>
-    <p class="lede">Most of the knowledge graph is built for you — titles, tags, links, frontmatter, and table data are all extracted automatically as you write. But sometimes you know the relationship you want to assert more precisely than any auto-extraction could infer it. A fenced <code>turtle</code> block lets you drop hand-authored triples straight into a note; Minerva parses them on save and merges them into <code>.minerva/graph.ttl</code> alongside everything it extracted on its own.</p>
+    <p class="lede">As you write, Minerva quietly builds a knowledge base from your notes — pulling in titles, tags, links, properties, and table data on its own. Sometimes, though, you want to state a fact about a note more precisely than Minerva could guess. A <b>turtle</b> cell lets you write those facts by hand, right inside the note, and they join everything else Minerva already knows.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>Mark a block with the <code>turtle</code> language tag. Anything inside is parsed as Turtle, not rendered as a code sample:</p>
+    <h2 id="syntax">Writing a turtle cell</h2>
+    <p>Start a cell and label it <code>turtle</code>. Whatever you put inside is read as facts about your note rather than shown as a plain code sample. Each fact is a short statement: a subject, a relationship, and a value. Use <code>this:</code> as the subject when the statement is about the current note — the most common case.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k"><code>```turtle</code></div>
-        <div class="v"><b>Opening fence.</b> The language tag must be exactly <code>turtle</code> — lowercase, no aliases like <code>ttl</code> or <code>rdf</code> are recognized. A block with any other tag (or no tag) is left as an ordinary code block and never reaches the graph.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>this:</code></div>
-        <div class="v"><b>Self-reference prefix.</b> Stands for the current note's own IRI. Use it as the subject when the triple is about the note itself — the common case.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>```</code></div>
-        <div class="v"><b>Closing fence.</b> Same as any fenced code block. Everything between the fences is handed to the Turtle parser verbatim.</div>
-      </div>
-    </div>
-
-    <p>A short, realistic example — typing a note as a glossary term and linking it to a broader concept:</p>
+    <p>Here's a realistic example: marking a note as a glossary term and connecting it to a broader idea.</p>
 
 <pre><code>```turtle
 this: a thought:Term ;
@@ -118,42 +106,24 @@ this: a thought:Term ;
     minerva:relatesTo &lt;https://minerva.dev/ontology#Provenance&gt; .
 ```</code></pre>
 
-    <p>On save, this block contributes three triples — all with <code>this:</code> resolved to the note's own IRI — into the note's slice of the graph, right next to the title, tags, and links Minerva extracted from the rest of the file.</p>
+    <p>When you save, these three statements about the note join the titles, tags, and links Minerva gathered from the rest of it. Edit the cell and save again, and your facts update to match — just like any other change to the note.</p>
 
-    <div class="shot wide">
-      <div class="icon">🐢</div>
-      <div class="k">Screenshot — Turtle block in the editor</div>
-      <div class="d">The source editor showing a note with regular markdown body text above and below a fenced ```turtle code block, the block syntax-highlighted distinctly from surrounding prose, containing a few hand-authored triples using the `this:` subject and a `thought:` predicate.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-rdf.png" alt="A note being written, with ordinary paragraphs above and below a turtle cell that holds a few hand-written facts about the note, set apart from the surrounding text." loading="lazy" />
+      <figcaption>A turtle cell in a note</figcaption>
+    </figure>
 
-    <h2 id="prefixes">Prefixes</h2>
-    <p>You don't need to declare the standard prefixes yourself. Minerva prepends them to the block before parsing — the same fixed set used everywhere else in the graph: <code>minerva</code>, <code>thought</code>, <code>dc</code>, <code>rdf</code>, <code>rdfs</code>, <code>xsd</code>, <code>csvw</code>, <code>owl</code>, <code>prov</code>, <code>bibo</code>, and <code>schema</code>, plus <code>this:</code> for the note itself. Write <code>thought:Term</code> or <code>dc:title</code> directly, with no <code>@prefix</code> line of your own.</p>
-
-    <div class="box">
-      <span class="label">Redeclaring a prefix</span>
-      <p>If your block already declares a prefix Minerva would otherwise inject — your own <code>@prefix dc: …</code>, say, or a custom <code>@prefix ex: &lt;https://example.org/&gt; .</code> — yours wins. Minerva only fills in prefixes the block doesn't already define, so you're free to point a standard prefix somewhere else or add prefixes of your own for IRIs outside the standard set.</p>
-    </div>
-
-    <h2 id="indexing">How it merges into the graph</h2>
-    <p>Every note has its own named graph in the store, keyed by the note's IRI — this is what lets Minerva cleanly drop and rebuild a single note's triples on reindex without touching anyone else's. A <code>turtle</code> block doesn't get a graph of its own: its triples land in that same per-note named graph, mixed in with the title, tags, links, and frontmatter triples Minerva generated automatically. There's no separate namespace or provenance marker distinguishing a hand-authored triple from an extracted one — once it's in the graph, it's just a triple in this note's graph.</p>
-    <p>Re-editing the block and saving again re-parses and replaces it, same as any other change to the note: reindexing clears the note's entire named graph first, then rebuilds it from scratch.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The tag is exactly <code>turtle</code>.</b> <code>```ttl</code> and <code>```rdf</code> are not recognized — the block just renders as a plain code sample and none of its content reaches the parser.</li>
-      <li><b>A malformed block doesn't break the note.</b> If a block fails to parse — a stray bracket, a missing period, an undeclared prefix you didn't mean to leave off — Minerva logs the error and skips that block. Every other part of the note (and any other <code>turtle</code> blocks in the same file) still indexes normally.</li>
-      <li><b>A skipped block fails quietly in the UI.</b> There's no inline squiggle or banner marking a block as broken — check the main process console if triples you expected aren't showing up in a query.</li>
-      <li><b>Blank nodes are fine.</b> <code>_:x</code>-style blank nodes work as you'd expect for structure you don't need to address from outside the block.</li>
-    </ul>
+    <h2 id="prefixes">Shorthands you can use</h2>
+    <p>You don't have to set anything up first. A handful of common shorthands — including <code>thought:</code>, <code>dc:</code>, and <code>rdf:</code> — are always ready, along with <code>this:</code> for the note itself. Just write <code>thought:Term</code> or <code>dc:title</code> and it works. If you'd rather define your own shorthand to point somewhere else, declare it in the cell and yours takes precedence.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-tasks.html">
+      <a class="prev" href="notes-search.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Task lists</span>
+        <span class="ttl">← Search cells</span>
       </a>
-      <a class="next" href="notes-frontmatter.html">
+      <a class="next" href="navigation.html">
         <span class="dir">Next</span>
-        <span class="ttl">Frontmatter →</span>
+        <span class="ttl">Navigation →</span>
       </a>
     </div>
   </main>

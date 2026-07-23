@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Formatter</title>
-<meta name="description" content="The Formatter tab in Settings — the on-by-default house style, opt-in rules by category, the Restore house style button, and how rule toggles apply the next time you format." />
+<meta name="description" content="The Formatter tab in Settings — tidy your notes to a consistent style, with a safe house style on by default and more opinionated rules you can opt into." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,62 +88,57 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Formatter</p>
 
     <h1>Formatter</h1>
-    <p class="lede">The Formatter tab in <b>Settings</b> lists every deterministic markdown normalization Minerva knows how to apply — trailing-whitespace cleanup, frontmatter tidying, footnote conventions, and more — each as its own checkbox with a title and a plain-language description. Formatting itself runs on demand, from <b>Refactor ▸ Format</b>, not automatically on every save; this tab only controls which rules fire the next time you run it.</p>
+    <p class="lede">The Formatter tidies your notes to a consistent style — cleaning up stray spaces, straightening list markers, tidying footnotes, and more. You choose which touch-ups you want here on the <b>Formatter</b> tab, then run them whenever you like from <b>Refactor ▸ Format</b>. Nothing changes your notes until you run it.</p>
 
-    <h2 id="model">House style, and everything else opt-in</h2>
-    <p>Rules aren't all-on or all-off together. Minerva ships a curated <b>house style</b> — a subset chosen because each rule is safe and uncontroversial: it tidies whitespace, list markers, frontmatter shape, or Minerva's own link hygiene without ever changing the meaning of your prose, your heading levels, or the words you wrote. House-style rules are <b>on by default</b>. Every other rule — anything opinionated enough that it could surprise a writer, like heading capitalization, smart-ellipsis substitution, or spelling autocorrect — is <b>off by default</b> and stays off until you check its box.</p>
+    <h2 id="model">A safe default, plus opt-in polish</h2>
+    <p>Each touch-up is a checkbox with a plain-language description. They come in two flavors. The <b>house style</b> is a set of gentle, uncontroversial clean-ups that are <b>on by default</b> — they tidy spacing, list markers, and links without ever changing your wording, your headings, or the meaning of what you wrote. Everything else is more opinionated — things like rewording heading capitalization or auto-correcting spelling — so it's <b>off by default</b> and stays off until you turn it on.</p>
 
-    <p>Toggling any rule, in either direction, writes an explicit override; a rule with no override falls back to whether it's in the house-style set. Overrides are stored per-project in <code>.minerva/formatter.json</code>, so they travel with the thoughtbase — open the project on another machine and you get the same formatting behavior, not a fresh set of per-machine defaults.</p>
+    <p>Your choices are remembered for the notebook you're working in, so they stay with it wherever you open it.</p>
 
     <div class="box">
-      <span class="label">"Restore house style"</span>
-      <p>The button above the rule list clears every explicit enable/disable override in one step, so each rule falls back to the curated default — house-style rules on, everything else off. It's disabled when you're already at house style (no overrides to clear), and it doesn't ask for confirmation — there's nothing destructive about it, since your notes aren't touched until you next run Format. One thing it deliberately leaves alone: per-rule <em>configuration</em>. If you'd changed a rule's own setting — for instance, how many consecutive blank lines to allow — that value survives a restore. The button resets <em>which</em> rules run, not how the ones you've tuned are configured.</p>
+      <span class="label">Restore house style</span>
+      <p>The <b>Restore house style</b> button puts every setting back to its starting point in one click — the safe clean-ups on, everything else off. If you'd adjusted how a particular rule behaves, that returns to its default too. It's greyed out when you're already at the house style, and it won't ask you to confirm, because your notes aren't touched until you next run Format.</p>
     </div>
 
-    <h2 id="categories">Rule categories</h2>
-    <p>Rules are grouped into six categories, applied in this order — structural passes first, so later rules see an already-normalized document shape. A handful of real examples from each:</p>
+    <h2 id="categories">What it can tidy</h2>
+    <p>The touch-ups are grouped by what they affect. A few examples from each group:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">YAML frontmatter</div>
-        <div class="v">Structural tidying of the YAML block — no value rewrites beyond de-duplication. <b>Compact frontmatter</b> (house style) strips leading and trailing blank lines inside the block. <b>Dedupe YAML array values</b> (house style) collapses <code>tags: [a, a, b]</code> to <code>tags: [a, b]</code>, first occurrence wins. <b>Sort frontmatter keys</b> (opt-in) imposes a consistent key order.</div>
+        <div class="k">Properties</div>
+        <div class="v">Tidies the properties block at the top of a note — trimming stray blank lines and removing duplicate values from a list. You can also opt in to sorting the property names into a consistent order.</div>
       </div>
       <div class="row">
         <div class="k">Headings</div>
-        <div class="v"><b>Heading increment</b> (opt-in) clamps an out-of-order jump — H1 straight to H3 — down to the previous level plus one; the document's first heading is always accepted as-is. <b>Capitalize headings</b> (opt-in) applies a chosen case style (title case, sentence case, or lowercase) with a configurable list of proper nouns to preserve verbatim.</div>
+        <div class="v">Optional clean-ups for heading structure: gently fix a heading level that jumps out of order, or apply a consistent capitalization style (title case, sentence case, or lowercase) while preserving names you list.</div>
       </div>
       <div class="row">
         <div class="k">Content</div>
-        <div class="v"><b>Proper ellipsis</b> (opt-in) collapses three consecutive dots (<code>...</code>) into a single <code>…</code> character. <b>Wrap bare URLs</b> (opt-in) turns a bare <code>https://…</code> into an angle-bracket or link form. <b>Auto-correct common misspellings</b> (opt-in) runs a small, deliberately conservative starter dictionary — extendable via a per-rule config rather than expected to catch everything out of the box.</div>
+        <div class="v">Optional polish for prose: turn three dots into a proper ellipsis (…), tidy up bare web links, and auto-correct a small, careful list of common misspellings.</div>
       </div>
       <div class="row">
         <div class="k">Footnotes</div>
-        <div class="v"><b>Footnote reference after punctuation</b> (opt-in) moves a reference marker that lands before sentence-ending punctuation to after it: <code>word[^1].</code> → <code>word.[^1]</code>. <b>Move footnotes to the bottom</b> (opt-in) collects every <code>[^name]: …</code> definition, continuation lines included, and re-emits them as a single block at the document's end, in document order.</div>
+        <div class="v">Optional footnote conventions: move a footnote marker to sit after sentence-ending punctuation, and gather all your footnote definitions into a single block at the end of the note.</div>
       </div>
       <div class="row">
         <div class="k">Spacing</div>
-        <div class="v"><b>Trailing whitespace</b> (house style) strips trailing spaces and tabs from every line, leaving code fences, frontmatter, and math untouched. <b>Collapse consecutive blank lines</b> (house style) caps runs of blank lines at a configurable maximum — default 1.</div>
+        <div class="v">Safe, on-by-default clean-ups: remove stray spaces at the ends of lines, and cap long runs of blank lines. Code, math, and the properties block are left untouched.</div>
       </div>
       <div class="row">
-        <div class="k">Minerva-specific</div>
-        <div class="v"><b>Canonical wiki-link extension</b> (house style) enforces one style for wiki-link targets, always with <code>.md</code> or always without — typed links like <code>[[cite::…]]</code> are left alone since they target sources, not files. <b>Unique heading slugs</b> (house style) suffixes a duplicate heading anchor (<code>Overview</code> + <code>Overview</code> → <code>Overview</code> + <code>Overview 2</code>) and cascades the rename into any incoming <code>[[note#old-slug]]</code> links.</div>
+        <div class="k">Links and headings in Minerva</div>
+        <div class="v">Keeps a consistent style for your <code>[[wiki links]]</code>, and if two headings in a note share the same name, gives them distinct anchors so links can point to the right one — updating any links that referred to them.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🧹</div>
-      <div class="k">Screenshot — Settings → Formatter tab</div>
-      <div class="d">The Formatter tab: the intro paragraph explaining house style, a "Restore house style" button (dimmed, at house style) with its hint text, then the six category headings — YAML frontmatter, Headings, Content, Footnotes, Spacing, Minerva-specific — each expanded into a checklist of rule rows, a checkbox plus title plus description per row, with a mix of checked (house style) and unchecked (opt-in) boxes visible.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-formatter.png" alt="The Formatter tab, with a short intro about the house style, a Restore house style button, and each group of touch-ups shown as a checklist — every item a checkbox with a title and description, with the safe defaults already checked." loading="lazy" />
+      <figcaption>The Formatter tab</figcaption>
+    </figure>
 
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Formatting is on demand, not on save.</b> There's no background pass that rewrites a note the moment you save it. Rules only run when you invoke <b>Refactor ▸ Format</b> — on the active note, or on every <code>.md</code> file under whatever you've selected in the left sidebar (multi-select with <kbd>⌘</kbd>-click, <kbd>⇧</kbd>-click, or <kbd>⌘</kbd><kbd>A</kbd>). Toggling a rule in Settings changes nothing about notes already on disk; it only changes what happens the <em>next</em> time you run Format.</li>
-      <li><b>Nothing is retroactive.</b> Following on from the above: a note you formatted last week under an old rule set stays exactly as it was written. There's no "re-format everything" prompt triggered by a settings change — if you want the new rule set applied project-wide, select the whole tree in the sidebar and run Format yourself.</li>
-      <li><b>It's global, not per-note.</b> There's no frontmatter flag or per-file switch to exempt a single note from formatting — the rule set in this tab applies uniformly to whatever you run Format over. If a note needs different handling, leave it out of your sidebar selection when you invoke the command.</li>
-      <li><b>Ignore the tab list's "On-save rules" subtitle.</b> The Settings sidebar's own tab listing labels this section "On-save rules" — that's a holdover from an earlier design and doesn't match current behavior. Nothing runs on save; go by the on-demand behavior described above.</li>
-      <li><b>Restoring house style doesn't touch per-rule configuration.</b> Clearing your on/off overrides is not the same as clearing everything — a tuned value like a custom blank-line maximum persists across a restore. Only the enabled/disabled state resets.</li>
-    </ul>
+    <h2 id="exempt">Leaving one note alone</h2>
+    <p>These touch-ups apply to whatever you run Format over. When one note should be left exactly as you wrote it — a verbatim quote, something you hand-format, or a rough scratch pad — you can mark it to be skipped. Add a property named <b>format</b> set to <b>false</b>, and Format will pass that note by while tidying the rest.</p>
+
+    <p>You can set this a few ways: type <code>format: false</code> into the note's properties block, use <b>Add Property…</b> from the editor or the file list, or add it in the <b>Properties</b> panel in the right sidebar. In each case, set the value type to a true/false toggle and switch it off.</p>
 
     <div class="pager">
       <a class="prev" href="settings-notes.html">

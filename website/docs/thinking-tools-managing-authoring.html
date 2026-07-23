@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Managing &amp; Authoring Skills</title>
-<meta name="description" content="How to enable, disable, reassign, and reorder skills from Settings — and where to go when you're ready to write your own." />
+<meta name="description" content="Turn skills on or off, move them between menus, and reorder them — all from Settings." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,45 +80,33 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>Managing &amp; authoring</p>
 
     <h1>Managing &amp; authoring</h1>
-    <p class="lede">Every skill — stock or your own — can be turned off, moved to a different menu, or reordered from <b>Settings → Skills</b>. The changes are per-machine, take effect immediately, and never require editing a file by hand.</p>
+    <p class="lede">Skills are the ready-made thinking tools in the Learning, Research, and Analysis menus. From <b>Settings → Skills</b> you can turn any of them off, move it to a different menu, or change its order. Your changes take effect right away.</p>
 
     <h2 id="settings">Managing skills from Settings</h2>
-    <p>Open <b>Settings → Skills</b> and each of the three menus — Learning, Research, Analysis — lists its skills as rows, stock and user skills together. Every row carries an enable checkbox, up/down reorder buttons, and a menu dropdown, so the whole surface is a working control panel, not a JSON file you're expected to open in an editor.</p>
+    <p>Open <b>Settings → Skills</b> and you'll see each menu — Learning, Research, and Analysis — listing its skills as rows. Every row has a simple set of controls, so tidying up your menus is a matter of clicking, not editing anything by hand.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Enable / disable</div>
-        <div class="v">The checkbox on each row hides a skill from every surface — menu, command palette, and slash commands — without deleting its file. Stock skills can't be removed outright, so this is how you turn one off; a disabled row stays visible in Settings (dimmed) so you can find it again later.</div>
+        <div class="k">Turn on or off</div>
+        <div class="v">Uncheck a skill to hide it everywhere it would otherwise appear. It isn't deleted — the row stays in Settings, dimmed, so you can switch it back on whenever you like.</div>
       </div>
       <div class="row">
-        <div class="k">Reassign to a different menu</div>
-        <div class="v">The dropdown on each row moves that skill into a different one of the three fixed menus, overriding whatever menu the skill's own frontmatter declares. Useful when a skill you use constantly is buried in Analysis but you'd rather reach it from Learning.</div>
+        <div class="k">Move to a different menu</div>
+        <div class="v">Use the menu dropdown to send a skill to whichever of the three menus you prefer. Handy when a tool you reach for constantly lives in one menu but you'd rather find it in another.</div>
       </div>
       <div class="row">
-        <div class="k">Reorder within a menu</div>
-        <div class="v">The ↑ / ↓ buttons move a skill up or down within its current menu's list. Order here is the order it appears in the actual menu, the command palette, and the slash-command list.</div>
+        <div class="k">Reorder</div>
+        <div class="v">The up and down arrows change where a skill sits in its menu. The order you set here is the order you'll see everywhere the skill appears.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🧰</div>
-      <div class="k">Screenshot — Settings → Skills panel</div>
-      <div class="d">The Skills settings panel with the Learning, Research, and Analysis sections stacked, each listing its skill rows: an enable checkbox, the skill name and source tag (stock or user), reorder arrows, and a menu-reassignment dropdown per row.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/thinking-tools-managing-authoring.png" alt="The Learning, Research, and Analysis menus stacked together, each showing its skills as rows. Every row has an on/off checkbox, the skill's name, arrows to move it up or down, and a dropdown to send it to a different menu." loading="lazy" />
+      <figcaption>The Skills settings panel</figcaption>
+    </figure>
 
-    <div class="box">
-      <span class="label">Where this lives on disk</span>
-      <p>These per-machine overrides are persisted to <code>~/.minerva/menu-config.json</code>. You never need to open that file — Settings is a full read/write interface for it — but if you're curious, it's a small JSON object mapping skill IDs to an enabled flag and a menu override, plus an explicit ordering array per menu. A skill with no entry there is enabled, in its declared menu, and sorted after any explicitly-ordered skills, so a fresh install needs no config file at all and newly added skills just slot in.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Changes apply immediately — no restart.</b> Toggling, reassigning, or reordering a skill updates the menu bar, the command palette, and the slash-command list right away. The Settings panel writes optimistically (the UI reflects the change before the save round-trip finishes), so the effect is visible before you've even closed the dialog.</li>
-      <li><b>It's per-machine, not per-project.</b> <code>menu-config.json</code> lives under your home directory, not inside a project's <code>.minerva/</code> folder — so the same overrides follow you across every thoughtbase you open on that machine, but don't travel with the project itself if you open it on another computer.</li>
-      <li><b>A bad hand-edit degrades quietly, not fatally.</b> If you do go poking at the file directly and leave it malformed, Minerva drops whatever it can't parse and falls back to defaults for the rest rather than failing to start — but there's no reason to hand-edit it when Settings does the same job with immediate visual feedback.</li>
-    </ul>
-
-    <p>Ready to write your own skill instead of just rearranging the stock ones? The full authoring reference — frontmatter fields, the template language, tool wiring, and a worked example — lives at <code>docs/authoring-skills.md</code> in the repo. This page won't duplicate it; start there.</p>
+    <h2 id="authoring">Writing your own</h2>
+    <p>Beyond rearranging the skills that come built in, you can write your own to capture a way of thinking you return to often. Authoring is a more advanced topic with its own dedicated guide — start there when you're ready.</p>
 
     <div class="pager">
       <a class="prev" href="thinking-tools-three-menus.html">

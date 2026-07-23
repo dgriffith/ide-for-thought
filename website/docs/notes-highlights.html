@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Highlights</title>
-<meta name="description" content="Highlighting text in Minerva notes: the ==highlighted== and ==color:highlighted== syntax, the five-color palette, and how highlights render as a tinted span in both the source editor and preview." />
+<meta name="description" content="Highlighting text in Minerva notes: wrap a passage in double equals signs to mark it, and pick from a small palette of colors." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub active">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub active">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,10 +93,10 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Highlights</p>
 
     <h1>Highlights</h1>
-    <p class="lede">Wrap text in double equals signs and Minerva marks it as highlighted — a tinted inline span, the same idea as a highlighter pen on paper. It's a lightweight way to flag a passage as important while you're reading or drafting, without committing to a claim, a link, or any other structured markup.</p>
+    <p class="lede">Wrap a passage in double equals signs and Minerva highlights it — a tinted mark behind the text, just like running a highlighter pen across the page. It's a quick way to flag something as important while you're reading or drafting.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>The marker is <code>==</code> on both sides of the text. An optional color name before the text picks from a small built-in palette; leave it off for the default tint.</p>
+    <h2 id="syntax">How to highlight</h2>
+    <p>Put <code>==</code> on both sides of the text you want to mark. To give it a color, start with a color name and a colon; leave that off and you get the default tint.</p>
 
     <div class="deflist">
       <div class="row">
@@ -102,53 +105,32 @@
       </div>
       <div class="row">
         <div class="k"><code>==color:text==</code></div>
-        <div class="v"><b>Colored highlight.</b> <code>color</code> must be one of <code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, or <code>orange</code>. Anything else isn't recognized as a color prefix and is treated as part of the highlighted text instead — so <code>==Pythagorean: a²+b²==</code> highlights the whole string rather than guessing at a color.</div>
-      </div>
-      <div class="row">
-        <div class="k">no space inside</div>
-        <div class="v"><b>Whitespace guard.</b> A space or tab right after the opening <code>==</code> or right before the closing <code>==</code> stops the match — same rule as <code>**bold**</code> and <code>~~strikethrough~~</code>. This keeps a run of prose like <code>x == y == z</code> from accidentally turning into a highlight.</div>
-      </div>
-      <div class="row">
-        <div class="k"><code>===</code></div>
-        <div class="v"><b>Not a delimiter.</b> Three or more consecutive equals signs — in either direction — are never read as a highlight marker, so ASCII rules and similar runs of <code>=</code> are left alone.</div>
+        <div class="v"><b>Colored highlight.</b> Choose from <code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, or <code>orange</code>. Anything else is simply treated as part of the highlighted text, so <code>==Pythagorean: a²+b²==</code> highlights the whole phrase rather than guessing at a color.</div>
       </div>
     </div>
 
     <p>A short example:</p>
 <pre><code>The migration is safe as long as ==the backfill runs before the
-NOT NULL constraint is added==. Everything else is cosmetic.
+constraint is added==. Everything else is cosmetic.
 
-Flagged for review: ==orange:re-check this once the index rebuild finishes==.</code></pre>
+Flagged for review: ==orange:re-check this once the rebuild finishes==.</code></pre>
 
-    <h2 id="rendering">How highlights render</h2>
-    <p>A highlight becomes a <code>&lt;mark&gt;</code> element wherever it appears — an inline tinted span, not a block. In the rendered preview this shows as a soft color wash behind the text, sized to the palette color you chose (or the default accent tint if you didn't choose one).</p>
+    <p>Leave a space just inside the equals signs and nothing is highlighted, so ordinary prose like <code>x == y</code> stays untouched.</p>
 
-    <div class="shot wide">
-      <div class="icon">🖍️</div>
-      <div class="k">Screenshot — Highlighted text in preview</div>
-      <div class="d">A rendered paragraph mid-sentence with two inline highlighted spans: one with the default tint around a short phrase, and one with the yellow palette color around a different phrase later in the same paragraph — both shown as a soft color wash behind the text, inline with the surrounding prose.</div>
-    </div>
+    <h2 id="rendering">How highlights look</h2>
+    <p>A highlight appears as a soft color wash behind the text, right in line with the surrounding words. You'll see the same tint whether you're writing or reading the finished page.</p>
 
-    <p>In the source editor, the same span is painted with a matching tint while you type — the <code>==</code> delimiters stay visible rather than being hidden, which is the convention Minerva uses for inline markup generally (it matches how <code>*emphasis*</code> and <code>~~strikethrough~~</code> are shown). You can see exactly what you wrote, decorated in place.</p>
+    <figure class="shot-img">
+      <img src="img/notes-highlights.png" alt="A paragraph with two highlighted phrases — one in the default tint, one in yellow — each shown as a soft color wash behind the words, in line with the surrounding text." loading="lazy" />
+      <figcaption>Highlighted text in a note</figcaption>
+    </figure>
 
-    <div class="box">
-      <span class="label">The color is themeable</span>
-      <p>Highlight tints are defined as CSS custom properties per theme, not fixed colors — the same five palette names (<code>yellow</code>, <code>green</code>, <code>blue</code>, <code>pink</code>, <code>orange</code>) resolve to different underlying values in Honey, Light, and Contrast, so a highlight stays legible and on-palette no matter which theme you're using. The editor and preview both derive their tint from the same source, so a highlight looks the same intensity in both places.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Other inline formatting nests fine.</b> The text inside <code>==…==</code> is re-parsed as regular inline markdown, so <code>==**bold**==</code>, <code>==[[wiki-link]]==</code>, and similar combinations work as you'd expect — the highlight wraps around the other formatting rather than blocking it.</li>
-      <li><b>Bold can wrap a highlight too.</b> <code>**==highlighted==**</code> resolves outermost-in — the bold applies around the highlighted span — so both directions of nesting are supported.</li>
-      <li><b>Unrecognized color prefixes aren't stripped.</b> Only the five palette names count as a color. <code>==note:remember this==</code> isn't read as a <code>note</code>-colored highlight — the whole thing, prefix included, is just the highlighted text.</li>
-      <li><b>An empty color prefix falls back to plain.</b> <code>==yellow:==</code> has no body left after the color name, so it isn't treated as a valid highlight with an empty label — it's left uncolored so you can still see what you wrote.</li>
-      <li><b>Highlights are inline-only.</b> A newline inside the marker ends the match before it closes — a highlight can't span multiple lines or wrap a whole paragraph.</li>
-    </ul>
+    <p>The five colors are tuned to each of Minerva's themes, so a highlight stays easy to read and on-palette whichever theme you're using.</p>
 
     <div class="pager">
-      <a class="prev" href="notes-footnotes.html">
+      <a class="prev" href="notes-frontmatter.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Footnotes</span>
+        <span class="ttl">← Properties</span>
       </a>
       <a class="next" href="notes-tasks.html">
         <span class="dir">Next</span>

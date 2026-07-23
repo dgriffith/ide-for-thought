@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Notes Tree</title>
-<meta name="description" content="The Notes panel's file tree: how it displays your project's folder structure, the header's live note count, and how creating, renaming, and moving notes are exposed as tree-specific UI." />
+<meta name="description" content="The Notes panel: browse your project's folders and notes, and create, rename, move, and organize them right from the tree." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,103 +81,93 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Notes tree</p>
 
     <h1>Notes tree</h1>
-    <p class="lede">The <b>Notes</b> tab is the left sidebar's default panel — the file/folder tree that mirrors your project's directory structure on disk. This page covers the panel itself as a piece of UI: the header controls, how the tree displays folders and files, and how creating, renaming, and moving notes are exposed here specifically. For the underlying concepts — what a note is, the full lifecycle, everything you can embed in one — see <a href="notes.html">Notes</a>.</p>
+    <p class="lede">The <b>Notes</b> tab is the left sidebar's home base — a tidy tree of the folders and notes in your project. It's where you browse what you've written and where you create, rename, move, and organize notes. For what a note actually is and everything you can put in one, see <a href="notes.html">Notes</a>.</p>
 
     <h2 id="header">The panel header</h2>
-    <p>Above the tree sits a header with the panel title and a count on the right, then a row of three small tool buttons once the project has at least one note:</p>
+    <p>At the top of the panel is the "Notes" title with a running count of how many notes your project holds, kept up to date as you add and remove them. Once you have at least one note, three small buttons appear just below:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Note count</div>
-        <div class="v">A plain number next to the "Notes" title — no icon, no label, just a tabular-numeral count. It's a recursive file count, not a top-level one: every file anywhere in the tree, folders excluded, counted depth-first. It's a derived value, so it updates live the instant a note is created, deleted, or moved — there's no separate refresh step.</div>
-      </div>
-      <div class="row">
         <div class="k">Expand all / Collapse all</div>
-        <div class="v">Two toolbar buttons above the tree. Expand All opens every folder in the project at once, regardless of current state; Collapse All folds everything shut. Both act on the whole tree, not just the visible portion.</div>
+        <div class="v">Open every folder in the project at once, or fold them all shut, in a single click.</div>
       </div>
       <div class="row">
-        <div class="k">Auto-reveal active file</div>
-        <div class="v">A toggle button (pressed = on) that keeps the tree in sync with whatever note is open in the editor: switching files expands every ancestor folder and scrolls the row into view automatically. It only reveals — clicking a folder to open or close it never re-triggers a reveal, so manually browsing the tree doesn't fight with whatever you have open elsewhere.</div>
+        <div class="k">Auto-reveal active note</div>
+        <div class="v">A toggle that keeps the tree in step with whatever note you're editing: open a note and the tree opens its folders and scrolls it into view. Browsing the tree by hand never fights back — it only reveals when you switch notes.</div>
       </div>
-    </div>
-
-    <div class="box">
-      <span class="label">The project name is a row, not a header</span>
-      <p>If the sidebar has a project name to show, it renders as a synthetic root row above the real tree — with its own folder icon and disclosure arrow — rather than as a section heading. It behaves like any other folder row (click to expand/collapse) but sits outside the multi-selection and drag-and-drop model, so it can't be accidentally selected, deleted, or dragged.</p>
     </div>
 
     <h2 id="tree">Reading the tree</h2>
-    <p>Folders and files are interleaved in a single hierarchical list, indented by depth. A few things about how it's populated and displayed are worth knowing:</p>
+    <p>Folders and notes appear together in a single indented list. A few handy things to know:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Empty folders</div>
-        <div class="v">Shown, not filtered out. An empty folder is a normal, visible row you can expand (to see nothing) or drop a file into — Minerva doesn't hide directories just because they're currently empty.</div>
+        <div class="v">Shown, not hidden. An empty folder stays visible so you can open it or drop a note into it.</div>
       </div>
       <div class="row">
-        <div class="k">Every file type</div>
-        <div class="v">The tree lists every file in the project, not just <code>.md</code> notes — <code>.csv</code> tables, <code>.ttl</code> Turtle/RDF, <code>.py</code> compute cells, and plain-text or code files each get a distinct row icon. Anything else falls back to the default note-page icon, since a curated notebase is almost always markdown-adjacent rather than an arbitrary binary.</div>
+        <div class="k">Every kind of file</div>
+        <div class="v">The tree lists everything in your project — notes, tables, and other files — each with its own icon so you can tell them apart at a glance.</div>
       </div>
       <div class="row">
-        <div class="k">Modified time</div>
-        <div class="v">File rows show a relative timestamp ("3h ago") on the right when the file has a known modification time. Folder rows don't carry one.</div>
+        <div class="k">Last edited</div>
+        <div class="v">Each note shows a relative time on the right, like "3h ago," so you can spot what you touched recently.</div>
       </div>
       <div class="row">
-        <div class="k">Expand / collapse</div>
-        <div class="v">Only the disclosure chevron toggles a folder open or shut. Clicking the rest of the row selects the folder without touching its expanded state — so you can select a folder (to delete it, tag it, and so on) without it springing open or shut underneath you.</div>
+        <div class="k">Open vs. select</div>
+        <div class="v">Click the little arrow to open or close a folder; click the rest of the row to select it without opening it. That way you can select a folder — to rename, tag, or delete it — without it springing open under your cursor.</div>
       </div>
       <div class="row">
         <div class="k">Keyboard navigation</div>
-        <div class="v">Click the tree (or Tab into it) to give it keyboard focus, then <kbd>↑</kbd>/<kbd>↓</kbd> move a cursor through the currently visible rows — respecting collapsed folders — without opening anything. <kbd>Enter</kbd> opens the focused file or toggles the focused folder. <kbd>⌘</kbd><kbd>↓</kbd>/<kbd>⌘</kbd><kbd>↑</kbd> expand/collapse the focused folder in place. <kbd>Space</kbd> toggles the focused row into/out of the selection. <kbd>⌘</kbd><kbd>A</kbd> selects every visible row; <kbd>Esc</kbd> clears the selection.</div>
+        <div class="v">Click into the tree, then use <kbd>↑</kbd>/<kbd>↓</kbd> to move through the visible rows. <kbd>Enter</kbd> opens the note or toggles the folder you're on. <kbd>Space</kbd> adds or removes a row from your selection, <kbd>⌘</kbd><kbd>A</kbd> selects everything visible, and <kbd>Esc</kbd> clears the selection.</div>
       </div>
       <div class="row">
-        <div class="k">Multi-select</div>
-        <div class="v"><kbd>⌘</kbd>-click toggles a row in or out of the selection without opening it; <kbd>Shift</kbd>-click selects a contiguous range in visible order. A selection-count badge ("3 of 42 selected") appears above the tree once anything beyond a single row is selected, with a "clear" link. Right-clicking a row that's already part of the selection keeps the whole selection intact — so Delete or a tag action from the context menu applies to everything selected, not just the row you clicked.</div>
+        <div class="k">Selecting several at once</div>
+        <div class="v"><kbd>⌘</kbd>-click picks individual rows; <kbd>Shift</kbd>-click grabs a whole run between two rows. A small count ("3 of 42 selected") appears above the tree, with a link to clear it. Any action you then choose — delete, tag, and so on — applies to the whole selection.</div>
       </div>
     </div>
 
-    <h2 id="create">Creating notes and folders from the panel</h2>
-    <p>Right-clicking empty space in the tree (or the project-root row) opens a menu with just two entries: <b>New Note</b> and <b>New Folder</b>. Right-clicking an existing folder gets the same two entries at the top, scoped to create inside that folder rather than at the project root. New Note here opens the same naming dialog described in <a href="notes.html#lifecycle">Notes → The note lifecycle</a>; New Folder is the sidebar-specific counterpart — there's no File-menu or command-palette equivalent for creating a folder, only this context menu.</p>
+    <h2 id="create">Creating notes and folders</h2>
+    <p>Right-click empty space in the tree to get <b>New Note</b> and <b>New Folder</b>. Right-click an existing folder for the same two options, creating the new item inside that folder instead. This is the place to make a new folder.</p>
 
     <h2 id="rename-move">Renaming and moving</h2>
-    <p>Right-clicking a note or folder opens a fuller context menu: Cut, Copy, Paste (when something's on the clipboard), New Note, New Folder, then a separator before Rename, Merge into… (notes only), Copy Path, Bookmark and Toggle Entrypoint (notes only), an Open In submenu (Reveal in Finder / Open in Default App / Open in Terminal), Add Tag…, Remove Tag…, Format, and finally Delete.</p>
+    <p>Right-clicking a note or folder opens a fuller menu — Cut, Copy, Paste, New Note, New Folder, Rename, and more, down to Delete. The most common ways to reorganize:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Rename</div>
-        <div class="v">Context menu → Rename. Same prompt-with-prefilled-name behavior as described in the note lifecycle — wiki-links elsewhere in the project are rewritten to match.</div>
+        <div class="v">Right-click and choose Rename. Links to that note from elsewhere in your project are updated automatically so nothing breaks.</div>
       </div>
       <div class="row">
-        <div class="k">Move (drag)</div>
-        <div class="v">Every row is natively draggable. Drag a file or folder onto a target folder row to move it there; drop on empty space below the tree (or on the root row) to move it to the project root. Dropping a file straight into the editor — rather than onto a folder — inserts a resolving wiki-link instead of moving it; that's a different drag payload from a folder-to-folder move.</div>
+        <div class="k">Move by dragging</div>
+        <div class="v">Drag a note or folder onto another folder to move it there, or drop it in the empty space below the tree to move it to the top level.</div>
       </div>
       <div class="row">
-        <div class="k">Move (Cut / Paste)</div>
-        <div class="v">Context menu → Cut on the source, then Paste on the destination folder's context menu. Functionally the same move as dragging, useful when the source and destination aren't both scrolled into view at once.</div>
+        <div class="k">Move by Cut and Paste</div>
+        <div class="v">Cut a note, then Paste onto the destination folder. Same result as dragging — handy when the two spots aren't both on screen at once.</div>
       </div>
       <div class="row">
         <div class="k">Copy</div>
-        <div class="v">Context menu → Copy, then Paste elsewhere — duplicates rather than moves.</div>
+        <div class="v">Copy a note, then Paste elsewhere to make a duplicate rather than moving the original.</div>
       </div>
       <div class="row">
-        <div class="k">External drops</div>
-        <div class="v">Dragging files in from Finder (or another app) onto the tree imports them into the project at the drop location, rather than being treated as an internal move.</div>
+        <div class="k">Bring files in</div>
+        <div class="v">Drag files from your computer onto the tree to add them to your project at the spot where you drop them.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗂️</div>
-      <div class="k">Screenshot — Notes tree with context menu open</div>
-      <div class="d">The left sidebar's Notes panel: header showing the "Notes" title and a note count on the right, the Expand All / Collapse All / Auto-reveal toolbar below it, and the file tree beneath with a folder expanded to show a mix of notes and an empty subfolder. A right-click context menu is open on a note row, showing Cut, Copy, New Note, New Folder, a separator, then Rename, Copy Path, Bookmark, an Open In submenu, Add Tag…, Remove Tag…, Format, and Delete.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-notes-tree.png" alt="The Notes panel showing its title and note count, the expand, collapse, and auto-reveal buttons, and the tree below with a folder opened to reveal a mix of notes and an empty subfolder. A right-click menu is open on a note, offering Cut, Copy, New Note, New Folder, Rename, tag options, and Delete." loading="lazy" />
+      <figcaption>The Notes panel with a right-click menu open</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Deleting is a plain confirmation, not a warning</span>
-      <p>Delete from this menu follows the same rule as everywhere else in Minerva: no red styling, just a plain "Delete note &quot;name&quot;?" confirmation with a "don't ask again" option, backed by the fact that git has your history regardless. See <a href="notes.html#lifecycle">Notes → The note lifecycle</a> for the link-check Minerva runs first.</p>
+      <span class="label">Deleting is calm, not scary</span>
+      <p>Deleting a note is a normal, everyday action — you get a plain confirmation with a "don't ask again" option, no alarming warnings.</p>
     </div>
 
     <h2 id="empty-project">No notes yet</h2>
-    <p>A brand-new project with zero files shows a plain "No notes yet" message in place of the tree — the toolbar (Expand All / Collapse All / Auto-reveal) doesn't render at all until there's at least one file, since there's nothing yet for those controls to act on. Right-clicking the empty state still opens the New Note / New Folder menu, so an empty project isn't a dead end.</p>
+    <p>A brand-new project shows a simple "No notes yet" message where the tree would be. Right-click that empty space and you can still make your first note or folder, so you're never stuck.</p>
 
     <div class="pager">
       <a class="prev" href="left-sidebar.html">

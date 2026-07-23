@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Math</title>
-<meta name="description" content="Math in Minerva notes: the $…$ inline and $$…$$ block delimiters, how both render through KaTeX, and gotchas around malformed LaTeX and math inside tables." />
+<meta name="description" content="Write mathematical notation in your notes with $…$ for inline math and $$…$$ for centered display equations." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub active">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,58 +93,45 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Math</p>
 
     <h1>Math</h1>
-    <p class="lede">Minerva renders LaTeX math wherever it appears in a note — inline in a sentence or as its own centered display equation — using the same <code>$…$</code> / <code>$$…$$</code> convention as Pandoc and most markdown-flavored notes apps. Rendering happens through <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a>, so it's fast and works offline: no server round-trip, no network dependency.</p>
+    <p class="lede">Minerva turns mathematical notation into beautifully typeset equations — right inside your notes. Write an equation once and it shows up crisply, whether it sits mid-sentence or stands on its own line. It all works offline.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>Wrap LaTeX in single dollar signs for inline math, doubled dollar signs for a block display equation.</p>
+    <h2 id="syntax">Writing an equation</h2>
+    <p>Wrap your notation in dollar signs. Use a single pair for math that flows inside a sentence, and a double pair for an equation that stands on its own, centered line.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><code>$…$</code></div>
-        <div class="v"><b>Inline.</b> Renders in place, mid-sentence. Example: <code>the update rule is $\theta_{t+1} = \theta_t - \eta \nabla L(\theta_t)$.</code></div>
+        <div class="v"><b>Inline.</b> Appears right in the middle of your sentence. Example: <code>the update rule is $\theta_{t+1} = \theta_t - \eta \nabla L(\theta_t)$.</code></div>
       </div>
       <div class="row">
         <div class="k"><code>$$…$$</code></div>
-        <div class="v"><b>Block.</b> Renders as its own centered display equation. Example: <code>$$\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$</code></div>
+        <div class="v"><b>Display.</b> Stands alone as a centered equation. Example: <code>$$\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$</code></div>
       </div>
     </div>
 
-    <p>A block equation can open and close on one line, or span several — the closing <code>$$</code> just needs to end its own line:</p>
+    <p>A display equation can fit on one line, or spread across several — the closing <code>$$</code> just needs a line of its own:</p>
 
 <pre><code>$$
 P(A \mid B) = \frac{P(B \mid A)\,P(A)}{P(B)}
 $$</code></pre>
 
-    <div class="shot wide">
-      <div class="icon">∑</div>
-      <div class="k">Screenshot — Rendered math in preview</div>
-      <div class="d">A rendered note showing a sentence with an inline equation (θ update rule) in normal running text, followed by a bordered, centered block equation (the Bayes' rule example above) rendered by KaTeX in its own card below the paragraph.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-math.png" alt="A sentence with an inline equation set naturally in the running text, followed by a centered display equation standing on its own below the paragraph." loading="lazy" />
+      <figcaption>A note with typeset math</figcaption>
+    </figure>
 
-    <h2 id="rendering">How math renders</h2>
-    <p>Inline math renders directly in the flow of text at normal size. Block math renders inside a bordered card — the same visual treatment as a code block — with the equation centered and the card scrolling horizontally if the equation is too wide to fit.</p>
-    <p>A <code>$$…$$</code> pair written mid-paragraph (not at the start of a line) still renders in display mode, just without its own card — useful for a one-off large equation you don't want to break out of the sentence.</p>
+    <h2 id="rendering">How it looks</h2>
+    <p>Inline math sits at normal text size, right in the flow of your sentence. A display equation is centered on its own line, and if it's wider than the page it can scroll sideways so nothing gets cut off.</p>
 
     <div class="box">
-      <span class="label">Malformed LaTeX doesn't break the preview</span>
-      <p>An equation KaTeX can't parse renders as an inline error span showing the raw source, rather than failing the whole note's preview. Hovering the error span shows KaTeX's parse error as a tooltip, so you can see exactly what's wrong without leaving the note.</p>
+      <span class="label">A typo won't break your note</span>
+      <p>If an equation can't be read, Minerva simply shows what you typed in place — the rest of your note keeps rendering normally. Hover over it and you'll see a short note explaining what went wrong, so you can fix it without leaving the page.</p>
     </div>
 
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Unsupported LaTeX commands.</b> Minerva renders whatever KaTeX supports — a large but not complete subset of LaTeX math. A command from a package KaTeX doesn't implement will render as the error span described above rather than being silently dropped.</li>
-      <li><b>No space right after the opening <code>$</code> or before the closing <code>$</code>.</b> This is intentional, so ordinary prose mentioning money — "cost: $5 today, $50 tomorrow" — doesn't get swept into a math span. <code>$x+1$</code> is math; <code>$ x+1 $</code> is not. Digits right after the opening <code>$</code> are fine (<code>$0.6&lt;z&lt;4$</code> works), just not whitespace.</li>
-      <li><b>No blank line inside inline math.</b> An unescaped line break inside a <code>$…$</code> span ends the match instead of continuing it — keep inline math on one line. Block <code>$$…$$</code> math is fine spanning multiple lines.</li>
-      <li><b>Escaping a literal dollar sign.</b> Write <code>\$</code> to show a literal dollar sign next to math-like content without triggering inline math.</li>
-      <li><b>Math inside code fences and inline code is left alone.</b> A <code>$…$</code> written inside a fenced code block or inline <code>`code`</code> span is shown as literal text, never rendered as math.</li>
-      <li><b>Table cells render math normally.</b> A markdown table cell goes through the same inline-rendering pipeline as body text, so <code>$…$</code> works unescaped inside a cell — no special escaping needed beyond the rules above.</li>
-      <li><b>Note frontmatter is not rendered as markdown.</b> The YAML frontmatter block is stripped out before the note body is rendered, so <code>$…$</code> in a frontmatter value is shown as plain text in the frontmatter panel, not as math. (The Source viewer's title and abstract fields are the exception — see <a href="notes-frontmatter.html">Frontmatter</a> for where properties do and don't get markdown treatment.)</li>
-    </ul>
-
     <div class="pager">
-      <a class="prev" href="notes-callouts.html">
+      <a class="prev" href="notes-media.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Callouts &amp; cards</span>
+        <span class="ttl">← Media</span>
       </a>
       <a class="next" href="notes-diagrams.html">
         <span class="dir">Next</span>

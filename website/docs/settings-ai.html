@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: AI</title>
-<meta name="description" content="The AI tab of Settings: choosing a default model and reasoning effort, entering and clearing your Anthropic API key, and where per-skill model overrides actually live." />
+<meta name="description" content="The AI tab of Settings: choosing a default model and reasoning effort, saving your API key, and turning on voice dictation." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,68 +88,43 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>AI</p>
 
     <h1>AI</h1>
-    <p class="lede">The default model and reasoning effort every new conversation starts with, your Anthropic API key, and voice dictation. Per-skill model overrides live on the separate <a href="settings-skills.html">Skills</a> tab, not here — this tab only sets the fallback everything else defers to.</p>
+    <p class="lede">This tab sets what every new conversation starts with — which AI model it uses and how hard that model thinks — plus your API key and voice dictation. If you want a particular thinking tool to use a different model, that's set on the <a href="settings-skills.html">Skills</a> tab; here you're just setting the defaults everything else falls back to.</p>
 
     <h2 id="model">Default model and effort</h2>
-    <p>These two dropdowns set the defaults a new conversation opens with. Both are just starting points — the per-conversation model and effort pickers in the conversation panel's context rail override them for that one tab, and neither dropdown here touches a conversation already in progress.</p>
+    <p>Two dropdowns pick the starting point for a fresh conversation. They're only defaults: each conversation has its own model and effort pickers that override them for that conversation, and changing them here never disturbs a conversation you already have open.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Default model</div>
-        <div class="v">A fixed list, not a live query against Anthropic — Claude Fable 5, Claude Opus 4.8, Claude Sonnet 5, Claude Sonnet 4.6, and Claude Haiku 4.5. Sonnet 4.6 stays listed alongside its successor, Sonnet 5, purely so anyone who had it selected doesn't get silently reset to a different model on upgrade.</div>
+        <div class="v">Choose which model new conversations use. Faster models answer quickly and cost less; more capable ones handle harder, more nuanced work.</div>
       </div>
       <div class="row">
         <div class="k">Default reasoning effort</div>
-        <div class="v">"Model default" (send no preference), Low, Medium, High, Extra, or Max. Higher effort lets the model think longer before answering. Support is model-gated: Haiku 4.5 accepts no effort control at all, Sonnet 4.6 and Sonnet 5 top out at Max, and "Extra" only exists for Opus 4.8 and Fable 5.</div>
+        <div class="v">How long the model spends thinking before it answers, from Low up to Max — or leave it at the model's own default. More effort can mean better answers on tricky questions at the cost of a little speed. Not every model offers every level; you'll only ever be offered the levels the chosen model actually supports.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">Only the levels a model supports are ever sent</span>
-      <p>The dropdown here doesn't hide unsupported levels for you — it's a single global default, not model-aware. The gating happens downstream: the per-conversation effort picker only offers what the conversation's current model actually accepts, and if a saved default or a conversation override doesn't apply to the model in play, it's silently clamped to the nearest level that model supports rather than sent as-is and rejected by the API.</p>
-    </div>
-
     <h2 id="apikey">API key</h2>
-    <p>A password-style field for your Anthropic API key, plus a status line above it that reflects what's already stored — not a live validation check. On open, the panel shows <b>Loading…</b> until the saved settings arrive, then <b>✓ API key saved</b> if one is on file or <b>No API key set</b> if it isn't. Minerva never round-trips the stored key to check it still works; "saved" means present, not verified.</p>
+    <p>Minerva's AI features need an API key, which you paste into this field. A line above the field tells you whether a key is already saved. For your privacy the saved key is never shown back to you, and it can't be copied out of the field.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Entering a key</div>
-        <div class="v">Typing into the field doesn't save immediately — like the model and effort defaults, it's held until you click <b>Done</b> on the dialog. The field's placeholder changes to "Type to replace existing key" once a key is already saved, and the saved value itself is never displayed back — copy, cut, and right-click are all disabled on the field so there's nothing to accidentally expose over your shoulder or leak into a clipboard manager.</div>
+        <div class="v">Paste your key into the field and click <b>Done</b> to save it. If a key is already saved, typing a new one replaces it.</div>
       </div>
       <div class="row">
         <div class="k">Clearing a key</div>
-        <div class="v">A <b>Clear saved key</b> link appears once a key is set. Clicking it doesn't delete anything immediately — it flips a pending "will clear on save" state (the status line updates to say so, the input disables) with a <b>Cancel clear</b> link right below it to back out before you commit. The key is only actually removed when you click Done.</div>
-      </div>
-      <div class="row">
-        <div class="k">Environment variable fallback</div>
-        <div class="v">Setting <code>ANTHROPIC_API_KEY</code> in your environment works without ever touching this field — Minerva falls back to it whenever no key is stored in settings. A key you type here and save takes precedence over the environment variable.</div>
+        <div class="v">Once a key is saved, a <b>Clear saved key</b> link lets you remove it. Nothing is deleted until you click Done, and a <b>Cancel clear</b> link lets you change your mind first.</div>
       </div>
     </div>
-
-    <div class="box">
-      <span class="label">Where this lives on disk</span>
-      <p>The model, effort, and API key are all one record, written to <code>llm-settings.json</code> in your Electron user-data directory (not inside the project's <code>.minerva/</code> folder, and not synced anywhere) — so this is a per-machine setting, same as the Skills and Behaviors tabs. It's saved as one unit when you click Done on the Settings dialog, not per-field as you edit.</p>
-    </div>
-
-    <h2 id="tools">Tool preferences</h2>
-    <p>This tab doesn't have its own tool-preference controls. Per-skill model overrides — pointing a specific skill at a cheaper or more capable model than the global default — are configured on the <a href="settings-skills.html">Skills</a> tab instead, which reads the same default-model value set here as its fallback for any skill without an explicit override.</p>
 
     <h2 id="voice">Voice dictation</h2>
-    <p>Below the API key sits an unrelated pair of controls: an <b>Enable voice dictation</b> checkbox and a voice-model dropdown. Unlike everything above, these save immediately to <code>localStorage</code> as you change them — dictation runs entirely on-device (local Whisper, via a renderer worker) and never touches your Anthropic key or the main-process settings file, so there's no reason to defer it to the dialog's Done button. The model (tens of megabytes) downloads once on first use; your audio never leaves the machine.</p>
+    <p>Turn on <b>Enable voice dictation</b> to speak instead of type, and pick a voice model from the dropdown beside it. Dictation runs entirely on your own machine — your audio never leaves it. The first time you use it, the voice model downloads once and is then ready to use offline.</p>
 
-    <div class="shot wide">
-      <div class="icon">🤖</div>
-      <div class="k">Screenshot — Settings → AI tab</div>
-      <div class="d">The AI settings panel: a "Default model" dropdown and a "Default reasoning effort" dropdown with its model-gating hint text beneath; below that the API key section showing the "✓ API key saved" status line, a masked password field with a "Clear saved key" link; and at the bottom the voice dictation checkbox with its model dropdown.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Nothing here saves until you click Done.</b> The model, effort, API key entry, and pending clear are all held in the dialog's local state and only written together when you close the dialog with Done — clicking Cancel, or closing the window, discards all of it, including a pending key clear.</li>
-      <li><b>Changing the model or clearing the key doesn't touch conversations already open.</b> Each conversation tab tracks its own model (defaulting from this setting only when it was created), so switching the default here has no retroactive effect on an in-progress tab. Clearing the API key here and clicking Done will, however, make the very next message you send in <i>any</i> conversation fail — there's no separate per-conversation key.</li>
-      <li><b>"API key saved" is a presence check, not a working-key check.</b> An expired, revoked, or mistyped key still shows <b>✓ API key saved</b> — the status only reflects that something is stored, not that Anthropic will accept it. A bad key surfaces as a failed request the next time you actually send a message.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/settings-ai.png" alt="The AI settings panel: a default model dropdown and a reasoning effort dropdown, then the API key section showing whether a key is saved, and at the bottom the voice dictation toggle with its model choice." loading="lazy" />
+      <figcaption>Screenshot — the AI settings tab</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="settings-compute.html">

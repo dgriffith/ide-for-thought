@@ -79,26 +79,26 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="refactoring.html">Refactoring</a><span class="sep">/</span>AI-assisted refactors</p>
 
     <h1>AI-assisted refactors</h1>
-    <p class="lede">Ask the assistant to rename, move, reorganize, or delete notes for you — same trust principle as everywhere else in Minerva: it proposes a plan, you review it, nothing changes until you approve.</p>
+    <p class="lede">You can ask the assistant to rename, move, reorganize, or delete notes for you. As everywhere else in Minerva, it only proposes a plan — you review it, and nothing changes until you approve.</p>
 
     <h2 id="single">Single rename or move</h2>
-    <p>The review card shows a before/after diff of every note whose links change as a result, and an <b>Approve &amp; rename</b> (or <b>Approve &amp; move</b>) button. Nothing happens to any file until you click it.</p>
+    <p>Ask to rename or move one note, and you get a review card that shows exactly what will change: a before-and-after view of every note whose links point to it, plus an <b>Approve</b> button. Nothing is touched until you click it.</p>
 
-    <h2 id="batch">Batch reorganization</h2>
-    <p>For a whole set of moves/renames at once, the review card lists every operation with its own checkbox — approve a subset, not all-or-nothing. Expanding an item shows that note's own link-rewrite diff. If the plan has a swap that can't be safely ordered (<code>A</code> and <code>B</code> trading paths with each other), the card surfaces it plainly: <i>"Some moves swap paths in a cycle and can't be applied in a safe order — split them."</i></p>
+    <h2 id="batch">Reorganizing several notes at once</h2>
+    <p>Ask for a set of moves and renames together, and the review card lists each one with its own checkbox, so you can approve just the parts you like rather than the whole plan. Open any item to see how that note's links will be rewritten. If two notes would trade places in a way that can't be untangled, the card tells you so and suggests splitting them up.</p>
 
     <div class="shot wide">
       <div class="icon">📋</div>
-      <div class="k">Screenshot — Batch reorganization review card</div>
-      <div class="d">The reorganization card: "Reorganize 4 of 6 notes · 9 notes' links rewritten" header, per-item checkboxes with rename/move arrows, one item expanded to show its link-rewrite diff.</div>
+      <div class="k">Reviewing a reorganization plan</div>
+      <div class="d">The review card lists each proposed rename and move with a checkbox. One item is opened to show how the links pointing at that note will be updated.</div>
     </div>
 
-    <h2 id="delete">Batch delete</h2>
-    <p>Same per-item checkbox pattern, plus the same inbound-link accounting as a manual delete: each note being deleted shows how many other notes will be left with a dangling link, so you can see the blast radius before approving — see <a href="refactoring-safe-delete.html">Safe delete &amp; dangling links</a> for what "dangling" means here.</p>
+    <h2 id="delete">Deleting in bulk</h2>
+    <p>Deletion works the same way, with a checkbox for each note. For every note you're about to remove, the card tells you how many other notes still link to it, so you can see the impact before approving. See <a href="refactoring-safe-delete.html">Safe delete &amp; dangling links</a> for more.</p>
 
     <div class="box">
-      <span class="label">Folder bulk moves are manual-only</span>
-      <p>These tools operate on individual notes — asking the assistant to move or rename an entire folder isn't supported; it'll tell you to do that one by hand instead (see <a href="refactoring-manual.html">Manual rename, move &amp; delete</a>, where dragging a folder does work).</p>
+      <span class="label">Whole folders are done by hand</span>
+      <p>The assistant works on individual notes. To move or rename an entire folder at once, do it yourself by dragging it — see <a href="refactoring-manual.html">Manual rename, move &amp; delete</a>.</p>
     </div>
 
     <div class="pager">

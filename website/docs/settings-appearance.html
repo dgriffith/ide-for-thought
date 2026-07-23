@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Appearance</title>
-<meta name="description" content="The Appearance tab in Settings: pick a theme and choose the font used for the markdown editor and preview — the two whole-app looks-and-feel controls Minerva exposes." />
+<meta name="description" content="The Appearance tab in Settings: pick a theme and choose the font your notes are written and read in." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,57 +88,49 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Appearance</p>
 
     <h1>Appearance</h1>
-    <p class="lede">Two controls live on this tab: which theme the whole app uses, and which font the markdown editor and preview render in. Both apply live as you change them — there's no "Apply" step, and neither setting travels with a project; they're stored per-machine.</p>
+    <p class="lede">This tab holds two choices: the theme the whole app wears, and the font your notes are written and read in. Both take effect the moment you change them.</p>
 
     <h2 id="theme">Theme</h2>
-    <p>The <b>Theme</b> dropdown offers Dark, Light, High Contrast, and System. This tab is just one of three equivalent places to change it — the status bar and the <kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd> shortcut cycle the same setting. The mechanics — what each theme looks like, how System tracks your OS, where the preference is stored — are covered in full on the <a href="viewing-options-themes.html">Themes</a> page; this tab is just the Settings-dialog surface for picking one.</p>
+    <p>The <b>Theme</b> dropdown lets you pick Dark, Light, High Contrast, or System (which follows your computer's own light-or-dark setting). You can also switch themes from the status bar or with <kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd>. For a closer look at each theme, see the <a href="viewing-options-themes.html">Themes</a> page.</p>
 
     <h2 id="content-font">Content font</h2>
-    <p>The <b>Content font</b> dropdown changes the typeface used for note text — in both the CodeMirror editor and the rendered preview. It does not touch the app's own interface: menus, sidebar labels, dialog text, and every other piece of chrome stay on the system UI font regardless of what you pick here. The setting writes a single CSS custom property, <code>--content-font-family</code>, which the editor's <code>.cm-content</code> and the preview pane both read; everything else in the app never references that variable, which is what keeps the two scopes separate.</p>
+    <p>The <b>Content font</b> dropdown sets the typeface your notes appear in, both as you write and in the reading view. It changes only your note text — the app's menus, sidebars, and dialogs keep their usual look. Choose whichever reads best for you:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Minerva default (Plex)</div>
-        <div class="v">No override — content falls back to Minerva's own monospace stack (IBM Plex Mono and friends). The default look, unchanged.</div>
+        <div class="k">Minerva default</div>
+        <div class="v">Minerva's built-in typewriter-style font. The look you start with.</div>
       </div>
       <div class="row">
         <div class="k">System Sans</div>
-        <div class="v"><code>-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif</code> — your OS's UI sans, for a prose-first reading feel.</div>
+        <div class="v">A clean, rounded font for a relaxed, prose-first reading feel.</div>
       </div>
       <div class="row">
         <div class="k">Serif</div>
-        <div class="v"><code>Georgia, "Times New Roman", Cambria, serif</code> — a book-like serif for long-form notes.</div>
+        <div class="v">A book-like serif for long-form notes.</div>
       </div>
       <div class="row">
         <div class="k">Monospace</div>
-        <div class="v"><code>ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, monospace</code> — a generic monospace stack that takes whichever of those faces is installed.</div>
+        <div class="v">An even-width font where every character lines up.</div>
       </div>
       <div class="row">
         <div class="k">JetBrains Mono</div>
-        <div class="v">Named preference for JetBrains Mono specifically, falling back through standard monospace faces if it isn't installed.</div>
+        <div class="v">A popular even-width font, used if you have it installed.</div>
       </div>
       <div class="row">
         <div class="k">Berkeley Mono</div>
-        <div class="v">Named preference for Berkeley Mono (and its <code>TX-02</code> alias), same fallback pattern.</div>
+        <div class="v">Another even-width font, used if you have it installed.</div>
       </div>
       <div class="row">
         <div class="k">System mono</div>
-        <div class="v"><code>ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", monospace</code> — your OS's default monospace face instead of Plex Mono.</div>
+        <div class="v">Your computer's own even-width font.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🔤</div>
-      <div class="k">Screenshot — Settings → Appearance tab</div>
-      <div class="d">The Settings dialog's Appearance tab, showing the "Theme" dropdown at top and the "Content font" dropdown below it with its options open (Minerva default, System Sans, Serif, Monospace, JetBrains Mono, Berkeley Mono, System mono), each hint line visible beneath its field.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The named mono presets don't install fonts.</b> Picking "JetBrains Mono" or "Berkeley Mono" only sets a font-family preference — if that face isn't already installed on your system, the browser falls through to the next name in the stack (ultimately Menlo/SFMono-Regular), so the note pane will silently keep looking like the fallback rather than the one you chose.</li>
-      <li><b>Chrome is never affected.</b> If you're expecting a "reading font" that also restyles the sidebar or menus, that's not what this control does — it's scoped to <code>--content-font-family</code>, which only the editor content and preview read. The rest of the UI always uses the system font.</li>
-      <li><b>Per-machine, not per-project.</b> Like theme, the content font is stored in <code>localStorage</code> — it's a preference for this install of Minerva, not something that travels with the notebase or syncs to another device.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/settings-appearance.png" alt="The Appearance tab in Settings, with the Theme dropdown at the top and the Content font dropdown below it, its list of font choices open." loading="lazy" />
+      <figcaption>The Appearance tab</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="settings-editor.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Document Exports</title>
-<meta name="description" content="The document-family exporters: markdown passthrough, single-note and wiki-link-closure bundles in Markdown, HTML, and PDF, and the link policies shared across them." />
+<meta name="description" content="Turn your notes into shareable documents — Markdown, web pages, or PDF — as a single note or a whole set of linked notes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,54 +81,55 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Document exports</p>
 
     <h1>Document exports</h1>
-    <p class="lede">Seven exporters covering the document family — plain markdown, and single-note vs. wiki-link-closure bundles in Markdown, HTML, and PDF.</p>
+    <p class="lede">When you want to share your work outside Minerva, you can turn a note into a document. Pick a format — Markdown, a web page, or a PDF — and choose whether to export just one note or a note along with everything it links to.</p>
 
-    <h2 id="exporters">The exporters</h2>
+    <h2 id="exporters">What you can export</h2>
+    <p>Every export starts from a note. You decide the format and whether to include the notes it links to.</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Markdown<br><span class="v" style="opacity:.7">(passthrough)</span></div>
-        <div class="v">A folder or the whole project, copied through as-is — the closest thing to "just give me the files."</div>
+        <div class="k">Markdown</div>
+        <div class="v">A plain copy of your notes, exactly as you wrote them — the simplest way to get your files out.</div>
       </div>
       <div class="row">
-        <div class="k">Note as Clean Markdown</div>
-        <div class="v">A single note, cleaned up for standalone reading (no project-specific cruft).</div>
+        <div class="k">A note as clean Markdown</div>
+        <div class="v">A single note, tidied up so it reads well on its own.</div>
       </div>
       <div class="row">
-        <div class="k">Note Tree as Markdown Zip</div>
-        <div class="v">A root note's wiki-link closure, bundled as a <code>.zip</code> of markdown files.</div>
+        <div class="k">A note and its links as Markdown</div>
+        <div class="v">A note together with every note it links to, gathered into one downloadable set of Markdown files.</div>
       </div>
       <div class="row">
-        <div class="k">Note as HTML</div>
-        <div class="v">A single note as a standalone <code>.html</code> file, styles and scripts embedded.</div>
+        <div class="k">A note as a web page</div>
+        <div class="v">A single note saved as a self-contained web page you can open in any browser.</div>
       </div>
       <div class="row">
-        <div class="k">Note Tree as HTML Bundle</div>
-        <div class="v">A wiki-link closure as a set of linked <code>.html</code> files.</div>
+        <div class="k">A note and its links as web pages</div>
+        <div class="v">A note and everything it links to, saved as a set of linked web pages.</div>
       </div>
       <div class="row">
-        <div class="k">Note as PDF</div>
-        <div class="v">A single note rendered to PDF via Electron's own Chromium engine.</div>
+        <div class="k">A note as a PDF</div>
+        <div class="v">A single note rendered to a polished PDF.</div>
       </div>
       <div class="row">
-        <div class="k">Note Tree as Single PDF</div>
-        <div class="v">A wiki-link closure consolidated into one PDF.</div>
+        <div class="k">A note and its links as one PDF</div>
+        <div class="v">A note and everything it links to, combined into a single PDF.</div>
       </div>
     </div>
 
-    <h2 id="link-policies">Link policies</h2>
-    <p>Every export needs a rule for what happens to a <code>[[wiki-link]]</code> in the output. Three policies apply across the document family:</p>
+    <h2 id="link-policies">What happens to links</h2>
+    <p>Your notes connect to each other with <code>[[wiki links]]</code>. When you export, you choose how those links should appear in the finished document:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Drop</div>
-        <div class="v">The link disappears; its display text (or the target name) remains as plain text. Fits a single-note export, where the link's target usually isn't in the output anyway.</div>
+        <div class="k">Remove the link</div>
+        <div class="v">The link becomes plain text. A good fit when you're exporting a single note and the linked note isn't coming along.</div>
       </div>
       <div class="row">
-        <div class="k">Inline title</div>
-        <div class="v">The link is replaced with the target note's own title (from frontmatter or its H1). Fits content-style exports where the reader has no way to follow the link regardless.</div>
+        <div class="k">Show the note's title</div>
+        <div class="v">The link is replaced by the title of the note it points to — helpful when the reader can't click through anyway.</div>
       </div>
       <div class="row">
-        <div class="k">Follow to file</div>
-        <div class="v">Rewritten to a relative file link when the target is part of this export; otherwise falls back to inline title. The shape for folder/tree exports, where the output is genuinely a set of inter-linked files.</div>
+        <div class="k">Keep it clickable</div>
+        <div class="v">When the linked note is part of the same export, the link stays live so readers can follow it; otherwise it falls back to showing the title. Best when you're exporting a whole set of connected notes.</div>
       </div>
     </div>
 

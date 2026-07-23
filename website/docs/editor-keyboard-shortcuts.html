@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Keyboard Shortcuts</title>
-<meta name="description" content="A complete reference of Minerva's editor keyboard shortcuts — formatting, file and editing commands, and navigation — gathered in one place and cross-linked to their dedicated pages." />
+<meta name="description" content="A complete reference of Minerva's editor keyboard shortcuts — formatting, editing, and navigation — gathered in one place." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,56 +81,56 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Keyboard shortcuts</p>
 
     <h1>Keyboard shortcuts</h1>
-    <p class="lede">Every shortcut the editor answers to, gathered in one reference: inline formatting, file and editing commands, and the navigation shortcuts documented in depth elsewhere. All bindings live in <code>src/renderer/lib/editor/command-registry.ts</code> (formatting and text commands, dispatched through CodeMirror's keymap) and <code>src/renderer/lib/keymap/handle-keydown.ts</code> (app-level navigation, bound at the window). On Windows and Linux, <kbd>⌘</kbd> becomes <kbd>Ctrl</kbd> and <kbd>⌥</kbd> becomes <kbd>Alt</kbd> — every combo below follows that swap unless noted.</p>
+    <p class="lede">Every shortcut the editor answers to, gathered in one place: formatting, editing, and getting around the app. On Windows and Linux, use <kbd>Ctrl</kbd> wherever you see <kbd>⌘</kbd> and <kbd>Alt</kbd> wherever you see <kbd>⌥</kbd>.</p>
 
     <h2 id="formatting">Formatting</h2>
-    <p>Inline and insert commands from <code>COMMAND_REGISTRY</code>. Toggle commands wrap or unwrap the current selection — pressing the same shortcut again on already-formatted text removes the markers. See <a href="editor-markdown-formatting.html">Markdown formatting</a> for the underlying syntax each one produces.</p>
+    <p>These wrap the text you've selected in the matching style. Press the same shortcut again on already-formatted text to remove it. See <a href="editor-markdown-formatting.html">Markdown formatting</a> for what each one looks like.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>B</kbd></div>
-        <div class="v">Toggle <b>bold</b> — wraps the selection in <code>**…**</code>, or drops the cursor between a fresh pair of markers with nothing selected.</div>
+        <div class="v">Toggle <b>bold</b>.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>I</kbd></div>
-        <div class="v">Toggle <i>italic</i> — wraps the selection in <code>*…*</code>.</div>
+        <div class="v">Toggle <i>italic</i>.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>E</kbd></div>
-        <div class="v">Toggle inline <code>code</code> — wraps the selection in backticks.</div>
+        <div class="v">Toggle inline <code>code</code> styling.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>X</kbd></div>
-        <div class="v">Toggle strikethrough — wraps the selection in <code>~~…~~</code>.</div>
+        <div class="v">Toggle strikethrough.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Y</kbd></div>
-        <div class="v">Toggle <a href="notes-highlights.html">highlight</a>, cycling color on repeat presses — yellow → green → blue → pink → orange → plain (unwrapped). Y is mnemonic for yellow, the default color. <code>Mod-Shift-H</code> was the more obvious pick but was already claimed by the menu's Replace-in-Notes accelerator, so this shortcut uses Y instead.</div>
+        <div class="v">Toggle <a href="notes-highlights.html">highlight</a>. Press again to cycle the color: yellow, green, blue, pink, orange, then off.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>K</kbd></div>
-        <div class="v">Insert a markdown link — <code>[selected text](url)</code>, or <code>[](url)</code> with the cursor in the brackets if nothing's selected. This is the editor's insert-link command, distinct from the app-level <a href="navigation-command-palette.html">command palette</a>'s <kbd>⌘</kbd><kbd>K</kbd> — the palette only opens when the editor isn't the one capturing the keystroke first.</div>
+        <div class="v">Insert a link around the selected text, or an empty link with the cursor ready for the address.</div>
       </div>
     </div>
 
-    <p>Headings, quotes, lists, task lists, tables, horizontal rules, footnotes, wiki-links, and typed links are all reachable from the editor's Insert/Format menus and the command palette, but ship with no default key binding (<code>defaultKey: ''</code> in the registry) — there's simply nothing to press for them yet.</p>
+    <p>Headings, quotes, lists, task lists, tables, footnotes, and links are also available from the editor's menus and the command palette, even where no shortcut is assigned.</p>
 
     <div class="box">
-      <span class="label">Shortcuts are user-remappable</span>
-      <p>Every entry in <code>COMMAND_REGISTRY</code> can be rebound from Settings — overrides are stored in <code>localStorage</code> and merged over the defaults at startup (<code>resolveKeyBindings()</code>). The bindings on this page are what you get out of the box; check Settings if a combo doesn't match what you're seeing.</p>
+      <span class="label">You can remap these</span>
+      <p>The shortcuts on this page are the defaults. If a combination doesn't behave the way it's described here, check Settings — any of them can be reassigned to keys you prefer.</p>
     </div>
 
-    <h2 id="file-and-editing">File &amp; editing</h2>
-    <p>Saving, undo/redo, and text manipulation commands.</p>
+    <h2 id="file-and-editing">Editing</h2>
+    <p>Saving, undo, and reshaping the text you're working on.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>S</kbd></div>
-        <div class="v">Save now. Minerva <a href="notes.html">autosaves</a> on a debounced ~1000ms timer, so this isn't strictly necessary to avoid losing work — but it's not a no-op either: it flushes any pending autosave and writes immediately, then refreshes tags, the right sidebar, and backlink/alias caches on the spot rather than waiting for the timer.</div>
+        <div class="v">Save now. Minerva <a href="notes.html">saves your work automatically</a> as you type, so this is mostly for peace of mind.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>Z</kbd></div>
-        <div class="v">Undo, via CodeMirror's standard history keymap (bundled in <code>basicSetup</code>).</div>
+        <div class="v">Undo.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Z</kbd></div>
@@ -138,41 +138,41 @@
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>D</kbd></div>
-        <div class="v">Duplicate line — with no selection, copies the current line directly beneath itself; with a selection, duplicates the whole selected region.</div>
+        <div class="v">Duplicate the current line, or the selected text if you have any.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌥</kbd><kbd>↑</kbd> / <kbd>⌥</kbd><kbd>↓</kbd></div>
-        <div class="v">Extend or shrink the selection outward/inward through a sequence of enclosing scopes — word, bracket/quote pair, line, sentence, paragraph, heading section, whole document — remembering each step so shrinking retraces exactly what extending grew.</div>
+        <div class="v">Grow or shrink the selection one step at a time — from a word out to the sentence, paragraph, section, and eventually the whole note, then back in again.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd></div>
-        <div class="v">Toggle case of the selection (or the word under the cursor with nothing selected): all-lowercase → UPPERCASE → Title Case → lowercase.</div>
+        <div class="v">Cycle the case of the selection (or the current word): lowercase, UPPERCASE, Title Case, and back.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>J</kbd></div>
-        <div class="v">Join lines — merges the current line with the next (or every line in a multi-line selection) into one, separated by a single space. This binding doesn't swap to <kbd>⌘</kbd> on Windows/Linux — it's <code>Ctrl-Shift-j</code> in the registry on every platform.</div>
+        <div class="v">Join lines — merges the current line with the one below, or all the lines you've selected, into a single line.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
-        <div class="v">Start or stop <a href="editor-voice-dictation.html">voice dictation</a> into the editor at the cursor.</div>
+        <div class="v">Start or stop <a href="editor-voice-dictation.html">voice dictation</a> at the cursor.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>F</kbd></div>
-        <div class="v">Open CodeMirror's built-in search panel, scoped to the current editor tab only. Not the same as project-wide search — see the gotcha below.</div>
+        <div class="v">Find within the note you're editing.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>⌘</kbd><kbd>H</kbd></div>
-        <div class="v">Open the same panel with replace enabled, scoped to the current tab.</div>
+        <div class="v">Find and replace within the note you're editing.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">⌘F / ⌘H are per-tab, not project-wide</span>
-      <p>These open CodeMirror's own search panel inside whichever note is focused. For a search across every file in the project, use <a href="navigation-search.html">Find in Notes…</a> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) instead — same underlying idea, much larger scope. If a search you expect to span the whole project is only turning up matches in the file you already have open, you pressed the un-shifted version.</p>
+      <span class="label">Searching one note vs. all of them</span>
+      <p><kbd>⌘</kbd><kbd>F</kbd> and <kbd>⌘</kbd><kbd>H</kbd> only look inside the note you're editing. To search across every note, use <a href="navigation-search.html">Find in Notes…</a> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) instead.</p>
     </div>
 
-    <h2 id="navigation">Navigation</h2>
-    <p>Shortcuts that move you around the app rather than editing text. Each one has its own page with the full mechanics — this is just the complete list in one place, so you don't have to go hunting across the docs for a shortcut you half-remember.</p>
+    <h2 id="navigation">Getting around</h2>
+    <p>Shortcuts that move you through the app rather than change your text. Each has its own page with more detail — here they are all in one place.</p>
 
     <div class="deflist">
       <div class="row">
@@ -232,15 +232,6 @@
         <div class="v">Close the active tab, when one is open.</div>
       </div>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>⌘P is Quick switch, not a preview toggle.</b> Unlike some other markdown editors, Minerva reserves <kbd>⌘</kbd><kbd>P</kbd> for <a href="navigation-quick-switch.html">Quick switch</a>. Cycling the preview mode is <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd> instead, matching the Linear / VS Code convention rather than Obsidian's.</li>
-      <li><b>Join Lines doesn't follow the Cmd/Ctrl swap.</b> It's bound as <code>Ctrl-Shift-j</code> in <code>COMMAND_REGISTRY</code> on every platform, including macOS — the one formatting/editing shortcut on this page that isn't <kbd>⌘</kbd> on Mac.</li>
-      <li><b>⌘F/⌘H vs ⌘⇧F/⌘⇧H.</b> The un-shifted pair searches only the current tab (CodeMirror's own panel); the shifted pair searches the whole project (<a href="navigation-search.html">Find in Notes…</a>). Easy to reach for the wrong one out of habit from a single-file editor.</li>
-      <li><b>Most paragraph-level formatting has no default key.</b> Headings, quotes, lists, task lists, tables, horizontal rules, and footnote insertion are registry commands with an empty <code>defaultKey</code> — reach them from the Insert/Format menus, the command palette, or bind your own key in Settings.</li>
-      <li><b>Every shortcut is remappable.</b> If a combo on this page doesn't do what's described, check Settings for a user override before assuming the docs are stale.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="editor-markdown-formatting.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Task Lists</title>
-<meta name="description" content="Task lists in Minerva notes: the - [ ] / - [x] checkbox syntax, clicking a rendered checkbox to toggle it, and how the change writes back to the markdown source." />
+<meta name="description" content="Task lists in Minerva notes: write checkboxes into a note and click to check them off." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,19 +53,22 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-callouts.html" class="sub">Callouts &amp; cards</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub active">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
     <a href="notes-math.html" class="sub">Math</a>
     <a href="notes-diagrams.html" class="sub">Diagrams</a>
     <a href="notes-charts.html" class="sub">Charts</a>
     <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub active">Task lists</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
     <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
-    <a href="notes-frontmatter.html" class="sub">Frontmatter</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -90,27 +93,27 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Task lists</p>
 
     <h1>Task lists</h1>
-    <p class="lede">A list item that starts with <code>[ ]</code> or <code>[x]</code> renders as a live checkbox instead of a bullet. Click it in preview and Minerva flips the state and writes the change straight back to the markdown source — no separate "done" field, no dialog. The checkbox <em>is</em> the source of truth.</p>
+    <p class="lede">Turn any list item into a to-do by starting it with a checkbox. In your note it shows up as a real checkbox you can tick off with a click — a simple way to keep a running list of things to do right inside your writing.</p>
 
-    <h2 id="syntax">Syntax</h2>
-    <p>A task item is an ordinary list item — bulleted or numbered — whose text begins with a checkbox marker and a space:</p>
+    <h2 id="syntax">Writing a task</h2>
+    <p>A task is just a list item whose text begins with a checkbox marker and a space:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><code>- [ ] text</code></div>
-        <div class="v"><b>Unchecked.</b> Renders an empty checkbox. The list marker can be <code>-</code>, <code>*</code>, <code>+</code>, or an ordered marker like <code>1.</code> — all four work.</div>
+        <div class="v"><b>Not done.</b> Shows an empty checkbox. Your list can be bulleted or numbered — either works.</div>
       </div>
       <div class="row">
         <div class="k"><code>- [x] text</code></div>
-        <div class="v"><b>Checked.</b> Renders a checked checkbox. Uppercase <code>[X]</code> also counts as checked — Minerva accepts either case on read, but always writes lowercase <code>x</code> back when it toggles a box.</div>
+        <div class="v"><b>Done.</b> Shows a ticked checkbox.</div>
       </div>
       <div class="row">
         <div class="k">indented item</div>
-        <div class="v"><b>Nested task.</b> Indent a task item under another to make it a sub-task. Nesting is ordinary markdown list nesting — Minerva doesn't track any parent/child relationship between the two, so checking the parent doesn't cascade to its children.</div>
+        <div class="v"><b>Sub-task.</b> Indent a task under another to make it a sub-item. Sub-tasks are independent — checking a parent doesn't check its children.</div>
       </div>
     </div>
 
-    <p>A space must follow the closing bracket — <code>- [ ]foo</code> (no space) isn't recognized and renders as a literal bracket pair, not a checkbox. An empty task item, <code>- [ ]</code> with nothing after it, is valid and toggles like any other.</p>
+    <p>Remember the space after the closing bracket. An empty task with no text after it is fine too.</p>
 
 <pre><code>- [ ] Draft the outline
 - [x] Circulate for feedback
@@ -119,37 +122,22 @@
   - [ ] Section 4 rewrite
 - [ ] Final pass</code></pre>
 
-    <div class="shot wide">
-      <div class="icon">☑️</div>
-      <div class="k">Screenshot — Rendered task list</div>
-      <div class="d">A rendered note showing a bulleted task list with a mix of checked and unchecked boxes, including one top-level item with an indented sub-item beneath it (one checked, one unchecked) to show that nesting renders correctly.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/notes-tasks.png" alt="A note showing a checklist with a mix of ticked and empty boxes, including a top-level item with two indented sub-items beneath it." loading="lazy" />
+      <figcaption>A task list in a note</figcaption>
+    </figure>
 
-    <h2 id="toggling">Clicking a checkbox</h2>
-    <p>In preview, every rendered checkbox is a real, clickable <code>&lt;input type="checkbox"&gt;</code>. Clicking one flips just that line in the note's markdown — <code>[ ]</code> becomes <code>[x]</code> or vice versa — leaving the rest of the line, and every other line, untouched. The edit lands in the editor's in-memory buffer immediately and then follows the normal auto-save path: it's written to disk about a second later (sooner if you save manually), the same debounced write every other edit in the note goes through.</p>
-    <p>Because the write goes through the ordinary file-save call, it triggers the ordinary file-write pipeline — including the graph re-index. There's no special-cased fast path for checkboxes; toggling one is treated exactly like typing the same character change by hand.</p>
-
-    <div class="box">
-      <span class="label">What actually changes on disk</span>
-      <p>Only the checkbox character on the matched line changes — the list marker, any indentation, and the rest of the item's text are preserved byte-for-byte. If the line doesn't match the task-item pattern (for example, the click somehow lands on a checkbox whose line was edited out from under it), nothing is written.</p>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No cascading.</b> Checking a parent task doesn't check its nested sub-tasks, and checking every sub-task doesn't check the parent. Each checkbox is an independent toggle on its own line.</li>
-      <li><b>Ordered-list task items work too.</b> <code>1. [ ] item</code> is recognized the same as a bulleted one — useful if you want a numbered procedure where steps can also be marked done.</li>
-      <li><b>Case is normalized on write.</b> Reading treats <code>[x]</code> and <code>[X]</code> as equally checked, but a toggle always writes lowercase <code>x</code> — an existing <code>[X]</code> becomes <code>[ ]</code> when unchecked, not back to <code>[X]</code>.</li>
-      <li><b>The save is debounced, not instant.</b> The checkbox flips visually the moment you click it, but the write to disk (and the graph re-index that follows) happens on the same short delay as any other keystroke. A manual save flushes it immediately.</li>
-    </ul>
+    <h2 id="toggling">Ticking things off</h2>
+    <p>Every checkbox in your note is clickable. Click one to check it or uncheck it — the rest of the item stays exactly as you wrote it, and nothing else in the note changes. Your click is saved just like any other edit you make.</p>
 
     <div class="pager">
       <a class="prev" href="notes-highlights.html">
         <span class="dir">Previous</span>
         <span class="ttl">← Highlights</span>
       </a>
-      <a class="next" href="notes-rdf.html">
+      <a class="next" href="notes-callouts.html">
         <span class="dir">Next</span>
-        <span class="ttl">Turtle / RDF →</span>
+        <span class="ttl">Callouts →</span>
       </a>
     </div>
   </main>

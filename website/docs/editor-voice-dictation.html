@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Voice Dictation</title>
-<meta name="description" content="Dictate straight into a note with an on-device Whisper model — no audio ever leaves your machine — and how it relates to the composer's separate mic button." />
+<meta name="description" content="Speak into a note and Minerva types it out for you, right where your cursor is. Your voice stays on your computer." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,76 +81,40 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Voice dictation</p>
 
     <h1>Voice dictation</h1>
-    <p class="lede">Dictate into the note you're editing, and Minerva transcribes it with a local Whisper model running entirely on your machine — no audio, and nothing but the one-time model download, ever crosses the network. Trigger it from the keyboard, the command palette, or the editor's right-click menu; the transcript lands right at your cursor.</p>
+    <p class="lede">Would rather talk than type? Speak into the note you're editing and Minerva writes down what you said, dropping the text right where your cursor is. Everything happens on your own computer — your voice never leaves it.</p>
 
     <div class="box">
-      <span class="label">Two mic buttons, one engine</span>
-      <p>The Conversations composer has its own inline mic for dictating a chat message, and the editor has this separate entry point for dictating into a note. Both drive the same recorder and the same Whisper worker — Minerva just tracks which surface asked for it (<code>voice</code> vs. <code>editor</code>), so only the button that started a recording lights up while it runs. This page covers the editor path; see <a href="conversations.html">Conversations</a> for the composer's.</p>
-    </div>
-
-    <h2 id="how-it-runs">How it runs on-device</h2>
-    <p>Dictation never calls out to a cloud speech-to-text API. Recording, decoding, and transcription all happen inside the renderer:</p>
-
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Capture</div>
-        <div class="v">A <code>getUserMedia</code> microphone stream is recorded with <code>MediaRecorder</code>. Dictation is click-to-toggle, not continuously streamed — the whole clip is captured first, then handed off for transcription in a single pass.</div>
-      </div>
-      <div class="row">
-        <div class="k">Transcription</div>
-        <div class="v">The recorded clip is decoded, downmixed, and resampled to 16 kHz mono, then sent to a Whisper model (<code>@huggingface/transformers</code>) running in a dedicated Web Worker — off the UI thread, so a multi-second transcription doesn't stall the editor. The worker runs on the WASM (<code>onnxruntime-web</code>) backend, never the native binary.</div>
-      </div>
-      <div class="row">
-        <div class="k">Model download</div>
-        <div class="v">The chosen Whisper model's weights are fetched from the Hugging Face hub the first time dictation is used, then cached by the browser's Cache API — every dictation after that loads from cache with no network round-trip. Only the model file is ever fetched; your recorded audio is passed directly to the worker and never leaves the process.</div>
-      </div>
-      <div class="row">
-        <div class="k">Model choice</div>
-        <div class="v">Three English-only Whisper variants are available in Settings — Tiny (~25MB, fastest, least accurate), Base (~50MB, the default), and Small (~180MB, slowest, most accurate). Switching models in Settings downloads and caches the new one on next use; the old model's worker is dropped rather than kept alongside it.</div>
-      </div>
+      <span class="label">Private by default</span>
+      <p>Dictation runs entirely on your machine. Your recorded voice is used to produce the text and is never sent anywhere. The very first time you dictate, Minerva downloads a small speech model; after that it works even offline.</p>
     </div>
 
     <h2 id="using-it">Starting and stopping</h2>
-    <p>Three entry points all funnel into the same toggle — the first trigger starts recording, the second stops it and inserts the transcript:</p>
+    <p>Dictation is a simple on/off toggle: trigger it once to start listening, and again to stop and drop the text into your note. You can start it three ways:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Shortcut — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
-        <div class="v">Starts recording at the cursor. Press it again to stop and insert the transcribed text at that same cursor position — even if focus moved to the floating recording indicator while you were speaking.</div>
+        <div class="k">Keyboard — <kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></div>
+        <div class="v">Starts listening at your cursor. Press it again to stop and insert what you said, right where you left off.</div>
       </div>
       <div class="row">
         <div class="k">Right-click menu</div>
-        <div class="v">Editor context menu → <b>Dictate…</b>, alongside <b>Ask About This...</b> and <b>Bookmark This Note</b>.</div>
+        <div class="v">Right-click in the editor and choose <b>Dictate…</b></div>
       </div>
       <div class="row">
         <div class="k">Command palette</div>
         <div class="v">Search for <b>Dictate (Voice to Text)</b>.</div>
       </div>
-      <div class="row">
-        <div class="k">While recording</div>
-        <div class="v">A floating pill at the bottom of the window shows <b>Listening…</b> with <b>Insert</b> and <b>Cancel</b> buttons, plus the shortcut reminder. <kbd>Esc</kbd> cancels without inserting anything. During transcription the pill switches to <b>Transcribing…</b>; on first use (or after switching models) it shows model-download progress as a percentage instead.</div>
-      </div>
-      <div class="row">
-        <div class="k">Text insertion</div>
-        <div class="v">The transcript is inserted at wherever your cursor was when you started recording. Minerva adds a leading space automatically when joining onto a preceding word, so dictating after existing text doesn't run the two together.</div>
-      </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🎙️</div>
-      <div class="k">Screenshot — Dictating into the editor</div>
-      <div class="d">A note in the editor mid-dictation: the cursor sits in the body text, and the floating recording pill at the bottom of the window shows a pulsing "Listening…" indicator with the ⌘⇧V hint and Insert/Cancel buttons.</div>
-    </div>
+    <p>While you're speaking, a small pill at the bottom of the window shows <b>Listening…</b> with <b>Insert</b> and <b>Cancel</b> buttons. Press <kbd>Esc</kbd> to cancel without inserting anything. When you stop, the pill briefly shows that it's writing out your words; the finished text appears at your cursor, with a space added automatically so it doesn't run into the word before it.</p>
 
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>First use downloads a model.</b> The first time you dictate (or the first time after switching models in Settings), Minerva fetches the model file before it can transcribe — the default Base model is roughly 50MB. The floating pill shows download progress; every dictation after that is instant, served from the browser cache.</li>
-      <li><b>Microphone permission is asked once by the OS.</b> The first recording attempt triggers the normal macOS/Windows microphone permission prompt. If it's denied, the pill reports it plainly rather than failing silently; you'll need to grant microphone access to Minerva in your system settings before trying again.</li>
-      <li><b>English only.</b> All three bundled Whisper variants are English-only models — there's no language picker, and accuracy on other languages will be poor to unusable.</li>
-      <li><b>A very short clip is treated as a no-op.</b> Toggling dictation on and immediately off again (under roughly a fifth of a second of audio) inserts nothing rather than erroring — useful if you trigger the shortcut by accident.</li>
-      <li><b>It's a whole-clip transcription, not live streaming.</b> Minerva records the entire dictation first and transcribes it as one pass when you stop, so there's no word-by-word text appearing as you speak — the transcript arrives all at once, right after you stop.</li>
-      <li><b>One microphone at a time.</b> Recording is a single shared engine — starting a dictation in the editor while the composer's mic is active (or vice versa) isn't a supported combination; only one surface can be recording at once.</li>
-    </ul>
+    <h2 id="accuracy">Speed vs. accuracy</h2>
+    <p>In Settings you can choose how carefully Minerva listens. A lighter option is fastest but a little rougher; a heavier one is more accurate but takes longer. The middle option is a good default for most people.</p>
+
+    <figure class="shot-img">
+      <img src="img/editor-voice-dictation.png" alt="A note being written by voice: the cursor sits in the text, and a floating pill at the bottom of the window shows a pulsing &quot;Listening…&quot; indicator with Insert and Cancel buttons." loading="lazy" />
+      <figcaption>Dictating into a note</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="editor-link-autocomplete.html">

@@ -1,0 +1,20 @@
+{
+  "id": "conv-docs-materials",
+  "contextBundle": {
+    "notePath": "notes/Mandolin String Materials.md"
+  },
+  "status": "active",
+  "startedAt": "2026-05-14T20:40:11.605Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Tell me about the various materials that mandolin strings have been made from.",
+      "timestamp": "2026-05-14T20:40:15.000Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Historically, mandolin strings moved from gut and silk cores toward the steel and bronze‑wound sets that define the modern Neapolitan sound. Want me to break that down by era?",
+      "timestamp": "2026-05-14T20:40:29.000Z"
+    }
+  ]
+}

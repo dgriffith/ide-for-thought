@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Maintenance</title>
-<meta name="description" content="The small set of housekeeping actions for when something seems stuck or stale: rebuilding indexes, restarting the Python kernel, and a few others." />
+<meta name="description" content="A small set of housekeeping actions for the rare moment when something looks stale or stuck: refreshing search, restarting calculations, and a few others." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -76,45 +76,44 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Maintenance</p>
 
     <h1>Maintenance</h1>
-    <p class="lede">Notes, search, tables, and semantic search all stay in sync automatically as you work — indexing happens on save, not on a schedule you manage. These six actions are the manual escape hatch for when that assumption breaks down, not a routine you're expected to run.</p>
+    <p class="lede">Minerva keeps search, tables, related-note suggestions, and everything else up to date on its own as you write — you don't run any of this on a schedule. The handful of actions below are here for the rare moment when something looks stale or stuck and you want to give it a nudge. You'll almost never need them.</p>
 
     <h2 id="actions">The actions</h2>
     <div class="deflist">
       <div class="row">
         <div class="k">Rebuild All Indexes<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">A full rescan — the knowledge graph, full-text search, and every registered CSV table are all rebuilt from what's on disk, rather than the incremental update a normal save triggers. Reach for this if something looks stale or inconsistent and you want to rule out a missed update.</div>
+        <div class="v">Refreshes everything Minerva keeps behind the scenes — search, tables, and the connections between notes — from your notes as they are right now. Use it if something looks out of date and you want to be sure nothing was missed.</div>
       </div>
       <div class="row">
         <div class="k">Rebuild Semantic Index<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Forces a full re-embed of the corpus. Normal backfill (a new note, or the embedding model changing) already happens automatically in the background — this is the explicit "start from scratch" option for suspected corruption. Runs non-blocking, with progress shown in the status bar.</div>
+        <div class="v">Rebuilds the "related notes" and meaning-based search from scratch. Minerva normally keeps this current for you; reach for this only if related-note suggestions seem clearly wrong. It runs in the background and you can keep working while it finishes.</div>
       </div>
       <div class="row">
         <div class="k">Interrupt Cell<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Stops a running Python cell without restarting the kernel — everything else the kernel holds (variables, imports) stays intact. Unix only. No default keyboard shortcut is assigned (the Jupyter-standard <kbd>Cmd</kbd>+<kbd>.</kbd> collides with macOS's own Zoom In).</div>
+        <div class="v">Stops a calculation that's taking too long, while keeping the results you've already built up. Handy when a cell is caught in a loop or is slower than you expected.</div>
       </div>
       <div class="row">
-        <div class="k">Restart Python Kernel<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Wipes every notebook's namespace — all variables, imports, and Python's own module cache. Needed after editing a <code>.py</code> helper file elsewhere in the project, since the kernel caches imports and won't pick up your edit otherwise (see <a href="editor.html">Editor</a> for the compute-cell side of this).</div>
+        <div class="k">Restart Calculations<br><span class="v" style="opacity:.7">File menu</span></div>
+        <div class="v">Clears everything your calculation cells have worked out and starts them fresh. Reach for this when results look confused or you want a clean slate. See <a href="editor.html">Editor</a> for how calculation cells work.</div>
       </div>
       <div class="row">
         <div class="k">Clear Recent Thoughtbases<br><span class="v" style="opacity:.7">File menu</span></div>
-        <div class="v">Wipes the open-recent list shown when you launch Minerva. Bookkeeping only — no project data is touched.</div>
+        <div class="v">Empties the list of recently opened thoughtbases you see when Minerva starts. It only tidies that list — none of your notes are touched.</div>
       </div>
       <div class="row">
         <div class="k">Export Knowledge Graph…<br><span class="v" style="opacity:.7">Export menu</span></div>
-        <div class="v">Dumps the live RDF store to a <code>.ttl</code> file you choose — the one item here that isn't strictly "fix something," more a raw escape hatch to the underlying data. See <a href="export.html">Export</a> for everything else that menu covers.</div>
+        <div class="v">Saves a complete copy of everything Minerva knows about your notes and their connections to a file you can keep. See <a href="export.html">Export</a> for the other ways to get your work out.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🛠️</div>
-      <div class="k">Screenshot — The File menu's indexing/kernel section</div>
-      <div class="d">The File menu open, scrolled to show Rebuild All Indexes, Rebuild Semantic Index, Interrupt Cell, and Restart Python Kernel grouped together.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/maintenance.png" alt="The File menu open, showing Rebuild All Indexes, Rebuild Semantic Index, Interrupt Cell, and Restart Calculations grouped together." loading="lazy" />
+      <figcaption>The File menu's maintenance actions</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">What's deliberately not here</span>
-      <p>There's no "verify thoughtbase integrity" or "repair broken links" action, and no cache-clearing beyond the two rebuild actions above. The graph, search index, and tables are designed to stay correct via normal on-save indexing — this menu exists for the rare case where that assumption doesn't hold, not as a checkup you should run out of habit.</p>
+      <span class="label">You don't need a routine</span>
+      <p>There's no checkup to run and no "repair" button to press on a schedule. Minerva keeps itself in order as you work, so treat this menu as an occasional nudge for the rare case when something looks off — not something to reach for out of habit.</p>
     </div>
 
     <div class="pager">

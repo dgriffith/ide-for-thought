@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Heading Graph</title>
-<meta name="description" content="The Heading graph panel renders the current note's headings as an interactive node-and-edge tree — the same data as the Outline panel, laid out spatially instead of as a list, so you can see a note's shape at a glance." />
+<meta name="description" content="The Heading graph panel draws the current note's headings as an interactive tree, so you can see the shape of a long note at a glance." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,61 +88,43 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Heading graph</p>
 
     <h1>Heading graph</h1>
-    <p class="lede">The Heading graph panel draws the current note's headings as a spatial tree — a root node for the note itself, with each heading connected to whichever shallower heading precedes it — rather than the flat, indented list the <a href="right-sidebar-outline.html">Outline</a> panel shows. Same source data, a different shape: useful when you want to see how a long note branches at a glance instead of scanning a list top to bottom.</p>
+    <p class="lede">The Heading graph panel draws your note's headings as a tree you can pan and click around — a starting node for the note itself, with each heading branching off the section that contains it. It shows the same headings as the <a href="right-sidebar-outline.html">Outline</a> panel, just in a different shape: reach for it when you want to see how a long note branches at a glance instead of reading down a list.</p>
 
     <h2 id="how-it-works">How it works</h2>
-    <p>The panel re-derives its graph from the note's raw text on every change, the same way Outline does — there's no separate refresh step. It reuses the identical heading parser (<code>extractHeadings</code>) that powers Outline and the editor's breadcrumb chain, so the two panels never disagree about what counts as a heading or how deep it's nested. That flat list is then reshaped into nodes and edges: a heading's parent is the nearest preceding heading of a shallower level, or a synthetic root node (labeled with the note's title) if none exists. The graph is rendered on a shared Cytoscape canvas — the same one that draws a note's link-neighborhood graph elsewhere in Minerva — laid out here with a top-down <code>breadthfirst</code> layout so the root sits above its headings and each branch reads as a tidy hierarchy rather than a force-directed tangle.</p>
+    <p>The tree updates itself as you write. Each heading becomes a node, connected back to the section it sits inside, so your top-level sections fan out from the note and their subsections branch out one step further. Deeper headings are styled differently from top-level ones, so the tiers are easy to tell apart.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Node</div>
-        <div class="v">One heading (or the synthetic root, standing in for the note's title). Depth in the tree drives its styling, so H2s and H3s read as visually distinct tiers rather than same-size boxes.</div>
+        <div class="k">Click a heading</div>
+        <div class="v">Jumps the editor to that heading, just like clicking it in the Outline. A small toggle above the tree lets you choose whether a single click jumps straight there, or first selects the heading and needs a double-click (or Enter) to jump.</div>
       </div>
       <div class="row">
-        <div class="k">Edge</div>
-        <div class="v">A pure nesting relationship — "this heading is the nearest shallower heading above that one." Edges track heading <em>depth</em> only; they don't represent wiki-links, references, or any other relationship that might happen to appear inside a heading's text.</div>
-      </div>
-      <div class="row">
-        <div class="k">Click a node</div>
-        <div class="v">Scrolls the editor to that heading's line, the same destination Outline's click-to-scroll lands on. A toolbar toggle switches between two click models: click-to-open (single click navigates immediately) and click-to-select (single click selects; double-click or Enter navigates) — one shared setting, so the choice you make here also applies to the note's link-neighborhood graph elsewhere in Minerva.</div>
-      </div>
-      <div class="row">
-        <div class="k">Pan / zoom</div>
-        <div class="v">Standard canvas gestures — drag to pan, scroll or pinch to zoom. The view re-fits automatically when the sidebar is resized.</div>
+        <div class="k">Pan and zoom</div>
+        <div class="v">Drag to move the tree around, and scroll or pinch to zoom in and out. The view re-fits on its own when you resize the sidebar.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🕸️</div>
-      <div class="k">Screenshot — Heading graph for a multi-section note</div>
-      <div class="d">The right sidebar's Heading graph panel showing a root node labeled with the note's title, branching into several H2 nodes, two of which have their own H3 children one level further out, laid out top-down with connecting edges; a small toolbar above the canvas shows the click-to-open / click-to-select toggle in its default state.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-heading-graph.png" alt="A starting node named after the note branches into its main sections, two of which have subsections of their own one step further out, all laid out top-down with connecting lines. A small toggle above the tree sets how clicks behave." loading="lazy" />
+      <figcaption>The Heading graph for a multi-section note</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Not a link graph</span>
-      <p>It's easy to expect "graph" here to mean cross-links — headings connected because one references another by name or wiki-link. It doesn't: every edge is strictly a nesting relationship derived from heading levels, identical in substance to what Outline's indentation already encodes. A wiki-link typed inside a heading's own text doesn't add an edge to anything; the graph never looks at heading content, only at heading level and document order.</p>
+      <span class="label">It's about structure, not links</span>
+      <p>The lines here show which section contains which — nothing more. A link you type inside a heading doesn't connect it to anything; the tree only cares about how your headings nest.</p>
     </div>
 
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>No headings, no graph.</b> A note with no headings shows a plain "No headings to map" message instead of a lone root node — there's nothing to lay out.</li>
-      <li><b>Completely flat documents still branch tidily.</b> A note that only ever uses one heading level (say, every heading is an H2) doesn't collapse into a single connected line — each of those headings attaches directly to the root, so the graph reads as one hub with several spokes rather than a chain.</li>
-      <li><b>Very few headings can look sparse.</b> A note with one or two headings renders a root with one or two children and not much else — Outline's compact list is the more legible choice at that scale; the graph earns its keep on notes with real branching structure.</li>
-      <li><b>Very many headings get crowded.</b> On a note with dozens of headings, the top-down layout can grow wide and require noticeable panning and zooming to read a single branch. Outline's scrollable list stays more compact for that case.</li>
-      <li><b>Duplicate heading text is fine.</b> Two headings with identical text still get separate nodes, each wired to its own line — nothing here is keyed by text.</li>
-    </ul>
-
-    <h2 id="contrast">Heading graph vs. Outline</h2>
-    <p>Both panels are views onto the exact same parsed heading list, kept in lockstep by sharing the same underlying extraction — they will never show different headings or different nesting for the same note. The difference is purely presentational:</p>
+    <h2 id="contrast">Heading graph or Outline?</h2>
+    <p>Both panels show the same headings for a note — they'll never disagree. The difference is just how they look:</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k"><a href="right-sidebar-outline.html">Outline</a></div>
-        <div class="v">A flat, indented, collapsible list. Denser and faster to scan top to bottom, with a filter field for jumping straight to a heading by text. The better default for most notes.</div>
+        <div class="v">A compact, indented list you can collapse and filter by typing. Quick to scan and the better everyday choice for most notes.</div>
       </div>
       <div class="row">
         <div class="k">Heading graph</div>
-        <div class="v">An interactive, pannable node-and-edge tree. Better for seeing the overall shape of a note's structure at a glance — how many major sections, how deep each one nests — at the cost of taking up more visual space per heading.</div>
+        <div class="v">An interactive tree you can pan around. Best for taking in the overall shape of a note at a glance — how many sections it has and how deep each one goes.</div>
       </div>
     </div>
 

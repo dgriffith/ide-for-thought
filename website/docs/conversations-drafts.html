@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Drafts</title>
-<meta name="description" content="A draft card is the AI's not-yet-submitted proposal inline in the conversation — accept it as-is or discard it, and see exactly how Approve turns it into an already-approved thought:Proposal." />
+<meta name="description" content="When the AI suggests a change, it hands you a draft card inside the conversation — accept it to file the change, or discard it. Nothing happens until you decide." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -79,44 +79,35 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="conversations.html">Conversations</a><span class="sep">/</span>Drafts</p>
 
     <h1>Drafts</h1>
-    <p class="lede">A draft card is what the AI hands back instead of writing anything: a not-yet-submitted candidate — a note, a set of tags, a claim, a rewrite — sitting inline in the conversation transcript, waiting for you to accept it or throw it away. Nothing it describes exists in your project until you say so.</p>
+    <p class="lede">When you ask the AI to change something in your project, it doesn't just do it. Instead it hands you a draft card — a proposed note, set of tags, claim, or rewrite — right there in the conversation. Nothing it suggests becomes real until you accept it.</p>
 
     <h2 id="when">When a draft card appears</h2>
-    <p>A draft card shows up whenever a conversation tool produces something that would change your project. Ask the AI to file a new note and you get a note draft; ask it to summarize a source, tag a batch of files, extract claims from a paper, rename or reorganize notes, rewrite a note body, or generate a runnable code cell, and you get the matching card type — <code>DraftCard</code>, <code>ComputeDraftCard</code>, <code>RefactorDraftCard</code>, <code>ReorgDraftCard</code>, <code>DeleteDraftCard</code>, or <code>NoteBodyDraftCard</code> (<code>src/renderer/lib/components/conversations/DraftCards.svelte</code>). Each card is anchored to the assistant turn that produced it and renders directly under that message — you don't have to go looking for it in a separate panel.</p>
+    <p>A draft card shows up whenever the AI produces something that would change your project. Ask it to file a new note, summarize a source, tag a batch of files, pull claims out of a paper, reorganize or rename notes, or rewrite a note — and each time you get a card describing exactly what it wants to do. The card appears right under the AI's message, so you never have to go looking for it.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Accept</div>
-        <div class="v">Files the draft exactly as shown. Labeled per card type — "Approve &amp; file" for notes, "Approve &amp; ingest" for sources, "Approve &amp; apply" for property/tag patches — and replaces the card with a compact, persistent "Filed:" line linking to whatever landed.</div>
+        <div class="v">Files the draft exactly as shown. The button is labeled for the task at hand — "Approve &amp; file" for a note, "Approve &amp; ingest" for a source, "Approve &amp; apply" for tags or properties — and once you accept, the card collapses into a short "Filed:" line that links straight to whatever was created.</div>
       </div>
       <div class="row">
-        <div class="k">Edit</div>
-        <div class="v">Only the compute-cell draft is actually editable before it runs: <code>ComputeDraftCard</code> keeps its own edit buffer, and Run/Insert send your edited code (falling back to the AI's original if you didn't touch it) rather than the draft's stored text. Every other draft type — note, source, property, source-property, claims, refactor, reorg, delete, note-body rewrite — has no in-card editing. You're deciding on exactly what the AI produced.</div>
+        <div class="k">Edit before running</div>
+        <div class="v">When the AI proposes a runnable cell, you can tweak the contents before it runs — your edited version is what gets used. Other kinds of drafts aren't edited in place; you're deciding on exactly what the AI produced.</div>
       </div>
       <div class="row">
         <div class="k">Discard</div>
-        <div class="v">Drops the card from the conversation's draft list with no further action — no proposal is ever created, nothing is written, and there's no undo beyond asking the AI to try again.</div>
+        <div class="v">Removes the card and does nothing else. Nothing is written and nothing is saved — if you change your mind, just ask the AI to try again.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Draft vs. proposal</span>
-      <p>A <b>draft</b> only exists in the renderer's conversation state — it's never touched the knowledge graph. A <b>proposal</b> is a <code>thought:Proposal</code> node the approval engine has actually written to <code>.minerva/graph.ttl</code>. Clicking Accept on a draft card is the moment one becomes the other: the main process calls <code>approval.proposeWrite()</code> to file the proposal, then immediately calls <code>approval.approveProposal()</code> on it, because you already made the accept/discard call at the card — a second pending state in the <a href="right-sidebar-proposals.html">Proposals panel</a> would just be busywork. Every draft type resolves this way (<code>src/main/ipc/register-conversation.ts</code>, e.g. the note-draft handler at <code>CONVERSATION_FILE_DRAFT</code>: propose, then approve, in the same handler), so the trust principle still holds — the write still goes through the approval engine, it just doesn't linger in a pending state you have to separately clear. For the mechanics of reviewing a proposal that isn't auto-approved this way — the diff view, the Approve/Reject keystrokes, the tier table — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a> and <a href="right-sidebar-proposals.html">Proposals</a>.</p>
+      <span class="label">Why there's no second step</span>
+      <p>Because you already made the call at the card itself, accepting a draft files the change straight away — you don't then have to approve it a second time in the <a href="right-sidebar-proposals.html">Proposals panel</a>. If you'd rather review a change more carefully before it lands — comparing the before and after side by side — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗒️</div>
-      <div class="k">Screenshot — A draft card awaiting a decision</div>
-      <div class="d">A note draft card inline in the conversation transcript: the bold headline ("2 notes"), the AI's one-line rationale, an expandable list of the proposed note paths with a collapsed preview, and the Approve &amp; file / Discard button row along the bottom edge.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>"Accept" doesn't mean "unreviewed."</b> Because Accept immediately approves the resulting proposal, a filed draft won't show up under the Proposals panel's Pending tab — it lands directly in Approved, same as a <code>notify_only</code>-tier write. If you want a record of what an AI conversation has filed, look under Approved, not Pending.</li>
-      <li><b>Discarding is final, not a rejection record.</b> Unlike rejecting a proposal in the Proposals panel — which keeps a <code>rejected</code> node in the graph as an audit trail — discarding a draft card never created a graph node to begin with, so there's nothing left behind to show the AI once suggested it.</li>
-      <li><b>The compute draft's "edit" is a local buffer, not a re-prompt.</b> Editing the code in a compute card changes only what gets executed or inserted; it doesn't send your edit back to the model or change the conversation transcript. If you want the AI to reconsider its approach, ask again rather than relying on your edit to inform its next turn.</li>
-      <li><b>Refactor, reorg, and delete drafts can be partial.</b> <code>ReorgDraftCard</code> and <code>DeleteDraftCard</code> let you select a subset of the proposed items before accepting — accept only applies to what's checked, the rest of the card's suggestions are silently dropped, not held over as a smaller draft.</li>
-    </ul>
+    <figure class="shot-img">
+      <img src="img/conversations-drafts.png" alt="A note draft sitting inline in the conversation: a bold headline (&quot;2 notes&quot;), a one-line explanation of why the AI is suggesting it, an expandable preview of what each note would contain, and Approve &amp; file / Discard buttons along the bottom." loading="lazy" />
+      <figcaption>Screenshot — A draft card awaiting your decision</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="conversations-chatting.html">

@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Outgoing Links</title>
-<meta name="description" content="The Outgoing links panel lists every note the current note points to — the inverse of Backlinks — grouped by link type, with broken targets flagged and one click to jump to a resolved note." />
+<meta name="description" content="The Outgoing links panel lists every note the current note points to, grouped by link type, with broken targets flagged and one click to jump to a note." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,40 +88,36 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Outgoing links</p>
 
     <h1>Outgoing links</h1>
-    <p class="lede">The Outgoing links panel lists every <a href="notes-links.html">wiki-link</a> the current note contains — the notes it points to, not the notes pointing at it. It's the mirror image of <a href="right-sidebar-backlinks.html">Backlinks</a>: same grouped-by-type layout, same click-to-jump behavior, but read in the opposite direction.</p>
+    <p class="lede">The Outgoing links panel lists every <a href="notes-links.html">link</a> the current note points to — the notes it references, not the notes that reference it. It's the mirror image of <a href="right-sidebar-backlinks.html">Backlinks</a>, read in the opposite direction. Click any row to open that note.</p>
 
     <h2 id="contents">What's in the list</h2>
-    <p>Every wiki-link in the current note's source becomes one row, sourced from the same coalesced link-bundle fetch that feeds Backlinks — switching tabs doesn't cost a second IPC round-trip for a note that has both panels open. Each row shows the target note's resolved title, not the raw link text you typed.</p>
+    <p>Each link in the note becomes a row showing the title of the note it points to.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Resolved link</div>
-        <div class="v">A quiet document icon, the target note's title, and — when sorted alphabetically rather than by type — a small colored badge naming the link type. Click the row to open that note.</div>
+        <div class="k">Working link</div>
+        <div class="v">Shows a document icon and the title of the note it points to. Click the row to open that note.</div>
       </div>
       <div class="row">
         <div class="k">Broken link</div>
-        <div class="v">A warning icon in place of the document icon, and the title rendered in a rust tint instead of the normal text color. The row still appears (so you can see and fix the target) but clicking it does nothing — there's nowhere to navigate to. See <a href="notes-links.html#resolving">how a target resolves</a> for why a link might fail to match any note.</div>
+        <div class="v">Shows a warning icon and a tinted title when the link doesn't point to any note that exists. The row still appears so you can spot it and fix it, but there's nowhere to go, so clicking it does nothing.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">Grouped by type, same as Backlinks</span>
-      <p>By default, rows are grouped under a header per <a href="notes-links.html#types">link type</a> — a colored square, the type's label, and a count — matching the color a typed link renders in inside the note itself. Switch the sort control to <b>Alphabetical</b> to flatten everything into one title-sorted list with an inline type badge on each row instead of a group header. Group headers are individually collapsible, or use the toolbar's expand/collapse-all buttons; collapse state only applies in the by-type sort.</p>
-    </div>
+    <p>By default, links are grouped by <a href="notes-links.html#types">type</a> — each group has a colored marker, a label, and a count, matching the color that type shows in the note itself. Collapse a group to tidy it away, or use the toolbar buttons to expand or collapse them all at once. Switch the sort control to <b>Alphabetical</b> to see one title-sorted list instead, with a small type badge on each row.</p>
 
-    <p>The toolbar also has a filter field — narrows the list to targets whose title or path contains the typed text — and an "open as graph" button that visualizes the current note's link neighborhood instead of listing it as rows.</p>
+    <p>The toolbar also has a filter field to narrow the list to targets whose title contains what you type, and a button to view the note's links as a graph instead of a list.</p>
 
-    <div class="shot wide">
-      <div class="icon">➡️</div>
-      <div class="k">Screenshot — Outgoing links panel</div>
-      <div class="d">The right sidebar's Outgoing links tab for a note with several typed links, showing collapsible type-grouped sections (References, Supports, Cites) with colored squares and counts, one row with a rust warning icon and tint for a broken target, and the toolbar's filter field, sort selector, and expand/collapse/graph buttons.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-outgoing-links.png" alt="The Outgoing links tab for a note with several links, showing collapsible groups by type with counts, one row flagged as a broken link, and the toolbar's filter field, sort control, and graph button." loading="lazy" />
+      <figcaption>Screenshot — Outgoing links panel</figcaption>
+    </figure>
 
     <h2 id="cite-quote">Links to sources</h2>
-    <p><code>cite</code> and <code>quote</code> links point at a bibliography-style source rather than another note in your knowledge base — see <a href="notes-links.html#types">typed links</a>. The Outgoing links panel doesn't distinguish that case visually: it resolves every target as if it were a note path, so a <code>cite</code> or <code>quote</code> link to a source shows up as an unresolved, rust-tinted row rather than as a distinct "external reference" entry. To browse citations to sources specifically, use the <a href="right-sidebar-citations.html">Citations</a> panel instead.</p>
+    <p>Some links point to a source in your bibliography rather than to a note. This panel treats every link as if it points to a note, so a link to a source appears here as a broken row. To browse links to your sources, use the <a href="right-sidebar-citations.html">Citations</a> panel instead.</p>
 
-    <h2 id="empty">No outgoing links</h2>
-    <p>A note with no wiki-links in its body shows "No outgoing links" in the panel body. If a filter is active and nothing matches it, the message changes to "No matches" instead — so an empty result reads differently depending on whether the note is actually link-free or your filter is just too narrow.</p>
+    <h2 id="empty">When there's nothing to show</h2>
+    <p>A note with no links shows "No outgoing links." If you've typed a filter and nothing matches it, you'll see "No matches" instead.</p>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-backlinks.html">

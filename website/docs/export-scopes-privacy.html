@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Export Scopes &amp; Privacy</title>
-<meta name="description" content="The scope options shared across every exporter, and the three signals that exclude a note from export by default — plus how to review and override before you run it." />
+<title>Minerva — Docs — Scopes &amp; Privacy</title>
+<meta name="description" content="Choose how much to export, keep private notes out by default, and review exactly what you'll get before you run any export." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,44 +81,44 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Scopes &amp; privacy</p>
 
     <h1>Scopes &amp; privacy</h1>
-    <p class="lede">Every exporter shares the same two questions underneath: what counts as "in scope," and what gets held back even though it's technically in scope. Both are settled before you commit to running anything — the export preview shows you exactly what you're about to get.</p>
+    <p class="lede">Whenever you export, two things get settled first: how much of your work to include, and what to hold back even if it would otherwise be swept in. Every export shows you a preview so you can see exactly what you'll get before you commit.</p>
 
-    <h2 id="scope">Scope</h2>
+    <h2 id="scope">How much to export</h2>
+    <p>Every export lets you choose how wide to cast the net:</p>
     <div class="deflist">
-      <div class="row"><div class="k">Single note</div><div class="v">Just the active note.</div></div>
-      <div class="row"><div class="k">Folder</div><div class="v">A folder and everything under it, recursively.</div></div>
-      <div class="row"><div class="k">Project</div><div class="v">The whole thoughtbase.</div></div>
-      <div class="row"><div class="k">Tree</div><div class="v">A root note's wiki-link closure — every note reachable by following links outward, breadth-first, to a max depth (default 3, to balance "capture enough context" against a runaway bundle).</div></div>
-      <div class="row"><div class="k">Source</div><div class="v">A single ingested source, for the Annotated Source exporter.</div></div>
+      <div class="row"><div class="k">Single note</div><div class="v">Just the note you're looking at.</div></div>
+      <div class="row"><div class="k">Folder</div><div class="v">A folder and everything inside it.</div></div>
+      <div class="row"><div class="k">Everything</div><div class="v">Your whole knowledge base.</div></div>
+      <div class="row"><div class="k">Linked notes</div><div class="v">Start from one note and follow its links outward, gathering everything it connects to. This stops after a few steps so you capture the surrounding context without pulling in your entire base.</div></div>
+      <div class="row"><div class="k">A source</div><div class="v">A single piece of reading you've brought in, for exporting an annotated copy of it.</div></div>
     </div>
 
-    <h2 id="privacy">What's excluded by default</h2>
-    <p>Minerva holds personal thinking, half-formed arguments, and reading notes — accidentally publishing those would be a real problem, so exports drop anything matching a private signal unless you explicitly override it. Three signals, checked in order:</p>
+    <h2 id="privacy">Keeping private notes out</h2>
+    <p>Your knowledge base holds personal thinking, half-formed ideas, and reading notes you never meant to share. So exports leave private notes out by default unless you choose otherwise. A note is treated as private if any of these are true:</p>
     <div class="deflist">
-      <div class="row"><div class="k">1. Location</div><div class="v">The note's path is under any <code>private/</code> or <code>.private/</code> folder.</div></div>
-      <div class="row"><div class="k">2. Frontmatter</div><div class="v"><code>private: true</code>.</div></div>
-      <div class="row"><div class="k">3. Tag</div><div class="v"><code>#private</code> — either in a <code>tags:</code> frontmatter array or inline in the body.</div></div>
+      <div class="row"><div class="k">It lives in a private folder</div><div class="v">Anything kept in a folder named "private."</div></div>
+      <div class="row"><div class="k">It's marked private</div><div class="v">You've set the note's properties to private.</div></div>
+      <div class="row"><div class="k">It's tagged private</div><div class="v">The note carries a <code>#private</code> tag.</div></div>
     </div>
-    <p>Every exclusion comes with a human-readable reason ("under private/", "frontmatter private: true", "tagged #private") — nothing is dropped silently.</p>
+    <p>Nothing is dropped silently — each left-out note comes with a plain reason so you can see why it was held back.</p>
 
     <h2 id="reviewing">Reviewing before you export</h2>
-    <p>The export preview shows two lists: what's <b>included</b>, and what's <b>excluded</b> along with its reason. From there:</p>
+    <p>The preview shows two lists: what's <b>included</b> and what's <b>left out</b>, each with its reason. You can adjust either one, just for this export:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Re-include an excluded note</div>
-        <div class="v">Click its row in the Excluded list — an override just for this run, not a permanent change to the note.</div>
+        <div class="k">Add something back in</div>
+        <div class="v">Click a left-out note to include it this time. The note itself stays private for future exports.</div>
       </div>
       <div class="row">
-        <div class="k">Drop an included note</div>
-        <div class="v">Uncheck it in the Included list — it moves to Excluded with the reason "manually excluded," again just for this run.</div>
+        <div class="k">Take something out</div>
+        <div class="v">Uncheck an included note to leave it out of this export.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🔒</div>
-      <div class="k">Screenshot — The export preview dialog</div>
-      <div class="d">The Included/Excluded split view: an Included list with checkboxes (one unchecked, showing an "unchecked" count), and an Excluded list showing a few notes with reasons like "under private/" and "frontmatter private: true," one of them clicked to show it can be re-included.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/export-scopes-privacy.png" alt="A side-by-side view: on one side the notes that will be included, each with a checkbox; on the other, the notes being left out, each with a short reason like &quot;in a private folder&quot; or &quot;tagged private,&quot; ready to be added back with a click." loading="lazy" />
+      <figcaption>Screenshot — the export preview</figcaption>
+    </figure>
 
     <div class="pager">
       <a class="prev" href="export-flashcards.html">

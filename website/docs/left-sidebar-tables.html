@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Tables Panel</title>
-<meta name="description" content="The left sidebar's Tables panel: every CSV file and every captioned markdown table in your project registered as a queryable DuckDB table, with row/column counts, a click-to-query shortcut, and a source-aware context menu." />
+<title>Minerva — Docs — Tables</title>
+<meta name="description" content="The Tables panel lists every spreadsheet and captioned table in your project so you can query it with SQL in a click." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,91 +81,75 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Tables</p>
 
     <h1>Tables</h1>
-    <p class="lede">The Tables panel lists every queryable table in your project — both standalone <code>.csv</code> files and <b>captioned markdown tables</b> written inside notes — each registered into the same in-memory DuckDB, ready to query with SQL. A row's source is labelled (<code>csv</code> or <code>note</code>) so you always know whether its rows live in a file or a note.</p>
+    <p class="lede">The Tables panel gathers all the tabular data in your project into one place so you can ask questions of it with SQL. It lists two kinds of table: spreadsheet files you've dropped into the project, and named tables you've written inside notes. A small tag on each row tells you which kind it is.</p>
 
-    <div class="box">
-      <span class="label">Two kinds of table, one SQL engine</span>
-      <p>A standalone <code>.csv</code> file registers automatically. A markdown pipe table inside a note registers only when you give it a name — a <a href="notes-tables.html">Pandoc-style caption</a> line <code>Table: &lt;name&gt;</code> directly above it (see <a href="notes-tables.html">Tables &amp; CSV</a>). Both end up as tables in the <em>same</em> DuckDB connection with the same naming rules, so <code>SELECT * FROM &lt;name&gt;</code> works identically whichever kind you have. An <b>uncaptioned</b> markdown table is unchanged — it stays graph-only (extracted to <code>.minerva/graph.ttl</code> as CSVW triples on save) and never appears in this panel.</p>
-    </div>
+    <h2 id="registration">What shows up here</h2>
+    <p>Any spreadsheet file you add to your project appears here automatically — there's no import step. Just drop it into the project and it's ready to query. Edit it, and the panel keeps up; remove it, and its row disappears.</p>
 
-    <h2 id="registration">How a table gets here</h2>
-    <p>On project open, Minerva walks the project folder and registers every <code>.csv</code> file it finds as an in-memory DuckDB view — the view is lazy, so DuckDB re-reads the file from disk on every query rather than caching stale content. The file watcher keeps this live afterward: adding, editing, or deleting a <code>.csv</code> anywhere in the project registers, re-registers, or drops its view automatically, and the panel refreshes to match. There's no import step and no dialog — drop a CSV in the folder and it's queryable.</p>
-
-    <p>The SQL identifier for a CSV is derived from its path by default (slashes and punctuation become underscores — <code>notes/data/2024-experiment.csv</code> becomes <code>notes_data_2024_experiment</code>), but you can pin an explicit name. A companion markdown note in the same folder with a matching filename stem (<code>experiment.csv</code> ↔ <code>experiment.md</code>) can set <code>table_name:</code> in its frontmatter to override the derived name — useful for giving a table a shorter or more memorable identifier than its path would produce.</p>
-
-    <h3 id="markdown-tables">Captioned markdown tables</h3>
-    <p>A pipe table written inside a note becomes queryable the moment you caption it. Put a Pandoc-style line directly above the table:</p>
+    <h3 id="markdown-tables">Naming a table inside a note</h3>
+    <p>You can also query a table you've written directly in a note. To make one queryable, give it a name by putting a caption line just above it:</p>
     <pre><code>Table: Q3 Sales
 | item  | amount |
 | ----- | ------ |
 | pens  | 3      |
 | ink   | 7      |</code></pre>
-    <p>The caption (<code>Q3 Sales</code>) is sanitized to a SQL identifier by the same rules CSV filenames use (spaces and punctuation become underscores, a leading digit gets a <code>t_</code> prefix), giving the table name <code>Q3_Sales</code>. The table is materialized into the same DuckDB, and its rows are typed by the same CSV sniffer the file path uses — so <code>SELECT sum(amount) FROM Q3_Sales</code> sums numerically. Saving the note re-registers it; removing the caption or deleting the note drops it. This is <b>opt-in</b>: a table with no <code>Table:</code> line is left exactly as before, graph-only and absent from this panel.</p>
+    <p>Once captioned, the table joins this panel and you can query it by name — <code>SELECT sum(amount) FROM Q3_Sales</code>, for example. Save the note to update it; remove the caption to take it back out. Tables without a caption stay private to the note and don't appear here. See <a href="notes-tables.html">Tables &amp; CSV</a> for more.</p>
 
     <div class="box">
-      <span class="label">Two tables, one name</span>
-      <p>All CSV files and captioned markdown tables share a single name namespace, so a collision is detected across both kinds. If two would derive the same name, the second is skipped rather than silently replacing the first — you'll see a toast pointing at the conflict. <b>CSV files win</b>: when a CSV and a note table collide, the note table is the one skipped. Rename the <code>Table:</code> caption (or set a <code>table_name:</code> override on a CSV's companion note) to disambiguate; the skipped table's rows simply aren't queryable until you do.</p>
+      <span class="label">Give each table a distinct name</span>
+      <p>Every table shares one pool of names, so no two can be called the same thing. If two would clash, only the first stays queryable — rename one of them to give them both a home in the panel.</p>
     </div>
 
     <h2 id="panel">What each row shows</h2>
-    <p>The panel is a flat, alphabetically-sorted list (by file path) with a filter field above it that matches against both the table name and the file's relative path as you type.</p>
+    <p>Rows are listed alphabetically, with a filter box at the top that narrows the list by name as you type.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Table name</div>
-        <div class="v">The SQL identifier — the derived or overridden name described above — shown in monospace as the row's primary label.</div>
+        <div class="v">The name you use to query the table.</div>
       </div>
       <div class="row">
-        <div class="k">Source tag</div>
-        <div class="v">A small <code>csv</code> or <code>note</code> tag beside the name says where the table's rows live — a standalone file or a note's caption. Note tables also show their source note on the meta line.</div>
+        <div class="k">Kind</div>
+        <div class="v">A small tag says whether the table comes from a spreadsheet file or from a note. Note tables also show which note they live in.</div>
       </div>
       <div class="row">
-        <div class="k">Row / column counts</div>
-        <div class="v">A live count queried straight from DuckDB — <code>3 rows · 5 cols</code>, for example — not a cached figure from when the table was first registered.</div>
+        <div class="k">Size</div>
+        <div class="v">A live count of the table's rows and columns.</div>
       </div>
       <div class="row">
-        <div class="k">Source path (on hover)</div>
-        <div class="v">The project-relative path of the CSV file — or, for a note table, the caption plus the source note — isn't printed in full in the row itself, but it's the row's tooltip.</div>
+        <div class="k">Location</div>
+        <div class="v">Hover a row to see where the table comes from.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🧮</div>
-      <div class="k">Screenshot — Tables panel with registered CSVs and note tables</div>
-      <div class="d">The left sidebar's Tables tab showing a filter field followed by a handful of rows — each a monospace table name like <code>notes_data_2024_experiment</code> or <code>Q3_Sales</code> with a small <code>csv</code>/<code>note</code> source tag, over a smaller row/column count line, with a note row's right-click context menu open showing Query (SELECT *), Copy Table Name, Open Note, and Reveal in Finder.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/left-sidebar-tables.png" alt="The Tables panel with a filter box above a list of tables. Each row shows a table name, a small tag marking it as a spreadsheet or a note table, and a line giving its row and column count. One row's right-click menu is open, showing Query, Copy Name, Open, and Reveal in file browser." loading="lazy" />
+      <figcaption>Screenshot — the Tables panel</figcaption>
+    </figure>
 
-    <h2 id="clicking">Clicking a table</h2>
-    <p>Clicking a row doesn't open the underlying file or note — it opens a new SQL query tab pre-filled with <code>SELECT * FROM &lt;table name&gt;</code> against that table, so you land straight on its data. From there it's an ordinary compute-cell-style query surface: edit the SQL, re-run it, and it executes against the same in-memory DuckDB instance the panel itself is backed by.</p>
+    <h2 id="clicking">Querying a table</h2>
+    <p>Click any row to open a fresh query already filled in to show you that table's data. From there you can edit the query, run it again, and explore the data however you like.</p>
 
-    <p>Right-clicking a row opens a context menu with four actions (the third is source-aware):</p>
+    <p>Right-click a row for a few more options:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Query (SELECT *)</div>
-        <div class="v">Same action as a left click — opens the query tab.</div>
+        <div class="k">Query</div>
+        <div class="v">The same as clicking the row — opens the table in a new query.</div>
       </div>
       <div class="row">
-        <div class="k">Copy Table Name</div>
-        <div class="v">Copies the SQL identifier to the clipboard, for referencing the table in a query you're already writing elsewhere (a compute cell, for instance).</div>
+        <div class="k">Copy Name</div>
+        <div class="v">Copies the table's name so you can drop it into a query you're writing elsewhere.</div>
       </div>
       <div class="row">
-        <div class="k">Open CSV / Open Note</div>
-        <div class="v">For a <code>csv</code> row this opens the raw <code>.csv</code> file as a file tab, the same as selecting it in the notes tree. For a <code>note</code> row it opens the source note that defines the table instead. Either way there's no separate export or view-as-table step.</div>
+        <div class="k">Open</div>
+        <div class="v">Opens the spreadsheet file, or the note the table lives in.</div>
       </div>
       <div class="row">
-        <div class="k">Reveal in Finder</div>
-        <div class="v">Shows the source file — the CSV, or the note — in the OS file browser.</div>
+        <div class="k">Reveal in file browser</div>
+        <div class="v">Shows the underlying file on your computer.</div>
       </div>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Empty project shows a hint, not a blank pane.</b> With nothing registered, the panel reads "No tables yet. Drop a CSV into the thoughtbase, or add a <code>Table:</code> caption above a markdown table." instead of an empty list.</li>
-      <li><b>Only <em>captioned</em> markdown tables appear.</b> A pipe table with no <code>Table:</code> line above it is graph-only and won't show here or be <code>SELECT</code>-able — that's deliberate, so ordinary prose tables don't clutter the SQL namespace. If a note table you expect is missing, check the caption is on the line directly above the header row (one blank line between is fine).</li>
-      <li><b>CSV reads are live; note-table reads are re-materialized on save.</b> Editing an already-registered CSV is reflected immediately — its DuckDB view re-reads on every query. A markdown table has no backing file, so its rows are materialized into DuckDB when the note is saved and re-materialized on each subsequent save. Adding a brand-new file, or a rename, relies on the file watcher (normally instant); if something doesn't show up, <b>Query → Rebuild All Indexes</b> forces a full re-scan of every CSV and captioned table.</li>
-      <li><b>This is a separate DuckDB instance from any per-note compute cells.</b> The panel and its query tabs share one in-memory database per project — every registered table, CSV or note, is queryable from any query you open, including a note's own <code>```sql</code> cells. Column names and types are mirrored into <code>.minerva/graph.ttl</code>; a captioned note table's rows also remain in the graph as CSVW triples, joined back to the SQL table via <code>minerva:fromNote</code>.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="left-sidebar-tags.html">

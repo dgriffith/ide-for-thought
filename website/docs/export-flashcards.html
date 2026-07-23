@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Flashcards</title>
-<meta name="description" content="Turning [!card] callouts into an Anki deck: writing a card, deck resolution, and what the resulting .apkg contains." />
+<meta name="description" content="Write study cards inside your notes and export them as a deck you can review in a flashcard app." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -81,27 +81,27 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="export.html">Export</a><span class="sep">/</span>Flashcards</p>
 
     <h1>Flashcards</h1>
-    <p class="lede">The Anki Deck exporter turns explicit <code>[!card]</code> callouts into an <code>.apkg</code> file you can import into Anki — not a blanket "turn my notes into flashcards" converter. If a note has no card callouts, it contributes nothing to the deck.</p>
+    <p class="lede">As you write, you can mark spots in your notes as study cards — a question and its answer. Minerva gathers those cards into a deck you can export and review in a flashcard app. Only the cards you mark are included; the rest of your notes are left alone.</p>
 
     <h2 id="writing">Writing a card</h2>
-    <p>A card is a callout with a <code>---</code> divider splitting the front (prompt) from the back (answer):</p>
+    <p>A card is a short block that starts with <code>[!card]</code> and uses a <code>---</code> divider to separate the question (on top) from the answer (below):</p>
     <div class="box">
       <span class="label">Example</span>
-      <p><code>&gt; [!card] Optional Deck ^cardid<br>&gt; What is the capital of France?<br>&gt; ---<br>&gt; **Paris**</code></p>
+      <p><code>[!card] Geography<br>What is the capital of France?<br>---<br>**Paris**</code></p>
     </div>
-    <p>The leading <code>&gt;</code> (blockquote form) is optional — a bare <code>[!card]</code> paragraph works too, same as any other callout. Both the deck name and the <code>^cardid</code> block-id after it are optional.</p>
+    <p>The word after <code>[!card]</code> names the deck the card belongs to, and it's optional. Write as many cards as you like across your notes.</p>
 
-    <h2 id="decks">Deck resolution</h2>
-    <p>A card's deck name resolves in order:</p>
+    <h2 id="decks">Which deck a card lands in</h2>
+    <p>Minerva decides a card's deck by looking, in order, for the first of these:</p>
     <div class="deflist">
-      <div class="row"><div class="k">1. Callout title</div><div class="v">Whatever comes right after <code>[!card]</code> on that line — <code>Optional Deck</code> in the example above.</div></div>
-      <div class="row"><div class="k">2. Frontmatter</div><div class="v">The note's own <code>cardDeck</code> frontmatter field, if the callout didn't specify one.</div></div>
-      <div class="row"><div class="k">3. Folder</div><div class="v">The note's folder path, mapped to a deck path (e.g. <code>notes/math/algebra.md</code> → deck <code>notes::math</code>).</div></div>
-      <div class="row"><div class="k">4. Default</div><div class="v">Notes sitting at the vault root with no deck specified any other way fall into a deck literally named <code>Default</code>.</div></div>
+      <div class="row"><div class="k">The card's own label</div><div class="v">The deck name you wrote right after <code>[!card]</code> — <em>Geography</em> in the example above.</div></div>
+      <div class="row"><div class="k">The note's deck setting</div><div class="v">A deck name set once in the note's properties, used for every card in that note.</div></div>
+      <div class="row"><div class="k">The note's folder</div><div class="v">If you haven't named a deck, cards are grouped by the folder the note lives in, so related notes end up together.</div></div>
+      <div class="row"><div class="k">A default deck</div><div class="v">Anything left over goes into a general deck so no card is lost.</div></div>
     </div>
 
-    <h2 id="ids">Card identity</h2>
-    <p>A card's stable id is the trailing <code>^cardid</code> on its callout line. Cards without one get an id assigned and written back into the note automatically on first export — so re-exporting after editing a card's text updates the same Anki card instead of creating a duplicate.</p>
+    <h2 id="ids">Editing cards later</h2>
+    <p>You can go back and reword a card at any time. When you export again, Minerva recognizes it as the same card and updates it in place rather than creating a duplicate — so your review progress carries over.</p>
 
     <div class="pager">
       <a class="prev" href="export-bibliography.html">

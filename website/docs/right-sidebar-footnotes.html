@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Footnotes Panel</title>
-<meta name="description" content="The Footnotes panel lists every footnote in the current note, lets you jump between a reference and its definition, and flags footnotes that are defined but unused or referenced but undefined." />
+<meta name="description" content="The Footnotes panel lists every footnote in the note you're reading, lets you jump to where each one is used, and flags footnotes that have drifted out of sync." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,46 +88,35 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Footnotes</p>
 
     <h1>Footnotes</h1>
-    <p class="lede">The <b>Footnotes</b> panel lists every footnote defined or referenced in the current note and lets you jump straight to where it's used — a quick index for notes with more than a couple of asides, and a linter that catches footnotes left dangling in either direction.</p>
+    <p class="lede">The <b>Footnotes</b> panel gathers every footnote in the note you're reading into one tidy list, so you can see them at a glance and jump straight to where each one is used. It also quietly flags footnotes that have drifted out of sync.</p>
 
-    <div class="box">
-      <span class="label">Syntax lives on its own page</span>
-      <p>This page is about the panel's own UI — search, rows, and the two stale-footnote flags. For the <code>[^label]</code> reference/definition syntax, how footnotes render in preview, and click-to-jump navigation in the source editor, see <a href="notes-footnotes.html">Notes → Footnotes</a>.</p>
-    </div>
+    <p>Want to know how to write footnotes in the first place — the markup, how they look, and clicking to jump between a note and its footnote? See <a href="notes-footnotes.html">Notes → Footnotes</a>. This page is about the panel itself.</p>
 
     <h2 id="layout">Reading the panel</h2>
-    <p>Each row shows a footnote's label and a one-line preview of its body. Rows for defined footnotes appear in source order — the order their definitions occur in the file, not the order they're referenced. Typing into the ribbon's search field narrows the list to footnotes whose label or body text contains the query, live as you type; this searches only the current note, not the whole project.</p>
-    <p><b>Click a row</b> to scroll the editor to that footnote's first in-text reference — the same jump-to-use behavior as clicking a definition in the source editor. If a footnote has no reference at all (see below), the click instead lands on the definition itself, since there's no reference to jump to.</p>
+    <p>Each row shows a footnote's label and a one-line preview of its text, listed in the order they appear in your note. Start typing in the search box at the top to narrow the list to footnotes whose label or text matches — the results update as you type, and only this note is searched.</p>
+    <p><b>Click a row</b> to jump to where that footnote is used in your note, so you can pick up right where it belongs.</p>
 
-    <h2 id="stale">Stale-footnote flags</h2>
-    <p>The panel doubles as a linter for the two ways a footnote can go out of sync — each renders as its own row with a small mono caption under the body preview:</p>
+    <h2 id="stale">Footnotes that have drifted</h2>
+    <p>The panel also catches the two ways a footnote can fall out of sync, each shown as its own row with a small note underneath:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Defined · never used</div>
-        <div class="v">A <code>[^label]: …</code> definition that no <code>[^label]</code> reference points at anywhere in the note. Shown muted, since it isn't broken — just unreferenced. Clicking it jumps to the definition.</div>
+        <div class="k">Written but never used</div>
+        <div class="v">A footnote you've written that nothing in the note points to. It isn't broken — just unused — so it's shown in a muted style. Click it to jump to the footnote.</div>
       </div>
       <div class="row">
-        <div class="k">Referenced · not defined</div>
-        <div class="v">A <code>[^label]</code> in the body text with no matching definition anywhere in the file. Clicking it takes you to the dangling reference so you can write the missing definition. If the same missing label is referenced more than once, it's still one row — clicking jumps to the first occurrence.</div>
+        <div class="k">Used but never written</div>
+        <div class="v">A spot in your text that refers to a footnote you haven't written yet. Click it to jump to that spot so you can fill in the missing footnote.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🗂️</div>
-      <div class="k">Screenshot — Footnotes panel, search and stale flags</div>
-      <div class="d">The right-sidebar Footnotes panel with the ribbon's search field focused and text entered, filtering the list to a handful of matching rows below — one row flagged "DEFINED · NEVER USED" in a muted style and one flagged "REFERENCED · NOT DEFINED," alongside ordinary rows showing a label and body preview.</div>
-    </div>
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-footnotes.png" alt="The Footnotes panel with text typed into its search box, narrowing the list to a few matching rows below — one flagged as written but never used, one flagged as used but never written, and ordinary rows each showing a label and a preview of the footnote text." loading="lazy" />
+      <figcaption>Screenshot — Footnotes panel with search and drift flags</figcaption>
+    </figure>
 
-    <h2 id="empty">No footnotes, no matches</h2>
-    <p>A note with no footnotes at all shows <i>"No footnotes"</i> in place of the list. If the note has footnotes but none match the current search text, the message changes to <i>"No matches"</i> instead, so you can tell at a glance whether the panel is empty because the note has nothing to show or because your filter is too narrow.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Row order follows definitions, not references.</b> The panel lists definitions in the order they appear in the file, then any undefined-reference rows after — it isn't ordered by where footnotes first appear as superscripts in the rendered note.</li>
-      <li><b>One row per label, not per use.</b> A footnote referenced several times in the text still gets a single row; clicking it always jumps to the first reference.</li>
-      <li><b>The panel reflects saved content.</b> Like the rest of the right sidebar, it's driven by the current note's content — a footnote you just typed shows up as soon as it's part of the note text the panel is reading, but a stale flag won't resolve until the fix (a new definition, or a new reference) is actually in place.</li>
-    </ul>
+    <h2 id="empty">When there's nothing to show</h2>
+    <p>If a note has no footnotes, the panel simply says <i>"No footnotes."</i> If it has footnotes but none match what you've typed, it says <i>"No matches"</i> instead — so you can always tell whether the note is empty or your search is just too narrow.</p>
 
     <div class="pager">
       <a class="prev" href="right-sidebar-related.html">

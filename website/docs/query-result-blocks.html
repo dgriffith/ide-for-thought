@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Query Result Blocks</title>
-<meta name="description" content="Pasting a query's results into a note as a live list, table, or timeseries chart, and how to discover a table's schema before you query it." />
+<title>Minerva — Docs — Result blocks</title>
+<meta name="description" content="Drop a query's results into a note as a live list, table, or chart that refreshes on its own." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -79,45 +79,32 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="query.html">Query</a><span class="sep">/</span>Result blocks</p>
 
     <h1>Result blocks</h1>
-    <p class="lede">Instead of a static export, a query's results can live in a note as a block that re-runs every time the note renders — a list, a table, or a chart. The Query panel's "Copy as…" dropdown generates these for you (see <a href="query-menu-panel.html">Query menu &amp; panel</a>), or you can write one by hand.</p>
+    <p class="lede">A result block puts a query's answer right inside a note and keeps it up to date — as a list, a table, or a chart that refreshes on its own whenever you open the note. You don't have to paste in fresh numbers by hand. The easiest way to create one is the Query panel's "Copy as…" menu (see <a href="query-menu-panel.html">Query menu &amp; panel</a>), which builds the block for you, but you can also write one yourself.</p>
 
     <h2 id="list-table">Lists &amp; tables</h2>
-    <p><code>:::query-list</code> and <code>:::query-table</code> wrap a query with a small YAML-ish config header, then render its results live:</p>
+    <p>A result block can show your query's answer as a simple list or as a full table. A few settings let you shape what appears:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>columns</code></div>
-        <div class="v">Restrict and order which result columns actually show. Omit it to show every column the query returns.</div>
+        <div class="k">Columns</div>
+        <div class="v">Choose which columns to show and in what order. Leave it out to show everything the query returns.</div>
       </div>
       <div class="row">
-        <div class="k"><code>link</code></div>
-        <div class="v">Which column, if any, should navigate to a note when clicked. Defaults to a column named <code>path</code>.</div>
+        <div class="k">Link</div>
+        <div class="v">Pick a column whose entries become clickable links that jump straight to the matching note.</div>
       </div>
     </div>
-    <p>Table results are sortable in preview the same way the Query panel's results are — click a column header to toggle ascending/descending.</p>
+    <p>Tables sort just like results in the Query panel — click a column heading to switch between ascending and descending order.</p>
 
-    <h2 id="timeseries">Timeseries charts</h2>
-    <p><code>:::query-timeseries</code> renders numeric results as a chart instead of a table:</p>
-    <div class="deflist">
-      <div class="row"><div class="k"><code>x</code></div><div class="v">The column to use as the x-axis.</div></div>
-      <div class="row"><div class="k"><code>y</code></div><div class="v">One or more columns to plot, comma-separated.</div></div>
-      <div class="row"><div class="k"><code>type</code></div><div class="v"><code>line</code>, <code>bar</code>, or <code>area</code>.</div></div>
-      <div class="row"><div class="k"><code>height</code></div><div class="v">Chart height in pixels.</div></div>
-      <div class="row"><div class="k"><code>title</code></div><div class="v">A title shown above the chart.</div></div>
-    </div>
+    <h2 id="timeseries">Charts</h2>
+    <p>When your results are numbers over time, a result block can draw them as a chart instead of a table. You choose which column runs along the bottom, which values to plot, and the look — a line, bars, or a filled area — along with an optional title and height.</p>
 
-    <div class="box">
-      <span class="label">Example</span>
-      <p><code>:::query-timeseries<br>x: month<br>y: revenue, cost<br>type: area<br>---<br>SELECT date_trunc('month', date) AS month, SUM(revenue) AS revenue, SUM(cost) AS cost FROM sales GROUP BY month ORDER BY month;<br>:::</code></p>
-    </div>
+    <figure class="shot-img">
+      <img src="img/query-result-blocks.png" alt="An area chart with two lines — for example revenue and cost — appears in the note directly below the query that produced it, and redraws itself whenever the note is opened." loading="lazy" />
+      <figcaption>A chart drawn from a query, right inside a note</figcaption>
+    </figure>
 
-    <div class="shot wide">
-      <div class="icon">📊</div>
-      <div class="k">Screenshot — A query-timeseries chart rendered in preview</div>
-      <div class="d">An area chart with two series (e.g. revenue and cost) rendered inline in a note's preview pane, directly below the ```query-timeseries fence that produced it.</div>
-    </div>
-
-    <h2 id="schema">Discovering a table's schema first</h2>
-    <p>Before you write a query against a CSV-backed table, it helps to know its actual column names. Two stock SQL queries do this without you needing to remember DuckDB's syntax: <b>Describe schema</b> (<code>DESCRIBE your_table;</code>) and <b>Summarize</b> (<code>SUMMARIZE your_table;</code>, which adds per-column stats). The Query panel's SQL autocomplete also surfaces real column names as you type, once a table is registered.</p>
+    <h2 id="schema">Know a table's columns before you query</h2>
+    <p>When you're about to query a table you brought in, it helps to see its real column names first. Two ready-made queries do exactly that: <b>Describe schema</b> lists the columns, and <b>Summarize</b> adds a quick statistical snapshot of each one. As you type a query, Minerva also suggests the actual column names for you.</p>
 
     <div class="pager">
       <a class="prev" href="query-runnable-cells.html">

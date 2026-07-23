@@ -1,0 +1,37 @@
+{
+  "id": "conv-docs-genoa",
+  "contextBundle": {
+    "notePath": "notes/mandolin-history/The 1892 Genoa Competition and Mandolin Orchestras.md"
+  },
+  "status": "active",
+  "startedAt": "2026-05-13T00:05:58.006Z",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Give me some sources for the 1892 Genoa competition, and how it shaped the mandolin orchestra movement.",
+      "timestamp": "2026-05-13T00:06:02.100Z"
+    },
+    {
+      "role": "assistant",
+      "content": "_🔍 Searching the web for **1892 Genoa mandolin competition history**…_\n\n_📄 Reading **notes/mandolin-history/The 1892 Genoa Competition and Mandolin Orchestras.md**…_\n\nThe 1892 competition in Genoa — staged for the four‑hundredth anniversary of Columbus's voyage — is usually treated as the moment the classical mandolin quartet arrived as a serious ensemble. **Carlo Munier's** quartet took first prize, and the win helped set the template for the mandolin orchestras that spread across Italy and then Europe over the following two decades.\n\nA few good places to read further:\n\n- **Paul Sparks, _The Classical Mandolin_ (Oxford, 1995)** — the standard scholarly history; its 1892–1918 chapter covers the competition and its aftermath directly.\n- Contemporary school and virtuoso records (e.g. the Leopoldo Francia materials) describe the first national competition for soloists, quartets and orchestras.\n\nWant me to file any of these as sources and cite them from this note?",
+      "timestamp": "2026-05-13T00:06:31.400Z",
+      "citations": [
+        {
+          "url": "https://academic.oup.com/book/10241/chapter/157933927",
+          "title": "1892–1918 | The Classical Mandolin | Oxford Academic",
+          "citedText": "This chapter examines the history and repertoire of the classical mandolin during the period 1892 to 1918."
+        },
+        {
+          "url": "https://en.wikipedia.org/wiki/Carlo_Munier",
+          "title": "Carlo Munier - Wikipedia",
+          "citedText": "In 1892 the quartet won first prize in the National Competition of Genoa, over which the four-hundredth anniversary of the discovery of the New World was celebrated."
+        },
+        {
+          "url": "https://www.mandoweb.de/index.php/mandolinenschulen/leopoldo-francia-virtuoso-school",
+          "title": "Leopoldo Francia - Virtuoso School",
+          "citedText": "At the first national competition for mandolin soloists, quartets and orchestras in Genoa, 1892."
+        }
+      ]
+    }
+  ]
+}

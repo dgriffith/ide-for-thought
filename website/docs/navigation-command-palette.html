@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Command Palette</title>
-<meta name="description" content="The command palette (⌘K / Ctrl+K): a do-anything launcher over commands and actions only, with fuzzy ranking, recent-first empty state, and instant Enter-to-run." />
+<meta name="description" content="The command palette (⌘K / Ctrl+K): a keyboard launcher for running any command in Minerva without reaching for the menus." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -82,90 +82,38 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Command palette</p>
 
     <h1>Command palette</h1>
-    <p class="lede">The command palette is Minerva's do-anything launcher. Press <kbd>⌘</kbd><kbd>K</kbd> (or <kbd>Ctrl</kbd><kbd>K</kbd> on Windows/Linux) from anywhere in the app, type a few letters, and press <kbd>↵</kbd> to run the highlighted command. It searches <b>commands and actions only</b> — for jumping to a note, source, or query by name, see <a href="navigation-quick-switch.html">Quick switch</a> instead.</p>
+    <p class="lede">The command palette is a keyboard launcher for everything Minerva can do. Press <kbd>⌘</kbd><kbd>K</kbd> (or <kbd>Ctrl</kbd><kbd>K</kbd> on Windows and Linux) from anywhere, type a few letters, and press <kbd>↵</kbd> to run the highlighted command — no hunting through menus. It finds <b>commands and actions</b>; to jump to a note, source, or saved query by name, use <a href="navigation-quick-switch.html">Quick switch</a> instead.</p>
 
-    <h2 id="opening">Opening the palette</h2>
-    <p>The shortcut is registered in the global keymap as <kbd>⌘</kbd><kbd>K</kbd> / <kbd>Ctrl</kbd><kbd>K</kbd>, with no <kbd>⇧</kbd> or <kbd>⌥</kbd> modifier (<code>src/renderer/lib/keymap/handle-keydown.ts:37</code>). Minerva follows the Linear / VS Code convention rather than Obsidian's: <kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd> was already taken elsewhere in the app, and <kbd>⌘</kbd><kbd>P</kbd> is reserved for Quick switch rather than the command palette.</p>
+    <p>The palette floats over your note without dimming or covering it, so you can still see what you're about to act on as you type.</p>
 
-    <div class="box">
-      <span class="label">No dimmed backdrop</span>
-      <p>Unlike most command palettes, Minerva's doesn't dim or block the editor behind it — this is by design. The palette floats over your note without obscuring it, so you can still see what you're about to act on while you type.</p>
-    </div>
+    <h2 id="empty">Browsing everything</h2>
+    <p>Open the palette with nothing typed and it lists every command Minerva offers — creating notes, editing, viewing, navigating, refactoring, research, queries, and app-wide actions. Commands you've run recently appear at the top, most recent first; everything else follows in alphabetical order.</p>
 
-    <h2 id="empty">Empty query</h2>
-    <p>Open the palette with nothing typed and it lists <b>every</b> command in the registry — File, Edit, View, Navigate, Refactor, Research, Query, and App actions alike. Ordering is deliberate, not alphabetical throughout:</p>
+    <h2 id="filtering">Finding a command</h2>
+    <p>As you type, the list narrows and re-sorts to put the best matches first. You don't have to type a command's exact name — a few letters from anywhere in it usually gets you there, and initials work too (type <b>nn</b> to find "New Note"). Commands you've used recently are nudged toward the top, so the things you reach for most stay close at hand.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Recently used</div>
-        <div class="v">Commands you've run before appear first, most-recent first. A thin divider line separates this block from the rest — there's no category header, just the divider.</div>
-      </div>
-      <div class="row">
-        <div class="k">Everything else</div>
-        <div class="v">The remaining commands follow, sorted alphabetically by title.</div>
-      </div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/navigation-command-palette.png" alt="The palette open over a note with &quot;link&quot; typed in, and a ranked list of matching commands below — each row showing the command name, a small label for its category, and its keyboard shortcut on the right where it has one. The top result is highlighted." loading="lazy" />
+      <figcaption>Screenshot — the command palette with a typed query</figcaption>
+    </figure>
 
-    <h2 id="filtering">Typed query — fuzzy ranking</h2>
-    <p>As you type, every command is scored against the query and re-sorted. Matches against the command's <b>title</b> or <b>category</b> both count, but title matches rank higher. Roughly, from strongest to weakest match:</p>
+    <p>If nothing matches what you typed, the palette simply tells you so.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Substring in title</div>
-        <div class="v">The query appears anywhere in the command's title — the strongest signal.</div>
-      </div>
-      <div class="row">
-        <div class="k">First letters of words</div>
-        <div class="v">The query matches the first letter of each word in the title, e.g. <code>nn</code> for "New Note".</div>
-      </div>
-      <div class="row">
-        <div class="k">camelCase prefix</div>
-        <div class="v">The query matches a prefix formed from capitalized-word boundaries in the title.</div>
-      </div>
-      <div class="row">
-        <div class="k">Substring in category</div>
-        <div class="v">The query doesn't match the title, but does match the command's category (e.g. "Refactor", "Query").</div>
-      </div>
-      <div class="row">
-        <div class="k">Fuzzy title / fuzzy category</div>
-        <div class="v">The weakest tier: the query's characters appear in order somewhere in the title (or, weaker still, the category) without being contiguous.</div>
-      </div>
-    </div>
-
-    <p>A command you've run recently gets a small bonus on top of its match score, and ties are broken alphabetically by title — so two equally-good matches always land in a stable, predictable order.</p>
-
-    <div class="shot wide">
-      <div class="icon">🎛️</div>
-      <div class="k">Screenshot — Command palette with a typed query</div>
-      <div class="d">The command palette open over a note, with "link" typed into the search field and a ranked list of matching commands below it — each row showing the command title, its category in small muted text, and a keybinding right-aligned where one is bound; the top result is highlighted as the current selection.</div>
-    </div>
-
-    <p>If nothing matches, the palette shows <code>No commands match "your query"</code> in place of the results list — there's no partial-match fallback or suggestion.</p>
-
-    <h2 id="keyboard">Keyboard navigation</h2>
+    <h2 id="keyboard">Getting around by keyboard</h2>
     <div class="deflist">
       <div class="row">
         <div class="k"><kbd>↑</kbd> <kbd>↓</kbd></div>
-        <div class="v">Move the selection up or down through the results, clamped at the top and bottom of the list. Moving the mouse over a row also updates the selection.</div>
+        <div class="v">Move the highlight up or down through the results. Hovering a row with the mouse selects it too.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>↵</kbd></div>
-        <div class="v">Run the selected command. The palette closes <em>first</em>, then the command runs — so focus returns to the editor immediately rather than waiting on the command to finish.</div>
+        <div class="v">Run the highlighted command. The palette closes right away and focus returns to your note.</div>
       </div>
       <div class="row">
         <div class="k"><kbd>esc</kbd></div>
         <div class="v">Close the palette without running anything.</div>
       </div>
     </div>
-    <p>The palette's footer states this literally: <code>↑↓ navigate · ↵ run · esc close</code>.</p>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Commands only — never notes, sources, or queries.</b> The palette's candidate set is built entirely from the app's command registry (File, Edit, View, Navigate, Refactor, Research, Query, App). It never searches your notes, sources, or saved queries by title or content. If you're trying to jump to a note, open <a href="navigation-quick-switch.html">Quick switch</a> (<kbd>⌘</kbd><kbd>P</kbd>) instead.</li>
-      <li><b>Disabled commands still show up.</b> A command that isn't currently applicable (for example, an action that needs an active selection) still appears in the list, greyed out. It just can't be clicked or run until its precondition is met — the palette doesn't hide it.</li>
-      <li><b>No dimmed backdrop.</b> The editor stays fully visible and undimmed behind the palette; don't mistake this for a bug if you're used to a modal overlay from other apps.</li>
-      <li><b>Recent history is local and capped.</b> The last 10 run commands are remembered (in <code>localStorage</code>) to drive the recent-first empty-query ordering. It's per-machine, not synced with the project.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="navigation.html">

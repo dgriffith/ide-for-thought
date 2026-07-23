@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Citations</title>
-<meta name="description" content="The Citations panel lists every source the current note cites or quotes, grouped one row per source with occurrence counts and quoted excerpts, so you can jump straight to the source you referenced." />
+<meta name="description" content="The Citations panel is a live bibliography for the note you're reading — every source it cites or quotes, with a quick way to jump back to the original." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,48 +88,38 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="right-sidebar.html">Right sidebar</a><span class="sep">/</span>Citations</p>
 
     <h1>Citations</h1>
-    <p class="lede">The Citations panel lists every source the current note cites or quotes — one row per source, with a byline, an occurrence count, and (when the note quotes it) the specific excerpts pulled in. It's a bibliography for the note you're looking at, built from its <code>[[cite::…]]</code> and <code>[[quote::…]]</code> links rather than typed by hand.</p>
+    <p class="lede">The Citations panel is a bibliography for the note you're reading. It gathers every source the note cites or quotes into one tidy list, so you can see what you drew on and jump straight back to the original — no hand-kept reference list required.</p>
 
-    <h2 id="how-it-works">How it works</h2>
-    <p>The panel groups every <a href="notes-links.html#types"><code>cite</code> and <code>quote</code> typed link</a> in the note by the source it resolves to, so a source cited three times and quoted twice appears once, with both counts on the same row. It reads the note's own indexed <code>thought:cites</code> / <code>thought:quotes</code> edges to find which sources are in play, then re-scans the live editor buffer to count occurrences — so the counts track what you're typing, not just the last save. Edits are debounced before the panel re-queries, so fast typing doesn't trigger a query per keystroke.</p>
+    <h2 id="how-it-works">What it shows</h2>
+    <p>As you cite and quote sources in your writing, the panel collects them here. Each source appears once, even if you referenced it several times, and the list stays in step with what you type. Cite a source with a <code>cite</code> link and quote it with a <code>quote</code> link, and both show up on the same row.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Source row</div>
-        <div class="v">Shows the source's title in italic and a byline (author, or "author and author," or "author et al." for three or more, plus the year when known) — the same metadata as the source's own entry. A chip on the right splits the count into cites and quotes, e.g. <code>3</code> cites and <code>2″</code> quotes.</div>
+        <div class="v">Shows the source's title and its author and year, when known. A small chip on the right tells you how many times you cited it and how many times you quoted it.</div>
       </div>
       <div class="row">
-        <div class="k">Click a source row</div>
-        <div class="v">Opens that source's own tab — the same detail view described in <a href="left-sidebar-sources.html">Left sidebar → Sources</a> — scrolled to the top.</div>
+        <div class="k">Click a source</div>
+        <div class="v">Opens that source so you can read it in full.</div>
       </div>
       <div class="row">
         <div class="k">Expand a source</div>
-        <div class="v">A disclosure triangle appears on any source the note actually quotes. Expanding it lists each quoted excerpt underneath, with a truncated preview of the quoted text and its locator (a page number, page range, or other location text) when the source has one.</div>
+        <div class="v">Any source you've quoted can be opened up to list each passage you pulled in, with a preview of the quoted words and a page number or location when there is one.</div>
       </div>
       <div class="row">
         <div class="k">Click an excerpt</div>
-        <div class="v">Opens the source scrolled to that excerpt, rather than just to the top of the source — useful for jumping straight back to the passage you quoted in a long PDF or web capture.</div>
+        <div class="v">Jumps straight to that passage inside the source — handy for landing back on the exact spot in a long document you quoted from.</div>
       </div>
       <div class="row">
         <div class="k">Search and sort</div>
-        <div class="v">The ribbon's search field filters by source title, source ID, author name, or quoted text — so you can find the source you cited by searching for a phrase you remember quoting. Sort between "Most cited" (the default) and alphabetical by title.</div>
+        <div class="v">Search by title, author, or a phrase you remember quoting to find a source fast. Sort by most cited or alphabetically by title.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">📚</div>
-      <div class="k">Screenshot — Citations panel with an expanded source</div>
-      <div class="d">The right sidebar's Citations panel listing several cited sources as italic titles with author/year bylines and cite/quote count chips; one row is expanded to show two quoted excerpts indented beneath it with a locator like "p. 42" next to each.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>A citation key that doesn't resolve still gets a row.</b> If a <code>[[cite::id]]</code> or <code>[[quote::id]]</code> points at a source ID with no matching entry in the graph, that source is skipped entirely — it never enters the group set, so it won't show up as a broken row. Only sources the graph can actually resolve are listed, whether or not they have a title.</li>
-      <li><b>A resolved source with no title reads as "uncited."</b> If the source exists in the graph but has no title yet (a stub, or metadata still being fetched), its row shows the raw source ID in place of a title, in a warning color, with "N references · uncited" instead of a byline. It's still clickable — the warning is about missing metadata, not a broken link.</li>
-      <li><b>Bibliography blocks don't inflate the count.</b> Notes that embed a rendered bibliography block don't have their citation counts doubled by it — the panel strips that block before counting, so the numbers reflect inline <code>cite</code>/<code>quote</code> links only.</li>
-      <li><b>No citations, no rows.</b> A note with no <code>cite</code> or <code>quote</code> links shows a plain "No citations in this note" message — this panel only covers the source/excerpt typed links, not plain <code>references</code> links to other notes (see <a href="right-sidebar-backlinks.html">Backlinks</a> for those).</li>
-    </ul>
-
+    <figure class="shot-img panel">
+      <img src="img/right-sidebar-citations.png" alt="The Citations panel listing several sources by title, each with its author and year and a count of cites and quotes; one row is opened to show two quoted passages beneath it, each with a page number." loading="lazy" />
+      <figcaption>Screenshot — Citations panel with an expanded source</figcaption>
+    </figure>
     <div class="pager">
       <a class="prev" href="right-sidebar-proposals.html">
         <span class="dir">Previous</span>

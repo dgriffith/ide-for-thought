@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Right Sidebar</title>
-<meta name="description" content="The right sidebar's panels: Backlinks, Outgoing links, Outline, Properties, Proposals, Citations, Tags, Related, Footnotes, Tables, Heading graph, and Bookmarks." />
+<meta name="description" content="The right sidebar's panels give you context about the note you're reading: what links here, its outline, properties, citations, related notes, and more." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,34 +88,34 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Right sidebar</p>
 
     <h1>Right sidebar</h1>
-    <p class="lede">The right sidebar is context about the note in front of you — twelve panels, each answering a different question about it. What links here? What does it link to? What's its shape? What's pending review? What does it cite? None of them edit your prose directly; they're lenses on the graph, the frontmatter, and the AI review queue, all pointed at whatever you're currently looking at.</p>
+    <p class="lede">The right sidebar gives you context about the note you're reading. Each panel answers a different question: What links here? What does this note link to? What's its shape? What does it cite? Which notes are related? Panels don't change your writing — they're different lenses on the note in front of you, and they update as you move from note to note.</p>
 
     <div class="box">
       <span class="label">One exception</span>
-      <p>Every panel below is scoped to the note you have open — except <a href="right-sidebar-proposals.html">Proposals</a>, which is project-wide by design: pending AI writes aren't naturally a per-note concern, so it shows you everything regardless of which note is active.</p>
+      <p>Every panel follows the note you're reading — except <a href="right-sidebar-proposals.html">Proposals</a>, which shows all of the AI's pending suggestions across your whole project, no matter which note is open.</p>
     </div>
 
-    <h2 id="glance">The twelve panels</h2>
+    <h2 id="glance">The panels at a glance</h2>
     <div class="deflist">
       <div class="row">
         <div class="k"><a href="right-sidebar-backlinks.html">Backlinks</a></div>
-        <div class="v">Notes that link to this one — the incoming side of the graph.</div>
+        <div class="v">Other notes that link to this one.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-outgoing-links.html">Outgoing links</a></div>
-        <div class="v">Every wiki-link this note makes — the outgoing side.</div>
+        <div class="v">The notes this one links out to.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-outline.html">Outline</a></div>
-        <div class="v">A collapsible heading tree, for scanning a long note fast.</div>
+        <div class="v">A collapsible list of headings for scanning a long note fast.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-properties.html">Properties</a></div>
-        <div class="v">Frontmatter as editable typed rows, instead of raw YAML.</div>
+        <div class="v">A note's properties as simple, editable fields.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-proposals.html">Proposals</a></div>
-        <div class="v">Approve or reject pending AI writes, one keystroke at a time.</div>
+        <div class="v">Approve or reject the AI's pending suggestions, one keystroke at a time.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-citations.html">Citations</a></div>
@@ -123,27 +123,27 @@
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-tags.html">Tags</a></div>
-        <div class="v">This note's own tags, shown as a hierarchy — read-only.</div>
+        <div class="v">This note's tags, shown as a hierarchy.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-related.html">Related</a></div>
-        <div class="v">Notes that read alike, found by semantic similarity.</div>
+        <div class="v">Other notes that read alike, so you can find connections you didn't make by hand.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-footnotes.html">Footnotes</a></div>
-        <div class="v">Every footnote in this note, plus a linter for dangling ones.</div>
+        <div class="v">Every footnote in this note, and a heads-up about any that don't line up.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-tables.html">Tables</a></div>
-        <div class="v">Which SQL-referenced tables this note mentions actually exist.</div>
+        <div class="v">The data tables this note works with.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-heading-graph.html">Heading graph</a></div>
-        <div class="v">The same headings as Outline, drawn as a spatial tree.</div>
+        <div class="v">The note's headings drawn as a visual tree.</div>
       </div>
       <div class="row">
         <div class="k"><a href="right-sidebar-bookmarks.html">Bookmarks</a></div>
-        <div class="v">This note's bookmarks, filtered from the project-wide list.</div>
+        <div class="v">The spots you've bookmarked within this note.</div>
       </div>
     </div>
 
@@ -152,27 +152,27 @@
       <a class="doc-card" href="right-sidebar-backlinks.html">
         <span class="em">↙️</span>
         <h3>Backlinks</h3>
-        <p>Every note that links here — the incoming side.</p>
+        <p>Other notes that link to this one.</p>
       </a>
       <a class="doc-card" href="right-sidebar-outgoing-links.html">
         <span class="em">↗️</span>
         <h3>Outgoing links</h3>
-        <p>Every link this note makes — the outgoing side.</p>
+        <p>The notes this one links out to.</p>
       </a>
       <a class="doc-card" href="right-sidebar-outline.html">
         <span class="em">📑</span>
         <h3>Outline</h3>
-        <p>A collapsible heading tree for scanning a long note fast.</p>
+        <p>A collapsible list of headings for scanning a long note fast.</p>
       </a>
       <a class="doc-card" href="right-sidebar-properties.html">
         <span class="em">🎛️</span>
         <h3>Properties</h3>
-        <p>Edit frontmatter as typed rows instead of raw YAML.</p>
+        <p>A note's properties as simple, editable fields.</p>
       </a>
       <a class="doc-card" href="right-sidebar-proposals.html">
         <span class="em">🤝</span>
         <h3>Proposals</h3>
-        <p>Approve or reject pending AI writes, one keystroke at a time.</p>
+        <p>Approve or reject the AI's pending suggestions.</p>
       </a>
       <a class="doc-card" href="right-sidebar-citations.html">
         <span class="em">📖</span>
@@ -182,32 +182,32 @@
       <a class="doc-card" href="right-sidebar-tags.html">
         <span class="em">🌿</span>
         <h3>Tags</h3>
-        <p>This note's own tags, shown as a hierarchy — read-only.</p>
+        <p>This note's tags, shown as a hierarchy.</p>
       </a>
       <a class="doc-card" href="right-sidebar-related.html">
         <span class="em">🧲</span>
         <h3>Related</h3>
-        <p>Notes that read alike, found by semantic similarity.</p>
+        <p>Other notes that read alike.</p>
       </a>
       <a class="doc-card" href="right-sidebar-footnotes.html">
         <span class="em">📎</span>
         <h3>Footnotes</h3>
-        <p>Every footnote in this note, and a linter for dangling ones.</p>
+        <p>Every footnote in this note, and a heads-up about any that don't line up.</p>
       </a>
       <a class="doc-card" href="right-sidebar-tables.html">
         <span class="em">🧾</span>
         <h3>Tables</h3>
-        <p>Which SQL-referenced tables in this note actually exist.</p>
+        <p>The data tables this note works with.</p>
       </a>
       <a class="doc-card" href="right-sidebar-heading-graph.html">
         <span class="em">🌐</span>
         <h3>Heading graph</h3>
-        <p>The same headings as Outline, drawn as a spatial tree.</p>
+        <p>The note's headings drawn as a visual tree.</p>
       </a>
       <a class="doc-card" href="right-sidebar-bookmarks.html">
         <span class="em">📌</span>
         <h3>Bookmarks</h3>
-        <p>This note's bookmarks, filtered from the global list.</p>
+        <p>The spots you've bookmarked within this note.</p>
       </a>
     </div>
 

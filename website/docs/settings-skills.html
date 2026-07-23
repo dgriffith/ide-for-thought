@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Skills</title>
-<meta name="description" content="The Skills tab in Settings — importing your own skill files and setting a per-skill model override, with the enable/reorder/reassign mechanics covered separately in Thinking tools." />
+<meta name="description" content="The Skills tab in Settings — add your own thinking tools and choose which AI model each one uses." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,73 +88,21 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Skills</p>
 
     <h1>Skills</h1>
-    <p class="lede">The Skills tab in <b>Settings</b> is where a skill catalog gets managed — but enabling, disabling, reassigning between menus, and reordering are already covered in full at <a href="thinking-tools-managing-authoring.html">Thinking tools → Managing &amp; authoring</a>. This page covers the two things that live here and nowhere else: importing your own skill file into the catalog, and setting a per-skill model override.</p>
+    <p class="lede">Skills are the ready-made thinking tools that appear in Minerva's Learning, Research, and Analysis menus. The <b>Skills</b> tab in Settings lets you add your own and choose which AI model each one uses. Turning skills on or off, moving them between menus, and reordering them are covered at <a href="thinking-tools-managing-authoring.html">Thinking tools → Managing &amp; authoring</a>.</p>
 
-    <h2 id="import">Importing a skill</h2>
-    <p>The <b>Import skill…</b> button at the top of the tab opens a native file picker that accepts either a single <code>.md</code> file or a folder containing a <code>SKILL.md</code> (the same two shapes described in <a href="thinking-tools-managing-authoring.html">Managing &amp; authoring</a> — a bare file or a Claude-style skill folder). Whatever you pick is validated and, if it passes, copied into <code>~/.minerva/skills/</code>.</p>
+    <h2 id="import">Adding your own skill</h2>
+    <p>Click <b>Add skill…</b> and pick your skill file. Minerva checks that it's a valid, complete skill and adds it to your collection. If something's wrong — a missing detail, or a name that clashes with one you already have — it tells you exactly what to fix right below the button, and nothing is added until the file checks out.</p>
+    <p>Once a skill is added, it appears right away in its menu, ready to use. Two more buttons sit alongside: <b>Open skills folder</b> opens the place your skills are kept, and <b>Reload</b> refreshes the list after you've edited or dropped in a skill by hand.</p>
 
-    <div class="deflist">
-      <div class="row">
-        <div class="k">What gets checked</div>
-        <div class="v">Before anything is copied, Minerva parses the file's YAML frontmatter and rejects it outright if required fields — <code>name</code>, <code>description</code>, a valid <code>menu</code>, a recognized <code>outputMode</code> — are missing or malformed. A folder without a <code>SKILL.md</code> inside it is rejected the same way. Nothing lands in your skills folder until the file is confirmed valid.</div>
-      </div>
-      <div class="row">
-        <div class="k">Colliding with a stock skill</div>
-        <div class="v">User skills are additive only — they can never shadow a built-in one. If the id you're importing matches a stock skill's id, the import is rejected before the copy happens, and Settings shows the reason inline: a built-in skill already uses that id, and the fix is to disable the stock one and give yours a different id.</div>
-      </div>
-      <div class="row">
-        <div class="k">Colliding with another user skill</div>
-        <div class="v">Same rejection, different message: you already have a skill using that id. Rename the id in the file's frontmatter and try again.</div>
-      </div>
-      <div class="row">
-        <div class="k">Canceling the picker</div>
-        <div class="v">Dismissing the file picker without choosing anything is a silent no-op — no error, nothing imported, nothing to dismiss.</div>
-      </div>
-      <div class="row">
-        <div class="k">On success</div>
-        <div class="v">The skill catalog reloads and the native menu rebuilds immediately — your import shows up in its declared menu (or wherever <a href="thinking-tools-managing-authoring.html">Managing &amp; authoring</a>'s reassignment moves it) without restarting Minerva.</div>
-      </div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-skills.png" alt="The Skills tab: the Add skill / Open skills folder / Reload buttons across the top, and below them the list of skills, each with a switch to turn it on, a menu it belongs to, and a picker to choose its AI model." loading="lazy" />
+      <figcaption>Screenshot — the Skills settings panel</figcaption>
+    </figure>
 
-    <p>Two adjacent buttons round out the row: <b>Reveal skills folder</b> opens <code>~/.minerva/skills/</code> in your OS file manager (creating it first if it doesn't exist yet), and <b>Reload</b> re-scans that folder without going through the import dialog — useful after hand-editing or dropping a file in directly.</p>
+    <h2 id="model-overrides">Choosing a skill's AI model</h2>
+    <p>Each skill has a model picker. Leave it on the default and the skill uses the model it's meant to run on. Pick a specific model instead to pin that one skill to your choice — handy when you want a heavier model for careful analysis, or a faster one for quick tasks. The default option always names the model it would actually use, so there's no guesswork. Your choices apply everywhere you use Minerva on this computer.</p>
 
-    <div class="box">
-      <span class="label">A rejected import still shows you why</span>
-      <p>Every rejection reason above — bad frontmatter, a missing <code>SKILL.md</code>, a stock or user id collision, a filename that already exists in the folder — surfaces as the exact underlying message in an inline message beneath the button row, not a generic "import failed." You never have to guess which of the several validation checks tripped.</p>
-    </div>
-
-    <h2 id="model-overrides">Per-skill model override</h2>
-    <p>Each skill row carries a model picker alongside its menu-reassignment dropdown. Left on its default option, the skill runs on whatever model it would have used anyway — its own <code>model:</code> frontmatter preference if it declares one, otherwise the AI tab's global default model. Picking a specific model here pins that one skill to it, regardless of what the AI tab's default is set to.</p>
-
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Default option label</div>
-        <div class="v">The picker's empty option is never a bare "Default model" — it names whichever model would actually apply, e.g. "Default · Claude Sonnet 5", so you're not guessing what "default" resolves to for that particular skill.</div>
-      </div>
-      <div class="row">
-        <div class="k">Resolution order</div>
-        <div class="v">A skill invocation resolves its model as: this override, if set → the skill's own <code>model:</code> preference, if it declares one → the AI tab's global default model. The override set here always wins over a skill's own stated preference.</div>
-      </div>
-      <div class="row">
-        <div class="k">Storage</div>
-        <div class="v">Overrides are keyed by skill id in a single map alongside the API key, the global default model, and the effort setting — the same <a href="settings-ai.html">AI tab</a> settings object, saved together when you close the Settings dialog. It's machine-global, like <code>menu-config.json</code>: the same overrides apply no matter which thoughtbase you have open, but they don't travel with a project to another computer.</div>
-      </div>
-    </div>
-
-    <div class="shot wide">
-      <div class="icon">🧩</div>
-      <div class="k">Screenshot — Settings → Skills panel, import + model override</div>
-      <div class="d">The Skills settings panel: the Import skill… / Reveal skills folder / Reload button row at top, and below it a skill row expanded to show its model picker set to a specific model (not the "Default · …" option) alongside the existing enable checkbox, reorder arrows, and menu dropdown.</div>
-    </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>Overrides don't survive a restart yet.</b> The override map is written to disk correctly when you close Settings, but the setting isn't read back on the next load — so a per-skill model choice quietly reverts to "Default" the next time you reopen Minerva (or the Settings dialog after a reload). Re-set it if a skill seems to have forgotten its pinned model; nothing else in your settings is affected.</li>
-      <li><b>The override is per-skill, not per-menu or per-category.</b> Two skills that share a menu can run on two different models; there's no bulk "set this menu to Haiku" control, only the per-row picker.</li>
-      <li><b>Importing doesn't create an override.</b> A freshly imported skill has no entry in the override map — it runs on its own <code>model:</code> preference or the global default until you explicitly pick something for it.</li>
-    </ul>
-
-    <p>For enabling, disabling, reassigning a skill to a different menu, or reordering it within one — the mechanics that make up the rest of this tab — see <a href="thinking-tools-managing-authoring.html">Thinking tools → Managing &amp; authoring</a>.</p>
+    <p>To turn a skill on or off, move it to a different menu, or change its order, see <a href="thinking-tools-managing-authoring.html">Thinking tools → Managing &amp; authoring</a>.</p>
 
     <div class="pager">
       <a class="prev" href="settings-ai.html">

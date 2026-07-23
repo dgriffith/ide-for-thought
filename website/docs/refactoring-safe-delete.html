@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Safe Delete &amp; Dangling Links</title>
-<meta name="description" content="What Minerva checks before deleting a note other notes link to, the blocker dialog's options, and why git is the recovery path — not a built-in undo." />
+<meta name="description" content="Before you delete a note, Minerva warns you if other notes still link to it — so you can fix those links first." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -79,33 +79,26 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="refactoring.html">Refactoring</a><span class="sep">/</span>Safe delete &amp; dangling links</p>
 
     <h1>Safe delete &amp; dangling links</h1>
-    <p class="lede">Before a delete actually happens, Minerva checks whether anything outside what you're deleting still links in — so you find out about the fallout before it happens, not after.</p>
+    <p class="lede">When your notes link to each other, deleting one can leave others pointing at something that no longer exists. Before a delete goes through, Minerva checks for exactly this and warns you first.</p>
 
-    <h2 id="preflight">The pre-flight check</h2>
-    <p>Whatever you've selected — one note, several, or a whole folder — gets expanded to its set of <code>.md</code> files, and the graph is queried for inbound links from notes <i>outside</i> that set. This runs on every delete, whether you triggered it on a single note or a multi-selection.</p>
+    <h2 id="check">The warning before you delete</h2>
+    <p>Whether you're deleting one note, several at once, or a whole folder, Minerva looks for any other notes — outside what you're removing — that still link to it. If it finds none, the delete proceeds as normal. If it finds some, a warning appears listing the notes that would be left with a link going nowhere.</p>
 
-    <h2 id="blocker">The blocker dialog</h2>
-    <p>If anything links in from outside the deletion set, a dialog replaces the normal confirm and shows which notes will be left with a dangling link:</p>
+    <p>From that warning you can:</p>
     <div class="deflist">
-      <div class="row"><div class="k">Cancel</div><div class="v">Nothing is deleted.</div></div>
-      <div class="row"><div class="k">Open the first reference</div><div class="v">Jumps to the linking note so you can fix it up first, if you want to.</div></div>
-      <div class="row"><div class="k">Delete anyway</div><div class="v">Goes ahead — and skips the usual second confirmation, since the blocker dialog itself already established your intent.</div></div>
+      <div class="row"><div class="k">Cancel</div><div class="v">Keep everything. Nothing is deleted.</div></div>
+      <div class="row"><div class="k">Open the first reference</div><div class="v">Jump to a note that links in, so you can fix or remove the link before deleting.</div></div>
+      <div class="row"><div class="k">Delete anyway</div><div class="v">Go ahead with the delete, accepting that those links will be left pointing at nothing.</div></div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🔗</div>
-      <div class="k">Screenshot — The delete blocker dialog</div>
-      <div class="d">The blocker dialog listing 2-3 notes that link in from outside the selection, with Cancel / Open first reference / Delete anyway buttons.</div>
-    </div>
-
-    <div class="box">
-      <span class="label">If nothing links in, there's nothing to see</span>
-      <p>No blockers means the normal delete confirmation runs as usual — this check is invisible when it has nothing to report. And if the graph itself is unreachable at that moment (a transient indexing hiccup), the check fails open rather than blocking your delete — you get the old, un-checked behavior for that one delete rather than being stuck.</p>
-    </div>
+    <figure class="shot-img">
+      <img src="img/refactoring-safe-delete.png" alt="The warning listing a few notes that still link to what you're about to delete, with Cancel, Open first reference, and Delete anyway options." loading="lazy" />
+      <figcaption>Screenshot — The delete warning</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Dangling links aren't auto-repaired, and there's no undo beyond git</span>
-      <p>Deleting anyway leaves exactly the dangling links the dialog warned you about — nothing rewrites or removes them automatically. Recovery, if you need it, is <code>git diff</code> / <code>git checkout</code> on the affected files, the same as recovering any other change. This is by design: deletion is a normal, git-backed operation, not something that needs a bespoke undo system.</p>
+      <span class="label">Deleting doesn't fix the links for you</span>
+      <p>If you choose Delete anyway, the notes that linked in are left exactly as they were — their links now lead nowhere. Minerva won't rewrite or remove them automatically, so it's worth cleaning them up when you get a chance. Using Open the first reference before you delete is the easiest way to handle them ahead of time.</p>
     </div>
 
     <div class="pager">

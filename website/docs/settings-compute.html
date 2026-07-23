@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Settings: Compute</title>
-<meta name="description" content="The Compute settings tab: selecting and probing the Python interpreter Minerva runs code cells with, and where the execution trust prompt actually lives." />
+<meta name="description" content="The Compute settings tab: choose which Python Minerva uses to run the code cells in your notes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -88,57 +88,47 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Compute</p>
 
     <h1>Compute</h1>
-    <p class="lede">The Compute tab is one thing: which Python interpreter Minerva runs your <code>python</code> cells with. There's no separate trust switch to configure here — the one-time consent prompt for running Python at all lives at the point you actually run a cell, not in Settings. See <a href="notes-code.html">Code &amp; compute cells</a> for the fence syntax, how output is written back into a note, and the full execution-trust model.</p>
+    <p class="lede">Minerva can run Python code cells right inside your notes. The Compute tab does one thing: it lets you choose which Python on your computer does that work. If you're happy with the Python Minerva already finds, you never need to open this tab. To learn how to write and run code cells, see <a href="notes-code.html">Code &amp; compute cells</a>.</p>
 
-    <h2 id="interpreter">Python interpreter</h2>
-    <p>This tab has a single field: a path to a Python executable. It's a per-machine override, not a per-project one — every thoughtbase you open on this computer shares whatever interpreter you set here.</p>
+    <h2 id="interpreter">Choosing your Python</h2>
+    <p>By default, Minerva looks for Python on your computer automatically. If you'd rather point it at a specific one — say, a setup you've prepared with the packages you use — you can name it here. Your choice applies to every thoughtbase you open on this computer.</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">Python interpreter path</div>
-        <div class="v">A text field for the path to the Python binary Minerva should invoke — for example <code>/Users/you/.minerva-venv/bin/python</code>. Left empty, Minerva resolves an interpreter in order: the <code>MINERVA_PYTHON</code> environment variable, then <code>python3</code> on <code>$PATH</code>.</div>
+        <div class="k">Python location</div>
+        <div class="v">Where your chosen Python lives. Leave it empty to let Minerva find one for you.</div>
       </div>
       <div class="row">
         <div class="k">Browse…</div>
-        <div class="v">Opens a native file picker to select the interpreter binary instead of typing a path. Selecting a file probes it immediately, so you see right away whether it's runnable.</div>
+        <div class="v">Pick your Python from a file chooser instead of typing its location. Minerva checks it right away so you know it works.</div>
       </div>
       <div class="row">
-        <div class="k">Probe</div>
-        <div class="v">Runs <code>python --version</code> against whichever path is currently in the field (or, if the field is empty, against whatever the resolver would currently pick) and reports the result inline — the resolved version string on success, or the interpreter's own error text on failure. Probing doesn't save anything; it's a dry run.</div>
+        <div class="k">Check</div>
+        <div class="v">Test the current choice without saving it. Minerva tells you which version it found, or explains what went wrong if it couldn't run it.</div>
       </div>
       <div class="row">
         <div class="k">Save</div>
-        <div class="v">Writes the current path as the per-machine override. Disabled when the field matches what's already saved, so it only lights up once there's an actual change to persist.</div>
+        <div class="v">Keep your choice. Available once you've made a change.</div>
       </div>
       <div class="row">
-        <div class="k">Save &amp; Restart Kernel</div>
-        <div class="v">Saves the path and restarts the persistent Python process immediately, so the very next cell you run picks up the new interpreter. Restarting wipes the kernel's namespace — variables and imports from earlier cells in any open note are gone, the same as if you'd started a fresh Minerva session.</div>
+        <div class="k">Save &amp; restart</div>
+        <div class="v">Save your choice and switch to it straight away, so your next code cell uses it. Anything earlier cells had set up — variables, imported packages — starts fresh, just as if you'd reopened Minerva.</div>
       </div>
       <div class="row">
-        <div class="k">Clear override</div>
-        <div class="v">Empties the saved path, returning to the <code>MINERVA_PYTHON</code> / <code>python3</code> resolution order above. Only appears once a path has been saved.</div>
+        <div class="k">Clear</div>
+        <div class="v">Forget your saved choice and let Minerva find a Python for you again. Appears only after you've saved one.</div>
       </div>
     </div>
 
-    <div class="shot wide">
-      <div class="icon">🐍</div>
-      <div class="k">Screenshot — Settings → Compute tab</div>
-      <div class="d">The Compute settings panel: the Python interpreter path field with Browse and Probe buttons beside it, a probe-result strip beneath showing a resolved version string and path, and the Save / Save &amp; Restart Kernel / Clear override row underneath.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/settings-compute.png" alt="The Compute panel: a field naming which Python to use with Browse and Check beside it, a line beneath confirming the version that was found, and the Save, Save &amp; restart, and Clear buttons below." loading="lazy" />
+      <figcaption>Screenshot — the Compute tab</figcaption>
+    </figure>
 
     <div class="box">
-      <span class="label">Where the trust prompt actually is</span>
-      <p>The tab's sub-line in the Settings menu reads "Python interpreter · trust," but there's no toggle for it here — the trust model isn't a setting you configure in advance, it's a one-time confirmation dialog that appears the first time you run a Python cell in a given project. Declining leaves the cell unrun until you approve it later; approving is remembered for the rest of that project. That prompt, what it gates, and why SPARQL and SQL fences skip it entirely, are covered in <a href="notes-code.html#trust">Code &amp; compute cells — Approval and the knowledge graph</a>. This page is only about which interpreter binary gets used once that trust is in place.</p>
+      <span class="label">Running code is your call</span>
+      <p>Minerva won't run Python in a thoughtbase until you say it's okay. The first time you run a code cell there, it asks for a quick confirmation, then remembers your answer for the rest of that thoughtbase. That's a one-time prompt at the moment you run a cell, not a switch on this tab. For the full picture, see <a href="notes-code.html#trust">Code &amp; compute cells</a>.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>A saved path that stops existing fails at run time, not save time.</b> Saving doesn't validate the path — Probe does, but Save doesn't require a successful probe first. If an interpreter gets uninstalled, moved, or was on a drive that's no longer mounted, the saved override stays in place and the next cell run simply fails with the interpreter's own error text in the output block. Come back to this tab, Probe to confirm, and Browse to a valid binary.</li>
-      <li><b>It's per-machine, so it doesn't travel with the project.</b> Open the same thoughtbase on another computer and it resolves the interpreter fresh on that machine — the environment variable or <code>python3</code> on that machine's <code>PATH</code>, unless you set an override there too. A project's notes never encode which interpreter produced their output.</li>
-      <li><b>Restarting the kernel is a real reset.</b> Any variable, DataFrame, or import built up across a note's Python cells is gone after Save &amp; Restart Kernel. If you need that state, re-run the note's cells from the top afterward rather than assuming Minerva carries anything forward.</li>
-      <li><b>Probing the empty field probes the resolver, not "nothing."</b> With the path field blank, Probe still runs against whatever <code>MINERVA_PYTHON</code> or <code>python3</code> would resolve to — so a failed probe on an empty field usually means neither of those is set up, not that probing was skipped.</li>
-    </ul>
-
     <div class="pager">
       <a class="prev" href="settings-clipper.html">
         <span class="dir">Previous</span>

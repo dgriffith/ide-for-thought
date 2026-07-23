@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Minerva — Docs — Adding Sources</title>
-<meta name="description" content="Every way to bring a source into a thoughtbase: the File menu's dedicated ingest actions, the Sources panel's smart-route +, drag-and-drop, and bulk BibTeX/Zotero import." />
+<meta name="description" content="The different ways to bring a source into Minerva: from a web page, a DOI or paper identifier, a file on your computer, or a whole reference library at once." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -80,70 +80,58 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="ingest.html">Ingest</a><span class="sep">/</span>Adding sources</p>
 
     <h1>Adding sources</h1>
-    <p class="lede">There's more than one door in, depending on what you're starting from: a URL, an identifier, a file already on disk, or a whole reference library you want to bring over at once.</p>
+    <p class="lede">A source is any reference you want to keep alongside your notes — a web article, a research paper, a PDF on your computer. Minerva pulls in the text and citation details so you can read, cite, and think with it. There are a few ways to add one, depending on what you're starting from.</p>
 
-    <h2 id="menu">The File menu</h2>
-    <p>Five dedicated actions, each doing one thing well rather than one smart button trying to guess:</p>
+    <h2 id="menu">From the File menu</h2>
+    <p>The File menu has a handful of dedicated actions for adding sources, each for a different starting point:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Ingest URL as Source…<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></div>
-        <div class="v">Prompts for a URL and runs it through Readability extraction. URL only — it won't recognize an identifier typed into this prompt.</div>
+        <div class="k">Add a web page<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd></div>
+        <div class="v">Paste in the address of an article or page. Minerva pulls in the readable text, leaving the ads and clutter behind.</div>
       </div>
       <div class="row">
-        <div class="k">Ingest Identifier…<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></div>
-        <div class="v">Prompts for a DOI, arXiv id, or PubMed id and looks it up against CrossRef / arXiv / PubMed. Also tries to fetch an open-access PDF automatically when one exists — if that specific fetch fails, the source still ingests fine with its metadata; the source's <code>bibo:uri</code> points at the canonical record so you can grab the PDF by hand.</div>
+        <div class="k">Add by identifier<br><kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></div>
+        <div class="v">Paste a paper's DOI, arXiv id, or PubMed id and Minerva looks up its citation details for you. If a freely available PDF exists, it's fetched too; if not, the source still comes in with its details and a link to the original record so you can grab the PDF yourself.</div>
       </div>
       <div class="row">
-        <div class="k">Ingest File as Source…</div>
-        <div class="v">Opens a native file picker (not a drop target) for a local PDF, HTML, or plain-text/markdown file.</div>
+        <div class="k">Add a file</div>
+        <div class="v">Pick a PDF, web page, or text file from your computer.</div>
       </div>
       <div class="row">
-        <div class="k">Import BibTeX…</div>
-        <div class="v">Bulk-imports a <code>.bib</code> file. Reports imported / duplicate (skipped) / failed / parse-error counts when it finishes.</div>
-      </div>
-      <div class="row">
-        <div class="k">Import Zotero RDF…</div>
-        <div class="v">Bulk-imports a Zotero RDF export, lifting any attached PDFs along with each entry's metadata.</div>
+        <div class="k">Import a reference library</div>
+        <div class="v">Bring in a whole exported reference collection at once, along with any PDFs attached to its entries. When it finishes, Minerva tells you how many came in and how many were skipped as duplicates.</div>
       </div>
     </div>
 
-    <h2 id="panel">The Sources panel's + button</h2>
-    <p>The quickest path for a one-off: click <b>+</b> in the <a href="left-sidebar-sources.html">Sources panel</a> and paste in a URL, DOI, arXiv id, or PubMed id. Unlike the menu's URL/Identifier actions, this one <b>smart-routes</b> — it recognizes which kind of thing you pasted and picks the right path automatically. It also catches a DOI embedded in a longer piece of pasted text (e.g. "see 10.1145/xxxx for details"), extracting just the identifier rather than failing on the surrounding prose.</p>
+    <h2 id="panel">From the Sources panel</h2>
+    <p>The quickest way to add a single source: click <b>+</b> in the <a href="left-sidebar-sources.html">Sources panel</a> and paste in a web address or a paper identifier. It figures out on its own which kind of thing you pasted and handles it accordingly. It's forgiving, too — paste a sentence with an identifier buried in it ("see 10.1145/xxxx for details") and it plucks out just the identifier.</p>
 
-    <div class="shot wide">
-      <div class="icon">➕</div>
-      <div class="k">Screenshot — Adding a source via the + button</div>
-      <div class="d">The Sources panel with the + button highlighted and the resulting prompt dialog ("URL, DOI, arXiv id, or PubMed id:") showing a pasted arXiv URL.</div>
-    </div>
+    <figure class="shot-img">
+      <img src="img/ingest-adding-sources.png" alt="The Sources panel with the + button highlighted and the box where you paste a web address or paper identifier." loading="lazy" />
+      <figcaption>Screenshot — Adding a source from the Sources panel</figcaption>
+    </figure>
 
-    <h2 id="drop">Drag and drop</h2>
-    <p>Dropping files onto the Notes tree isn't source-specific — it's a general "bring this file into the project" gesture that branches by file type:</p>
+    <h2 id="drop">By dragging a file in</h2>
+    <p>You can also drag a file straight into Minerva. What happens depends on the kind of file:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k"><code>.pdf</code></div>
-        <div class="v">Ingested as a Source, the same as the menu's PDF path. The folder you dropped onto is ignored — sources live in the sources library, not the file tree.</div>
+        <div class="k">A PDF</div>
+        <div class="v">Added as a source, just like picking one from the File menu.</div>
       </div>
       <div class="row">
-        <div class="k"><code>.md</code> / <code>.ttl</code> / <code>.csv</code></div>
-        <div class="v">Copied into the thoughtbase as a regular file, at the folder you dropped onto — <b>not</b> ingested as a Source. A name collision gets auto-renamed (<code>foo.md</code>, <code>foo-2.md</code>, …) rather than overwriting.</div>
+        <div class="k">A note or data file</div>
+        <div class="v">Added to your knowledge base as an ordinary file wherever you dropped it — not as a source. If the name is already taken, it's kept under a slightly different name rather than replacing what's there.</div>
       </div>
       <div class="row">
         <div class="k">Anything else</div>
-        <div class="v">Rejected, with a reason shown for each skipped file. One unsupported file in a multi-file drop doesn't cancel the rest of the import.</div>
+        <div class="v">Skipped, with a short note about why. One unsupported file won't stop the rest of a batch from coming in.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Why re-adding the same paper doesn't duplicate it</span>
-      <p>Every source is stored under an id derived from its most stable identifier — DOI, arXiv id, PubMed id, ISBN, or (falling back) a hash of its URL or content. Ingesting the same paper twice by the same route produces the same id, so a duplicate is just a no-op. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what happens when the <i>same</i> paper arrives via <i>different</i> identifiers.</p>
+      <span class="label">Adding the same paper twice is safe</span>
+      <p>Minerva recognizes when a source is one you already have, so re-adding the same paper simply does nothing rather than creating a duplicate. See <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for what happens when the same paper turns up under two different identifiers.</p>
     </div>
-
-    <h2 id="gotchas">Gotchas</h2>
-    <ul>
-      <li><b>The menu's "Ingest URL" and "Ingest Identifier" don't smart-route — the Sources panel's + button does.</b> Paste a DOI into the URL prompt and it fails; paste it into the + button and it works. If you're not sure which kind of thing you're holding, use the + button.</li>
-      <li><b>PDF ingest doesn't key off a DOI even when one's findable.</b> A PDF's source id is always a content hash, not a DOI extracted from the file — see <a href="ingest-pdf.html">PDF ingest</a> for why, and <a href="ingest-citing-duplicates.html">Citing &amp; duplicates</a> for the merge step this can require.</li>
-      <li><b>Bulk imports report failures inline, not silently.</b> A BibTeX or Zotero RDF import that partially fails still completes the entries it can, then shows you the first few failures with a reason — check the summary rather than assuming a clean run.</li>
-    </ul>
 
     <div class="pager">
       <a class="prev" href="ingest.html">
