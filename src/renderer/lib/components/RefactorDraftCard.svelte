@@ -23,25 +23,35 @@
 
   const verb = $derived(refactorVerb(draft.fromPath, draft.toPath));
   const isRename = $derived(verb === 'Rename');
-  // Other notes whose inbound links get rewritten (excludes the moved note itself).
+  // Other notes whose inbound links get rewritten (excludes the moved note(s) itself).
   const otherNotes = $derived(draft.affectedNotes.filter((a) => !a.isMoved));
+  // Notes that relocate. For a single-note move that's the one note (not always
+  // in affectedNotes); for a folder move it's every note inside.
+  const movedNotes = $derived(draft.affectedNotes.filter((a) => a.isMoved));
+  const subject = $derived(draft.isFolder ? 'folder' : 'note');
 </script>
 
 <DraftCard
-  headline={verb}
+  headline={draft.isFolder ? `${verb} folder` : verb}
   note="{draft.fromPath} → {draft.toPath}"
-  approveLabel={isRename ? 'Approve & rename' : 'Approve & move'}
+  approveLabel={isRename ? `Approve & rename ${draft.isFolder ? 'folder' : ''}`.trim() : `Approve & move ${draft.isFolder ? 'folder' : ''}`.trim()}
   {onApprove}
   {onDiscard}
 >
   <div class="refactor-body">
+    {#if draft.isFolder}
+      <div class="blast">
+        <strong>{movedNotes.length}</strong> note{movedNotes.length === 1 ? '' : 's'} move{movedNotes.length === 1 ? 's' : ''} with the folder{#if otherNotes.length > 0}; <strong>{otherNotes.length}</strong> other note{otherNotes.length === 1 ? '' : 's'} will have links rewritten{/if}.
+      </div>
+    {:else}
     <div class="blast" class:none={otherNotes.length === 0}>
       {#if otherNotes.length === 0}
-        No other notes link here — only the note moves.
+        No other notes link here — only the {subject} moves.
       {:else}
         <strong>{otherNotes.length}</strong> note{otherNotes.length === 1 ? '' : 's'} will have links rewritten.
       {/if}
     </div>
+    {/if}
 
     {#if draft.affectedNotes.length > 0}
       <button class="toggle" type="button" onclick={() => (expanded = !expanded)}>

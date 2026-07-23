@@ -52,9 +52,13 @@
 
 <div class="draft-card">
   <div class="draft-summary">
-    <strong>Delete</strong>
+    <strong>{draft.folderPath ? 'Delete folder' : 'Delete'}</strong>
     <span class="draft-note">
-      {selectedItems.length} of {draft.items.length} note{draft.items.length === 1 ? '' : 's'}
+      {#if draft.folderPath}
+        <span class="path">{draft.folderPath}</span> · {draft.items.length} note{draft.items.length === 1 ? '' : 's'}{#if draft.assetCount}, {draft.assetCount} asset{draft.assetCount === 1 ? '' : 's'}{/if}
+      {:else}
+        {selectedItems.length} of {draft.items.length} note{draft.items.length === 1 ? '' : 's'}
+      {/if}
       {#if danglingSources > 0}
         · {danglingSources} other note{danglingSources === 1 ? '' : 's'} will have dangling links
       {/if}
@@ -69,21 +73,25 @@
     </div>
   {/if}
 
-  <button class="select-all" type="button" onclick={toggleAll}>
-    <Icon name={allSelected ? 'check' : 'dot'} size={11} />
-    {allSelected ? 'Deselect all' : 'Select all'}
-  </button>
+  {#if !draft.folderPath}
+    <button class="select-all" type="button" onclick={toggleAll}>
+      <Icon name={allSelected ? 'check' : 'dot'} size={11} />
+      {allSelected ? 'Deselect all' : 'Select all'}
+    </button>
+  {/if}
 
   <div class="items">
     {#each draft.items as item (item.path)}
-      {@const isSel = selected.has(item.path)}
+      {@const isSel = draft.folderPath ? true : selected.has(item.path)}
       {@const isExp = expanded.has(item.path)}
       {@const links = inboundCount(item)}
       <div class="item" class:deselected={!isSel}>
         <div class="item-row">
+          {#if !draft.folderPath}
           <label class="check">
             <input type="checkbox" checked={isSel} onchange={() => toggle(item.path)} />
           </label>
+          {/if}
           <span class="paths" title={item.path}>
             <span class="title">{item.title}</span>
             <span class="path">{item.path}</span>
@@ -111,8 +119,8 @@
   </div>
 
   <div class="draft-actions">
-    <button type="button" class="draft-btn primary" disabled={selectedItems.length === 0} onclick={approve}>
-      Delete {selectedItems.length}
+    <button type="button" class="draft-btn primary" disabled={!draft.folderPath && selectedItems.length === 0} onclick={approve}>
+      {draft.folderPath ? 'Delete folder' : `Delete ${selectedItems.length}`}
     </button>
     <button type="button" class="draft-btn" onclick={onDiscard}>Discard</button>
   </div>

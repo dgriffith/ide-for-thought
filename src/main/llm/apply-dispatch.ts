@@ -12,7 +12,8 @@ import * as notebaseFs from '../notebase/fs';
 import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
 import { markPathHandled } from '../notebase/path-dedup';
-import { planRename, renameWithLinkRewrites } from '../notebase/rename';
+import { planRename, planFolderRename, renameWithLinkRewrites, listAllFiles } from '../notebase/rename';
+import { isIndexable } from '../notebase/indexable-files';
 import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
 import type { ProjectContext } from '../project-context-types';
 import type { AppliedRecord, PayloadOf, ProposalPayload } from './proposal-types';
@@ -258,6 +259,98 @@ register<'note-delete'>({
       void vectors.indexNote(ctx, data.path, data.content);
     } catch (err) {
       console.warn(`[approval] note-delete rollback restore failed for ${data.path}:`, err);
+    }
+  },
+});
+
+register<'folder-refactor'>({
+  kind: 'folder-refactor',
+  apply: async (ctx, p): Promise<unknown> => {
+    // Capture pre-images of every note the folder move touches (relocated notes
+    // + inbound-rewritten referrers) BEFORE applying. planFolderRename also runs
+    // the guardrails (collision / into-self / not-a-folder) — it throws on
+    // violation. Assets (images/pdfs) don't need pre-images: rollback moves the
+    // whole folder back with a pure fs rename, relocating them verbatim.
+    const plan = await planFolderRename(ctx.rootPath, p.fromPath, p.toPath);
+    const preImages: Record<string, string> = {};
+    for (const a of plan.affectedNotes) preImages[a.path] = a.before;
+
+    const { transitions, rewrittenPaths } = await renameWithLinkRewrites(ctx.rootPath, p.fromPath, p.toPath, {
+      markPathHandled,
+      reindexHook: (relPath, content) => {
+        if (relPath.endsWith('.md')) { search.indexNote(ctx, relPath, content); void vectors.indexNote(ctx, relPath, content); }
+      },
+      removeHook: (relPath) => { search.removeNote(ctx, relPath); void vectors.removeNote(ctx, relPath); },
+    });
+    return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
+  },
+  rollback: async (ctx, rollbackData) => {
+    const data = rollbackData as {
+      fromPath: string; toPath: string;
+      preImages: Record<string, string>;
+      transitions: { old: string; new: string }[];
+    };
+    // De-index the relocated notes at their new paths, move the whole folder
+    // back with a pure fs rename (no link rewrite — the pre-images below undo
+    // the link edits), then restore every captured pre-image verbatim.
+    for (const t of data.transitions) {
+      graph.removeNote(ctx, t.new); search.removeNote(ctx, t.new); void vectors.removeNote(ctx, t.new);
+    }
+    markPathHandled(data.fromPath);
+    markPathHandled(data.toPath);
+    try {
+      await notebaseFs.rename(ctx.rootPath, data.toPath, data.fromPath);
+    } catch (err) {
+      console.warn(`[approval] folder-refactor rollback move-back failed for ${data.toPath} → ${data.fromPath}:`, err);
+    }
+    for (const [relPath, content] of Object.entries(data.preImages)) {
+      try {
+        markPathHandled(relPath);
+        await notebaseFs.writeFile(ctx.rootPath, relPath, content);
+        await graph.indexNote(ctx, relPath, content);
+        search.indexNote(ctx, relPath, content);
+        void vectors.indexNote(ctx, relPath, content);
+      } catch (err) {
+        console.warn(`[approval] folder-refactor rollback restore failed for ${relPath}:`, err);
+      }
+    }
+  },
+});
+
+register<'folder-delete'>({
+  kind: 'folder-delete',
+  apply: async (ctx, p): Promise<unknown> => {
+    // Capture every file under the folder as bytes (round-trips notes AND
+    // binary assets), de-index its notes, then remove the folder recursively.
+    // The bytes let rollback recreate the whole tree verbatim.
+    const files = await listAllFiles(ctx.rootPath, p.path);
+    const captured: { path: string; bytes: Uint8Array }[] = [];
+    for (const f of files) {
+      captured.push({ path: f, bytes: await notebaseFs.readBinaryFile(ctx.rootPath, f) });
+      markPathHandled(f);
+      if (isIndexable(f)) { graph.removeNote(ctx, f); search.removeNote(ctx, f); void vectors.removeNote(ctx, f); }
+    }
+    markPathHandled(p.path);
+    await notebaseFs.deleteFolder(ctx.rootPath, p.path);
+    return { path: p.path, files: captured };
+  },
+  rollback: async (ctx, rollbackData) => {
+    const data = rollbackData as { path: string; files: { path: string; bytes: Uint8Array }[] };
+    // Recreate each captured file (writeBinaryFile makes parent dirs), then
+    // reindex the notes across graph/search/vectors.
+    for (const f of data.files) {
+      try {
+        markPathHandled(f.path);
+        await notebaseFs.writeBinaryFile(ctx.rootPath, f.path, f.bytes);
+        if (isIndexable(f.path)) {
+          const content = await notebaseFs.readFile(ctx.rootPath, f.path);
+          await graph.indexNote(ctx, f.path, content);
+          search.indexNote(ctx, f.path, content);
+          void vectors.indexNote(ctx, f.path, content);
+        }
+      } catch (err) {
+        console.warn(`[approval] folder-delete rollback restore failed for ${f.path}:`, err);
+      }
     }
   },
 });

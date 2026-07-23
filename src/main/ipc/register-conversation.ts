@@ -429,9 +429,13 @@ export function registerConversation(): void {
     withRootPath(async (rootPath, draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
       if (!draft?.fromPath || !draft?.toPath) throw new Error('FILE_REFACTOR_DRAFT: draft is missing fromPath/toPath');
       const ctx = projectContext(rootPath);
+      // A folder move (propose_folder_move sets isFolder) files a folder-refactor
+      // payload; a single-note move files note-refactor. Both re-plan at apply.
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_refactor',
-        payloads: [{ kind: 'note-refactor', fromPath: draft.fromPath, toPath: draft.toPath }],
+        payloads: [draft.isFolder
+          ? { kind: 'folder-refactor', fromPath: draft.fromPath, toPath: draft.toPath }
+          : { kind: 'note-refactor', fromPath: draft.fromPath, toPath: draft.toPath }],
         note: draft.note,
         conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
         proposedBy: `llm:conversation:${draft.conversationId}`,
@@ -480,13 +484,18 @@ export function registerConversation(): void {
       draft: import('../../shared/conversation-refactor-drafts').ConversationDeleteDraft,
       selected: string[],
     ) => {
-      if (!Array.isArray(selected) || selected.length === 0) {
+      // A folder delete (propose_folder_delete sets folderPath) is all-or-nothing:
+      // file ONE folder-delete for the whole tree, ignoring per-note selection.
+      // A per-note delete files one note-delete per selected path.
+      const ctx = projectContext(rootPath);
+      if (!draft?.folderPath && (!Array.isArray(selected) || selected.length === 0)) {
         return { proposalUri: null, applied: false };
       }
-      const ctx = projectContext(rootPath);
       const proposal = await approval.proposeWrite(ctx, {
         operationType: 'note_delete',
-        payloads: selected.map((path) => ({ kind: 'note-delete' as const, path })),
+        payloads: draft.folderPath
+          ? [{ kind: 'folder-delete' as const, path: draft.folderPath }]
+          : selected.map((path) => ({ kind: 'note-delete' as const, path })),
         note: draft.note,
         conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
         proposedBy: `llm:conversation:${draft.conversationId}`,
