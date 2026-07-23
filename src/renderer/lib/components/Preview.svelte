@@ -2651,6 +2651,19 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         display: none;
     }
 
+    /* vega-embed renders in place by adding its own `.vega-embed` class to our
+       `.vega-block` container, and its bundled CSS makes `.vega-embed`
+       `display: inline-block` — which shrinks the container to the chart's
+       default width, so `width: "container"` has nothing to fit to and the
+       chart lays out narrow (#1395). Force the container to fill the note
+       column; vega-embed's inner `.chart-wrapper.fit-x` then measures the full
+       width and the chart sizes to it. Higher specificity than the bundled
+       `.vega-embed` rule, so it wins. */
+    .preview :global(.vega-block) {
+        display: block;
+        width: 100%;
+    }
+
     /* markdown-it-footnote output. The plugin emits a back-of-note
        `<section class="footnotes">` with an ordered list of footnote
        bodies, plus inline `<sup class="footnote-ref">` markers in the
