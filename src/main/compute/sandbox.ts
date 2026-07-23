@@ -31,28 +31,99 @@ export const SANDBOX_UNAVAILABLE_ERROR =
   'and Minerva will not run compute without it.';
 
 /**
- * Seatbelt (SBPL) profile for the kernel. `(allow default)` keeps Python startup
- * working (dyld, frameworks, site-packages, mach services); we subtract only IP
- * network egress. When `allowNetwork` is set (the per-machine Settings toggle),
- * the profile imposes no network restriction — the setting stays the single
- * source of truth for network posture.
+ * Filesystem regions the kernel may WRITE to (#1329 P2), beyond the project
+ * root. All macOS-canonical (resolved) paths — Seatbelt matches on the real
+ * path, and `/tmp`→`/private/tmp`, `/var`→`/private/var` are symlinks. Covers
+ * per-user temp (`/private/var/folders/**`), `/tmp`, and `/dev` (for
+ * `/dev/null` and friends).
  */
-export function buildKernelSandboxProfile(opts: { allowNetwork: boolean }): string {
-  if (opts.allowNetwork) {
-    return '(version 1)\n(allow default)\n';
+const TMP_WRITE_SUBPATHS = ['/private/var/folders', '/private/tmp', '/dev'];
+
+/**
+ * Home-relative paths whose READS are denied (#1329 P2) — the fixed
+ * "well-known secrets" denylist. Blocks the read half of the "exfiltrate a
+ * secret" chain even if network were later enabled. Extend here in code, not
+ * via config (a deliberate decision — see docs/architecture/compute-sandbox.md).
+ */
+const HOME_READ_DENYLIST = [
+  '.ssh',
+  '.aws',
+  '.gnupg',
+  '.config',
+  '.docker',
+  '.netrc',
+  '.kube',
+  'Library/Keychains',
+  'Library/Application Support/Google/Chrome',
+  'Library/Application Support/Firefox',
+  'Library/Application Support/BraveSoftware',
+  'Library/Application Support/Microsoft Edge',
+  'Library/Safari',
+  'Library/Cookies',
+];
+
+/** Escape a path for an SBPL double-quoted string literal. */
+function sbQuote(p: string): string {
+  return p.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/** Resolve symlinks so a path matches Seatbelt's real-path checks; falls back
+ *  to the input if it can't be resolved (e.g. doesn't exist yet). */
+export function resolveRealPath(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
   }
-  return [
-    '(version 1)',
-    '(allow default)',
-    '; Block IP network egress (#1329 P1). Inherited by any child process, so a',
-    '; subprocess cannot reach the network either. Loopback stays allowed (not an',
-    '; exfiltration risk), and unix-domain sockets are untouched by the IP filters',
-    "; so the kernel's RPC channel to main keeps working.",
-    '(deny network-outbound (remote ip "*:*"))',
-    '(deny network-inbound (local ip "*:*"))',
-    '(allow network-outbound (remote ip "localhost:*"))',
-    '',
-  ].join('\n');
+}
+
+/**
+ * Seatbelt (SBPL) profile for the kernel. `(allow default)` keeps Python startup
+ * working (dyld, frameworks, site-packages, mach services); we subtract:
+ *
+ *   - **network** (P1) — IP egress denied unless `allowNetwork`, loopback + unix
+ *     sockets left intact.
+ *   - **file writes** (P2) — denied outside the project root + temp + `/dev`, so
+ *     a cell can't overwrite `~/.bashrc`, plant a launch agent, etc.
+ *   - **sensitive reads** (P2) — a fixed denylist of secret locations.
+ *
+ * All rules are inherited by child processes. `projectRoot` / `homeDir` must be
+ * already-resolved (real) paths — see `resolveRealPath`.
+ */
+export function buildKernelSandboxProfile(opts: {
+  allowNetwork: boolean;
+  projectRoot: string;
+  homeDir: string;
+}): string {
+  const lines = ['(version 1)', '(allow default)'];
+
+  if (!opts.allowNetwork) {
+    lines.push(
+      '; Block IP network egress (#1329 P1). Inherited by any child process, so a',
+      '; subprocess cannot reach the network either. Loopback stays allowed (not an',
+      '; exfiltration risk), and unix-domain sockets are untouched by the IP filters',
+      "; so the kernel's RPC channel to main keeps working.",
+      '(deny network-outbound (remote ip "*:*"))',
+      '(deny network-inbound (local ip "*:*"))',
+      '(allow network-outbound (remote ip "localhost:*"))',
+    );
+  }
+
+  lines.push(
+    '; Deny file writes outside the project + temp (#1329 P2). Inherited by',
+    '; children, so a subprocess can\'t escape the write boundary either.',
+    '(deny file-write*)',
+    `(allow file-write* (subpath "${sbQuote(opts.projectRoot)}"))`,
+    ...TMP_WRITE_SUBPATHS.map((p) => `(allow file-write* (subpath "${p}"))`),
+  );
+
+  lines.push('; Deny reads of well-known secret locations (#1329 P2).');
+  for (const rel of HOME_READ_DENYLIST) {
+    lines.push(`(deny file-read* (subpath "${sbQuote(`${opts.homeDir}/${rel}`)}"))`);
+  }
+
+  lines.push('');
+  return lines.join('\n');
 }
 
 /** True when the macOS Seatbelt wrapper can be applied on this machine. */
@@ -77,7 +148,13 @@ export interface KernelLaunch {
 export function planKernelLaunch(
   pythonBin: string,
   scriptPath: string,
-  opts: { allowNetwork: boolean; platform?: NodeJS.Platform; sandboxAvailable?: boolean },
+  opts: {
+    allowNetwork: boolean;
+    projectRoot: string;
+    homeDir: string;
+    platform?: NodeJS.Platform;
+    sandboxAvailable?: boolean;
+  },
 ): KernelLaunch {
   const platform = opts.platform ?? process.platform;
   if (platform !== 'darwin') {
@@ -86,6 +163,10 @@ export function planKernelLaunch(
   }
   const available = opts.sandboxAvailable ?? isMacSandboxAvailable();
   if (!available) throw new Error(SANDBOX_UNAVAILABLE_ERROR);
-  const profile = buildKernelSandboxProfile({ allowNetwork: opts.allowNetwork });
+  const profile = buildKernelSandboxProfile({
+    allowNetwork: opts.allowNetwork,
+    projectRoot: opts.projectRoot,
+    homeDir: opts.homeDir,
+  });
   return { command: SANDBOX_EXEC, args: ['-p', profile, pythonBin, scriptPath] };
 }

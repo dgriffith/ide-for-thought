@@ -14,9 +14,11 @@ import {
   SANDBOX_UNAVAILABLE_ERROR,
 } from '../../../src/main/compute/sandbox';
 
-describe('buildKernelSandboxProfile (#1329 P1)', () => {
+const PATHS = { projectRoot: '/private/tb', homeDir: '/Users/me' };
+
+describe('buildKernelSandboxProfile (#1329 P1/P2)', () => {
   it('denies IP egress and re-allows loopback when network is off', () => {
-    const p = buildKernelSandboxProfile({ allowNetwork: false });
+    const p = buildKernelSandboxProfile({ allowNetwork: false, ...PATHS });
     expect(p).toContain('(allow default)');
     expect(p).toContain('(deny network-outbound (remote ip "*:*"))');
     expect(p).toContain('(deny network-inbound (local ip "*:*"))');
@@ -24,38 +26,59 @@ describe('buildKernelSandboxProfile (#1329 P1)', () => {
   });
 
   it('imposes no network restriction when network is allowed', () => {
-    const p = buildKernelSandboxProfile({ allowNetwork: true });
+    const p = buildKernelSandboxProfile({ allowNetwork: true, ...PATHS });
     expect(p).toContain('(allow default)');
     expect(p).not.toContain('deny network');
+  });
+
+  it('denies file writes except the project root + temp (#1329 P2)', () => {
+    const p = buildKernelSandboxProfile({ allowNetwork: false, ...PATHS });
+    expect(p).toContain('(deny file-write*)');
+    expect(p).toContain('(allow file-write* (subpath "/private/tb"))');
+    expect(p).toContain('(allow file-write* (subpath "/private/var/folders"))');
+    expect(p).toContain('(allow file-write* (subpath "/private/tmp"))');
+  });
+
+  it('denies reads of the sensitive home-relative denylist (#1329 P2)', () => {
+    const p = buildKernelSandboxProfile({ allowNetwork: false, ...PATHS });
+    expect(p).toContain('(deny file-read* (subpath "/Users/me/.ssh"))');
+    expect(p).toContain('(deny file-read* (subpath "/Users/me/.aws"))');
+    expect(p).toContain('(deny file-read* (subpath "/Users/me/Library/Keychains"))');
+  });
+
+  it('write/read containment applies even when network is allowed', () => {
+    const p = buildKernelSandboxProfile({ allowNetwork: true, ...PATHS });
+    expect(p).toContain('(deny file-write*)');
+    expect(p).toContain('(deny file-read* (subpath "/Users/me/.ssh"))');
+  });
+
+  it('escapes quotes/backslashes in interpolated paths', () => {
+    const p = buildKernelSandboxProfile({ allowNetwork: false, projectRoot: '/tb/a"b\\c', homeDir: '/Users/me' });
+    expect(p).toContain('(allow file-write* (subpath "/tb/a\\"b\\\\c"))');
   });
 });
 
 describe('planKernelLaunch (#1329 P1)', () => {
+  const macOpts = { platform: 'darwin' as const, sandboxAvailable: true, ...PATHS };
+
   it('wraps the interpreter in sandbox-exec on macOS', () => {
-    const launch = planKernelLaunch('/usr/bin/python3', '/k/kernel.py', {
-      allowNetwork: false,
-      platform: 'darwin',
-      sandboxAvailable: true,
-    });
+    const launch = planKernelLaunch('/usr/bin/python3', '/k/kernel.py', { allowNetwork: false, ...macOpts });
     expect(launch.command).toBe(SANDBOX_EXEC);
     // sandbox-exec -p <profile> <py> <script>
     expect(launch.args[0]).toBe('-p');
     expect(launch.args[1]).toContain('(deny network-outbound');
+    expect(launch.args[1]).toContain('(deny file-write*)');
     expect(launch.args.slice(2)).toEqual(['/usr/bin/python3', '/k/kernel.py']);
   });
 
   it('passes allowNetwork through to the profile it wraps', () => {
-    const launch = planKernelLaunch('/py', '/k.py', {
-      allowNetwork: true,
-      platform: 'darwin',
-      sandboxAvailable: true,
-    });
+    const launch = planKernelLaunch('/py', '/k.py', { allowNetwork: true, ...macOpts });
     expect(launch.args[1]).not.toContain('deny network');
   });
 
   it('fails closed on macOS when sandbox-exec is unavailable', () => {
     expect(() =>
-      planKernelLaunch('/py', '/k.py', { allowNetwork: false, platform: 'darwin', sandboxAvailable: false }),
+      planKernelLaunch('/py', '/k.py', { allowNetwork: false, platform: 'darwin', sandboxAvailable: false, ...PATHS }),
     ).toThrow(SANDBOX_UNAVAILABLE_ERROR);
   });
 
@@ -64,6 +87,7 @@ describe('planKernelLaunch (#1329 P1)', () => {
       allowNetwork: false,
       platform: 'linux',
       sandboxAvailable: false,
+      ...PATHS,
     });
     expect(launch).toEqual({ command: '/usr/bin/python3', args: ['/k/kernel.py'] });
   });

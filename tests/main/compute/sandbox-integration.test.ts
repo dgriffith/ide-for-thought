@@ -6,11 +6,15 @@
  * non-darwin CI doesn't fail. No real network is contacted: the deny path raises
  * *before* the connection, and the loopback/child probes hit closed ports.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { buildKernelSandboxProfile, SANDBOX_EXEC } from '../../../src/main/compute/sandbox';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { buildKernelSandboxProfile, SANDBOX_EXEC, resolveRealPath } from '../../../src/main/compute/sandbox';
 
 const PY = process.env.MINERVA_PYTHON ?? 'python3';
+const HOME = resolveRealPath(os.homedir());
 
 function canRun(): boolean {
   if (process.platform !== 'darwin') return false;
@@ -35,8 +39,17 @@ function runSandboxed(profile: string, snippet: string): { code: number; out: st
 
 const skip = canRun() ? describe : describe.skip;
 
-skip('kernel Seatbelt profile — OS enforcement (#1329 P1)', () => {
-  const netOff = buildKernelSandboxProfile({ allowNetwork: false });
+skip('kernel Seatbelt profile — OS enforcement (#1329 P1/P2)', () => {
+  let projectRoot: string;
+  let netOff: string;
+
+  beforeAll(() => {
+    projectRoot = resolveRealPath(fs.mkdtempSync(path.join(os.tmpdir(), 'mv-sandbox-')));
+    netOff = buildKernelSandboxProfile({ allowNetwork: false, projectRoot, homeDir: HOME });
+  });
+  afterAll(() => {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  });
 
   it('a benign cell still runs (profile does not break Python startup)', () => {
     expect(runSandboxed(netOff, 'print(6*7)').out).toBe('42');
@@ -68,8 +81,55 @@ skip('kernel Seatbelt profile — OS enforcement (#1329 P1)', () => {
   it('imposes no network restriction when allowNetwork is on', () => {
     // Can't hit the real network in a test, but a loopback connect must not be
     // sandbox-denied under the permissive profile.
-    const netOn = buildKernelSandboxProfile({ allowNetwork: true });
+    const netOn = buildKernelSandboxProfile({ allowNetwork: true, projectRoot, homeDir: HOME });
     const r = runSandboxed(netOn, "import socket; socket.create_connection(('127.0.0.1', 1), 2)");
     expect(r.out).not.toMatch(/not permitted|PermissionError/);
+  });
+
+  // ── Filesystem containment (P2) ──────────────────────────────────────────
+
+  it('permits writes inside the project root', () => {
+    const r = runSandboxed(netOff, `open(${JSON.stringify(path.join(projectRoot, 'out.txt'))}, 'w').write('ok'); print('WROTE')`);
+    expect(r.out).toContain('WROTE');
+  });
+
+  it('denies writes outside the project (e.g. into $HOME)', () => {
+    const target = path.join(HOME, 'mv_sandbox_evil.txt');
+    const r = runSandboxed(netOff, `open(${JSON.stringify(target)}, 'w').write('x')`);
+    expect(r.code).not.toBe(0);
+    expect(r.out).toMatch(/not permitted|PermissionError/);
+    expect(fs.existsSync(target)).toBe(false); // nothing was written
+  });
+
+  it('denies reads of a sensitive location (~/.ssh)', () => {
+    // Plant a file under ~/.ssh, confirm the sandbox blocks reading it, clean up.
+    const sshDir = path.join(os.homedir(), '.ssh');
+    const planted = path.join(sshDir, 'mv_sandbox_probe');
+    fs.mkdirSync(sshDir, { recursive: true });
+    fs.writeFileSync(planted, 'SECRET');
+    try {
+      const r = runSandboxed(netOff, `print(open(${JSON.stringify(planted)}).read())`);
+      expect(r.code).not.toBe(0);
+      expect(r.out).toMatch(/not permitted|PermissionError/);
+      expect(r.out).not.toContain('SECRET');
+    } finally {
+      fs.rmSync(planted, { force: true });
+    }
+  });
+
+  it('the write boundary is inherited by child processes', () => {
+    const target = path.join(HOME, 'mv_sandbox_child_evil.txt');
+    // The parent builds the child's -c code with %r so the path is safely quoted
+    // as a Python literal, avoiding nested-quote fragility.
+    const snippet = [
+      'import subprocess, sys',
+      `target = ${JSON.stringify(target)}`,
+      "code = \"open(%r, 'w').write('x')\" % target",
+      'p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)',
+      "print('BLOCKED' if p.returncode != 0 else 'WROTE')",
+    ].join('\n');
+    const r = runSandboxed(netOff, snippet);
+    expect(r.out).toContain('BLOCKED');
+    expect(fs.existsSync(target)).toBe(false);
   });
 });

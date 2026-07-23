@@ -316,6 +316,10 @@ pd.DataFrame({'i': list(range(1500))})
     expect(r.output.totalRows).toBe(1500);
   });
 
+  // Generous timeout: the first matplotlib import builds a font cache (~10s).
+  // Under the sandbox (#1329 P2) the cache lives in a temp MPLCONFIGDIR (~/.
+  // matplotlib is write-denied), so on a cold machine that build isn't already
+  // warm. MPLCONFIGDIR is stable, so only the first matplotlib test pays it.
   skipIfNoMatplotlib('matplotlib Figure as last expression → image/png output', async () => {
     const r = await runPython(ROOT, 'fig.md', `
 import matplotlib
@@ -331,7 +335,7 @@ fig
     // base64-encoded PNGs always start with the magic-bytes signature
     // `iVBORw0KGgo` (decoding to 89 50 4E 47 0D 0A 1A 0A).
     expect(r.output.data.startsWith('iVBORw0KGgo')).toBe(true);
-  });
+  }, 60_000);
 
   skipIfNoMatplotlib('Axes object also resolves to its parent Figure', async () => {
     const r = await runPython(ROOT, 'axes.md', `
@@ -345,7 +349,7 @@ ax  # bare Axes — should still render as a PNG via fig
     expect(r.ok).toBe(true);
     if (!r.ok || r.output.type !== 'image') return;
     expect(r.output.mime).toBe('image/png');
-  });
+  }, 60_000);
 
   skipIfNoPil('PIL.Image as last expression → image/png output', async () => {
     const r = await runPython(ROOT, 'pil.md', `
