@@ -41,6 +41,21 @@ import type {
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 import type { CellResult, CellOutput } from './compute/types';
+import type { AutoLinkSuggestion } from './refactor/auto-link';
+import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
+import type { FormatSettings } from './formatter/engine';
+import type { FormatFileResult } from './formatter/types';
+import type {
+  ToolExecutionRequest,
+  ToolExecutionResult,
+  ConversationToolPayload,
+  LLMSettingsView,
+  LLMSettingsUpdate,
+  ApiKeyStorage,
+  ConnectionCheckResult,
+} from './tools/types';
+import type { SkillCatalogInfo } from './skills/types';
+import type { MenuConfig } from './skills/menu-config';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -278,6 +293,56 @@ export interface ChannelMap {
   }) =>
     | { status: 'written'; derivedPath: string; cellId: string; injectedId: boolean; pinned: boolean }
     | { status: 'needs-confirm'; derivedPath: string; cellId: string; existingContent: string; pendingContent: string };
+
+  // Bibliography (#113)
+  'bibliography:listStyles': () => Array<{ id: string; label: string; isUser?: boolean }>;
+  'bibliography:getStyle': () => string;
+  'bibliography:setStyle': (styleId: string) => void;
+  'bibliography:generate': (relativePath: string) => { entriesCount: number; missingIds: string[]; changed: boolean; styleId: string };
+
+  // User-imported CSL assets (#302)
+  'csl:listUserStyles': () => Array<{ id: string; label: string; filePath: string }>;
+  'csl:listUserLocales': () => Array<{ id: string; filePath: string }>;
+  'csl:importStyle': () => { id: string; label: string; filePath: string } | null;
+  'csl:importLocale': () => { id: string; filePath: string } | null;
+  'csl:removeStyle': (id: string) => void;
+  'csl:removeLocale': (id: string) => void;
+
+  // Inline citation rendering
+  'citation:renderInline': (refs: Array<{ kind: 'cite' | 'quote'; id: string }>) => { markers: string[]; bibliography: string[] | null; missing: string[]; styleId: string };
+
+  // Refactor (LLM auto-tag / auto-link)
+  'refactor:autoTagSuggest': (relativePath: string) => { added: string[] };
+  'refactor:autoTagApply': (relativePath: string, acceptedTags: string[]) => { applied: string[] };
+  'refactor:autoLinkSuggest': (relativePath: string) => { suggestions: AutoLinkSuggestion[]; candidateCount: number };
+  'refactor:autoLinkApply': (relativePath: string, accepted: AutoLinkSuggestion[]) => { applied: AutoLinkSuggestion[]; skipped: AutoLinkSuggestion[] };
+  'refactor:applySuggestedLink': (activeRelPath: string, targetRelPath: string) => { changed: boolean };
+  'refactor:autoLinkInboundSuggest': (relativePath: string) => { suggestions: AutoLinkInboundSuggestion[]; candidateCount: number };
+  'refactor:autoLinkInboundApply': (relativePath: string, accepted: AutoLinkInboundSuggestion[]) => { applied: AutoLinkInboundSuggestion[]; skipped: AutoLinkInboundSuggestion[]; touchedPaths: string[] };
+
+  // Formatter (#153)
+  'formatter:formatContent': (content: string, settings: FormatSettings, relativePath?: string) => string;
+  'formatter:formatFile': (relativePath: string, settings: FormatSettings) => FormatFileResult;
+  'formatter:formatFolder': (relDir: string, settings: FormatSettings) => { changedPaths: string[]; cascadedPaths: string[]; totalScanned: number };
+  'formatter:loadSettings': () => FormatSettings;
+  'formatter:saveSettings': (settings: FormatSettings) => void;
+
+  // Tools for Thought (LLM)
+  'tool:execute': (request: ToolExecutionRequest) => ToolExecutionResult;
+  'tool:prepareConversation': (request: ToolExecutionRequest) => ConversationToolPayload;
+  'tool:cancel': () => void;
+  'tool:getSettings': () => LLMSettingsView;
+  'tool:setSettings': (update: LLMSettingsUpdate) => void;
+  'tool:getKeyStorage': () => ApiKeyStorage;
+  'tool:checkConnection': (candidateKey?: string) => ConnectionCheckResult;
+
+  // Skills (markdown skill files — #622)
+  'skills:list': () => SkillCatalogInfo;
+  'skills:reload': () => SkillCatalogInfo;
+  'skills:import': () => { id: string; name: string } | null;
+  'skills:remove': (id: string) => void;
+  'skills:reveal': () => void;
+  'skills:menuConfig:set': (config: MenuConfig) => MenuConfig;
 }
 
 /** A configured "Publish → git remote" destination (#254). Mirror of the

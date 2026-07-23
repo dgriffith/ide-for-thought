@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -22,18 +21,19 @@ import type { AutoLinkInboundSuggestion } from '../../shared/refactor/auto-link-
 import { appendSeeAlsoLink } from '../../shared/refactor/see-also';
 import * as notebaseFs from '../notebase/fs';
 import { rootPathFromEvent, withRootPath, withRootPathOr, persistIndexes, broadcastRewritten, hooks } from './helpers';
+import { handle } from './typed-ipc';
 
 export function registerRefactor(): void {
   // Auto-tag is two-phase (#940): SUGGEST asks the LLM for tags and writes
   // NOTHING; the renderer shows a review dialog; APPLY routes the accepted tags
   // through the approval engine. This closes the historical bypass where the
   // one-shot handler wrote directly with no proposal record.
-  ipcMain.handle(Channels.REFACTOR_AUTO_TAG_SUGGEST, withRootPath(async (rootPath, relativePath: string) => {
+  handle(Channels.REFACTOR_AUTO_TAG_SUGGEST, withRootPath(async (rootPath, relativePath: string) => {
     const plan = await runAutoTag(rootPath, relativePath);
     return { added: plan.added };
   }));
 
-  ipcMain.handle(
+  handle(
     Channels.REFACTOR_AUTO_TAG_APPLY,
     withRootPath(async (rootPath, relativePath: string, acceptedTags: string[]) => {
       if (!Array.isArray(acceptedTags) || acceptedTags.length === 0) return { applied: [] };
@@ -45,21 +45,21 @@ export function registerRefactor(): void {
     }),
   );
 
-  ipcMain.handle(Channels.REFACTOR_AUTO_LINK_SUGGEST, withRootPath(async (rootPath, activeRelPath: string) => {
+  handle(Channels.REFACTOR_AUTO_LINK_SUGGEST, withRootPath(async (rootPath, activeRelPath: string) => {
     return suggestLinksTo(rootPath, activeRelPath);
   }));
 
   // Accept a semantic "suggested link" (#840): file `[[target]]` under the
   // active note's "See also" section. Unlike AutoLink, semantic neighbors share
   // no anchor word, so it appends rather than inlining. Idempotent.
-  ipcMain.handle(Channels.REFACTOR_APPLY_SUGGESTED_LINK, withRootPath(async (rootPath, activeRelPath: string, targetRelPath: string) => {
+  handle(Channels.REFACTOR_APPLY_SUGGESTED_LINK, withRootPath(async (rootPath, activeRelPath: string, targetRelPath: string) => {
     const content = await notebaseFs.readFile(rootPath, activeRelPath);
     const { content: next, changed } = appendSeeAlsoLink(content, targetRelPath);
     if (changed) await writeAndReindex(rootPath, activeRelPath, next, hooks);
     return { changed };
   }));
 
-  ipcMain.handle(
+  handle(
     Channels.REFACTOR_AUTO_LINK_APPLY,
     withRootPath(async (rootPath, activeRelPath: string, accepted: AutoLinkSuggestion[]) => {
       // Route the rewrite through the approval engine (#941) rather than
@@ -75,12 +75,12 @@ export function registerRefactor(): void {
     }),
   );
 
-  ipcMain.handle(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, withRootPath(async (rootPath, activeRelPath: string) => {
+  handle(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, withRootPath(async (rootPath, activeRelPath: string) => {
     return suggestLinksInbound(rootPath, activeRelPath);
   }));
 
   // Formatter (issue #153)
-  ipcMain.handle(
+  handle(
     Channels.FORMATTER_FORMAT_CONTENT,
     (e, content: string, settings: FormatSettings, relativePath?: string) =>
       formatNoteContent(content, settings, relativePath, rootPathFromEvent(e) ?? undefined),
@@ -89,7 +89,7 @@ export function registerRefactor(): void {
   // Project-scoped formatter settings (#154). Stored in .minerva/formatter.json
   // so rule choices travel with the thoughtbase in git.
   type FormatterSettings = { enabled: Record<string, boolean>; configs: Record<string, unknown> };
-  ipcMain.handle(Channels.FORMATTER_LOAD_SETTINGS, withRootPathOr<[], FormatterSettings | Promise<FormatterSettings>>({ enabled: {}, configs: {} }, async (rootPath) => {
+  handle(Channels.FORMATTER_LOAD_SETTINGS, withRootPathOr<[], FormatterSettings | Promise<FormatterSettings>>({ enabled: {}, configs: {} }, async (rootPath) => {
     try {
       const p = path.join(rootPath, '.minerva', 'formatter.json');
       const data = await fs.readFile(p, 'utf-8');
@@ -101,13 +101,13 @@ export function registerRefactor(): void {
     } catch { return { enabled: {}, configs: {} }; }
   }));
 
-  ipcMain.handle(Channels.FORMATTER_SAVE_SETTINGS, withRootPathOr(undefined, async (rootPath, settings: FormatSettings) => {
+  handle(Channels.FORMATTER_SAVE_SETTINGS, withRootPathOr(undefined, async (rootPath, settings: FormatSettings) => {
     const p = path.join(rootPath, '.minerva', 'formatter.json');
     await fs.mkdir(path.dirname(p), { recursive: true });
     await fs.writeFile(p, JSON.stringify(settings, null, 2), 'utf-8');
   }));
 
-  ipcMain.handle(
+  handle(
     Channels.FORMATTER_FORMAT_FILE,
     withRootPath(async (rootPath, relativePath: string, settings: FormatSettings) => {
       const result = await formatFileOnDisk(rootPath, relativePath, settings);
@@ -123,7 +123,7 @@ export function registerRefactor(): void {
     }),
   );
 
-  ipcMain.handle(
+  handle(
     Channels.FORMATTER_FORMAT_FOLDER,
     withRootPath(async (rootPath, relDir: string, settings: FormatSettings) => {
       const summary = await formatFolderOnDisk(rootPath, relDir ?? '', settings);
@@ -137,7 +137,7 @@ export function registerRefactor(): void {
     }),
   );
 
-  ipcMain.handle(
+  handle(
     Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY,
     withRootPath(async (rootPath, activeRelPath: string, accepted: AutoLinkInboundSuggestion[]) => {
       // Route through the approval engine (#941): all touched source notes are

@@ -37,22 +37,15 @@ function domainOf(channel: string): string {
  * key.
  */
 const UNMIGRATED_DOMAINS = new Set<string>([
-  'bibliography',
-  'citation',
   'collections',
   'conversation',
-  'csl',
   'excerpt',
   'excerpts',
-  'formatter',
   'ingest',
   'menu',
   'project',
   'proposal',
-  'refactor',
-  'skills',
   'sources',
-  'tool',
 ]);
 
 /**
@@ -72,6 +65,8 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.EMBEDDINGS_BACKFILL_PROGRESS,
   Channels.TABLES_CHANGED,
   Channels.TABLES_NAME_COLLISION,
+  Channels.TOOL_INVOKE,
+  Channels.TOOL_STREAM,
 ]);
 
 /** Parse the `ChannelMap` keys out of the contract source (single source of truth). */

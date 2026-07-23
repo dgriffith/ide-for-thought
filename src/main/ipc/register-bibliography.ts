@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron';
+import { dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -24,10 +24,11 @@ import {
 } from '../publish/csl/user-assets';
 import { renderInlineCitations, type InlineCiteRequest, type InlineCiteResponse } from '../citations/render-inline';
 import { rootPathFromEvent, withRootPath, withRootPathOr, withRootPathWin, hooks } from './helpers';
+import { handle } from './typed-ipc';
 
 export function registerBibliography(): void {
   // Bibliography (#113)
-  ipcMain.handle(Channels.BIBLIOGRAPHY_LIST_STYLES, async (e) => {
+  handle(Channels.BIBLIOGRAPHY_LIST_STYLES, async (e) => {
     const rootPath = rootPathFromEvent(e);
     // Settings dialog opens before any project is loaded in some flows;
     // fall back to the bundled set so the picker isn't empty.
@@ -40,10 +41,10 @@ export function registerBibliography(): void {
       isUser: merged.userIds.has(id),
     }));
   });
-  ipcMain.handle(Channels.BIBLIOGRAPHY_GET_STYLE, withRootPathOr(DEFAULT_STYLE, (rootPath) => {
+  handle(Channels.BIBLIOGRAPHY_GET_STYLE, withRootPathOr(DEFAULT_STYLE, (rootPath) => {
     return getBibliographyStyleId(rootPath) ?? DEFAULT_STYLE;
   }));
-  ipcMain.handle(Channels.BIBLIOGRAPHY_SET_STYLE, withRootPath(async (rootPath, styleId: string) => {
+  handle(Channels.BIBLIOGRAPHY_SET_STYLE, withRootPath(async (rootPath, styleId: string) => {
     const merged = await getMergedStyles(rootPath);
     if (!Object.prototype.hasOwnProperty.call(merged.styles, styleId)) {
       throw new Error(`Unknown CSL style: ${styleId}`);
@@ -53,7 +54,7 @@ export function registerBibliography(): void {
 
   // User-imported CSL styles + locales (#302)
   type UserStyleInfo = { id: string; label: string; filePath: string };
-  ipcMain.handle(Channels.CSL_LIST_USER_STYLES, withRootPathOr<[], UserStyleInfo[] | Promise<UserStyleInfo[]>>([], async (rootPath) => {
+  handle(Channels.CSL_LIST_USER_STYLES, withRootPathOr<[], UserStyleInfo[] | Promise<UserStyleInfo[]>>([], async (rootPath) => {
     return (await loadUserStyles(rootPath)).map((s) => ({
       id: s.id,
       label: s.label,
@@ -61,13 +62,13 @@ export function registerBibliography(): void {
     }));
   }));
   type UserLocaleInfo = { id: string; filePath: string };
-  ipcMain.handle(Channels.CSL_LIST_USER_LOCALES, withRootPathOr<[], UserLocaleInfo[] | Promise<UserLocaleInfo[]>>([], async (rootPath) => {
+  handle(Channels.CSL_LIST_USER_LOCALES, withRootPathOr<[], UserLocaleInfo[] | Promise<UserLocaleInfo[]>>([], async (rootPath) => {
     return (await loadUserLocales(rootPath)).map((l) => ({
       id: l.id,
       filePath: l.filePath,
     }));
   }));
-  ipcMain.handle(Channels.CSL_IMPORT_STYLE, withRootPathWin(async (rootPath, win) => {
+  handle(Channels.CSL_IMPORT_STYLE, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'CSL style', extensions: ['csl', 'xml'] }],
@@ -88,7 +89,7 @@ export function registerBibliography(): void {
     await fs.writeFile(destPath, xml, 'utf-8');
     return { id, label: extractStyleTitle(xml) ?? id, filePath: destPath };
   }));
-  ipcMain.handle(Channels.CSL_IMPORT_LOCALE, withRootPathWin(async (rootPath, win) => {
+  handle(Channels.CSL_IMPORT_LOCALE, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'CSL locale', extensions: ['xml'] }],
@@ -109,21 +110,21 @@ export function registerBibliography(): void {
     await fs.writeFile(destPath, xml, 'utf-8');
     return { id, filePath: destPath };
   }));
-  ipcMain.handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
+  handle(Channels.CSL_REMOVE_STYLE, withRootPath(async (rootPath, id: string) => {
     if (!/^[a-z0-9_-]+$/i.test(id)) throw new Error('Invalid style id.');
     const target = path.join(rootPath, USER_STYLES_DIR, `${id}.csl`);
     await fs.unlink(target).catch(() => undefined);
   }));
-  ipcMain.handle(Channels.CSL_REMOVE_LOCALE, withRootPath(async (rootPath, id: string) => {
+  handle(Channels.CSL_REMOVE_LOCALE, withRootPath(async (rootPath, id: string) => {
     if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error('Invalid locale id.');
     const target = path.join(rootPath, USER_LOCALES_DIR, `${id}.xml`);
     await fs.unlink(target).catch(() => undefined);
   }));
-  ipcMain.handle(Channels.CITATION_RENDER_INLINE, withRootPathOr<[InlineCiteRequest[]], InlineCiteResponse | Promise<InlineCiteResponse>>({ markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE }, async (rootPath, refs: InlineCiteRequest[]) => {
+  handle(Channels.CITATION_RENDER_INLINE, withRootPathOr<[InlineCiteRequest[]], InlineCiteResponse | Promise<InlineCiteResponse>>({ markers: [], bibliography: null, missing: [], styleId: DEFAULT_STYLE }, async (rootPath, refs: InlineCiteRequest[]) => {
     return await renderInlineCitations(rootPath, refs ?? []);
   }));
 
-  ipcMain.handle(Channels.BIBLIOGRAPHY_GENERATE, withRootPath(async (rootPath, relativePath: string) => {
+  handle(Channels.BIBLIOGRAPHY_GENERATE, withRootPath(async (rootPath, relativePath: string) => {
     const original = await notebaseFs.readFile(rootPath, relativePath);
     const result = await generateBibliography(rootPath, original);
     if (result.changed) {

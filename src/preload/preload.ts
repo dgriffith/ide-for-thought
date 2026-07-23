@@ -313,19 +313,19 @@ contextBridge.exposeInMainWorld('api', {
     load: () => invoke(Channels.TABS_LOAD),
   },
   refactor: {
-    autoTag: (relativePath: string) => ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
-    autoTagApply: (relativePath: string, acceptedTags: unknown) =>
-      ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG_APPLY, relativePath, acceptedTags),
+    autoTag: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
+    autoTagApply: (relativePath: string, acceptedTags: string[]) =>
+      invoke(Channels.REFACTOR_AUTO_TAG_APPLY, relativePath, acceptedTags),
     autoLinkSuggest: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_SUGGEST, relativePath),
-    autoLinkApply: (relativePath: string, accepted: unknown) =>
-      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_APPLY, relativePath, accepted),
+      invoke(Channels.REFACTOR_AUTO_LINK_SUGGEST, relativePath),
+    autoLinkApply: (relativePath: string, accepted: Parameters<ChannelMap['refactor:autoLinkApply']>[1]) =>
+      invoke(Channels.REFACTOR_AUTO_LINK_APPLY, relativePath, accepted),
     applySuggestedLink: (activeRelPath: string, targetRelPath: string) =>
-      ipcRenderer.invoke(Channels.REFACTOR_APPLY_SUGGESTED_LINK, activeRelPath, targetRelPath),
+      invoke(Channels.REFACTOR_APPLY_SUGGESTED_LINK, activeRelPath, targetRelPath),
     autoLinkInboundSuggest: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, relativePath),
-    autoLinkInboundApply: (relativePath: string, accepted: unknown) =>
-      ipcRenderer.invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY, relativePath, accepted),
+      invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_SUGGEST, relativePath),
+    autoLinkInboundApply: (relativePath: string, accepted: Parameters<ChannelMap['refactor:autoLinkInboundApply']>[1]) =>
+      invoke(Channels.REFACTOR_AUTO_LINK_INBOUND_APPLY, relativePath, accepted),
   },
   sources: {
     ingestUrl: (url: string) => ipcRenderer.invoke(Channels.SOURCES_INGEST_URL, url),
@@ -415,35 +415,35 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
   formatter: {
-    formatContent: (content: string, settings: unknown, relativePath?: string) =>
-      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings, relativePath),
-    formatFile: (relativePath: string, settings: unknown) =>
-      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FILE, relativePath, settings),
-    formatFolder: (relDir: string, settings: unknown) =>
-      ipcRenderer.invoke(Channels.FORMATTER_FORMAT_FOLDER, relDir, settings),
-    loadSettings: () => ipcRenderer.invoke(Channels.FORMATTER_LOAD_SETTINGS),
-    saveSettings: (settings: unknown) =>
-      ipcRenderer.invoke(Channels.FORMATTER_SAVE_SETTINGS, settings),
+    formatContent: (content: string, settings: Parameters<ChannelMap['formatter:formatContent']>[1], relativePath?: string) =>
+      invoke(Channels.FORMATTER_FORMAT_CONTENT, content, settings, relativePath),
+    formatFile: (relativePath: string, settings: Parameters<ChannelMap['formatter:formatFile']>[1]) =>
+      invoke(Channels.FORMATTER_FORMAT_FILE, relativePath, settings),
+    formatFolder: (relDir: string, settings: Parameters<ChannelMap['formatter:formatFolder']>[1]) =>
+      invoke(Channels.FORMATTER_FORMAT_FOLDER, relDir, settings),
+    loadSettings: () => invoke(Channels.FORMATTER_LOAD_SETTINGS),
+    saveSettings: (settings: Parameters<ChannelMap['formatter:saveSettings']>[0]) =>
+      invoke(Channels.FORMATTER_SAVE_SETTINGS, settings),
   },
   tools: {
-    execute: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_EXECUTE, request),
-    prepareConversation: (request: unknown) => ipcRenderer.invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
-    cancel: () => ipcRenderer.invoke(Channels.TOOL_CANCEL),
+    execute: (request: Parameters<ChannelMap['tool:execute']>[0]) => invoke(Channels.TOOL_EXECUTE, request),
+    prepareConversation: (request: Parameters<ChannelMap['tool:prepareConversation']>[0]) => invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
+    cancel: () => invoke(Channels.TOOL_CANCEL),
     onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.TOOL_STREAM, cb),
-    getSettings: () => ipcRenderer.invoke(Channels.TOOL_GET_SETTINGS),
-    setSettings: (settings: unknown) => ipcRenderer.invoke(Channels.TOOL_SET_SETTINGS, settings),
-    getKeyStorage: () => ipcRenderer.invoke(Channels.TOOL_GET_KEY_STORAGE),
+    getSettings: () => invoke(Channels.TOOL_GET_SETTINGS),
+    setSettings: (settings: Parameters<ChannelMap['tool:setSettings']>[0]) => invoke(Channels.TOOL_SET_SETTINGS, settings),
+    getKeyStorage: () => invoke(Channels.TOOL_GET_KEY_STORAGE),
     checkConnection: (candidateKey?: string) =>
-      ipcRenderer.invoke(Channels.TOOL_CHECK_CONNECTION, candidateKey),
+      invoke(Channels.TOOL_CHECK_CONNECTION, candidateKey),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
   skills: {
-    list: () => ipcRenderer.invoke(Channels.SKILLS_LIST),
-    reload: () => ipcRenderer.invoke(Channels.SKILLS_RELOAD),
-    import: () => ipcRenderer.invoke(Channels.SKILLS_IMPORT),
-    remove: (id: string) => ipcRenderer.invoke(Channels.SKILLS_REMOVE, id),
-    revealFolder: () => ipcRenderer.invoke(Channels.SKILLS_REVEAL),
-    setMenuConfig: (config: unknown) => ipcRenderer.invoke(Channels.SKILLS_MENU_CONFIG_SET, config),
+    list: () => invoke(Channels.SKILLS_LIST),
+    reload: () => invoke(Channels.SKILLS_RELOAD),
+    import: () => invoke(Channels.SKILLS_IMPORT),
+    remove: (id: string) => invoke(Channels.SKILLS_REMOVE, id),
+    revealFolder: () => invoke(Channels.SKILLS_REVEAL),
+    setMenuConfig: (config: Parameters<ChannelMap['skills:menuConfig:set']>[0]) => invoke(Channels.SKILLS_MENU_CONFIG_SET, config),
   },
   sites: {
     list: () => invoke(Channels.SITES_LIST),
@@ -454,24 +454,24 @@ contextBridge.exposeInMainWorld('api', {
     logout: (id: string) => invoke(Channels.SITES_LOGOUT, id),
   },
   bibliography: {
-    listStyles: () => ipcRenderer.invoke(Channels.BIBLIOGRAPHY_LIST_STYLES),
-    getStyle: () => ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GET_STYLE),
+    listStyles: () => invoke(Channels.BIBLIOGRAPHY_LIST_STYLES),
+    getStyle: () => invoke(Channels.BIBLIOGRAPHY_GET_STYLE),
     setStyle: (styleId: string) =>
-      ipcRenderer.invoke(Channels.BIBLIOGRAPHY_SET_STYLE, styleId),
+      invoke(Channels.BIBLIOGRAPHY_SET_STYLE, styleId),
     generate: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.BIBLIOGRAPHY_GENERATE, relativePath),
+      invoke(Channels.BIBLIOGRAPHY_GENERATE, relativePath),
   },
   csl: {
-    listUserStyles: () => ipcRenderer.invoke(Channels.CSL_LIST_USER_STYLES),
-    listUserLocales: () => ipcRenderer.invoke(Channels.CSL_LIST_USER_LOCALES),
-    importStyle: () => ipcRenderer.invoke(Channels.CSL_IMPORT_STYLE),
-    importLocale: () => ipcRenderer.invoke(Channels.CSL_IMPORT_LOCALE),
-    removeStyle: (id: string) => ipcRenderer.invoke(Channels.CSL_REMOVE_STYLE, id),
-    removeLocale: (id: string) => ipcRenderer.invoke(Channels.CSL_REMOVE_LOCALE, id),
+    listUserStyles: () => invoke(Channels.CSL_LIST_USER_STYLES),
+    listUserLocales: () => invoke(Channels.CSL_LIST_USER_LOCALES),
+    importStyle: () => invoke(Channels.CSL_IMPORT_STYLE),
+    importLocale: () => invoke(Channels.CSL_IMPORT_LOCALE),
+    removeStyle: (id: string) => invoke(Channels.CSL_REMOVE_STYLE, id),
+    removeLocale: (id: string) => invoke(Channels.CSL_REMOVE_LOCALE, id),
   },
   citations: {
     renderInline: (refs: { kind: 'cite' | 'quote'; id: string }[]) =>
-      ipcRenderer.invoke(Channels.CITATION_RENDER_INLINE, refs),
+      invoke(Channels.CITATION_RENDER_INLINE, refs),
   },
   menu: {
     onNewNote: (cb: () => void) => {
