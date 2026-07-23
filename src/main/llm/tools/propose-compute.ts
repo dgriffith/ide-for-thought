@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { scanPythonSafety } from '../../../shared/python-safety';
+import { scanComputeSafety } from '../../../shared/compute/safety';
 import type {
   ConversationComputeDraft,
   ProposeComputeInput,
@@ -9,7 +9,7 @@ import type { NotebaseTool, ToolContext, ToolCallbacks } from './types';
 /**
  * Trust-principle parity with the other propose_* tools (#245):
  * `propose_compute` never executes the cell. It validates the input,
- * runs the Python-safety scan (no-op for sparql/sql), and emits a
+ * runs the red-flag scan (Python + SQL; no-op for sparql), and emits a
  * `ConversationComputeDraft`. The renderer shows an inline reviewable
  * card; the user clicks Run to execute, Insert to file as a notebook
  * cell, or Discard.
@@ -35,9 +35,10 @@ function runProposeCompute(
   if ('error' in parsed) {
     return { content: parsed.error, isError: true };
   }
-  const safetyFlags = parsed.language === 'python'
-    ? scanPythonSafety(parsed.code).map((f) => ({ id: f.id, message: f.message }))
-    : [];
+  // Red-flag scan across languages (#1413): Python's network/subprocess/exec
+  // surface + SQL's COPY-TO / extension / ATTACH surface. SPARQL is read-only.
+  const safetyFlags = scanComputeSafety(parsed.language, parsed.code)
+    .map((f) => ({ id: f.id, message: f.message }));
   const draft: ConversationComputeDraft = {
     draftId: `cmpdraft-${randomUUID()}`,
     conversationId: ctx.conversationId,
