@@ -345,7 +345,7 @@
   // so the many call sites read unchanged. <DialogHost> renders the state.
   const dialogs = getDialogStore();
   const linkDrag = getLinkDrag();
-  const { showPrompt, showConfirm } = dialogs;
+  const { showPrompt, showConfirm, showComputeConsent } = dialogs;
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);
   let publishDialogOpen = $state(false);
@@ -1076,7 +1076,7 @@
                             void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
                           }}
                           onRunCell={(language, code, notePath) =>
-                            runCellWithTrust(language, code, notePath, { showConfirm })
+                            runCellWithTrust(language, code, notePath, { showConsent: showComputeConsent })
                           }
                           onInsertQueryList={async () => {
                             const tag = await showPrompt('Tag name:');
@@ -1111,7 +1111,7 @@
                         onOpenConversation={openConversation}
                         onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
                         onRunCell={(language, code, notePath) =>
-                          runCellWithTrust(language, code, notePath, { showConfirm })
+                          runCellWithTrust(language, code, notePath, { showConsent: showComputeConsent })
                         }
                         onApplyCellOutputEdit={(newContent) => { editor.setContent(newContent, groupId); }}
                       />

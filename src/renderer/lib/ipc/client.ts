@@ -419,12 +419,13 @@ export interface ComputeApi {
   /** Native file picker for selecting a Python interpreter; null on cancel. */
   browsePython(): Promise<string | null>;
   /**
-   * Per-project Python trust flag (#373). The renderer-side guard
-   * around `runCell` consults this before firing a Python execution;
-   * the first-run trust dialog calls `setPythonTrust(true)` when
-   * the user clicks Run. */
-  getPythonTrust(): Promise<boolean>;
-  setPythonTrust(trusted: boolean): Promise<void>;
+   * Content-addressed compute consent (#1412). `consentStatus` reports whether
+   * this exact cell is already consented (`cell`), the whole project is blanket-
+   * trusted (`blanket`), or neither (`none`); the run gate prompts (showing the
+   * code) when needed and records the choice via `grantConsent`. Stored
+   * per-machine, so consent never travels with a shared thoughtbase. */
+  consentStatus(language: string, code: string): Promise<'cell' | 'blanket' | 'none'>;
+  grantConsent(language: string, code: string, scope: 'cell' | 'project'): Promise<void>;
 }
 
 export interface ShellApi {

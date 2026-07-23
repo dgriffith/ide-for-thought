@@ -44,6 +44,14 @@ export interface OpenTargetState {
   message: string;
   resolve: (value: OpenTargetChoice) => void;
 }
+/** Eyes-on-code compute-consent dialog (#1412): shows the code before it runs,
+ *  with a "trust all here" escape (the reused checkbox). */
+export type ComputeConsentChoice = 'cell' | 'project' | 'cancel';
+export interface ComputeConsentState {
+  message: string;
+  code: string;
+  resolve: (value: ComputeConsentChoice) => void;
+}
 /** Name + typed value collected on one panel by the "Add Property" dialog.
  *  `value` is an already-coerced JS scalar (string / number / boolean, or a
  *  `YYYY-MM-DD` string for dates), ready to hand to `setPropertyInContent`. */
@@ -62,6 +70,7 @@ let prompt = $state<PromptState | null>(null);
 let newNote = $state<NewNoteState | null>(null);
 let snippet = $state<SnippetPickerState | null>(null);
 let confirm = $state<ConfirmState | null>(null);
+let computeConsent = $state<ComputeConsentState | null>(null);
 let openTarget = $state<OpenTargetState | null>(null);
 let addProperty = $state<AddPropertyState | null>(null);
 
@@ -107,6 +116,20 @@ export function getDialogStore() {
     });
   }
 
+  /** Eyes-on-code compute-consent prompt (#1412). Shows `code`, and resolves
+   *  'cell' (run just this), 'project' (trust all compute here — the checkbox),
+   *  or 'cancel'. Deliberately NOT routed through confirm-suppression: the
+   *  "trust all" choice is per-project consent (persisted server-side), not a
+   *  global localStorage suppression. */
+  function showComputeConsent(message: string, code: string): Promise<ComputeConsentChoice> {
+    return new Promise((resolve) => { computeConsent = { message, code, resolve }; });
+  }
+  function acceptComputeConsent(trustAll: boolean) {
+    computeConsent?.resolve(trustAll ? 'project' : 'cell');
+    computeConsent = null;
+  }
+  function cancelComputeConsent() { computeConsent?.resolve('cancel'); computeConsent = null; }
+
   function showSnippetPicker(templates: TemplateInfo[]): Promise<TemplateInfo | null> {
     return new Promise((resolve) => { snippet = { templates, resolve }; });
   }
@@ -151,11 +174,15 @@ export function getDialogStore() {
     get newNote() { return newNote; },
     get snippet() { return snippet; },
     get confirm() { return confirm; },
+    get computeConsent() { return computeConsent; },
     get openTarget() { return openTarget; },
     get addProperty() { return addProperty; },
     showPrompt,
     showNewNoteDialog,
     showConfirm,
+    showComputeConsent,
+    acceptComputeConsent,
+    cancelComputeConsent,
     showSnippetPicker,
     showAddPropertyDialog,
     askOpenTarget,

@@ -10,7 +10,7 @@ import { privilegedFetch } from '../privileged-sites';
 import { ttlString } from '../sources/source-meta-write';
 import { fileSourceProperties } from '../llm/source-properties';
 import { runCell as runComputeCell } from '../compute/registry';
-import { computeTrustGuard } from '../compute/trust';
+import { computeConsentGuard } from '../compute/consent';
 import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
 import { applyPropertyUpdates } from '../llm/set-properties';
@@ -802,9 +802,10 @@ export function registerConversation(): void {
       const codeToRun = editedCode ?? draft.code;
       console.log(`[conv] RUN_COMPUTE_DRAFT lang=${draft.language} draftId=${draft.draftId}`);
       const ctx = projectContext(rootPath);
-      // Enforcement boundary (#1411): an AI-drafted cell must not run in an
-      // untrusted project — the renderer grants trust before reaching here.
-      const guard = computeTrustGuard(rootPath);
+      // Enforcement boundary (#1411/#1412): an AI-drafted cell must not run
+      // unless the user consented to this exact code — the renderer forces an
+      // eyes-on-code review before reaching here.
+      const guard = computeConsentGuard(rootPath, draft.language, codeToRun);
       if (guard) return { result: guard };
       const result = await runComputeCell(draft.language, codeToRun, { rootPath });
       // Append the result to the conversation log as a user-role

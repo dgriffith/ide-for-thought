@@ -1,9 +1,8 @@
 import { dialog } from 'electron';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
-import { getPythonTrust, setPythonTrust } from '../project-config';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
-import { computeTrustGuard } from '../compute/trust';
+import { computeConsentGuard, consentStatus, grantConsent } from '../compute/consent';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
 import {
   getPythonSettings,
@@ -26,9 +25,9 @@ export {
 
 export function registerCompute(): void {
   handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
-    // Enforcement boundary (#1411): refuse to execute an untrusted project even
-    // if a caller reached the IPC without the renderer trust prompt.
-    const guard = computeTrustGuard(rootPath);
+    // Enforcement boundary (#1411/#1412): refuse to execute a cell the user
+    // hasn't consented to, even if a caller reached the IPC without prompting.
+    const guard = computeConsentGuard(rootPath, language, code);
     if (guard) return guard;
     return await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
   }));
@@ -60,11 +59,14 @@ export function registerCompute(): void {
     return await probePythonInterpreter(target);
   });
 
-  handle(Channels.COMPUTE_GET_PYTHON_TRUST, withRootPathOr(false, (rootPath) =>
-    getPythonTrust(rootPath)));
+  // Content-addressed compute consent (#1412). Status distinguishes an already
+  // eyes-on-code'd cell (`cell`) from blanket project trust (`blanket`) so the
+  // conversation path can force review even under blanket trust.
+  handle(Channels.COMPUTE_CONSENT_STATUS, withRootPathOr('none', (rootPath, language: string, code: string) =>
+    consentStatus(rootPath, language, code)));
 
-  handle(Channels.COMPUTE_SET_PYTHON_TRUST, withRootPath((rootPath, trusted: boolean) => {
-    setPythonTrust(rootPath, trusted === true);
+  handle(Channels.COMPUTE_GRANT_CONSENT, withRootPath((rootPath, language: string, code: string, scope: 'cell' | 'project') => {
+    grantConsent(rootPath, language, code, scope === 'project' ? 'project' : 'cell');
   }));
 
   handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {

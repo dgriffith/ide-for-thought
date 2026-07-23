@@ -183,9 +183,10 @@ contextBridge.exposeInMainWorld('api', {
     probePython: (candidate?: string) =>
       invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),
     browsePython: () => invoke(Channels.COMPUTE_BROWSE_PYTHON),
-    getPythonTrust: () => invoke(Channels.COMPUTE_GET_PYTHON_TRUST),
-    setPythonTrust: (trusted: boolean) =>
-      invoke(Channels.COMPUTE_SET_PYTHON_TRUST, trusted),
+    consentStatus: (language: string, code: string) =>
+      invoke(Channels.COMPUTE_CONSENT_STATUS, language, code),
+    grantConsent: (language: string, code: string, scope: 'cell' | 'project') =>
+      invoke(Channels.COMPUTE_GRANT_CONSENT, language, code, scope),
   },
   publish: {
     listExporters: () => invoke(Channels.PUBLISH_LIST_EXPORTERS),

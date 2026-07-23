@@ -1,6 +1,6 @@
 import { api } from '../ipc/client';
 import { getConversationsSettings } from '../conversations/settings';
-import { ensureComputeTrust } from '../compute/run-cell-with-trust';
+import { ensureComputeConsent } from '../compute/run-cell-with-trust';
 import { getDialogStore } from './dialogs.svelte';
 import type {
   Conversation,
@@ -971,11 +971,11 @@ async function runComputeDraft(
 ): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
-  // Trust gate (#1411): an AI-drafted cell must clear the same per-project
-  // consent prompt as an editor cell before it runs. Main independently refuses
-  // an untrusted run, but prompt here so the user gets the dialog instead of a
-  // bare refusal error. Declining leaves the draft un-run.
-  if (!(await ensureComputeTrust(draft.language, { showConfirm: getDialogStore().showConfirm }))) {
+  // Eyes-on-code gate (#1411/#1412): an AI-drafted cell always shows its code
+  // for review before its first run — `forceReview` bypasses blanket trust — so
+  // AI-authored code is never run unreviewed. Declining leaves the draft un-run.
+  const codeToRun = editedCode ?? draft.code;
+  if (!(await ensureComputeConsent(draft.language, codeToRun, { showConsent: getDialogStore().showComputeConsent }, { forceReview: true }))) {
     return;
   }
   const state = tab.computeDraftState[draft.draftId];

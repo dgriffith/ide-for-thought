@@ -40,8 +40,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "compute": [
     "browsePython",
+    "consentStatus",
     "getPythonSettings",
-    "getPythonTrust",
+    "grantConsent",
     "interruptPythonKernel",
     "languages",
     "probePython",
@@ -49,7 +50,6 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "runCell",
     "saveCellOutput",
     "setPythonSettings",
-    "setPythonTrust",
   ],
   "conversations": [
     "append",

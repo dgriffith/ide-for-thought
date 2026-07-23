@@ -11,8 +11,6 @@ import {
   patchProjectConfig,
   getBibliographyStyleId,
   setBibliographyStyleId,
-  getPythonTrust,
-  setPythonTrust,
   getPublishTargets,
   getPublishTarget,
   upsertPublishTarget,
@@ -52,62 +50,8 @@ describe('patchProjectConfig (#373)', () => {
   });
 });
 
-describe('getPythonTrust / setPythonTrust (#373)', () => {
-  it('default is false', () => {
-    expect(getPythonTrust(root)).toBe(false);
-  });
-
-  it('set true round-trips', () => {
-    setPythonTrust(root, true);
-    expect(getPythonTrust(root)).toBe(true);
-  });
-
-  it('set false round-trips', () => {
-    setPythonTrust(root, true);
-    setPythonTrust(root, false);
-    expect(getPythonTrust(root)).toBe(false);
-  });
-
-  it('does not clobber baseUri or bibliography slices', () => {
-    patchProjectConfig(root, { baseUri: 'https://example.com/' });
-    setBibliographyStyleId(root, 'mla');
-    setPythonTrust(root, true);
-    const cfg = readProjectConfig(root);
-    expect(cfg.baseUri).toBe('https://example.com/');
-    expect(cfg.bibliography?.styleId).toBe('mla');
-    expect(cfg.compute?.pythonTrusted).toBe(true);
-  });
-
-  it('only counts a literal `true` value as trust (defensive against truthy non-bools)', () => {
-    fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, '.minerva/config.json'),
-      JSON.stringify({ compute: { pythonTrusted: 'yes' } }),
-      'utf-8',
-    );
-    expect(getPythonTrust(root)).toBe(false);
-  });
-
-  it('preserves existing compute.<other> fields when toggling trust', () => {
-    // Hand-write a future field the type doesn't yet model.
-    fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, '.minerva/config.json'),
-      JSON.stringify({ compute: { pythonTrusted: false, futureField: 'preserved' } }),
-      'utf-8',
-    );
-    setPythonTrust(root, true);
-    const raw = JSON.parse(fs.readFileSync(path.join(root, '.minerva/config.json'), 'utf-8'));
-    expect(raw.compute.pythonTrusted).toBe(true);
-    expect(raw.compute.futureField).toBe('preserved');
-  });
-
-  it('getBibliographyStyleId still works alongside the new compute slice', () => {
-    setBibliographyStyleId(root, 'mla');
-    setPythonTrust(root, true);
-    expect(getBibliographyStyleId(root)).toBe('mla');
-  });
-});
+// Compute trust moved out of the project config to per-machine consent (#1412);
+// its round-trip tests now live in tests/main/compute/consent.test.ts.
 
 describe('publish targets (#254)', () => {
   const target: PublishTarget = {
@@ -136,9 +80,9 @@ describe('publish targets (#254)', () => {
   });
 
   it('preserves other config slices when writing targets', () => {
-    setPythonTrust(root, true);
+    setBibliographyStyleId(root, 'mla');
     upsertPublishTarget(root, target);
-    expect(getPythonTrust(root)).toBe(true);
+    expect(getBibliographyStyleId(root)).toBe('mla');
     expect(getPublishTargets(root)).toHaveLength(1);
   });
 

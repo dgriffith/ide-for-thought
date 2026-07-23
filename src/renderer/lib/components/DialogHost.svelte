@@ -53,6 +53,17 @@
   />
 {/if}
 
+{#if dialogs.computeConsent}
+  <ConfirmDialog
+    message={dialogs.computeConsent.message}
+    code={dialogs.computeConsent.code}
+    confirmLabel="Run this cell"
+    dontAskLabel="Trust all compute in this thoughtbase"
+    onConfirm={(trustAll) => dialogs.acceptComputeConsent(trustAll)}
+    onCancel={() => dialogs.cancelComputeConsent()}
+  />
+{/if}
+
 {#if dialogs.openTarget}
   <OpenTargetDialog
     message={dialogs.openTarget.message}
