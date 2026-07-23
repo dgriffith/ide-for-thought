@@ -3,6 +3,7 @@ import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { getPythonTrust, setPythonTrust } from '../project-config';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
+import { computeTrustGuard } from '../compute/trust';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
 import {
   getPythonSettings,
@@ -25,6 +26,10 @@ export {
 
 export function registerCompute(): void {
   handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
+    // Enforcement boundary (#1411): refuse to execute an untrusted project even
+    // if a caller reached the IPC without the renderer trust prompt.
+    const guard = computeTrustGuard(rootPath);
+    if (guard) return guard;
     return await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
   }));
 

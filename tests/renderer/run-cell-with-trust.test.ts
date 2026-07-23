@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { runCellWithTrust } from '../../src/renderer/lib/compute/run-cell-with-trust';
+import { runCellWithTrust, ensureComputeTrust } from '../../src/renderer/lib/compute/run-cell-with-trust';
 import { CONFIRM_KEYS } from '../../src/renderer/lib/confirm-keys';
 
 const trustState = { trusted: false };
@@ -149,5 +149,43 @@ describe('runCellWithTrust (#373, #1325)', () => {
     await runCellWithTrust('python', 'b = 2', 'note.md', { showConfirm });
     expect(showConfirm).toHaveBeenCalledTimes(1);
     expect(calls.runCell).toHaveLength(2);
+  });
+});
+
+/**
+ * ensureComputeTrust is the shared consent gate the propose_compute Run path now
+ * routes through (#1411), so an AI-drafted cell hits the same per-project prompt
+ * as an editor cell rather than executing unprompted.
+ */
+describe('ensureComputeTrust (#1411 — the conversation Run gate)', () => {
+  it('untrusted python prompts; Run grants trust and clears to proceed', async () => {
+    const showConfirm = vi.fn(() => Promise.resolve(true));
+    const ok = await ensureComputeTrust('python', { showConfirm });
+    expect(ok).toBe(true);
+    expect(showConfirm).toHaveBeenCalledTimes(1);
+    expect(calls.setTrust).toEqual([true]);
+  });
+
+  it('untrusted python + Cancel returns false and grants nothing', async () => {
+    const showConfirm = vi.fn(() => Promise.resolve(false));
+    const ok = await ensureComputeTrust('python', { showConfirm });
+    expect(ok).toBe(false);
+    expect(calls.setTrust).toEqual([]);
+  });
+
+  it('already-trusted proceeds without prompting', async () => {
+    trustState.trusted = true;
+    const showConfirm = vi.fn(() => Promise.resolve(true));
+    const ok = await ensureComputeTrust('python', { showConfirm });
+    expect(ok).toBe(true);
+    expect(showConfirm).not.toHaveBeenCalled();
+  });
+
+  it('a non-executable language is never gated', async () => {
+    const showConfirm = vi.fn(() => Promise.resolve(true));
+    const ok = await ensureComputeTrust('mermaid', { showConfirm });
+    expect(ok).toBe(true);
+    expect(showConfirm).not.toHaveBeenCalled();
+    expect(calls.getTrust).toBe(0);
   });
 });

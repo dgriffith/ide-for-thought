@@ -73,29 +73,40 @@ export interface TrustGateDeps {
  * through the per-project trust prompt (#1325). Non-executable
  * languages pass through unchanged.
  */
+/**
+ * Ensure the project has granted compute trust before an executable cell runs
+ * (#1325, #1411). Returns true when execution may proceed (non-gated language,
+ * already trusted, or the user just approved the prompt) and false when the user
+ * declined. Shared by every run entry point — the editor's ▶ gutter AND the
+ * conversation's propose_compute Run — so AI-drafted cells hit the same gate.
+ * Main independently refuses an untrusted run (see compute/trust.ts), so this is
+ * the consent/UX half of a real boundary, not the boundary itself.
+ */
+export async function ensureComputeTrust(language: string, deps: TrustGateDeps): Promise<boolean> {
+  if (!TRUST_GATED_LANGUAGES.has(language.toLowerCase())) return true;
+  if (await api.compute.getPythonTrust()) return true;
+  const confirmed = await deps.showConfirm(
+    COMPUTE_TRUST_PROMPT,
+    CONFIRM_KEYS.pythonTrust,
+    'Run',
+    { hideDontAskAgain: true },
+  );
+  if (!confirmed) return false;
+  await api.compute.setPythonTrust(true);
+  return true;
+}
+
 export async function runCellWithTrust(
   language: string,
   code: string,
   notePath: string | undefined,
   deps: TrustGateDeps,
 ): Promise<CellResult> {
-  if (TRUST_GATED_LANGUAGES.has(language.toLowerCase())) {
-    const trusted = await api.compute.getPythonTrust();
-    if (!trusted) {
-      const confirmed = await deps.showConfirm(
-        COMPUTE_TRUST_PROMPT,
-        CONFIRM_KEYS.pythonTrust,
-        'Run',
-        { hideDontAskAgain: true },
-      );
-      if (!confirmed) {
-        return {
-          ok: false,
-          error: 'Compute execution declined for this thoughtbase. Open Settings → Compute or re-run a cell to be prompted again.',
-        };
-      }
-      await api.compute.setPythonTrust(true);
-    }
+  if (!(await ensureComputeTrust(language, deps))) {
+    return {
+      ok: false,
+      error: 'Compute execution declined for this thoughtbase. Open Settings → Compute or re-run a cell to be prompted again.',
+    };
   }
   return api.compute.runCell(language, code, notePath);
 }
