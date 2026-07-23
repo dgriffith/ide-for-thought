@@ -50,6 +50,8 @@ Commands:
   query <sparql>        Run a SPARQL query against the knowledge graph.
   sql <sql>             Run a DuckDB SQL query over the vault's CSV tables.
   search <text>         Full-text search over notes.        [--limit <n>]
+  grep <pattern>        Exact literal / regex search over raw note text; matches
+                        grounded with path + line.  [--regex] [--case-sensitive] [--limit <n>]
   semantic <text>       Semantic (embeddings) search over notes.  [--limit <n>]
   read <relative-path>  Print a note's raw markdown.
   context <topic>       Assemble a relevant slice — matching notes + their link
@@ -61,7 +63,9 @@ Commands:
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
-  --limit <n>           Max results for search/semantic (default: 20).
+  --limit <n>           Max results for search/semantic/grep (default: 20).
+  --regex               Treat a grep pattern as a regular expression.
+  --case-sensitive      Match case exactly (grep; default: case-insensitive).
   --by <client-id>      Provenance for propose-note (default: cli).
   --help, -h            Show this help.
 
@@ -75,6 +79,8 @@ interface ParsedArgs {
   project: string | undefined;
   limit: number | undefined;
   by: string | undefined;
+  regex: boolean;
+  caseSensitive: boolean;
   help: boolean;
 }
 
@@ -86,6 +92,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let project: string | undefined;
   let limit: number | undefined;
   let by: string | undefined;
+  let regex = false;
+  let caseSensitive = false;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -104,12 +112,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
       by = argv[++i];
     } else if (arg.startsWith('--by=')) {
       by = arg.slice('--by='.length);
+    } else if (arg === '--regex') {
+      regex = true;
+    } else if (arg === '--case-sensitive') {
+      caseSensitive = true;
     } else {
       positionals.push(arg);
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, help };
 }
 
 function json(value: unknown): string {
@@ -184,6 +196,12 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
       case 'search':
         if (!rest.trim()) throw new UsageError('search: a query string is required.');
         return format(await engine.search(rest, args.limit), 'Error');
+      case 'grep':
+        if (!rest.trim()) throw new UsageError('grep: a search pattern is required.');
+        return format(
+          await engine.grep(rest, { regex: args.regex, caseSensitive: args.caseSensitive, limit: args.limit }),
+          'Error',
+        );
       case 'semantic':
         if (!rest.trim()) throw new UsageError('semantic: a query string is required.');
         return format(await engine.semantic(rest, args.limit), 'Error');
