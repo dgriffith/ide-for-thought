@@ -3,6 +3,7 @@ import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
+import type { ChannelMap } from '../shared/ipc-contract';
 
 /**
  * Subscribe to an IPC channel and forward the typed payload to `cb`.
@@ -166,7 +167,7 @@ contextBridge.exposeInMainWorld('api', {
     // compatible accessor and works in preload where `electron` is in scope.
     getPathForFile: (file: File) => webUtils.getPathForFile(file),
     dropImport: (targetFolder: string, localPaths: string[]) =>
-      ipcRenderer.invoke(Channels.FILES_DROP_IMPORT, targetFolder, localPaths),
+      invoke(Channels.FILES_DROP_IMPORT, targetFolder, localPaths),
   },
   compute: {
     runCell: (language: string, code: string, notePath?: string) =>
@@ -187,15 +188,15 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke(Channels.COMPUTE_SET_PYTHON_TRUST, trusted),
   },
   publish: {
-    listExporters: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_EXPORTERS),
-    resolvePlan: (input: unknown, opts: unknown) =>
-      ipcRenderer.invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
-    runExport: (args: unknown) => ipcRenderer.invoke(Channels.PUBLISH_RUN_EXPORT, args),
-    listTargets: () => ipcRenderer.invoke(Channels.PUBLISH_LIST_TARGETS),
-    upsertTarget: (target: unknown) => ipcRenderer.invoke(Channels.PUBLISH_UPSERT_TARGET, target),
-    removeTarget: (id: string) => ipcRenderer.invoke(Channels.PUBLISH_REMOVE_TARGET, id),
-    toGit: (targetId: string, opts?: unknown) =>
-      ipcRenderer.invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
+    listExporters: () => invoke(Channels.PUBLISH_LIST_EXPORTERS),
+    resolvePlan: (input: Parameters<ChannelMap['publish:resolvePlan']>[0], opts?: Parameters<ChannelMap['publish:resolvePlan']>[1]) =>
+      invoke(Channels.PUBLISH_RESOLVE_PLAN, input, opts),
+    runExport: (args: Parameters<ChannelMap['publish:runExport']>[0]) => invoke(Channels.PUBLISH_RUN_EXPORT, args),
+    listTargets: () => invoke(Channels.PUBLISH_LIST_TARGETS),
+    upsertTarget: (target: Parameters<ChannelMap['publish:upsertTarget']>[0]) => invoke(Channels.PUBLISH_UPSERT_TARGET, target),
+    removeTarget: (id: string) => invoke(Channels.PUBLISH_REMOVE_TARGET, id),
+    toGit: (targetId: string, opts?: Parameters<ChannelMap['publish:toGit']>[1]) =>
+      invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
   },
   app: {
     getInfo: () => invoke(Channels.APP_GET_INFO),

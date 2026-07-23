@@ -184,4 +184,83 @@ export interface ChannelMap {
   // App / build metadata
   'app:getInfo': () => { name: string; version: string; commit: string; buildDate: string; electron: string; chrome: string; node: string };
   'app:getShortcuts': () => Array<{ menu: string; items: Array<{ label: string; keys: string }> }>;
+
+  // External-file drag-drop import
+  'files:dropImport': (targetFolder: string, localPaths: string[]) => {
+    copied: Array<{ localPath: string; relativePath: string }>;
+    ingestedPdfs: Array<{ localPath: string; sourceId: string; duplicate: boolean; title: string }>;
+    rejected: Array<{ localPath: string; reason: string }>;
+  };
+
+  // Publication (export + git publish)
+  'publish:listExporters': () => Array<{
+    id: string;
+    label: string;
+    acceptedKinds: Array<'single-note' | 'folder' | 'project' | 'tree' | 'source'>;
+    group: { id: string; label: string; category: 'document' | 'publication' | 'citation'; order: number };
+    variantLabel?: string | undefined;
+    variantOrder: number;
+  }>;
+  'publish:resolvePlan': (
+    input: { kind: 'single-note' | 'folder' | 'project' | 'tree' | 'source'; relativePath?: string; maxDepth?: number },
+    opts?: {
+      exporterId?: string;
+      linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
+      citationStyle?: string;
+      citationLocale?: string;
+      forceInclude?: string[];
+      forceExclude?: string[];
+    },
+  ) => {
+    exporterId: string;
+    exporterLabel: string;
+    inputs: Array<{ relativePath: string; kind: 'note' | 'source' | 'excerpt'; title: string; overridden: boolean }>;
+    excluded: Array<{ relativePath: string; reason: string }>;
+    citations: {
+      styleId: string;
+      localeId: string;
+      availableStyles: Array<{ id: string; label: string }>;
+      availableLocales: Array<{ id: string; label: string }>;
+      bySource: Array<{ sourceId: string; title: string; refCount: number }>;
+      missing: Array<{ id: string; kind: 'cite' | 'quote'; refCount: number }>;
+    };
+  };
+  'publish:runExport': (args: {
+    exporterId: string;
+    input: { kind: 'single-note' | 'folder' | 'project' | 'tree' | 'source'; relativePath?: string; maxDepth?: number };
+    outputDir?: string;
+    linkPolicy?: 'drop' | 'inline-title' | 'follow-to-file';
+    citationStyle?: string;
+    citationLocale?: string;
+    forceInclude?: string[];
+    forceExclude?: string[];
+  }) => { filesWritten: number; summary: string; outputDir: string; writtenPaths: string[] } | null;
+  'publish:listTargets': () => PublishTarget[];
+  'publish:upsertTarget': (target: PublishTarget) => PublishTarget[];
+  'publish:removeTarget': (id: string) => PublishTarget[];
+  'publish:toGit': (targetId: string, opts?: { dryRun?: boolean }) =>
+    | { ok: true; result: {
+        targetId: string;
+        dryRun: boolean;
+        branch: string;
+        branchCreated: boolean;
+        changes: Array<{ path: string; status: 'added' | 'modified' | 'deleted' }>;
+        committed: boolean;
+        pushed: boolean;
+        sha?: string;
+        commitMessage?: string;
+      } }
+    | { ok: false; error: string };
+}
+
+/** A configured "Publish → git remote" destination (#254). Mirror of the
+ *  main-side `PublishTarget` (project-config) + renderer `PublishTarget`. */
+export interface PublishTarget {
+  id: string;
+  label: string;
+  exporter: string;
+  gitRemote: string;
+  gitBranch: string;
+  subdir?: string;
+  commitMessageTemplate?: string;
 }
