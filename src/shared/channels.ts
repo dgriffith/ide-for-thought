@@ -551,6 +551,9 @@ export const Channels = {
   /** Revoke all compute consent (blanket + remembered cells) for a thoughtbase
    *  so its cells prompt eyes-on-code again (#1413). */
   COMPUTE_REVOKE_CONSENT: 'compute:revokeConsent',
+  /** Reveal the per-machine compute execution audit log in the OS file manager
+   *  (#1413). Creates an empty log first if none exists yet. */
+  COMPUTE_REVEAL_AUDIT_LOG: 'compute:revealAuditLog',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */

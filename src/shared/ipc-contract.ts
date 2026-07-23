@@ -304,6 +304,7 @@ export interface ChannelMap {
   'compute:grantConsent': (language: string, code: string, scope: 'cell' | 'project') => void;
   'compute:listConsent': () => ComputeConsentSummary[];
   'compute:revokeConsent': (rootPath: string) => void;
+  'compute:revealAuditLog': () => void;
   'compute:saveCellOutput': (input: {
     sourcePath: string;
     cellLanguage: string;

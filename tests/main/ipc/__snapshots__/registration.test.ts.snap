@@ -34,6 +34,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "compute:listConsent",
   "compute:probePython",
   "compute:restartPythonKernel",
+  "compute:revealAuditLog",
   "compute:revokeConsent",
   "compute:runCell",
   "compute:saveCellOutput",

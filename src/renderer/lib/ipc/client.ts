@@ -433,6 +433,9 @@ export interface ComputeApi {
    * its cells prompt eyes-on-code again. */
   listConsent(): Promise<ComputeConsentSummary[]>;
   revokeConsent(rootPath: string): Promise<void>;
+  /** Reveal the per-machine compute execution audit log (#1413) in the OS file
+   *  manager — a stateless OS side-effect, so components may call it directly. */
+  revealAuditLog(): Promise<void>;
 }
 
 export interface ShellApi {

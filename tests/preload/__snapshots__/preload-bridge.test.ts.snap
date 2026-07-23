@@ -48,6 +48,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "listConsent",
     "probePython",
     "restartPythonKernel",
+    "revealAuditLog",
     "revokeConsent",
     "runCell",
     "saveCellOutput",

@@ -189,6 +189,7 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.COMPUTE_GRANT_CONSENT, language, code, scope),
     listConsent: () => invoke(Channels.COMPUTE_LIST_CONSENT),
     revokeConsent: (rootPath: string) => invoke(Channels.COMPUTE_REVOKE_CONSENT, rootPath),
+    revealAuditLog: () => invoke(Channels.COMPUTE_REVEAL_AUDIT_LOG),
   },
   publish: {
     listExporters: () => invoke(Channels.PUBLISH_LIST_EXPORTERS),
