@@ -41,6 +41,15 @@ export function offsetToLineCol(text: string, offset: number): { line: number; c
   return { line, col };
 }
 
+/** Byte offset for a 1-based line + 0-based column — the inverse of
+ *  `offsetToLineCol`. Used to place a search match on the nav stack. */
+export function lineColToOffset(text: string, line: number, col: number): number {
+  const lines = text.split('\n');
+  let offset = 0;
+  for (let i = 0; i < line - 1 && i < lines.length; i++) offset += lines[i]!.length + 1;
+  return offset + col;
+}
+
 /**
  * Display name for a line bookmark (#756): the trimmed text of the line the
  * offset sits on, truncated, or `Line N` when that line is blank. Gives the

@@ -606,7 +606,7 @@
   // module reads / writes pending search + preview anchor, view mode, and the
   // alias map via ctx — those `$state` decls stay in App.
   const {
-    recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate, handleOpenAtOffset,
+    recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate, handleOpenAtOffset, handleJumpToMatch,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
   } = createNavView({
     getEditorComponent: () => editorComponent,
@@ -1355,10 +1355,7 @@
   {#if findInNotesMode}
     <FindInNotesDialog
       initialMode={findInNotesMode}
-      onJumpTo={async (rel, line, col) => {
-        await editor.openFile(rel);
-        requestAnimationFrame(() => editorComponent?.gotoLineColumn(line, col + 1));
-      }}
+      onJumpTo={handleJumpToMatch}
       onClose={() => { findInNotesMode = null; }}
     />
   {/if}

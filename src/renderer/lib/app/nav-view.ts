@@ -12,7 +12,7 @@ import { getEditorStore } from '../stores/editor.svelte';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getNavigationStore, type NavPosition } from '../stores/navigation.svelte';
 import { flattenNoteFiles, resolveWikiLinkTarget } from '../wiki-link-resolver';
-import { findAnchorOffset } from './text-helpers';
+import { findAnchorOffset, lineColToOffset } from './text-helpers';
 import { getPreferredSourceView, setPreferredSourceView } from '../source-view-preference';
 import { tick } from 'svelte';
 
@@ -91,6 +91,23 @@ export function createNavView(ctx: NavViewCtx) {
     await editor.openFile(relativePath);
     await tick();
     requestAnimationFrame(() => ctx.getEditorComponent()?.restorePosition(offset));
+    nav.record({ type: 'note', relativePath, offset });
+  }
+
+  /**
+   * Open a note at a full-text search match and record the jump. A search result
+   * was the one open path that skipped nav history, so Back stepped past it;
+   * this puts it on the back/forward stack like sidebar / Quick Switch opens.
+   * `line` is 1-based and `col` 0-based (the FindInNotes match coordinates), and
+   * both the landing jump and the recorded position use the same offset so Back
+   * returns to the match.
+   */
+  async function handleJumpToMatch(relativePath: string, line: number, col: number) {
+    recordCurrentPosition();
+    await editor.openFile(relativePath);
+    const offset = lineColToOffset(editor.content, line, col);
+    await tick();
+    requestAnimationFrame(() => ctx.getEditorComponent()?.gotoOffset(offset));
     nav.record({ type: 'note', relativePath, offset });
   }
 
@@ -195,7 +212,7 @@ export function createNavView(ctx: NavViewCtx) {
 
   return {
     recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate,
-    handleOpenAtOffset,
+    handleOpenAtOffset, handleJumpToMatch,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
   };
 }
