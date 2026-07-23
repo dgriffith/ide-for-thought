@@ -40,12 +40,16 @@
   let pythonPathSaved = $state('');
   let pythonProbe = $state<{ ok: boolean; path: string; version?: string; error?: string } | null>(null);
   let pythonProbing = $state(false);
+  /** Network egress toggle (#1413). Off by default; the kernel blocks non-local
+   *  sockets unless this is on. Applied when the kernel next starts. */
+  let allowNetwork = $state(false);
 
   async function loadComputeSettings(): Promise<void> {
     try {
       const s = await api.compute.getPythonSettings();
       pythonPathInput = s.pythonPath;
       pythonPathSaved = s.pythonPath;
+      allowNetwork = s.allowNetwork;
       // Probe whatever the resolver would currently pick so the status line
       // reflects the live state, not just the override.
       await refreshPythonProbe();
@@ -79,11 +83,23 @@
 
   async function savePythonPath(): Promise<void> {
     try {
-      await settings.setPythonSettings({ pythonPath: pythonPathInput.trim() });
+      await settings.setPythonSettings({ pythonPath: pythonPathInput.trim(), allowNetwork });
       pythonPathSaved = pythonPathInput.trim();
       await refreshPythonProbe();
     } catch (e) {
       pythonProbe = { ok: false, path: pythonPathInput, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  /** Persist the network toggle immediately (#1413). Takes effect when the
+   *  kernel next starts — the hint tells the user to restart to apply now. */
+  async function saveNetworkSetting(): Promise<void> {
+    try {
+      await settings.setPythonSettings({ pythonPath: pythonPathSaved, allowNetwork });
+    } catch (e) {
+      console.error('[settings] failed to save network setting:', e);
+      // Revert the optimistic toggle so the UI reflects what's on disk.
+      allowNetwork = !allowNetwork;
     }
   }
 
@@ -182,6 +198,27 @@
     pipeline. After changing the interpreter, click
     <em>Save &amp; Restart Kernel</em> so the next cell runs
     against the new env.
+  </p>
+</div>
+
+<div class="field toggle-field">
+  <label class="toggle-row">
+    <input
+      type="checkbox"
+      bind:checked={allowNetwork}
+      onchange={() => { void saveNetworkSetting(); }}
+    />
+    <span>Allow network access for Python cells</span>
+  </label>
+  <p class="hint">
+    Off by default. The kernel blocks outbound connections
+    (<code>requests</code>, <code>urllib</code>,
+    <code>pandas.read_csv(url)</code>, raw sockets) to everything but
+    <code>localhost</code>, so a cell can't quietly send your data
+    elsewhere — the scariest thing an unreviewed cell could do. Turn this
+    on only if you trust the code you run to reach the network. Takes
+    effect when the kernel next starts; use
+    <em>Save &amp; Restart Kernel</em> above to apply now.
   </p>
 </div>
 
@@ -328,6 +365,23 @@
     gap: 6px;
     align-items: center;
     margin: 8px 0;
+  }
+
+  /* Network toggle (#1413). */
+  .toggle-field {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .toggle-row input[type="checkbox"] {
+    margin: 0;
+    accent-color: var(--accent);
   }
 
   /* Trusted-thoughtbases list (#1413). */

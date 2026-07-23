@@ -404,8 +404,8 @@ export interface ComputeApi {
    * Electron's userData dir, NOT in the project — the override is
    * machine-scoped (different projects on the same machine share it).
    */
-  getPythonSettings(): Promise<{ pythonPath: string }>;
-  setPythonSettings(settings: { pythonPath: string }): Promise<void>;
+  getPythonSettings(): Promise<{ pythonPath: string; allowNetwork: boolean }>;
+  setPythonSettings(settings: { pythonPath: string; allowNetwork: boolean }): Promise<void>;
   /**
    * Probe a candidate interpreter — verify it runs + capture the
    * version string. Empty / omitted `candidate` probes the active

@@ -296,8 +296,8 @@ export interface ChannelMap {
   'compute:interruptPython': () =>
     | { ok: true }
     | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' };
-  'compute:getPythonSettings': () => { pythonPath: string };
-  'compute:setPythonSettings': (settings: { pythonPath: string }) => void;
+  'compute:getPythonSettings': () => { pythonPath: string; allowNetwork: boolean };
+  'compute:setPythonSettings': (settings: { pythonPath: string; allowNetwork: boolean }) => void;
   'compute:probePython': (candidate?: string) => { ok: boolean; path: string; version?: string; error?: string };
   'compute:browsePython': () => string | null;
   'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';

@@ -48,7 +48,7 @@ export function getSettingsStore() {
     setSkillsMenuConfig: (config: MenuConfig) => api.skills.setMenuConfig(config),
 
     // ── Compute (Python) ──────────────────────────────────────────────────
-    setPythonSettings: (settings: { pythonPath: string }) =>
+    setPythonSettings: (settings: { pythonPath: string; allowNetwork: boolean }) =>
       api.compute.setPythonSettings(settings),
     restartPythonKernel: () => api.compute.restartPythonKernel(),
     /** Revoke a thoughtbase's compute trust (#1413) — its cells prompt
