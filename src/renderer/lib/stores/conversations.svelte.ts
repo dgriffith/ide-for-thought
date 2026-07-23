@@ -1,5 +1,7 @@
 import { api } from '../ipc/client';
 import { getConversationsSettings } from '../conversations/settings';
+import { ensureComputeTrust } from '../compute/run-cell-with-trust';
+import { getDialogStore } from './dialogs.svelte';
 import type {
   Conversation,
   ContextBundle,
@@ -969,6 +971,13 @@ async function runComputeDraft(
 ): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
+  // Trust gate (#1411): an AI-drafted cell must clear the same per-project
+  // consent prompt as an editor cell before it runs. Main independently refuses
+  // an untrusted run, but prompt here so the user gets the dialog instead of a
+  // bare refusal error. Declining leaves the draft un-run.
+  if (!(await ensureComputeTrust(draft.language, { showConfirm: getDialogStore().showConfirm }))) {
+    return;
+  }
   const state = tab.computeDraftState[draft.draftId];
   if (state) {
     // Mark in-flight so the panel can render a spinner + disable buttons.
