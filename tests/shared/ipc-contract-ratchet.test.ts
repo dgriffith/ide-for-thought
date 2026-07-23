@@ -40,7 +40,6 @@ const UNMIGRATED_DOMAINS = new Set<string>([
   'bibliography',
   'citation',
   'collections',
-  'compute',
   'conversation',
   'csl',
   'excerpt',

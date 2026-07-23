@@ -171,21 +171,21 @@ contextBridge.exposeInMainWorld('api', {
   },
   compute: {
     runCell: (language: string, code: string, notePath?: string) =>
-      ipcRenderer.invoke(Channels.COMPUTE_RUN_CELL, language, code, notePath),
-    languages: () => ipcRenderer.invoke(Channels.COMPUTE_LANGUAGES),
-    saveCellOutput: (input: unknown) =>
-      ipcRenderer.invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
-    restartPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
-    interruptPythonKernel: () => ipcRenderer.invoke(Channels.COMPUTE_INTERRUPT_PYTHON),
-    getPythonSettings: () => ipcRenderer.invoke(Channels.COMPUTE_GET_PYTHON_SETTINGS),
+      invoke(Channels.COMPUTE_RUN_CELL, language, code, notePath),
+    languages: () => invoke(Channels.COMPUTE_LANGUAGES),
+    saveCellOutput: (input: Parameters<ChannelMap['compute:saveCellOutput']>[0]) =>
+      invoke(Channels.COMPUTE_SAVE_CELL_OUTPUT, input),
+    restartPythonKernel: () => invoke(Channels.COMPUTE_RESTART_PYTHON_KERNEL),
+    interruptPythonKernel: () => invoke(Channels.COMPUTE_INTERRUPT_PYTHON),
+    getPythonSettings: () => invoke(Channels.COMPUTE_GET_PYTHON_SETTINGS),
     setPythonSettings: (settings: { pythonPath: string }) =>
-      ipcRenderer.invoke(Channels.COMPUTE_SET_PYTHON_SETTINGS, settings),
+      invoke(Channels.COMPUTE_SET_PYTHON_SETTINGS, settings),
     probePython: (candidate?: string) =>
-      ipcRenderer.invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),
-    browsePython: () => ipcRenderer.invoke(Channels.COMPUTE_BROWSE_PYTHON),
-    getPythonTrust: () => ipcRenderer.invoke(Channels.COMPUTE_GET_PYTHON_TRUST),
+      invoke(Channels.COMPUTE_PROBE_PYTHON, candidate),
+    browsePython: () => invoke(Channels.COMPUTE_BROWSE_PYTHON),
+    getPythonTrust: () => invoke(Channels.COMPUTE_GET_PYTHON_TRUST),
     setPythonTrust: (trusted: boolean) =>
-      ipcRenderer.invoke(Channels.COMPUTE_SET_PYTHON_TRUST, trusted),
+      invoke(Channels.COMPUTE_SET_PYTHON_TRUST, trusted),
   },
   publish: {
     listExporters: () => invoke(Channels.PUBLISH_LIST_EXPORTERS),

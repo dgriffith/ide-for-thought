@@ -1,5 +1,6 @@
-import { ipcMain, dialog } from 'electron';
+import { dialog } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import { getPythonTrust, setPythonTrust } from '../project-config';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
@@ -23,30 +24,30 @@ export {
 } from '../compute/proposal-helpers';
 
 export function registerCompute(): void {
-  ipcMain.handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
+  handle(Channels.COMPUTE_RUN_CELL, withRootPath(async (rootPath, language: string, code: string, notePath?: string) => {
     return await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
   }));
 
-  ipcMain.handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
+  handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
 
-  ipcMain.handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPathOr(undefined, async (rootPath) => {
+  handle(Channels.COMPUTE_RESTART_PYTHON_KERNEL, withRootPathOr(undefined, async (rootPath) => {
     await restartPythonKernel(rootPath);
   }));
 
-  ipcMain.handle(Channels.COMPUTE_INTERRUPT_PYTHON, withRootPathOr({ ok: false, reason: 'no-kernel' }, (rootPath) =>
+  handle(Channels.COMPUTE_INTERRUPT_PYTHON, withRootPathOr<[], import('../compute/python-kernel').InterruptResult>({ ok: false, reason: 'no-kernel' }, (rootPath) =>
     interruptPythonKernel(rootPath)));
 
-  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
+  handle(Channels.COMPUTE_GET_PYTHON_SETTINGS, async () => {
     return await getPythonSettings();
   });
 
-  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (_e, settings: PythonSettings) => {
+  handle(Channels.COMPUTE_SET_PYTHON_SETTINGS, async (_e, settings: PythonSettings) => {
     await setPythonSettings({
       pythonPath: typeof settings?.pythonPath === 'string' ? settings.pythonPath : '',
     });
   });
 
-  ipcMain.handle(Channels.COMPUTE_PROBE_PYTHON, async (_e, candidate?: string) => {
+  handle(Channels.COMPUTE_PROBE_PYTHON, async (_e, candidate?: string) => {
     // Empty `candidate` → probe the same interpreter the resolver
     // would pick right now (override → env var → python3). That's
     // the "active" interpreter the Settings status line surfaces.
@@ -54,14 +55,14 @@ export function registerCompute(): void {
     return await probePythonInterpreter(target);
   });
 
-  ipcMain.handle(Channels.COMPUTE_GET_PYTHON_TRUST, withRootPathOr(false, (rootPath) =>
+  handle(Channels.COMPUTE_GET_PYTHON_TRUST, withRootPathOr(false, (rootPath) =>
     getPythonTrust(rootPath)));
 
-  ipcMain.handle(Channels.COMPUTE_SET_PYTHON_TRUST, withRootPath((rootPath, trusted: boolean) => {
+  handle(Channels.COMPUTE_SET_PYTHON_TRUST, withRootPath((rootPath, trusted: boolean) => {
     setPythonTrust(rootPath, trusted === true);
   }));
 
-  ipcMain.handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
+  handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {
     const win = winFromEvent(e);
     const result = await dialog.showOpenDialog(win, {
       title: 'Choose Python interpreter',
@@ -73,10 +74,10 @@ export function registerCompute(): void {
       buttonLabel: 'Use this interpreter',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
-    return result.filePaths[0];
+    return result.filePaths[0] ?? null;
   });
 
-  ipcMain.handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {
+  handle(Channels.COMPUTE_SAVE_CELL_OUTPUT, withRootPath(async (rootPath, input: SaveCellOutputInput) => {
     return await saveCellOutput(rootPath, input);
   }));
 }

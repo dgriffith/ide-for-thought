@@ -40,6 +40,7 @@ import type {
   SourceDetail,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
+import type { CellResult, CellOutput } from './compute/types';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -251,6 +252,32 @@ export interface ChannelMap {
         commitMessage?: string;
       } }
     | { ok: false; error: string };
+
+  // Compute (notebook cells)
+  'compute:runCell': (language: string, code: string, notePath?: string) => CellResult;
+  'compute:languages': () => string[];
+  'compute:restartPythonKernel': () => void;
+  'compute:interruptPython': () =>
+    | { ok: true }
+    | { ok: false; reason: 'no-kernel' | 'unsupported-platform' | 'signal-failed' };
+  'compute:getPythonSettings': () => { pythonPath: string };
+  'compute:setPythonSettings': (settings: { pythonPath: string }) => void;
+  'compute:probePython': (candidate?: string) => { ok: boolean; path: string; version?: string; error?: string };
+  'compute:browsePython': () => string | null;
+  'compute:getPythonTrust': () => boolean;
+  'compute:setPythonTrust': (trusted: boolean) => void;
+  'compute:saveCellOutput': (input: {
+    sourcePath: string;
+    cellLanguage: string;
+    cellCode: string;
+    output: CellOutput;
+    destPath?: string;
+    title?: string;
+    pin?: boolean;
+    forceOverwrite?: boolean;
+  }) =>
+    | { status: 'written'; derivedPath: string; cellId: string; injectedId: boolean; pinned: boolean }
+    | { status: 'needs-confirm'; derivedPath: string; cellId: string; existingContent: string; pendingContent: string };
 }
 
 /** A configured "Publish → git remote" destination (#254). Mirror of the
