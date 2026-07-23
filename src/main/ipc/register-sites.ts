@@ -1,5 +1,5 @@
-import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import {
   listSites as listPrivilegedSites,
   addSite as addPrivilegedSite,
@@ -10,13 +10,13 @@ import {
 
 export function registerSites(): void {
   // Privileged sites
-  ipcMain.handle(Channels.SITES_LIST, () => listPrivilegedSites());
-  ipcMain.handle(Channels.SITES_ADD, (_e, domain: string, label?: string) =>
+  handle(Channels.SITES_LIST, () => listPrivilegedSites());
+  handle(Channels.SITES_ADD, (_e, domain: string, label?: string) =>
     addPrivilegedSite(domain, label),
   );
-  ipcMain.handle(Channels.SITES_REMOVE, (_e, id: string) => removePrivilegedSite(id));
-  ipcMain.handle(Channels.SITES_LOGIN, async (_e, id: string) => {
+  handle(Channels.SITES_REMOVE, (_e, id: string) => removePrivilegedSite(id));
+  handle(Channels.SITES_LOGIN, async (_e, id: string) => {
     await openPrivilegedLogin(id);
   });
-  ipcMain.handle(Channels.SITES_LOGOUT, (_e, id: string) => logoutPrivilegedSite(id));
+  handle(Channels.SITES_LOGOUT, (_e, id: string) => logoutPrivilegedSite(id));
 }

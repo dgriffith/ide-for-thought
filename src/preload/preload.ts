@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, webFrame } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
-import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState } from '../shared/types';
+import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 
 /**
@@ -110,8 +110,8 @@ contextBridge.exposeInMainWorld('api', {
     query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),
   },
   git: {
-    status: () => ipcRenderer.invoke(Channels.GIT_STATUS),
-    commit: (message: string) => ipcRenderer.invoke(Channels.GIT_COMMIT, message),
+    status: () => invoke(Channels.GIT_STATUS),
+    commit: (message: string) => invoke(Channels.GIT_COMMIT, message),
   },
   graph: {
     query: (sparql: string) => ipcRenderer.invoke(Channels.GRAPH_QUERY, sparql),
@@ -152,13 +152,13 @@ contextBridge.exposeInMainWorld('api', {
     allNames: () => invoke(Channels.TAGS_ALL_NAMES),
   },
   templates: {
-    list: () => ipcRenderer.invoke(Channels.TEMPLATES_LIST),
-    get: (filename: string) => ipcRenderer.invoke(Channels.TEMPLATES_GET, filename),
+    list: () => invoke(Channels.TEMPLATES_LIST),
+    get: (filename: string) => invoke(Channels.TEMPLATES_GET, filename),
     saveAs: (name: string, content: string) =>
-      ipcRenderer.invoke(Channels.TEMPLATES_SAVE_AS, name, content),
+      invoke(Channels.TEMPLATES_SAVE_AS, name, content),
   },
   export: {
-    csv: (csv: string) => ipcRenderer.invoke(Channels.EXPORT_CSV, csv),
+    csv: (csv: string) => invoke(Channels.EXPORT_CSV, csv),
   },
   files: {
     // Resolve a DataTransfer File to its absolute disk path. Electron ≥ 32:
@@ -218,13 +218,13 @@ contextBridge.exposeInMainWorld('api', {
   },
   shell: {
     revealFile: (relativePath?: string) =>
-      ipcRenderer.invoke(Channels.SHELL_REVEAL_FILE, relativePath),
+      invoke(Channels.SHELL_REVEAL_FILE, relativePath),
     openInDefault: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.SHELL_OPEN_IN_DEFAULT, relativePath),
+      invoke(Channels.SHELL_OPEN_IN_DEFAULT, relativePath),
     openInTerminal: (relativePath?: string) =>
-      ipcRenderer.invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
+      invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
     openExternal: (url: string) =>
-      ipcRenderer.invoke(Channels.SHELL_OPEN_EXTERNAL, url),
+      invoke(Channels.SHELL_OPEN_EXTERNAL, url),
   },
   conversations: {
     create: (contextBundle: unknown, triggerNodeUri?: string, options?: unknown) =>
@@ -299,17 +299,17 @@ contextBridge.exposeInMainWorld('api', {
     expire: () => ipcRenderer.invoke(Channels.PROPOSAL_EXPIRE),
   },
   bookmarks: {
-    load: () => ipcRenderer.invoke(Channels.BOOKMARKS_LOAD),
-    save: (tree: unknown) => ipcRenderer.invoke(Channels.BOOKMARKS_SAVE, tree),
+    load: () => invoke(Channels.BOOKMARKS_LOAD),
+    save: (tree: BookmarkNode[]) => invoke(Channels.BOOKMARKS_SAVE, tree),
   },
   clipper: {
-    getState: () => ipcRenderer.invoke(Channels.CLIPPER_GET_STATE),
-    setEnabled: (enabled: boolean) => ipcRenderer.invoke(Channels.CLIPPER_SET_ENABLED, enabled),
-    regenerateSecret: () => ipcRenderer.invoke(Channels.CLIPPER_REGENERATE_SECRET),
+    getState: () => invoke(Channels.CLIPPER_GET_STATE),
+    setEnabled: (enabled: boolean) => invoke(Channels.CLIPPER_SET_ENABLED, enabled),
+    regenerateSecret: () => invoke(Channels.CLIPPER_REGENERATE_SECRET),
   },
   tabs: {
-    save: (session: unknown) => ipcRenderer.invoke(Channels.TABS_SAVE, session),
-    load: () => ipcRenderer.invoke(Channels.TABS_LOAD),
+    save: (session: LayoutSession) => invoke(Channels.TABS_SAVE, session),
+    load: () => invoke(Channels.TABS_LOAD),
   },
   refactor: {
     autoTag: (relativePath: string) => ipcRenderer.invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
@@ -445,12 +445,12 @@ contextBridge.exposeInMainWorld('api', {
     setMenuConfig: (config: unknown) => ipcRenderer.invoke(Channels.SKILLS_MENU_CONFIG_SET, config),
   },
   sites: {
-    list: () => ipcRenderer.invoke(Channels.SITES_LIST),
+    list: () => invoke(Channels.SITES_LIST),
     add: (domain: string, label?: string) =>
-      ipcRenderer.invoke(Channels.SITES_ADD, domain, label),
-    remove: (id: string) => ipcRenderer.invoke(Channels.SITES_REMOVE, id),
-    login: (id: string) => ipcRenderer.invoke(Channels.SITES_LOGIN, id),
-    logout: (id: string) => ipcRenderer.invoke(Channels.SITES_LOGOUT, id),
+      invoke(Channels.SITES_ADD, domain, label),
+    remove: (id: string) => invoke(Channels.SITES_REMOVE, id),
+    login: (id: string) => invoke(Channels.SITES_LOGIN, id),
+    logout: (id: string) => invoke(Channels.SITES_LOGOUT, id),
   },
   bibliography: {
     listStyles: () => ipcRenderer.invoke(Channels.BIBLIOGRAPHY_LIST_STYLES),

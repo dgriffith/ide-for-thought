@@ -23,7 +23,12 @@ import type {
   TagInfo,
   TaggedNote,
   TaggedSource,
+  PrivilegedSite,
+  BookmarkNode,
+  LayoutSession,
+  TabSession,
 } from './types';
+import type { ClipperState } from './clipper-pairing';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -70,4 +75,42 @@ export interface ChannelMap {
   'tags:notesByTagPrefix': (prefix: string) => TaggedNote[];
   'tags:sourcesByTag': (tag: string) => TaggedSource[];
   'tags:allNames': () => string[];
+
+  // Templates
+  'templates:list': () => { name: string; filename: string }[];
+  'templates:get': (filename: string) => string | null;
+  'templates:saveAs': (name: string, content: string) => { name: string; filename: string };
+
+  // Git (stubs)
+  'git:status': () => { isRepo: boolean; branch: string | null; files: unknown[] };
+  'git:commit': (message: string) => { success: boolean; sha: string };
+
+  // Privileged sites
+  'sites:list': () => PrivilegedSite[];
+  'sites:add': (domain: string, label?: string) => PrivilegedSite;
+  'sites:remove': (id: string) => void;
+  'sites:login': (id: string) => void;
+  'sites:logout': (id: string) => void;
+
+  // Browser clipper
+  'clipper:getState': () => ClipperState;
+  'clipper:setEnabled': (enabled: boolean) => ClipperState;
+  'clipper:regenerateSecret': () => ClipperState;
+
+  // Export
+  'export:csv': (csv: string) => void;
+
+  // Shell
+  'shell:revealFile': (relativePath?: string) => void;
+  'shell:openInDefault': (relativePath: string) => void;
+  'shell:openInTerminal': (relativePath?: string) => void;
+  'shell:openExternal': (url: string) => void;
+
+  // Bookmarks
+  'bookmarks:load': () => BookmarkNode[];
+  'bookmarks:save': (tree: BookmarkNode[]) => void;
+
+  // Tab session
+  'tabs:save': (session: LayoutSession) => void;
+  'tabs:load': () => LayoutSession | TabSession | null;
 }
