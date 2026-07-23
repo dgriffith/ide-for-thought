@@ -70,7 +70,6 @@ const UNMIGRATED_DOMAINS = new Set<string>([
   'sources',
   'tables',
   'tabs',
-  'tags',
   'templates',
   'tool',
 ]);

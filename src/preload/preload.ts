@@ -145,11 +145,11 @@ contextBridge.exposeInMainWorld('api', {
     },
   },
   tags: {
-    list: () => ipcRenderer.invoke(Channels.TAGS_LIST),
-    notesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_NOTES_BY_TAG, tag),
-    notesByTagPrefix: (prefix: string) => ipcRenderer.invoke(Channels.TAGS_NOTES_BY_TAG_PREFIX, prefix),
-    sourcesByTag: (tag: string) => ipcRenderer.invoke(Channels.TAGS_SOURCES_BY_TAG, tag),
-    allNames: () => ipcRenderer.invoke(Channels.TAGS_ALL_NAMES),
+    list: () => invoke(Channels.TAGS_LIST),
+    notesByTag: (tag: string) => invoke(Channels.TAGS_NOTES_BY_TAG, tag),
+    notesByTagPrefix: (prefix: string) => invoke(Channels.TAGS_NOTES_BY_TAG_PREFIX, prefix),
+    sourcesByTag: (tag: string) => invoke(Channels.TAGS_SOURCES_BY_TAG, tag),
+    allNames: () => invoke(Channels.TAGS_ALL_NAMES),
   },
   templates: {
     list: () => ipcRenderer.invoke(Channels.TEMPLATES_LIST),

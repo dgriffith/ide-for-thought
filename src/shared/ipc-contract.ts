@@ -20,6 +20,9 @@ import type {
   ReplaceInNotesOptions,
   ReplaceInNotesResult,
   HeadingRenameCandidate,
+  TagInfo,
+  TaggedNote,
+  TaggedSource,
 } from './types';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
@@ -60,4 +63,11 @@ export interface ChannelMap {
   'notebase:renameExcerpt': (oldId: string, newId: string) => { rewrittenPaths: string[] };
   'notebase:getOnboardingDismissed': () => boolean;
   'notebase:setOnboardingDismissed': (dismissed: boolean) => void;
+
+  // Tags
+  'tags:list': () => TagInfo[];
+  'tags:notesByTag': (tag: string) => TaggedNote[];
+  'tags:notesByTagPrefix': (prefix: string) => TaggedNote[];
+  'tags:sourcesByTag': (tag: string) => TaggedSource[];
+  'tags:allNames': () => string[];
 }
