@@ -1,8 +1,11 @@
-import { dialog } from 'electron';
+import { dialog, shell } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import { runCell as runComputeCell, registeredLanguages as computeLanguages } from '../compute/registry';
 import { computeConsentGuard, consentStatus, grantConsent, listConsent, revokeConsent } from '../compute/consent';
+import { recordExecution, auditLogPath } from '../compute/audit';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from '../compute/python-kernel';
 import {
   getPythonSettings,
@@ -29,7 +32,9 @@ export function registerCompute(): void {
     // hasn't consented to, even if a caller reached the IPC without prompting.
     const guard = computeConsentGuard(rootPath, language, code);
     if (guard) return guard;
-    return await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
+    const result = await runComputeCell(language, code, { rootPath, ...(notePath !== undefined ? { notePath } : {}) });
+    recordExecution({ project: rootPath, language, code, provenance: 'editor', result, ...(notePath !== undefined ? { notePath } : {}) });
+    return result;
   }));
 
   handle(Channels.COMPUTE_LANGUAGES, () => computeLanguages());
@@ -77,6 +82,20 @@ export function registerCompute(): void {
 
   handle(Channels.COMPUTE_REVOKE_CONSENT, (_e, rootPath: string) => {
     revokeConsent(rootPath);
+  });
+
+  // Execution audit log (#1413): reveal the per-machine JSONL trail in the OS
+  // file manager. Ensure it exists first so reveal never fails on a machine
+  // that hasn't run a cell yet.
+  handle(Channels.COMPUTE_REVEAL_AUDIT_LOG, () => {
+    const p = auditLogPath();
+    try {
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      if (!fs.existsSync(p)) fs.writeFileSync(p, '', 'utf-8');
+    } catch (err) {
+      console.warn('[compute-audit] could not ensure audit log before reveal:', err);
+    }
+    shell.showItemInFolder(p);
   });
 
   handle(Channels.COMPUTE_BROWSE_PYTHON, async (e) => {

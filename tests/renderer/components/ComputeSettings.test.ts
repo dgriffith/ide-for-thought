@@ -12,7 +12,7 @@ import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 
 const {
   getPythonSettingsMock, probePythonMock, browsePythonMock,
-  setPythonSettingsMock, restartKernelMock, listConsentMock, revokeConsentMock,
+  setPythonSettingsMock, restartKernelMock, listConsentMock, revokeConsentMock, revealAuditLogMock,
 } = vi.hoisted(() => ({
   getPythonSettingsMock: vi.fn(),
   probePythonMock: vi.fn(),
@@ -21,6 +21,7 @@ const {
   restartKernelMock: vi.fn(),
   listConsentMock: vi.fn(),
   revokeConsentMock: vi.fn(),
+  revealAuditLogMock: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -33,6 +34,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       restartPythonKernel: restartKernelMock,
       listConsent: listConsentMock,
       revokeConsent: revokeConsentMock,
+      revealAuditLog: revealAuditLogMock,
     },
   },
 }));
@@ -49,7 +51,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   [getPythonSettingsMock, probePythonMock, browsePythonMock, setPythonSettingsMock,
-    restartKernelMock, listConsentMock, revokeConsentMock].forEach((m) => m.mockReset());
+    restartKernelMock, listConsentMock, revokeConsentMock, revealAuditLogMock].forEach((m) => m.mockReset());
 });
 
 describe('ComputeSettings (#672)', () => {
@@ -135,5 +137,16 @@ describe('ComputeSettings (#672)', () => {
     await findByText('Python 3.12');
 
     expect((getByLabelText('Allow network access for Python cells') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('Reveal audit log calls api.compute.revealAuditLog (#1413)', async () => {
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false });
+    probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
+    revealAuditLogMock.mockResolvedValue(undefined);
+    const { findByText, getByText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    await fireEvent.click(getByText('Reveal audit log'));
+    expect(revealAuditLogMock).toHaveBeenCalledTimes(1);
   });
 });

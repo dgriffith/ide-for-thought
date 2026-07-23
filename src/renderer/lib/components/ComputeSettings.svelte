@@ -258,6 +258,19 @@
   {/if}
 </div>
 
+<div class="field audit-field">
+  <label id="audit-heading">Execution audit log</label>
+  <p class="hint">
+    Every compute cell that runs is recorded to a local log — when it ran,
+    which thoughtbase and note, whether it came from the editor or a
+    conversation (AI-authored), and its outcome. Stored on this machine
+    only, so it can't be tampered with by a shared thoughtbase.
+  </p>
+  <button class="action-btn" onclick={() => { void api.compute.revealAuditLog(); }}>
+    Reveal audit log
+  </button>
+</div>
+
 <style>
   /* Shared form vocabulary, scoped to this panel (the app's per-dialog
      convention — each component carries its own .field / .hint / button CSS). */
@@ -384,8 +397,9 @@
     accent-color: var(--accent);
   }
 
-  /* Trusted-thoughtbases list (#1413). */
-  .trust-field {
+  /* Trusted-thoughtbases list + audit section (#1413). */
+  .trust-field,
+  .audit-field {
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid var(--border);

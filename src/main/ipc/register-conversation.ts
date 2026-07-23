@@ -11,6 +11,7 @@ import { ttlString } from '../sources/source-meta-write';
 import { fileSourceProperties } from '../llm/source-properties';
 import { runCell as runComputeCell } from '../compute/registry';
 import { computeConsentGuard } from '../compute/consent';
+import { recordExecution } from '../compute/audit';
 import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
 import { applyPropertyUpdates } from '../llm/set-properties';
@@ -808,6 +809,9 @@ export function registerConversation(): void {
       const guard = computeConsentGuard(rootPath, draft.language, codeToRun);
       if (guard) return { result: guard };
       const result = await runComputeCell(draft.language, codeToRun, { rootPath });
+      // Audit trail (#1413): a conversation-run cell is LLM-authored — the
+      // highest-risk provenance, so it's exactly what the log exists to capture.
+      recordExecution({ project: rootPath, language: draft.language, code: codeToRun, provenance: 'conversation', result });
       // Append the result to the conversation log as a user-role
       // message so the LLM's next turn sees it as context. Format
       // for legibility — the model parses these like any other
