@@ -1,7 +1,10 @@
 <script lang="ts">
   import { api } from '../../ipc/client';
+  import { getReviewStore } from '../../stores/review.svelte';
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
+
+  const review = getReviewStore();
 
   interface Inspection {
     id: string;
@@ -33,7 +36,7 @@
 
   async function runNow() {
     loading = true;
-    inspections = await api.graph.runInspections();
+    inspections = await review.runInspections();
     loading = false;
   }
 

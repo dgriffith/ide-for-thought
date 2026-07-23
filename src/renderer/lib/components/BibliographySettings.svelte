@@ -9,6 +9,9 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { getSettingsStore } from '../stores/settings.svelte';
+
+  const settings = getSettingsStore();
 
   let bibliographyStyles = $state<{ id: string; label: string; isUser?: boolean }[]>([]);
   let bibliographyStyleId = $state('apa');
@@ -37,7 +40,7 @@
   async function setBibliographyStyle(next: string): Promise<void> {
     bibliographyStyleId = next;
     try {
-      await api.bibliography.setStyle(next);
+      await settings.setBibliographyStyle(next);
     } catch (e) {
       console.error('[settings] failed to save bibliography style:', e);
     }
@@ -47,7 +50,7 @@
     cslImportError = null;
     cslImporting = true;
     try {
-      const result = await api.csl.importStyle();
+      const result = await settings.importCslStyle();
       if (result) await loadBibliographySettings();
     } catch (e) {
       cslImportError = e instanceof Error ? e.message : String(e);
@@ -60,7 +63,7 @@
     cslImportError = null;
     cslImporting = true;
     try {
-      const result = await api.csl.importLocale();
+      const result = await settings.importCslLocale();
       if (result) await loadBibliographySettings();
     } catch (e) {
       cslImportError = e instanceof Error ? e.message : String(e);
@@ -72,7 +75,7 @@
   async function removeUserStyle(id: string): Promise<void> {
     cslImportError = null;
     try {
-      await api.csl.removeStyle(id);
+      await settings.removeCslStyle(id);
       await loadBibliographySettings();
     } catch (e) {
       cslImportError = e instanceof Error ? e.message : String(e);
@@ -82,7 +85,7 @@
   async function removeUserLocale(id: string): Promise<void> {
     cslImportError = null;
     try {
-      await api.csl.removeLocale(id);
+      await settings.removeCslLocale(id);
       await loadBibliographySettings();
     } catch (e) {
       cslImportError = e instanceof Error ? e.message : String(e);

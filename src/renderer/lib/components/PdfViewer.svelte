@@ -17,6 +17,7 @@
   import { api } from '../ipc/client';
   import type { SourceExcerpt } from '../../../shared/types';
   import { getEditorStore } from '../stores/editor.svelte';
+  import { getSourceDataStore } from '../stores/source-data.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import {
@@ -56,6 +57,7 @@
   let { sourceId, initialPage, onShowMarkdown }: Props = $props();
 
   const editor = getEditorStore();
+  const sourceData = getSourceDataStore();
 
   let pdfjs = $state<PdfjsModule | null>(null);
   let doc = $state<PdfDocumentProxy | null>(null);
@@ -148,7 +150,7 @@
 
   // Listen for excerpt-changed broadcasts so newly-saved excerpts
   // appear as highlights immediately.
-  api.sources.onExcerptsChanged(() => {
+  sourceData.onExcerptsChanged(() => {
     void refreshExcerpts(sourceId);
   });
 
@@ -259,7 +261,7 @@
     saving = true;
     saveError = null;
     try {
-      const result = await api.sources.createExcerpt({ sourceId, citedText, page });
+      const result = await sourceData.createExcerpt({ sourceId, citedText, page });
       recentSaved = { id: result.excerptId, duplicate: result.duplicate };
       excerptMenu = null;
       await refreshExcerpts(sourceId);

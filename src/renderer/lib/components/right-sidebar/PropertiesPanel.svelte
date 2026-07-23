@@ -18,6 +18,7 @@
   import YAML from 'yaml';
   import { onMount, tick } from 'svelte';
   import { api } from '../../ipc/client';
+  import { getNotebaseStore } from '../../stores/notebase.svelte';
   import AutocompleteDropdown from './AutocompleteDropdown.svelte';
   import Icon from '../Icon.svelte';
   import { resolveWikiLinkTarget } from '../../wiki-link-resolver';
@@ -65,6 +66,8 @@
   }
 
   let { content, onContentChange, onNavigate }: Props = $props();
+
+  const notebase = getNotebaseStore();
 
   type ValueShape =
     | { kind: 'string'; value: string }
@@ -421,13 +424,13 @@
   onMount(() => {
     void refreshProjectKeys();
     void refreshNoteBasenames();
-    const unsubscribeRewritten = api.notebase.onRewritten(() => {
+    const unsubscribeRewritten = notebase.onRewritten(() => {
       void refreshProjectKeys();
     });
-    const unsubscribeCreated = api.notebase.onFileCreated(() => {
+    const unsubscribeCreated = notebase.onFileCreated(() => {
       void refreshNoteBasenames();
     });
-    const unsubscribeDeleted = api.notebase.onFileDeleted(() => {
+    const unsubscribeDeleted = notebase.onFileDeleted(() => {
       void refreshNoteBasenames();
     });
     return () => {

@@ -18,6 +18,9 @@
     flattenCollectionRows,
   } from '../sources/collection-tree';
   import Icon from './Icon.svelte';
+  import { getSourceDataStore } from '../stores/source-data.svelte';
+
+  const sourceData = getSourceDataStore();
 
   type QueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
   const QUEUE_VIEWS: { id: QueueView; label: string }[] = [
@@ -165,7 +168,7 @@
   // The main process broadcasts COLLECTIONS_CHANGED after any mutation
   // (including from other windows / direct file edits). Keep our tree
   // in sync without forcing the host to call refresh() explicitly.
-  api.collections.onChanged(() => { void refreshCollections(); });
+  sourceData.onCollectionsChanged(() => { void refreshCollections(); });
 
   async function refreshCollections(): Promise<void> {
     const data = await api.collections.list();
@@ -242,7 +245,7 @@
     );
     if (!confirmed) return;
     try {
-      await api.sources.merge(src.sourceId, destId);
+      await sourceData.merge(src.sourceId, destId);
       onSourceDeleted?.(src.sourceId);
       await refresh();
     } catch (err) {
@@ -338,7 +341,7 @@
   async function handleMarkStatus(source: SourceMetadata, status: ReadStatus | null): Promise<void> {
     contextMenu = null;
     try {
-      await api.sources.setReadStatus(source.sourceId, status);
+      await sourceData.setReadStatus(source.sourceId, status);
       // Host listener refreshes the panel; nothing more to do.
     } catch (err) {
       console.error('[minerva] Mark status failed:', err);
@@ -351,7 +354,7 @@
   async function handleSetDueBy(source: SourceMetadata, dueBy: string | null): Promise<void> {
     const value = dueBy && dueBy.trim() ? dueBy.trim() : null;
     try {
-      await api.sources.setReadDueBy(source.sourceId, value);
+      await sourceData.setReadDueBy(source.sourceId, value);
       // Patch the in-memory record so the byline stamp updates even
       // if the host's refresh listener hasn't fired yet.
       source.readDueBy = value;
@@ -386,7 +389,7 @@
   async function handleStripUpstreamTags(source: SourceMetadata): Promise<void> {
     contextMenu = null;
     try {
-      await api.sources.stripUpstreamTags(source.sourceId);
+      await sourceData.stripUpstreamTags(source.sourceId);
     } catch (err) {
       console.error('[minerva] Strip upstream tags failed:', err);
     }
@@ -407,7 +410,7 @@
     if (!input) return;
     adding = true;
     try {
-      const result = await api.sources.ingestSmart(input);
+      const result = await sourceData.ingestSmart(input);
       await refresh();
       onSourceOpened?.(result.sourceId);
       if (result.duplicate) {
@@ -475,7 +478,7 @@
     const name = await onShowPrompt('New collection name:');
     if (!name) return;
     try {
-      await api.collections.create({ name, parent });
+      await sourceData.createCollection({ name, parent });
     } catch (err) {
       console.error('[minerva] Create collection failed:', err);
     }
@@ -486,7 +489,7 @@
     const name = await onShowPrompt('Rename collection:', c.name);
     if (!name || name === c.name) return;
     try {
-      await api.collections.rename(c.id, name);
+      await sourceData.renameCollection(c.id, name);
     } catch (err) {
       console.error('[minerva] Rename collection failed:', err);
     }
@@ -502,7 +505,7 @@
     if (!confirmed) return;
     if (activeCollectionId === c.id) activeCollectionId = null;
     try {
-      await api.collections.remove(c.id);
+      await sourceData.removeCollection(c.id);
     } catch (err) {
       console.error('[minerva] Delete collection failed:', err);
     }
@@ -523,7 +526,7 @@
     const name = await onShowPrompt('Rename smart collection:', smart.name);
     if (!name || name === smart.name) return;
     try {
-      await api.collections.renameSmart(smart.id, name);
+      await sourceData.renameSmartCollection(smart.id, name);
     } catch (err) {
       console.error('[minerva] Rename smart collection failed:', err);
     }
@@ -542,7 +545,7 @@
       smartMembers = null;
     }
     try {
-      await api.collections.removeSmart(smart.id);
+      await sourceData.removeSmartCollection(smart.id);
     } catch (err) {
       console.error('[minerva] Delete smart collection failed:', err);
     }
@@ -554,14 +557,14 @@
     if (!editor) return;
     try {
       if (editor.mode === 'create') {
-        const created = await api.collections.createSmart({ name, predicate });
+        const created = await sourceData.createSmartCollection({ name, predicate });
         // Auto-focus the new collection so the user sees what they
         // just made (mirrors the create-from-picker UX).
         await selectCollection(created.id);
       } else {
         const c = editor.collection;
-        if (name !== c.name) await api.collections.renameSmart(c.id, name);
-        await api.collections.updateSmartPredicate(c.id, predicate);
+        if (name !== c.name) await sourceData.renameSmartCollection(c.id, name);
+        await sourceData.updateSmartPredicate(c.id, predicate);
         // Re-fetch members if this is the active one.
         if (activeCollectionId === c.id) {
           smartMembers = new Set((await api.collections.smartMembers(c.id)).map((s) => s.sourceId));
@@ -582,7 +585,7 @@
     addToCollectionFor = null;
     if (!src) return;
     try {
-      await api.collections.addSource(collectionId, src.sourceId);
+      await sourceData.addSourceToCollection(collectionId, src.sourceId);
     } catch (err) {
       console.error('[minerva] Add to collection failed:', err);
     }
@@ -594,7 +597,7 @@
    *  it, and returns the new id so the picker can complete its
    *  selection flow. (#470) */
   async function handleCreateFromPicker(name: string): Promise<string> {
-    const created = await api.collections.create({ name, parent: null });
+    const created = await sourceData.createCollection({ name, parent: null });
     // The COLLECTIONS_CHANGED broadcast will fire too, but kicking
     // off a refresh here avoids the millisecond gap where the
     // picker might list the new collection without resolving its
@@ -608,7 +611,7 @@
     contextMenu = null;
     if (!activeCollectionId) return;
     try {
-      await api.collections.removeSource(activeCollectionId, source.sourceId);
+      await sourceData.removeSourceFromCollection(activeCollectionId, source.sourceId);
     } catch (err) {
       console.error('[minerva] Remove from collection failed:', err);
     }

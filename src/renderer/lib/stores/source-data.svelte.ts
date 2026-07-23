@@ -26,8 +26,6 @@ export function getSourceDataStore() {
     removeTag: (sourceId: string, tag: string) => api.sources.removeTag(sourceId, tag),
     createExcerpt: (params: Parameters<typeof api.sources.createExcerpt>[0]) =>
       api.sources.createExcerpt(params),
-    finishPdfOcr: (sourceId: string, pages: string[]) =>
-      api.sources.finishPdfOcr(sourceId, pages),
     ingestSmart: (rawInput: string) => api.sources.ingestSmart(rawInput),
     ingestUrl: (url: string) => api.sources.ingestUrl(url),
     merge: (srcId: string, destId: string) => api.sources.merge(srcId, destId),
