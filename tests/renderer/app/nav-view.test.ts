@@ -130,6 +130,23 @@ describe('handleOpenExcerpt', () => {
   });
 });
 
+describe('handleJumpToMatch', () => {
+  it('records the departure position and the search-match landing on the nav stack', async () => {
+    h.editor.content = 'line one\nline two\nline three';
+    h.editor.activeTab = { type: 'note' };
+    h.editor.activeFilePath = 'from.md';
+    ctx.getEditorComponent = () => ({ getOffset: () => 4, gotoOffset: vi.fn(), restorePosition: vi.fn() });
+
+    await view.handleJumpToMatch('hit.md', 2, 5); // line 2 (1-based), col 5 (0-based)
+
+    expect(h.editor.openFile).toHaveBeenCalledWith('hit.md');
+    // Departure: where we left from, at its cursor offset.
+    expect(h.nav.record).toHaveBeenCalledWith({ type: 'note', relativePath: 'from.md', offset: 4 });
+    // Arrival: offset of (line 2, col 5) = len("line one") + 1 newline + 5 = 14.
+    expect(h.nav.record).toHaveBeenCalledWith({ type: 'note', relativePath: 'hit.md', offset: 14 });
+  });
+});
+
 describe('handleNavBack', () => {
   it('opens the note position returned by goBack', async () => {
     h.nav.goBack.mockReturnValue({ type: 'note', relativePath: 'a.md', offset: 5 });

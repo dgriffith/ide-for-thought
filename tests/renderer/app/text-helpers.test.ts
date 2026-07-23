@@ -6,6 +6,7 @@ import {
   slugifyForPath,
   findAnchorOffset,
   offsetToLineCol,
+  lineColToOffset,
   lineBookmarkName,
   flattenNotePaths,
   countNotes,
@@ -58,6 +59,21 @@ describe('offsetToLineCol', () => {
     expect(offsetToLineCol(text, 2)).toEqual({ line: 1, col: 2 });
     expect(offsetToLineCol(text, 4)).toEqual({ line: 2, col: 0 });
     expect(offsetToLineCol(text, 7)).toEqual({ line: 3, col: 0 });
+  });
+});
+
+describe('lineColToOffset', () => {
+  it('is the inverse of offsetToLineCol', () => {
+    const text = 'abc\nde\nf';
+    expect(lineColToOffset(text, 1, 0)).toBe(0);
+    expect(lineColToOffset(text, 1, 2)).toBe(2);
+    expect(lineColToOffset(text, 2, 0)).toBe(4);
+    expect(lineColToOffset(text, 3, 0)).toBe(7);
+    // round-trip a few offsets through both directions
+    for (const off of [0, 2, 4, 5, 7]) {
+      const { line, col } = offsetToLineCol(text, off);
+      expect(lineColToOffset(text, line, col)).toBe(off);
+    }
   });
 });
 
