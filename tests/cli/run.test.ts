@@ -86,6 +86,14 @@ describe('parseArgs', () => {
     expect(a.command).toBe('query');
     expect(a.positionals).toEqual(['SELECT ?s WHERE { ?s ?p ?o }']);
   });
+
+  it('recognizes the grep boolean flags', () => {
+    const a = parseArgs(['grep', '[[chlorophyll]]', '--regex', '--case-sensitive']);
+    expect(a.command).toBe('grep');
+    expect(a.positionals).toEqual(['[[chlorophyll]]']);
+    expect(a.regex).toBe(true);
+    expect(a.caseSensitive).toBe(true);
+  });
 });
 
 describe('runCli read commands (#1149)', () => {
@@ -115,6 +123,25 @@ describe('runCli read commands (#1149)', () => {
     const r = await runCli(['search', 'photosynthesis', '--limit', '1'], { cwd: root });
     const out = JSON.parse(r.stdout);
     expect(out.hits.length).toBeLessThanOrEqual(1);
+  });
+
+  it('grep finds a literal pattern grounded with path + line (exit 0)', async () => {
+    const r = await runCli(['grep', '[[chlorophyll]]'], { cwd: root });
+    expect(r.code).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out.total).toBe(1);
+    expect(out.matches[0]).toMatchObject({ path: 'notes/photosynthesis.md', line: 6 });
+    expect(out.matches[0].text).toContain('[[chlorophyll]]');
+  });
+
+  it('grep supports --regex and --case-sensitive', async () => {
+    const rx = JSON.parse((await runCli(['grep', '^# ', '--regex'], { cwd: root })).stdout);
+    expect(rx.matches.map((m: { path: string }) => m.path)).toEqual(['notes/chlorophyll.md']);
+
+    // Case-sensitive lowercase "photosynthesis" skips the capitalized title/sentence.
+    const cs = JSON.parse((await runCli(['grep', 'photosynthesis', '--case-sensitive'], { cwd: root })).stdout);
+    expect(cs.total).toBe(1);
+    expect(cs.matches[0].path).toBe('notes/chlorophyll.md');
   });
 
   it('sql queries CSV tables and serializes DuckDB BigInt counts (exit 0)', async () => {

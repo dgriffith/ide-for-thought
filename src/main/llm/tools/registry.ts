@@ -2,6 +2,7 @@ import type { ConversationToolKey } from '../../../shared/conversation-tools';
 import type { ToolSpec } from '../provider/types';
 import type { NotebaseTool, ToolContext, ToolCallbacks, ToolResult } from './types';
 import { searchNotes } from './search-notes';
+import { grepNotes } from './grep-notes';
 import { readNote } from './read-note';
 import { readSource } from './read-source';
 import { searchRelated } from './search-related';
@@ -31,6 +32,7 @@ import { askUser } from './ask-user';
  */
 const DEFAULT_TOOLS: NotebaseTool[] = [
   searchNotes,
+  grepNotes,
   readNote,
   readSource,
   searchRelated,

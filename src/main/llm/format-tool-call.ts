@@ -27,6 +27,10 @@ export function formatToolCall(name: string, input: unknown): string {
       const q = pickString(i, 'query');
       return q ? `🔎 Searching notes for **${truncate(q, MAX_SNIPPET)}**` : '🔎 Searching notes';
     }
+    case 'grep_notes': {
+      const p = pickString(i, 'pattern');
+      return p ? `🔦 Grepping notes for **${truncate(p, MAX_SNIPPET)}**` : '🔦 Grepping notes';
+    }
     case 'search_help': {
       const q = pickString(i, 'query');
       return q ? `📖 Checking the docs for **${truncate(q, MAX_SNIPPET)}**` : '📖 Checking the docs';
