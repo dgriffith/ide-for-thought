@@ -300,8 +300,8 @@ export interface ChannelMap {
   'compute:setPythonSettings': (settings: { pythonPath: string }) => void;
   'compute:probePython': (candidate?: string) => { ok: boolean; path: string; version?: string; error?: string };
   'compute:browsePython': () => string | null;
-  'compute:getPythonTrust': () => boolean;
-  'compute:setPythonTrust': (trusted: boolean) => void;
+  'compute:consentStatus': (language: string, code: string) => 'cell' | 'blanket' | 'none';
+  'compute:grantConsent': (language: string, code: string, scope: 'cell' | 'project') => void;
   'compute:saveCellOutput': (input: {
     sourcePath: string;
     cellLanguage: string;

@@ -18,11 +18,17 @@
      * scope for #373.
      */
     hideDontAskAgain?: boolean;
+    /** Relabel the "Don't ask again" checkbox — the compute-consent dialog
+     *  (#1412) reuses it as "Trust all compute in this thoughtbase". */
+    dontAskLabel?: string;
+    /** When set, render the code the action will run in a scrollable block —
+     *  the "eyes-on-code" compute-consent prompt (#1412). */
+    code?: string;
     onConfirm: (dontAskAgain: boolean) => void;
     onCancel: () => void;
   }
 
-  let { message, confirmLabel = 'OK', hideDontAskAgain = false, onConfirm, onCancel }: Props = $props();
+  let { message, confirmLabel = 'OK', hideDontAskAgain = false, dontAskLabel = "Don't ask again", code, onConfirm, onCancel }: Props = $props();
   let dontAskAgain = $state(false);
   let confirmBtn = $state<HTMLButtonElement>();
 
@@ -47,12 +53,17 @@
       <h2 class="title" id="confirm-dialog-title">{message}</h2>
     </header>
 
-    {#if !hideDontAskAgain}
+    {#if code !== undefined || !hideDontAskAgain}
       <div class="body">
-        <label class="dont-ask">
-          <input type="checkbox" bind:checked={dontAskAgain} />
-          Don't ask again
-        </label>
+        {#if code !== undefined}
+          <pre class="code-preview"><code>{code}</code></pre>
+        {/if}
+        {#if !hideDontAskAgain}
+          <label class="dont-ask">
+            <input type="checkbox" bind:checked={dontAskAgain} />
+            {dontAskLabel}
+          </label>
+        {/if}
       </div>
     {/if}
 
@@ -122,6 +133,21 @@
   .body {
     padding: 14px 24px 18px;
     font-size: 13px;
+  }
+  .code-preview {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    max-height: 320px;
+    overflow: auto;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    white-space: pre;
+    tab-size: 4;
   }
   .dont-ask {
     display: inline-flex;

@@ -538,8 +538,13 @@ export const Channels = {
   /** Per-project Python trust flag (#373). Read returns true once the
    *  user has OK'd cell execution for the current project; write is
    *  fired by the first-run trust dialog when the user clicks Run. */
-  COMPUTE_GET_PYTHON_TRUST: 'compute:getPythonTrust',
-  COMPUTE_SET_PYTHON_TRUST: 'compute:setPythonTrust',
+  /** Content-addressed compute consent (#1412): is this exact cell consented
+   *  (`cell`), the whole project blanket-trusted (`blanket`), or neither
+   *  (`none`)? Replaces the old per-project boolean trust flag. */
+  COMPUTE_CONSENT_STATUS: 'compute:consentStatus',
+  /** Grant consent for this cell (`scope: 'cell'`) or the whole thoughtbase
+   *  (`scope: 'project'`). Stored per-machine, never in the thoughtbase. */
+  COMPUTE_GRANT_CONSENT: 'compute:grantConsent',
   /** List every fence language that has a registered executor. Drives the editor's gutter. */
   COMPUTE_LANGUAGES: 'compute:languages',
   /** Save a cell's output as a first-class note with provenance (#244). */
