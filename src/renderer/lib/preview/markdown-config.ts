@@ -434,7 +434,7 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownIt {
 
         // Split on --- separator: config above, query below. If no separator, entire body is the query.
         const sepIdx = body.indexOf('\n---\n');
-        let config: Record<string, string> = {};
+        const config: Record<string, string> = {};
         let query: string;
         if (sepIdx >= 0) {
             const configBlock = body.slice(0, sepIdx).trim();
