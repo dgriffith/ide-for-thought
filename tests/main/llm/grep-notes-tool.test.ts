@@ -1,0 +1,78 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import { executeNotebaseTool, NOTEBASE_TOOLS } from '../../../src/main/llm/tools';
+import { projectContext } from '../../../src/main/project-context-types';
+
+describe('grep_notes tool', () => {
+  let root: string;
+  const ctx = () => projectContext(root);
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-grep-notes-'));
+    await fsp.writeFile(
+      path.join(root, 'alpha.md'),
+      'The mitochondrion is the powerhouse.\nTODO: cite this claim.\n',
+      'utf-8',
+    );
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fsp.writeFile(
+      path.join(root, 'notes', 'beta.md'),
+      'A MITOCHONDRION reference in Naples.\n- [ ] unfinished task\n',
+      'utf-8',
+    );
+  });
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('finds a literal substring case-insensitively across notes, as path:line: text', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: 'mitochondrion' });
+    expect(res.isError).toBe(false);
+    expect(res.content).toContain('alpha.md:1: The mitochondrion is the powerhouse.');
+    expect(res.content).toContain('notes/beta.md:1: A MITOCHONDRION reference in Naples.');
+    expect(res.content).toMatch(/2 matches in 2 notes/);
+  });
+
+  it('honors case_sensitive', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: 'MITOCHONDRION', case_sensitive: true });
+    expect(res.content).toContain('notes/beta.md:1:');
+    expect(res.content).not.toContain('alpha.md:1:');
+  });
+
+  it('treats the pattern as a literal (special characters need no escaping)', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: '- [ ]' });
+    expect(res.content).toContain('notes/beta.md:2: - [ ] unfinished task');
+  });
+
+  it('supports regex when regex:true', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: '^TODO:', regex: true });
+    expect(res.content).toContain('alpha.md:2: TODO: cite this claim.');
+    expect(res.content).not.toContain('beta.md');
+  });
+
+  it('reports no matches clearly', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: 'zzz-not-present' });
+    expect(res.isError).toBe(false);
+    expect(res.content).toMatch(/No matches for literal "zzz-not-present"/);
+  });
+
+  it('caps output and reports the true total when truncated', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: 'e', max_matches: 1 });
+    expect(res.content).toMatch(/showing the first 1/);
+    // header still reports the full count
+    expect(res.content).toMatch(/^\d+ matches in \d+ notes/);
+  });
+
+  it('requires a non-empty pattern', async () => {
+    const res = await executeNotebaseTool(ctx(), 'grep_notes', { pattern: '  ' });
+    expect(res.isError).toBe(true);
+    expect(res.content).toMatch(/pattern is required/);
+  });
+
+  it('is registered in the default conversation toolset', () => {
+    expect(NOTEBASE_TOOLS.map((t) => t.name)).toContain('grep_notes');
+  });
+});

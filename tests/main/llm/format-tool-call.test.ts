@@ -17,6 +17,11 @@ describe('formatToolCall (#NEW)', () => {
       .toBe('🔎 Searching notes for **sparql**');
   });
 
+  it('shows the pattern for grep_notes', () => {
+    expect(formatToolCall('grep_notes', { pattern: '- [ ]' }))
+      .toBe('🔦 Grepping notes for **- [ ]**');
+  });
+
   it('shows the query for search_help', () => {
     expect(formatToolCall('search_help', { query: 'how do links work' }))
       .toBe('📖 Checking the docs for **how do links work**');
