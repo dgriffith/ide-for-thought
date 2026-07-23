@@ -27,6 +27,16 @@ import type {
   BookmarkNode,
   LayoutSession,
   TabSession,
+  SavedQuery,
+  SearchResult,
+  OutgoingLink,
+  Backlink,
+  CitationGroup,
+  SafeDeleteBlocker,
+  NeighborhoodOptions,
+  NeighborhoodResult,
+  NeighborhoodHop,
+  RelatedNotesResult,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 
@@ -113,4 +123,29 @@ export interface ChannelMap {
   // Tab session
   'tabs:save': (session: LayoutSession) => void;
   'tabs:load': () => LayoutSession | TabSession | null;
+
+  // Saved queries
+  'queries:list': () => SavedQuery[];
+  'queries:save': (scope: string, name: string, description: string, query: string, language: 'sparql' | 'sql', group?: string | null) => SavedQuery;
+  'queries:delete': (filePath: string) => void;
+  'queries:rename': (filePath: string, newName: string) => string;
+  'queries:move': (filePath: string, newScope: 'project' | 'global') => string;
+  'queries:setGroup': (filePath: string, group: string | null) => void;
+  'queries:setOrder': (entries: Array<{ filePath: string; order: number | null }>) => void;
+
+  // Search
+  'search:query': (query: string) => SearchResult[];
+
+  // Links
+  'links:outgoing': (relativePath: string) => OutgoingLink[];
+  'links:backlinks': (relativePath: string) => Backlink[];
+  'links:bundle': (relativePath: string) => { outgoing: OutgoingLink[]; backlinks: Backlink[] };
+  'links:citationsForNote': (relativePath: string, content?: string) => CitationGroup[];
+  'links:externalInbound': (paths: string[]) => SafeDeleteBlocker[];
+  'links:neighborhood': (relativePath: string, opts?: NeighborhoodOptions) => NeighborhoodResult;
+  'links:expandNode': (relativePath: string) => NeighborhoodHop;
+
+  // Embeddings (semantic search)
+  'embeddings:related': (relativePath: string, limit?: number) => RelatedNotesResult;
+  'embeddings:searchText': (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) => RelatedNotesResult;
 }

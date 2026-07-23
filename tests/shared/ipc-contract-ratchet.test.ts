@@ -44,7 +44,6 @@ const UNMIGRATED_DOMAINS = new Set<string>([
   'compute',
   'conversation',
   'csl',
-  'embeddings',
   'excerpt',
   'excerpts',
   'files',
@@ -52,14 +51,11 @@ const UNMIGRATED_DOMAINS = new Set<string>([
   'graph',
   'ingest',
   'inspections',
-  'links',
   'menu',
   'project',
   'proposal',
   'publish',
-  'queries',
   'refactor',
-  'search',
   'skills',
   'sources',
   'tables',
@@ -80,6 +76,7 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.NOTEBASE_RENAMED,
   Channels.NOTEBASE_REWRITTEN,
   Channels.NOTEBASE_HEADING_RENAME_SUGGESTED,
+  Channels.EMBEDDINGS_BACKFILL_PROGRESS,
 ]);
 
 /** Parse the `ChannelMap` keys out of the contract source (single source of truth). */

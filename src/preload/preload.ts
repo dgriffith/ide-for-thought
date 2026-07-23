@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, webFrame } from 'electron';
 import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
-import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession } from '../shared/types';
+import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 
 /**
@@ -81,33 +81,33 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, dismissed),
   },
   links: {
-    outgoing: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_OUTGOING, relativePath),
-    backlinks: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BACKLINKS, relativePath),
-    bundle: (relativePath: string) => ipcRenderer.invoke(Channels.LINKS_BUNDLE, relativePath),
+    outgoing: (relativePath: string) => invoke(Channels.LINKS_OUTGOING, relativePath),
+    backlinks: (relativePath: string) => invoke(Channels.LINKS_BACKLINKS, relativePath),
+    bundle: (relativePath: string) => invoke(Channels.LINKS_BUNDLE, relativePath),
     citationsForNote: (relativePath: string, content?: string) =>
-      ipcRenderer.invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
+      invoke(Channels.LINKS_CITATIONS_FOR_NOTE, relativePath, content),
     externalInbound: (paths: string[]) =>
-      ipcRenderer.invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
-    neighborhood: (relativePath: string, opts?: unknown) =>
-      ipcRenderer.invoke(Channels.LINKS_NEIGHBORHOOD, relativePath, opts),
+      invoke(Channels.LINKS_EXTERNAL_INBOUND, paths),
+    neighborhood: (relativePath: string, opts?: NeighborhoodOptions) =>
+      invoke(Channels.LINKS_NEIGHBORHOOD, relativePath, opts),
     expandNode: (relativePath: string) =>
-      ipcRenderer.invoke(Channels.LINKS_EXPAND_NODE, relativePath),
+      invoke(Channels.LINKS_EXPAND_NODE, relativePath),
   },
   queries: {
-    list: () => ipcRenderer.invoke(Channels.QUERIES_LIST),
-    save: (scope: string, name: string, description: string, query: string, language: string, group: string | null = null) =>
-      ipcRenderer.invoke(Channels.QUERIES_SAVE, scope, name, description, query, language, group),
-    delete: (filePath: string) => ipcRenderer.invoke(Channels.QUERIES_DELETE, filePath),
-    rename: (filePath: string, newName: string) => ipcRenderer.invoke(Channels.QUERIES_RENAME, filePath, newName),
+    list: () => invoke(Channels.QUERIES_LIST),
+    save: (scope: string, name: string, description: string, query: string, language: 'sparql' | 'sql', group: string | null = null) =>
+      invoke(Channels.QUERIES_SAVE, scope, name, description, query, language, group),
+    delete: (filePath: string) => invoke(Channels.QUERIES_DELETE, filePath),
+    rename: (filePath: string, newName: string) => invoke(Channels.QUERIES_RENAME, filePath, newName),
     move: (filePath: string, newScope: 'project' | 'global') =>
-      ipcRenderer.invoke(Channels.QUERIES_MOVE, filePath, newScope),
+      invoke(Channels.QUERIES_MOVE, filePath, newScope),
     setGroup: (filePath: string, group: string | null) =>
-      ipcRenderer.invoke(Channels.QUERIES_SET_GROUP, filePath, group),
+      invoke(Channels.QUERIES_SET_GROUP, filePath, group),
     setOrder: (entries: Array<{ filePath: string; order: number | null }>) =>
-      ipcRenderer.invoke(Channels.QUERIES_SET_ORDER, entries),
+      invoke(Channels.QUERIES_SET_ORDER, entries),
   },
   search: {
-    query: (query: string) => ipcRenderer.invoke(Channels.SEARCH_QUERY, query),
+    query: (query: string) => invoke(Channels.SEARCH_QUERY, query),
   },
   git: {
     status: () => invoke(Channels.GIT_STATUS),
@@ -130,9 +130,9 @@ contextBridge.exposeInMainWorld('api', {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
       subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
     related: (relativePath: string, limit?: number) =>
-      ipcRenderer.invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
+      invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
     searchText: (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) =>
-      ipcRenderer.invoke(Channels.EMBEDDINGS_SEARCH_TEXT, query, opts),
+      invoke(Channels.EMBEDDINGS_SEARCH_TEXT, query, opts),
   },
   tables: {
     query: (sql: string) => ipcRenderer.invoke(Channels.TABLES_QUERY, sql),
