@@ -228,76 +228,76 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.SHELL_OPEN_EXTERNAL, url),
   },
   conversations: {
-    create: (contextBundle: unknown, triggerNodeUri?: string, options?: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, options),
-    append: (id: string, role: string, content: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_APPEND, id, role, content),
-    archive: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_ARCHIVE, id),
-    load: (id: string) => ipcRenderer.invoke(Channels.CONVERSATION_LOAD, id),
-    list: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST),
-    listActive: () => ipcRenderer.invoke(Channels.CONVERSATION_LIST_ACTIVE),
-    send: (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: unknown[]) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
-    loadUIState: () => ipcRenderer.invoke(Channels.CONVERSATION_UI_STATE_LOAD),
-    saveUIState: (state: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
+    create: (contextBundle: Parameters<ChannelMap['conversation:create']>[0], triggerNodeUri?: string, options?: Parameters<ChannelMap['conversation:create']>[2]) =>
+      invoke(Channels.CONVERSATION_CREATE, contextBundle, triggerNodeUri, options),
+    append: (id: string, role: Parameters<ChannelMap['conversation:append']>[1], content: string) =>
+      invoke(Channels.CONVERSATION_APPEND, id, role, content),
+    archive: (id: string) => invoke(Channels.CONVERSATION_ARCHIVE, id),
+    load: (id: string) => invoke(Channels.CONVERSATION_LOAD, id),
+    list: () => invoke(Channels.CONVERSATION_LIST),
+    listActive: () => invoke(Channels.CONVERSATION_LIST_ACTIVE),
+    send: (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: Parameters<ChannelMap['conversation:send']>[4]) =>
+      invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
+    loadUIState: () => invoke(Channels.CONVERSATION_UI_STATE_LOAD),
+    saveUIState: (state: Parameters<ChannelMap['conversation:uiStateSave']>[0]) => invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
     onAskUser: (cb: (req: unknown) => void) => subscribeIpc(Channels.CONVERSATION_ASK_USER, cb),
     askUserReply: (questionId: string, answer: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
+      invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
     onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.CONVERSATION_STREAM, cb),
-    cancel: () => ipcRenderer.invoke(Channels.CONVERSATION_CANCEL),
+    cancel: () => invoke(Channels.CONVERSATION_CANCEL),
     onDraft: (cb: (draft: unknown) => void) => subscribeIpc(Channels.CONVERSATION_DRAFT, cb),
-    fileDraft: (draft: unknown) => ipcRenderer.invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
+    fileDraft: (draft: Parameters<ChannelMap['conversation:fileDraft']>[0]) => invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
     onSourceDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_SOURCE_DRAFT, cb),
-    fileSourceDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_SOURCE_DRAFT, draft),
+    fileSourceDraft: (draft: Parameters<ChannelMap['conversation:fileSourceDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_SOURCE_DRAFT, draft),
     onPropertyDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_PROPERTY_DRAFT, cb),
-    filePropertyDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_PROPERTY_DRAFT, draft),
+    filePropertyDraft: (draft: Parameters<ChannelMap['conversation:filePropertyDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_PROPERTY_DRAFT, draft),
     onSourcePropertyDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, cb),
-    fileSourcePropertyDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT, draft),
+    fileSourcePropertyDraft: (draft: Parameters<ChannelMap['conversation:fileSourcePropertyDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT, draft),
     onClaimsDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_CLAIMS_DRAFT, cb),
-    fileClaimsDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_CLAIMS_DRAFT, draft),
+    fileClaimsDraft: (draft: Parameters<ChannelMap['conversation:fileClaimsDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_CLAIMS_DRAFT, draft),
     onComputeDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
-    runComputeDraft: (input: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_RUN_COMPUTE_DRAFT, input),
+    runComputeDraft: (input: Parameters<ChannelMap['conversation:runComputeDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_RUN_COMPUTE_DRAFT, input),
     onRefactorDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_REFACTOR_DRAFT, cb),
-    fileRefactorDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, draft),
+    fileRefactorDraft: (draft: Parameters<ChannelMap['conversation:fileRefactorDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, draft),
     onReorgDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_REORG_DRAFT, cb),
-    fileReorgDraft: (draft: unknown, selected: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_REORG_DRAFT, draft, selected),
+    fileReorgDraft: (draft: Parameters<ChannelMap['conversation:fileReorgDraft']>[0], selected: Parameters<ChannelMap['conversation:fileReorgDraft']>[1]) =>
+      invoke(Channels.CONVERSATION_FILE_REORG_DRAFT, draft, selected),
     onDeleteDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_DELETE_DRAFT, cb),
-    fileDeleteDraft: (draft: unknown, selected: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
+    fileDeleteDraft: (draft: Parameters<ChannelMap['conversation:fileDeleteDraft']>[0], selected: Parameters<ChannelMap['conversation:fileDeleteDraft']>[1]) =>
+      invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
     onNoteBodyDraft: (cb: (draft: unknown) => void) =>
       subscribeIpc(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
-    fileNoteBodyDraft: (draft: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
-    insertComputeDraft: (input: unknown) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
+    fileNoteBodyDraft: (draft: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
+    insertComputeDraft: (input: Parameters<ChannelMap['conversation:insertComputeDraft']>[0]) =>
+      invoke(Channels.CONVERSATION_INSERT_COMPUTE_DRAFT, input),
     setModel: (conversationId: string, model: string | undefined) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
-    setEffort: (conversationId: string, effort: string | undefined) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_SET_EFFORT, conversationId, effort),
+      invoke(Channels.CONVERSATION_SET_MODEL, conversationId, model),
+    setEffort: (conversationId: string, effort: Parameters<ChannelMap['conversation:setEffort']>[1]) =>
+      invoke(Channels.CONVERSATION_SET_EFFORT, conversationId, effort),
     compact: (conversationId: string) =>
-      ipcRenderer.invoke(Channels.CONVERSATION_COMPACT, conversationId),
+      invoke(Channels.CONVERSATION_COMPACT, conversationId),
   },
   proposals: {
-    list: (status?: string) => ipcRenderer.invoke(Channels.PROPOSAL_LIST, status),
-    detail: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_DETAIL, uri),
-    approve: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_APPROVE, uri),
-    reject: (uri: string) => ipcRenderer.invoke(Channels.PROPOSAL_REJECT, uri),
-    expire: () => ipcRenderer.invoke(Channels.PROPOSAL_EXPIRE),
+    list: (status?: string) => invoke(Channels.PROPOSAL_LIST, status),
+    detail: (uri: string) => invoke(Channels.PROPOSAL_DETAIL, uri),
+    approve: (uri: string) => invoke(Channels.PROPOSAL_APPROVE, uri),
+    reject: (uri: string) => invoke(Channels.PROPOSAL_REJECT, uri),
+    expire: () => invoke(Channels.PROPOSAL_EXPIRE),
   },
   bookmarks: {
     load: () => invoke(Channels.BOOKMARKS_LOAD),

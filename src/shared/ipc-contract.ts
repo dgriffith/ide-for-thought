@@ -66,6 +66,17 @@ import type {
 } from './types';
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
+import type { Conversation, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './types';
+import type { ConversationToolKey } from './conversation-tools';
+import type { Effort } from './tools/effort';
+import type { ConversationDraft, FileDraftResult } from './conversation-drafts';
+import type { ConversationSourceDraft, FileSourceDraftResult } from './conversation-source-drafts';
+import type { ConversationPropertyDraft, FilePropertyDraftResult } from './conversation-property-drafts';
+import type { ConversationSourcePropertyDraft, FileSourcePropertyDraftResult } from './conversation-source-property-drafts';
+import type { ConversationClaimsDraft, FileClaimsDraftResult } from './conversation-claims-drafts';
+import type { RunComputeDraftInput, RunComputeDraftResult, InsertComputeDraftInput, InsertComputeDraftResult } from './conversation-compute-drafts';
+import type { ConversationRefactorDraft, ConversationReorgDraft, ConversationDeleteDraft } from './conversation-refactor-drafts';
+import type { ConversationNoteBodyDraft, FileNoteBodyDraftResult } from './conversation-note-body-drafts';
 
 // `HeadingRenameCandidate` is part of the notebase wire contract (the
 // NOTEBASE_HEADING_RENAME_SUGGESTED event payload) but isn't an
@@ -428,6 +439,42 @@ export interface ChannelMap {
   'collections:deleteSmart': (id: string) => void;
   'collections:updateSmartPredicate': (args: { id: string; predicate: SmartCollectionPredicate }) => void;
   'collections:smartMembers': (id: string) => SourceMetadata[];
+
+  // Proposals (approval engine)
+  'proposal:list': (status?: string) => unknown[];
+  'proposal:detail': (uri: string) => unknown;
+  'proposal:approve': (uri: string) => boolean;
+  'proposal:reject': (uri: string) => boolean;
+  'proposal:expire': () => number;
+
+  // Conversations
+  'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) => Conversation;
+  'conversation:append': (id: string, role: ConversationMessage['role'], content: string) => Conversation;
+  'conversation:archive': (id: string) => Conversation;
+  'conversation:load': (id: string) => Conversation | null;
+  'conversation:list': () => Conversation[];
+  'conversation:listActive': () => Conversation[];
+  'conversation:send': (convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: ConversationToolKey[]) => Conversation;
+  'conversation:cancel': () => void;
+  'conversation:uiStateLoad': () => ConversationsUIState;
+  'conversation:uiStateSave': (state: ConversationsUIState) => void;
+  'conversation:askUserReply': (questionId: string, answer: string) => void;
+  'conversation:setModel': (conversationId: string, model: string | undefined) => Conversation;
+  'conversation:setEffort': (conversationId: string, effort: Effort | undefined) => Conversation;
+  'conversation:compact': (conversationId: string) => CompactResult;
+
+  // Conversation draft filing (renderer approves an inline card)
+  'conversation:fileDraft': (draft: ConversationDraft) => FileDraftResult;
+  'conversation:fileSourceDraft': (draft: ConversationSourceDraft) => FileSourceDraftResult;
+  'conversation:filePropertyDraft': (draft: ConversationPropertyDraft) => FilePropertyDraftResult;
+  'conversation:fileSourcePropertyDraft': (draft: ConversationSourcePropertyDraft) => FileSourcePropertyDraftResult;
+  'conversation:fileClaimsDraft': (draft: ConversationClaimsDraft) => FileClaimsDraftResult;
+  'conversation:runComputeDraft': (input: RunComputeDraftInput) => RunComputeDraftResult;
+  'conversation:insertComputeDraft': (input: InsertComputeDraftInput) => InsertComputeDraftResult;
+  'conversation:fileRefactorDraft': (draft: ConversationRefactorDraft) => { proposalUri: string | null; applied: boolean };
+  'conversation:fileReorgDraft': (draft: ConversationReorgDraft, selected: Array<{ fromPath: string; toPath: string }>) => { proposalUri: string | null; applied: boolean };
+  'conversation:fileDeleteDraft': (draft: ConversationDeleteDraft, selected: string[]) => { proposalUri: string | null; applied: boolean };
+  'conversation:fileNoteBodyDraft': (draft: ConversationNoteBodyDraft) => FileNoteBodyDraftResult;
 }
 
 /** A configured "Publish → git remote" destination (#254). Mirror of the

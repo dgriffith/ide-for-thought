@@ -37,10 +37,8 @@ function domainOf(channel: string): string {
  * key.
  */
 const UNMIGRATED_DOMAINS = new Set<string>([
-  'conversation',
   'menu',
   'project',
-  'proposal',
 ]);
 
 /**
@@ -67,6 +65,18 @@ const EVENT_CHANNELS = new Set<string>([
   Channels.SOURCES_IMPORT_BIBTEX_PROGRESS,
   Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS,
   Channels.COLLECTIONS_CHANGED,
+  Channels.CONVERSATION_STREAM,
+  Channels.CONVERSATION_DRAFT,
+  Channels.CONVERSATION_SOURCE_DRAFT,
+  Channels.CONVERSATION_PROPERTY_DRAFT,
+  Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT,
+  Channels.CONVERSATION_CLAIMS_DRAFT,
+  Channels.CONVERSATION_COMPUTE_DRAFT,
+  Channels.CONVERSATION_REFACTOR_DRAFT,
+  Channels.CONVERSATION_REORG_DRAFT,
+  Channels.CONVERSATION_DELETE_DRAFT,
+  Channels.CONVERSATION_NOTE_BODY_DRAFT,
+  Channels.CONVERSATION_ASK_USER,
 ]);
 
 /** Parse the `ChannelMap` keys out of the contract source (single source of truth). */

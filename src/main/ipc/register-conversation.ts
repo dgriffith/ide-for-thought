@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
@@ -27,6 +26,7 @@ import {
   buildComputeProposalNoteBlock,
 } from './register-compute';
 import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
+import { handle } from './typed-ipc';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
@@ -162,30 +162,30 @@ function ensureDraftItems<T>(draft: unknown, field: string, label: string): T[] 
 
 export function registerConversation(): void {
   // Proposals
-  ipcMain.handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
+  handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
     approval.listProposals(projectContext(rootPath), status)));
-  ipcMain.handle(Channels.PROPOSAL_DETAIL, withRootPathOr(null, (rootPath, uri: string) =>
+  handle(Channels.PROPOSAL_DETAIL, withRootPathOr(null, (rootPath, uri: string) =>
     approval.getProposal(projectContext(rootPath), uri)));
-  ipcMain.handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
+  handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
     const result = await approval.approveProposal(projectContext(rootPath), uri);
     return result.ok;
   }));
-  ipcMain.handle(Channels.PROPOSAL_REJECT, withRootPathOr<[string], boolean | Promise<boolean>>(false, (rootPath, uri: string) =>
+  handle(Channels.PROPOSAL_REJECT, withRootPathOr<[string], boolean | Promise<boolean>>(false, (rootPath, uri: string) =>
     approval.rejectProposal(projectContext(rootPath), uri)));
-  ipcMain.handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
+  handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
     approval.expireProposals(projectContext(rootPath))));
 
   // Conversations
-  ipcMain.handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
+  handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
     conversation.create(contextBundle, triggerNodeUri, options));
-  ipcMain.handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
+  handle(Channels.CONVERSATION_APPEND, (_e, id: string, role: ConversationMessage['role'], content: string) =>
     conversation.appendMessage(id, role, content));
-  ipcMain.handle(Channels.CONVERSATION_ARCHIVE, (_e, id: string) => conversation.archive(id));
-  ipcMain.handle(Channels.CONVERSATION_LOAD, (_e, id: string) => conversation.load(id));
-  ipcMain.handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
-  ipcMain.handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
-  ipcMain.handle(Channels.CONVERSATION_UI_STATE_LOAD, () => conversation.loadUIState());
-  ipcMain.handle(
+  handle(Channels.CONVERSATION_ARCHIVE, (_e, id: string) => conversation.archive(id));
+  handle(Channels.CONVERSATION_LOAD, (_e, id: string) => conversation.load(id));
+  handle(Channels.CONVERSATION_LIST, () => conversation.listAll());
+  handle(Channels.CONVERSATION_LIST_ACTIVE, () => conversation.listActive());
+  handle(Channels.CONVERSATION_UI_STATE_LOAD, () => conversation.loadUIState());
+  handle(
     Channels.CONVERSATION_UI_STATE_SAVE,
     (_e, state: import('../../shared/types').ConversationsUIState) => conversation.saveUIState(state),
   );
@@ -199,14 +199,14 @@ export function registerConversation(): void {
   // loop unwinds cleanly instead of hanging on an answered-never promise.
   const pendingAskUser = new Map<string, { winId: number; resolve: (answer: string) => void; reject: (err: Error) => void }>();
 
-  ipcMain.handle(Channels.CONVERSATION_ASK_USER_REPLY, (_e, questionId: string, answer: string) => {
+  handle(Channels.CONVERSATION_ASK_USER_REPLY, (_e, questionId: string, answer: string) => {
     const pending = pendingAskUser.get(questionId);
     if (!pending) return;
     pendingAskUser.delete(questionId);
     pending.resolve(answer);
   });
 
-  ipcMain.handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
+  handle(Channels.CONVERSATION_SEND, async (e, convId: string, userMessage: string, systemPrompt?: string, currentNotePath?: string, extraTools?: import('../../shared/conversation-tools').ConversationToolKey[]) => {
     const win = winFromEvent(e);
     const rootPath = rootPathFromEvent(e);
     const controller = new AbortController();
@@ -378,7 +378,7 @@ export function registerConversation(): void {
     }
   });
 
-  ipcMain.handle(Channels.CONVERSATION_CANCEL, (e) => {
+  handle(Channels.CONVERSATION_CANCEL, (e) => {
     const win = winFromEvent(e);
     const controller = convAbortControllers.get(win.id);
     if (controller) {
@@ -391,7 +391,7 @@ export function registerConversation(): void {
   // bundle through the standard approval engine AND auto-approve it —
   // the user already reviewed the card, a second pending state in the
   // Proposals panel would be redundant. (See conversation-drafts.ts.)
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_DRAFT,
     withRootPath(async (rootPath, draft: import('../../shared/conversation-drafts').ConversationDraft) => {
       console.log('[conv] FILE_DRAFT received', {
@@ -424,7 +424,7 @@ export function registerConversation(): void {
   // Approve a refactor draft (#912): file + auto-apply a note-refactor proposal
   // (the user already reviewed the card). The blast radius is recomputed at apply
   // time by planRename, so only fromPath/toPath go onto the payload.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_REFACTOR_DRAFT,
     withRootPath(async (rootPath, draft: import('../../shared/conversation-refactor-drafts').ConversationRefactorDraft) => {
       if (!draft?.fromPath || !draft?.toPath) throw new Error('FILE_REFACTOR_DRAFT: draft is missing fromPath/toPath');
@@ -445,7 +445,7 @@ export function registerConversation(): void {
   // ordered note-refactor bundle. applyBundle applies in order and rolls the whole
   // bundle back on any failure, so the vault never lands half-reorganized. Each
   // item re-plans at apply time (picking up earlier moves in the same bundle).
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_REORG_DRAFT,
     withRootPath(async (
       rootPath,
@@ -473,7 +473,7 @@ export function registerConversation(): void {
   // applyBundle is atomic — if any unlink fails, the already-deleted notes are
   // restored from their captured pre-images. The user reviewed the card (per-note
   // blast radius), so this auto-approves once the selection comes back.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_DELETE_DRAFT,
     withRootPath(async (
       rootPath,
@@ -501,7 +501,7 @@ export function registerConversation(): void {
   // reviewed the before/after diff on the card), then broadcasts
   // NOTEBASE_REWRITTEN for the overwritten path so an open editor reloads the
   // new content — approval.ts stays Electron-free and just returns the paths.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT,
     withRootPath(async (
       rootPath,
@@ -540,7 +540,7 @@ export function registerConversation(): void {
   // node per supporting quote (anchored by char offsets) + a thought:Claim note
   // per claim that quotes its excerpt and carries its confidence. Excerpt
   // payloads go first so the node exists before the note's quotes edge resolves.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_CLAIMS_DRAFT,
     withRootPath(async (
       rootPath,
@@ -620,7 +620,7 @@ export function registerConversation(): void {
   // handlers, Crossref/arXiv/PubMed lookup, and dedupe. Per-source
   // errors are non-fatal: one failing entry doesn't block the rest of
   // the bundle.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_SOURCE_DRAFT,
     withRootPathWin(async (
       rootPath,
@@ -688,7 +688,7 @@ export function registerConversation(): void {
   // Reads each note, applies its frontmatter patch via
   // `patchFrontmatterProperties`, and writes the result back. Per-note
   // errors are non-fatal — the rest of the bundle still applies.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_PROPERTY_DRAFT,
     withRootPath(async (
       rootPath,
@@ -727,7 +727,7 @@ export function registerConversation(): void {
   // (#103). Upserts the proposed dc:abstract / thought:tldr into the source's
   // meta.ttl and reindexes — the single human-confirm gate for an
   // LLM-originated source-metadata write.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT,
     withRootPath(async (
       rootPath,
@@ -779,7 +779,7 @@ export function registerConversation(): void {
   // ComputeProposal in the graph with thought:executed=true, and
   // append the result to the conversation log so the LLM's next
   // turn sees it as user-role context.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_RUN_COMPUTE_DRAFT,
     withRootPath(async (
       rootPath,
@@ -818,7 +818,7 @@ export function registerConversation(): void {
   // frontmatter (#245). Default destination is
   // `notes/inbox/conversations/<conversationId>.md`; the user can
   // override via the destinationPath argument.
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_INSERT_COMPUTE_DRAFT,
     withRootPath(async (
       rootPath,
@@ -848,18 +848,18 @@ export function registerConversation(): void {
     }),
   );
 
-  ipcMain.handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
+  handle(Channels.CONVERSATION_SET_MODEL, async (_e, convId: string, model: string | undefined) => {
     return conversation.setModel(convId, model);
   });
 
-  ipcMain.handle(
+  handle(
     Channels.CONVERSATION_SET_EFFORT,
     async (_e, convId: string, effort: import('../../shared/tools/effort').Effort | undefined) => {
       return conversation.setEffort(convId, effort);
     },
   );
 
-  ipcMain.handle(Channels.CONVERSATION_COMPACT, (_e, convId: string) => compactConversation(convId));
+  handle(Channels.CONVERSATION_COMPACT, (_e, convId: string) => compactConversation(convId));
 }
 
 /**
