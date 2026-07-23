@@ -2,45 +2,22 @@
     import {onDestroy} from 'svelte';
     import Icon from './Icon.svelte';
     import {installDismissOnClickOutside} from '../dismiss-menu';
-    import MarkdownIt from 'markdown-it';
-    // The Token *value* (used below for `new Token(...)` to inject a
-    // task-list checkbox) is now recovered from `inlineTok.constructor`
-    // (#347) so we no longer need a runtime import of
-    // `markdown-it/lib/token.mjs`. The remaining `import type` paths
-    // stay deep — `MarkdownIt.Token` / `MarkdownIt.StateBlock` namespace
-    // lookups don't resolve through `@types/markdown-it`'s `export = X`
-    // shape under isolatedModules — but type-only imports don't ship to
-    // the bundler and only fail loudly at typecheck if the typings move.
-    import type Token from 'markdown-it/lib/token.mjs';
-    import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
-    import hljs from 'highlight.js';
     import '../../styles/hljs-minerva.css';
     import 'katex/dist/katex.min.css';
-    import {installMath} from '../../../shared/markdown/math-plugin';
-    import {installDoiAutolink} from '../../../shared/markdown/doi-plugin';
-    import {installHighlight} from '../../../shared/markdown/highlight-plugin';
-    import {installCallouts} from '../markdown/callout-plugin';
-    import {installWikiLinks, installNoteTags, installTransclusions} from '../markdown/inline-tokens-plugin';
-    import {parseTransclusionTarget, sliceTransclusion} from '../../../shared/transclusion';
-    import {resolveWikiLinkTarget, flattenNoteFiles} from '../../../shared/wiki-link-resolver';
     import {hydrateMermaidBlocks, invalidateMermaidTheme} from '../markdown/mermaid-renderer';
     import {hydrateVegaBlocks, invalidateVegaTheme} from '../markdown/vega-renderer';
-    import {renderYouTubeFence} from '../markdown/youtube-embed';
     import {hydrateCardCallouts} from '../markdown/card-callout';
-    import {detectDataSource} from '../../../shared/vega/data-binding';
     import {slugify} from '../../../shared/slug';
+    import {createPreviewMarkdown} from '../preview/markdown-config';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
     import {type ChartHandle} from '../charts';
     import {getToolInfosByCategory} from '../tools/tool-registry';
-    import mdFootnote from 'markdown-it-footnote';
     import {planOutputEdit} from '../editor/output-block';
     import {findRunnableFences, codeOf, RUNNABLE_LANGUAGE_SET} from '../../../shared/compute/fences';
     import {runAllCellsInContent} from '../compute/run-all-cells';
     import type {CellResult} from '../ipc/client';
-    import {escapeAttr, stripFrontmatter, countFrontmatterLines} from '../preview/text';
-    import {resolveRelativeImagePath, mimeFromPath} from '../preview/image-paths';
-    import {mediaKind, mediaMime} from '../../../shared/media';
+    import {stripFrontmatter, countFrontmatterLines} from '../preview/text';
     import {
         type CiteMeta,
         type QuoteMeta,
@@ -52,13 +29,20 @@
     } from '../preview/cite-meta';
     import { makeNotePreviewFetcher } from '../editor/note-preview';
     import {
-        findSourceFenceBefore,
-        renderComputeOutput,
         tableToCsv,
         outputToMarkdownClipboard
     } from '../preview/compute-output-render';
     import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
     import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
+    import {
+        type HydrateContext,
+        highlightCodeBlocks,
+        hydrateLocalImages,
+        hydrateRemoteImages,
+        hydrateYouTubeThumbnails,
+        hydrateTransclusions,
+        hydrateLocalMedia,
+    } from '../preview/hydrate';
 
     interface Props {
         content: string;
@@ -227,354 +211,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // render (and cleared after) threads that context into the image rule below.
     let renderPathOverride: string | null = null;
 
-    const md = new MarkdownIt({
-        html: true,
-        linkify: true,
-        typographer: true,
-        // No synchronous `highlight` (perf #1114). hljs.highlight is O(code
-        // size) and, inside md.render, runs on the critical debounced-render
-        // path — a large note with many/large fences blocks the main thread
-        // before anything paints. Instead markdown-it emits plain escaped code
-        // carrying its `language-…` class, and `highlightCodeBlocks()` applies
-        // hljs to each block in a post-render pass (off the critical path,
-        // after paint). Output is identical — the same hljs span markup — just
-        // computed later.
+    const md = createPreviewMarkdown({
+        collapsedFences,
+        runningFences,
+        getRenderPathOverride: () => renderPathOverride,
+        getNotePath: () => notePath,
+        getCanRun: () => !!(onRunCell && onApplyCellOutputEdit && notePath),
     });
-    // Disable setext (underline) headings. Minerva is ATX-only by convention —
-    // the heading extractor deliberately skips `text\n---` — and leaving lheading
-    // on actively breaks `[!card]` flashcards: the front line plus a `---` divider
-    // parse as a setext `<h2>`, so the callout never forms and the raw
-    // `[!card] ^id` marker leaks out as heading text. Off, `---` is the thematic
-    // break the card syntax intends. (#850 polish)
-    md.disable('lheading');
-    installMath(md);
-    installCallouts(md);
-    installDoiAutolink(md);
-    installHighlight(md);
-    // Footnotes — markdown-it-footnote renders `[^id]` as a numbered
-    // superscript anchored to a back-of-note `<section class="footnotes">`,
-    // and each footnote body links back to the ref. Both jumps fire
-    // through the existing `<a href="#id">` machinery — `handleClick`
-    // below intercepts internal anchor clicks and scrolls the matching
-    // element into view.
-    md.use(mdFootnote);
-
-    // Give every heading an id derived from its text so [[note#heading]] anchor
-    // navigation can target it. Slugs must match the indexer's convention.
-    const defaultHeadingOpen = md.renderer.rules.heading_open;
-    md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
-        const inline = tokens[idx + 1];
-        const text = inline && inline.type === 'inline' ? inline.content : '';
-        const slug = slugify(text);
-        if (slug) tokens[idx]!.attrSet('id', slug);
-        return defaultHeadingOpen
-            ? defaultHeadingOpen(tokens, idx, options, env, self)
-            : self.renderToken(tokens, idx, options);
-    };
-
-    // Watch for block-id paragraphs (`^block-id` at paragraph end) and mirror
-    // them onto the rendered <p> so [[note#^id]] scrolls can find the target.
-    const BLOCK_ID_RE = /\s*\^([\w-]+)\s*$/;
-    const defaultParagraphOpen = md.renderer.rules.paragraph_open;
-    md.renderer.rules.paragraph_open = (tokens, idx, options, env, self) => {
-        const inline = tokens[idx + 1];
-        if (inline && inline.type === 'inline') {
-            const m = inline.content.match(BLOCK_ID_RE);
-            if (m) {
-                tokens[idx]!.attrSet('id', `^${m[1]}`);
-                // Strip the marker from what renders.
-                inline.content = inline.content.replace(BLOCK_ID_RE, '');
-                if (inline.children) {
-                    for (let i = inline.children.length - 1; i >= 0; i--) {
-                        const child = inline.children[i]!;
-                        if (child.type === 'text') {
-                            const stripped = child.content.replace(BLOCK_ID_RE, '');
-                            if (stripped !== child.content) {
-                                child.content = stripped;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return defaultParagraphOpen
-            ? defaultParagraphOpen(tokens, idx, options, env, self)
-            : self.renderToken(tokens, idx, options);
-    };
-
-    // Task-list items: when a list item starts with `[ ]` or `[x]`, render a
-    // live <input type="checkbox"> and stamp `data-task-line` with the source
-    // line (from the list_item_open token's `map`) so the click handler on
-    // the preview root knows which line to flip in the editor store (#127).
-    const TASK_ITEM_RE = /^\[([ xX])\]\s/;
-    const defaultListItemOpen = md.renderer.rules.list_item_open;
-    md.renderer.rules.list_item_open = (tokens, idx, options, env, self) => {
-        // Scan forward to the first inline token inside this list item (typical
-        // structure: list_item_open → paragraph_open → inline). Stop if we hit
-        // the matching close without finding one.
-        let k = idx + 1;
-        while (k < tokens.length && tokens[k]!.type !== 'inline' && tokens[k]!.type !== 'list_item_close') k++;
-        const inlineTok = k < tokens.length && tokens[k]!.type === 'inline' ? tokens[k]! : null;
-        if (inlineTok) {
-            const m = inlineTok.content.match(TASK_ITEM_RE);
-            if (m) {
-                const checked = m[1] === 'x' || m[1] === 'X';
-                // `map[0]` is 0-indexed within whatever source was passed to
-                // `md.render` — which is the frontmatter-stripped content below.
-                // Add the env-carried offset so the checkbox's data-task-line
-                // points at the line index in the original note.
-                const rawLine = tokens[idx]!.map?.[0] ?? -1;
-                const line = rawLine >= 0 ? rawLine + ((env as { lineOffset?: number })?.lineOffset ?? 0) : -1;
-                tokens[idx]!.attrSet('data-task-line', String(line));
-                tokens[idx]!.attrJoin('class', 'task-list-item');
-                // Strip the `[ ]` prefix from the inline's aggregate content and
-                // from its first text child so the rendered output doesn't repeat it.
-                inlineTok.content = inlineTok.content.replace(TASK_ITEM_RE, '');
-                if (inlineTok.children) {
-                    for (let i = 0; i < inlineTok.children.length; i++) {
-                        const child = inlineTok.children[i]!;
-                        if (child.type === 'text') {
-                            child.content = child.content.replace(TASK_ITEM_RE, '');
-                            break;
-                        }
-                    }
-                    // Inject the checkbox as an html_inline prefix on the inline tree.
-                    // Recover the Token constructor from the inline token itself so we
-                    // don't have to deep-import `markdown-it/lib/token.mjs` (#347).
-                    const TokenCtor = inlineTok.constructor as new (
-                        type: string, tag: string, nesting: -1 | 0 | 1,
-                    ) => Token;
-                    const cb = new TokenCtor('html_inline', '', 0);
-                    cb.content = `<input type="checkbox" data-task-line="${line}"${checked ? ' checked' : ''}> `;
-                    inlineTok.children.unshift(cb);
-                }
-            }
-        }
-        return defaultListItemOpen
-            ? defaultListItemOpen(tokens, idx, options, env, self)
-            : self.renderToken(tokens, idx, options);
-    };
-
-    // Wiki-link plugin: [[type::target|display]], [[type::target]], [[target|display]], [[target]]
-    installWikiLinks(md);
-    installNoteTags(md);
-    installTransclusions(md);
-
-    /**
-     * Image rule (#244). markdown-it would normally emit `<img src="…">`
-     * with the URL untouched; in the renderer that breaks for relative
-     * paths because the document base is the Vite dev server / packaged
-     * app URL, not the user's project root.
-     *
-     * Strategy: emit a placeholder `<img class="local-image" data-rel="…">`
-     * for relative paths and let a post-render pass fetch each via
-     * `api.notebase.readBinary`, then swap in a data URL. http(s) /
-     * data: / file: pass through unchanged.
-     */
-    md.renderer.rules.image = (tokens, idx, options, _env, self) => {
-        const tok = tokens[idx]!;
-        const srcIdx = tok.attrIndex('src');
-        if (srcIdx < 0) return self.renderToken(tokens, idx, options);
-        const src = tok.attrs![srcIdx]![1];
-        if (/^(?:data:|file:|blob:|mailto:)/i.test(src)) {
-            // Inline / already-local — render unchanged.
-            return self.renderToken(tokens, idx, options);
-        }
-        if (/^https?:/i.test(src) || src.startsWith('//')) {
-            // External network image — emit a cacheable placeholder. The remote
-            // `src` is the immediate/offline-uncached fallback; the post-render
-            // pass swaps in a locally-cached copy so it survives offline once
-            // viewed (#...).
-            const url = src.startsWith('//') ? `https:${src}` : src;
-            const altIdx = tok.attrIndex('alt');
-            const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
-            const titleIdx = tok.attrIndex('title');
-            const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
-            return `<img class="remote-image" data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title} loading="lazy" />`;
-        }
-        const rel = resolveRelativeImagePath(src, renderPathOverride ?? notePath);
-        const altIdx = tok.attrIndex('alt');
-        const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
-        const titleIdx = tok.attrIndex('title');
-        const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
-        // Local audio/video (#908): emit a player placeholder hydrated to a blob URL
-        // by the post-render pass (videos are too large to base64-inline like images).
-        const kind = mediaKind(rel);
-        if (kind === 'video') {
-            return `<video class="local-media" data-rel="${escapeAttr(rel)}" controls preload="metadata"${title}></video>`;
-        }
-        if (kind === 'audio') {
-            return `<audio class="local-media" data-rel="${escapeAttr(rel)}" controls preload="metadata"${title}></audio>`;
-        }
-        return `<img class="local-image" data-rel="${escapeAttr(rel)}" alt="${escapeAttr(alt)}"${title} />`;
-    };
-
-    // Custom fence rendering (#994). The markdown-it fence rule computes the
-    // shared context (token, 1-based source line) once, then dispatches on the
-    // lowercased info string via `fenceRenderers`. Runnable fences (a
-    // language-set membership test) and the default code-block wrapper (the
-    // fallthrough) aren't keyable by a single info string, so they're
-    // dispatched explicitly after the map lookup.
-    interface FenceRenderArgs {
-        tok: Token;
-        tokens: Token[];
-        idx: number;
-        info: string;
-        openingLine: number | null;
-        /** Reproduce markdown-it's built-in fence output (the highlighted code
-         *  block) — used by the runnable + default renderers. */
-        renderDefault: () => string;
-    }
-
-    const fenceRenderers: Record<string, (args: FenceRenderArgs) => string> = {
-        output: renderOutputFence,
-        mermaid: renderMermaidFence,
-        vega: renderVegaFence,
-        'vega-lite': renderVegaFence,
-        youtube: renderYouTubeFenceCard,
-    };
-
-    const defaultFence = md.renderer.rules.fence;
-    md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-        const tok = tokens[idx]!;
-        const info = tok.info.trim().toLowerCase();
-        // tok.map is the [startLine, endLine] of the fence in the
-        // SOURCE-FED-TO-md.render — 0-indexed, and that source has had
-        // the YAML frontmatter stripped (see `renderContent` above).
-        // `findRunnableFences` operates on the FULL content (frontmatter
-        // intact). Add back `env.lineOffset` (the frontmatter line count)
-        // and switch to 1-based numbering so the two helpers agree on
-        // line numbers — without this the lookup in `runFenceAt` would
-        // miss every fence in any note that has frontmatter. tok.map is
-        // null when markdown-it can't determine the position (rare;
-        // toolbar falls back to "no run button").
-        const frontmatterOffset = (env as { lineOffset?: number } | undefined)?.lineOffset ?? 0;
-        const openingLine = tok.map ? tok.map[0] + 1 + frontmatterOffset : null;
-        const renderDefault = () => (defaultFence
-            ? defaultFence(tokens, idx, options, env, self)
-            : self.renderToken(tokens, idx, options));
-        const args: FenceRenderArgs = { tok, tokens, idx, info, openingLine, renderDefault };
-
-        const typeRenderer = fenceRenderers[info];
-        if (typeRenderer) return typeRenderer(args);
-
-        // Runnable fences render a toolbar (▶ run + collapse) only when the
-        // source line is known; otherwise they fall through to the default
-        // code-block wrapper.
-        if (RUNNABLE_LANGUAGE_SET.has(info) && openingLine !== null) {
-            return renderRunnableFence(args, openingLine);
-        }
-        return renderDefaultFence(args);
-    };
-
-    // Compute-cell output blocks (#238). A ```output fence below an executable
-    // fence carries the JSON payload the executor produced; render it as a
-    // shape-specific artifact (table / error / text / pretty JSON) rather
-    // than as a generic highlighted code block. Users editing the note in
-    // source view still see the raw JSON and can delete the block to re-run.
-    function renderOutputFence(args: FenceRenderArgs): string {
-        const source = findSourceFenceBefore(args.tokens, args.idx);
-        return renderComputeOutput(args.tok.content, source);
-    }
-
-    function renderMermaidFence(args: FenceRenderArgs): string {
-        const { tok, openingLine } = args;
-        const escaped = (tok.content ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        // Mermaid blocks get a collapse toggle (no run — they auto-render
-        // on view) so a long diagram can be tucked away when scrolling
-        // through the rest of the note.
-        if (openingLine !== null) {
-            const isCollapsed = collapsedFences.has(openingLine);
-            return `<div class="fence-block fence-mermaid${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
-                + `<div class="fence-toolbar"><span class="fence-lang">mermaid</span>`
-                + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
-                + `</div>`
-                + `<div class="fence-body"><div class="mermaid-block" data-mermaid-pending="1">${escaped}</div></div>`
-                + `</div>\n`;
-        }
-        return `<div class="mermaid-block" data-mermaid-pending="1">${escaped}</div>\n`;
-    }
-
-    function renderVegaFence(args: FenceRenderArgs): string {
-        const { tok, info, openingLine } = args;
-        const escaped = (tok.content ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
-        const mode = info === 'vega' ? 'full' : 'lite';
-        // Like mermaid, charts auto-render on view (no run button) but get a
-        // collapse toggle so a tall chart can be tucked away. The lazy hydrator
-        // (vega-renderer.ts) swaps the placeholder for an embedded SVG chart.
-        const block = `<div class="vega-block" data-vega-pending="1" data-vega-mode="${mode}">${escaped}</div>`;
-        // A data-bound chart (#832 — `data.sparql` etc.) gets a refresh button so
-        // the user can re-run the query after the graph changes without editing
-        // the note. Inline charts don't need it. Cheap parse — charts are few.
-        let isBound = false;
-        try {
-            isBound = detectDataSource(JSON.parse(tok.content ?? '')) !== null;
-        } catch { /* not bound */
-        }
-        if (openingLine !== null) {
-            const isCollapsed = collapsedFences.has(openingLine);
-            const refreshBtn = isBound
-                ? `<button class="fence-refresh-btn" data-fence-action="refresh-vega" type="button" title="Refresh chart data">⟳</button>`
-                : '';
-            return `<div class="fence-block fence-vega${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}">`
-                + `<div class="fence-toolbar"><span class="fence-lang">${info}</span>`
-                + refreshBtn
-                + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
-                + `</div>`
-                + `<div class="fence-body">${block}</div>`
-                + `</div>\n`;
-        }
-        return `${block}\n`;
-    }
-
-    // A `youtube` fence renders a click-to-open poster card (#904) — thumbnail
-    // + ▶, opens in the browser on click. No live iframe, so no CSP change; the
-    // card is self-explanatory, so it skips the code-fence toolbar wrapper.
-    function renderYouTubeFenceCard(args: FenceRenderArgs): string {
-        return `${renderYouTubeFence(args.tok.content ?? '')}\n`;
-    }
-
-    // Runnable fences (python / sparql / sql) get a toolbar with a ▶
-    // run button (when the host wired `onRunCell` + `onApplyCellOutputEdit`)
-    // and a collapse toggle. The default highlighted-code body is
-    // wrapped inside `.fence-body` so the toggle can hide it.
-    function renderRunnableFence(args: FenceRenderArgs, openingLine: number): string {
-        const { info, renderDefault } = args;
-        const isCollapsed = collapsedFences.has(openingLine);
-        const isRunning = runningFences.has(openingLine);
-        const canRun = !!(onRunCell && onApplyCellOutputEdit && notePath);
-        const defaultRender = renderDefault();
-        const runBtn = canRun
-            ? `<button class="fence-run-btn" data-fence-action="run" type="button" title="Run cell" ${isRunning ? 'disabled' : ''}>${isRunning ? '⋯' : '▶'}</button>`
-            : '';
-        return `<div class="fence-block fence-runnable${isCollapsed ? ' fence-collapsed' : ''}" data-fence-line="${openingLine}" data-fence-lang="${info}">`
-            + `<div class="fence-toolbar">`
-            + `<span class="fence-lang">${info}</span>`
-            + runBtn
-            + `<button class="fence-collapse-btn" data-fence-action="collapse" type="button" title="Collapse / expand">${isCollapsed ? '▸' : '▾'}</button>`
-            + `</div>`
-            + `<div class="fence-body">${defaultRender}</div>`
-            + `</div>\n`;
-    }
-
-    function renderDefaultFence(args: FenceRenderArgs): string {
-        const { info, renderDefault } = args;
-        const rendered = renderDefault();
-        // Wrap non-runnable, non-mermaid fences in a code-block container
-        // carrying the language label (§8.5). Empty `info` (a bare ```)
-        // skips the wrapper so plain code blocks don't get a stray label.
-        if (info && info !== 'output') {
-            return `<div class="code-block" data-language="${info}">${rendered}</div>\n`;
-        }
-        return rendered;
-    }
 
     /**
      * Cache of {projectRelPath → data URL} for images referenced from
@@ -585,295 +228,11 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
      */
     const imageDataUrlCache = new Map<string, string>();
 
-    /**
-     * Deferred syntax highlighting (perf #1114). markdown-it now emits plain
-     * escaped code with a `language-…` class (no synchronous hljs on the render
-     * path); this post-render pass applies hljs to each not-yet-highlighted
-     * block. `data-hl` guards against re-highlighting on a revision-only re-run
-     * of the post-render effect. Output matches the old inline highlight exactly
-     * — the same `hljs.highlight(code, {language}).value` markup — just off the
-     * critical path. Unknown languages are left as escaped plain text (as before).
-     * Blocks are highlighted in `requestIdleCallback` chunks so a note with many
-     * large fences yields to input between batches instead of one long task.
-     */
-    function highlightCodeBlocks(): void {
-        const root = previewEl;
-        if (!root) return;
-        const blocks = Array.from(
-            root.querySelectorAll<HTMLElement>('pre > code[class*="language-"]:not([data-hl])'),
-        );
-        if (blocks.length === 0) return;
-
-        const highlightOne = (code: HTMLElement): void => {
-            code.dataset.hl = '1';
-            const langClass = Array.from(code.classList).find((c) => c.startsWith('language-'));
-            const lang = langClass?.slice('language-'.length);
-            if (!lang || !hljs.getLanguage(lang)) return;
-            try {
-                // textContent is the raw source (markdown-it escaped it into text
-                // nodes), which is exactly what hljs.highlight expects.
-                code.innerHTML = hljs.highlight(code.textContent ?? '', { language: lang }).value;
-            } catch { /* leave the escaped plain text in place */ }
-        };
-
-        const CHUNK = 12;
-        const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 0));
-        let i = 0;
-        const pump = (): void => {
-            const end = Math.min(i + CHUNK, blocks.length);
-            for (; i < end; i++) highlightOne(blocks[i]!);
-            if (i < blocks.length) idle(pump);
-        };
-        pump();
-    }
-
-    /**
-     * Post-render hydration: walk every `.local-image[data-rel]`
-     * placeholder, fetch the asset bytes via the binary IPC, and
-     * inline as a data URL. Cached so re-renders are O(1) per image.
-     */
-    async function hydrateLocalImages(): Promise<void> {
-        const root = previewEl;
-        if (!root) return;
-        const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.local-image[data-rel]'));
-        await Promise.all(imgs.map(async (img) => {
-            const rel = img.dataset.rel;
-            if (!rel) return;
-            const cached = imageDataUrlCache.get(rel);
-            if (cached) {
-                if (img.src !== cached) img.src = cached;
-                return;
-            }
-            try {
-                if (typeof api.notebase.readBinary !== 'function') {
-                    throw new Error(
-                        'api.notebase.readBinary is not exposed. Preload changes require a full Electron restart (Cmd-R reloads the renderer only).',
-                    );
-                }
-                const bytes = await api.notebase.readBinary(rel);
-                // Buffer encoding via btoa over a small string is cheap; the
-                // chunked builder avoids "Maximum call stack" for big images.
-                let bin = '';
-                const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-                const CHUNK = 0x8000;
-                for (let i = 0; i < view.length; i += CHUNK) {
-                    bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
-                }
-                const url = `data:${mimeFromPath(rel)};base64,${btoa(bin)}`;
-                imageDataUrlCache.set(rel, url);
-                img.src = url;
-            } catch (err) {
-                // Missing / unreadable — flag the placeholder visually and log
-                // the underlying error to the devtools console so a typo'd
-                // path or a missing asset is easy to debug.
-                console.warn('[preview] image hydration failed for', rel, err);
-                img.classList.add('local-image-broken');
-            }
-        }));
-    }
-
     /** url → data URL of a cached external image; survives re-renders. */
     const remoteImageCache = new Map<string, string>();
 
-    /**
-     * Post-render: swap each external `![](https://…)` image for a
-     * locally-cached copy (#...) so remote images render offline once viewed.
-     * `api.images.cacheExternal(url)` returns cached bytes — fetching + caching
-     * on a miss when online — as a data URL. A null result (offline + uncached,
-     * or not an image) leaves the remote `<img>` src as the fallback.
-     */
-    async function hydrateRemoteImages(): Promise<void> {
-        const root = previewEl;
-        if (!root || typeof api.images?.cacheExternal !== 'function') return;
-        const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.remote-image[data-remote-src]'));
-        await Promise.all(imgs.map(async (img) => {
-            const url = img.dataset.remoteSrc;
-            if (!url) return;
-            const cached = remoteImageCache.get(url);
-            if (cached) { if (img.src !== cached) img.src = cached; return; }
-            try {
-                const asset = await api.images.cacheExternal(url);
-                if (!asset) return; // offline + uncached — keep the remote fallback
-                const view: Uint8Array = asset.bytes instanceof Uint8Array ? asset.bytes : new Uint8Array(asset.bytes);
-                let bin = '';
-                const CHUNK = 0x8000;
-                for (let i = 0; i < view.length; i += CHUNK) {
-                    bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
-                }
-                const dataUrl = `data:${asset.mime || 'application/octet-stream'};base64,${btoa(bin)}`;
-                remoteImageCache.set(url, dataUrl);
-                img.src = dataUrl;
-            } catch (err) {
-                console.warn('[preview] remote image hydration failed for', url, err);
-            }
-        }));
-    }
-
     /** id → data URL of a cached YouTube poster; survives re-renders. */
     const youtubeThumbCache = new Map<string, string>();
-
-    /**
-     * Post-render: swap each YouTube card's remote poster for a locally-cached
-     * copy (#...). `api.youtube.thumbnail(id)` returns cached bytes — fetching +
-     * caching on a miss when online — so the poster survives offline once
-     * viewed. A null result (offline + uncached) leaves the remote `<img>` src
-     * as the fallback, which is the pre-cache behavior.
-     */
-    async function hydrateYouTubeThumbnails(): Promise<void> {
-        const root = previewEl;
-        if (!root || typeof api.youtube?.thumbnail !== 'function') return;
-        const imgs = Array.from(root.querySelectorAll<HTMLImageElement>('img.youtube-thumb[data-youtube-id]'));
-        await Promise.all(imgs.map(async (img) => {
-            const id = img.dataset.youtubeId;
-            if (!id) return;
-            const cached = youtubeThumbCache.get(id);
-            if (cached) { if (img.src !== cached) img.src = cached; return; }
-            try {
-                const bytes = await api.youtube.thumbnail(id);
-                if (!bytes) return; // offline + uncached — keep the remote fallback
-                const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-                let bin = '';
-                const CHUNK = 0x8000;
-                for (let i = 0; i < view.length; i += CHUNK) {
-                    bin += String.fromCharCode.apply(null, Array.from(view.subarray(i, i + CHUNK)));
-                }
-                const url = `data:image/jpeg;base64,${btoa(bin)}`;
-                youtubeThumbCache.set(id, url);
-                img.src = url;
-            } catch (err) {
-                console.warn('[preview] youtube thumbnail hydration failed for', id, err);
-            }
-        }));
-    }
-
-    /**
-     * Transclusion hydration (#906). Walk `.transclusion[data-embed]`
-     * placeholders, resolve each `![[target]]` to a note, slice out the
-     * requested section/block, render it through this same markdown
-     * pipeline, and inject it inline. Nested embeds resolve over repeated
-     * passes; a per-placeholder ancestry chain (seeded with the host note)
-     * catches loops, and a depth cap stops runaway nesting. Missing notes /
-     * headings / blocks degrade to a visible inline notice.
-     */
-    const TRANSCLUSION_MAX_DEPTH = 5;
-
-    async function hydrateTransclusions(): Promise<void> {
-        const root = previewEl;
-        if (!root) return;
-        if (!root.querySelector('.transclusion[data-embed]:not([data-resolved])')) return;
-
-        let flat: { relativePath: string; isDirectory: boolean }[] = [];
-        let aliasMap: Record<string, string> = {};
-        try {
-            const tree = await api.notebase.listFiles();
-            flat = flattenNoteFiles(tree).map((f) => ({relativePath: f.relativePath, isDirectory: false}));
-        } catch { /* tree not ready — every embed will degrade to a notice */
-        }
-        try {
-            aliasMap = await api.graph.aliasMap();
-        } catch { /* no aliases */
-        }
-
-        const hostChain = notePath ? [notePath] : [];
-        const notice = (ph: HTMLElement, text: string, cls: string) => {
-            ph.innerHTML = `<div class="transclusion-notice ${cls}"></div>`;
-            (ph.firstElementChild as HTMLElement).textContent = text;
-            ph.dataset.resolved = '1';
-        };
-
-        let injected = false;
-        for (let pass = 0; pass <= TRANSCLUSION_MAX_DEPTH; pass++) {
-            const todo = Array.from(
-                root.querySelectorAll<HTMLElement>('.transclusion[data-embed]:not([data-resolved])'),
-            );
-            if (todo.length === 0) break;
-
-            for (const ph of todo) {
-                const embed = ph.dataset.embed ?? '';
-                const target = parseTransclusionTarget(embed);
-                // Ancestry: nearest already-resolved transclusion above us carries the
-                // chain of source paths; top-level embeds inherit the host note's.
-                const ancestor = ph.parentElement?.closest<HTMLElement>('.transclusion[data-chain]');
-                const chain = ancestor?.dataset.chain ? JSON.parse(ancestor.dataset.chain) as string[] : hostChain;
-
-                const rel = resolveWikiLinkTarget(target.path, flat, aliasMap);
-                if (!rel) {
-                    notice(ph, `Note “${target.path}” not found`, 'transclusion-missing');
-                    continue;
-                }
-                if (chain.includes(rel)) {
-                    notice(ph, `Transclusion loop: ${target.path}`, 'transclusion-loop');
-                    continue;
-                }
-                if (chain.length > TRANSCLUSION_MAX_DEPTH) {
-                    notice(ph, 'Transclusion nested too deep', 'transclusion-loop');
-                    continue;
-                }
-
-                // Skip the readFile + slice + md.render for an unchanged embed
-                // (perf #1114): reuse the cached body HTML. The cache is cleared
-                // on `revision`, so a save to the embedded note re-renders it.
-                const cacheKey = `${rel}\u0000${embed}`;
-                let html = transclusionRenderCache.get(cacheKey);
-                if (html === undefined) {
-                    let fileContent: string;
-                    try {
-                        fileContent = await api.notebase.readFile(rel);
-                    } catch {
-                        notice(ph, `Could not read “${target.path}”`, 'transclusion-missing');
-                        continue;
-                    }
-
-                    const slice = sliceTransclusion(fileContent, target);
-                    if (!slice.ok) {
-                        notice(ph, slice.reason ?? 'Embedded content unavailable', 'transclusion-missing');
-                        continue;
-                    }
-
-                    renderPathOverride = rel;
-                    try {
-                        html = md.render(slice.text);
-                    } finally {
-                        renderPathOverride = null;
-                    }
-                    transclusionRenderCache.set(cacheKey, html);
-                }
-
-                const label = target.heading ? `${target.path} › ${target.heading}`
-                    : target.blockId ? `${target.path} › ^${target.blockId}` : target.path;
-                const header = document.createElement('a');
-                header.className = 'transclusion-open';
-                header.dataset.target = target.path;
-                header.textContent = label;
-                const body = document.createElement('div');
-                body.className = 'transclusion-body';
-                body.innerHTML = html;
-                ph.replaceChildren(header, body);
-                ph.dataset.chain = JSON.stringify([...chain, rel]);
-                ph.dataset.resolved = '1';
-                injected = true;
-            }
-        }
-
-        // Anything still unresolved bottomed out at the depth cap.
-        root.querySelectorAll<HTMLElement>('.transclusion[data-embed]:not([data-resolved])')
-            .forEach((ph) => notice(ph, 'Transclusion nested too deep', 'transclusion-loop'));
-
-        // Embedded fragments carry their own images / charts / cards / cite links /
-        // code fences — run the same post-render battery over the freshly injected
-        // subtree. The `data-hl` guard means the highlight pass only touches the
-        // newly-injected fences, not the host's already-highlighted ones.
-        if (injected) {
-            highlightCodeBlocks();
-            void hydrateLocalImages();
-            void hydrateRemoteImages();
-            void hydrateYouTubeThumbnails();
-            void resolveCiteQuoteLabels(citeDeps());
-            void hydrateMermaidBlocks(root);
-            void hydrateVegaBlocks(root, content);
-            hydrateCardCallouts(root);
-        }
-    }
 
     /* Blob-URL cache for local audio/video (#908). Unlike images (base64 data
     * URLs), media is held as `blob:` URLs — a 200 MB video can't be base64-inlined.
@@ -882,104 +241,10 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     */
     const mediaBlobCache = new Map<string, string>();
 
-    /** Post-render hydration for `.local-media[data-rel]` players — fetch the bytes
-     *  and point the element at a blob URL. Mirrors hydrateLocalImages. */
-    async function hydrateLocalMedia(): Promise<void> {
-        const root = previewEl;
-        if (!root) return;
-        const els = Array.from(root.querySelectorAll<HTMLMediaElement>('.local-media[data-rel]'));
-        await Promise.all(els.map(async (el) => {
-            const rel = el.dataset.rel;
-            if (!rel) return;
-            const cached = mediaBlobCache.get(rel);
-            if (cached) {
-                if (el.src !== cached) el.src = cached;
-                return;
-            }
-            try {
-                const bytes = await api.notebase.readBinary(rel);
-                const view: Uint8Array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-                const url = URL.createObjectURL(new Blob([view as BlobPart], {type: mediaMime(rel)}));
-                mediaBlobCache.set(rel, url);
-                el.src = url;
-            } catch (err) {
-                console.warn('[preview] media hydration failed for', rel, err);
-                el.classList.add('local-media-broken');
-            }
-        }));
-    }
-
     onDestroy(() => {
         for (const url of mediaBlobCache.values()) URL.revokeObjectURL(url);
         mediaBlobCache.clear();
     });
-
-    // Query directive plugin: :::query-list ... :::
-    md.block.ruler.before('fence', 'query_directive', (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
-        const startPos = state.bMarks[startLine]! + state.tShift[startLine]!;
-        const startMax = state.eMarks[startLine];
-        const lineText = state.src.slice(startPos, startMax);
-
-        // Match opening :::query-TYPE
-        const openMatch = lineText.match(/^:::query-(\w+)\s*$/);
-        if (!openMatch) return false;
-        if (silent) return true;
-
-        const directiveType = openMatch[1]; // 'list', etc.
-
-        // Find closing :::
-        let nextLine = startLine + 1;
-        let found = false;
-        while (nextLine < endLine) {
-            const pos = state.bMarks[nextLine]! + state.tShift[nextLine]!;
-            const max = state.eMarks[nextLine];
-            const line = state.src.slice(pos, max).trim();
-            if (line === ':::') {
-                found = true;
-                break;
-            }
-            nextLine++;
-        }
-        if (!found) return false;
-
-        // Extract body between the fences
-        const contentStart = state.bMarks[startLine + 1];
-        const contentEnd = state.bMarks[nextLine];
-        const body = state.src.slice(contentStart, contentEnd).trim();
-
-        // Split on --- separator: config above, query below. If no separator, entire body is the query.
-        const sepIdx = body.indexOf('\n---\n');
-        let config: Record<string, string> = {};
-        let query: string;
-        if (sepIdx >= 0) {
-            const configBlock = body.slice(0, sepIdx).trim();
-            query = body.slice(sepIdx + 5).trim();
-            for (const line of configBlock.split('\n')) {
-                const colonIdx = line.indexOf(':');
-                if (colonIdx > 0) {
-                    const key = line.slice(0, colonIdx).trim();
-                    const value = line.slice(colonIdx + 1).trim();
-                    if (key && value) config[key] = value;
-                }
-            }
-        } else {
-            query = body;
-        }
-
-        const token = state.push('query_directive', 'div', 0);
-        token.content = query;
-        token.meta = {type: directiveType, config};
-        token.map = [startLine, nextLine + 1];
-        state.line = nextLine + 1;
-        return true;
-    });
-
-    md.renderer.rules.query_directive = (tokens: Token[], idx: number) => {
-        const query = tokens[idx]!.content;
-        const {type, config} = tokens[idx]!.meta as { type: string; config: Record<string, unknown> };
-        const configJson = Object.keys(config).length > 0 ? escapeAttr(JSON.stringify(config)) : '';
-        return `<div class="query-block" data-type="${escapeAttr(type)}" data-query="${escapeAttr(query)}"${configJson ? ` data-config="${configJson}"` : ''}><span class="query-loading">Loading...</span></div>`;
-    };
 
     // Re-rendering markdown + KaTeX + highlight.js + citeproc on every
     // keystroke felt as typing lag in split-view once notes pass a few
@@ -1091,6 +356,24 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts };
     }
 
+    // Context for the extracted post-render hydration passes (#1087). Built once
+    // — the caches + `md` are stable refs, and everything that changes over the
+    // component's life (previewEl, notePath, content, renderPathOverride) is read
+    // through a getter/setter so the closures always see the current value.
+    const hydrateCtx: HydrateContext = {
+        getPreviewEl: () => previewEl,
+        getNotePath: () => notePath,
+        getContent: () => content,
+        md,
+        setRenderPathOverride: (v) => { renderPathOverride = v; },
+        imageDataUrlCache,
+        remoteImageCache,
+        youtubeThumbCache,
+        mediaBlobCache,
+        transclusionRenderCache,
+        citeDeps,
+    };
+
     // Drop cached transclusion bodies whenever the graph changes (perf #1114).
     // `revision` bumps on any note save/index — including an embedded note — so
     // this is exactly when a cached embed body could be stale. Pure host typing
@@ -1113,7 +396,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
         requestAnimationFrame(() => {
             // Syntax-highlight fences off the critical render path (#1114).
-            highlightCodeBlocks();
+            highlightCodeBlocks(hydrateCtx);
             const blocks = previewEl?.querySelectorAll('.query-block');
             blocks?.forEach((el) => executeQueryBlock(queryDeps(), el as HTMLElement));
             void resolveCiteQuoteLabels(citeDeps());
@@ -1125,13 +408,13 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // rendered DOM, fetch each `<img class="local-image">` via the
             // binary IPC, swap in a data URL. Cached per-path so re-renders
             // skip the round-trip.
-            void hydrateLocalImages();
-            void hydrateRemoteImages();
-            void hydrateYouTubeThumbnails();
+            void hydrateLocalImages(hydrateCtx);
+            void hydrateRemoteImages(hydrateCtx);
+            void hydrateYouTubeThumbnails(hydrateCtx);
             // Transclusion hydration (#906) — resolve `![[note]]` / `![[note#H]]` /
             // `![[note^block]]` embeds, slicing + re-rendering the target inline.
-            void hydrateTransclusions();
-            void hydrateLocalMedia();
+            void hydrateTransclusions(hydrateCtx);
+            void hydrateLocalMedia(hydrateCtx);
             // Mermaid hydration (#467) — lazy-loads the library on first use,
             // replaces .mermaid-block placeholders with rendered SVG, surfaces
             // parse errors inline.
