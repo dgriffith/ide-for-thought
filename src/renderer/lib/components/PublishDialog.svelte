@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { getPublishStore } from '../stores/publish.svelte';
   import type { PublishTarget, PublishGitResponse } from '../ipc/client';
 
   interface Props {
     onClose: () => void;
   }
   let { onClose }: Props = $props();
+
+  const publish = getPublishStore();
 
   let targets = $state<PublishTarget[]>([]);
   // Project-scoped exporters (directory-tree output is what makes sense to
@@ -67,14 +70,14 @@
       subdir: fSubdir.trim() || '.',
       commitMessageTemplate: fTemplate.trim() || 'Publish {{date}} from Minerva',
     };
-    targets = await api.publish.upsertTarget(target);
+    targets = await publish.upsertTarget(target);
     showForm = false;
     fLabel = '';
     fRemote = '';
   }
 
   async function removeTarget(id: string): Promise<void> {
-    targets = await api.publish.removeTarget(id);
+    targets = await publish.removeTarget(id);
     if (outcome?.targetId === id) outcome = null;
   }
 
@@ -82,7 +85,7 @@
     busyId = target.id;
     outcome = null;
     try {
-      const res = await api.publish.toGit(target.id, { dryRun });
+      const res = await publish.toGit(target.id, { dryRun });
       outcome = { targetId: target.id, dryRun, res };
     } finally {
       busyId = null;

@@ -12,6 +12,7 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { getNotebaseStore } from '../stores/notebase.svelte';
   import Icon from './Icon.svelte';
   import type {
     SearchInNotesFileResult,
@@ -28,6 +29,8 @@
   }
 
   let { initialMode, onJumpTo, onClose }: Props = $props();
+
+  const notebase = getNotebaseStore();
 
   // Intentional one-time seed from `initialMode`; dialog is short-lived and keyed.
   // svelte-ignore state_referenced_locally
@@ -139,7 +142,7 @@
     }
     replacing = true;
     try {
-      const r = await api.notebase.replaceInNotes({
+      const r = await notebase.replaceInNotes({
         pattern, caseSensitive, regex, replacement, selections,
       });
       statusMsg = `Replaced ${r.replacedCount} match${r.replacedCount === 1 ? '' : 'es'} in ${r.changedPaths.length} file${r.changedPaths.length === 1 ? '' : 's'}`;

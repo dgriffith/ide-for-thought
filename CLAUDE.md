@@ -22,7 +22,7 @@ Three-process Electron app with strict context isolation:
 
 - **Main** (`src/main/`) — Node.js process. File I/O, git publishing, graph indexing, menus, window management. All file access goes through `notebase/fs.ts` which enforces path traversal protection.
 - **Preload** (`src/preload/preload.ts`) — Bridges main and renderer via `contextBridge`. The renderer accesses everything through `window.api`.
-- **Renderer** (`src/renderer/`) — Svelte 5 UI. State managed with runes (`$state`, `$effect`, `$derived`). Two stores: `notebase.svelte.ts` (project/files) and `editor.svelte.ts` (active file/content).
+- **Renderer** (`src/renderer/`) — Svelte 5 UI. State managed with runes (`$state`, `$effect`, `$derived`) in singleton stores under `src/renderer/lib/stores/*.svelte.ts` (`notebase` = project/files, `editor` = active file/content, plus source/conversation/settings/etc. stores). Stores own `api.*` mutations + event subscriptions; components call store methods (see **Renderer data flow** under Conventions).
 
 IPC channels are defined in `src/shared/channels.ts`. Types in `src/shared/types.ts`.
 
@@ -30,6 +30,42 @@ IPC channels are defined in `src/shared/channels.ts`. Types in `src/shared/types
 
 ### Svelte 5
 This project uses **Svelte 5 runes** — not Svelte 4 syntax. Use `$state`, `$derived`, `$effect`, and `$props()` with `interface Props`. Do not use `export let`, `$:`, `on:click`, or `|self` event modifiers.
+
+### Renderer data flow (#1086)
+
+One rule for where `window.api` (`api.*`) may be called, so state changes have a
+single, testable path instead of three competing ones:
+
+> **Components may call `api.*` directly ONLY for reads and stateless OS
+> side-effects. Every state mutation and every main→renderer event subscription
+> goes through a store (`src/renderer/lib/stores/*.svelte.ts`) or an App ops
+> handler (`src/renderer/lib/app/*-ops*`).**
+
+- **Reads — allowed in components:** queries that return data and change nothing
+  (`api.notebase.readFile`, `api.tags.list`, `api.graph.query`,
+  `api.publish.listExporters`, `api.sources.listAll`, …).
+- **Stateless OS side-effects — allowed in components:** actions with no
+  observable in-app state change — `api.shell.*` (open/reveal/terminal),
+  `api.export.csv`, `api.view.*`, and native OS pickers/reveal
+  (`api.skills.revealFolder`). These are explicitly exempt.
+- **Mutations — must route through a store/ops:** anything that writes
+  thoughtbase / graph / source / settings state (`api.notebase.writeFile`,
+  `api.sources.setReadStatus`, `api.collections.create`,
+  `api.compute.saveCellOutput`, `api.tools.setSettings`, …). The store method
+  owns the `api` call and updates observable state; the component calls the
+  store method.
+- **Event subscriptions — must live in a store:** `api.*.on*` listeners
+  (`onExcerptsChanged`, `collections.onChanged`, `notebase.onRewritten`, …)
+  belong in the store that owns the affected state, not in a component
+  `$effect`. Components read the resulting reactive state.
+- **`App.svelte` is the composition root**, not a leaf component: it wires ops
+  clusters and may call `api.*` for top-level orchestration. Leaf settings
+  dialogs front their config writes through a `settings-*` store.
+
+The `no-restricted-syntax` block in `eslint.config.js` (scoped to
+`src/renderer/lib/components/**`) enforces this — a mutation `api.*` call added
+to a component fails `pnpm lint`. When you add a new mutation channel, add its
+method name there too.
 
 ### UI & UX Philosophy
 This is a **professional tool**. Design accordingly:

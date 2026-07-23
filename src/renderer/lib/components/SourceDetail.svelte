@@ -15,6 +15,11 @@
   import { displaySourceTitle } from '../../../shared/source-display';
   import { renameSource, deleteSource, addSourceTag, sourceTagSuggestions } from '../sources/source-actions';
   import { installDismissOnClickOutside } from '../dismiss-menu';
+  import { getSourceDataStore } from '../stores/source-data.svelte';
+  import { getNotebaseStore } from '../stores/notebase.svelte';
+
+  const sourceData = getSourceDataStore();
+  const notebase = getNotebaseStore();
 
   const READ_STATUS_OPTIONS: { value: ReadStatus; label: string }[] = [
     { value: 'unread', label: 'Unread' },
@@ -167,7 +172,7 @@
 
   async function handleRemoveTag(tag: string) {
     try {
-      await api.sources.removeTag(sourceId, tag);
+      await sourceData.removeTag(sourceId, tag);
       await load(sourceId);
     } catch (err) {
       console.error('[minerva] remove source tag failed:', err);
@@ -243,7 +248,7 @@
     saving = true;
     saveError = null;
     try {
-      await api.notebase.writeFile(bodyRelativePath, draftBody);
+      await notebase.writeFile(bodyRelativePath, draftBody);
       bodyContent = draftBody;
       editMode = false;
     } catch (err) {
@@ -280,7 +285,7 @@
     creatingExcerpt = true;
     excerptError = null;
     try {
-      const result = await api.sources.createExcerpt({ sourceId, citedText });
+      const result = await sourceData.createExcerpt({ sourceId, citedText });
       recentExcerpt = { id: result.excerptId, duplicate: result.duplicate };
       excerptMenu = null;
       // Reload the source detail so the new excerpt shows up in the list
@@ -298,7 +303,7 @@
   // Reload the source detail when the main process tells us an excerpt
   // was added/updated/removed (covers cross-window sync and any direct
   // filesystem edits the user made to excerpt ttls).
-  api.sources.onExcerptsChanged(() => {
+  sourceData.onExcerptsChanged(() => {
     if (loadedId === sourceId) void load(sourceId);
   });
 
@@ -352,7 +357,7 @@
   async function handleSetReadStatus(next: ReadStatus | null): Promise<void> {
     if (!detail) return;
     try {
-      await api.sources.setReadStatus(sourceId, next);
+      await sourceData.setReadStatus(sourceId, next);
       // Optimistic refresh — the SOURCES_CHANGED broadcast will also
       // fire but the local round trip is faster for the same-window
       // case.
@@ -369,7 +374,7 @@
     // value.
     const value = next && next.trim() ? next.trim() : null;
     try {
-      await api.sources.setReadDueBy(sourceId, value);
+      await sourceData.setReadDueBy(sourceId, value);
       await load(sourceId);
     } catch (err) {
       console.error('[minerva] setReadDueBy failed:', err);

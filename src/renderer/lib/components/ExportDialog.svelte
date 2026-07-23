@@ -1,6 +1,9 @@
 <script lang="ts">
   import { api } from '../ipc/client';
+  import { getPublishStore } from '../stores/publish.svelte';
   import type { ExportPreviewPlan, ExporterInfo } from '../ipc/client';
+
+  const publish = getPublishStore();
 
   interface Props {
     /** Format-family group id the menu launched with (#: export-menu-redesign). */
@@ -12,7 +15,7 @@
     /** Close the dialog without exporting. */
     onCancel: () => void;
     /**
-     * Run the export. The dialog calls `api.publish.runExport` itself
+     * Run the export. The dialog calls `publish.runExport` (publish store)
      * and passes the result up so the caller can show a toast / open
      * the output dir. `null` when the user cancelled the directory picker.
      */
@@ -167,7 +170,7 @@
     exporting = true;
     error = null;
     try {
-      const result = await api.publish.runExport({
+      const result = await publish.runExport({
         exporterId: selectedExporterId,
         input: scopeInput(),
         linkPolicy,

@@ -1,8 +1,11 @@
 <script lang="ts">
   import { api } from '../../ipc/client';
+  import { getReviewStore } from '../../stores/review.svelte';
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
   import { describeProposer } from '../../../../shared/provenance';
+
+  const review = getReviewStore();
 
   type NotePayload = { kind: 'note'; relativePath: string; content: string };
   type TriplesPayload = { kind: 'graph-triples'; turtle: string; affectsNodeUris: string[] };
@@ -81,7 +84,7 @@
     // that lets the success banner say exactly what landed (and where).
     const snapshot = proposals.find((p) => p.uri === uri);
     try {
-      const ok = await api.proposals.approve(uri);
+      const ok = await review.approveProposal(uri);
       if (!ok) {
         lastError = 'Approve returned false — proposal may already be approved/rejected, or its payload has gone stale. Refresh to check.';
       } else {
@@ -117,7 +120,7 @@
     processing = true;
     lastError = null;
     try {
-      const ok = await api.proposals.reject(uri);
+      const ok = await review.rejectProposal(uri);
       if (!ok) {
         lastError = 'Reject returned false — proposal may already be resolved. Refresh to check.';
       } else {

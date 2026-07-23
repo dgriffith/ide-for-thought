@@ -4,6 +4,8 @@
   import DraftCards from './DraftCards.svelte';
   import { getConversationsStore, type TabRuntime } from '../../stores/conversations.svelte';
   import { getEditorStore } from '../../stores/editor.svelte';
+  import { getNotebaseStore } from '../../stores/notebase.svelte';
+  import { getSourceDataStore } from '../../stores/source-data.svelte';
   import { api } from '../../ipc/client';
   import { insertCitationMarker } from '../../conversations/cite-from-conversation';
   import { type CiteStatus } from '../../conversations/citations';
@@ -22,6 +24,8 @@
 
   const store = getConversationsStore();
   const editor = getEditorStore();
+  const notebase = getNotebaseStore();
+  const sourceData = getSourceDataStore();
 
   // Lightweight markdown-it for assistant message rendering. Mirrors the
   // configuration in the legacy ConversationDialog so prose renders the same way.
@@ -112,7 +116,7 @@
     try {
       // 1. Ingest the cited URL as a Source (no-op-ish if it already exists —
       //    the pipeline dedupes and returns the existing source id).
-      const { sourceId } = await api.sources.ingestUrl(cite.url);
+      const { sourceId } = await sourceData.ingestUrl(cite.url);
       // 2. Flush any pending editor edits to the target note first, so the
       //    disk read below sees them and our write doesn't get clobbered by a
       //    late autosave. Only the *active* tab can be dirty.
@@ -121,7 +125,7 @@
       //    re-indexes the graph, which is what materialises the cites edge.
       const text = await api.notebase.readFile(notePath);
       const next = insertCitationMarker(text, sourceId);
-      if (next !== text) await api.notebase.writeFile(notePath, next);
+      if (next !== text) await notebase.writeFile(notePath, next);
       // 4. Refresh the open tab (if any) so the user sees the new marker.
       await editor.reloadTabFromDisk(notePath);
       citeState = { ...citeState, [key]: { phase: 'done' } };

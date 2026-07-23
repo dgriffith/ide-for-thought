@@ -8,6 +8,9 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { getSettingsStore } from '../stores/settings.svelte';
+
+  const settings = getSettingsStore();
 
   let pythonPathInput = $state('');
   /** What's saved to disk; used to detect dirty state. */
@@ -53,7 +56,7 @@
 
   async function savePythonPath(): Promise<void> {
     try {
-      await api.compute.setPythonSettings({ pythonPath: pythonPathInput.trim() });
+      await settings.setPythonSettings({ pythonPath: pythonPathInput.trim() });
       pythonPathSaved = pythonPathInput.trim();
       await refreshPythonProbe();
     } catch (e) {
@@ -63,7 +66,7 @@
 
   async function restartPythonKernelFromSettings(): Promise<void> {
     try {
-      await api.compute.restartPythonKernel();
+      await settings.restartPythonKernel();
     } catch (e) {
       console.error('[settings] failed to restart python kernel:', e);
     }

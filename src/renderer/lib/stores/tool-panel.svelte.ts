@@ -1,4 +1,5 @@
-import type { ThinkingToolInfo, ToolContext, ToolExecutionResult } from '../../../shared/tools/types';
+import type { ThinkingToolInfo, ToolContext, ToolExecutionResult, ToolExecutionRequest } from '../../../shared/tools/types';
+import { api } from '../ipc/client';
 
 export type PanelState = 'hidden' | 'configure' | 'running' | 'review';
 
@@ -52,6 +53,15 @@ export function getToolPanelStore() {
     context = {};
   }
 
+  /** Run a tool (#1086). Mutation → store-owned so ToolPanel doesn't call `api`. */
+  function executeTool(request: ToolExecutionRequest) {
+    return api.tools.execute(request);
+  }
+  /** Cancel the in-flight tool run. */
+  function cancelTool() {
+    return api.tools.cancel();
+  }
+
   return {
     get activeTool() { return activeTool; },
     get panelState() { return panelState; },
@@ -65,5 +75,7 @@ export function getToolPanelStore() {
     complete,
     fail,
     close,
+    executeTool,
+    cancelTool,
   };
 }

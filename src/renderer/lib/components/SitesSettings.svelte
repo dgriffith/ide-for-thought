@@ -10,7 +10,10 @@
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
+  import { getSettingsStore } from '../stores/settings.svelte';
   import type { PrivilegedSite } from '../../../shared/types';
+
+  const settings = getSettingsStore();
 
   let sites = $state<PrivilegedSite[]>([]);
   let newSiteDomain = $state('');
@@ -29,7 +32,7 @@
     const domain = newSiteDomain.trim();
     if (!domain) return;
     try {
-      await api.sites.add(domain, newSiteLabel.trim() || undefined);
+      await settings.addSite(domain, newSiteLabel.trim() || undefined);
       newSiteDomain = '';
       newSiteLabel = '';
       await reloadSites();
@@ -41,7 +44,7 @@
   async function loginSite(id: string): Promise<void> {
     siteBusyId = id;
     try {
-      await api.sites.login(id);
+      await settings.loginSite(id);
       await reloadSites();
     } finally {
       siteBusyId = null;
@@ -49,12 +52,12 @@
   }
 
   async function logoutSite(id: string): Promise<void> {
-    await api.sites.logout(id);
+    await settings.logoutSite(id);
     await reloadSites();
   }
 
   async function removeSite(id: string): Promise<void> {
-    await api.sites.remove(id);
+    await settings.removeSite(id);
     await reloadSites();
   }
 

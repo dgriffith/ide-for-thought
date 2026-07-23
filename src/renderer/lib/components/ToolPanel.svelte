@@ -31,7 +31,7 @@
     running = true;
 
     try {
-      const result = await api.tools.execute({
+      const result = await panel.executeTool({
         toolId: tool.id,
         context: $state.snapshot(panel.context),
       });
@@ -89,7 +89,7 @@
   }
 
   async function handleCancel() {
-    await api.tools.cancel();
+    await panel.cancelTool();
     panel.fail('Cancelled');
     running = false;
   }

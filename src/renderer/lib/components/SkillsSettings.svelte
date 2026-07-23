@@ -22,7 +22,10 @@
     type MenuConfig,
   } from '../../../shared/skills/menu-config';
   import { registerSkillInfos } from '../tools/tool-registry';
+  import { getSettingsStore } from '../stores/settings.svelte';
   import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+
+  const settings = getSettingsStore();
 
   interface Props {
     /** Per-skill model override map (skill id → model id). Owned + persisted
@@ -78,7 +81,7 @@
     skillCatalog = { ...skillCatalog, config: next };
     registerSkillInfos(applyMenuConfig(skillCatalog.skills, next));
     try {
-      const saved = await api.skills.setMenuConfig($state.snapshot(next));
+      const saved = await settings.setSkillsMenuConfig($state.snapshot(next));
       skillCatalog = { ...skillCatalog, config: saved };
       registerSkillInfos(applyMenuConfig(skillCatalog.skills, saved));
     } catch (e) {
@@ -132,7 +135,7 @@
     skillsError = null;
     skillsBusy = true;
     try {
-      const res = await api.skills.import();
+      const res = await settings.importSkill();
       if (res) await loadSkills();
     } catch (e) {
       skillsError = e instanceof Error ? e.message : String(e);
@@ -145,7 +148,7 @@
     skillsError = null;
     skillsBusy = true;
     try {
-      await api.skills.remove(id);
+      await settings.removeSkill(id);
       await loadSkills();
     } catch (e) {
       skillsError = e instanceof Error ? e.message : String(e);
@@ -158,7 +161,7 @@
     skillsError = null;
     skillsBusy = true;
     try {
-      const cat = await api.skills.reload();
+      const cat = await settings.reloadSkills();
       skillCatalog = cat;
       registerSkillInfos(applyMenuConfig(cat.skills, cat.config));
     } catch (e) {

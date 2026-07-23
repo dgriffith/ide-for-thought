@@ -14,6 +14,7 @@
   import { api } from '../ipc/client';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
+  import { getSettingsStore } from '../stores/settings.svelte';
   import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
   import {
     getRefactorSettings,
@@ -198,6 +199,7 @@
   ];
 
   const confirmSuppression = getConfirmSuppressionStore();
+  const settings = getSettingsStore();
   // Derived view: every registered confirm, paired with its current suppressed flag.
   // Binds to the store's $state so toggling re-enables updates the row live.
   let confirmRows = $derived(
@@ -267,7 +269,7 @@
   async function commitExcerptNoteFolder(next: string): Promise<void> {
     excerptNoteFolder = next;
     try {
-      await api.sources.setExcerptNoteFolder(next);
+      await settings.setExcerptNoteFolder(next);
     } catch (e) {
       console.error('[settings] failed to save excerpt folder:', e);
     }
@@ -338,7 +340,7 @@
 
   async function toggleClipper(enabled: boolean) {
     try {
-      clipper = await api.clipper.setEnabled(enabled);
+      clipper = await settings.setClipperEnabled(enabled);
       clipperRevealed = false;
       clipperCopied = false;
     } catch (e) {
@@ -348,7 +350,7 @@
 
   async function regenerateClipperSecret() {
     try {
-      clipper = await api.clipper.regenerateSecret();
+      clipper = await settings.regenerateClipperSecret();
       clipperCopied = false;
     } catch (e) {
       console.error('[settings] failed to regenerate clipper secret:', e);
@@ -402,13 +404,13 @@
       ...(clearApiKey ? { apiKey: '' } : apiKeyInput ? { apiKey: apiKeyInput } : {}),
     };
     try {
-      await api.tools.setSettings(next);
+      await settings.setToolSettings(next);
     } catch (e) {
       console.error('[settings] failed to save LLM settings:', e);
     }
 
     try {
-      await api.sources.setIngestSettings({ importUpstreamTags });
+      await settings.setIngestSettings({ importUpstreamTags });
     } catch (e) {
       console.error('[settings] failed to save ingest settings:', e);
     }
