@@ -24,7 +24,22 @@ import {
   RUNNABLE_LANGUAGES,
   type FenceRange,
 } from '../../../shared/compute/fences';
+import { scanComputeSafety } from '../../../shared/compute/safety';
 import type { CellResult } from '../ipc/client';
+
+/**
+ * Tooltip for a fence's run marker given its red-flag scan (#1413). Returns
+ * `null` when the cell is clean (the marker keeps its plain "Run cell" title),
+ * or a caution string listing the matched patterns otherwise. Exported for
+ * unit testing — the CodeMirror marker itself is trivial glue over this.
+ */
+export function flagTitleFor(language: string, code: string): string | null {
+  const flags = scanComputeSafety(language, code);
+  if (flags.length === 0) return null;
+  // Strip the messages' markdown backticks — a plain-text title, not markup.
+  const patterns = flags.map((f) => f.message.replace(/`/g, '')).join(', ');
+  return `⚠ Risky patterns: ${patterns}. Review before running (Cmd+Shift+Enter).`;
+}
 
 // ── Running state ──────────────────────────────────────────────────────────
 
@@ -60,16 +75,23 @@ const runningField = StateField.define<Set<number>>({
 // ── Gutter markers ─────────────────────────────────────────────────────────
 
 class RunMarker extends GutterMarker {
-  constructor(readonly running: boolean) { super(); }
+  constructor(readonly running: boolean, readonly flagTitle: string | null) { super(); }
   override toDOM(): HTMLElement {
     const el = document.createElement('span');
-    el.className = this.running ? 'cm-compute-run cm-compute-running' : 'cm-compute-run';
-    el.title = this.running ? 'Running…' : 'Run cell (Cmd+Shift+Enter)';
+    // Flagged (#1413): keep the ▶ run affordance but tint it and swap the
+    // tooltip to the caution list — an attention-raiser, not a block.
+    const flagged = this.flagTitle !== null && !this.running;
+    el.className = 'cm-compute-run'
+      + (this.running ? ' cm-compute-running' : '')
+      + (flagged ? ' cm-compute-flagged' : '');
+    el.title = this.running ? 'Running…' : (this.flagTitle ?? 'Run cell (Cmd+Shift+Enter)');
     el.textContent = this.running ? '…' : '▶';
     return el;
   }
   override eq(other: GutterMarker): boolean {
-    return other instanceof RunMarker && other.running === this.running;
+    return other instanceof RunMarker
+      && other.running === this.running
+      && other.flagTitle === this.flagTitle;
   }
 }
 
@@ -180,7 +202,7 @@ export function computeCellsExtension(opts: ComputeCellsOptions): Extension {
       const fences = findRunnableFences(doc, allowed);
       for (const f of fences) {
         if (f.startOffset === line.from) {
-          return new RunMarker(running.has(f.startOffset));
+          return new RunMarker(running.has(f.startOffset), flagTitleFor(f.language, codeOf(doc, f)));
         }
       }
       return null;
@@ -232,6 +254,9 @@ export const computeCellsStyles = `
     line-height: 1;
   }
   .cm-compute-run:hover { color: var(--accent, #4a9); }
+  /* Red-flag scan (#1413): amber run marker on a cell with risky patterns. */
+  .cm-compute-flagged { color: var(--warning, #d19a66); }
+  .cm-compute-flagged:hover { color: var(--warning, #d19a66); filter: brightness(1.15); }
   .cm-compute-running { color: var(--accent, #4a9); animation: cm-compute-pulse 1s infinite; }
   @keyframes cm-compute-pulse { 50% { opacity: 0.4; } }
 `;
