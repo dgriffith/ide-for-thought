@@ -33,10 +33,24 @@ function domainOf(channel: string): string {
  * Domains whose channels have NOT yet been migrated to the typed `ChannelMap`.
  * The ratchet only tightens: remove a domain from this set when you migrate it;
  * never add one to loosen the check. Any channel whose domain is absent from
- * this set (and isn't a declared event channel below) MUST be a `ChannelMap`
- * key.
+ * this set (and isn't a declared event channel/domain below) MUST be a
+ * `ChannelMap` key.
+ *
+ * EMPTY — the typed-IPC migration is complete (#1081). Every invoke channel is
+ * in `ChannelMap`; every one-way channel is an event (see below). Adding a new
+ * untyped invoke channel now fails this test until it's typed.
  */
-const UNMIGRATED_DOMAINS = new Set<string>([
+const UNMIGRATED_DOMAINS = new Set<string>([]);
+
+/**
+ * Domains that are ENTIRELY one-way events — no invoke channels at all. `menu:*`
+ * is the native-menu → renderer command stream (plus two renderer → main
+ * `reportTheme`/`reportEditorState` sends); `project:opened` is a broadcast.
+ * None cross the invoke request/response boundary, so none belong in
+ * `ChannelMap`. Listing the domain here beats enumerating ~60 `menu:` channels
+ * one-by-one in `EVENT_CHANNELS`.
+ */
+const EVENT_DOMAINS = new Set<string>([
   'menu',
   'project',
 ]);
@@ -103,13 +117,18 @@ describe('typed-IPC ratchet (#1082)', () => {
 
   it('every migrated-domain invoke channel is present in ChannelMap', () => {
     const missing = channelValues.filter(
-      (ch) => !UNMIGRATED_DOMAINS.has(domainOf(ch)) && !EVENT_CHANNELS.has(ch) && !mapKeys.has(ch),
+      (ch) =>
+        !UNMIGRATED_DOMAINS.has(domainOf(ch)) &&
+        !EVENT_DOMAINS.has(domainOf(ch)) &&
+        !EVENT_CHANNELS.has(ch) &&
+        !mapKeys.has(ch),
     );
     expect(
       missing,
       `These channels are in a migrated domain but missing from ChannelMap. ` +
-        `Add them to ipc-contract.ts, mark them as EVENT_CHANNELS, or (if a whole ` +
-        `domain isn't migrated yet) add the domain to UNMIGRATED_DOMAINS:\n  ${missing.join('\n  ')}`,
+        `Add them to ipc-contract.ts, mark them as EVENT_CHANNELS (or their domain ` +
+        `as an EVENT_DOMAIN), or (if a whole domain isn't migrated yet) add the ` +
+        `domain to UNMIGRATED_DOMAINS:\n  ${missing.join('\n  ')}`,
     ).toEqual([]);
   });
 
@@ -119,13 +138,25 @@ describe('typed-IPC ratchet (#1082)', () => {
     expect(stale, `ChannelMap keys with no matching Channels entry (typo or stale):\n  ${stale.join('\n  ')}`).toEqual([]);
   });
 
-  it('UNMIGRATED_DOMAINS never lists an already-migrated domain (ratchet cannot loosen)', () => {
+  it('UNMIGRATED_DOMAINS / EVENT_DOMAINS never list an already-migrated domain (ratchet cannot loosen)', () => {
     const migratedDomains = new Set([...mapKeys].map(domainOf));
-    const loosened = [...UNMIGRATED_DOMAINS].filter((d) => migratedDomains.has(d));
+    const loosened = [...UNMIGRATED_DOMAINS, ...EVENT_DOMAINS].filter((d) => migratedDomains.has(d));
     expect(
       loosened,
-      `These domains have ChannelMap entries yet are still allowlisted as unmigrated — ` +
-        `remove them from UNMIGRATED_DOMAINS:\n  ${loosened.join('\n  ')}`,
+      `These domains have ChannelMap entries yet are still listed as unmigrated/event-only — ` +
+        `remove them from UNMIGRATED_DOMAINS / EVENT_DOMAINS:\n  ${loosened.join('\n  ')}`,
+    ).toEqual([]);
+  });
+
+  it('EVENT_DOMAINS are genuinely event-only (no invoke channel typed for them)', () => {
+    // Belt-and-suspenders with the loosening check above: assert every channel
+    // in an event-only domain is absent from ChannelMap.
+    const typedInEventDomain = channelValues.filter((ch) => EVENT_DOMAINS.has(domainOf(ch)) && mapKeys.has(ch));
+    expect(
+      typedInEventDomain,
+      `These channels are in an EVENT_DOMAIN but typed in ChannelMap — either the ` +
+        `domain has real invoke channels (remove it from EVENT_DOMAINS) or the key is ` +
+        `mis-filed:\n  ${typedInEventDomain.join('\n  ')}`,
     ).toEqual([]);
   });
 
@@ -135,8 +166,8 @@ describe('typed-IPC ratchet (#1082)', () => {
       expect(known.has(ch), `EVENT_CHANNELS entry "${ch}" is not a real channel`).toBe(true);
       expect(mapKeys.has(ch), `EVENT_CHANNELS entry "${ch}" is also a ChannelMap key — it isn't an event`).toBe(false);
       expect(
-        UNMIGRATED_DOMAINS.has(domainOf(ch)),
-        `EVENT_CHANNELS entry "${ch}" is in an unmigrated domain — unnecessary, its domain is already skipped`,
+        UNMIGRATED_DOMAINS.has(domainOf(ch)) || EVENT_DOMAINS.has(domainOf(ch)),
+        `EVENT_CHANNELS entry "${ch}" is in an unmigrated/event-only domain — unnecessary, its domain is already skipped`,
       ).toBe(false);
     }
   });

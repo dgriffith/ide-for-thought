@@ -204,11 +204,11 @@ contextBridge.exposeInMainWorld('api', {
   },
   images: {
     // Cached-or-fetched bytes+mime for an external image URL (offline cache, #...).
-    cacheExternal: (url: string) => ipcRenderer.invoke(Channels.IMAGES_CACHE_EXTERNAL, url),
+    cacheExternal: (url: string) => invoke(Channels.IMAGES_CACHE_EXTERNAL, url),
   },
   youtube: {
     // Cached-or-fetched poster bytes for a video id (offline cache, #...).
-    thumbnail: (id: string) => ipcRenderer.invoke(Channels.YOUTUBE_THUMBNAIL, id),
+    thumbnail: (id: string) => invoke(Channels.YOUTUBE_THUMBNAIL, id),
   },
   // Whole-window zoom (#...). Wraps the renderer's own `webFrame` — the same
   // frame zoom the View menu's zoom roles drive — so the Settings control and

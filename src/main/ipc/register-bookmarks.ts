@@ -37,7 +37,7 @@ export function registerBookmarks(): void {
     try {
       const tabsPath = path.join(rootPath, '.minerva', 'tabs.json');
       const data = await fs.readFile(tabsPath, 'utf-8');
-      return JSON.parse(data);
+      return JSON.parse(data) as LayoutSession | TabSession;
     } catch {
       return null;
     }
