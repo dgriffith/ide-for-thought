@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { dialog, BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -40,9 +40,10 @@ import { importZoteroRdf } from '../sources/import-zotero-rdf';
 import { getExcerptNoteFolder, setExcerptNoteFolder } from '../project-config';
 import { createExcerpt } from '../sources/create-excerpt';
 import { withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes } from './helpers';
+import { handle } from './typed-ipc';
 
 export function registerSources(): void {
-  ipcMain.handle(Channels.SOURCES_INGEST_URL, withRootPath(async (rootPath, url: string) => {
+  handle(Channels.SOURCES_INGEST_URL, withRootPath(async (rootPath, url: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestUrl(rootPath, url, {
       fetchImpl: privilegedFetch,
@@ -50,7 +51,7 @@ export function registerSources(): void {
     });
   }));
 
-  ipcMain.handle(Channels.SOURCES_INGEST_IDENTIFIER, withRootPath(async (rootPath, identifier: string) => {
+  handle(Channels.SOURCES_INGEST_IDENTIFIER, withRootPath(async (rootPath, identifier: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestIdentifier(rootPath, identifier, {
       fetchImpl: privilegedFetch,
@@ -58,7 +59,7 @@ export function registerSources(): void {
     });
   }));
 
-  ipcMain.handle(Channels.SOURCES_INGEST_SMART, withRootPath(async (rootPath, rawInput: string) => {
+  handle(Channels.SOURCES_INGEST_SMART, withRootPath(async (rootPath, rawInput: string) => {
     const ingestSettings = await getIngestSettings();
     return await ingestSmart(rootPath, rawInput, {
       fetchImpl: privilegedFetch,
@@ -66,34 +67,34 @@ export function registerSources(): void {
     });
   }));
 
-  ipcMain.handle(Channels.SOURCES_MINE_REFERENCES, withRootPath(async (rootPath, sourceId: string) => {
+  handle(Channels.SOURCES_MINE_REFERENCES, withRootPath(async (rootPath, sourceId: string) => {
     return await mineSourceReferences(rootPath, sourceId);
   }));
 
-  ipcMain.handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withRootPathWin(async (rootPath, win, params: { sourceId: string; refs: ParsedReference[] }) => {
+  handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withRootPathWin(async (rootPath, win, params: { sourceId: string; refs: ParsedReference[] }) => {
     const result = await createReferenceStubs(rootPath, params.sourceId, params.refs);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     return result;
   }));
 
-  ipcMain.handle(Channels.SOURCES_RESOLVE_STUB, withRootPath(async (rootPath, sourceId: string) => {
+  handle(Channels.SOURCES_RESOLVE_STUB, withRootPath(async (rootPath, sourceId: string) => {
     return await resolveStub(rootPath, sourceId, { fetchImpl: privilegedFetch });
   }));
 
-  ipcMain.handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, withRootPathWin(async (rootPath, win, params: { sourceId: string; doi: string }) => {
+  handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, withRootPathWin(async (rootPath, win, params: { sourceId: string; doi: string }) => {
     const ok = await applyStubResolution(rootPath, params.sourceId, params.doi, { fetchImpl: privilegedFetch });
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     return { ok };
   }));
 
-  ipcMain.handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());
-  ipcMain.handle(Channels.INGEST_SET_SETTINGS, (_e, settings: IngestSettings) =>
+  handle(Channels.INGEST_GET_SETTINGS, () => getIngestSettings());
+  handle(Channels.INGEST_SET_SETTINGS, (_e, settings: IngestSettings) =>
     saveIngestSettings(settings),
   );
 
-  ipcMain.handle(Channels.SOURCES_IMPORT_BIBTEX, withRootPathWin(async (rootPath, win) => {
+  handle(Channels.SOURCES_IMPORT_BIBTEX, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'BibTeX', extensions: ['bib', 'bibtex'] }],
@@ -110,7 +111,7 @@ export function registerSources(): void {
     });
   }));
 
-  ipcMain.handle(Channels.SOURCES_IMPORT_ZOTERO_RDF, withRootPathWin(async (rootPath, win) => {
+  handle(Channels.SOURCES_IMPORT_ZOTERO_RDF, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [{ name: 'Zotero RDF', extensions: ['rdf', 'xml'] }],
@@ -127,7 +128,7 @@ export function registerSources(): void {
     });
   }));
 
-  ipcMain.handle(Channels.SOURCES_INGEST_FILE, withRootPathWin(async (rootPath, win) => {
+  handle(Channels.SOURCES_INGEST_FILE, withRootPathWin(async (rootPath, win) => {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
       filters: [
@@ -147,11 +148,11 @@ export function registerSources(): void {
 
   // Read the raw PDF bytes of a previously-persisted source, for the
   // renderer-side OCR worker (#95).
-  ipcMain.handle(Channels.SOURCES_READ_PDF, withRootPath(async (rootPath, sourceId: string) => {
+  handle(Channels.SOURCES_READ_PDF, withRootPath(async (rootPath, sourceId: string) => {
     return await readOriginalPdf(rootPath, sourceId);
   }));
 
-  ipcMain.handle(Channels.SOURCES_HAS_PDF, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, sourceId: string) => {
+  handle(Channels.SOURCES_HAS_PDF, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, sourceId: string) => {
     try {
       await fs.stat(path.join(rootPath, '.minerva', 'sources', sourceId, 'original.pdf'));
       return true;
@@ -161,26 +162,26 @@ export function registerSources(): void {
   }));
 
   // Excerpt → Note flow defaults (#101).
-  ipcMain.handle(Channels.EXCERPT_GET_NOTE_FOLDER, withRootPathOr('', (rootPath) =>
+  handle(Channels.EXCERPT_GET_NOTE_FOLDER, withRootPathOr('', (rootPath) =>
     getExcerptNoteFolder(rootPath)));
-  ipcMain.handle(Channels.EXCERPT_SET_NOTE_FOLDER, withRootPath((rootPath, folder: string) => {
+  handle(Channels.EXCERPT_SET_NOTE_FOLDER, withRootPath((rootPath, folder: string) => {
     setExcerptNoteFolder(rootPath, folder);
   }));
 
   // Finalise a scanned-PDF ingest: the renderer has run OCR and hands
   // back the per-page text. We rewrite body.md + stamp meta.ttl with
   // extractionMethod "ocr" (#95).
-  ipcMain.handle(Channels.SOURCES_FINISH_PDF_OCR, withRootPathWin(async (rootPath, win, sourceId: string, pages: string[]) => {
+  handle(Channels.SOURCES_FINISH_PDF_OCR, withRootPathWin(async (rootPath, win, sourceId: string, pages: string[]) => {
     await finishPdfOcrIngest(rootPath, sourceId, pages);
     await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_LIST_ALL, withRootPathOr([], (rootPath) =>
+  handle(Channels.SOURCES_LIST_ALL, withRootPathOr([], (rootPath) =>
     graph.listAllSources(projectContext(rootPath))));
 
-  ipcMain.handle(Channels.SOURCES_DELETE, withRootPathWin(async (rootPath, win, sourceId: string) => {
+  handle(Channels.SOURCES_DELETE, withRootPathWin(async (rootPath, win, sourceId: string) => {
     const result = await deleteSource(rootPath, sourceId);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) {
@@ -190,7 +191,7 @@ export function registerSources(): void {
     return result;
   }));
 
-  ipcMain.handle(Channels.SOURCES_MERGE, withRootPathWin(async (rootPath, win, params: { srcId: string; destId: string }) => {
+  handle(Channels.SOURCES_MERGE, withRootPathWin(async (rootPath, win, params: { srcId: string; destId: string }) => {
     try {
       const result = await mergeSources(rootPath, params.srcId, params.destId);
       await persistIndexes(rootPath);
@@ -212,44 +213,44 @@ export function registerSources(): void {
   }));
 
   // ── Reading queue (#116) ──────────────────────────────────────────────────
-  ipcMain.handle(Channels.SOURCES_SET_READ_STATUS, withRootPathWin(async (rootPath, win, params: { sourceId: string; status: ReadStatus | null }) => {
+  handle(Channels.SOURCES_SET_READ_STATUS, withRootPathWin(async (rootPath, win, params: { sourceId: string; status: ReadStatus | null }) => {
     await setSourceReadStatus(rootPath, params.sourceId, params.status);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_SET_TITLE, withRootPathWin(async (rootPath, win, params: { sourceId: string; title: string }) => {
+  handle(Channels.SOURCES_SET_TITLE, withRootPathWin(async (rootPath, win, params: { sourceId: string; title: string }) => {
     await setSourceTitle(rootPath, params.sourceId, params.title);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_ADD_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
+  handle(Channels.SOURCES_ADD_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
     await addSourceTag(rootPath, params.sourceId, params.tag);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_REMOVE_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
+  handle(Channels.SOURCES_REMOVE_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
     await removeSourceTag(rootPath, params.sourceId, params.tag);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_SET_READ_DUE_BY, withRootPathWin(async (rootPath, win, params: { sourceId: string; dueBy: string | null }) => {
+  handle(Channels.SOURCES_SET_READ_DUE_BY, withRootPathWin(async (rootPath, win, params: { sourceId: string; dueBy: string | null }) => {
     await setSourceReadDueBy(rootPath, params.sourceId, params.dueBy);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
   }));
 
-  ipcMain.handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, withRootPathWin(async (rootPath, win, sourceId: string) => {
+  handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, withRootPathWin(async (rootPath, win, sourceId: string) => {
     const result = await stripUpstreamTags(rootPath, sourceId);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
     return result;
   }));
 
-  ipcMain.handle(Channels.SOURCES_QUEUE_MEMBERS, withRootPathOr([], (rootPath, view: ReadingQueueView) => {
+  handle(Channels.SOURCES_QUEUE_MEMBERS, withRootPathOr([], (rootPath, view: ReadingQueueView) => {
     const ctx = projectContext(rootPath);
     const ids = new Set(graph.getReadingQueueSourceIds(ctx, view));
     if (ids.size === 0) return [];
@@ -261,58 +262,58 @@ export function registerSources(): void {
     if (!win.isDestroyed()) win.webContents.send(Channels.COLLECTIONS_CHANGED);
   };
 
-  ipcMain.handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {
+  handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {
     return await loadCollections(rootPath);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_CREATE, withRootPathWin(async (rootPath, win, args: { name: string; parent?: string | null }) => {
+  handle(Channels.COLLECTIONS_CREATE, withRootPathWin(async (rootPath, win, args: { name: string; parent?: string | null }) => {
     const result = await createCollection(rootPath, args);
     broadcastCollectionsChanged(win);
     return result;
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_RENAME, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
+  handle(Channels.COLLECTIONS_RENAME, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
     await renameCollection(rootPath, args.id, args.name);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_DELETE, withRootPathWin(async (rootPath, win, id: string) => {
+  handle(Channels.COLLECTIONS_DELETE, withRootPathWin(async (rootPath, win, id: string) => {
     await deleteCollection(rootPath, id);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_ADD_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
+  handle(Channels.COLLECTIONS_ADD_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
     await addSourceToCollection(rootPath, args.collectionId, args.sourceId);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_REMOVE_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
+  handle(Channels.COLLECTIONS_REMOVE_SOURCE, withRootPathWin(async (rootPath, win, args: { collectionId: string; sourceId: string }) => {
     await removeSourceFromCollection(rootPath, args.collectionId, args.sourceId);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_CREATE_SMART, withRootPathWin(async (rootPath, win, args: { name: string; predicate: SmartCollectionPredicate }) => {
+  handle(Channels.COLLECTIONS_CREATE_SMART, withRootPathWin(async (rootPath, win, args: { name: string; predicate: SmartCollectionPredicate }) => {
     const result = await createSmartCollection(rootPath, args);
     broadcastCollectionsChanged(win);
     return result;
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_RENAME_SMART, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
+  handle(Channels.COLLECTIONS_RENAME_SMART, withRootPathWin(async (rootPath, win, args: { id: string; name: string }) => {
     await renameSmartCollection(rootPath, args.id, args.name);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_DELETE_SMART, withRootPathWin(async (rootPath, win, id: string) => {
+  handle(Channels.COLLECTIONS_DELETE_SMART, withRootPathWin(async (rootPath, win, id: string) => {
     await deleteSmartCollection(rootPath, id);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, withRootPathWin(async (rootPath, win, args: { id: string; predicate: SmartCollectionPredicate }) => {
+  handle(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, withRootPathWin(async (rootPath, win, args: { id: string; predicate: SmartCollectionPredicate }) => {
     await updateSmartCollectionPredicate(rootPath, args.id, args.predicate);
     broadcastCollectionsChanged(win);
   }));
 
-  ipcMain.handle(Channels.COLLECTIONS_SMART_MEMBERS, withRootPathOr<[string], SourceMetadata[] | Promise<SourceMetadata[]>>([], async (rootPath, id: string) => {
+  handle(Channels.COLLECTIONS_SMART_MEMBERS, withRootPathOr<[string], SourceMetadata[] | Promise<SourceMetadata[]>>([], async (rootPath, id: string) => {
     const data = await loadCollections(rootPath);
     const smart = data.smartCollections.find((s) => s.id === id);
     if (!smart) return [];
@@ -329,7 +330,7 @@ export function registerSources(): void {
     return all.filter((s) => matchingIds.has(s.sourceId));
   }));
 
-  ipcMain.handle(Channels.SOURCES_CREATE_EXCERPT, withRootPath(async (rootPath, params: {
+  handle(Channels.SOURCES_CREATE_EXCERPT, withRootPath(async (rootPath, params: {
     sourceId: string;
     citedText: string;
     page?: number | null;

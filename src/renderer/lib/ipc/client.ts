@@ -110,8 +110,8 @@ export interface SearchApi {
 }
 
 export interface GitApi {
-  status(): Promise<{ files: unknown[] }>;
-  commit(message: string): Promise<{ success: boolean; message: string }>;
+  status(): Promise<{ isRepo: boolean; branch: string | null; files: unknown[] }>;
+  commit(message: string): Promise<{ success: boolean; sha: string }>;
 }
 
 export interface GraphApi {

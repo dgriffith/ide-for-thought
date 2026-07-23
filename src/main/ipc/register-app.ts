@@ -1,5 +1,6 @@
 import { ipcMain, app, BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import { getMenuShortcuts, setMenuThemeMode, setMenuEditorState } from '../menu';
 import type { ThemeMode } from '../../shared/theme';
 import type { MenuEditorState } from '../../shared/types';
@@ -21,7 +22,7 @@ export interface AppInfo {
 
 /** App/build metadata for the About dialog (#803). */
 export function registerApp(): void {
-  ipcMain.handle(Channels.APP_GET_INFO, (): AppInfo => ({
+  handle(Channels.APP_GET_INFO, (): AppInfo => ({
     name: app.getName(),
     version: app.getVersion(),
     commit: typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'unknown',
@@ -32,7 +33,7 @@ export function registerApp(): void {
   }));
 
   // Keyboard-shortcut reference for the Help menu (#804).
-  ipcMain.handle(Channels.APP_GET_SHORTCUTS, () => getMenuShortcuts());
+  handle(Channels.APP_GET_SHORTCUTS, () => getMenuShortcuts());
 
   // The renderer owns the theme (localStorage); it reports changes so the
   // native View → Theme submenu can show the active radio (#1139).

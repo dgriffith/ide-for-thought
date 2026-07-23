@@ -1,5 +1,6 @@
-import { ipcMain, dialog, app } from 'electron';
+import { dialog, app } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import { DEFAULT_STYLE } from '../publish/csl/assets';
 import { buildCitationAudit } from '../publish/csl/audit';
 import { getMergedStyles, getMergedLocales } from '../publish/csl/user-assets';
@@ -15,7 +16,7 @@ import { withRootPath, withRootPathWin } from './helpers';
 export function registerPublish(): void {
   // ── Publication (#282) ─────────────────────────────────────────────────────
 
-  ipcMain.handle(Channels.PUBLISH_LIST_EXPORTERS, () =>
+  handle(Channels.PUBLISH_LIST_EXPORTERS, () =>
     publish.listExporters().map((e) => ({
       id: e.id,
       label: e.label,
@@ -32,7 +33,7 @@ export function registerPublish(): void {
     })),
   );
 
-  ipcMain.handle(Channels.PUBLISH_RESOLVE_PLAN, withRootPath(async (rootPath, input: publish.ExportInput, opts?: {
+  handle(Channels.PUBLISH_RESOLVE_PLAN, withRootPath(async (rootPath, input: publish.ExportInput, opts?: {
     exporterId?: string;
     linkPolicy?: publish.LinkPolicy;
     citationStyle?: string;
@@ -83,7 +84,7 @@ export function registerPublish(): void {
     };
   }));
 
-  ipcMain.handle(Channels.PUBLISH_RUN_EXPORT, withRootPathWin(async (rootPath, win, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
+  handle(Channels.PUBLISH_RUN_EXPORT, withRootPathWin(async (rootPath, win, args: Omit<publish.RunExportInput, 'outputDir'> & { outputDir?: string }) => {
     let outputDir = args.outputDir;
     // When the renderer doesn't pass an outputDir, open a directory
     // picker here. Parents the dialog to the invoking window so it
@@ -102,16 +103,16 @@ export function registerPublish(): void {
 
   // ── Publish → git remote (#254) ────────────────────────────────────────────
 
-  ipcMain.handle(Channels.PUBLISH_LIST_TARGETS, withRootPath((rootPath) => {
+  handle(Channels.PUBLISH_LIST_TARGETS, withRootPath((rootPath) => {
     return getPublishTargets(rootPath);
   }));
 
-  ipcMain.handle(Channels.PUBLISH_UPSERT_TARGET, withRootPath((rootPath, target: PublishTarget) => {
+  handle(Channels.PUBLISH_UPSERT_TARGET, withRootPath((rootPath, target: PublishTarget) => {
     upsertPublishTarget(rootPath, target);
     return getPublishTargets(rootPath);
   }));
 
-  ipcMain.handle(Channels.PUBLISH_REMOVE_TARGET, withRootPath((rootPath, id: string) => {
+  handle(Channels.PUBLISH_REMOVE_TARGET, withRootPath((rootPath, id: string) => {
     removePublishTarget(rootPath, id);
     return getPublishTargets(rootPath);
   }));
@@ -120,7 +121,7 @@ export function registerPublish(): void {
   // non-fast-forward — come back as `{ ok: false, error }` carrying the raw
   // git message, so the dialog can show it verbatim rather than a stringified
   // rejection (#254 acceptance).
-  ipcMain.handle(
+  handle(
     Channels.PUBLISH_TO_GIT,
     withRootPath(async (rootPath, targetId: string, opts?: { dryRun?: boolean }) => {
       try {

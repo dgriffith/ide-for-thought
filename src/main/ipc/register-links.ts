@@ -1,5 +1,5 @@
-import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
 import * as vectors from '../embeddings/vector-store';
@@ -13,7 +13,7 @@ export function registerLinks(): void {
   // Semantically-related notes for the Related sidebar panel (#838). Uses the
   // active note's stored chunk vectors (no embedding at query time), de-duped to
   // the single best section per note and enriched with display titles.
-  ipcMain.handle(Channels.EMBEDDINGS_RELATED, withRootPathOr<[string, number?], RelatedNotesResult | Promise<RelatedNotesResult>>({ enabled: false, notes: [] }, async (rootPath, relativePath: string, limit?: number): Promise<RelatedNotesResult> => {
+  handle(Channels.EMBEDDINGS_RELATED, withRootPathOr<[string, number?], RelatedNotesResult | Promise<RelatedNotesResult>>({ enabled: false, notes: [] }, async (rootPath, relativePath: string, limit?: number): Promise<RelatedNotesResult> => {
     const ctx = projectContext(rootPath);
     if (!vectors.isEnabled(ctx)) return { enabled: false, notes: [] };
     const n = Math.min(Math.max(Math.floor(limit ?? 8), 1), 25);
@@ -41,7 +41,7 @@ export function registerLinks(): void {
   // Embeds the block's query text at request time (searchRelated does the
   // embed) and ranks the corpus — read-only, nothing is written. `excludePath`
   // drops the host note from its own results; `kinds` restricts the corpus.
-  ipcMain.handle(
+  handle(
     Channels.EMBEDDINGS_SEARCH_TEXT,
     withRootPathOr<[string, { limit?: number; kinds?: readonly RefKind[]; excludePath?: string }?], RelatedNotesResult | Promise<RelatedNotesResult>>(
       { enabled: false, notes: [] },
@@ -67,16 +67,16 @@ export function registerLinks(): void {
     ),
   );
   // Links
-  ipcMain.handle(Channels.LINKS_OUTGOING, withRootPathOr([], (rootPath, relativePath: string) =>
+  handle(Channels.LINKS_OUTGOING, withRootPathOr([], (rootPath, relativePath: string) =>
     graph.outgoingLinks(projectContext(rootPath), relativePath)));
 
-  ipcMain.handle(Channels.LINKS_BACKLINKS, withRootPathOr([], (rootPath, relativePath: string) =>
+  handle(Channels.LINKS_BACKLINKS, withRootPathOr([], (rootPath, relativePath: string) =>
     graph.backlinks(projectContext(rootPath), relativePath)));
 
   // Coalesced bundle for the right-sidebar link panels (#351). Replaces
   // the parallel LINKS_OUTGOING + LINKS_BACKLINKS round-trips on every
   // tab switch — one IPC, one graph-state pass, both directions together.
-  ipcMain.handle(Channels.LINKS_BUNDLE, withRootPathOr({ outgoing: [], backlinks: [] }, (rootPath, relativePath: string) => {
+  handle(Channels.LINKS_BUNDLE, withRootPathOr({ outgoing: [], backlinks: [] }, (rootPath, relativePath: string) => {
     const ctx = projectContext(rootPath);
     return {
       outgoing: graph.outgoingLinks(ctx, relativePath),
@@ -84,7 +84,7 @@ export function registerLinks(): void {
     };
   }));
 
-  ipcMain.handle(
+  handle(
     Channels.LINKS_CITATIONS_FOR_NOTE,
     withRootPathOr<[string, string?], CitationGroup[] | Promise<CitationGroup[]>>([], async (rootPath, relativePath: string, content?: string) => {
       // Renderer can pass live content (current editor buffer) so the
@@ -96,14 +96,14 @@ export function registerLinks(): void {
     }),
   );
 
-  ipcMain.handle(Channels.LINKS_EXTERNAL_INBOUND, withRootPathOr([], (rootPath, paths: string[]) =>
+  handle(Channels.LINKS_EXTERNAL_INBOUND, withRootPathOr([], (rootPath, paths: string[]) =>
     graph.findExternalInboundLinks(projectContext(rootPath), paths)));
 
   // Depth-N link neighborhood for the graph view (#846).
-  ipcMain.handle(Channels.LINKS_NEIGHBORHOOD, withRootPathOr({ nodes: [], edges: [], truncated: false }, (rootPath, relativePath: string, opts?: graph.NeighborhoodOptions) =>
+  handle(Channels.LINKS_NEIGHBORHOOD, withRootPathOr({ nodes: [], edges: [], truncated: false }, (rootPath, relativePath: string, opts?: graph.NeighborhoodOptions) =>
     graph.neighborhood(projectContext(rootPath), relativePath, opts ?? {})));
 
   // Single hop out of a node — expand-on-demand (#846).
-  ipcMain.handle(Channels.LINKS_EXPAND_NODE, withRootPathOr({ nodes: [], edges: [], expandTo: [] }, (rootPath, relativePath: string) =>
+  handle(Channels.LINKS_EXPAND_NODE, withRootPathOr({ nodes: [], edges: [], expandTo: [] }, (rootPath, relativePath: string) =>
     graph.expandNode(projectContext(rootPath), relativePath)));
 }

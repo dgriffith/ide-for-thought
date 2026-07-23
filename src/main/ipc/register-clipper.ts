@@ -3,8 +3,8 @@
  * rotate the secret. Config is per-machine (no project context needed).
  */
 
-import { ipcMain } from 'electron';
 import { Channels } from '../../shared/channels';
+import { handle } from './typed-ipc';
 import { encodePairingCode, type ClipperState } from '../../shared/clipper-pairing';
 import {
   getClipperConfig,
@@ -24,15 +24,15 @@ async function clipperState(): Promise<ClipperState> {
 }
 
 export function registerClipper(): void {
-  ipcMain.handle(Channels.CLIPPER_GET_STATE, () => clipperState());
+  handle(Channels.CLIPPER_GET_STATE, () => clipperState());
 
-  ipcMain.handle(Channels.CLIPPER_SET_ENABLED, async (_e, enabled: boolean) => {
+  handle(Channels.CLIPPER_SET_ENABLED, async (_e, enabled: boolean) => {
     await setClipperEnabled(enabled);
     await applyClipperConfigChange();
     return clipperState();
   });
 
-  ipcMain.handle(Channels.CLIPPER_REGENERATE_SECRET, async () => {
+  handle(Channels.CLIPPER_REGENERATE_SECRET, async () => {
     await regenerateClipperSecret();
     await applyClipperConfigChange();
     return clipperState();

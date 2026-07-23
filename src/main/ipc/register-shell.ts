@@ -1,4 +1,5 @@
-import { ipcMain, shell, dialog } from 'electron';
+import { shell, dialog } from 'electron';
+import { handle } from './typed-ipc';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { Channels } from '../../shared/channels';
@@ -7,7 +8,7 @@ import { winFromEvent, withRootPathOr } from './helpers';
 
 export function registerShell(): void {
   // Export
-  ipcMain.handle(Channels.EXPORT_CSV, async (e, csv: string) => {
+  handle(Channels.EXPORT_CSV, async (e, csv: string) => {
     const win = winFromEvent(e);
     const result = await dialog.showSaveDialog(win, {
       title: 'Export as CSV',
@@ -26,18 +27,18 @@ export function registerShell(): void {
   // the same path-traversal invariant `fs.ts` enforces (#1328). A
   // traversal attempt throws, which rejects the invoke and performs no
   // shell action.
-  ipcMain.handle(Channels.SHELL_REVEAL_FILE, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
+  handle(Channels.SHELL_REVEAL_FILE, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
     const fullPath = relativePath
       ? assertSafePath(rootPath, relativePath)
       : rootPath;
     shell.showItemInFolder(fullPath);
   }));
 
-  ipcMain.handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string) => {
+  handle(Channels.SHELL_OPEN_IN_DEFAULT, withRootPathOr(undefined, (rootPath, relativePath: string) => {
     void shell.openPath(assertSafePath(rootPath, relativePath));
   }));
 
-  ipcMain.handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
+  handle(Channels.SHELL_OPEN_IN_TERMINAL, withRootPathOr(undefined, (rootPath, relativePath?: string) => {
     // Validate the full path is in-root, then open its containing dir —
     // dirname of an in-root path is itself in-root.
     const dir = relativePath
@@ -67,7 +68,7 @@ export function registerShell(): void {
     }
   }));
 
-  ipcMain.handle(Channels.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+  handle(Channels.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
     // Only http(s) — don't let anyone (or the LLM) coerce us into opening
     // file://, javascript:, etc.
     if (typeof url !== 'string') return;

@@ -1,4 +1,4 @@
-import { ipcMain, dialog } from 'electron';
+import { dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -295,7 +295,7 @@ export function registerNotebase(): void {
     return { rewrittenPaths };
   }));
 
-  ipcMain.handle(
+  handle(
     Channels.NOTEBASE_RENAME_ANCHOR,
     withRootPath(async (rootPath, targetRelativePath: string, oldSlug: string, newSlug: string) => {
       const ctx = projectContext(rootPath);
@@ -358,7 +358,7 @@ export function registerNotebase(): void {
     setOnboardingDismissed(rootPath, dismissed === true);
   }));
 
-  ipcMain.handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, localPaths: string[]) => {
+  handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, localPaths: string[]) => {
     return await dropImport(rootPath, targetFolder ?? '', localPaths ?? []);
   }));
 }
