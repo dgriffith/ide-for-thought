@@ -103,19 +103,26 @@ high-maintenance across Homebrew / pyenv / venv interpreters. So the profile is
 **denylist-leaning**, and the phases are ordered by how likely each rule is to
 break a legitimate cell.
 
-### Phase 1 — network + exec containment (low breakage, highest value)
+### Phase 1 — network containment (low breakage, highest value)
 
-- `(deny network*)` unless `allowNetwork` → **turns the in-kernel socket guard
-  from bypassable-via-subprocess into a real kernel boundary.** Single biggest
-  win.
-- `(deny process-exec*)` except the interpreter itself → **closes the
-  `subprocess` / shell-out escape** (and with it the practical `ctypes`→`exec`
-  path).
-- Filesystem left broadly readable/writable → almost nothing legitimate breaks.
+- `(allow default)` then `(deny network-outbound (remote ip "*:*"))` /
+  `(deny network-inbound (local ip "*:*"))`, re-allowing loopback
+  (`(remote ip "localhost:*")`) → **turns the in-kernel socket guard from
+  bypassable-via-subprocess into a real OS boundary.** Single biggest win.
+- **Seatbelt policies are inherited by child processes** (empirically verified:
+  a `subprocess` spawned from a sandboxed cell also fails to reach the network).
+  So denying IP egress alone **already closes the `subprocess` / shell-out
+  escape** — an explicit `(deny process-exec*)` is *not* needed for that, and is
+  deliberately omitted from P1 because it would break interpreters that are
+  wrapper scripts (pyenv/venv shims re-exec the real binary) under the
+  fail-closed policy. Any process-spawn hardening is reconsidered in P2/P3.
+- IP-only network filters leave **unix-domain sockets untouched**, so the
+  kernel's RPC channel to main (`MINERVA_IPC_SOCKET`) keeps working with no
+  special carve-out. Filesystem stays broadly readable/writable (that's P2).
 
-Phase 1 alone converts the two headline holes ("network off is bypassable",
-"just shell out") into OS-enforced guarantees, at minimal breakage risk. It is
-the recommended first PR.
+Phase 1 converts the headline hole ("network off is bypassable, just shell out")
+into an OS-enforced guarantee inherited by every child process, at minimal
+breakage risk. It is the first PR.
 
 ### Phase 2 — filesystem containment (medium breakage)
 
@@ -133,20 +140,23 @@ the recommended first PR.
 - Evaluate the **XPC-helper** rearchitecture if `sandbox-exec` deprecation
   becomes real or MAS distribution is pursued.
 
-## Robustness & failure modes
+## Robustness & failure modes — **fail-closed** (decided)
 
 `sandbox-exec` can be absent, error on a malformed profile, or (someday) be
-removed. The kernel must degrade **predictably, never silently**:
+removed. On the ship platform the kernel **fails closed**:
 
-- Detect availability once (probe `/usr/bin/sandbox-exec` at first spawn).
-- On an unavailable binary or a sandboxed-spawn failure, **fall back to the
-  current in-kernel guards** (the socket guard still applies) **plus a one-time
-  visible warning**, and **record the downgrade in the execution audit log**
-  ([#1419]) so a sandbox failure is observable rather than a quiet loss of the
-  boundary.
-- Rationale: fail-closed (refuse all compute) is safest but breaks the feature
-  on any environment quirk; a loud, audited graceful fallback keeps the tool
-  usable while making the weakened posture impossible to miss.
+- On macOS, if `/usr/bin/sandbox-exec` is missing or the sandboxed spawn fails,
+  **compute refuses to run** — the cell returns a clear "compute is unavailable:
+  the macOS sandbox could not start" error rather than silently running
+  unsandboxed. No boundary → no execution.
+- On **non-darwin** (dev/CI only — we ship macOS), there is no macOS sandbox to
+  apply, so the interpreter runs directly. This is a development convenience,
+  not a fallback: a shipping macOS build always sandboxes-or-refuses.
+- Rationale: fail-closed is the strongest guarantee. The cost — compute breaking
+  on an environment quirk — is bounded because `sandbox-exec` is present on every
+  current macOS; the realistic trigger is a future OS removal, at which point
+  refusing is the correct conservative behavior until the XPC-helper path (P3)
+  lands.
 
 ## Testing
 
@@ -170,19 +180,21 @@ macOS-only integration tests (skip on non-darwin CI, mirroring
   becomes mandatory. Given Developer-ID-only distribution, this is not a current
   concern.
 
-## Open decisions
+## Resolved decisions
 
-1. **Fallback policy** — graceful+audited (recommended) vs. fail-closed vs. a
-   user setting. Locked to graceful+audited unless a reviewer objects.
-2. **Phase 2 write scope** — project root only, or project root + a
-   user-configurable extra dir (for cells that legitimately write to a shared
-   data dir)?
-3. **Phase 2 read denylist** — ship a fixed list, or make it extensible?
+1. **Fallback policy → fail-closed.** On macOS, refuse compute if the sandbox
+   can't be applied (see Robustness above).
+2. **Phase 2 write scope → project root + `TMPDIR` + interpreter caches only.**
+   No user-configurable extra dir for now.
+3. **Phase 2 read denylist → a fixed built-in list** (`~/.ssh`, `~/.aws`,
+   `~/.gnupg`, `~/.config`, login keychains, browser profiles). Extend in code
+   later if needed; no config surface.
 
 ## Child issues
 
-- **P1** — `sandbox-exec` wrapper + `(deny network*/process-exec*)` + graceful
-  audited fallback + macOS integration tests.
+- **P1** — `sandbox-exec` wrapper + network containment (deny IP egress, allow
+  loopback + unix sockets; inherited by child processes) + fail-closed on macOS
+  + macOS integration tests.
 - **P2** — filesystem containment (`file-write*` to project/tmp only;
   `file-read*` sensitive denylist).
 - **P3** (deferred) — allow-list hardening / `mach-lookup` minimization; XPC
