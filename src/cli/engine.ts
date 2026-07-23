@@ -26,9 +26,21 @@ import type { ChunkEmbedder } from '../main/embeddings/vector-store';
 import { getSharedEmbedder } from '../main/embeddings/shared-embedder';
 import * as approval from '../main/llm/approval';
 import { readFile } from '../main/notebase/fs';
+import { searchInNotes } from '../main/notebase/search-in-notes';
 import type { ProjectContext } from '../main/project-context-types';
 
 export type ExecResult = { ok: true; data: unknown } | { ok: false; error: string };
+
+export interface GrepOptions {
+  regex?: boolean | undefined;
+  caseSensitive?: boolean | undefined;
+  limit?: number | undefined;
+}
+
+/** Default / hard caps on grep match lines, so a broad pattern can't flood the
+ *  agent's context; the result still reports the true `total`. */
+const GREP_DEFAULT_LIMIT = 50;
+const GREP_MAX_LIMIT = 200;
 
 export interface ProposeNoteInput {
   relativePath: string;
@@ -44,6 +56,11 @@ export interface Engine {
   sql(sql: string): Promise<ExecResult>;
   search(text: string, limit?: number): Promise<ExecResult>;
   semantic(text: string, limit?: number): Promise<ExecResult>;
+  /** Exact literal / regex search over raw note text (like grep) — matches
+   *  grounded with note path + line number. Complements `search` (word-based
+   *  full-text) and `semantic` (meaning); the tool for exact strings, symbols,
+   *  and structural patterns. */
+  grep(pattern: string, opts?: GrepOptions): Promise<ExecResult>;
   read(relativePath: string): Promise<ExecResult>;
   /** Assemble a task-relevant slice of the thoughtbase for a topic: the matching
    *  notes plus their link neighborhood and full content, as one bundle an
@@ -124,6 +141,31 @@ export function createEngine(ctx: ProjectContext, opts: EngineOptions = {}): Eng
       const data: Record<string, unknown> = { query: text, hits };
       if (hits.length === 0) data.note = SEMANTIC_EMPTY_NOTE;
       return { ok: true, data };
+    },
+    async grep(pattern, opts = {}) {
+      if (typeof pattern !== 'string' || pattern.trim() === '') {
+        return { ok: false, error: 'pattern is required' };
+      }
+      const regex = opts.regex === true;
+      const caseSensitive = opts.caseSensitive === true;
+      const cap = Math.min(
+        opts.limit && opts.limit > 0 ? Math.floor(opts.limit) : GREP_DEFAULT_LIMIT,
+        GREP_MAX_LIMIT,
+      );
+      // searchInNotes reads the vault directly (no index), so no ensure* step.
+      const files = await searchInNotes(ctx.rootPath, { pattern, caseSensitive, regex });
+      const total = files.reduce((n, f) => n + f.matches.length, 0);
+      const matches: { path: string; line: number; text: string }[] = [];
+      outer: for (const f of files) {
+        for (const m of f.matches) {
+          if (matches.length >= cap) break outer;
+          matches.push({ path: f.relativePath, line: m.line, text: m.lineText.slice(0, 200) });
+        }
+      }
+      return {
+        ok: true,
+        data: { pattern, regex, caseSensitive, total, truncated: matches.length < total, matches },
+      };
     },
     async read(relativePath) {
       try {

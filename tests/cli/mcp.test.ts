@@ -51,7 +51,7 @@ describe('handleMcpMessage — handshake & discovery', () => {
     const r = await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, engine());
     const tools = (r?.result as { tools: { name: string; inputSchema: unknown }[] }).tools;
     expect(tools.map((t) => t.name).sort()).toEqual(
-      ['gather_context', 'propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
+      ['gather_context', 'grep_notes', 'propose_note', 'query_graph', 'read_note', 'search_notes', 'semantic_search', 'sql_query'],
     );
     for (const t of tools) expect(t.inputSchema).toHaveProperty('type', 'object');
   });
@@ -96,6 +96,14 @@ describe('handleMcpMessage — tools/call', () => {
     const parsed = JSON.parse((r?.result as { content: { text: string }[] }).content[0].text);
     expect(parsed.path).toBe('photosynthesis.md');
     expect(parsed.content).toContain('chemical energy');
+  });
+
+  it('grep_notes returns exact matches grounded with path + line', async () => {
+    const r = await call('grep_notes', { pattern: 'chemical energy' });
+    const parsed = JSON.parse((r?.result as { content: { text: string }[] }).content[0].text);
+    expect(parsed.total).toBe(1);
+    expect(parsed.matches[0]).toMatchObject({ path: 'photosynthesis.md', line: 5 });
+    expect(parsed.matches[0].text).toContain('chemical energy');
   });
 
   it('a tool failure is an MCP tool result with isError, not a JSON-RPC error', async () => {

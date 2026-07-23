@@ -109,6 +109,34 @@ export const MCP_TOOLS: McpTool[] = [
     run: (engine, args) => engine.search(str(args.text), num(args.limit)),
   },
   {
+    name: 'grep_notes',
+    description:
+      'Exact literal or regular-expression search over the raw text of every note, like ' +
+      '`grep`. Matches are grounded with note path and line number. Unlike search_notes ' +
+      '(ranked, word-based) and semantic_search (meaning-based), this matches the exact ' +
+      'characters — punctuation, symbols, code, casing, structure — and finds every ' +
+      'occurrence, so use it for a known string, a structural pattern (unfinished tasks ' +
+      '"- [ ]", "[[wiki-links]]", a "status:" property, TODO/FIXME), or to verify whether ' +
+      'something literally appears. Literal substring by default; set regex:true for a ' +
+      'JavaScript regular expression.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pattern: { type: 'string', description: 'Text to find. Literal substring unless regex is true.' },
+        regex: { type: 'boolean', description: 'Treat pattern as a JavaScript regular expression. Default false.' },
+        case_sensitive: { type: 'boolean', description: 'Match case exactly. Default false.' },
+        limit: { type: 'number', description: 'Max match lines (default 50, max 200).' },
+      },
+      required: ['pattern'],
+    },
+    run: (engine, args) =>
+      engine.grep(str(args.pattern), {
+        regex: args.regex === true,
+        caseSensitive: args.case_sensitive === true,
+        limit: num(args.limit),
+      }),
+  },
+  {
     name: 'semantic_search',
     description:
       'Semantic (embeddings) search over notes — finds conceptually related content, not ' +
