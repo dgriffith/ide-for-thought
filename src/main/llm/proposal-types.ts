@@ -103,6 +103,24 @@ export type ProposalPayload =
       path: string;
     }
   | {
+      kind: 'folder-refactor';
+      /** Move/rename a whole folder. Every note under it moves (relative links
+       *  re-relativized) and every inbound wiki-link is rewritten via
+       *  `renameWithLinkRewrites` (already folder-aware); rollback moves the
+       *  folder back and restores captured pre-images (#911 follow-up). */
+      fromPath: string;
+      toPath: string;
+    }
+  | {
+      kind: 'folder-delete';
+      /** Delete a whole folder and everything under it. Apply captures every
+       *  file (notes as text, assets as bytes) as a pre-image so rollback can
+       *  recreate the tree verbatim. Inbound wiki-links from outside are left
+       *  dangling (matching the note-delete / manual-delete stance), with the
+       *  blast radius shown on the review card. */
+      path: string;
+    }
+  | {
       kind: 'note-rewrite';
       /** Overwrite an existing note's full content in place (#936). Apply
        *  captures the prior content as a pre-image so rollback can restore it

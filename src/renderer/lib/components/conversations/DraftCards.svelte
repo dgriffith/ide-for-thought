@@ -93,8 +93,9 @@
   async function handleApproveRefactor(tabId: string, draft: ConversationRefactorDraft) {
     try {
       await store.approveRefactorDraft(tabId, draft);
-      // Land the user on the note at its new path.
-      void editor.openFile(draft.toPath);
+      // Land the user on the note at its new path. A folder move has no single
+      // file to open — the file tree refreshes from the watcher instead.
+      if (!draft.isFolder) void editor.openFile(draft.toPath);
     } catch (e) {
       console.error('[conv-panel] approve refactor failed:', e);
     }

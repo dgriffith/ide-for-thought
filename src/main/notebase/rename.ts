@@ -35,7 +35,7 @@ async function listIndexableFiles(rootPath: string, relDir: string): Promise<str
  * etc — those need to be in the rewrites map so a sibling note's
  * `![alt](pic.png)` gets re-relativized when the folder moves.
  */
-async function listAllFiles(rootPath: string, relDir: string): Promise<string[]> {
+export async function listAllFiles(rootPath: string, relDir: string): Promise<string[]> {
   const results: string[] = [];
   const absDir = path.join(rootPath, relDir);
   try {
@@ -135,6 +135,80 @@ export async function planRename(rootPath: string, fromPath: string, toPath: str
     }
   }
   return { fromPath, toPath, affectedNotes, warnings: [] };
+}
+
+/**
+ * Folder generalization of {@link planRename} (#911 follow-up): compute what
+ * moving/renaming a whole folder would do — every note that moves (its own
+ * relative links re-relativized) plus every note that links *into* the folder
+ * (inbound wiki-links rewritten) — **without writing anything**. Returns the
+ * same `RenamePlan` shape as `planRename`, so the draft, the review card, and
+ * the proposal's pre-image capture all reuse it unchanged. Uses the same
+ * rewriter helpers + folder rewrite-map construction as
+ * `renameWithLinkRewrites`, so the preview matches the commit.
+ *
+ * Moved notes are always included in `affectedNotes` (even when their content
+ * doesn't change) so the apply can capture every relocated note's pre-image.
+ */
+export async function planFolderRename(rootPath: string, fromDir: string, toDir: string): Promise<RenamePlan> {
+  const from = fromDir.replace(/\/+$/, '');
+  const to = toDir.replace(/\/+$/, '');
+  if (!from) throw new RefactorError('Cannot move the project root.');
+  if (from === to) throw new RefactorError('The source and destination are the same.');
+  if (to.startsWith(`${from}/`)) throw new RefactorError('Cannot move a folder into itself.');
+
+  notebaseFs.assertSafePath(rootPath, from);
+  notebaseFs.assertSafePath(rootPath, to);
+
+  let stat: import('node:fs').Stats;
+  try { stat = await fs.stat(path.join(rootPath, from)); }
+  catch { throw new RefactorError(`The folder to move no longer exists: ${from}`); }
+  if (!stat.isDirectory()) throw new RefactorError('That path is a note, not a folder — use a note move instead.');
+  // Destination must not already exist.
+  let destExists = true;
+  try { await fs.stat(path.join(rootPath, to)); } catch { destExists = false; }
+  if (destExists) throw new RefactorError(`Something already exists at the destination: ${to}`);
+
+  const ctx = projectContext(rootPath);
+
+  // Wiki-link + markdown-link rewrite maps, built exactly as
+  // `renameWithLinkRewrites` does for a directory.
+  const descendants = await listIndexableFiles(rootPath, from);
+  const rewrites = new Map<string, string>();
+  for (const d of descendants) {
+    rewrites.set(normalizeLinkPath(d), normalizeLinkPath(to + d.slice(from.length)));
+  }
+  const mdRewrites = new Map<string, string>();
+  for (const d of await listAllFiles(rootPath, from)) {
+    mdRewrites.set(d, to + d.slice(from.length));
+  }
+
+  const referringNotes = new Set<string>();
+  for (const oldPath of rewrites.keys()) {
+    for (const p of graph.findNotesLinkingTo(ctx, `${oldPath}.md`)) referringNotes.add(p);
+  }
+
+  const movedSet = new Set(descendants);
+  const affectedNotes: AffectedNote[] = [];
+  for (const currentPath of await listIndexableFiles(rootPath, '')) {
+    const isMoved = movedSet.has(currentPath);
+    let content: string;
+    try { content = await notebaseFs.readFile(rootPath, currentPath); } catch { continue; }
+
+    let rewritten = content;
+    if (!isMoved && referringNotes.has(currentPath)) {
+      rewritten = rewriteWikiLinks(rewritten, rewrites);
+    }
+    // A moved note's authored relative links resolve against its OLD location;
+    // the new location is its mapped destination.
+    const newEquivalent = isMoved ? to + currentPath.slice(from.length) : currentPath;
+    rewritten = rewriteRelativeMarkdownLinks(rewritten, currentPath, newEquivalent, mdRewrites);
+
+    if (rewritten !== content || isMoved) {
+      affectedNotes.push({ path: currentPath, before: content, after: rewritten, isMoved });
+    }
+  }
+  return { fromPath: from, toPath: to, affectedNotes, warnings: [] };
 }
 
 export interface RenameWithLinksOptions {

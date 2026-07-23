@@ -30,6 +30,10 @@ export interface ConversationRefactorDraft extends ConversationToolDraft {
   toPath: string;
   /** The dry-run blast radius — every note whose links would be rewritten. */
   affectedNotes: RefactorAffectedNote[];
+  /** True when `fromPath`/`toPath` are folders (propose_folder_move) rather than
+   *  a single note. The card labels it "Move folder" and the file handler files
+   *  a `folder-refactor` proposal instead of `note-refactor`. */
+  isFolder?: boolean;
 }
 
 /** One move/rename within a batch reorganization plan (#914). */
@@ -77,5 +81,13 @@ export interface ConversationDeleteDraft extends ConversationToolDraft {
   items: DeleteDraftItem[];
   /** Per-note problems surfaced before apply (missing file, not a note). */
   warnings: string[];
+  /** Set by propose_folder_delete: the folder being deleted whole. `items`
+   *  then lists the notes inside it (for the review card + inbound audit), but
+   *  the delete is all-or-nothing — the file handler files ONE `folder-delete`
+   *  proposal for `folderPath` rather than per-note `note-delete`s. */
+  folderPath?: string;
+  /** Count of non-note assets (images/pdfs/…) inside `folderPath` that will be
+   *  removed with it — surfaced on the card so the user knows. */
+  assetCount?: number;
 }
 
