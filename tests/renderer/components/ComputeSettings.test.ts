@@ -7,18 +7,20 @@
  * probe status line, Browse, Save (with dirty-state gating), and Clear override.
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor } from '@testing-library/svelte';
 
 const {
   getPythonSettingsMock, probePythonMock, browsePythonMock,
-  setPythonSettingsMock, restartKernelMock,
+  setPythonSettingsMock, restartKernelMock, listConsentMock, revokeConsentMock,
 } = vi.hoisted(() => ({
   getPythonSettingsMock: vi.fn(),
   probePythonMock: vi.fn(),
   browsePythonMock: vi.fn(),
   setPythonSettingsMock: vi.fn(),
   restartKernelMock: vi.fn(),
+  listConsentMock: vi.fn(),
+  revokeConsentMock: vi.fn(),
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
@@ -29,21 +31,30 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
       browsePython: browsePythonMock,
       setPythonSettings: setPythonSettingsMock,
       restartPythonKernel: restartKernelMock,
+      listConsent: listConsentMock,
+      revokeConsent: revokeConsentMock,
     },
   },
 }));
 
 import ComputeSettings from '../../../src/renderer/lib/components/ComputeSettings.svelte';
 
+beforeEach(() => {
+  // Panels load these on mount; default to inert values so each test only sets
+  // what it asserts on.
+  listConsentMock.mockResolvedValue([]);
+  setPythonSettingsMock.mockResolvedValue(undefined);
+});
+
 afterEach(() => {
   cleanup();
-  [getPythonSettingsMock, probePythonMock, browsePythonMock, setPythonSettingsMock, restartKernelMock]
-    .forEach((m) => m.mockReset());
+  [getPythonSettingsMock, probePythonMock, browsePythonMock, setPythonSettingsMock,
+    restartKernelMock, listConsentMock, revokeConsentMock].forEach((m) => m.mockReset());
 });
 
 describe('ComputeSettings (#672)', () => {
   it('loads the saved path on mount and probes, showing the version', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3' });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12.1' });
     const { findByText, getByDisplayValue } = render(ComputeSettings, {});
 
@@ -54,7 +65,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('shows the error state when the probe fails', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/bad/python' });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/bad/python', allowNetwork: false });
     probePythonMock.mockResolvedValue({ ok: false, path: '/bad/python', error: 'not executable' });
     const { findByText } = render(ComputeSettings, {});
     expect(await findByText(/Couldn't run interpreter/)).toBeTruthy();
@@ -62,7 +73,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('Browse sets the picked path and re-probes', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '' });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: false });
     probePythonMock.mockResolvedValue({ ok: true, path: 'x', version: 'Python 3.12' });
     browsePythonMock.mockResolvedValue('/opt/py/bin/python');
     const { findByText, getByText, getByDisplayValue } = render(ComputeSettings, {});
@@ -74,7 +85,7 @@ describe('ComputeSettings (#672)', () => {
   });
 
   it('Save is gated on dirty state and persists via api.compute.setPythonSettings', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3' });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
     setPythonSettingsMock.mockResolvedValue(undefined);
     const { findByText, getByText, getByDisplayValue } = render(ComputeSettings, {});
@@ -87,17 +98,42 @@ describe('ComputeSettings (#672)', () => {
     expect(getByText('Save').closest('button')!.disabled).toBe(false);
 
     await fireEvent.click(getByText('Save'));
-    expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '/new/python' });
+    expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '/new/python', allowNetwork: false });
   });
 
   it('Clear override blanks the path and saves', async () => {
-    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3' });
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
     probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
     setPythonSettingsMock.mockResolvedValue(undefined);
     const { findByText, getByText } = render(ComputeSettings, {});
     await findByText('Python 3.12');
 
     await fireEvent.click(getByText('Clear override'));
-    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '' }));
+    await waitFor(() => expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '', allowNetwork: false }));
+  });
+
+  it('network toggle reflects the saved setting and persists on change (#1413)', async () => {
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '/usr/bin/python3', allowNetwork: false });
+    probePythonMock.mockResolvedValue({ ok: true, path: '/usr/bin/python3', version: 'Python 3.12' });
+    const { findByText, getByLabelText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    const toggle = getByLabelText('Allow network access for Python cells') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+
+    await fireEvent.click(toggle);
+    // Persists with the saved interpreter path + the new network choice.
+    await waitFor(() =>
+      expect(setPythonSettingsMock).toHaveBeenCalledWith({ pythonPath: '/usr/bin/python3', allowNetwork: true }),
+    );
+  });
+
+  it('network toggle loads as checked when network is allowed (#1413)', async () => {
+    getPythonSettingsMock.mockResolvedValue({ pythonPath: '', allowNetwork: true });
+    probePythonMock.mockResolvedValue({ ok: true, path: 'python3', version: 'Python 3.12' });
+    const { findByText, getByLabelText } = render(ComputeSettings, {});
+    await findByText('Python 3.12');
+
+    expect((getByLabelText('Allow network access for Python cells') as HTMLInputElement).checked).toBe(true);
   });
 });

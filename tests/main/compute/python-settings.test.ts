@@ -65,13 +65,45 @@ describe('getPythonSettings (#374)', () => {
     const s = await getPythonSettings();
     expect(s.pythonPath).toBe('');
   });
+
+  it('defaults allowNetwork to false when absent (#1413)', async () => {
+    const s = await getPythonSettings();
+    expect(s.allowNetwork).toBe(false);
+  });
+
+  it('reads allowNetwork: true when set (#1413)', async () => {
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ pythonPath: '', allowNetwork: true }),
+      'utf-8',
+    );
+    const s = await getPythonSettings();
+    expect(s.allowNetwork).toBe(true);
+  });
+
+  it('fails closed — only a literal true enables network (#1413)', async () => {
+    await fs.writeFile(
+      path.join(tempDir, 'python-settings.json'),
+      JSON.stringify({ pythonPath: '', allowNetwork: 'yes' }),
+      'utf-8',
+    );
+    const s = await getPythonSettings();
+    expect(s.allowNetwork).toBe(false);
+  });
 });
 
 describe('setPythonSettings (#374)', () => {
   it('persists round-trip', async () => {
-    await setPythonSettings({ pythonPath: '/usr/local/bin/python3.12' });
+    await setPythonSettings({ pythonPath: '/usr/local/bin/python3.12', allowNetwork: false });
     const reread = await getPythonSettings();
     expect(reread.pythonPath).toBe('/usr/local/bin/python3.12');
+  });
+
+  it('round-trips allowNetwork (#1413)', async () => {
+    await setPythonSettings({ pythonPath: '', allowNetwork: true });
+    expect((await getPythonSettings()).allowNetwork).toBe(true);
+    await setPythonSettings({ pythonPath: '', allowNetwork: false });
+    expect((await getPythonSettings()).allowNetwork).toBe(false);
   });
 });
 
@@ -83,7 +115,7 @@ describe('resolvePythonInterpreter (#374) — discovery order', () => {
   });
 
   it('Settings override wins over env var and PATH default', async () => {
-    await setPythonSettings({ pythonPath: '/explicit/override/python' });
+    await setPythonSettings({ pythonPath: '/explicit/override/python', allowNetwork: false });
     process.env.MINERVA_PYTHON = '/env/python';
     const r = await resolvePythonInterpreter();
     expect(r).toBe('/explicit/override/python');
@@ -102,7 +134,7 @@ describe('resolvePythonInterpreter (#374) — discovery order', () => {
   });
 
   it('whitespace-only override does not satisfy the override branch', async () => {
-    await setPythonSettings({ pythonPath: '   ' });
+    await setPythonSettings({ pythonPath: '   ', allowNetwork: false });
     delete process.env.MINERVA_PYTHON;
     const r = await resolvePythonInterpreter();
     expect(r).toBe('python3');

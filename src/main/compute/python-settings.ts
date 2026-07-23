@@ -26,6 +26,14 @@ export interface PythonSettings {
    * PATH lookup in that case.
    */
   pythonPath: string;
+  /**
+   * Allow compute cells to make outbound network connections (#1413).
+   * Off by default: the kernel installs a socket guard that blocks
+   * non-local connections (the common exfiltration path — `requests`,
+   * `urllib`, `pandas.read_csv(url)`) unless this is on. Per-machine,
+   * like `pythonPath`.
+   */
+  allowNetwork: boolean;
 }
 
 export interface PythonProbeResult {
@@ -38,7 +46,7 @@ export interface PythonProbeResult {
   error?: string;
 }
 
-const DEFAULT_SETTINGS: PythonSettings = { pythonPath: '' };
+const DEFAULT_SETTINGS: PythonSettings = { pythonPath: '', allowNetwork: false };
 
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'python-settings.json');
@@ -50,6 +58,9 @@ export async function getPythonSettings(): Promise<PythonSettings> {
     const parsed = JSON.parse(raw) as Partial<PythonSettings>;
     return {
       pythonPath: typeof parsed.pythonPath === 'string' ? parsed.pythonPath : '',
+      // Default off — only a literal `true` enables network, so a corrupt or
+      // truthy-non-bool value fails closed (matches the consent gate's posture).
+      allowNetwork: parsed.allowNetwork === true,
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -57,7 +68,11 @@ export async function getPythonSettings(): Promise<PythonSettings> {
 }
 
 export async function setPythonSettings(settings: PythonSettings): Promise<void> {
-  await fs.writeFile(settingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+  await fs.writeFile(
+    settingsPath(),
+    JSON.stringify({ pythonPath: settings.pythonPath, allowNetwork: settings.allowNetwork === true }, null, 2),
+    'utf-8',
+  );
 }
 
 /**

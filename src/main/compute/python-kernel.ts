@@ -22,7 +22,7 @@ import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
-import { resolvePythonInterpreter } from './python-settings';
+import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -99,6 +99,9 @@ export function kernelScriptPath(): string {
 
 async function spawnKernel(rootPath: string): Promise<KernelState> {
   const py = await resolvePythonBin();
+  // Network posture is read at spawn time (#1413) — so toggling it in Settings
+  // takes effect on the next kernel start / restart, not mid-session.
+  const { allowNetwork } = await getPythonSettings();
   const script = kernelScriptPath();
   // RPC server up first so the kernel can connect on first import.
   const rpc = await startRpcServer(rootPath);
@@ -123,6 +126,10 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       PYTHONPATH: pythonResourcesRoot() + path.delimiter + rootPath,
       MINERVA_IPC_SOCKET: rpc.socketPath,
       MINERVA_PROJECT_ROOT: rootPath,
+      // Network egress off by default (#1413). The kernel bootstrap installs a
+      // socket guard unless this is exactly '1'; the RPC channel + loopback are
+      // always allowed so the guard never severs the kernel's own connection.
+      ...(allowNetwork ? { MINERVA_ALLOW_NETWORK: '1' } : {}),
       // Force matplotlib's non-interactive Agg backend (#243). Without
       // this, importing pyplot on macOS spawns a Cocoa GUI process
       // that bounces in the dock and leaks across app sessions; we
