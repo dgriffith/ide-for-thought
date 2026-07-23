@@ -23,6 +23,7 @@ import { randomUUID } from 'node:crypto';
 import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
 import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
+import { planKernelLaunch } from './sandbox';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -103,9 +104,14 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
   // takes effect on the next kernel start / restart, not mid-session.
   const { allowNetwork } = await getPythonSettings();
   const script = kernelScriptPath();
+  // OS sandbox (#1329 P1): wrap the interpreter in sandbox-exec on macOS. This
+  // is computed BEFORE the RPC server starts and can throw (fail-closed if the
+  // sandbox is unavailable) — doing it first means there's no RPC socket to
+  // clean up on that path.
+  const launch = planKernelLaunch(py, script, { allowNetwork });
   // RPC server up first so the kernel can connect on first import.
   const rpc = await startRpcServer(rootPath);
-  const proc = spawn(py, [script], {
+  const proc = spawn(launch.command, launch.args, {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
@@ -375,7 +381,13 @@ export async function runPython(
 ): Promise<CellResult> {
   let state = kernels.get(rootPath);
   if (!state || state.proc.killed || state.proc.exitCode !== null) {
-    state = await spawnKernel(rootPath);
+    try {
+      state = await spawnKernel(rootPath);
+    } catch (err) {
+      // Fail-closed (#1329): sandbox unavailable → refuse to run rather than
+      // fall back to an unsandboxed interpreter. Surfaced as a normal cell error.
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
     kernels.set(rootPath, state);
   }
   try {
