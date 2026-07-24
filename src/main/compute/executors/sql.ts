@@ -8,6 +8,7 @@
 
 import { runQuery } from '../../sources/tables';
 import { projectContext } from '../../project-context-types';
+import { coerceDuckBigInt } from '../duck-values';
 import type { ExecutorFn } from '../registry';
 
 /**
@@ -15,8 +16,9 @@ import type { ExecutorFn } from '../registry';
  * a `type:"table"` cell output with rows normalised into the cell-output
  * primitive set (`string | number | boolean | null`) so the preview
  * renderer can draw them without running a JSON type check per cell.
- * BigInts stringify (DuckDB returns INTEGER columns as BigInt); Dates
- * become ISO strings; everything else passes through as-is.
+ * DuckDB returns INTEGER columns as BigInt; in-range values stay numeric
+ * (only out-of-range ones stringify — see coerceDuckBigInt); Dates become
+ * ISO strings; everything else passes through as-is.
  */
 export const executeSql: ExecutorFn = async (code, ctx) => {
   const response = await runQuery(projectContext(ctx.rootPath), code);
@@ -33,7 +35,7 @@ export const executeSql: ExecutorFn = async (code, ctx) => {
 
 function normalizeCell(v: unknown): string | number | boolean | null {
   if (v == null) return null;
-  if (typeof v === 'bigint') return v.toString();
+  if (typeof v === 'bigint') return coerceDuckBigInt(v);
   if (v instanceof Date) return v.toISOString();
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v;
   // Arrays / structs / maps — DuckDB nested types don't have a canonical
