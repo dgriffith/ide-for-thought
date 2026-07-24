@@ -22,8 +22,9 @@ import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { CellOutput, CellResult, KernelMimeBundle } from '../../shared/compute/types';
 import { startRpcServer, type RpcServer } from './rpc-server';
+import os from 'node:os';
 import { resolvePythonInterpreter, getPythonSettings } from './python-settings';
-import { planKernelLaunch } from './sandbox';
+import { planKernelLaunch, resolveRealPath } from './sandbox';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 
@@ -104,11 +105,16 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
   // takes effect on the next kernel start / restart, not mid-session.
   const { allowNetwork } = await getPythonSettings();
   const script = kernelScriptPath();
-  // OS sandbox (#1329 P1): wrap the interpreter in sandbox-exec on macOS. This
-  // is computed BEFORE the RPC server starts and can throw (fail-closed if the
+  // OS sandbox (#1329): wrap the interpreter in sandbox-exec on macOS. This is
+  // computed BEFORE the RPC server starts and can throw (fail-closed if the
   // sandbox is unavailable) — doing it first means there's no RPC socket to
-  // clean up on that path.
-  const launch = planKernelLaunch(py, script, { allowNetwork });
+  // clean up on that path. Paths are resolved (realpath) because Seatbelt
+  // matches on the canonical path (/var → /private/var, etc.).
+  const launch = planKernelLaunch(py, script, {
+    allowNetwork,
+    projectRoot: resolveRealPath(rootPath),
+    homeDir: resolveRealPath(os.homedir()),
+  });
   // RPC server up first so the kernel can connect on first import.
   const rpc = await startRpcServer(rootPath);
   const proc = spawn(launch.command, launch.args, {
@@ -143,6 +149,12 @@ async function spawnKernel(rootPath: string): Promise<KernelState> {
       // backend is pure overhead. Reading MPLBACKEND on import is
       // matplotlib's documented config seam — no user code change.
       MPLBACKEND: 'Agg',
+      // Point matplotlib's font/config cache at a writable temp dir (#1329 P2).
+      // Its default (~/.matplotlib or ~/.cache) is outside the sandbox's
+      // write-allowed regions, so without this the first import fails to build
+      // its font cache. os.tmpdir() resolves under /private/var/folders, which
+      // the profile permits.
+      MPLCONFIGDIR: path.join(os.tmpdir(), 'minerva-matplotlib'),
     },
   });
 
