@@ -38,13 +38,30 @@ describe('executeSql (#240)', () => {
     expect(result.ok).toBe(true);
     if (!result.ok || result.output.type !== 'table') return;
     expect(result.output.columns).toEqual(['name', 'count']);
-    // DuckDB returns INTEGER as BigInt; normalizeCell stringifies bigints so
-    // the preview can render them without JSON reviver hoops.
+    // DuckDB returns INTEGER as BigInt; normalizeCell keeps in-range integers
+    // numeric so the column reads as numbers (and `minerva.sql()` hands pandas
+    // an int64 column) rather than text.
     expect(result.output.rows).toEqual([
-      ['alpha', '1'],
-      ['beta', '2'],
-      ['gamma', '3'],
+      ['alpha', 1],
+      ['beta', 2],
+      ['gamma', 3],
     ]);
+  });
+
+  it('keeps large BigInts as decimal strings to avoid precision loss', async () => {
+    // 2^63 - 1 exceeds Number.MAX_SAFE_INTEGER, so it must survive as a string
+    // rather than a lossy Number.
+    const result = await executeSql('SELECT 9223372036854775807::BIGINT AS big', CTX);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.output.type !== 'table') return;
+    expect(result.output.rows).toEqual([['9223372036854775807']]);
+  });
+
+  it('keeps in-range BigInts numeric', async () => {
+    const result = await executeSql('SELECT 42::BIGINT AS n', CTX);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.output.type !== 'table') return;
+    expect(result.output.rows).toEqual([[42]]);
   });
 
   it('surfaces SQL syntax errors as ok:false rather than throwing', async () => {

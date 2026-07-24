@@ -32,6 +32,7 @@ import * as search from '../search/index';
 import * as notebaseFs from '../notebase/fs';
 import { parseMarkdown } from '../graph/parser';
 import { projectContext } from '../project-context-types';
+import { coerceDuckBigInt } from './duck-values';
 
 interface RpcRequest {
   id: number;
@@ -162,13 +163,16 @@ const methods: Record<string, RpcMethod> = {
 };
 
 /** DuckDB returns BigInt for INTEGER columns; JSON.stringify can't
- *  handle them, so coerce to string here. Mirrors what the SQL
- *  executor does for the cell-output path. */
+ *  handle them, so coerce here. In-range integers stay numeric (so
+ *  `minerva.sql()` hands pandas an int64 column, not a string one —
+ *  see coerceDuckBigInt); only out-of-range values fall back to a
+ *  decimal string. Mirrors what the SQL executor does for the
+ *  cell-output path. */
 function serializeForJson(rows: Record<string, unknown>[]): Record<string, unknown>[] {
   return rows.map((row) => {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(row)) {
-      if (typeof v === 'bigint') out[k] = v.toString();
+      if (typeof v === 'bigint') out[k] = coerceDuckBigInt(v);
       else if (v instanceof Date) out[k] = v.toISOString();
       else out[k] = v;
     }

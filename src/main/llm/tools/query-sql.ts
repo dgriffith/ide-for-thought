@@ -1,5 +1,6 @@
 import { projectContext } from '../../project-context-types';
 import * as tables from '../../sources/tables';
+import { coerceDuckBigInt } from '../../compute/duck-values';
 import type { NotebaseTool, ToolContext } from './types';
 
 const SQL_READONLY_FIRST_WORDS = new Set([
@@ -11,18 +12,13 @@ const QUERY_SQL_ROW_CAP = 200;
  * JSON.stringify replacer that survives DuckDB's integer columns. The node-api
  * returns BIGINT/HUGEINT (and COUNT(*), which SUMMARIZE is full of) as JS
  * `bigint`, which plain JSON.stringify refuses to serialize ("Do not know how to
- * serialize a BigInt"). Render a bigint as a real number when it fits in a
- * double without precision loss, else as a string so a 19-digit id isn't
- * silently rounded. (Date columns are already handled — Date.toJSON emits ISO
- * before the replacer sees them.)
+ * serialize a BigInt"). `coerceDuckBigInt` renders it as a real number when it
+ * fits in a double without precision loss, else as a string so a 19-digit id
+ * isn't silently rounded. (Date columns are already handled — Date.toJSON emits
+ * ISO before the replacer sees them.)
  */
 function bigintSafeReplacer(_key: string, value: unknown): unknown {
-  if (typeof value === 'bigint') {
-    return value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER)
-      ? Number(value)
-      : value.toString();
-  }
-  return value;
+  return typeof value === 'bigint' ? coerceDuckBigInt(value) : value;
 }
 
 /** query_sql (#781): immediate read-only SQL over the project's DuckDB. */
