@@ -203,13 +203,22 @@
           data-relative-path={file.relativePath}
           style:padding-left="{depth * 16 + 8}px"
           onclick={(e) => {
-            // Clicking the disclosure arrow expands/collapses; clicking anywhere
-            // else on the row just selects the folder (#1034 follow-up).
+            // Clicking the disclosure arrow expands/collapses either way — and
+            // it stays the *only* way to collapse an open folder (#1034).
             if ((e.target as HTMLElement).closest('[data-chevron]')) {
               onToggleDir(file.relativePath);
               return;
             }
+            // A plain click anywhere on a *collapsed* folder row opens it, on
+            // top of selecting it — a folder shouldn't be harder to open than a
+            // file is. Modified clicks (shift range / ⌘ toggle) keep pure
+            // selection semantics and never expand; an already-open folder is
+            // only closed via the chevron, so its row click just selects.
+            const plain = !e.shiftKey && !e.metaKey && !e.ctrlKey;
             onItemClick(file.relativePath, true, { shift: e.shiftKey, meta: e.metaKey || e.ctrlKey });
+            if (plain && !expanded[file.relativePath]) {
+              onToggleDir(file.relativePath);
+            }
           }}
           oncontextmenu={(e) => handleContextMenu(e, file.relativePath, file.relativePath, true)}
           draggable={true}

@@ -147,6 +147,65 @@ describe('FileTree (#1002)', () => {
     expect(onToggleDir).toHaveBeenCalledWith('notes');
   });
 
+  it('plain-clicking a collapsed folder row opens it and selects it', async () => {
+    const onToggleDir = vi.fn();
+    const onItemClick = vi.fn();
+    const { container } = render(
+      FileTree,
+      props({ expanded: {}, onToggleDir, onItemClick }),
+    );
+    // Click the row body (not the chevron) of the collapsed `notes` folder.
+    await fireEvent.click(row(container, 'notes')!);
+    // Selects…
+    expect(onItemClick).toHaveBeenCalledWith('notes', true, { shift: false, meta: false });
+    // …and opens.
+    expect(onToggleDir).toHaveBeenCalledWith('notes');
+  });
+
+  it('plain-clicking an already-open folder row selects but does NOT collapse it', async () => {
+    const onToggleDir = vi.fn();
+    const onItemClick = vi.fn();
+    const { container } = render(
+      FileTree,
+      props({ expanded: { notes: true }, onToggleDir, onItemClick }),
+    );
+    await fireEvent.click(row(container, 'notes')!);
+    expect(onItemClick).toHaveBeenCalledWith('notes', true, { shift: false, meta: false });
+    // Closing stays chevron-only — a row click must not toggle it shut.
+    expect(onToggleDir).not.toHaveBeenCalled();
+  });
+
+  it('shift/⌘-clicking a collapsed folder row selects but does NOT open it', async () => {
+    const onToggleDir = vi.fn();
+    const onItemClick = vi.fn();
+    const { container } = render(
+      FileTree,
+      props({ expanded: {}, onToggleDir, onItemClick }),
+    );
+    await fireEvent.click(row(container, 'notes')!, { shiftKey: true });
+    expect(onItemClick).toHaveBeenCalledWith('notes', true, { shift: true, meta: false });
+    expect(onToggleDir).not.toHaveBeenCalled();
+
+    onItemClick.mockClear();
+    await fireEvent.click(row(container, 'notes')!, { metaKey: true });
+    expect(onItemClick).toHaveBeenCalledWith('notes', true, { shift: false, meta: true });
+    expect(onToggleDir).not.toHaveBeenCalled();
+  });
+
+  it('clicking the chevron on a collapsed folder toggles without double-firing', async () => {
+    const onToggleDir = vi.fn();
+    const onItemClick = vi.fn();
+    const { getByLabelText } = render(
+      FileTree,
+      props({ expanded: {}, onToggleDir, onItemClick }),
+    );
+    // The chevron branch returns early: it toggles once and never selects.
+    await fireEvent.click(getByLabelText('Expand folder'));
+    expect(onToggleDir).toHaveBeenCalledTimes(1);
+    expect(onToggleDir).toHaveBeenCalledWith('notes');
+    expect(onItemClick).not.toHaveBeenCalled();
+  });
+
   it('clicking a file row fires onItemClick with its path and modifier flags', async () => {
     const onItemClick = vi.fn();
     const { container } = render(
