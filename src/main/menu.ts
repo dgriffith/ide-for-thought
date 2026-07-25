@@ -10,6 +10,7 @@ import { projectContext } from './project-context-types';
 import * as search from './search/index';
 import * as tables from './sources/tables';
 import { STOCK_QUERIES } from '../shared/stock-queries';
+import { installMinervaCommand } from './cli-install';
 import { listSavedQueries } from './saved-queries';
 import { restartKernel as restartPythonKernel, interruptKernel as interruptPythonKernel } from './compute/python-kernel';
 import * as publish from './publish';
@@ -875,6 +876,17 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
         label: 'Report an Issue…',
         click: () => { void shell.openExternal(ISSUES_URL); },
       },
+      // Expose the headless `minerva` CLI on PATH (#1437). macOS/Linux only —
+      // the launcher is an sh shim; Windows is a follow-up.
+      ...(isMac
+        ? [
+            { type: 'separator' as const },
+            {
+              label: 'Install ‘minerva’ Command in PATH…',
+              click: () => { void installMinervaCommand(); },
+            },
+          ]
+        : []),
       // macOS keeps About in the app menu; Windows/Linux have no app menu,
       // so About lives at the foot of Help (the platform convention).
       ...(isMac

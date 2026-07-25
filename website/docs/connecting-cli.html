@@ -82,11 +82,12 @@
     <h1>CLI use</h1>
     <p class="lede">The Minerva CLI gives headless, scriptable access to a thoughtbase from your shell — the same core the app runs on, so it works with the app closed. Every result is printed as <b>JSON</b> on standard output, so it pipes straight into <code>jq</code> or feeds an agent directly.</p>
 
-    <h2 id="build">Building and running</h2>
-    <p>Build the CLI once from the Minerva source tree and put it on your PATH as the <code>minerva</code> command:</p>
-    <pre><code>pnpm cli:build        # builds .vite/build/cli.js and marks it executable
+    <h2 id="build">Getting the command</h2>
+    <p>If you installed Minerva from the download, choose <b>Help → Install ‘minerva’ Command in PATH…</b> in the app. That writes a <code>minerva</code> launcher to <code>~/.local/bin</code> — the app runs its own bundled Node, so there's nothing else to install. If <code>~/.local/bin</code> isn't on your <code>PATH</code>, the dialog shows how to add it, and gives the full path to use for MCP clients.</p>
+    <p>Working from the source tree instead? Build and link it:</p>
+    <pre><code>pnpm cli:build        # builds .vite/build/cli.js
 pnpm link --global    # exposes it globally as `minerva`</code></pre>
-    <p>From then on, <code>minerva</code> works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
+    <p>Either way, <code>minerva</code> then works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
     <pre><code>minerva &lt;command&gt; [args] [--project &lt;path&gt;]</code></pre>
 
     <h2 id="commands">Commands</h2>

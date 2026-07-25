@@ -1,20 +1,27 @@
 import { defineConfig } from 'vite';
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Standalone Node build of the headless CLI (#1149, epic #1145 — Substrate).
  *
- * `ssr: true` externalizes node builtins + everything in node_modules and
- * bundles only our own `src/**`, so the emitted `cli.js` is small and resolves
- * heavy/native deps (rdflib, comunica, DuckDB, onnxruntime) from node_modules at
- * runtime — the same way the app does. The explicit `external` list additionally
- * pins the native packages that must never be bundled (mirrors
- * vite.main.config) and adds `electron`: the read core imports it transitively
- * (notebase/fs's picker, llm/settings), but the CLI never calls those, so in
- * plain Node `require('electron')` harmlessly yields the binary-path string.
+ * `build.ssr` targets Node (builtins external, CJS out); `ssr.noExternal: true`
+ * then *bundles* the JS dep tree (rdflib, comunica, n3, …) INTO `cli.js`,
+ * exactly like `main.js` does — so the emitted bundle is self-contained and
+ * needs only the handful of native/wasm roots at runtime. That's what lets the
+ * CLI ship inside the packaged app (#1437): the app bundles those same JS deps
+ * into `main.js` and never stages them as node_modules, so a CLI that
+ * externalized them would fail to resolve them in the `.app`. The `external`
+ * list pins the packages that must NOT be bundled — the native/wasm roots that
+ * load `.node`/`.wasm` from disk (mirrors vite.main.config, and forge.config's
+ * `EXTERNAL_DEP_ROOTS` ships their closure) — plus `electron`: the read core
+ * imports it transitively (notebase/fs's picker, llm/settings) but never calls
+ * it, so under `ELECTRON_RUN_AS_NODE` (or plain Node) `require('electron')`
+ * harmlessly yields the binary-path string.
  *
  * Build:  vite build --config vite.cli.config.ts   (→ .vite/build/cli.js)
  * Run:    node .vite/build/cli.js query "SELECT ..." --project /path/to/vault
+ *         (packaged: ELECTRON_RUN_AS_NODE=1 Minerva.app/…/cli.js …)
  */
 function gitCommit(): string {
   try {
@@ -30,6 +37,17 @@ export default defineConfig({
     __APP_COMMIT__: JSON.stringify(gitCommit()),
     __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
   },
+  // Bundle the JS dep tree into cli.js (leaving only `external` out), so the
+  // packaged CLI needs no node_modules beyond the shipped native roots (#1437).
+  ssr: { noExternal: true },
+  resolve: {
+    // `electron` is never called on the CLI path; alias it to an all-undefined
+    // stub so the bundle carries no runtime `require('electron')` (which the
+    // packaged app can't resolve — it ships no npm electron package). #1437
+    alias: {
+      electron: fileURLToPath(new URL('./src/cli/electron-stub.ts', import.meta.url)),
+    },
+  },
   build: {
     ssr: true,
     outDir: '.vite/build',
@@ -38,7 +56,6 @@ export default defineConfig({
       input: 'src/cli/main.ts',
       output: { entryFileNames: 'cli.js', format: 'cjs' },
       external: [
-        'electron',
         'canvas',
         /^@duckdb\/node-bindings/,
         'vega',
