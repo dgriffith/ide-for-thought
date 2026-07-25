@@ -88,9 +88,28 @@ Watch it under **Actions**; a green run leaves a draft under **Releases**.
 
 ### 5. Publish
 
-Hit **Publish release**. This is the moment auto-update turns on for this
+Flip the draft public. This is the moment auto-update turns on for this
 version: within the next poll interval, already-installed apps see it and
 offer to update.
+
+From the CLI (works even when the web UI doesn't show a **Publish release**
+button — a common quirk):
+
+```bash
+gh release edit vX.Y.Z --draft=false --latest
+```
+
+`--draft=false` publishes it; `--latest` marks it the repo's latest release so
+the update feed and Releases page point at it. Before flipping, confirm the
+draft is sound (step 4) — publishing is forward-only (see below):
+
+```bash
+gh release view vX.Y.Z --json isDraft,tagName,assets \
+  --jq '{isDraft, tagName, assets: [.assets[].name]}'   # expect a .dmg and the .zip
+```
+
+Or, in the web UI when the button is present: open the draft under **Releases**
+and hit **Publish release**.
 
 ---
 
