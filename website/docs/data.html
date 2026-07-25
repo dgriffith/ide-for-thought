@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Working with data</title>
+<meta name="description" content="How data works in Minerva: everything you write becomes a queryable knowledge graph and your tables become a database, so you can ask precise questions, compute, and chart — right inside your notes." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="data.html" class="active">Data</a>
+    <a href="data-operations.html" class="sub">Data operations</a>
+    <a href="query.html">Query</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="maintenance.html">Maintenance</a>
+    <a href="refactoring.html">Refactoring</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Working with data</p>
+
+    <h1>Working with data</h1>
+    <p class="lede">In Minerva, everything you write is also data you can question. As you work, your notes become a <b>knowledge graph</b> and your tables become a <b>database</b> — built automatically, kept current, and queryable. So instead of only reading your notes back, you can ask precise questions of them and get answers, right inside a note or from a dedicated panel.</p>
+
+    <h2 id="two-kinds">Two kinds of data</h2>
+    <p>Minerva keeps your work as data in two forms, each with its own query language:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">The knowledge graph</div>
+        <div class="v">A precise map of your notes and how they connect — titles, tags, links, properties, and any facts you write down. It's built automatically from your writing on every save, and you query it with <b>SPARQL</b>. This is what lets you ask things like "every claim tagged <em>unresolved</em>" or "which notes contradict this one."</div>
+      </div>
+      <div class="row">
+        <div class="k">Tables</div>
+        <div class="v">Your <a href="notes-tables.html">CSV files and note tables</a> become typed tables in a built-in database, which you query with <b>SQL</b> — the familiar language for rows and columns. Good for numbers, records, and anything tabular.</div>
+      </div>
+    </div>
+
+    <h2 id="what-becomes-data">What becomes data</h2>
+    <p>You don't set any of this up or maintain a schema — Minerva reads the structure out of ordinary writing. These are the parts of a note that fold into the graph automatically:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Titles &amp; tags</div>
+        <div class="v">Each note's title and every <code>#tag</code> become things you can filter and group by.</div>
+      </div>
+      <div class="row">
+        <div class="k">Links</div>
+        <div class="v"><a href="notes-links.html">Wiki-links and typed links</a> (supports, rebuts, depends-on…) become the edges of the graph — the connections you can traverse.</div>
+      </div>
+      <div class="row">
+        <div class="k">Properties</div>
+        <div class="v">The <a href="notes-frontmatter.html">properties</a> at the top of a note — status, dates, and any fields you add — become structured details attached to it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Tables &amp; CSV</div>
+        <div class="v">Markdown tables and <code>.csv</code> files become queryable tables.</div>
+      </div>
+      <div class="row">
+        <div class="k">Embedded facts</div>
+        <div class="v">Blocks of <a href="notes-rdf.html">Turtle / RDF</a> let you state structured facts by hand, right inside a note, when you want more than tags and links can express.</div>
+      </div>
+    </div>
+
+    <h2 id="do-with-it">What you can do with it</h2>
+    <p>Once your work is data, you can query it, compute over it, and visualize it — each has its own page:</p>
+    <div class="doc-cards">
+      <a class="doc-card" href="query.html">
+        <span class="em">🔎</span>
+        <h3>Query panel</h3>
+        <p>Ask questions in SPARQL or SQL from a dedicated panel, and see the answers as a table.</p>
+      </a>
+      <a class="doc-card" href="notes-query.html">
+        <span class="em">📊</span>
+        <h3>Query cells</h3>
+        <p>Embed a live answer straight into a note — it re-runs as your data changes.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Tables &amp; CSV</h3>
+        <p>Turn CSV files into typed SQL tables you can query and chart.</p>
+      </a>
+      <a class="doc-card" href="notes-code.html">
+        <span class="em">🧮</span>
+        <h3>Compute cells</h3>
+        <p>Run Python over your notes and tables, with output rendered inline.</p>
+      </a>
+      <a class="doc-card" href="notes-charts.html">
+        <span class="em">📈</span>
+        <h3>Charts</h3>
+        <p>Turn query results and tables into interactive charts, live in the note.</p>
+      </a>
+      <a class="doc-card" href="notes-rdf.html">
+        <span class="em">🐢</span>
+        <h3>Turtle / RDF</h3>
+        <p>State structured facts by hand when tags and links aren't enough.</p>
+      </a>
+    </div>
+
+    <h2 id="where">Where your data lives</h2>
+    <p>Both forms are generated from your files and stored inside the thoughtbase's hidden <code>.minerva</code> folder — the knowledge graph as a Turtle file, the tables in a local database. You never edit these directly: they're rebuilt from your notes as you work, so your markdown files always remain the source of truth. If something ever looks out of date, <a href="maintenance.html">Maintenance</a> can rebuild them on demand.</p>
+
+    <h2 id="operations">Data operations</h2>
+    <p>The <b>Query</b> menu gathers the commands for asking questions and taking the graph out — running a new query, stock and saved queries, and exporting the knowledge graph. See <a href="data-operations.html">Data operations</a> for each one.</p>
+
+    <div class="pager">
+      <a class="prev" href="settings-skills.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Settings: Skills</span>
+      </a>
+      <a class="next" href="data-operations.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Data operations →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

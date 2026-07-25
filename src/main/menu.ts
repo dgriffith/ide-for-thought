@@ -755,6 +755,26 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
           return items;
         })(),
       }),
+      { type: 'separator' },
+      // Knowledge-graph RDF dump lives with Query, not Export: it's the
+      // whole graph you query, serialized — not a note-export ExportPlan.
+      gate({
+        label: 'Export Knowledge Graph…',
+        click: async () => {
+          const win = BrowserWindow.getFocusedWindow();
+          if (!win) return;
+          const rootPath = getRootPath(win.id);
+          if (!rootPath) return;
+          const result = await dialog.showSaveDialog(win, {
+            title: 'Export Knowledge Graph',
+            defaultPath: `${path.basename(rootPath)}.ttl`,
+            filters: [{ name: 'Turtle', extensions: ['ttl'] }],
+          });
+          if (!result.canceled && result.filePath) {
+            await graph.exportGraph(projectContext(rootPath), result.filePath);
+          }
+        },
+      }),
     ],
   };
 }
@@ -763,9 +783,9 @@ function buildQueryMenu(gate: Gate): Electron.MenuItemConstructorOptions {
  * Export (#282, format-first redesign) — one item per *format family*
  * (Markdown / HTML / PDF / Static Site / …), grouped into sections by
  * category. The dialog picks scope (note/folder/tree/project/source) and,
- * where a family has more than one exporter at a scope, the variant. The
- * knowledge-graph dump is a separate hard-coded entry — the note-export
- * pipeline's ExportPlan shape doesn't fit an RDF dump.
+ * where a family has more than one exporter at a scope, the variant.
+ * (The knowledge-graph RDF dump lives in the Query menu, not here — its
+ * shape doesn't fit the note-export ExportPlan pipeline.)
  */
 function buildExportMenu(gate: Gate): Electron.MenuItemConstructorOptions {
   return {
@@ -790,24 +810,6 @@ function buildExportMenu(gate: Gate): Electron.MenuItemConstructorOptions {
           }));
         }
       }
-      items.push({ type: 'separator' });
-      items.push(gate({
-        label: 'Export Knowledge Graph…',
-        click: async () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const rootPath = getRootPath(win.id);
-          if (!rootPath) return;
-          const result = await dialog.showSaveDialog(win, {
-            title: 'Export Knowledge Graph',
-            defaultPath: `${path.basename(rootPath)}.ttl`,
-            filters: [{ name: 'Turtle', extensions: ['ttl'] }],
-          });
-          if (!result.canceled && result.filePath) {
-            await graph.exportGraph(projectContext(rootPath), result.filePath);
-          }
-        },
-      }));
       // Publish → git remote (#254): Export writes to a folder; Publish
       // pushes an exporter's output to a configured remote (GitHub Pages, …).
       items.push({ type: 'separator' });
