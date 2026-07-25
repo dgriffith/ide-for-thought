@@ -5,7 +5,7 @@ description: Propose the right charts for the thoughtbase's tabular data, as a r
 menu: Analysis
 group: Data
 outputMode: openConversation
-model: claude-opus-4-8
+model: claude-opus-5
 web: false
 slashCommand: /visualize
 firstMessage: "Look at this thoughtbase's tabular data and propose a few good charts for me to review."

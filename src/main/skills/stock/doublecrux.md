@@ -6,7 +6,7 @@ menu: Analysis
 group: Disagreement
 outputMode: openConversation
 context: [selectedText, fullNote]
-model: claude-opus-4-8
+model: claude-opus-5
 web: false
 firstMessage: "For {{#if selection}}this selection{{else}}this note{{/if}}, find the double crux."
 longDescription: >-

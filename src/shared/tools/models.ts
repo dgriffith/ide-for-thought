@@ -13,11 +13,14 @@ export interface ModelOption {
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
-  // Fable 5, Opus 4.8, and Sonnet 5 all ship with a 1M-token context window by
-  // default — there is no separate "1M context" model ID at the Anthropic API,
-  // so we don't list duplicate entries for it. Ordered most→least capable.
-  // Sonnet 4.6 is kept (still active) so users who selected it aren't reset to
-  // the default; Sonnet 5 is its successor tier.
+  // Opus 5, Fable 5, Opus 4.8, and Sonnet 5 all ship with a 1M-token context
+  // window by default — there is no separate "1M context" model ID at the
+  // Anthropic API, so we don't list duplicate entries for it. Ordered
+  // most→least capable. Opus 5 is the current flagship and the default (see
+  // DEFAULT_MODEL in main/llm/settings.ts). Opus 4.8 is kept (still active) so
+  // a user who explicitly selected it isn't reset to the default. Sonnet 4.6 is
+  // likewise kept; Sonnet 5 is its successor tier.
+  { value: 'claude-opus-5', label: 'Claude Opus 5' },
   { value: 'claude-fable-5', label: 'Claude Fable 5' },
   { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
   { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
@@ -45,6 +48,9 @@ export interface ModelPrice {
  * cost degrades to a token count with no dollar figure rather than a guess.
  */
 export const MODEL_PRICING: Record<string, ModelPrice> = {
+  // Opus 5 at the standard Opus tier ($5/$25), matching every prior Opus 4.x
+  // release (confirmed at GA — no flagship premium).
+  'claude-opus-5': { input: 5, output: 25 },
   'claude-fable-5': { input: 10, output: 50 },
   'claude-opus-4-8': { input: 5, output: 25 },
   // Sonnet 5 standard rate. It has introductory pricing of $2/$10 through

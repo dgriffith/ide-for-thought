@@ -7,7 +7,7 @@ group: Mining
 scope: source
 outputMode: openConversation
 context: [sourceMetadata, sourceBody]
-model: claude-opus-4-8
+model: claude-opus-5
 firstMessage: |-
   {{#if source}}{{#if source.body}}Extract the key claims from "{{source.title}}" — each with a verbatim supporting quote and a confidence — for my review.{{else}}This source has no extracted body text to mine yet — ingest or add its body.md first.{{/if}}{{else}}Open a source first, then run Extract Key Claims from its Tools menu.{{/if}}
 longDescription: >-

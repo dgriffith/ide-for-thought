@@ -5,7 +5,7 @@ description: Propose moving loose notes into topic folders, reviewed as one plan
 menu: Analysis
 group: Organization
 outputMode: openConversation
-model: claude-opus-4-8
+model: claude-opus-5
 web: false
 firstMessage: "Survey this thoughtbase and propose a tidier organization — group related notes into topic folders. Show me the plan to review."
 longDescription: >-

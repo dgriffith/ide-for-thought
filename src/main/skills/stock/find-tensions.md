@@ -7,7 +7,7 @@ group: Disagreement
 outputMode: openConversation
 context: [fullNote]
 slashCommand: /tensions
-model: claude-opus-4-8
+model: claude-opus-5
 parameters:
   - id: otherNote
     label: Compare against

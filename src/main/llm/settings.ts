@@ -6,14 +6,14 @@ import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 
-const DEFAULT_MODEL = 'claude-sonnet-5';
+const DEFAULT_MODEL = 'claude-opus-5';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',
 ]);
-// Note: claude-sonnet-4-6 is intentionally NOT deprecated — it's still active
-// and remains in the picker, so a user who explicitly selected it keeps it. Only
-// the default for fresh installs / unset configs moves to Sonnet 5.
+// Note: neither claude-sonnet-4-6 nor claude-opus-4-8 is deprecated — both are
+// still active and remain in the picker, so a user who explicitly selected one
+// keeps it. Only the default for fresh installs / unset configs moves to Opus 5.
 
 function resolveModel(stored: unknown): string {
   if (typeof stored !== 'string' || !stored) return DEFAULT_MODEL;
