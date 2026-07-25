@@ -83,10 +83,11 @@
     <p class="lede">The Minerva CLI gives headless, scriptable access to a thoughtbase from your shell — the same core the app runs on, so it works with the app closed. Every result is printed as <b>JSON</b> on standard output, so it pipes straight into <code>jq</code> or feeds an agent directly.</p>
 
     <h2 id="build">Building and running</h2>
-    <p>The CLI is built from the Minerva source tree into a standalone Node bundle:</p>
-    <pre><code>pnpm cli:build                       # → .vite/build/cli.js
-node .vite/build/cli.js &lt;command&gt; [args] [--project &lt;path&gt;]</code></pre>
-    <p><code>pnpm cli</code> builds and runs in one step. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
+    <p>Build the CLI once from the Minerva source tree and put it on your PATH as the <code>minerva</code> command:</p>
+    <pre><code>pnpm cli:build        # builds .vite/build/cli.js and marks it executable
+pnpm link --global    # exposes it globally as `minerva`</code></pre>
+    <p>From then on, <code>minerva</code> works anywhere. Point any command at a thoughtbase with <code>--project &lt;path&gt;</code> — it defaults to the current directory.</p>
+    <pre><code>minerva &lt;command&gt; [args] [--project &lt;path&gt;]</code></pre>
 
     <h2 id="commands">Commands</h2>
     <div class="deflist">
@@ -123,16 +124,16 @@ node .vite/build/cli.js &lt;command&gt; [args] [--project &lt;path&gt;]</code></
     <h2 id="grounded">Grounded JSON output</h2>
     <p>Every result is grounded and printed as JSON, so it composes with the rest of your tools — query bindings carry node identifiers, search hits carry the note path, and <code>read</code> echoes the path back.</p>
     <pre><code># What do I already know about photosynthesis?
-node .vite/build/cli.js search photosynthesis --project ~/vault | jq '.hits[].relativePath'
+minerva search photosynthesis --project ~/vault | jq '.hits[].relativePath'
 
 # Every note with a title, alphabetized.
-node .vite/build/cli.js query \
+minerva query \
   'SELECT ?title WHERE { ?n a minerva:Note ; dc:title ?title } ORDER BY ?title' \
   --project ~/vault</code></pre>
 
     <h2 id="proposing">Proposing a note</h2>
     <p>External tools never write your thoughtbase directly. <code>propose-note</code> files a note as a <b>pending proposal</b> through Minerva's approval engine — the same gate the built-in AI uses — stamped with who proposed it. Nothing lands until you review and approve it in Minerva's Proposals panel (see <a href="conversations.html">Conversations</a>).</p>
-    <pre><code>cat draft.md | node .vite/build/cli.js propose-note notes/idea.md --by cli --project ~/vault</code></pre>
+    <pre><code>cat draft.md | minerva propose-note notes/idea.md --by cli --project ~/vault</code></pre>
     <p>The body comes from stdin, so it composes with anything upstream. <code>--by &lt;id&gt;</code> records who proposed it (default <code>cli</code>), and that attribution survives a reindex — a note proposed while the app was closed still shows up, and stays attributed, once you reopen it.</p>
 
     <div class="box">

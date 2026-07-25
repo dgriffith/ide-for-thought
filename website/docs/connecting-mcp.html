@@ -83,17 +83,26 @@
     <p class="lede">The <b>Model Context Protocol (MCP)</b> is a standard way to give an AI agent tools. Minerva's MCP server exposes the same reads and proposals as the <a href="connecting-cli.html">CLI</a> — as tools any MCP client can call — so an agent like Claude Desktop, a coding agent, or an editor can ground itself in your thoughtbase and hand work back through the approval gate.</p>
 
     <h2 id="start">Starting the server</h2>
-    <p>The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
-    <pre><code>node .vite/build/cli.js mcp --project /path/to/thoughtbase</code></pre>
+    <p>The MCP server is the <code>mcp</code> subcommand of the same CLI — <a href="connecting-cli.html#build">build and link it once</a> and you have the <code>minerva</code> command. The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
+    <pre><code>minerva mcp --project /path/to/thoughtbase</code></pre>
     <p>It speaks newline-delimited JSON-RPC 2.0 and stays running until its input closes. Each modality initializes once and stays warm across tool calls.</p>
 
     <h2 id="connect">Connecting a client</h2>
-    <p>Most MCP clients take a small JSON entry naming a command to launch. Point it at the built CLI with the <code>mcp</code> subcommand and your thoughtbase path — the client runs it as a subprocess:</p>
+    <p>Most MCP clients take a small JSON entry naming a command to launch. Point it at <code>minerva</code> with the <code>mcp</code> subcommand and your thoughtbase path — the client runs it as a subprocess:</p>
+    <pre><code>{
+  "mcpServers": {
+    "minerva": {
+      "command": "minerva",
+      "args": ["mcp", "--project", "/path/to/thoughtbase"]
+    }
+  }
+}</code></pre>
+    <p>Some clients launch from a bare environment without your shell's PATH, so <code>minerva</code> may not resolve. If so, give the absolute path to the built file instead:</p>
     <pre><code>{
   "mcpServers": {
     "minerva": {
       "command": "node",
-      "args": ["/path/to/minerva/.vite/build/cli.js", "mcp", "--project", "/path/to/thoughtbase"]
+      "args": ["/absolute/path/to/minerva/.vite/build/cli.js", "mcp", "--project", "/path/to/thoughtbase"]
     }
   }
 }</code></pre>
