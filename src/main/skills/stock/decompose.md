@@ -6,7 +6,7 @@ menu: Research
 group: Decomposition
 outputMode: openConversation
 context: [fullNote]
-model: claude-opus-4-8
+model: claude-opus-5
 web: false
 tools: [ask_user]
 firstMessage: "{{#if note.path}}Decompose `{{note.path}}` into linked smaller notes.{{else}}Decompose this note into linked smaller notes.{{/if}}"

@@ -106,7 +106,7 @@
   /** Resolve the model a conversation actually runs on (override → global
    *  default → built-in fallback), for gating the effort picker. */
   function effectiveModel(model: string | undefined): string {
-    return model ?? defaultModel ?? 'claude-sonnet-5';
+    return model ?? defaultModel ?? 'claude-opus-5';
   }
 
   async function handleModelChange(tabId: string, e: Event) {

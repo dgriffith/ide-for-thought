@@ -5,7 +5,7 @@ description: Flag the anomalous values in the thoughtbase's tabular data, as a r
 menu: Analysis
 group: Data
 outputMode: openConversation
-model: claude-opus-4-8
+model: claude-opus-5
 web: false
 slashCommand: /find-outliers
 firstMessage: "Find the outliers in this thoughtbase's tabular data, and show me a note to review."

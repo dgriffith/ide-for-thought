@@ -10,7 +10,7 @@
  *   |------------------|-------------------------------------|
  *   | Haiku 4.5        | none (sending effort 400s)          |
  *   | Sonnet 4.6 / 5   | low / medium / high / max           |
- *   | Opus 4.8         | low / medium / high / xhigh / max   |
+ *   | Opus 4.8 / 5     | low / medium / high / xhigh / max   |
  *   | Fable 5          | low / medium / high / xhigh / max   |
  *
  * The UI label "Extra" maps to `xhigh`, which is Opus/Fable-tier only (Sonnet
@@ -41,6 +41,7 @@ export const DEFAULT_EFFORT: Effort = 'medium';
  * yields `[]` — we send no effort rather than risk a 400.
  */
 const SUPPORT: Record<string, Effort[]> = {
+  'claude-opus-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-fable-5': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-opus-4-8': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-sonnet-5': ['low', 'medium', 'high', 'max'],
