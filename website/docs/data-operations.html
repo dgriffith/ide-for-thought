@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Media</title>
-<meta name="description" content="Embed a YouTube video in a note: paste the link, get a clickable poster card that opens the video in your browser." />
+<title>Minerva — Docs — Data operations</title>
+<meta name="description" content="The Query menu commands for working with your data in Minerva: New Query, Stock Queries, Saved Queries, and Export Knowledge Graph." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -53,23 +53,6 @@
 
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
-    <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-frontmatter.html" class="sub">Properties</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
-    <a href="notes-callouts.html" class="sub">Callouts</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-flashcards.html" class="sub">Flashcards</a>
-    <a href="notes-media.html" class="sub active">Media</a>
-    <a href="notes-math.html" class="sub">Math</a>
-    <a href="notes-diagrams.html" class="sub">Diagrams</a>
-    <a href="notes-charts.html" class="sub">Charts</a>
-    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-query.html" class="sub">Query cells</a>
-    <a href="notes-search.html" class="sub">Search cells</a>
-    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
@@ -83,6 +66,7 @@
 
     <h4>Data &amp; workflows</h4>
     <a href="data.html">Data</a>
+    <a href="data-operations.html" class="sub active">Data operations</a>
     <a href="query.html">Query</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
@@ -92,44 +76,62 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Media</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="data.html">Working with data</a><span class="sep">/</span>Data operations</p>
 
-    <h1>Media</h1>
-    <p class="lede">You can drop a YouTube video into any note. Minerva shows it as a tidy poster card — the video's thumbnail with a play button — and clicking the card opens the video in your web browser. The video plays where you already watch videos, not inside your notes.</p>
+    <h1>Data operations</h1>
+    <p class="lede">The commands for working with your <a href="data.html">data</a> live in the <b>Query</b> menu — running a query, reaching for a ready-made or saved one, and taking the whole knowledge graph out as a file.</p>
 
-    <h2 id="syntax">Adding a video</h2>
-    <p>The easiest way is to right-click in the editor and choose <b>Elements → YouTube Video</b>. That drops in an empty video cell with the cursor ready for you to paste a link.</p>
+    <h2 id="asking">Asking questions</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">New Query</div>
+        <div class="v"><b>Query → New Query</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>Q</kbd>) opens a fresh query in the Query panel, where you write <b>SPARQL</b> (for the knowledge graph) or <b>SQL</b> (for tables) and run it to see the results. See <a href="query.html">Query</a> for how the panel and cells work.</div>
+      </div>
+      <div class="row">
+        <div class="k">Stock Queries</div>
+        <div class="v"><b>Query → Stock Queries</b> is a library of ready-made queries, grouped into <b>SPARQL</b> and <b>SQL</b> submenus. Pick one to open it in the panel — run it as-is, or use it as a starting point you adapt.</div>
+      </div>
+      <div class="row">
+        <div class="k">Saved Queries</div>
+        <div class="v"><b>Query → Saved Queries</b> lists queries you've kept, so a query you'll want again is one click away. Saved queries can be scoped to this thoughtbase or shared across all of them, and <b>Edit Saved Queries…</b> at the bottom opens them for managing.</div>
+      </div>
+    </div>
 
-    <p>A video cell holds the link on its first line. Anything you type on the lines below becomes a caption, shown under the card in place of the default "Watch on YouTube" label:</p>
+    <h2 id="export-graph">Exporting the graph</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Export Knowledge Graph…</div>
+        <div class="v"><b>Query → Export Knowledge Graph…</b> saves the entire knowledge graph — everything Minerva knows about your notes and how they connect — to a <b>Turtle</b> (<code>.ttl</code>) file you can keep, share, or load into other tools. It lives in the Query menu because it's the graph you query, written out in full; it isn't a note export. (To get your <em>notes</em> out as documents, a website, or citations, see <a href="export.html">Export</a> instead.)</div>
+      </div>
+    </div>
 
-<pre><code>```youtube
-https://www.youtube.com/watch?v=aBcDeFgHiJk
-Feynman on how rubber bands work
-```</code></pre>
-
-    <h2 id="urls">Any YouTube link works</h2>
-    <p>Paste the link in whatever form you have it — the one from the address bar, the one the Share button copies, a Shorts link, or a link pulled from an embed snippet. Minerva sorts it out and tidies it up, dropping tracking bits along the way, so the card always points to a clean link to the video.</p>
-
-    <p>If your link starts the video at a particular moment — a "start at 1:30" link — that offset is kept. Click the card and the video opens right at that point.</p>
-
-    <h2 id="rendering">The poster card</h2>
-    <p>In the reading view, the video appears as a poster card: the thumbnail with a play button, your caption beneath it, and a small line showing that the link leads to YouTube. Click the card to open the video in your browser.</p>
-
-    <figure class="shot-img">
-      <img src="img/notes-media.png" alt="A note showing a video as a poster card: the thumbnail with a centered play button, a caption below it, and a line noting the link goes to YouTube." loading="lazy" />
-      <figcaption>Screenshot — a video poster card</figcaption>
-    </figure>
-
-    <p>When you export or publish a note, the card becomes a clickable thumbnail image so anyone reading the exported note can still see the poster and click through to watch.</p>
+    <h2 id="related">Related</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="query.html">
+        <span class="em">🔎</span>
+        <h3>Query</h3>
+        <p>The Query panel, runnable cells, and how result blocks work.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Tables &amp; CSV</h3>
+        <p>Bring in CSV files as tables you can query with SQL.</p>
+      </a>
+      <a class="doc-card" href="maintenance.html">
+        <span class="em">🛠️</span>
+        <h3>Maintenance</h3>
+        <p>Rebuild the graph and search indexes if anything looks stale.</p>
+      </a>
+    </div>
 
     <div class="pager">
-      <a class="prev" href="notes-flashcards.html">
+      <a class="prev" href="data.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Flashcards</span>
+        <span class="ttl">← Working with data</span>
       </a>
-      <a class="next" href="notes-math.html">
+      <a class="next" href="query.html">
         <span class="dir">Next</span>
-        <span class="ttl">Math →</span>
+        <span class="ttl">Query →</span>
       </a>
     </div>
   </main>
