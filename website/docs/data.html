@@ -61,17 +61,19 @@
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
-    <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
     <a href="data.html" class="active">Data</a>
     <a href="data-operations.html" class="sub">Data operations</a>
-    <a href="query.html">Query</a>
+    <a href="query-menu-panel.html" class="sub">Query menu &amp; panel</a>
+    <a href="query-runnable-cells.html" class="sub">Runnable cells</a>
+    <a href="query-result-blocks.html" class="sub">Result blocks</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
     <a href="maintenance.html">Maintenance</a>
-    <a href="refactoring.html">Refactoring</a>
   </aside>
 
   <!-- ===== Content ===== -->
@@ -122,15 +124,20 @@
     <h2 id="do-with-it">What you can do with it</h2>
     <p>Once your work is data, you can query it, compute over it, and visualize it — each has its own page:</p>
     <div class="doc-cards">
-      <a class="doc-card" href="query.html">
+      <a class="doc-card" href="query-menu-panel.html">
         <span class="em">🔎</span>
-        <h3>Query panel</h3>
-        <p>Ask questions in SPARQL or SQL from a dedicated panel, and see the answers as a table.</p>
+        <h3>Query menu &amp; panel</h3>
+        <p>A dedicated place to write a question, run it, and reuse it — with ready-made and saved queries.</p>
       </a>
-      <a class="doc-card" href="notes-query.html">
+      <a class="doc-card" href="query-runnable-cells.html">
+        <span class="em">▶️</span>
+        <h3>Runnable cells</h3>
+        <p>A question you write and run right inside a note, with the answer appearing just below it.</p>
+      </a>
+      <a class="doc-card" href="query-result-blocks.html">
         <span class="em">📊</span>
-        <h3>Query cells</h3>
-        <p>Embed a live answer straight into a note — it re-runs as your data changes.</p>
+        <h3>Result blocks</h3>
+        <p>Drop a question's answer into a note as a live list, table, or chart that stays up to date.</p>
       </a>
       <a class="doc-card" href="notes-tables.html">
         <span class="em">📋</span>
@@ -154,6 +161,11 @@
       </a>
     </div>
 
+    <div class="box">
+      <span class="label">Asking questions yourself vs. asking the assistant</span>
+      <p>When you chat with the assistant, it can look things up in your knowledge base for you — see <a href="conversations.html">Conversations</a>. This section is about doing that yourself, whether from the Query panel or right inside a note.</p>
+    </div>
+
     <h2 id="where">Where your data lives</h2>
     <p>Both forms are generated from your files and stored inside the thoughtbase's hidden <code>.minerva</code> folder — the knowledge graph as a Turtle file, the tables in a local database. You never edit these directly: they're rebuilt from your notes as you work, so your markdown files always remain the source of truth. If something ever looks out of date, <a href="maintenance.html">Maintenance</a> can rebuild them on demand.</p>
 
@@ -161,9 +173,9 @@
     <p>The <b>Query</b> menu gathers the commands for asking questions and taking the graph out — running a new query, stock and saved queries, and exporting the knowledge graph. See <a href="data-operations.html">Data operations</a> for each one.</p>
 
     <div class="pager">
-      <a class="prev" href="settings-skills.html">
+      <a class="prev" href="thinking-tools-managing-authoring.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Settings: Skills</span>
+        <span class="ttl">← Managing &amp; authoring</span>
       </a>
       <a class="next" href="data-operations.html">
         <span class="dir">Next</span>
