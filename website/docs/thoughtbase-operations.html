@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — The Writing Surface</title>
-<meta name="description" content="How the editor styles your writing as you type — headers, emphasis, and links come to life in place, without ever hiding what you actually typed." />
+<title>Minerva — Docs — Thoughtbase operations</title>
+<meta name="description" content="The File-menu commands for handling thoughtbases in Minerva: create a new thoughtbase, open one, switch between recents, close, and edit the thoughtbase guide." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -49,6 +49,7 @@
     <h4>Introduction</h4>
     <a href="index.html">Overview</a>
     <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="thoughtbase-operations.html" class="sub active">Thoughtbase operations</a>
     <a href="../getting-started.html">Getting started</a>
 
     <h4>Using Minerva</h4>
@@ -56,11 +57,6 @@
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
-    <a href="editor-writing-surface.html" class="sub active">The writing surface</a>
-    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
-    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
-    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
-    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
 
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
@@ -79,61 +75,87 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>The writing surface</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thoughtbase.html">What is a thoughtbase?</a><span class="sep">/</span>Thoughtbase operations</p>
 
-    <h1>The writing surface</h1>
-    <p class="lede">The editor styles your writing as you type. Headings, emphasis, links, and more come to life right where you wrote them — you never have to switch to a preview to see how your note is shaping up. This page is about the editing pane itself. For how it sits alongside Preview and Side by side, see <a href="viewing-options-view-modes.html">View modes</a>.</p>
+    <h1>Thoughtbase operations</h1>
+    <p class="lede">A <a href="thoughtbase.html">thoughtbase</a> is a folder on your disk, and the commands for handling one live at the top of the <b>File</b> menu — grouped there first because the natural first move is "open my thoughtbase" before doing anything in it. Each window holds one open thoughtbase at a time.</p>
 
-    <h2 id="live-rendering">Your writing, styled as you type</h2>
-    <p>As soon as the editor recognizes a piece of markup, it styles it in place. A heading turns bold and colored the moment you start the line with <code>#</code>. Bold and italic text takes on real weight and slant as soon as you close it. Links become clickable, and highlights get a tinted background — all while you keep typing.</p>
-
-    <p>The one thing the editor never does is hide what you typed. The <code>#</code>, <code>**</code>, <code>==</code>, and <code>[[ ]]</code> markers stay right where you put them, styled along with the text rather than vanishing when your cursor moves away. You always see exactly what's in your note, just dressed up — so nothing is ever a surprise when you look at it again later.</p>
-
+    <h2 id="creating">Creating and opening</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">Headings</div>
-        <div class="v">Turn bold and colored as soon as the line starts with <code>#</code>. The <code>#</code> markers stay visible.</div>
+        <div class="k">New Thoughtbase…</div>
+        <div class="v"><b>File → New Thoughtbase…</b> Choose a location and name; Minerva creates the folder and sets up an empty thoughtbase, ready for your first note.</div>
       </div>
       <div class="row">
-        <div class="k">Bold, italic, strikethrough</div>
-        <div class="v"><code>**bold**</code>, <code>_italic_</code>, and <code>~~struck~~</code> take on real weight, slant, or a line-through the moment you close them — the markers stay on screen, just styled along with the text.</div>
-      </div>
-      <div class="row">
-        <div class="k">Highlights</div>
-        <div class="v"><code>==text==</code> picks up a tinted background as you type it.</div>
-      </div>
-      <div class="row">
-        <div class="k">Links</div>
-        <div class="v">Wiki links and web addresses become soft, clickable chips. You can still move your cursor through the link text to edit it, and hovering one briefly shows a preview of where it leads.</div>
-      </div>
-      <div class="row">
-        <div class="k">Footnotes</div>
-        <div class="v">A footnote marker becomes clickable, jumping between the reference and its note at the bottom; hovering shows the footnote's text.</div>
-      </div>
-      <div class="row">
-        <div class="k">Runnable cells</div>
-        <div class="v">A run marker appears next to any cell you can run, and its results are written back into the note just below it — no separate panel to check. See <a href="notes-code.html">Code &amp; queries</a>.</div>
+        <div class="k">Open Thoughtbase…</div>
+        <div class="v"><b>File → Open Thoughtbase…</b> (<kbd>⌘</kbd><kbd>O</kbd>). Pick an existing thoughtbase folder to open it in the current window. Opening any folder of markdown notes works — Minerva builds the graph for it the first time.</div>
       </div>
     </div>
 
-    <figure class="shot-img">
-      <img src="img/editor-writing-surface.png" alt="A note in the editor: a heading in bold color with its &quot;#&quot; still showing, bold text with its &quot;**&quot; markers intact, and a wiki link shown as a rounded chip — the cursor resting inside the bold text to show that your markup stays on screen while you edit." loading="lazy" />
-      <figcaption>Writing styled as you type</figcaption>
-    </figure>
+    <h2 id="switching">Switching between thoughtbases</h2>
+    <p>Keep a thoughtbase per subject and move between them however suits you:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Recent Thoughtbases</div>
+        <div class="v"><b>File → Recent Thoughtbases</b> lists the ones you've opened lately — pick one to jump straight back in.</div>
+      </div>
+      <div class="row">
+        <div class="k">Clear Recent Thoughtbases</div>
+        <div class="v"><b>File → Recent Thoughtbases → Clear Recent Thoughtbases</b> empties that list. It only tidies the list of recently opened thoughtbases — none of your notes are touched.</div>
+      </div>
+      <div class="row">
+        <div class="k">New Window</div>
+        <div class="v"><b>File → New Window</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd>) opens a second window. Because each window holds one thoughtbase, this is how you keep two open side by side — open one thoughtbase in each.</div>
+      </div>
+    </div>
 
-    <div class="box">
-      <span class="label">Themes come along</span>
-      <p>The editor takes on whatever <a href="viewing-options-themes.html">theme</a> you choose. Switch themes and your writing re-colors instantly, right along with the rest of the app.</p>
+    <h2 id="closing">Closing</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Close Thoughtbase</div>
+        <div class="v"><b>File → Close Thoughtbase</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>W</kbd>) closes the current thoughtbase and returns the window to an empty state, ready to open another. Your files are saved as you go, so nothing is lost.</div>
+      </div>
+    </div>
+
+    <h2 id="guide">The thoughtbase guide</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Edit Thoughtbase Guide…</div>
+        <div class="v"><b>File → Edit Thoughtbase Guide…</b> opens <code>thoughtbase.md</code>, a plain-English guide to this thoughtbase — its structure, intent, and conventions — that Minerva shows the assistant at the start of every conversation. It's created from a template the first time you open it. Keeping it up to date is the simplest way to make the AI's help fit how <em>this</em> thoughtbase is organized.</div>
+      </div>
+    </div>
+
+    <h2 id="rename-delete">Renaming, moving, or deleting a thoughtbase</h2>
+    <p>Because a thoughtbase is an ordinary folder, there's no separate command to rename or delete one — you do it in Finder or your file manager, like any folder. Rename or move the folder, then open it again from its new location; delete the folder to remove the thoughtbase. (Renaming, moving, and deleting individual <a href="notes.html#lifecycle">notes</a> <em>is</em> handled inside Minerva, from the sidebar.)</p>
+
+    <h2 id="related">Related</h2>
+    <p>Once a thoughtbase is open, these cover what you do next:</p>
+    <div class="doc-cards">
+      <a class="doc-card" href="ingest.html">
+        <span class="em">📥</span>
+        <h3>Ingest</h3>
+        <p>Bring web pages, PDFs, and references in as sources.</p>
+      </a>
+      <a class="doc-card" href="export.html">
+        <span class="em">📤</span>
+        <h3>Export &amp; publish</h3>
+        <p>Publish a thoughtbase to the web or export its knowledge graph.</p>
+      </a>
+      <a class="doc-card" href="maintenance.html">
+        <span class="em">🛠️</span>
+        <h3>Maintenance</h3>
+        <p>Rebuild indexes and keep the graph and search in sync.</p>
+      </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="editor.html">
+      <a class="prev" href="thoughtbase.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Editor</span>
+        <span class="ttl">← What is a thoughtbase?</span>
       </a>
-      <a class="next" href="editor-markdown-formatting.html">
+      <a class="next" href="../getting-started.html">
         <span class="dir">Next</span>
-        <span class="ttl">Markdown formatting →</span>
+        <span class="ttl">Getting started →</span>
       </a>
     </div>
   </main>

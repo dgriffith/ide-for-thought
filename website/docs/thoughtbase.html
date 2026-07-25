@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — What is a thoughtbase?</title>
+<meta name="description" content="What a thoughtbase is in Minerva, the kinds of work people build one for, and a map of everything a thoughtbase holds — notes, links, sources, data, the knowledge graph, and AI conversations." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html" class="active">What is a thoughtbase?</a>
+    <a href="thoughtbase-operations.html" class="sub">Thoughtbase operations</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="query.html">Query</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="maintenance.html">Maintenance</a>
+    <a href="refactoring.html">Refactoring</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>What is a thoughtbase?</p>
+
+    <h1>What is a thoughtbase?</h1>
+    <p class="lede">A <b>thoughtbase</b> is where your thinking on a subject lives and grows. Instead of scattered documents and lost chat threads, you gather what you're working through as <a href="notes.html">notes</a> — and notes link to each other, so ideas connect the way they do in your head. Some you write yourself; some you draft side by side with the AI. Over time a thoughtbase becomes a living map of what you know, not a folder of dead files.</p>
+
+    <p>Each thoughtbase is self-contained: one folder of plain files, with its own <a href="query.html">knowledge graph</a> built automatically from what's inside. You can keep several — one per subject — and open whichever you're working in. Everything is stored locally, in plain text, and stays yours.</p>
+
+    <h2 id="what-for">What you might build one of</h2>
+    <p>A thoughtbase suits any subject you return to and want to build up over time rather than finish and forget. A few shapes it commonly takes:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">A research project</div>
+        <div class="v">A literature review, a thesis, or an ongoing investigation — papers and web pages brought in as <a href="ingest.html">sources</a>, key claims extracted, and your own synthesis linking them together.</div>
+      </div>
+      <div class="row">
+        <div class="k">A writing project</div>
+        <div class="v">A book, a report, or a long essay — the manuscript alongside the background notes, characters, arguments, and references that feed it.</div>
+      </div>
+      <div class="row">
+        <div class="k">A subject you're learning</div>
+        <div class="v">A course or a field you're getting to grips with — explanations in your own words, <a href="notes-flashcards.html">flashcards</a>, and worked examples that build on each other.</div>
+      </div>
+      <div class="row">
+        <div class="k">A decision or investigation</div>
+        <div class="v">Options, evidence, and arguments laid out and connected — support, rebut, and depends-on <a href="notes-links.html">links</a> making the structure of the reasoning visible.</div>
+      </div>
+      <div class="row">
+        <div class="k">A domain you're mapping</div>
+        <div class="v">A product area, a system's architecture, a body of law, a company's history — a reference map of what's true and how the parts relate.</div>
+      </div>
+      <div class="row">
+        <div class="k">A data analysis</div>
+        <div class="v">A question you're answering with data — <a href="notes-tables.html">CSV tables</a> you query with SQL, notes that <a href="notes-code.html">compute</a>, and <a href="notes-charts.html">charts</a> that render live against the numbers.</div>
+      </div>
+      <div class="row">
+        <div class="k">A personal knowledge base</div>
+        <div class="v">A durable place for what you know and keep coming back to — a "second brain" you can actually query, not just search.</div>
+      </div>
+    </div>
+
+    <h2 id="contents">What's inside a thoughtbase</h2>
+    <p>A thoughtbase collects several kinds of thing. Most of it is notes; the rest is the connective tissue and structure that turns a pile of notes into something you can query and build on.</p>
+
+    <div class="doc-cards">
+      <a class="doc-card" href="notes.html">
+        <span class="em">🧵</span>
+        <h3>Notes</h3>
+        <p>The main content — prose, tables, images, math, diagrams, and more. One note per idea, page, or piece.</p>
+      </a>
+      <a class="doc-card" href="notes-links.html">
+        <span class="em">🔗</span>
+        <h3>Links</h3>
+        <p>Connections between notes — plain wiki-links plus typed links like supports, rebuts, and depends-on.</p>
+      </a>
+      <a class="doc-card" href="ingest.html">
+        <span class="em">📥</span>
+        <h3>Sources</h3>
+        <p>Outside material brought in — web pages, PDFs, and references you cite and mine for claims.</p>
+      </a>
+      <a class="doc-card" href="notes-frontmatter.html">
+        <span class="em">🏷️</span>
+        <h3>Properties &amp; tags</h3>
+        <p>Structured details on a note — tags, status, and other metadata that the graph reads.</p>
+      </a>
+      <a class="doc-card" href="notes-tables.html">
+        <span class="em">📋</span>
+        <h3>Data &amp; tables</h3>
+        <p>CSV files as typed tables, and tables inside notes — queryable data that charts and cells read.</p>
+      </a>
+      <a class="doc-card" href="query.html">
+        <span class="em">🕸️</span>
+        <h3>The knowledge graph</h3>
+        <p>A precise map of titles, tags, links, and facts, built automatically on every save — queryable with SPARQL and SQL.</p>
+      </a>
+      <a class="doc-card" href="conversations.html">
+        <span class="em">💬</span>
+        <h3>Conversations &amp; proposals</h3>
+        <p>Your threads with the AI, and the changes it proposes — filed as notes and claims only after you approve them.</p>
+      </a>
+      <a class="doc-card" href="thinking-tools.html">
+        <span class="em">🧠</span>
+        <h3>Thinking-tool output</h3>
+        <p>Results of the Learning, Research, and Analysis skills — each returned as a note you review and keep or discard.</p>
+      </a>
+    </div>
+
+    <h2 id="where">Where a thoughtbase lives</h2>
+    <p>A thoughtbase is just a folder on your disk. Your notes are ordinary markdown files inside it, organized into subfolders however you like — readable and portable, with or without Minerva. Alongside them, a hidden <code>.minerva</code> folder holds the knowledge graph and other generated data, rebuilt from your files as you work.</p>
+    <p>Because it's local-first and plain-text, a thoughtbase is yours: back it up, sync it, or put it under version control like any other folder. Nothing lives in a proprietary database you can't get out of. When you're ready to share, you can <a href="export.html">publish or export</a> a thoughtbase without giving up the original.</p>
+
+    <h2 id="managing">Creating and managing thoughtbases</h2>
+    <p>You create, open, switch between, and close thoughtbases from the <b>File</b> menu. See <a href="thoughtbase-operations.html">Thoughtbase operations</a> for each command and its keyboard shortcut.</p>
+
+    <div class="pager">
+      <a class="prev" href="index.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Overview</span>
+      </a>
+      <a class="next" href="thoughtbase-operations.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Thoughtbase operations →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
