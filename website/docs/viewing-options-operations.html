@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Viewing Options</title>
-<meta name="description" content="How you view a note in Minerva: the three view modes, appearance themes, font size and zoom, and splitting panes or opening new windows." />
+<title>Minerva — Docs — View operations</title>
+<meta name="description" content="The View menu commands in Minerva: toggle the sidebars and conversations, cycle preview mode, split the editor, switch theme, and adjust zoom and editor font size." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -54,8 +54,8 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="navigation.html">Navigation</a>
-    <a href="viewing-options.html" class="active">Viewing options</a>
-    <a href="viewing-options-operations.html" class="sub">View operations</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="viewing-options-operations.html" class="sub active">View operations</a>
     <a href="viewing-options-view-modes.html" class="sub">View modes</a>
     <a href="viewing-options-themes.html" class="sub">Themes</a>
     <a href="viewing-options-font-size-zoom.html" class="sub">Font size &amp; zoom</a>
@@ -79,77 +79,104 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Viewing options</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="viewing-options.html">Viewing options</a><span class="sep">/</span>View operations</p>
 
-    <h1>Viewing options</h1>
-    <p class="lede">How a note looks on screen is separate from what's in it. Four independent controls shape that: how a pane displays a note, which color theme the app wears, how large the text is, and how many notes you can see side by side. None of these change your notes — they just change how you're looking at them.</p>
+    <h1>View operations</h1>
+    <p class="lede">The <b>View</b> menu controls what's on screen — which panels are showing, how a note is displayed, the split layout, the theme, and text size. Almost every command has a keyboard shortcut, so you rarely need the menu itself once they're in your fingers.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="panels">Showing and hiding panels</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">View menu</div>
-        <div class="v"><a href="viewing-options-operations.html"><b>View operations</b></a> — the View menu at a glance: panels, splits, theme, zoom, and font size.</div>
+        <div class="k">Toggle Left Sidebar</div>
+        <div class="v"><b>View → Toggle Left Sidebar</b> (<kbd>⌘</kbd><kbd>B</kbd>) shows or hides the <a href="left-sidebar.html">left rail</a> — the Notes tree, Sources, Tags, and more.</div>
       </div>
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></div>
-        <div class="v"><a href="viewing-options-view-modes.html"><b>View modes</b></a> — cycle a pane through Source, Preview, and side-by-side.</div>
+        <div class="k">Toggle Right Sidebar</div>
+        <div class="v"><b>View → Toggle Right Sidebar</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd>) shows or hides the <a href="right-sidebar.html">right rail</a> — backlinks, outline, properties, and the rest.</div>
       </div>
       <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></div>
-        <div class="v"><a href="viewing-options-themes.html"><b>Themes</b></a> — cycle Dark, Light, High Contrast, and System.</div>
+        <div class="k">Toggle Conversations</div>
+        <div class="v"><b>View → Toggle Conversations</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>K</kbd>) shows or hides the <a href="conversations.html">Conversations</a> panel.</div>
       </div>
       <div class="row">
-        <div class="k">several</div>
-        <div class="v"><a href="viewing-options-font-size-zoom.html"><b>Font size &amp; zoom</b></a> — resize editor text and the whole window independently — they compound.</div>
-      </div>
-      <div class="row">
-        <div class="k"><kbd>⌘</kbd><kbd>\</kbd> / <kbd>⌘</kbd><kbd>⇧</kbd><kbd>N</kbd></div>
-        <div class="v"><a href="viewing-options-split-panes-windows.html"><b>Split panes &amp; windows</b></a> — split the current window, or open a new one entirely.</div>
+        <div class="k">Cycle Preview Mode</div>
+        <div class="v"><b>View → Cycle Preview Mode</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd>) steps the current pane through Source, Preview, and side-by-side. See <a href="viewing-options-view-modes.html">View modes</a>.</div>
       </div>
     </div>
+
+    <h2 id="splits">Splitting the editor</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Split Editor Right / Down</div>
+        <div class="v"><b>View → Split Editor Right</b> (<kbd>⌘</kbd><kbd>\</kbd>) and <b>Split Editor Down</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>\</kbd>) divide the window into panes so you can see two notes at once. See <a href="viewing-options-split-panes-windows.html">Split panes &amp; windows</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Focus Next / Previous Group</div>
+        <div class="v"><b>View → Focus Next Group</b> (<kbd>⌘</kbd><kbd>⌥</kbd><kbd>→</kbd>) and <b>Focus Previous Group</b> (<kbd>⌘</kbd><kbd>⌥</kbd><kbd>←</kbd>) move the cursor between panes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Close Group</div>
+        <div class="v"><b>View → Close Group</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>W</kbd>) closes the focused pane.</div>
+      </div>
+    </div>
+
+    <h2 id="theme">Theme</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Theme</div>
+        <div class="v"><b>View → Theme</b> picks a look directly — Dark, Light, High Contrast, or System.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cycle Theme</div>
+        <div class="v"><b>View → Cycle Theme</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd>) steps through them without opening the menu. See <a href="viewing-options-themes.html">Themes</a>.</div>
+      </div>
+    </div>
+
+    <h2 id="zoom">Zoom and font size</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Actual Size · Zoom In · Zoom Out</div>
+        <div class="v"><b>View → Zoom In / Zoom Out</b> scales the whole window; <b>Actual Size</b> resets it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Editor Font Size</div>
+        <div class="v"><b>View → Increase / Decrease Editor Font Size</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>=</kbd> / <kbd>⌘</kbd><kbd>⇧</kbd><kbd>-</kbd>) resizes the editor text only, and <b>Reset Editor Font Size</b> restores it. Zoom and font size are independent and compound — see <a href="viewing-options-font-size-zoom.html">Font size &amp; zoom</a>.</div>
+      </div>
+    </div>
+    <p>The View menu also offers full-screen and developer tools at the bottom.</p>
 
     <div class="box">
       <span class="label">Windows / Linux</span>
       <p>Every shortcut above uses <kbd>Ctrl</kbd> in place of <kbd>⌘</kbd>.</p>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
+    <h2 id="related">Related</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="viewing-options-operations.html">
-        <span class="em">🖥️</span>
-        <h3>View operations</h3>
-        <p>The View menu commands, grouped and explained.</p>
-      </a>
       <a class="doc-card" href="viewing-options-view-modes.html">
         <span class="em">🔄</span>
         <h3>View modes</h3>
-        <p>Source, Preview, or both side by side — a per-pane setting.</p>
-      </a>
-      <a class="doc-card" href="viewing-options-themes.html">
-        <span class="em">🎨</span>
-        <h3>Themes</h3>
-        <p>Dark, Light, High Contrast, or follow the OS — switches instantly.</p>
-      </a>
-      <a class="doc-card" href="viewing-options-font-size-zoom.html">
-        <span class="em">🔠</span>
-        <h3>Font size &amp; zoom</h3>
-        <p>Two separate controls for bigger text, and they compound.</p>
+        <p>Source, Preview, and side-by-side, per pane.</p>
       </a>
       <a class="doc-card" href="viewing-options-split-panes-windows.html">
         <span class="em">🪟</span>
         <h3>Split panes &amp; windows</h3>
-        <p>See two notes at once — split the window, or open a new one.</p>
+        <p>Two notes at once — in one window or several.</p>
+      </a>
+      <a class="doc-card" href="viewing-options-themes.html">
+        <span class="em">🎨</span>
+        <h3>Themes</h3>
+        <p>Dark, Light, High Contrast, and System.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="navigation-back-forward.html">
+      <a class="prev" href="viewing-options.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Back / forward</span>
+        <span class="ttl">← Viewing options</span>
       </a>
-      <a class="next" href="viewing-options-operations.html">
+      <a class="next" href="viewing-options-view-modes.html">
         <span class="dir">Next</span>
-        <span class="ttl">View operations →</span>
+        <span class="ttl">View modes →</span>
       </a>
     </div>
   </main>

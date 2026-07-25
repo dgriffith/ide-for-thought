@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Query</title>
-<meta name="description" content="Ask questions of your knowledge base and your tables of data: the Query panel, runnable query cells in a note, and result blocks." />
+<title>Minerva — Docs — Editor operations</title>
+<meta name="description" content="The Edit menu commands in Minerva: undo and redo, find and replace within a note and across notes, insert a template, and sort lines." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -56,81 +56,107 @@
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
+    <a href="editor-operations.html" class="sub active">Editor operations</a>
+    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
+    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
+    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
+    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
+    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
 
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
-    <a href="thinking-tools.html">Thinking tools</a>
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
     <a href="data.html">Data</a>
-    <a href="query.html" class="active">Query</a>
-    <a href="query-menu-panel.html" class="sub">Query menu &amp; panel</a>
-    <a href="query-runnable-cells.html" class="sub">Runnable cells</a>
-    <a href="query-result-blocks.html" class="sub">Result blocks</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
     <a href="maintenance.html">Maintenance</a>
-    <a href="refactoring.html">Refactoring</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Query</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Editor operations</p>
 
-    <h1>Query</h1>
-    <p class="lede">Your notes aren't just something to read — you can ask questions of them. As you write, Minerva keeps track of the connections, tags, and details across everything you've written, so you can pull up answers like "every note tagged unresolved" or "all the figures in this table." You can ask from a dedicated Query panel, or right inside a note.</p>
+    <h1>Editor operations</h1>
+    <p class="lede">The <b>Edit</b> menu holds the text commands that act on the note you're writing — the familiar undo and copy/paste, plus finding and replacing, inserting a template, and tidying lines. Most also carry a keyboard shortcut.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="basics">The basics</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="query-menu-panel.html"><b>Query panel</b></a> — a dedicated place to write a question, run it, and reuse it: start a new one, pick from ready-made examples, or save your own.</div>
+        <div class="k">Undo · Redo · Cut · Copy · Paste · Select All</div>
+        <div class="v">The standard editing commands at the top of the <b>Edit</b> menu, with their usual shortcuts (<kbd>⌘</kbd><kbd>Z</kbd>, <kbd>⌘</kbd><kbd>C</kbd>, <kbd>⌘</kbd><kbd>V</kbd>, and so on). Undo history is per note.</div>
+      </div>
+    </div>
+
+    <h2 id="find-replace">Find and replace</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Find</div>
+        <div class="v"><b>Edit → Find</b> (<kbd>⌘</kbd><kbd>F</kbd>) searches within the current note and steps through the matches.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="query-runnable-cells.html"><b>Runnable cells</b></a> — a question you write and run right inside a note, with the answer appearing just below it.</div>
+        <div class="k">Find and Replace</div>
+        <div class="v"><b>Edit → Find and Replace</b> (<kbd>⌘</kbd><kbd>H</kbd>) does the same, with a field to replace matches in the current note.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="query-result-blocks.html"><b>Result blocks</b></a> — dropping a question's answer into a note as a live list, table, or chart that stays up to date.</div>
+        <div class="k">Find in Notes…</div>
+        <div class="v"><b>Edit → Find in Notes…</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) searches across <em>every</em> note in the thoughtbase, not just the open one. See <a href="navigation-search.html">Search</a>.</div>
+      </div>
+      <div class="row">
+        <div class="k">Replace in Notes…</div>
+        <div class="v"><b>Edit → Replace in Notes…</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd>) replaces text across every note — a careful, base-wide find-and-replace.</div>
+      </div>
+    </div>
+
+    <h2 id="insert-transform">Inserting and transforming</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Insert Template…</div>
+        <div class="v"><b>Edit → Insert Template…</b> drops a saved template into the note at the cursor — a quick way to reuse boilerplate or a standard structure.</div>
+      </div>
+      <div class="row">
+        <div class="k">Sort Lines</div>
+        <div class="v"><b>Edit → Sort Lines</b> sorts the selected lines into alphabetical order — handy for lists and tables of contents.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Asking questions yourself vs. asking the assistant</span>
-      <p>When you chat with the assistant, it can look things up in your knowledge base for you — see <a href="conversations.html">Conversations</a>. This section is about doing that yourself, whether from the Query panel or right inside a note.</p>
+      <span class="label">Windows / Linux</span>
+      <p>Every shortcut above uses <kbd>Ctrl</kbd> in place of <kbd>⌘</kbd>.</p>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
+    <h2 id="related">Related</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="query-menu-panel.html">
-        <span class="em">🗂️</span>
-        <h3>Query panel</h3>
-        <p>Start a new question, pick a ready-made example, or save your own.</p>
+      <a class="doc-card" href="editor-keyboard-shortcuts.html">
+        <span class="em">⌨️</span>
+        <h3>Keyboard shortcuts</h3>
+        <p>Every shortcut the editor answers to, in one place.</p>
       </a>
-      <a class="doc-card" href="query-runnable-cells.html">
-        <span class="em">▶️</span>
-        <h3>Runnable cells</h3>
-        <p>Write a question and run it in place, right inside a note.</p>
+      <a class="doc-card" href="editor-writing-surface.html">
+        <span class="em">✍️</span>
+        <h3>The writing surface</h3>
+        <p>How your text formats itself as you type.</p>
       </a>
-      <a class="doc-card" href="query-result-blocks.html">
-        <span class="em">📊</span>
-        <h3>Result blocks</h3>
-        <p>Drop an answer into a note as a live list, table, or chart.</p>
+      <a class="doc-card" href="editor-voice-dictation.html">
+        <span class="em">🎙️</span>
+        <h3>Voice dictation</h3>
+        <p>Speak, and your words appear in the note.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="data-operations.html">
+      <a class="prev" href="editor.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Data operations</span>
+        <span class="ttl">← Editor</span>
       </a>
-      <a class="next" href="query-menu-panel.html">
+      <a class="next" href="editor-writing-surface.html">
         <span class="dir">Next</span>
-        <span class="ttl">Query menu &amp; panel →</span>
+        <span class="ttl">The writing surface →</span>
       </a>
     </div>
   </main>
