@@ -78,6 +78,29 @@ function copyExternalDeps(buildPath: string): void {
   }
 }
 
+// Stage the headless CLI (#1437) into the packaged app next to `main.js`, so it
+// resolves the same shipped `node_modules` (the native roots `copyExternalDeps`
+// stages) — `cli.js` is self-contained JS otherwise (vite.cli.config.ts). At
+// runtime it's launched via the app's own Electron binary under
+// ELECTRON_RUN_AS_NODE (the "Install minerva Command" action writes the shim),
+// so no separate `node` ships.
+//
+// We build cli.js HERE rather than in a `generateAssets` hook: that runs before
+// the Vite plugin, which then empties `.vite/build` and deletes it. By afterPrune
+// the plugin's builds are done, and `vite.cli.config`'s `emptyOutDir:false` keeps
+// `main.js` intact. The build runs against the repo's node_modules (unaffected by
+// the app prune), and afterPrune is before signing, so the addition is signed.
+function copyCliBundle(buildPath: string): void {
+  execFileSync('pnpm', ['cli:build'], { stdio: 'inherit' });
+  const src = path.join(process.cwd(), '.vite', 'build', 'cli.js');
+  if (!fs.existsSync(src)) {
+    throw new Error('[forge] cli:build did not produce .vite/build/cli.js');
+  }
+  const destDir = path.join(buildPath, '.vite', 'build');
+  fs.mkdirSync(destDir, { recursive: true });
+  fs.copyFileSync(src, path.join(destDir, 'cli.js'));
+}
+
 // macOS code signing + notarization (#661/#662). Signing runs only on macOS;
 // notarization additionally requires the App Store Connect API-key env vars, so a
 // plain local `pnpm build` (no creds) still signs but skips notarization instead
@@ -138,6 +161,7 @@ const config: ForgeConfig = {
       (buildPath, _electronVersion, _platform, _arch, done) => {
         try {
           copyExternalDeps(buildPath);
+          copyCliBundle(buildPath);
           done();
         } catch (err) {
           done(err instanceof Error ? err : new Error(String(err)));

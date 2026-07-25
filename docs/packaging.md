@@ -129,6 +129,14 @@ self-contained demo machine.
 - `vite.main.config.ts` / `vite.preload.config.ts` /
   `vite.renderer.config.mts` — per-process bundle configs that the
   VitePlugin invokes during package.
+- `vite.cli.config.ts` — self-contained build of the headless `minerva`
+  CLI (#1437). `forge.config.ts`'s `afterPrune` (`copyCliBundle`) builds it
+  and stages `.vite/build/cli.js` into the app beside `main.js`, so it
+  resolves the same shipped `node_modules`. At runtime it's launched via the
+  app's own Electron binary under `ELECTRON_RUN_AS_NODE` — no separate `node`
+  ships. Users expose it on PATH with **Help → Install 'minerva' Command in
+  PATH…** (`src/main/cli-install.ts`), which writes a shim to
+  `~/.local/bin/minerva`. macOS/Linux; Windows is a follow-up.
 - `resources/python/` — bundled Python kernel + `minerva` helper
   library. Staged into `Minerva.app/Contents/Resources/python/` by the
   `extraResource` config.
