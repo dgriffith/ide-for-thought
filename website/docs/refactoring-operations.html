@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Refactoring</title>
-<meta name="description" content="Renaming, moving, and deleting notes — by hand and via the AI — and what happens to links when you do." />
+<title>Minerva — Docs — Refactoring operations</title>
+<meta name="description" content="The Refactor menu commands in Minerva: rename, move, and copy a note; split and extract; AI-assisted auto-tag, auto-link, and decompose; format and insert a bibliography." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -64,8 +64,8 @@
     <a href="settings.html">Settings</a>
 
     <h4>Data &amp; workflows</h4>
-    <a href="refactoring.html" class="active">Refactoring</a>
-    <a href="refactoring-operations.html" class="sub">Refactoring operations</a>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="refactoring-operations.html" class="sub active">Refactoring operations</a>
     <a href="refactoring-manual.html" class="sub">Manual rename, move &amp; delete</a>
     <a href="refactoring-safe-delete.html" class="sub">Safe delete &amp; dangling links</a>
     <a href="refactoring-ai-assisted.html" class="sub">AI-assisted refactors</a>
@@ -78,68 +78,103 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Refactoring</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="refactoring.html">Refactoring</a><span class="sep">/</span>Refactoring operations</p>
 
-    <h1>Refactoring</h1>
-    <p class="lede">Rename, move, and delete notes — either by hand or by asking the assistant to do it for you. Whichever way you go, the links between your notes stay coherent, because Minerva keeps them up to date for you.</p>
+    <h1>Refactoring operations</h1>
+    <p class="lede">The <b>Refactor</b> menu gathers every structural change you can make to the current note in one place — renaming and moving, splitting a note apart, AI-assisted reorganization, and formatting. Through all of them, Minerva keeps the links between your notes coherent, so a change never leaves a broken reference behind. Each command works on the note you're editing.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="rename-move">Renaming and moving</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="refactoring-operations.html"><b>Refactoring operations</b></a> — the Refactor menu at a glance: every rename, split, AI-assisted, and formatting command.</div>
+        <div class="k">Rename…</div>
+        <div class="v"><b>Refactor → Rename…</b> gives the note a new name and updates every <a href="notes-links.html">link</a> that pointed at the old one, so nothing breaks. See <a href="refactoring-manual.html">Manual rename, move &amp; delete</a>.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="refactoring-manual.html"><b>Manual rename, move &amp; delete</b></a> — right-click, drag, and what updates for you.</div>
+        <div class="k">Move…</div>
+        <div class="v"><b>Refactor → Move…</b> moves the note to a different folder; its links follow it. (You can also drag it in the sidebar.)</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="refactoring-safe-delete.html"><b>Safe delete &amp; dangling links</b></a> — a heads-up before you delete a note others link to.</div>
-      </div>
-      <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="refactoring-ai-assisted.html"><b>AI-assisted refactors</b></a> — ask the assistant to rename, move, reorganize, or delete, and review before anything changes.</div>
+        <div class="k">Copy…</div>
+        <div class="v"><b>Refactor → Copy…</b> makes a duplicate of the note at a location you choose.</div>
       </div>
     </div>
 
-    <div class="box">
-      <span class="label">Deleting is a normal operation</span>
-      <p>Renaming, moving, and deleting are everyday actions, not scary ones. Minerva asks for a simple confirmation and then gets out of your way.</p>
+    <h2 id="splitting">Splitting a note</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Extract Selection to New Note</div>
+        <div class="v"><b>Refactor → Extract Selection to New Note</b> pulls the selected text out into a brand-new note and leaves a link to it in its place. Select some text first.</div>
+      </div>
+      <div class="row">
+        <div class="k">Split Note Here</div>
+        <div class="v"><b>Refactor → Split Note Here</b> divides the note in two at the cursor, keeping the text above and moving the text below into a new, linked note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Split by Heading…</div>
+        <div class="v"><b>Refactor → Split by Heading…</b> breaks one long note into several — one per heading — linked together.</div>
+      </div>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
+    <h2 id="ai-assisted">AI-assisted</h2>
+    <p>These ask the assistant to do the work and hand you the result as a <a href="conversations.html">proposal</a> to review — nothing changes until you approve it. See <a href="refactoring-ai-assisted.html">AI-assisted refactors</a>.</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Auto-tag</div>
+        <div class="v"><b>Refactor → Auto-tag</b> suggests <a href="notes-frontmatter.html">tags</a> for the note based on what it's about.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-link outbound…</div>
+        <div class="v"><b>Refactor → Auto-link outbound…</b> proposes links <em>from</em> this note to other relevant notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Auto-link inbound…</div>
+        <div class="v"><b>Refactor → Auto-link inbound…</b> proposes links <em>to</em> this note from other relevant notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Decompose Note…</div>
+        <div class="v"><b>Refactor → Decompose Note…</b> proposes breaking a long note into smaller, linked notes.</div>
+      </div>
+    </div>
+
+    <h2 id="format-biblio">Formatting and bibliography</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Format</div>
+        <div class="v"><b>Refactor → Format</b> tidies the note's Markdown into a consistent style (or every note selected in the sidebar). See <a href="settings-formatter.html">Formatter settings</a> for what it does.</div>
+      </div>
+      <div class="row">
+        <div class="k">Insert/Update Bibliography</div>
+        <div class="v"><b>Refactor → Insert/Update Bibliography</b> renders a References section listing every <a href="ingest.html">source</a> the note cites, in your configured citation style. See <a href="export-bibliography.html">Bibliography &amp; citations</a>.</div>
+      </div>
+    </div>
+
+    <h2 id="related">Related</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="refactoring-operations.html">
-        <span class="em">🧰</span>
-        <h3>Refactoring operations</h3>
-        <p>The Refactor menu commands, grouped and explained.</p>
-      </a>
       <a class="doc-card" href="refactoring-manual.html">
         <span class="em">✏️</span>
         <h3>Manual rename, move &amp; delete</h3>
-        <p>Right-click, drag, and what automatically updates when you do.</p>
-      </a>
-      <a class="doc-card" href="refactoring-safe-delete.html">
-        <span class="em">🔗</span>
-        <h3>Safe delete &amp; dangling links</h3>
-        <p>What Minerva checks before you delete a note others link to.</p>
+        <p>Right-click and drag in the sidebar, and what updates for you.</p>
       </a>
       <a class="doc-card" href="refactoring-ai-assisted.html">
         <span class="em">🤖</span>
         <h3>AI-assisted refactors</h3>
         <p>Ask the assistant — review the plan before anything changes.</p>
       </a>
+      <a class="doc-card" href="refactoring-safe-delete.html">
+        <span class="em">🔗</span>
+        <h3>Safe delete &amp; dangling links</h3>
+        <p>What Minerva checks before you delete a note others link to.</p>
+      </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="settings-skills.html">
+      <a class="prev" href="refactoring.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Skills</span>
+        <span class="ttl">← Refactoring</span>
       </a>
-      <a class="next" href="refactoring-operations.html">
+      <a class="next" href="refactoring-manual.html">
         <span class="dir">Next</span>
-        <span class="ttl">Refactoring operations →</span>
+        <span class="ttl">Manual rename, move &amp; delete →</span>
       </a>
     </div>
   </main>
