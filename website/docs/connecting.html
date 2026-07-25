@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Command Palette</title>
-<meta name="description" content="The command palette (⌘K / Ctrl+K): a keyboard launcher for running any command in Minerva without reaching for the menus." />
+<title>Minerva — Docs — Connecting to Minerva</title>
+<meta name="description" content="Reach into a thoughtbase from outside the app: a command-line interface and an MCP server let scripts and AI agents query your notes and propose new ones — grounded reads, gated writes." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -54,12 +54,6 @@
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
     <a href="navigation.html">Navigation</a>
-    <a href="navigation-command-palette.html" class="sub active">Command palette</a>
-    <a href="navigation-quick-switch.html" class="sub">Quick switch</a>
-    <a href="navigation-wiki-links.html" class="sub">Wiki-links</a>
-    <a href="navigation-search.html" class="sub">Search</a>
-    <a href="navigation-breadcrumbs.html" class="sub">Breadcrumbs</a>
-    <a href="navigation-back-forward.html" class="sub">Back / forward</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
 
@@ -75,56 +69,83 @@
     <a href="data.html">Data</a>
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
-    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="connecting.html" class="active">Connecting to Minerva</a>
+    <a href="connecting-cli.html" class="sub">CLI use</a>
+    <a href="connecting-mcp.html" class="sub">MCP use</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="navigation.html">Navigation</a><span class="sep">/</span>Command palette</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Connecting to Minerva</p>
 
-    <h1>Command palette</h1>
-    <p class="lede">The command palette is a keyboard launcher for everything Minerva can do. Press <kbd>⌘</kbd><kbd>K</kbd> (or <kbd>Ctrl</kbd><kbd>K</kbd> on Windows and Linux) from anywhere, type a few letters, and press <kbd>↵</kbd> to run the highlighted command — no hunting through menus. It finds <b>commands and actions</b>; to jump to a note, source, or saved query by name, use <a href="navigation-quick-switch.html">Quick switch</a> instead.</p>
+    <h1>Connecting to Minerva</h1>
+    <p class="lede">A <a href="thoughtbase.html">thoughtbase</a> is plain files and a <a href="data.html">knowledge graph</a>, so you don't have to be sitting in the app to use it. Minerva ships a command-line interface and a <b>Model Context Protocol (MCP)</b> server that let scripts and AI agents query your notes and propose new ones from outside — even while the app is closed. They reuse the same core the app does, so what they see is exactly what Minerva sees.</p>
 
-    <p>The palette floats over your note without dimming or covering it, so you can still see what you're about to act on as you type.</p>
-
-    <h2 id="empty">Browsing everything</h2>
-    <p>Open the palette with nothing typed and it lists every command Minerva offers — creating notes, editing, viewing, navigating, refactoring, research, queries, and app-wide actions. Commands you've run recently appear at the top, most recent first; everything else follows in alphabetical order.</p>
-
-    <h2 id="filtering">Finding a command</h2>
-    <p>As you type, the list narrows and re-sorts to put the best matches first. You don't have to type a command's exact name — a few letters from anywhere in it usually gets you there, and initials work too (type <b>nn</b> to find "New Note"). Commands you've used recently are nudged toward the top, so the things you reach for most stay close at hand.</p>
-
-    <figure class="shot-img">
-      <img src="img/navigation-command-palette.png" alt="The palette open over a note with &quot;link&quot; typed in, and a ranked list of matching commands below — each row showing the command name, a small label for its category, and its keyboard shortcut on the right where it has one. The top result is highlighted." loading="lazy" />
-      <figcaption>Screenshot — the command palette with a typed query</figcaption>
-    </figure>
-
-    <p>If nothing matches what you typed, the palette simply tells you so.</p>
-
-    <h2 id="keyboard">Getting around by keyboard</h2>
+    <h2 id="two-ways">Two ways in</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k"><kbd>↑</kbd> <kbd>↓</kbd></div>
-        <div class="v">Move the highlight up or down through the results. Hovering a row with the mouse selects it too.</div>
+        <div class="k"><a href="connecting-cli.html">CLI use</a></div>
+        <div class="v">Headless, scriptable access from your shell — query the graph, search notes, and file proposals, with grounded JSON output you can pipe straight into other tools.</div>
       </div>
       <div class="row">
-        <div class="k"><kbd>↵</kbd></div>
-        <div class="v">Run the highlighted command. The palette closes right away and focus returns to your note.</div>
-      </div>
-      <div class="row">
-        <div class="k"><kbd>esc</kbd></div>
-        <div class="v">Close the palette without running anything.</div>
+        <div class="k"><a href="connecting-mcp.html">MCP use</a></div>
+        <div class="v">The same reads and proposals exposed as tools to any MCP client — Claude Desktop, a coding agent, an editor — so an AI agent can ground itself in your thoughtbase and hand work back.</div>
       </div>
     </div>
 
-    <div class="pager">
-      <a class="prev" href="navigation.html">
-        <span class="dir">Previous</span>
-        <span class="ttl">← Navigation</span>
+    <h2 id="what">What you can do</h2>
+    <p>Both surfaces expose the same core operations over an open thoughtbase:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Query</div>
+        <div class="v">Run <b>SPARQL</b> over the knowledge graph or <b>SQL</b> over your CSV tables — the same queries you'd write in the app's <a href="data.html">Query</a> panel.</div>
+      </div>
+      <div class="row">
+        <div class="k">Search</div>
+        <div class="v">Full-text or meaning-based (semantic) search across your notes.</div>
+      </div>
+      <div class="row">
+        <div class="k">Read</div>
+        <div class="v">Fetch a note's raw markdown by path.</div>
+      </div>
+      <div class="row">
+        <div class="k">Gather context</div>
+        <div class="v">Pull a task-relevant slice for a topic — the matching notes <em>plus</em> their link neighborhood — so an agent can seed itself before it starts work.</div>
+      </div>
+      <div class="row">
+        <div class="k">Propose a note</div>
+        <div class="v">File a new note as a <b>pending proposal</b> — never a direct write.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Grounded reads, gated writes</span>
+      <p>Reads come back <b>grounded</b>: query results carry node identifiers, search hits carry the note's path — so an agent can cite exactly what it drew on. Writes are never direct. A proposal goes through the <em>same</em> approval gate as the built-in AI, stamped with who proposed it, and nothing touches your notes until you approve it in the Proposals panel. See <a href="conversations.html">Conversations</a> for that review flow.</p>
+    </div>
+
+    <h2 id="learn-more">In depth</h2>
+    <div class="doc-cards">
+      <a class="doc-card" href="connecting-cli.html">
+        <span class="em">⌥</span>
+        <h3>CLI use</h3>
+        <p>Query, search, and propose from your shell, with JSON output.</p>
       </a>
-      <a class="next" href="navigation-quick-switch.html">
+      <a class="doc-card" href="connecting-mcp.html">
+        <span class="em">🔌</span>
+        <h3>MCP use</h3>
+        <p>Expose the thoughtbase to an AI agent as MCP tools.</p>
+      </a>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="export-scopes-privacy.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Scopes &amp; privacy</span>
+      </a>
+      <a class="next" href="connecting-cli.html">
         <span class="dir">Next</span>
-        <span class="ttl">Quick switch →</span>
+        <span class="ttl">CLI use →</span>
       </a>
     </div>
   </main>
