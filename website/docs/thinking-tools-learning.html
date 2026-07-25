@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Thinking Tools</title>
-<meta name="description" content="The Learning, Research, and Analysis skills: what they are, running one, the three menus, and making them your own." />
+<title>Minerva — Docs — Learning Operations</title>
+<meta name="description" content="The skills in Minerva's Learning menu: explain, summarize, give examples and counterexamples, find prerequisites, build a learning journey and glossary, quiz yourself, and draft flashcards." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -65,11 +65,11 @@
 
     <h4>Data &amp; workflows</h4>
     <a href="refactoring.html">Refactoring</a>
-    <a href="thinking-tools.html" class="active">Thinking tools</a>
+    <a href="thinking-tools.html">Thinking tools</a>
     <a href="thinking-tools-what-they-are.html" class="sub">What thinking tools are</a>
     <a href="thinking-tools-running-a-skill.html" class="sub">Running a skill</a>
     <a href="thinking-tools-three-menus.html" class="sub">The three menus</a>
-    <a href="thinking-tools-learning.html" class="sub">Learning Operations</a>
+    <a href="thinking-tools-learning.html" class="sub active">Learning Operations</a>
     <a href="thinking-tools-research.html" class="sub">Research Operations</a>
     <a href="thinking-tools-analysis.html" class="sub">Analysis Operations</a>
     <a href="thinking-tools-managing-authoring.html" class="sub">Managing &amp; authoring</a>
@@ -82,87 +82,91 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span>Thinking tools</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="thinking-tools.html">Thinking tools</a><span class="sep">/</span>Learning Operations</p>
 
-    <h1>Thinking tools</h1>
-    <p class="lede">The Learning, Research, and Analysis menus are ready-made thinking moves you run over the note you're looking at — steelman an argument, pull out its claims, quiz yourself on it, check a fact. Each one is a <b>skill</b>, and the set is yours to turn on and off, rearrange, or add to.</p>
+    <h1>Learning Operations</h1>
+    <p class="lede">The <b>Learning</b> menu holds skills for understanding something already in front of you — re-explaining it at your level, drawing out examples and prerequisites, building study material, and testing yourself. Each runs over the current note (or a selection) and hands back a suggestion you <a href="thinking-tools-running-a-skill.html">review</a> before anything is kept.</p>
 
-    <h2 id="glance">At a glance</h2>
+    <h2 id="skills">The skills</h2>
     <div class="deflist">
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-what-they-are.html"><b>What thinking tools are</b></a> — the skills that come with Minerva, and ones you can add.</div>
+        <div class="k">Explain Like I’m…</div>
+        <div class="v">Re-explain a topic at a chosen audience level.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-running-a-skill.html"><b>Running a skill</b></a> — pick one from a menu; it works and hands back a suggestion to review.</div>
+        <div class="k">Summarize</div>
+        <div class="v">Open a conversation that summarizes the active note.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-three-menus.html"><b>The three menus</b></a> — Learning, Research, Analysis, and how skills group within each.</div>
+        <div class="k">Give Examples</div>
+        <div class="v">Generate concrete examples illustrating the note.</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v">The full catalogs — <a href="thinking-tools-learning.html"><b>Learning</b></a>, <a href="thinking-tools-research.html"><b>Research</b></a>, and <a href="thinking-tools-analysis.html"><b>Analysis</b> Operations</a> — every stock skill in each menu, with what it does.</div>
+        <div class="k">Find Counterexamples</div>
+        <div class="v">Where does this note’s argument break down?</div>
       </div>
       <div class="row">
-        <div class="k">—</div>
-        <div class="v"><a href="thinking-tools-managing-authoring.html"><b>Making them your own</b></a> — turn skills on and off, move and reorder them, or write your own.</div>
+        <div class="k">Find Prerequisites</div>
+        <div class="v">List concepts to understand before tackling this note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Create Learning Journey</div>
+        <div class="v">Design an ordered learning path ending at mastery.</div>
+      </div>
+      <div class="row">
+        <div class="k">Generate Glossary</div>
+        <div class="v">Build a structured, graph-typed glossary for a note or topic.</div>
+      </div>
+      <div class="row">
+        <div class="k">Add Term to Glossary</div>
+        <div class="v">Add one term to the existing glossary, matching its conventions.</div>
+      </div>
+      <div class="row">
+        <div class="k">Deep Dive on Term</div>
+        <div class="v">Expand a selected term into a fuller explanation.</div>
+      </div>
+      <div class="row">
+        <div class="k">Quiz Me</div>
+        <div class="v">Test your understanding of the note with graded questions.</div>
+      </div>
+      <div class="row">
+        <div class="k">Propose Flashcards</div>
+        <div class="v">Draft atomic <a href="notes-flashcards.html">spaced-repetition cards</a> from the note, for your review.</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">You stay in control</span>
-      <p>A skill's result is a suggestion, never a silent change. Anything a skill wants to add or edit comes back for you to approve or reject first — see <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
+      <span class="label">These are the stock skills</span>
+      <p>This is what ships in the Learning menu. You can turn skills on and off, move them between menus, reorder them, or write your own — see <a href="thinking-tools-managing-authoring.html">Managing &amp; authoring</a>.</p>
     </div>
 
-    <h2 id="learn-more">In depth</h2>
+    <h2 id="related">Related</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="thinking-tools-what-they-are.html">
-        <span class="em">📄</span>
-        <h3>What thinking tools are</h3>
-        <p>The skills that come with Minerva, and ones you add, sitting side by side.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-running-a-skill.html">
-        <span class="em">▶️</span>
-        <h3>Running a skill</h3>
-        <p>Pick one from a menu; it works and hands back a suggestion to review.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-three-menus.html">
-        <span class="em">🗂️</span>
-        <h3>The three menus</h3>
-        <p>Learning, Research, Analysis — and how skills group within each.</p>
-      </a>
-      <a class="doc-card" href="thinking-tools-learning.html">
-        <span class="em">🎓</span>
-        <h3>Learning Operations</h3>
-        <p>Every skill in the Learning menu — understand what's in front of you.</p>
-      </a>
       <a class="doc-card" href="thinking-tools-research.html">
         <span class="em">🔬</span>
         <h3>Research Operations</h3>
-        <p>Every skill in the Research menu — gather, verify, and decompose.</p>
+        <p>The Research menu — gather, verify, and decompose.</p>
       </a>
       <a class="doc-card" href="thinking-tools-analysis.html">
         <span class="em">🧩</span>
         <h3>Analysis Operations</h3>
-        <p>Every skill in the Analysis menu — work a claim or argument over.</p>
+        <p>The Analysis menu — work a claim or argument over.</p>
       </a>
-      <a class="doc-card" href="thinking-tools-managing-authoring.html">
-        <span class="em">🛠️</span>
-        <h3>Making them your own</h3>
-        <p>Turn skills on and off, move and reorder them — and how to write your own.</p>
+      <a class="doc-card" href="thinking-tools-three-menus.html">
+        <span class="em">🧠</span>
+        <h3>The three menus</h3>
+        <p>How Learning, Research, and Analysis divide the work.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="refactoring-ai-assisted.html">
+      <a class="prev" href="thinking-tools-three-menus.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← AI-assisted refactors</span>
+        <span class="ttl">← The three menus</span>
       </a>
-      <a class="next" href="thinking-tools-what-they-are.html">
+      <a class="next" href="thinking-tools-research.html">
         <span class="dir">Next</span>
-        <span class="ttl">What thinking tools are →</span>
+        <span class="ttl">Research Operations →</span>
       </a>
     </div>
   </main>
