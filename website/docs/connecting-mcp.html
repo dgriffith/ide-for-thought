@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Editor operations</title>
-<meta name="description" content="The Edit menu commands in Minerva: undo and redo, find and replace within a note and across notes, insert a template, and sort lines." />
+<title>Minerva — Docs — MCP use</title>
+<meta name="description" content="Connect an AI agent to a Minerva thoughtbase over the Model Context Protocol: start the stdio MCP server, point a client at it, and use the read and propose tools — grounded and gated." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -56,12 +56,6 @@
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
-    <a href="editor-operations.html" class="sub active">Editor operations</a>
-    <a href="editor-writing-surface.html" class="sub">The writing surface</a>
-    <a href="editor-markdown-formatting.html" class="sub">Markdown formatting</a>
-    <a href="editor-keyboard-shortcuts.html" class="sub">Keyboard shortcuts</a>
-    <a href="editor-link-autocomplete.html" class="sub">Link autocomplete</a>
-    <a href="editor-voice-dictation.html" class="sub">Voice dictation</a>
 
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
@@ -76,88 +70,106 @@
     <a href="ingest.html">Ingest</a>
     <a href="export.html">Export</a>
     <a href="connecting.html">Connecting to Minerva</a>
+    <a href="connecting-cli.html" class="sub">CLI use</a>
+    <a href="connecting-mcp.html" class="sub active">MCP use</a>
     <a href="maintenance.html">Maintenance</a>
   </aside>
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="editor.html">Editor</a><span class="sep">/</span>Editor operations</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="connecting.html">Connecting to Minerva</a><span class="sep">/</span>MCP use</p>
 
-    <h1>Editor operations</h1>
-    <p class="lede">The <b>Edit</b> menu holds the text commands that act on the note you're writing — the familiar undo and copy/paste, plus finding and replacing, inserting a template, and tidying lines. Most also carry a keyboard shortcut.</p>
+    <h1>MCP use</h1>
+    <p class="lede">The <b>Model Context Protocol (MCP)</b> is a standard way to give an AI agent tools. Minerva's MCP server exposes the same reads and proposals as the <a href="connecting-cli.html">CLI</a> — as tools any MCP client can call — so an agent like Claude Desktop, a coding agent, or an editor can ground itself in your thoughtbase and hand work back through the approval gate.</p>
 
-    <h2 id="basics">The basics</h2>
+    <h2 id="start">Starting the server</h2>
+    <p>The MCP server is the <code>mcp</code> subcommand of the same CLI — <a href="connecting-cli.html#build">build and link it once</a> and you have the <code>minerva</code> command. The server runs over standard input/output as a subprocess — you don't start it by hand so much as tell a client how to launch it. On its own:</p>
+    <pre><code>minerva mcp --project /path/to/thoughtbase</code></pre>
+    <p>It speaks newline-delimited JSON-RPC 2.0 and stays running until its input closes. Each modality initializes once and stays warm across tool calls.</p>
+
+    <h2 id="connect">Connecting a client</h2>
+    <p>Most MCP clients take a small JSON entry naming a command to launch. Point it at <code>minerva</code> with the <code>mcp</code> subcommand and your thoughtbase path — the client runs it as a subprocess:</p>
+    <pre><code>{
+  "mcpServers": {
+    "minerva": {
+      "command": "minerva",
+      "args": ["mcp", "--project", "/path/to/thoughtbase"]
+    }
+  }
+}</code></pre>
+    <p>Some clients launch from a bare environment without your shell's PATH, so <code>minerva</code> may not resolve. If so, give the absolute path to the built file instead:</p>
+    <pre><code>{
+  "mcpServers": {
+    "minerva": {
+      "command": "node",
+      "args": ["/absolute/path/to/minerva/.vite/build/cli.js", "mcp", "--project", "/path/to/thoughtbase"]
+    }
+  }
+}</code></pre>
+
+    <h2 id="tools">Tools</h2>
+    <p>The server exposes seven tools — the reads return grounded JSON, and the one write is gated:</p>
     <div class="deflist">
       <div class="row">
-        <div class="k">Undo · Redo · Cut · Copy · Paste · Select All</div>
-        <div class="v">The standard editing commands at the top of the <b>Edit</b> menu, with their usual shortcuts (<kbd>⌘</kbd><kbd>Z</kbd>, <kbd>⌘</kbd><kbd>C</kbd>, <kbd>⌘</kbd><kbd>V</kbd>, and so on). Undo history is per note.</div>
-      </div>
-    </div>
-
-    <h2 id="find-replace">Find and replace</h2>
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Find</div>
-        <div class="v"><b>Edit → Find</b> (<kbd>⌘</kbd><kbd>F</kbd>) searches within the current note and steps through the matches.</div>
+        <div class="k"><code>query_graph</code></div>
+        <div class="v">SPARQL over the knowledge graph.</div>
       </div>
       <div class="row">
-        <div class="k">Find and Replace</div>
-        <div class="v"><b>Edit → Find and Replace</b> (<kbd>⌘</kbd><kbd>H</kbd>) does the same, with a field to replace matches in the current note.</div>
+        <div class="k"><code>sql_query</code></div>
+        <div class="v">DuckDB SQL over your CSV <a href="data.html">tables</a>.</div>
       </div>
       <div class="row">
-        <div class="k">Find in Notes…</div>
-        <div class="v"><b>Edit → Find in Notes…</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd>) searches across <em>every</em> note in the thoughtbase, not just the open one. See <a href="navigation-search.html">Search</a>.</div>
+        <div class="k"><code>search_notes</code></div>
+        <div class="v">Full-text search over notes.</div>
       </div>
       <div class="row">
-        <div class="k">Replace in Notes…</div>
-        <div class="v"><b>Edit → Replace in Notes…</b> (<kbd>⌘</kbd><kbd>⇧</kbd><kbd>H</kbd>) replaces text across every note — a careful, base-wide find-and-replace.</div>
-      </div>
-    </div>
-
-    <h2 id="insert-transform">Inserting and transforming</h2>
-    <div class="deflist">
-      <div class="row">
-        <div class="k">Insert Template…</div>
-        <div class="v"><b>Edit → Insert Template…</b> drops a saved template into the note at the cursor — a quick way to reuse boilerplate or a standard structure.</div>
+        <div class="k"><code>semantic_search</code></div>
+        <div class="v">Meaning-based search over notes the app has embedded.</div>
       </div>
       <div class="row">
-        <div class="k">Sort Lines</div>
-        <div class="v"><b>Edit → Sort Lines</b> sorts the selected lines into alphabetical order — handy for lists and tables of contents.</div>
+        <div class="k"><code>read_note</code></div>
+        <div class="v">A note's raw markdown, by path.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>gather_context</code></div>
+        <div class="v">A topic slice — matching notes plus their link neighborhood — for the agent to seed itself.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>propose_note</code></div>
+        <div class="v">File a new note as a pending proposal (gated).</div>
       </div>
     </div>
 
     <div class="box">
-      <span class="label">Windows / Linux</span>
-      <p>Every shortcut above uses <kbd>Ctrl</kbd> in place of <kbd>⌘</kbd>.</p>
+      <span class="label">Grounded and gated</span>
+      <p>Reads come back grounded, so the agent can cite the exact notes it drew on. The only write is <code>propose_note</code>, which files a <b>pending proposal</b> stamped <code>mcp:&lt;client-name&gt;</code> — taken from the client's own name at connect time — and nothing lands until you approve it in the Proposals panel. In Minerva, proposals from an MCP client are labelled distinctly from the built-in AI, so the graph stays an audit log of who contributed what. See <a href="conversations.html">Conversations</a>.</p>
     </div>
+
+    <h2 id="freshness">A note on freshness</h2>
+    <p>The server reads your thoughtbase once at startup and serves results as of that moment. If you edit notes in the app while it's running, restart the server to pick up the changes. And as with the CLI, file proposals when the app isn't actively editing the same thoughtbase, so the two aren't writing the graph at once.</p>
 
     <h2 id="related">Related</h2>
     <div class="doc-cards">
-      <a class="doc-card" href="editor-keyboard-shortcuts.html">
-        <span class="em">⌨️</span>
-        <h3>Keyboard shortcuts</h3>
-        <p>Every shortcut the editor answers to, in one place.</p>
+      <a class="doc-card" href="connecting-cli.html">
+        <span class="em">⌥</span>
+        <h3>CLI use</h3>
+        <p>The same operations from your shell, as JSON.</p>
       </a>
-      <a class="doc-card" href="editor-writing-surface.html">
-        <span class="em">✍️</span>
-        <h3>The writing surface</h3>
-        <p>How your text formats itself as you type.</p>
-      </a>
-      <a class="doc-card" href="editor-voice-dictation.html">
-        <span class="em">🎙️</span>
-        <h3>Voice dictation</h3>
-        <p>Speak, and your words appear in the note.</p>
+      <a class="doc-card" href="conversations.html">
+        <span class="em">💬</span>
+        <h3>Conversations</h3>
+        <p>Review and approve what an agent proposes.</p>
       </a>
     </div>
 
     <div class="pager">
-      <a class="prev" href="editor.html">
+      <a class="prev" href="connecting-cli.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Editor</span>
+        <span class="ttl">← CLI use</span>
       </a>
-      <a class="next" href="editor-writing-surface.html">
+      <a class="next" href="maintenance.html">
         <span class="dir">Next</span>
-        <span class="ttl">The writing surface →</span>
+        <span class="ttl">Maintenance →</span>
       </a>
     </div>
   </main>
