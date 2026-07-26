@@ -18,6 +18,26 @@
   .step h3 { margin: 4px 0 6px; font-size: 1.12rem; }
   .step p { margin: 0; color: var(--text-muted); }
   .step code { background: var(--bg-inset); border:1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.9em; color: var(--text); }
+
+  /* Download boxes — one live platform (macOS), two on the way. */
+  .downloads { display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+  @media (max-width: 720px) { .downloads { grid-template-columns: 1fr; } }
+  .dl { display:flex; flex-direction:column; align-items:center; text-align:center; gap:8px;
+        padding: 30px 22px; border-radius: 16px; border:1px solid var(--border); background: var(--bg-elev); }
+  .dl .os-ico { font-size: 2.4rem; line-height: 1; }
+  .dl h3 { margin: 4px 0 0; font-size: 1.15rem; color: var(--text); }
+  .dl .sub { margin: 0; font-size: 0.9rem; color: var(--text-muted); }
+  /* macOS — the primary, clickable box */
+  a.dl-active { border-color: var(--accent); background: color-mix(in oklch, var(--accent) 10%, var(--bg-elev)); }
+  a.dl-active:hover { background: color-mix(in oklch, var(--accent) 18%, var(--bg-elev)); text-decoration: none; }
+  a.dl-active .cta { margin-top: 10px; display:inline-block; padding: 11px 24px; border-radius: 10px;
+        background: var(--accent); color: var(--accent-ink); font-weight: 650; font-size: 0.95rem; }
+  a.dl-active:hover .cta { background: var(--accent-dim); }
+  /* Linux / Windows — not yet available */
+  .dl-soon { opacity: 0.62; }
+  .dl-soon .badge { margin-top: 10px; display:inline-block; padding: 6px 15px; border-radius: 999px;
+        border:1px solid var(--border-strong); font-size: 0.76rem; letter-spacing: 0.08em;
+        text-transform: uppercase; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -61,6 +81,27 @@
   <div class="wrap">
     <h1>Getting started</h1>
     <p>Free, open source, and local-first. Install it, tell it what you're thinking about, and you have your first thoughtbase in about a minute.</p>
+
+    <div class="downloads">
+      <a class="dl dl-active" href="https://github.com/dgriffith/ide-for-thought/releases/latest/download/Minerva-mac-arm64.dmg">
+        <div class="os-ico">🍎</div>
+        <h3>Download for macOS</h3>
+        <p class="sub">Apple Silicon · signed &amp; notarized</p>
+        <span class="cta">Download .dmg</span>
+      </a>
+      <div class="dl dl-soon">
+        <div class="os-ico">🐧</div>
+        <h3>Linux</h3>
+        <p class="sub">Coming eventually</p>
+        <span class="badge">Coming eventually</span>
+      </div>
+      <div class="dl dl-soon">
+        <div class="os-ico">🪟</div>
+        <h3>Windows</h3>
+        <p class="sub">Coming eventually</p>
+        <span class="badge">Coming eventually</span>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -75,6 +116,11 @@
       <div class="step"><div class="n"></div><div><h3>Tell it what you're exploring</h3><p>The opening wizard asks what you want to build a thoughtbase <em>of</em>, who it's for, and how deep to go. A research topic, a book you're studying, a decision you're working through — anything.</p></div></div>
       <div class="step"><div class="n"></div><div><h3>Get a starting map, not a blank page</h3><p>Minerva generates an overview set of linked notes to orient you — the antidote to the blank canvas. Every note is yours to keep, rewrite, or delete.</p></div></div>
       <div class="step"><div class="n"></div><div><h3>Think, and let it hold the structure</h3><p>Write, ask, link, cite. When the AI suggests a claim or a source, you review and approve it. Your thoughtbase grows into a real map of what you know — and it's plain files on your disk the whole time.</p></div></div>
+    </div>
+
+    <div class="callout" style="margin-top: 26px;">
+      <p style="margin:0 0 6px; font-weight:650; color:var(--text);">🔑 Bring your own Anthropic API key</p>
+      <p style="margin:0; color:var(--text-muted);">Minerva is free and local-first, but its AI features — the onboarding wizard, chat, claim and source suggestions, and skills — run on Claude. Turning them on requires your own <a href="https://console.anthropic.com/settings/keys">Anthropic API key</a>, which you add in Settings; usage is billed to your Anthropic account. Everything else — writing, linking, the knowledge graph, search — works with no key at all.</p>
     </div>
 
     <div class="shot wide" style="margin-top:30px;">
