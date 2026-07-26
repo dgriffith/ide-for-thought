@@ -145,6 +145,21 @@
       : 'SELECT ?note ?title WHERE {\n  ?note a minerva:Note ;\n        dc:title ?title .\n}';
   }
 
+  /** On an empty editor, Tab drops the ghosted example query in as real,
+   *  editable text (cursor at end) so it can actually be used — otherwise
+   *  the placeholder just vanishes on the first keystroke. Returns false
+   *  when the doc is non-empty so Tab falls through to accept-completion /
+   *  indent as usual. */
+  function fillPlaceholderIfEmpty(v: EditorView): boolean {
+    if (v.state.doc.length !== 0) return false;
+    const text = placeholderFor(tab.language);
+    v.dispatch({
+      changes: { from: 0, insert: text },
+      selection: { anchor: text.length },
+    });
+    return true;
+  }
+
   function completionFor(lang: QueryLanguage): Extension {
     // `defaultKeymap: false` drops the built-in completion keybindings so our
     // own Enter (accept + eat tail, #206) owns that key — the default Enter
@@ -206,6 +221,7 @@
           { key: 'Mod-Enter', run: () => { if (!isEmpty) onExecute(); return true; } },
           { key: 'Mod-s', run: () => { if (!isEmpty) onSave(); return true; } },
           { key: 'Shift-Alt-f', run: () => { if (isEmpty) return true; return reformat(); } },
+          { key: 'Tab', run: fillPlaceholderIfEmpty },
           { key: 'Tab', run: acceptCompletion },
           // Enter accepts the active completion and eats the half-typed word
           // tail (#206); returns false with no popup open so Enter is a
