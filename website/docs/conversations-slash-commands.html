@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Slash commands</title>
+<meta name="description" content="Type a slash in the composer to run a quick command or a thinking tool without leaving the keyboard — clear or compact a conversation, or launch a skill right from the chat." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="conversations-chatting.html" class="sub">Chatting with the AI</a>
+    <a href="conversations-slash-commands.html" class="sub active">Slash commands</a>
+    <a href="conversations-drafts.html" class="sub">Drafts</a>
+    <a href="conversations-propose-review-approve.html" class="sub">The propose → review → approve loop</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="data.html">Data</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="maintenance.html">Maintenance</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="conversations.html">Conversations</a><span class="sep">/</span>Slash commands</p>
+
+    <h1>Slash commands</h1>
+    <p class="lede">Slash commands are a keyboard shortcut into everything you'd otherwise reach with a menu or a button. Type <code>/</code> at the start of a message and a small menu appears with a couple of housekeeping commands for the conversation itself, plus any <a href="thinking-tools.html">thinking tools</a> that have a shorthand — so you can compact a long thread, or fire off a quiz or a summary, without lifting your hands from the keyboard.</p>
+
+    <h2 id="opening">Opening the menu</h2>
+    <p>In the conversation composer, type <code>/</code> as the very first thing in an otherwise empty message. A menu floats up above the composer showing the commands you can run. Keep typing to filter the list — <code>/sum</code> narrows to <code>/summarize</code>, and so on. The menu only appears while what you've typed is a single unbroken command word; add a space, or start with anything other than a slash, and you're just writing an ordinary message.</p>
+
+    <div class="box">
+      <span class="label">Nothing runs until you pick it</span>
+      <p>Opening the menu changes nothing on its own. A command only fires when you choose it — and anything a thinking tool wants to change your notes still comes back as a draft for you to accept or discard. See <a href="conversations-propose-review-approve.html">The propose → review → approve loop</a>.</p>
+    </div>
+
+    <h2 id="built-in">Built-in commands</h2>
+    <p>Two commands act on the conversation itself. They're always available, at the top of the menu.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>/clear</code></div>
+        <div class="v">Files the current conversation away and opens a fresh one in its place, carrying over the same starting note and assistant so you can pick up a new line of thought without losing the old thread. A brand-new, empty conversation is left alone, so there's no harm in reaching for it out of habit.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>/compact</code></div>
+        <div class="v">Summarizes the earlier turns of a long conversation into a shorter one and swaps it in, keeping the gist while trimming the length. The original is filed away untouched. A conversation that's already short is left as-is.</div>
+      </div>
+    </div>
+
+    <h2 id="thinking-tools">Thinking-tool commands</h2>
+    <p>Below the built-ins, the menu lists <a href="thinking-tools.html">thinking tools</a> that carry a slash shorthand — the same skills you'd otherwise launch from the Learning, Research, and Analysis menus. Picking one from the slash menu is just a faster way in: it opens the tool exactly as the menus would, running straight away when the tool needs nothing else from you.</p>
+    <p>Which tools show up depends on which skills are turned on and whether they declare a shorthand, so your list may differ. A few of the stock ones:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><code>/summarize</code></div>
+        <div class="v">Condense the note you're working with into a short summary.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>/quiz</code></div>
+        <div class="v">Turn a note into quiz questions to test yourself.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>/steelman</code></div>
+        <div class="v">Build the strongest possible version of an argument.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>/find-sources</code></div>
+        <div class="v">Suggest sources that would back up or challenge a claim.</div>
+      </div>
+      <div class="row">
+        <div class="k"><code>/visualize</code></div>
+        <div class="v">Propose a chart for the data in a note.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Your own shortcuts</span>
+      <p>Skills you add yourself can carry a slash shorthand too, and they'll appear here alongside the stock tools. They can't take over one of the built-in names, so <code>/clear</code> and <code>/compact</code> always mean the same thing. For how to give a skill a slash command, see <a href="thinking-tools.html">Thinking tools</a>.</p>
+    </div>
+
+    <h2 id="keyboard">Getting around the menu</h2>
+    <p>The menu is built for the keyboard:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k"><kbd>↑</kbd> <kbd>↓</kbd></div>
+        <div class="v">Move up and down the list. The selection wraps around at either end.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>⏎</kbd> or <kbd>⇥</kbd></div>
+        <div class="v">Run the highlighted command.</div>
+      </div>
+      <div class="row">
+        <div class="k"><kbd>Esc</kbd></div>
+        <div class="v">Dismiss the menu and leave what you typed in place, so you can carry on writing an ordinary message.</div>
+      </div>
+      <div class="row">
+        <div class="k">Mouse</div>
+        <div class="v">Hover to highlight, click to run — whichever's closer to hand.</div>
+      </div>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="conversations-chatting.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">← Chatting with the AI</span>
+      </a>
+      <a class="next" href="conversations-drafts.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Drafts →</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
