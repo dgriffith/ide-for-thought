@@ -80,6 +80,54 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Supply-chain / CVE scanning (#1095 / QA H3). Paired with .github/dependabot.yml:
+  # Dependabot opens update PRs, this step makes the current advisory state
+  # visible on every PR/push. Lightweight + decoupled — audit reads only the
+  # lockfile, so no node_modules install, no native binaries, ubuntu is fine.
+  #
+  # NON-BLOCKING FOR NOW (continue-on-error). Baseline at add-time (2026-07-27):
+  # 38 high + 3 critical total, but only 8 high + 2 critical on the *shipped*
+  # (`--prod`) surface — the rest live in build/dev tooling (@electron-forge/cli,
+  # eslint, vite) that never reaches users.
+  #
+  # PROMOTION PATH to a gating check (do this as the tree is remediated):
+  #   1. Clear the shipped surface, then flip the `audit:prod` step below to
+  #      blocking by removing its `continue-on-error` (gates `--prod` only —
+  #      protects users first without being held hostage by build-tool CVEs).
+  #   2. Once the full tree is clean, remove `continue-on-error` from `audit:all`
+  #      too, or drop `audit:prod` and gate `audit:all`.
+  # Remediation levers: bump via the Dependabot PRs; force a patched transitive
+  # with a `pnpm.overrides` entry in package.json; allowlist an accepted/unfixable
+  # advisory with `--ignore <CVE>` (append to the commands below with a comment
+  # naming the advisory and why it's accepted).
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Shipped surface — the advisories that actually reach users. This is the
+      # first step slated to become blocking (see PROMOTION PATH above).
+      - name: audit:prod (shipped deps, high+critical)
+        continue-on-error: true
+        run: pnpm audit --prod --audit-level=high
+
+      # Full tree incl. build/dev tooling — visibility only until the whole
+      # tree is clean.
+      - name: audit:all (full tree, high+critical)
+        continue-on-error: true
+        run: pnpm audit --audit-level=high
+
   e2e:
     # Runs in parallel with lint-and-test. Stays out of the unit loop
     # because Electron boot is 5–10s and the watcher loop should stay
