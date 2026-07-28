@@ -141,7 +141,7 @@ jobs:
           ls -la dist-artifacts
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: minerva-macos-${{ runner.arch }}
           path: dist-artifacts/*
