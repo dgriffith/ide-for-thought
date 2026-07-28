@@ -56,7 +56,7 @@ jobs:
       HAS_SIGNING: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 != '' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
