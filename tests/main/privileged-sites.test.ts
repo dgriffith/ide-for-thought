@@ -243,4 +243,17 @@ describe('openLoginWindow', () => {
     await done;
     expect(listSites()[0]!.lastLoginAt).not.toBeNull();
   });
+
+  it('hardens the third-party login window: isolated, sandboxed, no node, no preload (#1102)', () => {
+    // This window loads real third-party HTML, so a flag regression here is
+    // higher-risk than the app's own renderer. Guard the construction site.
+    addSite('arxiv.org', 'arXiv');
+    openLoginWindow('arxiv.org');
+    const wp = (h.windows[0]!.options as { webPreferences: Record<string, unknown> }).webPreferences;
+    expect(wp.contextIsolation).toBe(true);
+    expect(wp.nodeIntegration).toBe(false);
+    expect(wp.sandbox).toBe(true);
+    // A preload would expose Minerva's bridge to an untrusted remote page.
+    expect(wp.preload).toBeUndefined();
+  });
 });
