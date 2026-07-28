@@ -74,7 +74,7 @@ jobs:
       # isn't blocked before the repo is enrolled on Codecov / CODECOV_TOKEN is
       # set; activates automatically once it is.
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
