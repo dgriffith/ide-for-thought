@@ -99,6 +99,27 @@ export default defineConfig({
           statements: 74,
           branches: 60,
         },
+        // Renderer tree — 93 components + both reactive stores, the largest
+        // user-facing defect surface and previously the least-gated (#1094 /
+        // QA C1). Floors sit ~10pts below the measured-at-floor numbers with
+        // extra headroom because this tree is volatile (a single new component
+        // moves the needle): a mass test deletion or a large untested addition
+        // still fails CI. Measured at floor-time: ~36% L / ~39% F / ~35% S /
+        // ~31% B. Ratchet upward as notebase.svelte.ts / editor.svelte.ts /
+        // the approval-proposal UI gain tests.
+        //
+        // NOTE: src/preload is deliberately NOT given a line-coverage floor.
+        // It's a declarative contextBridge passthrough (~326 lines of
+        // `invoke(Channels.X, …)` arrows); its correct gate is the shape +
+        // full-surface snapshot contract test (tests/preload/preload-bridge.test.ts,
+        // #676), not line execution. Calling every passthrough to hit a line
+        // floor would verify nothing the snapshot doesn't already pin.
+        'src/renderer/**': {
+          lines: 26,
+          functions: 28,
+          statements: 26,
+          branches: 21,
+        },
       },
     },
   },
