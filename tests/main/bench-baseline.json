@@ -1,0 +1,91 @@
+{
+  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches (a from-scratch 5k-note rdflib rebuild is GC-dominated).",
+  "tolerance": 2,
+  "benchmarks": [
+    {
+      "name": "cosineSimilarity: query vs 10,000 corpus vectors (dim=384)",
+      "mean": 5.97719,
+      "hz": 167.3,
+      "budgetMs": null
+    },
+    {
+      "name": "indexAllNotes: 2000 notes from scratch",
+      "mean": 708.915375,
+      "hz": 1.41,
+      "budgetMs": null
+    },
+    {
+      "name": "indexAllNotes: 500 notes from scratch",
+      "mean": 178.871528,
+      "hz": 5.59,
+      "budgetMs": null
+    },
+    {
+      "name": "indexAllNotes: 5000 notes from scratch",
+      "mean": 2787.001611,
+      "hz": 0.36,
+      "budgetMs": null,
+      "gate": false
+    },
+    {
+      "name": "indexNote: a note (title + tag + wiki-link) into a 500-note store",
+      "mean": 0.50119,
+      "hz": 1995.25,
+      "budgetMs": null
+    },
+    {
+      "name": "meanPoolNormalize: seq=512 dim=384",
+      "mean": 0.20119,
+      "hz": 4970.43,
+      "budgetMs": null
+    },
+    {
+      "name": "queryGraph: simple SELECT (cache hit after first call)",
+      "mean": 0.563548,
+      "hz": 1774.47,
+      "budgetMs": 5
+    },
+    {
+      "name": "queryGraph: tag filter (cache hit after first call)",
+      "mean": 0.887726,
+      "hz": 1126.47,
+      "budgetMs": 5
+    },
+    {
+      "name": "re-index (invalidates) + queryGraph (cold rebuild) at 2000 notes",
+      "mean": 60.817692,
+      "hz": 16.44,
+      "budgetMs": null
+    },
+    {
+      "name": "re-index (invalidates) + queryGraph (cold rebuild) at 500 notes",
+      "mean": 20.04684,
+      "hz": 49.88,
+      "budgetMs": null
+    },
+    {
+      "name": "re-index (invalidates) + queryGraph (cold rebuild) at 5000 notes",
+      "mean": 147.694283,
+      "hz": 6.77,
+      "budgetMs": 600
+    },
+    {
+      "name": "writeAndReindex: re-save one note in a 2000-note vault",
+      "mean": 1.502371,
+      "hz": 665.61,
+      "budgetMs": null
+    },
+    {
+      "name": "writeAndReindex: re-save one note in a 500-note vault",
+      "mean": 0.681375,
+      "hz": 1467.62,
+      "budgetMs": null
+    },
+    {
+      "name": "writeAndReindex: re-save one note in a 5000-note vault",
+      "mean": 4.273987,
+      "hz": 233.97,
+      "budgetMs": null
+    }
+  ]
+}

@@ -40,12 +40,23 @@ for (const scale of SCALES) {
   }
 
   describe(`full indexAllNotes — ${scale}-note vault`, () => {
-    bench(`indexAllNotes: ${scale} notes from scratch`, async () => {
-      // indexAllNotes resets and rebuilds the whole store on every call, so
-      // it's safe (and necessary, to measure the real full-index cost rather
-      // than a warm no-op) to call it fresh on every bench iteration against
-      // the same on-disk files.
-      await indexAllNotes(ctx);
-    });
+    bench(
+      `indexAllNotes: ${scale} notes from scratch`,
+      async () => {
+        // indexAllNotes resets and rebuilds the whole store on every call, so
+        // it's safe (and necessary, to measure the real full-index cost rather
+        // than a warm no-op) to call it fresh on every bench iteration against
+        // the same on-disk files.
+        await indexAllNotes(ctx);
+      },
+      // A single rebuild is O(seconds) at the top scale, and each one allocates
+      // a fresh multi-thousand-node rdflib graph — the default 10-iteration
+      // floor piles ~15 of those onto the heap and turns a ~2.5s op into an
+      // 11-minute, GC-thrashing, ±200%-variance sample. A few iterations give a
+      // representative number without the pile-up (the regression gate treats
+      // this bench as tracked-not-gated for the same variance reason — see
+      // bench-baseline.json).
+      { iterations: 3, warmupIterations: 1, time: 0, warmupTime: 0 },
+    );
   });
 }

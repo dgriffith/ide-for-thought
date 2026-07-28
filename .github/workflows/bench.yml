@@ -1,16 +1,28 @@
-# Non-gating performance benchmarks (#1004).
+# Performance benchmarks + regression gate (#1004, #1099).
 #
-# Runs the `*.bench.ts` suite — graph index/query latency and embedding
-# throughput — to make scale regressions visible as a knowledge base grows.
+# Runs the `*.bench.ts` suite — graph index/query latency, save-pipeline, and
+# embedding throughput — to make scale regressions visible as a knowledge base
+# grows, and gates on a committed baseline so a regression FAILS the job instead
+# of sitting in a log nobody reads (finding H2).
 #
 # Deliberately NOT on `pull_request` / `push`: micro-benchmarks are noisy on
-# shared CI runners, so gating a PR on them would flap. Trigger it by hand
-# (workflow_dispatch) or let the weekly schedule run it, and read the numbers in
-# the job log. macos-latest matches ci.yml and the dev machine.
+# shared CI runners, so gating a PR on them would flap. The gate lives here on
+# the manual/scheduled runs (baseline-diff with a tolerance envelope), which is
+# resistant to that noise. macos-latest matches ci.yml and the dev machine the
+# baseline is blessed on.
+#
+# Re-blessing the baseline: dispatch this workflow with `update_baseline: true`.
+# It runs the benches, writes the new baseline, and uploads it as an artifact —
+# download `bench-baseline` and commit `tests/main/bench-baseline.json`.
 name: Bench
 
 on:
   workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Refresh the committed baseline instead of gating (uploads it as an artifact to commit)'
+        type: boolean
+        default: false
   schedule:
     - cron: '0 6 * * 1' # Mondays 06:00 UTC
 
@@ -35,5 +47,22 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run benchmarks
-        run: pnpm bench
+      # Gating run (schedule + normal dispatch): fail on a >tolerance× regression
+      # vs the committed baseline. `bench:check` runs the benches with JSON output
+      # then diffs against tests/main/bench-baseline.json.
+      - name: Run benchmarks + regression gate
+        if: ${{ inputs.update_baseline != true }}
+        run: pnpm bench:check
+
+      # Re-bless run (dispatch with update_baseline=true): regenerate the baseline
+      # and hand it back as an artifact for a human to commit.
+      - name: Refresh benchmark baseline
+        if: ${{ inputs.update_baseline == true }}
+        run: pnpm bench:baseline
+
+      - name: Upload refreshed baseline
+        if: ${{ inputs.update_baseline == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-baseline
+          path: tests/main/bench-baseline.json
