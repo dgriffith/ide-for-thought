@@ -7,6 +7,7 @@ playwright-report/
 .vite/
 .minerva/
 coverage/
+bench-results.json
 .idea/
 *.log
 .DS_Store
