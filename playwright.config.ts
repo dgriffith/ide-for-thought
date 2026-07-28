@@ -18,8 +18,14 @@ export default defineConfig({
   // 60s per test gives headroom for the first BrowserWindow to load
   // on a cold CI runner; Electron boot alone is ~3-5s.
   timeout: 60_000,
-  // No HTML report on CI; failure output in stdout is enough.
-  reporter: process.env.CI ? 'list' : 'list',
+  // Electron boot is inherently flaky (transient BrowserWindow load
+  // failures on cold CI runners). Retry twice in CI so a single boot
+  // hiccup doesn't fail the job; keep 0 locally so real failures surface
+  // immediately (#1097).
+  retries: process.env.CI ? 2 : 0,
+  // `list` prints a "retry #N" line for every retried spec, so genuine
+  // flake stays visible in the CI log rather than being silently masked.
+  reporter: 'list',
   use: {
     actionTimeout: 10_000,
   },
