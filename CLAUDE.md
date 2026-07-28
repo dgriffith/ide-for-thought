@@ -214,7 +214,9 @@ LLM-originated apply path the same way.**
 
 ### Integrity Query
 
-The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development:
+The integrity-check SPARQL below detects `thought:Component` nodes attributed to an LLM that lack a corresponding approved proposal. Run it (Graph > Query) after any LLM integration work to verify the trust principle holds. It used to ship as the "Trust: Unreviewed LLM writes" stock query, but the `Trust:` / `Claims:` / `Compute:` stock queries were pulled from the default set as too confusing for end users — keep this one handy for development.
+
+It's also promoted to an automated gate (#1101): `findUnreviewedLLMWrites` in `src/main/graph/integrity.ts` is the canonical executable copy, asserted on every PR by `tests/main/graph/trust-integrity.test.ts` (honest path → empty; bypass / pending-only proposal → flagged). Keep the query below in sync with `UNREVIEWED_LLM_WRITES_QUERY` there.
 
 ```sparql
 PREFIX thought: <https://minerva.dev/ontology/thought#>
