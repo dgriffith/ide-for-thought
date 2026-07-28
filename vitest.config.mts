@@ -99,6 +99,40 @@ export default defineConfig({
           statements: 74,
           branches: 60,
         },
+        // Neglected top-level main modules — previously unfenced (#1100 / QA
+        // H1). These sit at `src/main/*.ts` (no directory of their own), so
+        // each gets its own per-file floor set ~10pts below the measured-at-
+        // floor-time numbers (in parens). The security trio is a genuine
+        // remote-content trust boundary, so its floors run high.
+        // security.ts ~100 L / 100 F / 100 S / 86 B.
+        'src/main/security.ts': {
+          lines: 90,
+          functions: 90,
+          statements: 90,
+          branches: 72,
+        },
+        // security-helpers.ts ~100 across the board.
+        'src/main/security-helpers.ts': {
+          lines: 92,
+          functions: 90,
+          statements: 92,
+          branches: 88,
+        },
+        // privileged-sites.ts ~97 L / 100 F / 96 S / 92 B (#1100 added the test).
+        'src/main/privileged-sites.ts': {
+          lines: 88,
+          functions: 90,
+          statements: 86,
+          branches: 80,
+        },
+        // auto-update.ts ~85 L / 89 F / 82 S / 69 B (the Squirrel apply path
+        // can't run without two published releases, hence the lower floors).
+        'src/main/auto-update.ts': {
+          lines: 75,
+          functions: 78,
+          statements: 72,
+          branches: 58,
+        },
         // Renderer tree — 93 components + both reactive stores, the largest
         // user-facing defect surface and previously the least-gated (#1094 /
         // QA C1). Floors sit ~10pts below the measured-at-floor numbers with

@@ -13,15 +13,19 @@ import path from 'node:path';
 import { app, BrowserWindow, session, type Session } from 'electron';
 import type { PrivilegedSite } from '../shared/types';
 
-const FILE = path.join(app.getPath('userData'), 'privileged-sites.json');
-
 interface FileShape {
   sites: PrivilegedSite[];
 }
 
+// Resolved lazily (not captured at module load) so `app.getPath` is read at
+// call time — keeps the module importable under test with a mocked userData dir.
+function configFile(): string {
+  return path.join(app.getPath('userData'), 'privileged-sites.json');
+}
+
 function readFile(): FileShape {
   try {
-    const data = fs.readFileSync(FILE, 'utf-8');
+    const data = fs.readFileSync(configFile(), 'utf-8');
     const parsed = JSON.parse(data) as FileShape;
     if (!parsed || !Array.isArray(parsed.sites)) return { sites: [] };
     return parsed;
@@ -31,7 +35,7 @@ function readFile(): FileShape {
 }
 
 function writeFile(data: FileShape): void {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2), 'utf-8');
+  fs.writeFileSync(configFile(), JSON.stringify(data, null, 2), 'utf-8');
 }
 
 /** Bare hostname normaliser: strips leading dot, lowercases, drops port. */
