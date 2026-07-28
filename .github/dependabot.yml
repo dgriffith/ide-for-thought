@@ -1,0 +1,52 @@
+# Dependabot supply-chain scanning (#1095 / QA H3).
+#
+# Minerva bundles a large native/WASM surface (onnxruntime, duckdb, pdfjs,
+# tesseract, sql.js, isomorphic-git) and executes LLM-proposed content, so an
+# unpatched transitive CVE is a real exposure. Dependabot surfaces those as
+# update PRs; the non-blocking `pnpm audit` step in ci.yml is the paired
+# visibility signal. Together they replace "notice a CVE by manual inspection".
+version: 2
+
+updates:
+  # ── Application dependencies (pnpm uses the npm ecosystem) ────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Keep the noise low: batch minor + patch bumps into grouped PRs so the
+    # weekly churn is a couple of reviews, not thirty. Majors still arrive as
+    # individual PRs (they carry breaking-change risk and deserve their own
+    # review) — but security fixes always open regardless of grouping.
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  # ── GitHub Actions themselves ────────────────────────────────────────────
+  # The workflows pin actions by major tag (actions/checkout@v4, …); those
+  # have their own supply-chain history, so keep them current too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      actions:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "build"
+    commit-message:
+      prefix: "chore(ci)"
