@@ -30,6 +30,15 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
+    ignore:
+      # @retorquere/bibtex-parser@10.0.0 is an upstream packaging bug: its
+      # package.json advertises `types: ./dist/types/index.d.ts` but the
+      # published tarball ships zero .d.ts files, so `tsc --noEmit` fails
+      # (TS7016) at src/main/sources/import-bibtex.ts. Pin out this exact
+      # broken release only — a fixed 10.0.1+/10.1.0 will still be proposed.
+      # Remove this entry once upstream republishes with declarations. (#1464)
+      - dependency-name: "@retorquere/bibtex-parser"
+        versions: ["10.0.0"]
 
   # ── GitHub Actions themselves ────────────────────────────────────────────
   # The workflows pin actions by major tag (actions/checkout@v4, …); those
