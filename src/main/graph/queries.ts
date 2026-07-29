@@ -21,7 +21,7 @@ import type {
 } from '../../shared/types';
 import {
   type GraphState, type HeadingSnapshot,
-  getState, getEngine, buildN3Store,
+  getState, getEngine, ensureN3Cache,
   MINERVA, DC, RDF, BIBO, PROV, THOUGHT,
   STANDARD_PREFIXES,
   noteUri, tagUri, sourceUri, excerptUri,
@@ -293,11 +293,10 @@ export async function queryGraph(
   const state = getState(ctx);
   if (!state) return { results: [], columns: [] };
   const engine = getEngine();
-  const { store } = state;
-
   try {
-    if (!state.n3Cache) state.n3Cache = buildN3Store(store);
-    const n3Store = state.n3Cache;
+    // Build the mirror if cold, yielding so a large rebuild doesn't jank the
+    // main thread (#1115). Warm queries return the live mirror with no yield.
+    const n3Store = await ensureN3Cache(state);
     const prefixed = injectSparqlPrefixes(sparql);
 
     // Use the full query() API (not queryBindings) so we can read the result
