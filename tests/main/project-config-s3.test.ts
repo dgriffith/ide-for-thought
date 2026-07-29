@@ -31,7 +31,10 @@ import {
 
 let root: string;
 const configFile = () => path.join(root, '.minerva', 'config.json');
+const secretsFile = () => path.join(root, '.minerva', 'secrets.json');
+const gitignoreFile = () => path.join(root, '.minerva', '.gitignore');
 const rawTargets = () => JSON.parse(fs.readFileSync(configFile(), 'utf-8')).publish.targets;
+const rawSecrets = () => JSON.parse(fs.readFileSync(secretsFile(), 'utf-8')).publishTargets;
 
 const s3: S3PublishTarget = {
   id: 's3a', kind: 's3', label: 'Site', exporter: 'static-site', bucket: 'b', region: 'auto',
@@ -42,17 +45,22 @@ beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pcfg-')
 afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('S3 target credentials', () => {
-  it('encrypts the secret at rest and never returns it from the read path', () => {
+  it('keeps the secret out of config.json — encrypted in the gitignored secrets.json', () => {
     upsertPublishTarget(root, s3);
     const onDisk = rawTargets()[0];
-    expect(onDisk.secretAccessKey).toBeUndefined();            // no plaintext field
-    expect(onDisk.secretAccessKeyEnc.startsWith('enc:v1:')).toBe(true);
-    expect(JSON.stringify(onDisk)).not.toContain('super-secret');
+    expect(onDisk.secretAccessKey).toBeUndefined();            // no plaintext
+    expect(onDisk.secretAccessKeyEnc).toBeUndefined();         // no ciphertext in config either
+    expect(fs.readFileSync(configFile(), 'utf-8')).not.toContain('super-secret');
+    expect(onDisk.accessKeyId).toBe('AKIA');                   // non-secret fields stay in config
+
+    // The secret lives, encrypted, in secrets.json — which is gitignored.
+    expect(rawSecrets().s3a.s3Secret.startsWith('enc:v1:')).toBe(true);
+    expect(fs.readFileSync(secretsFile(), 'utf-8')).not.toContain('super-secret');
+    expect(fs.readFileSync(gitignoreFile(), 'utf-8')).toMatch(/^secrets\.json$/m);
 
     const wire = getPublishTargets(root)[0] as S3PublishTarget;
-    expect(wire.secretAccessKey).toBeUndefined();              // stripped from read
+    expect(wire.secretAccessKey).toBeUndefined();
     expect(wire.hasSecret).toBe(true);
-    expect(wire.accessKeyId).toBe('AKIA');                     // non-secret fields kept
   });
 
   it('decrypts the secret only for the transport', () => {
@@ -95,12 +103,15 @@ describe('Git target token (#1508)', () => {
     githubToken: 'ghp_secret',
   };
 
-  it('encrypts the token at rest and never returns it from the read path', () => {
+  it('keeps the token out of config.json — encrypted in the gitignored secrets.json', () => {
     upsertPublishTarget(root, git);
     const onDisk = rawTargets()[0];
     expect(onDisk.githubToken).toBeUndefined();
-    expect(onDisk.githubTokenEnc.startsWith('enc:v1:')).toBe(true);
-    expect(JSON.stringify(onDisk)).not.toContain('ghp_secret');
+    expect(onDisk.githubTokenEnc).toBeUndefined();
+    expect(fs.readFileSync(configFile(), 'utf-8')).not.toContain('ghp_secret');
+
+    expect(rawSecrets().g.githubToken.startsWith('enc:v1:')).toBe(true);
+    expect(fs.readFileSync(gitignoreFile(), 'utf-8')).toMatch(/^secrets\.json$/m);
 
     const wire = getPublishTargets(root)[0] as GitPublishTarget;
     expect(wire.githubToken).toBeUndefined();
@@ -121,5 +132,34 @@ describe('Git target token (#1508)', () => {
     upsertPublishTarget(root, { ...git, githubToken: '' });
     expect(getGitCredentials(root, 'g').token).toBeUndefined();
     expect((getPublishTargets(root)[0] as GitPublishTarget).hasToken).toBe(false);
+  });
+});
+
+describe('migration: legacy inline secrets in config.json move to secrets.json', () => {
+  it('relocates *Enc out of config.json on first read', () => {
+    // Simulate a pre-split config.json with the secret inline (as the S3/GitHub
+    // PRs originally wrote it).
+    fs.mkdirSync(path.join(root, '.minerva'), { recursive: true });
+    fs.writeFileSync(configFile(), JSON.stringify({
+      publish: { targets: [
+        { id: 's3a', kind: 's3', label: 'S', exporter: 'static-site', bucket: 'b', accessKeyId: 'AKIA', secretAccessKeyEnc: 'enc:v1:legacy-s3' },
+        { id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://x', gitBranch: 'gh-pages', githubTokenEnc: 'enc:v1:legacy-gh' },
+      ] },
+    }));
+
+    // Any read triggers the one-time migration.
+    getPublishTargets(root);
+
+    // config.json no longer carries the ciphertext…
+    const cfg = fs.readFileSync(configFile(), 'utf-8');
+    expect(cfg).not.toContain('secretAccessKeyEnc');
+    expect(cfg).not.toContain('githubTokenEnc');
+    // …it's in the gitignored secrets.json instead.
+    expect(rawSecrets().s3a.s3Secret).toBe('enc:v1:legacy-s3');
+    expect(rawSecrets().g.githubToken).toBe('enc:v1:legacy-gh');
+    expect(fs.readFileSync(gitignoreFile(), 'utf-8')).toMatch(/^secrets\.json$/m);
+    // Non-secret fields survive; hasSecret/hasToken reflect the relocated secrets.
+    expect((getPublishTargets(root)[0] as S3PublishTarget).hasSecret).toBe(true);
+    expect((getPublishTargets(root)[1] as GitPublishTarget).hasToken).toBe(true);
   });
 });
