@@ -483,14 +483,27 @@ export interface ChannelMap {
 
 /** A configured publish destination (#254; multi-transport #1444). Mirror of the
  *  main-side `PublishTarget` (project-config) + renderer `PublishTarget`. */
-export interface PublishTarget {
+interface PublishTargetBase {
   id: string;
   label: string;
-  /** Transport kind (#1444); absent ⇒ 'git'. */
-  kind?: 'git' | 's3';
   exporter: string;
+  subdir?: string;
+}
+export interface GitPublishTarget extends PublishTargetBase {
+  kind?: 'git';
   gitRemote: string;
   gitBranch: string;
-  subdir?: string;
   commitMessageTemplate?: string;
 }
+export interface S3PublishTarget extends PublishTargetBase {
+  kind: 's3';
+  bucket: string;
+  endpoint?: string;
+  region?: string;
+  accessKeyId?: string;
+  /** Write-only on upsert (tri-state); never returned by the read path. */
+  secretAccessKey?: string;
+  /** Read-only: a secret is stored. */
+  hasSecret?: boolean;
+}
+export type PublishTarget = GitPublishTarget | S3PublishTarget;

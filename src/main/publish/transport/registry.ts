@@ -5,6 +5,7 @@
  */
 import type { PublishTransport, PublishTargetKind } from './types';
 import { gitTransport } from './git';
+import { s3Transport } from './s3';
 
 const transports = new Map<PublishTargetKind, PublishTransport>();
 
@@ -17,3 +18,4 @@ export function getTransport(kind: PublishTargetKind): PublishTransport | undefi
 }
 
 registerTransport(gitTransport);
+registerTransport(s3Transport);
