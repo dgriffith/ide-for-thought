@@ -17,7 +17,7 @@
  * still render.
  */
 import { describe, it, expect } from 'vitest';
-import { MODEL_OPTIONS, MODEL_PRICING, customModelOptions, allModelOptions } from '../../src/shared/tools/models';
+import { MODEL_OPTIONS, MODEL_PRICING, customModelOptions, allModelOptions, groupedModelOptions } from '../../src/shared/tools/models';
 import { EFFORT_ENTRY_MODEL_IDS } from '../../src/shared/tools/effort';
 import { isProviderId } from '../../src/shared/tools/providers';
 
@@ -64,5 +64,15 @@ describe('custom (local) model options (#1497)', () => {
       ...MODEL_OPTIONS,
       { value: 'llama3.1', label: 'llama3.1', provider: 'local' },
     ]);
+  });
+
+  it('groupedModelOptions groups by provider, custom models under local, empty groups dropped', () => {
+    const groups = groupedModelOptions([{ id: 'llama3.1' }]);
+    const byProvider = Object.fromEntries(groups.map((g) => [g.provider, g]));
+    expect(byProvider.anthropic.label).toBe('Anthropic');
+    expect(byProvider.anthropic.models.every((m) => m.provider === 'anthropic')).toBe(true);
+    expect(byProvider.local.models.map((m) => m.value)).toEqual(['llama3.1']);
+    // Without custom models the local group is absent (no built-in local models).
+    expect(groupedModelOptions().some((g) => g.provider === 'local')).toBe(false);
   });
 });

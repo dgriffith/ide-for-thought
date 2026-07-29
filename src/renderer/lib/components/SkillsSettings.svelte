@@ -23,7 +23,8 @@
   } from '../../../shared/skills/menu-config';
   import { registerSkillInfos } from '../tools/tool-registry';
   import { getSettingsStore } from '../stores/settings.svelte';
-  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+  import { groupedModelOptions, modelLabel } from '../../../shared/tools/models';
+  import type { CustomModel } from '../../../shared/tools/types';
 
   const settings = getSettingsStore();
 
@@ -36,8 +37,10 @@
      *  preference resolves to this, so the empty option names it instead of
      *  saying a bare "Default model". */
     defaultModel?: string;
+    /** User-defined local models, merged into each skill's picker (BYOM #1498). */
+    customModels?: CustomModel[];
   }
-  let { toolModelOverrides = $bindable({}), defaultModel }: Props = $props();
+  let { toolModelOverrides = $bindable({}), defaultModel, customModels }: Props = $props();
 
   /** Label for a skill row's empty ("use the default") model option. The
    *  resolution order at run time is: this skill's `model:` preference, then
@@ -275,8 +278,12 @@
                   onchange={(e) => setToolOverride(s.id, e.currentTarget.value)}
                 >
                   <option value="">{defaultOptionLabel(s.model)}</option>
-                  {#each MODEL_OPTIONS as m (m.value)}
-                    <option value={m.value}>{m.label}</option>
+                  {#each groupedModelOptions(customModels) as g (g.provider)}
+                    <optgroup label={g.label}>
+                      {#each g.models as m (m.value)}
+                        <option value={m.value}>{m.label}</option>
+                      {/each}
+                    </optgroup>
                   {/each}
                 </select>
                 {#if s.source === 'user'}

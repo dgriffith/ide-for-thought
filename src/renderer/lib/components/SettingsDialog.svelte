@@ -53,6 +53,19 @@
   import SkillsSettings from './SkillsSettings.svelte';
   import BibliographySettings from './BibliographySettings.svelte';
   import AiSettings from './AiSettings.svelte';
+  import { DEFAULT_MODEL } from '../../../shared/tools/models';
+  import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../../shared/tools/providers';
+  import type { ProviderConfigView, ProviderCredentialsUpdate, CustomModel } from '../../../shared/tools/types';
+
+  /** Per-provider input state; matches AiSettings's structural shape. */
+  interface ProviderInput { key: string; baseURL: string; clear: boolean }
+
+  /** Fresh, empty per-provider input state (BYOM #1498). */
+  function emptyProviderInputs(): Record<ProviderId, ProviderInput> {
+    return Object.fromEntries(
+      PROVIDER_IDS.map((id) => [id, { key: '', baseURL: '', clear: false }]),
+    ) as Record<ProviderId, ProviderInput>;
+  }
 
   interface Props {
     onApplyEditor: (s: EditorSettings) => void;
@@ -290,12 +303,13 @@
   let clipper = $state<import('../../../shared/clipper-pairing').ClipperState | null>(null);
   let clipperRevealed = $state(false);
   let clipperCopied = $state(false);
-  let model = $state('claude-opus-5');
+  let model = $state(DEFAULT_MODEL);
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
-  let apiKeyInput = $state('');
-  let apiKeyStatus = $state<'unknown' | 'set' | 'unset'>('unknown');
-  let clearApiKey = $state(false);
-  let keyStorage = $state<import('../../../shared/tools/types').ApiKeyStorage | null>(null);
+  // Per-provider credential inputs + loaded status (BYOM #1498).
+  let providerInputs = $state<Record<ProviderId, ProviderInput>>(emptyProviderInputs());
+  let providerViews = $state<Partial<Record<ProviderId, ProviderConfigView>>>({});
+  let secureStorageAvailable = $state(false);
+  let customModels = $state<CustomModel[]>([]);
 
   let toolModelOverrides = $state<Record<string, string>>({});
 
@@ -310,9 +324,14 @@
       const s = await api.tools.getSettings();
       model = s.model;
       effort = s.effort;
-      apiKeyStatus = s.hasApiKey ? 'set' : 'unset';
+      providerViews = s.providers ?? {};
+      customModels = s.customModels ? [...s.customModels] : [];
+      // Prefill base-URL inputs from stored config so the user sees/edits them.
+      for (const id of PROVIDER_IDS) {
+        providerInputs[id].baseURL = s.providers?.[id]?.baseURL ?? '';
+      }
       try {
-        keyStorage = await api.tools.getKeyStorage();
+        secureStorageAvailable = (await api.tools.getKeyStorage()).available;
       } catch (e) {
         console.error('[settings] failed to load key storage status:', e);
       }
@@ -389,9 +408,22 @@
     setFontFamily(fontFamily);
     onThemeChanged();
 
-    // Web + AI — build the settings update and save. The apiKey is tri-state:
-    // clear → '', a typed value → that key, otherwise OMIT it so main preserves
-    // the stored key without decrypting (the dialog never held the plaintext).
+    // Web + AI — build the settings update and save. Per-provider keys are
+    // tri-state (BYOM #1498): clear → '', a typed value → that key, otherwise
+    // OMIT so main preserves the stored key without decrypting; base URLs send
+    // their current value (trimmed; '' clears).
+    const providerUpdates: Partial<Record<ProviderId, ProviderCredentialsUpdate>> = {};
+    for (const id of PROVIDER_IDS) {
+      const meta = PROVIDERS[id];
+      const inp = providerInputs[id];
+      const upd: ProviderCredentialsUpdate = {};
+      if (meta.requiresKey) {
+        if (inp.clear) upd.apiKey = '';
+        else if (inp.key) upd.apiKey = inp.key;
+      }
+      if (meta.usesBaseURL) upd.baseURL = inp.baseURL.trim();
+      if (Object.keys(upd).length > 0) providerUpdates[id] = upd;
+    }
     const next: LLMSettingsUpdate = {
       model,
       web: {
@@ -401,7 +433,8 @@
       },
       ...(effort ? { effort } : {}),
       ...(Object.keys(toolModelOverrides).length > 0 ? { toolModelOverrides } : {}),
-      ...(clearApiKey ? { apiKey: '' } : apiKeyInput ? { apiKey: apiKeyInput } : {}),
+      ...(Object.keys(providerUpdates).length > 0 ? { providers: providerUpdates } : {}),
+      customModels,
     };
     try {
       await settings.setToolSettings(next);
@@ -963,7 +996,7 @@
           <BibliographySettings />
 
         {:else if activeTab === 'skills'}
-          <SkillsSettings bind:toolModelOverrides defaultModel={model} />
+          <SkillsSettings bind:toolModelOverrides defaultModel={model} {customModels} />
 
         {:else if activeTab === 'compute'}
           <ComputeSettings />
@@ -972,11 +1005,11 @@
           <AiSettings
             bind:model
             bind:effort
-            bind:apiKeyInput
-            bind:clearApiKey
-            {apiKeyStatus}
-            {keyStorage}
-            onCheckConnection={(candidateKey) => api.tools.checkConnection(candidateKey)}
+            bind:providerInputs
+            bind:customModels
+            {providerViews}
+            {secureStorageAvailable}
+            onCheckConnection={(providerId, candidateKey, baseURL) => api.tools.checkConnection(providerId, candidateKey, baseURL)}
           />
         {/if}
       </section>

@@ -11,6 +11,7 @@ import type { MenuConfig } from '../../shared/skills/menu-config';
 import { getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../llm/settings';
 import { checkConnection } from '../llm/validate';
 import type { ToolExecutionRequest, LLMSettingsUpdate } from '../../shared/tools/types';
+import type { ProviderId } from '../../shared/tools/providers';
 import { winFromEvent } from './helpers';
 
 export function registerTools(): void {
@@ -98,8 +99,9 @@ export function registerTools(): void {
   handle(Channels.TOOL_GET_KEY_STORAGE, () => getApiKeyStorage());
 
   // Active key validation for the settings "Check connection" button — an
-  // unsaved typed key (if any) takes precedence over the stored one.
-  handle(Channels.TOOL_CHECK_CONNECTION, (_e, candidateKey?: string) =>
-    checkConnection(candidateKey),
+  // unsaved typed key (if any) takes precedence over the stored one. Per
+  // provider (BYOM #1498); baseURL lets a local endpoint be tested unsaved.
+  handle(Channels.TOOL_CHECK_CONNECTION, (_e, providerId: ProviderId, candidateKey?: string, baseURL?: string) =>
+    checkConnection(providerId, candidateKey, baseURL),
   );
 }

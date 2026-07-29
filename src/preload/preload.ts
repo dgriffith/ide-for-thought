@@ -437,8 +437,8 @@ contextBridge.exposeInMainWorld('api', {
     getSettings: () => invoke(Channels.TOOL_GET_SETTINGS),
     setSettings: (settings: Parameters<ChannelMap['tool:setSettings']>[0]) => invoke(Channels.TOOL_SET_SETTINGS, settings),
     getKeyStorage: () => invoke(Channels.TOOL_GET_KEY_STORAGE),
-    checkConnection: (candidateKey?: string) =>
-      invoke(Channels.TOOL_CHECK_CONNECTION, candidateKey),
+    checkConnection: (providerId: Parameters<ChannelMap['tool:checkConnection']>[0], candidateKey?: string, baseURL?: string) =>
+      invoke(Channels.TOOL_CHECK_CONNECTION, providerId, candidateKey, baseURL),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
   skills: {

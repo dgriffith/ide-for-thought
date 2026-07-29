@@ -55,6 +55,7 @@ import type {
   ConnectionCheckResult,
 } from './tools/types';
 import type { SkillCatalogInfo } from './skills/types';
+import type { ProviderId } from './tools/providers';
 import type { MenuConfig } from './skills/menu-config';
 import type {
   SourceMetadata,
@@ -358,7 +359,7 @@ export interface ChannelMap {
   'tool:getSettings': () => LLMSettingsView;
   'tool:setSettings': (update: LLMSettingsUpdate) => void;
   'tool:getKeyStorage': () => ApiKeyStorage;
-  'tool:checkConnection': (candidateKey?: string) => ConnectionCheckResult;
+  'tool:checkConnection': (providerId: ProviderId, candidateKey?: string, baseURL?: string) => ConnectionCheckResult;
 
   // Skills (markdown skill files — #622)
   'skills:list': () => SkillCatalogInfo;

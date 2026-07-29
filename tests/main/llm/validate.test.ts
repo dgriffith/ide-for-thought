@@ -25,32 +25,51 @@ beforeEach(() => {
   h.createProviderForKey.mockReturnValue({ checkConnection: h.providerCheck });
 });
 
-describe('checkConnection — key resolution', () => {
-  it('validates a typed key (trimmed) without touching stored settings', async () => {
-    const res = await checkConnection('  sk-typed  ');
+describe('checkConnection — credential resolution', () => {
+  it('validates a typed key (trimmed), preferring it over the stored one', async () => {
+    const res = await checkConnection('anthropic', '  sk-typed  ');
     expect(res).toEqual({ ok: true });
-    expect(h.getSettings).not.toHaveBeenCalled();
-    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-typed');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-typed', undefined);
   });
 
-  it('falls back to the stored key when no candidate is given', async () => {
-    await checkConnection('');
+  it('falls back to the stored key for the provider when no candidate is given', async () => {
+    await checkConnection('anthropic', '');
     expect(h.getSettings).toHaveBeenCalled();
-    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-stored');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-stored', undefined);
   });
 
-  it('short-circuits with no provider call when there is no key at all', async () => {
+  it('short-circuits with no provider call when a keyed provider has no key', async () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: '' } } });
-    const res = await checkConnection(undefined);
+    const res = await checkConnection('anthropic', undefined);
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/No API key/i);
     expect(h.createProviderForKey).not.toHaveBeenCalled();
   });
 
+  it('resolves the requested provider (openai) from settings', async () => {
+    h.getSettings.mockResolvedValue({ providers: { openai: { apiKey: 'sk-openai' } } });
+    await checkConnection('openai');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('openai', 'sk-openai', undefined);
+  });
+
+  it('checks a keyless local endpoint by base URL (typed beats stored)', async () => {
+    h.getSettings.mockResolvedValue({ providers: { local: { baseURL: 'http://stored/v1' } } });
+    await checkConnection('local', '', 'http://typed:11434/v1');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('local', '', 'http://typed:11434/v1');
+  });
+
+  it('errors when a local endpoint has no base URL', async () => {
+    h.getSettings.mockResolvedValue({ providers: {} });
+    const res = await checkConnection('local');
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/base URL/i);
+    expect(h.createProviderForKey).not.toHaveBeenCalled();
+  });
+
   it('passes the provider result straight through', async () => {
-    h.providerCheck.mockResolvedValue({ ok: false, error: 'Anthropic rejected this key' });
-    const res = await checkConnection('sk-bad');
-    expect(res).toEqual({ ok: false, error: 'Anthropic rejected this key' });
+    h.providerCheck.mockResolvedValue({ ok: false, error: 'provider rejected this key' });
+    const res = await checkConnection('anthropic', 'sk-bad');
+    expect(res).toEqual({ ok: false, error: 'provider rejected this key' });
   });
 });
 
