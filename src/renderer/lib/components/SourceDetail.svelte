@@ -525,6 +525,7 @@
           <input
             type="date"
             class="due-input"
+            aria-label="Due by"
             value={detail.metadata.readDueBy ?? ''}
             onchange={(e) => handleSetReadDueBy((e.target as HTMLInputElement).value)}
           />

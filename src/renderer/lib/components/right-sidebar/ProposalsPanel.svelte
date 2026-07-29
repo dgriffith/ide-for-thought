@@ -432,7 +432,10 @@
     gap: 4px;
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--text-faint);
+    /* --text-muted, not --text-faint: the byline sits on the selected item's
+       tinted background where --text-faint falls to 3.9:1 (below WCAG AA);
+       --text-muted clears 4.5:1 there (#1104). */
+    color: var(--text-muted);
     max-width: 12em;
     overflow: hidden;
     text-overflow: ellipsis;
