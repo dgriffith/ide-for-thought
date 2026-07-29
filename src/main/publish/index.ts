@@ -40,3 +40,4 @@ export { resolvePlan, runExporter } from './pipeline';
 export { listExporters, exportersFor, getExporter, listExportGroups, type ExportGroupListing } from './registry';
 export { runExport, type RunExportInput, type RunExportResult } from './run-export';
 export { publishToGit, type PublishResult, type PublishOptions } from './publish-to-git';
+export { publishTarget, getTransport, registerTransport, type PublishTransport, type PublishTargetKind } from './transport';

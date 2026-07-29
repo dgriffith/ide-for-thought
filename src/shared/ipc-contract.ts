@@ -481,11 +481,13 @@ export interface ChannelMap {
   'conversation:fileNoteBodyDraft': (draft: ConversationNoteBodyDraft) => FileNoteBodyDraftResult;
 }
 
-/** A configured "Publish → git remote" destination (#254). Mirror of the
+/** A configured publish destination (#254; multi-transport #1444). Mirror of the
  *  main-side `PublishTarget` (project-config) + renderer `PublishTarget`. */
 export interface PublishTarget {
   id: string;
   label: string;
+  /** Transport kind (#1444); absent ⇒ 'git'. */
+  kind?: 'git' | 's3';
   exporter: string;
   gitRemote: string;
   gitBranch: string;
