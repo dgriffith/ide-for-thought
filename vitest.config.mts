@@ -138,13 +138,12 @@ export default defineConfig({
         // QA C1). Floors sit below the measured-at-floor numbers with extra
         // headroom because this tree is volatile (a single new component moves
         // the needle): a mass test deletion or a large untested addition still
-        // fails CI. Ratcheted twice: #1451 (bucket A, pure-lib helpers) →
-        // ~42% L, then #1452 (bucket B, the store/ops data-flow spine:
-        // app/refactor-ops + note-ops + source-ops, stores/conversations +
-        // editor — incl. the Trust-Principle propose_*→file*Draft paths) →
-        // measured ~48% L / ~46% F / ~48% S / ~41% B (from ~36/39/35/31 pre-A).
-        // Ratchet upward again as the approval-proposal UI + remaining
-        // components gain tests.
+        // fails CI. Ratcheted at #1451 after unit-testing bucket A (pure-lib
+        // helpers: preview/markdown-config + hydrate, editor/formatting +
+        // sparql-autocomplete, tools/context, find-excerpt-range) lifted the
+        // measured numbers to ~42% L / ~41% F / ~43% S / ~35% B (from ~36/39/
+        // 35/31). Ratchet upward again as bucket B (store/ops spine, #1452) and
+        // the approval-proposal UI gain tests.
         //
         // NOTE: src/preload is deliberately NOT given a line-coverage floor.
         // It's a declarative contextBridge passthrough (~326 lines of
