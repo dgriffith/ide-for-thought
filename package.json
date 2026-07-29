@@ -98,7 +98,12 @@
       "@codemirror/view": "6.43.1",
       "@codemirror/state": "6.7.1",
       "@codemirror/language": "6.12.4",
-      "d3-path": "^3.1.0"
+      "d3-path": "^3.1.0",
+      "parse-url": ">=8.1.0",
+      "tmp": ">=0.2.6",
+      "gry": ">=6.0.0",
+      "sharp": ">=0.35.0",
+      "adm-zip": ">=0.6.0"
     }
   },
   "devDependencies": {
