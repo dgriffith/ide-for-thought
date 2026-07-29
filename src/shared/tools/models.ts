@@ -41,6 +41,9 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'gpt-5-mini', label: 'GPT-5 mini', provider: 'openai' },
   { value: 'o3', label: 'OpenAI o3', provider: 'openai' },
   { value: 'o4-mini', label: 'OpenAI o4-mini', provider: 'openai' },
+  // Google Gemini (BYOM #1496). Thinking-capable 2.5 models.
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google' },
 ];
 
 export function modelLabel(value: string): string {
@@ -93,6 +96,10 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
   'gpt-5-mini': { input: 0.25, output: 2 },
   'o3': { input: 2, output: 8 },
   'o4-mini': { input: 1.1, output: 4.4 },
+  // Google Gemini — representative published $/MTok at authoring time (Pro's
+  // higher >200k-context tier isn't modelled); verify before relying on cost.
+  'gemini-2.5-pro': { input: 1.25, output: 10 },
+  'gemini-2.5-flash': { input: 0.3, output: 2.5 },
 };
 
 /**

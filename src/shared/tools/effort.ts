@@ -54,6 +54,10 @@ const SUPPORT: Record<string, Effort[]> = {
   'gpt-5-mini': ['low', 'medium', 'high'],
   'o3': ['low', 'medium', 'high'],
   'o4-mini': ['low', 'medium', 'high'],
+  // Gemini 2.5 maps neutral effort → thinkingBudget (google.ts). xhigh/max snap
+  // to high via clampEffort since they're not listed.
+  'gemini-2.5-pro': ['low', 'medium', 'high'],
+  'gemini-2.5-flash': ['low', 'medium', 'high'],
 };
 
 /**

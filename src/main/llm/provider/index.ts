@@ -13,6 +13,7 @@ import { providerForModel } from '../../../shared/tools/models';
 import { PROVIDERS, type ProviderId } from '../../../shared/tools/providers';
 import { AnthropicProvider } from './anthropic';
 import { OpenAIProvider } from './openai';
+import { GoogleProvider } from './google';
 import type { LLMProvider, WebToolSettings } from './types';
 
 export type { LLMProvider } from './types';
@@ -57,8 +58,11 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
       if (!c?.apiKey) throw missingKeyError('openai');
       return new OpenAIProvider(c.apiKey, c.baseURL);
     }
-    case 'google':
-      throw new Error(`${PROVIDERS.google.label} models aren't wired up yet (BYOM #1496).`);
+    case 'google': {
+      const c = settings.providers.google;
+      if (!c?.apiKey) throw missingKeyError('google');
+      return new GoogleProvider(c.apiKey);
+    }
     case 'local':
       throw new Error(`Local / OpenAI-compatible models aren't wired up yet (BYOM #1497).`);
   }
@@ -91,10 +95,12 @@ export function createProviderForKey(providerId: ProviderId, apiKey: string, bas
   switch (providerId) {
     case 'openai':
       return new OpenAIProvider(apiKey, baseURL);
+    case 'google':
+      return new GoogleProvider(apiKey);
     case 'anthropic':
     default:
-      // google/local reuse an OpenAI-shaped check once wired (#1496/#1497);
-      // until then only anthropic + openai reach here from the settings UI.
+      // local reuses an OpenAI-shaped check once wired (#1497); until then only
+      // anthropic/openai/google reach here from the settings UI.
       return new AnthropicProvider(apiKey);
   }
 }
