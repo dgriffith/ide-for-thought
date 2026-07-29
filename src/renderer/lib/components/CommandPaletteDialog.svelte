@@ -10,6 +10,7 @@
   import type { Command } from '../command-palette/types';
   import { scoreCommand } from '../command-palette/scoring';
   import { loadRecent, recordRecent } from '../command-palette/recent';
+  import { trapFocus } from '../trap-focus';
   import Icon from './Icon.svelte';
 
   interface Props {
@@ -115,7 +116,7 @@
   onkeydown={handleKeydown}
   onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }}
 >
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Command palette">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Command palette" use:trapFocus>
     <div class="input-row">
       <Icon name="search" size={14} color="var(--text-muted)" />
       <input
