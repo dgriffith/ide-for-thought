@@ -44,7 +44,7 @@ describe('Auto-link integration (#342)', () => {
     await initGraph(ctx);
     completeMock.mockReset();
     getSettingsMock.mockReset();
-    getSettingsMock.mockResolvedValue({ model: 'claude-sonnet-4-6', apiKey: 'fake' });
+    getSettingsMock.mockResolvedValue({ model: 'claude-sonnet-4-6', providers: { anthropic: { apiKey: 'fake' } } });
   });
 
   afterEach(async () => {

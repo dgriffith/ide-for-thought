@@ -1,10 +1,12 @@
 /**
- * LLM settings — API key at-rest encryption + backward compatibility (#1326).
+ * LLM settings — per-provider credentials, at-rest encryption + backward
+ * compatibility (#1326, BYOM #1494).
  *
- * `saveSettings` encrypts the Anthropic key on disk; `getSettings` decrypts it
- * transparently and still reads pre-encryption (plaintext) configs. Stubs
- * `app.getPath('userData')` to a temp dir and mocks `safeStorage` with a
- * reversible fake (mirrors clipper-config.test).
+ * `saveSettings` encrypts each provider's key on disk under a `providers` map;
+ * `getSettings` decrypts transparently, folds in each provider's env var as a
+ * fallback, and still reads the pre-BYOM single-`apiKey` layout (migrated into
+ * `providers.anthropic`). Stubs `app.getPath('userData')` to a temp dir and
+ * mocks `safeStorage` with a reversible fake (mirrors clipper-config.test).
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
@@ -33,18 +35,25 @@ vi.mock('electron', () => ({
 
 import { safeStorage } from 'electron';
 import { getSettings, getSettingsForDisplay, saveSettings, getApiKeyStorage } from '../../../src/main/llm/settings';
-import type { LLMSettings } from '../../../src/shared/tools/types';
+import type { LLMSettingsUpdate } from '../../../src/shared/tools/types';
 
 const settingsFile = () => path.join(tempDir, 'llm-settings.json');
-const base: LLMSettings = {
-  apiKey: '',
+const base: LLMSettingsUpdate = {
   model: 'claude-sonnet-5',
   web: { enabled: false, allowedDomains: [], blockedDomains: [] },
 };
 
+/** The decrypted Anthropic key on the call path. */
+const anthropicKey = async () => (await getSettings()).providers.anthropic?.apiKey;
+/** The raw on-disk Anthropic key (encrypted / plaintext), or undefined. */
+const onDiskAnthropic = (): string | undefined =>
+  JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).providers?.anthropic?.apiKey;
+
 beforeEach(() => {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-llm-settings-'));
   delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
   vi.clearAllMocks();
 });
 afterEach(() => {
@@ -52,36 +61,37 @@ afterEach(() => {
 });
 
 describe('llm settings — API key at-rest encryption (#1326)', () => {
-  it('reads a legacy plaintext apiKey unchanged (backward compat)', async () => {
+  it('reads a legacy plaintext apiKey unchanged (backward compat → providers.anthropic)', async () => {
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-legacy', model: 'claude-sonnet-5' }));
-    expect((await getSettings()).apiKey).toBe('sk-ant-legacy');
+    expect(await anthropicKey()).toBe('sk-ant-legacy');
   });
 
   it('encrypts the apiKey on save and decrypts it on read', async () => {
     await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
     const onDisk = fs.readFileSync(settingsFile(), 'utf-8');
     expect(onDisk).not.toContain('sk-ant-secret');
-    expect((JSON.parse(onDisk).apiKey as string).startsWith('enc:v1:')).toBe(true);
-    expect((await getSettings()).apiKey).toBe('sk-ant-secret');
+    expect(onDiskAnthropic()!.startsWith('enc:v1:')).toBe(true);
+    expect(await anthropicKey()).toBe('sk-ant-secret');
   });
 
-  it('migrates a legacy plaintext key to encrypted on the next save', async () => {
+  it('migrates a legacy plaintext key to the providers map, encrypted, on the next save', async () => {
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-old', model: 'claude-sonnet-5' }));
     const loaded = await getSettings();
-    expect(loaded.apiKey).toBe('sk-ant-old');
+    expect(loaded.providers.anthropic?.apiKey).toBe('sk-ant-old');
     await saveSettings(loaded);
     const onDisk = fs.readFileSync(settingsFile(), 'utf-8');
     expect(onDisk).not.toContain('sk-ant-old');
-    expect((JSON.parse(onDisk).apiKey as string).startsWith('enc:v1:')).toBe(true);
+    expect(JSON.parse(onDisk).apiKey).toBeUndefined();      // legacy top-level field gone
+    expect(onDiskAnthropic()!.startsWith('enc:v1:')).toBe(true);
   });
 
   it('falls back to the env var when apiKey is absent, but respects an explicit empty', async () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-env';
     fs.writeFileSync(settingsFile(), JSON.stringify({ model: 'claude-sonnet-5' }));
-    expect((await getSettings()).apiKey).toBe('sk-ant-env');
+    expect(await anthropicKey()).toBe('sk-ant-env');
     // An explicitly-cleared key stays cleared (matches the pre-#1326 `??` chain).
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: '', model: 'claude-sonnet-5' }));
-    expect((await getSettings()).apiKey).toBe('');
+    expect(await anthropicKey()).toBeUndefined();
   });
 
   describe('display read + keep-on-save never touch the keychain', () => {
@@ -90,6 +100,7 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
       vi.clearAllMocks();
       const view = await getSettingsForDisplay();
       expect(view.hasApiKey).toBe(true);
+      expect(view.providers.anthropic?.hasApiKey).toBe(true);
       expect(view.model).toBe('claude-sonnet-5');
       expect((view as { apiKey?: string }).apiKey).toBeUndefined(); // no plaintext leaks out
       expect(safeStorage.decryptString).not.toHaveBeenCalled();
@@ -105,23 +116,23 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
 
     it('saving without an apiKey preserves the stored key verbatim, no decrypt/encrypt', async () => {
       await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
-      const encrypted = JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).apiKey as string;
+      const encrypted = onDiskAnthropic();
       vi.clearAllMocks();
       // A settings save that doesn't touch the key omits apiKey entirely.
       await saveSettings({ model: 'claude-opus-4-8', web: base.web });
       const after = JSON.parse(fs.readFileSync(settingsFile(), 'utf-8'));
-      expect(after.apiKey).toBe(encrypted);       // byte-for-byte preserved
-      expect(after.model).toBe('claude-opus-4-8'); // the actual edit landed
+      expect(after.providers.anthropic.apiKey).toBe(encrypted); // byte-for-byte preserved
+      expect(after.model).toBe('claude-opus-4-8');              // the actual edit landed
       expect(safeStorage.decryptString).not.toHaveBeenCalled();
       expect(safeStorage.encryptString).not.toHaveBeenCalled();
       // And the key still decrypts for the API-call path.
-      expect((await getSettings()).apiKey).toBe('sk-ant-secret');
+      expect(await anthropicKey()).toBe('sk-ant-secret');
     });
 
     it('an explicit empty apiKey clears the stored key', async () => {
       await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
       await saveSettings({ model: base.model, web: base.web, apiKey: '' });
-      expect(JSON.parse(fs.readFileSync(settingsFile(), 'utf-8')).apiKey).toBe('');
+      expect(onDiskAnthropic()).toBe('');
       expect((await getSettingsForDisplay()).hasApiKey).toBe(false);
     });
   });
@@ -142,6 +153,42 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
       // Re-saving migrates it to encrypted, which the indicator then reflects.
       await saveSettings(await getSettings());
       expect(await getApiKeyStorage()).toEqual({ available: true, encrypted: true });
+    });
+  });
+
+  describe('multi-provider credentials (BYOM #1494)', () => {
+    it('stores + reads a per-provider key without disturbing the others', async () => {
+      await saveSettings({ ...base, apiKey: 'sk-ant-secret' });
+      await saveSettings({ model: base.model, providers: { openai: { apiKey: 'sk-openai' } } });
+      const s = await getSettings();
+      expect(s.providers.anthropic?.apiKey).toBe('sk-ant-secret'); // untouched
+      expect(s.providers.openai?.apiKey).toBe('sk-openai');
+      // Each key is encrypted at rest independently.
+      const onDisk = JSON.parse(fs.readFileSync(settingsFile(), 'utf-8'));
+      expect(onDisk.providers.openai.apiKey.startsWith('enc:v1:')).toBe(true);
+    });
+
+    it('folds each provider env var in as a fallback', async () => {
+      process.env.OPENAI_API_KEY = 'sk-openai-env';
+      process.env.GEMINI_API_KEY = 'sk-gemini-env';
+      const s = await getSettings();
+      expect(s.providers.openai?.apiKey).toBe('sk-openai-env');
+      expect(s.providers.google?.apiKey).toBe('sk-gemini-env');
+      const view = await getSettingsForDisplay();
+      expect(view.providers.openai?.hasApiKey).toBe(true);
+      expect(view.providers.google?.hasApiKey).toBe(true);
+    });
+
+    it('persists a local baseURL and treats a keyless local endpoint as configured once it has one', async () => {
+      await saveSettings({ model: base.model, providers: { local: { baseURL: 'http://localhost:11434/v1' } } });
+      expect((await getSettings()).providers.local?.baseURL).toBe('http://localhost:11434/v1');
+      expect((await getSettingsForDisplay()).providers.local?.hasApiKey).toBe(true); // keyless, but has an endpoint
+    });
+
+    it('getApiKeyStorage targets the requested provider', async () => {
+      await saveSettings({ model: base.model, providers: { openai: { apiKey: 'sk-openai' } } });
+      expect(await getApiKeyStorage('openai')).toEqual({ available: true, encrypted: true });
+      expect(await getApiKeyStorage('anthropic')).toEqual({ available: true, encrypted: false });
     });
   });
 

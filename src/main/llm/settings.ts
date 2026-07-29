@@ -1,9 +1,20 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import type { LLMSettings, LLMSettingsView, LLMSettingsUpdate, WebSettings, ApiKeyStorage } from '../../shared/tools/types';
+import type {
+  LLMSettings,
+  LLMSettingsView,
+  LLMSettingsUpdate,
+  WebSettings,
+  ApiKeyStorage,
+  ProviderCredentials,
+  ProviderCredentialsUpdate,
+  ProviderConfigView,
+} from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
+import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../shared/tools/providers';
+import { providerForModel } from '../../shared/tools/models';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 
 const DEFAULT_MODEL = 'claude-opus-5';
@@ -54,105 +65,188 @@ function settingsPath(): string {
   return path.join(app.getPath('userData'), 'llm-settings.json');
 }
 
-export async function getSettings(): Promise<LLMSettings> {
+// ── Provider credentials (BYOM #1492) ────────────────────────────────────────
+
+/** Raw stored credentials — `apiKey` is the on-disk form (encrypted or legacy
+ *  plaintext), NOT decrypted. */
+type StoredCreds = { apiKey?: string; baseURL?: string };
+
+/** The on-disk settings shape, tolerant of both the legacy single-`apiKey`
+ *  layout and the new per-provider `providers` map. */
+interface StoredSettings {
+  apiKey?: unknown;
+  providers?: unknown;
+  model?: unknown;
+  web?: unknown;
+  effort?: unknown;
+  toolModelOverrides?: unknown;
+}
+
+async function readParsed(): Promise<StoredSettings> {
   try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
-    const effort = resolveEffortSetting(parsed.effort);
-    // Decrypt the stored key (#1326). `decryptSecret` passes a legacy
-    // plaintext value through unchanged, so pre-encryption configs keep
-    // working. Only fall back to the env var when the field is absent —
-    // an explicitly-cleared ('') key stays cleared, matching the prior
-    // `?? env ?? ''` semantics.
-    const apiKey = typeof parsed.apiKey === 'string'
-      ? decryptSecret(parsed.apiKey)
-      : (process.env.ANTHROPIC_API_KEY ?? '');
-    const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
-    return {
-      apiKey,
-      model: resolveModel(parsed.model),
-      web: resolveWeb(parsed.web),
-      ...(effort ? { effort } : {}),
-      ...(toolModelOverrides ? { toolModelOverrides } : {}),
-    };
+    return JSON.parse(await fs.readFile(settingsPath(), 'utf-8')) as StoredSettings;
   } catch {
-    return {
-      apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-      model: DEFAULT_MODEL,
-      web: { ...DEFAULT_WEB_SETTINGS },
-    };
+    return {};
   }
+}
+
+/**
+ * The raw stored per-provider credentials, applying the legacy migration: a
+ * pre-BYOM top-level `apiKey` string is read as `providers.anthropic.apiKey`.
+ * Values are left in their on-disk (possibly-encrypted) form.
+ */
+function storedProviders(parsed: StoredSettings): Partial<Record<ProviderId, StoredCreds>> {
+  const out: Partial<Record<ProviderId, StoredCreds>> = {};
+  if (parsed.providers && typeof parsed.providers === 'object') {
+    const map = parsed.providers as Record<string, unknown>;
+    for (const id of PROVIDER_IDS) {
+      const c = map[id];
+      if (!c || typeof c !== 'object') continue;
+      const { apiKey, baseURL } = c as Record<string, unknown>;
+      const creds: StoredCreds = {};
+      if (typeof apiKey === 'string') creds.apiKey = apiKey;
+      if (typeof baseURL === 'string' && baseURL.trim()) creds.baseURL = baseURL.trim();
+      if (Object.keys(creds).length > 0) out[id] = creds;
+    }
+    return out;
+  }
+  // Legacy: a top-level string apiKey migrates to the Anthropic slot. Only when
+  // it's a string (even '') — an absent key leaves the slot empty so the env
+  // fallback still applies.
+  if (typeof parsed.apiKey === 'string') out.anthropic = { apiKey: parsed.apiKey };
+  return out;
+}
+
+function envKeyFor(id: ProviderId): string | undefined {
+  const name = PROVIDERS[id].envVar;
+  return name ? (process.env[name] || undefined) : undefined;
+}
+
+/** Decrypt every provider's key for the call path, folding in the env var as a
+ *  fallback only when no key field is stored (an explicitly-cleared '' stays
+ *  cleared, matching the pre-BYOM `?? env` semantics). */
+function decryptProviders(stored: Partial<Record<ProviderId, StoredCreds>>): Partial<Record<ProviderId, ProviderCredentials>> {
+  const out: Partial<Record<ProviderId, ProviderCredentials>> = {};
+  for (const id of PROVIDER_IDS) {
+    const s = stored[id];
+    const apiKey = s && typeof s.apiKey === 'string' ? decryptSecret(s.apiKey) : envKeyFor(id);
+    const creds: ProviderCredentials = {};
+    if (apiKey) creds.apiKey = apiKey;
+    if (s?.baseURL) creds.baseURL = s.baseURL;
+    if (Object.keys(creds).length > 0) out[id] = creds;
+  }
+  return out;
+}
+
+/** Display-only per-provider status (no decrypt). */
+function providerViews(stored: Partial<Record<ProviderId, StoredCreds>>): Partial<Record<ProviderId, ProviderConfigView>> {
+  const out: Partial<Record<ProviderId, ProviderConfigView>> = {};
+  for (const id of PROVIDER_IDS) {
+    const s = stored[id];
+    const hasStoredKey = !!(s && typeof s.apiKey === 'string' && s.apiKey.length > 0);
+    // Env fallback only counts when no key field is stored for this provider.
+    const hasEnvKey = s && typeof s.apiKey === 'string' ? false : !!envKeyFor(id);
+    const meta = PROVIDERS[id];
+    const hasApiKey = meta.requiresKey ? (hasStoredKey || hasEnvKey) : !!s?.baseURL;
+    const view: ProviderConfigView = { hasApiKey };
+    if (s?.baseURL) view.baseURL = s.baseURL;
+    out[id] = view;
+  }
+  return out;
+}
+
+export async function getSettings(): Promise<LLMSettings> {
+  const parsed = await readParsed();
+  const effort = resolveEffortSetting(parsed.effort);
+  const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
+  return {
+    providers: decryptProviders(storedProviders(parsed)),
+    model: resolveModel(parsed.model),
+    web: resolveWeb(parsed.web),
+    ...(effort ? { effort } : {}),
+    ...(toolModelOverrides ? { toolModelOverrides } : {}),
+  };
 }
 
 /**
  * Display-only settings for the settings panel / model picker. Same as
- * `getSettings` but WITHOUT decrypting the API key — reading settings to show
+ * `getSettings` but WITHOUT decrypting any API key — reading settings to show
  * the model, effort, or a set/unset badge must never prompt the OS keychain.
  * The plaintext key is only ever materialized by the API-call path
- * (`getSettings`). `hasApiKey` reports whether a key is configured (stored, or
- * via the env var) using the raw stored value — no decrypt.
+ * (`getSettings`). `hasApiKey` reports whether the ACTIVE model's provider has a
+ * usable key; `providers` carries the per-provider detail for the BYOM UI.
  */
 export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
-  try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
-    const effort = resolveEffortSetting(parsed.effort);
-    const hasApiKey = typeof parsed.apiKey === 'string'
-      ? parsed.apiKey.length > 0
-      : !!process.env.ANTHROPIC_API_KEY;
-    const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
-    return {
-      model: resolveModel(parsed.model),
-      web: resolveWeb(parsed.web),
-      ...(effort ? { effort } : {}),
-      ...(toolModelOverrides ? { toolModelOverrides } : {}),
-      hasApiKey,
-    };
-  } catch {
-    return {
-      model: DEFAULT_MODEL,
-      web: { ...DEFAULT_WEB_SETTINGS },
-      hasApiKey: !!process.env.ANTHROPIC_API_KEY,
-    };
-  }
+  const parsed = await readParsed();
+  const effort = resolveEffortSetting(parsed.effort);
+  const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
+  const model = resolveModel(parsed.model);
+  const providers = providerViews(storedProviders(parsed));
+  const activeProvider = providerForModel(model) ?? 'anthropic';
+  const hasApiKey = providers[activeProvider]?.hasApiKey ?? false;
+  return {
+    model,
+    web: resolveWeb(parsed.web),
+    ...(effort ? { effort } : {}),
+    ...(toolModelOverrides ? { toolModelOverrides } : {}),
+    hasApiKey,
+    providers,
+  };
 }
 
-/** Read the raw stored apiKey string (encrypted or legacy plaintext) without
- *  decrypting, so a save that doesn't touch the key can preserve it verbatim. */
-async function readStoredApiKey(): Promise<string> {
-  try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
-    return typeof parsed.apiKey === 'string' ? parsed.apiKey : '';
-  } catch {
-    return '';
+/** Apply a tri-state credential update to a provider's stored form: a string
+ *  sets the field (apiKey encrypted), `''` clears it (kept as an empty field so
+ *  it suppresses the env fallback, matching the legacy clear semantics), and an
+ *  omitted field preserves the stored value verbatim. */
+function applyCredsUpdate(existing: StoredCreds | undefined, u: ProviderCredentialsUpdate): StoredCreds {
+  const out: StoredCreds = { ...(existing ?? {}) };
+  if (u.apiKey !== undefined) out.apiKey = u.apiKey === '' ? '' : encryptSecret(u.apiKey);
+  if (u.baseURL !== undefined) {
+    const trimmed = u.baseURL.trim();
+    if (trimmed) out.baseURL = trimmed;
+    else delete out.baseURL;
   }
+  return out;
 }
 
 export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
-  // apiKey is tri-state (#1326): a provided string is encrypted at rest (''
-  // clears); an OMITTED apiKey preserves the stored value verbatim — no decrypt
-  // and no re-encrypt, so saving unrelated settings never touches the keychain.
-  const { apiKey: providedKey, ...rest } = update;
-  const apiKey = providedKey === undefined
-    ? await readStoredApiKey()
-    : encryptSecret(providedKey);
-  const onDisk = { ...rest, apiKey };
+  const { apiKey: legacyKey, providers: providerUpdates, ...rest } = update;
+  const existing = storedProviders(await readParsed());
+  const next: Partial<Record<ProviderId, StoredCreds>> = { ...existing };
+
+  if (providerUpdates) {
+    for (const id of PROVIDER_IDS) {
+      const u = providerUpdates[id];
+      if (u) next[id] = applyCredsUpdate(existing[id], u);
+    }
+  }
+  // Legacy single-key path (current single-provider UI) → Anthropic slot.
+  if (legacyKey !== undefined) {
+    next.anthropic = applyCredsUpdate(next.anthropic, { apiKey: legacyKey });
+  }
+
+  const providers: Partial<Record<ProviderId, StoredCreds>> = {};
+  for (const id of PROVIDER_IDS) {
+    const c = next[id];
+    if (c && Object.keys(c).length > 0) providers[id] = c;
+  }
+
+  const onDisk = { ...rest, providers };
   await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
 }
 
 /**
- * Report how the stored API key is protected at rest, for the settings UI
- * (#1326). `available` reflects the machine's secure-storage capability;
- * `encrypted` reflects the actual on-disk form of the currently-stored key
- * (a legacy plaintext key reads back `encrypted: false` until it's re-saved).
+ * Report how a provider's stored API key is protected at rest, for the settings
+ * UI (#1326). Defaults to Anthropic so the existing single-key IPC caller is
+ * unchanged. `available` reflects the machine's secure-storage capability;
+ * `encrypted` reflects the actual on-disk form of that provider's stored key (a
+ * legacy plaintext key reads back `encrypted: false` until it's re-saved).
  */
-export async function getApiKeyStorage(): Promise<ApiKeyStorage> {
+export async function getApiKeyStorage(providerId: ProviderId = 'anthropic'): Promise<ApiKeyStorage> {
   let encrypted = false;
   try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<LLMSettings>;
-    encrypted = typeof parsed.apiKey === 'string' && parsed.apiKey.length > 0 && isEncrypted(parsed.apiKey);
+    const raw = storedProviders(await readParsed())[providerId]?.apiKey;
+    encrypted = typeof raw === 'string' && raw.length > 0 && isEncrypted(raw);
   } catch {
     // No settings file yet — nothing stored, so nothing encrypted.
   }

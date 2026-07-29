@@ -29,14 +29,15 @@ export interface ResolvedProvider {
  */
 export async function getProvider(): Promise<ResolvedProvider> {
   const settings = await getSettings();
-  if (!settings.apiKey) {
+  // Anthropic is still the only wired implementation (BYOM #1495 branches this
+  // on the selected model's provider). Read its per-provider credentials.
+  const apiKey = settings.providers.anthropic?.apiKey;
+  if (!apiKey) {
     throw new Error(
       `${MISSING_API_KEY_MARKER}. Set it in the LLM settings or ANTHROPIC_API_KEY environment variable.`,
     );
   }
-  // Single provider today. A second provider is a new `case` here keyed off a
-  // settings field — see docs/vision/substrate-mcp.md → Internal agnosticism.
-  const provider = new AnthropicProvider(settings.apiKey);
+  const provider = new AnthropicProvider(apiKey);
   return {
     provider,
     model: settings.model,
