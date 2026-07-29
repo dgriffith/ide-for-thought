@@ -20,7 +20,11 @@ import path from 'node:path';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue, type FrontmatterMap } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
-import { resolveWikiLinkTarget } from '../../shared/wiki-link-resolver';
+import {
+  resolveWikiLinkTargetWithIndex,
+  buildWikiLinkIndex,
+  type WikiLinkIndex,
+} from '../../shared/wiki-link-resolver';
 import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
 import { parseCsv } from '../../shared/csv-parse';
@@ -49,20 +53,19 @@ import { findNotesLinkingToAnchorImpl } from './queries';
 // excerptUri, tableUri, projectUri, linkPredicate) live in ./state and are
 // imported above; the link-resolution helpers that are indexer-only stay here.
 
-/** A note-file list + alias record for wiki-link resolution, built once per
- *  note-index pass (see the link loop) so a note with many links doesn't
- *  rebuild it per link. */
+/** Precomputed wiki-link resolution index for a note-index pass. Built ONCE
+ *  (O(N)) so each `resolveLinkTarget` is an O(1) lookup. Building this per note
+ *  and re-scanning per link made `indexAllNotes` O(N²) (#1473); callers that
+ *  index many notes/sources build it once and thread it via
+ *  `IndexNoteOptions.linkCtx`. */
 interface LinkResolveCtx {
-  files: { relativePath: string; isDirectory: boolean }[];
-  aliases: Record<string, string>;
+  index: WikiLinkIndex;
 }
 
 function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
-  return {
-    files: [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false })),
-    // aliasMap keys are already lowercased by rebuildAliasMap.
-    aliases: Object.fromEntries(state.aliasMap),
-  };
+  const files = [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false }));
+  // aliasMap keys are already lowercased by rebuildAliasMap.
+  return { index: buildWikiLinkIndex(files, Object.fromEntries(state.aliasMap)) };
 }
 
 function resolveLinkTarget(
@@ -80,7 +83,7 @@ function resolveLinkTarget(
   // that note, not a phantom root `Term.md`. Falls back to the literal target
   // (as a root-relative path) for a link to a note that doesn't exist yet, so
   // its backlink still lights up once the file lands at that path.
-  const resolvedPath = resolveWikiLinkTarget(target, rc.files, rc.aliases)
+  const resolvedPath = resolveWikiLinkTargetWithIndex(target, rc.index)
     ?? (target.endsWith('.md') ? target : `${target}.md`);
   const base = noteUri(state, resolvedPath);
   // Anchors append as an IRI fragment: headings become `#slug`, block-ids
@@ -449,6 +452,14 @@ export interface IndexNoteOptions {
    * or a trailing rebuild, so skipping it there would leave `aliasMap` stale.
    */
   skipAliasRebuild?: boolean;
+  /**
+   * Prebuilt wiki-link resolution context (perf #1473). `indexAllNotes` builds
+   * it ONCE — after the alias pre-pass has settled `indexedNotePaths` + the
+   * alias map — and threads it into every `indexNote` so the per-note
+   * `buildLinkResolveCtx` (O(N)) doesn't run N times. Omitted on the standalone
+   * single-note path, which builds its own.
+   */
+  linkCtx?: LinkResolveCtx;
 }
 
 // indexNote is an async-by-contract public API: callers `await` it across
@@ -572,9 +583,10 @@ export async function indexNote(
     store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
   }
 
-  // Wiki-links — typed predicates. Build the resolver context once for the
-  // whole note rather than per link.
-  const linkCtx = buildLinkResolveCtx(state);
+  // Wiki-links — typed predicates. Reuse the pass-wide resolver index when the
+  // caller threaded one in (indexAllNotes); otherwise build it for this note
+  // (standalone single-note reindex). See #1473.
+  const linkCtx = opts.linkCtx ?? buildLinkResolveCtx(state);
   for (const link of parsed.links) {
     const linkType = getLinkType(link.type);
     const predicate = linkPredicate(linkType);
@@ -1369,6 +1381,11 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   await walkAndCollectAliases(rootPath, rootPath);
   rebuildAliasMap(state);
 
+  // Build the wiki-link resolver index ONCE — indexedNotePaths + the alias map
+  // are final after the pre-pass — and thread it into every indexNote below, so
+  // link resolution across the whole pass is O(N), not O(N²) (#1473).
+  const passLinkCtx = buildLinkResolveCtx(state);
+
   let count = 0;
   await walkAndIndex(rootPath, rootPath);
   // Each indexNote call above skipped its own rebuild (perf #1106) — the
@@ -1393,7 +1410,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
       } else if (isIndexable(entry.name)) {
         const relativePath = path.relative(root, fullPath);
         const content = await fs.readFile(fullPath, 'utf-8');
-        await indexNote(ctx, relativePath, content, { skipAliasRebuild: true });
+        await indexNote(ctx, relativePath, content, { skipAliasRebuild: true, linkCtx: passLinkCtx });
         count++;
       }
     }

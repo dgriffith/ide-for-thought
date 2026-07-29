@@ -33,3 +33,53 @@ describe('canonicalizeWikiLinkTarget (#778)', () => {
     expect(canonicalizeWikiLinkTarget('source-id-123', 'shortest', files)).toBeNull();
   });
 });
+
+// ── Index-based fast path equivalence (#1473) ────────────────────────────────
+// `resolveWikiLinkTargetWithIndex(target, buildWikiLinkIndex(files, aliases))`
+// must return exactly what the loop-based `resolveWikiLinkTarget` returns — the
+// indexer's O(N²) → O(N) fix rides on that being true for every target.
+import {
+  resolveWikiLinkTarget,
+  buildWikiLinkIndex,
+  resolveWikiLinkTargetWithIndex,
+} from '../../src/shared/wiki-link-resolver';
+
+describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473)', () => {
+  // A file set spanning every precedence step: exact path, basename collisions,
+  // nested stems, punctuation/case fuzz, and path tails.
+  const files = [
+    { relativePath: 'notes/topic/raft.md', isDirectory: false },
+    { relativePath: 'journal/raft.md', isDirectory: false },
+    { relativePath: 'notes/architecture.md', isDirectory: false },
+    { relativePath: 'Ideas & Plans.md', isDirectory: false },
+    { relativePath: 'deep/nested/journey/consensus.md', isDirectory: false },
+    { relativePath: 'a/b/c/x.md', isDirectory: false },
+    { relativePath: 'x.md', isDirectory: false },
+    { relativePath: 'assets/pic.png', isDirectory: false }, // non-md, ignored
+    { relativePath: 'notes', isDirectory: true },           // dir, ignored
+  ];
+  const aliases = { 'rowing boat': 'notes/topic/raft.md', consensus: 'journal/raft.md' };
+
+  const targets = [
+    'notes/topic/raft', 'notes/topic/raft.md', 'raft', 'journal/raft',
+    'architecture', 'notes/architecture', 'ideas-plans', 'Ideas & Plans',
+    'ideas & plans', 'consensus', 'journey/consensus', 'nested/journey/consensus',
+    'rowing boat', 'ROWING BOAT', 'x', 'c/x', 'b/c/x', 'nonexistent',
+    '', 'raft.md', 'RAFT', 'topic/raft', 'deep/nested/journey/consensus',
+  ];
+
+  const index = buildWikiLinkIndex(files, aliases);
+
+  for (const t of targets) {
+    it(`matches the loop resolver for target ${JSON.stringify(t)}`, () => {
+      expect(resolveWikiLinkTargetWithIndex(t, index)).toBe(resolveWikiLinkTarget(t, files, aliases));
+    });
+  }
+
+  it('matches with no aliases', () => {
+    const idx = buildWikiLinkIndex(files);
+    for (const t of targets) {
+      expect(resolveWikiLinkTargetWithIndex(t, idx)).toBe(resolveWikiLinkTarget(t, files));
+    }
+  });
+});

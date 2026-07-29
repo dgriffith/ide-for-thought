@@ -103,6 +103,65 @@ export function resolveWikiLinkTarget(
   return null;
 }
 
+/**
+ * Precomputed lookup index for `resolveWikiLinkTargetWithIndex` (#1473). The
+ * loop-based `resolveWikiLinkTarget` re-scans every note file on every call —
+ * O(files) per link — which is O(N²) when the indexer resolves a link in each
+ * of N notes. This flattens the same six-step precedence into maps built once
+ * (O(N)), so each resolution is an O(1) lookup. Each map keeps the FIRST file
+ * in `files` order for a given key, matching the loops' first-match-wins.
+ */
+export interface WikiLinkIndex {
+  byStem: Map<string, string>;
+  byBasename: Map<string, string>;
+  bySlugBase: Map<string, string>;
+  bySlugStem: Map<string, string>;
+  /** Slug tails at a `-` boundary (step 6), excluding the whole stem (step 5). */
+  bySuffixSlug: Map<string, string>;
+  aliases: Record<string, string>;
+}
+
+export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string, string> = {}): WikiLinkIndex {
+  const byStem = new Map<string, string>();
+  const byBasename = new Map<string, string>();
+  const bySlugBase = new Map<string, string>();
+  const bySlugStem = new Map<string, string>();
+  const bySuffixSlug = new Map<string, string>();
+  const set = (m: Map<string, string>, k: string, v: string) => { if (k && !m.has(k)) m.set(k, v); };
+  for (const f of files) {
+    if (f.isDirectory || !f.relativePath.endsWith('.md')) continue;
+    const rel = f.relativePath;
+    const stem = stripMd(rel);
+    const base = stem.split('/').pop() ?? '';
+    const sStem = slug(stem);
+    set(byStem, stem, rel);
+    set(byBasename, base, rel);
+    set(bySlugBase, slug(base), rel);
+    set(bySlugStem, sStem, rel);
+    // slug() maps '/' → '-', so a stem's slug is dash-joined; step 6's tails are
+    // the last k dash-segments for k < segments.length (k = all is step 5).
+    if (sStem) {
+      const parts = sStem.split('-');
+      for (let k = 1; k < parts.length; k++) set(bySuffixSlug, parts.slice(parts.length - k).join('-'), rel);
+    }
+  }
+  return { byStem, byBasename, bySlugBase, bySlugStem, bySuffixSlug, aliases };
+}
+
+/** O(1) equivalent of `resolveWikiLinkTarget` using a prebuilt `WikiLinkIndex`.
+ *  Verified to match the loop-based resolver in wiki-link-resolver.test.ts. */
+export function resolveWikiLinkTargetWithIndex(target: string, index: WikiLinkIndex): string | null {
+  const stem = stripMd(target);
+  const s = slug(stem);
+  return index.byStem.get(stem)
+    ?? index.byBasename.get(stem)
+    ?? index.aliases[stem.toLowerCase()]
+    ?? (s ? index.bySlugBase.get(s) : undefined)
+    ?? (s ? index.bySlugStem.get(s) : undefined)
+    ?? (s ? index.bySuffixSlug.get(s) : undefined)
+    ?? null;
+}
+
 export type WikiLinkPathStyle = 'absolute' | 'shortest';
 
 /**
