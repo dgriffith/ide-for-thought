@@ -75,6 +75,7 @@
     "minisearch": "^7.2.0",
     "n3": "^2.1.1",
     "onnxruntime-web": "^1.27.0",
+    "openai": "^7.1.0",
     "pdfjs-dist": "^6.1.200",
     "rdflib": "^2.4.0",
     "sql-formatter": "^15.8.2",
