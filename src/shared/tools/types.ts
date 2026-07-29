@@ -287,6 +287,19 @@ export interface ProviderConfigView {
   baseURL?: string;
 }
 
+/**
+ * A user-defined model served by an OpenAI-compatible / local endpoint (BYOM
+ * #1497). Its `id` is the model name the endpoint expects (e.g. `llama3.1`,
+ * `qwen2.5-coder`); all custom models route to the `local` provider. Unpriced
+ * and effort-less by default — the pricing/effort tables tolerate ids they
+ * don't know.
+ */
+export interface CustomModel {
+  id: string;
+  /** Optional display label; falls back to `id`. */
+  label?: string;
+}
+
 export interface LLMSettings {
   /**
    * Per-provider credentials (BYOM #1492), keyed by provider id. Replaces the
@@ -294,6 +307,8 @@ export interface LLMSettings {
    * `providers.anthropic` on read/save.
    */
   providers: Partial<Record<ProviderId, ProviderCredentials>>;
+  /** User-defined local / OpenAI-compatible models (BYOM #1497). */
+  customModels?: CustomModel[];
   model: string;
   web?: WebSettings;
   /**
@@ -331,6 +346,8 @@ export interface LLMSettingsView {
   hasApiKey: boolean;
   /** Per-provider configuration status (BYOM #1492), for the multi-provider UI. */
   providers: Partial<Record<ProviderId, ProviderConfigView>>;
+  /** User-defined local models (BYOM #1497), echoed back for the picker/UI. */
+  customModels?: CustomModel[];
 }
 
 /**
@@ -348,6 +365,9 @@ export interface LLMSettingsUpdate {
   apiKey?: string;
   /** Per-provider credential updates (BYOM #1492), tri-state per field. */
   providers?: Partial<Record<ProviderId, ProviderCredentialsUpdate>>;
+  /** Full replacement of the user-defined local models list (BYOM #1497).
+   *  Omitted ⇒ unchanged; an empty array clears them. */
+  customModels?: CustomModel[];
   model: string;
   web?: WebSettings;
   effort?: import('./effort').Effort;

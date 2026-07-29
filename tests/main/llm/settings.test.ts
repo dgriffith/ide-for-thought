@@ -192,6 +192,26 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
     });
   });
 
+  describe('custom local models (BYOM #1497)', () => {
+    it('round-trips, dedupes by id, and drops invalid/blank entries', async () => {
+      await saveSettings({
+        model: base.model,
+        customModels: [{ id: 'llama3.1', label: 'Llama' }, { id: 'llama3.1' }, { id: '  ' }, { id: 'qwen' }],
+      });
+      const expected = [{ id: 'llama3.1', label: 'Llama' }, { id: 'qwen' }];
+      expect((await getSettings()).customModels).toEqual(expected);
+      expect((await getSettingsForDisplay()).customModels).toEqual(expected);
+    });
+
+    it('omitting customModels preserves the stored list; [] clears it', async () => {
+      await saveSettings({ model: base.model, customModels: [{ id: 'llama3.1' }] });
+      await saveSettings({ model: base.model }); // omitted → preserved
+      expect((await getSettings()).customModels).toEqual([{ id: 'llama3.1' }]);
+      await saveSettings({ model: base.model, customModels: [] }); // explicit clear
+      expect((await getSettings()).customModels).toBeUndefined();
+    });
+  });
+
   describe('per-skill model overrides round-trip (#...)', () => {
     it('reads back the saved override map — the API path and the settings view', async () => {
       await saveSettings({ ...base, toolModelOverrides: { 'extract-key-claims': 'claude-opus-4-8' } });

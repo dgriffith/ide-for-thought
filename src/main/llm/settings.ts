@@ -10,6 +10,7 @@ import type {
   ProviderCredentials,
   ProviderCredentialsUpdate,
   ProviderConfigView,
+  CustomModel,
 } from '../../shared/tools/types';
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
@@ -47,6 +48,25 @@ function resolveEffortSetting(stored: unknown): Effort | undefined {
 }
 
 /**
+ * Validate the persisted user-defined local models (BYOM #1497). Keeps only
+ * entries with a non-empty string id, dedupes by id (first wins), and returns
+ * undefined when none remain so the field stays omitted.
+ */
+function resolveCustomModels(stored: unknown): CustomModel[] | undefined {
+  if (!Array.isArray(stored)) return undefined;
+  const out: CustomModel[] = [];
+  const seen = new Set<string>();
+  for (const entry of stored) {
+    if (!entry || typeof entry !== 'object') continue;
+    const { id, label } = entry as Record<string, unknown>;
+    if (typeof id !== 'string' || !id.trim() || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, ...(typeof label === 'string' && label.trim() ? { label } : {}) });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
  * Validate the persisted per-skill model override map (skill id → model id).
  * Returns undefined when absent/empty so the field stays omitted, matching the
  * optional shape. Without this, a saved override is written to disk but never
@@ -76,6 +96,7 @@ type StoredCreds = { apiKey?: string; baseURL?: string };
 interface StoredSettings {
   apiKey?: unknown;
   providers?: unknown;
+  customModels?: unknown;
   model?: unknown;
   web?: unknown;
   effort?: unknown;
@@ -159,12 +180,14 @@ export async function getSettings(): Promise<LLMSettings> {
   const parsed = await readParsed();
   const effort = resolveEffortSetting(parsed.effort);
   const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
+  const customModels = resolveCustomModels(parsed.customModels);
   return {
     providers: decryptProviders(storedProviders(parsed)),
     model: resolveModel(parsed.model),
     web: resolveWeb(parsed.web),
     ...(effort ? { effort } : {}),
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
+    ...(customModels ? { customModels } : {}),
   };
 }
 
@@ -182,6 +205,7 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
   const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
   const model = resolveModel(parsed.model);
   const providers = providerViews(storedProviders(parsed));
+  const customModels = resolveCustomModels(parsed.customModels);
   const activeProvider = providerForModel(model) ?? 'anthropic';
   const hasApiKey = providers[activeProvider]?.hasApiKey ?? false;
   return {
@@ -191,6 +215,7 @@ export async function getSettingsForDisplay(): Promise<LLMSettingsView> {
     ...(toolModelOverrides ? { toolModelOverrides } : {}),
     hasApiKey,
     providers,
+    ...(customModels ? { customModels } : {}),
   };
 }
 
@@ -210,8 +235,9 @@ function applyCredsUpdate(existing: StoredCreds | undefined, u: ProviderCredenti
 }
 
 export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
-  const { apiKey: legacyKey, providers: providerUpdates, ...rest } = update;
-  const existing = storedProviders(await readParsed());
+  const { apiKey: legacyKey, providers: providerUpdates, customModels: customModelsUpdate, ...rest } = update;
+  const parsed = await readParsed();
+  const existing = storedProviders(parsed);
   const next: Partial<Record<ProviderId, StoredCreds>> = { ...existing };
 
   if (providerUpdates) {
@@ -231,7 +257,13 @@ export async function saveSettings(update: LLMSettingsUpdate): Promise<void> {
     if (c && Object.keys(c).length > 0) providers[id] = c;
   }
 
-  const onDisk = { ...rest, providers };
+  // customModels is a full-replacement tri-state: omitted ⇒ preserve the stored
+  // list; provided (incl. []) ⇒ validate + replace.
+  const customModels = customModelsUpdate === undefined
+    ? resolveCustomModels(parsed.customModels)
+    : resolveCustomModels(customModelsUpdate);
+
+  const onDisk = { ...rest, providers, ...(customModels ? { customModels } : {}) };
   await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
 }
 

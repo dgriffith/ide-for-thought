@@ -17,7 +17,7 @@
  * still render.
  */
 import { describe, it, expect } from 'vitest';
-import { MODEL_OPTIONS, MODEL_PRICING } from '../../src/shared/tools/models';
+import { MODEL_OPTIONS, MODEL_PRICING, customModelOptions, allModelOptions } from '../../src/shared/tools/models';
 import { EFFORT_ENTRY_MODEL_IDS } from '../../src/shared/tools/effort';
 import { isProviderId } from '../../src/shared/tools/providers';
 
@@ -47,5 +47,22 @@ describe('model-registry parity', () => {
     for (const m of MODEL_OPTIONS) {
       expect(isProviderId(m.provider), `${m.value} has unknown provider "${m.provider}"`).toBe(true);
     }
+  });
+});
+
+describe('custom (local) model options (#1497)', () => {
+  it('tags each custom model local, label falls back to id, blanks dropped', () => {
+    expect(customModelOptions([{ id: 'llama3.1', label: 'Llama' }, { id: 'qwen' }, { id: '' }])).toEqual([
+      { value: 'llama3.1', label: 'Llama', provider: 'local' },
+      { value: 'qwen', label: 'qwen', provider: 'local' },
+    ]);
+    expect(customModelOptions(undefined)).toEqual([]);
+  });
+
+  it('allModelOptions appends custom models after the built-in catalog', () => {
+    expect(allModelOptions([{ id: 'llama3.1' }])).toEqual([
+      ...MODEL_OPTIONS,
+      { value: 'llama3.1', label: 'llama3.1', provider: 'local' },
+    ]);
   });
 });

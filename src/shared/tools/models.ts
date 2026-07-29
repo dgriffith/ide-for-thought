@@ -46,6 +46,22 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google' },
 ];
 
+/**
+ * User-defined local models (BYOM #1497) as `ModelOption`s tagged `local`.
+ * `customModels` is the persisted list from settings; each entry's `label`
+ * falls back to its id.
+ */
+export function customModelOptions(customModels: { id: string; label?: string }[] | undefined): ModelOption[] {
+  return (customModels ?? [])
+    .filter((m) => m.id)
+    .map((m) => ({ value: m.id, label: m.label || m.id, provider: 'local' as const }));
+}
+
+/** The full picker catalog: built-in models + the user's local models. */
+export function allModelOptions(customModels?: { id: string; label?: string }[]): ModelOption[] {
+  return [...MODEL_OPTIONS, ...customModelOptions(customModels)];
+}
+
 export function modelLabel(value: string): string {
   return MODEL_OPTIONS.find((m) => m.value === value)?.label ?? value;
 }
