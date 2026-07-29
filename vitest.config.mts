@@ -135,11 +135,14 @@ export default defineConfig({
         },
         // Renderer tree — 93 components + both reactive stores, the largest
         // user-facing defect surface and previously the least-gated (#1094 /
-        // QA C1). Floors sit ~10pts below the measured-at-floor numbers with
-        // extra headroom because this tree is volatile (a single new component
-        // moves the needle): a mass test deletion or a large untested addition
-        // still fails CI. Measured at floor-time: ~36% L / ~39% F / ~35% S /
-        // ~31% B. Ratchet upward as notebase.svelte.ts / editor.svelte.ts /
+        // QA C1). Floors sit below the measured-at-floor numbers with extra
+        // headroom because this tree is volatile (a single new component moves
+        // the needle): a mass test deletion or a large untested addition still
+        // fails CI. Ratcheted at #1451 after unit-testing bucket A (pure-lib
+        // helpers: preview/markdown-config + hydrate, editor/formatting +
+        // sparql-autocomplete, tools/context, find-excerpt-range) lifted the
+        // measured numbers to ~42% L / ~41% F / ~43% S / ~35% B (from ~36/39/
+        // 35/31). Ratchet upward again as bucket B (store/ops spine, #1452) and
         // the approval-proposal UI gain tests.
         //
         // NOTE: src/preload is deliberately NOT given a line-coverage floor.
@@ -149,10 +152,10 @@ export default defineConfig({
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.
         'src/renderer/**': {
-          lines: 26,
-          functions: 28,
-          statements: 26,
-          branches: 21,
+          lines: 34,
+          functions: 34,
+          statements: 34,
+          branches: 28,
         },
       },
     },
