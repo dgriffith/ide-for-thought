@@ -1,5 +1,5 @@
 {
-  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches (a from-scratch 5k-note rdflib rebuild is GC-dominated).",
+  "_comment": "Committed benchmark baseline (#1099). The Bench workflow fails when a benchmark runs >`tolerance`x slower than its `mean` here. Regenerate on the macos-latest Bench runner (dispatch with update_baseline=true, or `pnpm bench:baseline` locally) and commit the diff — mean/hz refresh, the hand-set fields below are preserved. `budgetMs`: optional absolute ceiling in ms (a scale-envelope gate) applied on top of the ratio check. `gate: false`: track for week-over-week diffing but never fail on it — for inherently high-variance benches. (The 5k-note indexAllNotes bench was gate:false while it was GC-dominated & ±215%; #1473 removed the O(N²) link-resolution churn — it's now ~1.2s at ±<1%, so it's gated again.)",
   "tolerance": 2,
   "benchmarks": [
     {
@@ -10,22 +10,21 @@
     },
     {
       "name": "indexAllNotes: 2000 notes from scratch",
-      "mean": 708.915375,
-      "hz": 1.41,
+      "mean": 492.78,
+      "hz": 2.03,
       "budgetMs": null
     },
     {
       "name": "indexAllNotes: 500 notes from scratch",
-      "mean": 178.871528,
-      "hz": 5.59,
+      "mean": 144.75,
+      "hz": 6.91,
       "budgetMs": null
     },
     {
       "name": "indexAllNotes: 5000 notes from scratch",
-      "mean": 2787.001611,
-      "hz": 0.36,
-      "budgetMs": null,
-      "gate": false
+      "mean": 1181.86,
+      "hz": 0.85,
+      "budgetMs": null
     },
     {
       "name": "indexNote: a note (title + tag + wiki-link) into a 500-note store",
