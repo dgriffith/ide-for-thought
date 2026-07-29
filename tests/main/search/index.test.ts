@@ -12,8 +12,11 @@
  * Uses `_setPersistDebounceMsForTests` to shrink the real debounce window
  * rather than mocking time — `schedulePersist`'s timer callback does real
  * `fs` I/O, which doesn't resolve on vitest's fake-timer clock (it settles
- * via libuv's real thread pool), so faking `setTimeout` here would just
- * trade a slow test for a flaky one.
+ * via libuv's real thread pool), so faking `setTimeout` here would just trade
+ * a slow test for a flaky one. To stay robust on a loaded CI runner (where a
+ * `setTimeout` slips and the async write flushes late), the "did write"
+ * assertions POLL for the file via `waitForIndex` rather than assuming a fixed
+ * sleep landed it.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
@@ -29,7 +32,7 @@ import {
 } from '../../../src/main/search/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
-const DEBOUNCE_MS = 50;
+const DEBOUNCE_MS = 200;
 
 function indexFilePath(root: string): string {
   return path.join(root, '.minerva', 'search-index.json');
@@ -37,6 +40,26 @@ function indexFilePath(root: string): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+/**
+ * Poll until the debounced write has landed AND the file is fully written
+ * (non-empty + parseable) — waits out both the timer firing and the async fs
+ * flush, so a loaded runner can't race the assertion. Throws on timeout.
+ */
+async function waitForIndex(root: string, timeoutMs = 5000): Promise<unknown> {
+  const p = indexFilePath(root);
+  const start = Date.now();
+  for (;;) {
+    try {
+      const raw = fs.readFileSync(p, 'utf-8');
+      if (raw) return JSON.parse(raw);
+    } catch {
+      // Not written yet, or caught mid-write — keep polling.
+    }
+    if (Date.now() - start > timeoutMs) throw new Error(`search index not written within ${timeoutMs}ms`);
+    await sleep(10);
+  }
 }
 
 describe('search index persistence (perf #1107)', () => {
@@ -70,9 +93,7 @@ describe('search index persistence (perf #1107)', () => {
     await sleep(DEBOUNCE_MS / 2);
     expect(fs.existsSync(indexFilePath(root))).toBe(false);
 
-    await sleep(DEBOUNCE_MS);
-    expect(fs.existsSync(indexFilePath(root))).toBe(true);
-    const written = JSON.parse(fs.readFileSync(indexFilePath(root), 'utf-8'));
+    const written = await waitForIndex(root);
     expect(JSON.stringify(written)).toContain('a.md');
   });
 
@@ -87,9 +108,7 @@ describe('search index persistence (perf #1107)', () => {
     await sleep(DEBOUNCE_MS / 2);
     expect(fs.existsSync(indexFilePath(root))).toBe(false);
 
-    await sleep(DEBOUNCE_MS);
-    expect(fs.existsSync(indexFilePath(root))).toBe(true);
-    const written = JSON.parse(fs.readFileSync(indexFilePath(root), 'utf-8'));
+    const written = await waitForIndex(root);
     // Both notes made it into the single, coalesced write.
     expect(JSON.stringify(written)).toContain('a.md');
     expect(JSON.stringify(written)).toContain('b.md');
