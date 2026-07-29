@@ -21,7 +21,7 @@ import type { ConnectionCheckResult } from '../../shared/tools/types';
 
 export async function checkConnection(candidateKey?: string): Promise<ConnectionCheckResult> {
   const typed = candidateKey?.trim();
-  const key = typed && typed.length > 0 ? typed : (await getSettings()).apiKey;
+  const key = typed && typed.length > 0 ? typed : (await getSettings()).providers.anthropic?.apiKey;
   if (!key) {
     return { ok: false, error: 'No API key to check — enter one above or save it first.' };
   }

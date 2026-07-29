@@ -112,7 +112,7 @@ describe('completeWithTools() dispatch loop (#342)', () => {
     streamMock.mockReset();
     getSettingsMock.mockReset();
     getSettingsMock.mockResolvedValue({
-      apiKey: 'fake',
+      providers: { anthropic: { apiKey: 'fake' } },
       model: 'claude-sonnet-4-6',
       web: { enabled: false, allowedDomains: [], blockedDomains: [] },
     });

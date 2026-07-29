@@ -20,7 +20,7 @@ import { describeConnectionFailure } from '../../../src/main/llm/connection-erro
 
 beforeEach(() => {
   vi.clearAllMocks();
-  h.getSettings.mockResolvedValue({ apiKey: 'sk-stored' });
+  h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-stored' } } });
   h.providerCheck.mockResolvedValue({ ok: true });
   h.createProviderForKey.mockReturnValue({ checkConnection: h.providerCheck });
 });
@@ -40,7 +40,7 @@ describe('checkConnection — key resolution', () => {
   });
 
   it('short-circuits with no provider call when there is no key at all', async () => {
-    h.getSettings.mockResolvedValue({ apiKey: '' });
+    h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: '' } } });
     const res = await checkConnection(undefined);
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/No API key/i);

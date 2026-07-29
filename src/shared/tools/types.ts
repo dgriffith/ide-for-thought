@@ -1,3 +1,5 @@
+import type { ProviderId } from './providers';
+
 export type ToolCategory = 'learning' | 'research' | 'analysis';
 
 export type ContextRequirement =
@@ -256,8 +258,42 @@ export interface ConnectionCheckResult {
   error?: string;
 }
 
+/**
+ * Per-provider credentials (BYOM, epic #1492). On the call path (`getSettings`)
+ * `apiKey` is the decrypted key — with the provider's env var folded in as a
+ * fallback — and `baseURL` is the configured endpoint (OpenAI-compatible /
+ * local). Absent/empty `apiKey` means "not configured" for that provider.
+ */
+export interface ProviderCredentials {
+  apiKey?: string;
+  baseURL?: string;
+}
+
+/** Tri-state save form of `ProviderCredentials`: a string sets the field
+ *  (apiKey is encrypted at rest), `''` clears it, and OMITTING it keeps the
+ *  stored value untouched — so a save that doesn't touch a key never decrypts
+ *  or re-encrypts it. */
+export interface ProviderCredentialsUpdate {
+  apiKey?: string;
+  baseURL?: string;
+}
+
+/** Display-only per-provider status (no plaintext key ever crosses to the
+ *  renderer). */
+export interface ProviderConfigView {
+  /** A usable key is configured (stored, or via the provider's env var), or the
+   *  provider is keyless (local). */
+  hasApiKey: boolean;
+  baseURL?: string;
+}
+
 export interface LLMSettings {
-  apiKey: string;
+  /**
+   * Per-provider credentials (BYOM #1492), keyed by provider id. Replaces the
+   * former single `apiKey`; the legacy top-level key migrates into
+   * `providers.anthropic` on read/save.
+   */
+  providers: Partial<Record<ProviderId, ProviderCredentials>>;
   model: string;
   web?: WebSettings;
   /**
@@ -287,8 +323,14 @@ export interface LLMSettingsView {
   web?: WebSettings;
   effort?: import('./effort').Effort;
   toolModelOverrides?: Record<string, string>;
-  /** Whether a usable key is configured (stored, or via ANTHROPIC_API_KEY). */
+  /**
+   * Whether the ACTIVE model's provider has a usable key — the convenience flag
+   * the current single-key settings UI + the "open settings" affordance read.
+   * Per-provider detail is in `providers`.
+   */
   hasApiKey: boolean;
+  /** Per-provider configuration status (BYOM #1492), for the multi-provider UI. */
+  providers: Partial<Record<ProviderId, ProviderConfigView>>;
 }
 
 /**
@@ -298,7 +340,14 @@ export interface LLMSettingsView {
  * doesn't touch the key neither decrypts nor re-encrypts it).
  */
 export interface LLMSettingsUpdate {
+  /**
+   * Legacy convenience: tri-state Anthropic key, applied to
+   * `providers.anthropic.apiKey`. The current single-key UI still sends this;
+   * the multi-provider UI (BYOM #1498) uses `providers` instead.
+   */
   apiKey?: string;
+  /** Per-provider credential updates (BYOM #1492), tri-state per field. */
+  providers?: Partial<Record<ProviderId, ProviderCredentialsUpdate>>;
   model: string;
   web?: WebSettings;
   effort?: import('./effort').Effort;
