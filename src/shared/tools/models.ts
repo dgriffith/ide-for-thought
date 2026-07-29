@@ -1,15 +1,23 @@
 /**
- * Canonical list of Anthropic models surfaced in the UI.
+ * Canonical list of built-in models surfaced in the UI, grouped by provider
+ * (BYOM, epic #1492). Each entry declares its `provider` (see `providers.ts`)
+ * so the settings/picker UI can group models and route each to the right
+ * `LLMProvider` implementation.
  *
  * Kept in `shared/` so both the Settings dialog and the per-conversation
  * picker read from the same source of truth. Callers that need the
- * current default read it from LLMSettings.model, which is validated
- * against this list.
+ * current default read it from LLMSettings.model. Note ids are NOT validated
+ * against this list at call time — user-defined local models (BYOM #1497) are
+ * legitimate ids absent here — so treat this as the built-in catalog, not an
+ * allowlist.
  */
+
+import type { ProviderId } from './providers';
 
 export interface ModelOption {
   value: string;
   label: string;
+  provider: ProviderId;
 }
 
 export const MODEL_OPTIONS: ModelOption[] = [
@@ -20,16 +28,25 @@ export const MODEL_OPTIONS: ModelOption[] = [
   // DEFAULT_MODEL in main/llm/settings.ts). Opus 4.8 is kept (still active) so
   // a user who explicitly selected it isn't reset to the default. Sonnet 4.6 is
   // likewise kept; Sonnet 5 is its successor tier.
-  { value: 'claude-opus-5', label: 'Claude Opus 5' },
-  { value: 'claude-fable-5', label: 'Claude Fable 5' },
-  { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-  { value: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+  { value: 'claude-opus-5', label: 'Claude Opus 5', provider: 'anthropic' },
+  { value: 'claude-fable-5', label: 'Claude Fable 5', provider: 'anthropic' },
+  { value: 'claude-opus-4-8', label: 'Claude Opus 4.8', provider: 'anthropic' },
+  { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic' },
+  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic' },
+  { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic' },
 ];
 
 export function modelLabel(value: string): string {
   return MODEL_OPTIONS.find((m) => m.value === value)?.label ?? value;
+}
+
+/**
+ * The provider a built-in model belongs to, or `undefined` for an id not in the
+ * catalog (e.g. a user-defined local model). Callers that need a concrete
+ * provider for an unknown id resolve it from settings, not from here.
+ */
+export function providerForModel(value: string): ProviderId | undefined {
+  return MODEL_OPTIONS.find((m) => m.value === value)?.provider;
 }
 
 // ── Pricing (#821) ───────────────────────────────────────────────────────────
