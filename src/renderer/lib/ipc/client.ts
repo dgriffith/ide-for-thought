@@ -321,10 +321,12 @@ export interface PublishApi {
   toGit(targetId: string, opts?: { dryRun?: boolean }): Promise<PublishGitResponse>;
 }
 
-/** A configured "Publish → git remote" destination (#254). */
+/** A configured publish destination (#254; multi-transport #1444). */
 export interface PublishTarget {
   id: string;
   label: string;
+  /** Transport kind (#1444); absent ⇒ 'git'. */
+  kind?: 'git' | 's3';
   exporter: string;
   gitRemote: string;
   gitBranch: string;

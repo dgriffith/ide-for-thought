@@ -50,6 +50,11 @@ export interface PublishTarget {
   id: string;
   /** Human label shown in the Publish menu/dialog. */
   label: string;
+  /**
+   * Transport kind (#1444). Absent on pre-existing targets ⇒ treated as 'git'.
+   * The S3 variant's fields land alongside the git ones in the S3 transport PR.
+   */
+  kind?: 'git' | 's3';
   /** Exporter id whose directory-tree output gets pushed (e.g. 'static-site'). */
   exporter: string;
   /** Remote URL. SSH forms are normalized to HTTPS at push time (#254 auth). */
