@@ -297,6 +297,8 @@ export interface ChannelMap {
     accessKeyId?: string;
     secretAccessKey?: string;
   }) => ConnectionCheckResult;
+  /** Validate a GitHub token (GET /user); blank tests the gh CLI / env fallback (#1508). */
+  'publish:checkGitHub': (config: { token?: string }) => ConnectionCheckResult;
 
   // Compute (notebook cells)
   'compute:runCell': (language: string, code: string, notePath?: string) => CellResult;

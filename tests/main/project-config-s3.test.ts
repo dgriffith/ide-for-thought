@@ -22,6 +22,7 @@ vi.mock('electron', () => ({
 import {
   getPublishTargets,
   getS3Credentials,
+  getGitCredentials,
   upsertPublishTarget,
   removePublishTarget,
   type S3PublishTarget,
@@ -79,10 +80,46 @@ describe('S3 target credentials', () => {
     expect(getS3Credentials(root, 's3a').secretAccessKey).toBe('super-secret'); // survived
   });
 
-  it('leaves git targets unchanged (no secret handling)', () => {
+  it('leaves git targets without a token unchanged, hasToken false', () => {
     const git: GitPublishTarget = { id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://x', gitBranch: 'gh-pages' };
     upsertPublishTarget(root, git);
-    expect(getPublishTargets(root)[0]).toEqual(git);
+    expect(getPublishTargets(root)[0]).toEqual({ ...git, hasToken: false });
     expect(getS3Credentials(root, 'g')).toEqual({});
+    expect(getGitCredentials(root, 'g')).toEqual({});
+  });
+});
+
+describe('Git target token (#1508)', () => {
+  const git: GitPublishTarget = {
+    id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://github.com/me/site', gitBranch: 'gh-pages',
+    githubToken: 'ghp_secret',
+  };
+
+  it('encrypts the token at rest and never returns it from the read path', () => {
+    upsertPublishTarget(root, git);
+    const onDisk = rawTargets()[0];
+    expect(onDisk.githubToken).toBeUndefined();
+    expect(onDisk.githubTokenEnc.startsWith('enc:v1:')).toBe(true);
+    expect(JSON.stringify(onDisk)).not.toContain('ghp_secret');
+
+    const wire = getPublishTargets(root)[0] as GitPublishTarget;
+    expect(wire.githubToken).toBeUndefined();
+    expect(wire.hasToken).toBe(true);
+    expect(wire.gitRemote).toBe('https://github.com/me/site');
+  });
+
+  it('decrypts the token only for the push', () => {
+    upsertPublishTarget(root, git);
+    expect(getGitCredentials(root, 'g')).toEqual({ token: 'ghp_secret' });
+  });
+
+  it('token is tri-state: omitted keeps, "" clears', () => {
+    upsertPublishTarget(root, git);
+    upsertPublishTarget(root, { ...git, githubToken: undefined, gitBranch: 'main' });
+    expect(getGitCredentials(root, 'g').token).toBe('ghp_secret');
+    expect((getPublishTargets(root)[0] as GitPublishTarget).gitBranch).toBe('main');
+    upsertPublishTarget(root, { ...git, githubToken: '' });
+    expect(getGitCredentials(root, 'g').token).toBeUndefined();
+    expect((getPublishTargets(root)[0] as GitPublishTarget).hasToken).toBe(false);
   });
 });

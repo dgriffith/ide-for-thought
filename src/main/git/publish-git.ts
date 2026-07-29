@@ -23,6 +23,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import type { ConnectionCheckResult } from '../../shared/tools/types';
 
 const AUTHOR = { name: 'Minerva', email: 'user@minerva.local' };
 
@@ -48,26 +49,58 @@ export function normalizeRemoteToHttps(url: string): string {
 }
 
 /**
- * Resolve an HTTPS token, preferring the GitHub CLI (per the issue) and
- * falling back to env. Throws a user-facing message when nothing works —
- * this is the "GitHub isn't configured" surface.
+ * Resolve an HTTPS token. Precedence (#1508): a `preferred` token (the target's
+ * safeStorage-encrypted token, so the `gh` CLI need not be installed) → the
+ * GitHub CLI (`gh auth token`) → a `GH_TOKEN`/`GITHUB_TOKEN` env var. Throws a
+ * user-facing message when nothing works — the "GitHub isn't configured" surface.
  */
-export function resolveGitHubToken(): string {
-  try {
-    const t = execFileSync('gh', ['auth', 'token'], {
-      encoding: 'utf-8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-    if (t) return t;
-  } catch {
-    // gh not installed or not signed in — fall through to env.
-  }
+export function resolveGitHubToken(preferred?: string): string {
+  const stored = preferred?.trim();
+  if (stored) return stored;
+  const cli = ghCliToken();
+  if (cli) return cli;
   const env = (process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '').trim();
   if (env) return env;
   throw new Error(
-    "Git credentials aren't configured for this remote. Sign in with the GitHub CLI " +
-      '(`gh auth login`) or set a GH_TOKEN environment variable, then try again.',
+    "Git credentials aren't configured for this remote. Add a GitHub token in the publish " +
+      'target, sign in with the GitHub CLI (`gh auth login`), or set a GH_TOKEN environment variable, then try again.',
   );
+}
+
+/** The `gh auth token`, or '' when the CLI is absent / not signed in. */
+function ghCliToken(): string {
+  try {
+    return execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Validate a GitHub token with a token-free `GET /user` — powers the publish
+ * dialog's "Test connection" (#1508). Resolves the effective token
+ * (candidate → gh CLI → env) so a blank field tests whatever the push would
+ * use. Never throws: failures come back as `{ ok: false, error }`.
+ */
+export async function checkGitHubToken(candidate?: string): Promise<ConnectionCheckResult> {
+  const token = (candidate?.trim() || ghCliToken() || process.env.GH_TOKEN || process.env.GITHUB_TOKEN || '').trim();
+  if (!token) {
+    return { ok: false, error: 'No token to check — enter one, sign in with `gh`, or set GH_TOKEN.' };
+  }
+  try {
+    const res = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${token}`, 'User-Agent': 'Minerva', Accept: 'application/vnd.github+json' },
+    });
+    if (res.ok) return { ok: true };
+    if (res.status === 401) return { ok: false, error: 'GitHub rejected the token (invalid or expired).' };
+    if (res.status === 403) return { ok: false, error: 'Token accepted but lacks permission (403).' };
+    return { ok: false, error: `GitHub returned ${res.status} ${res.statusText}.` };
+  } catch (e) {
+    return { ok: false, error: `Couldn't reach GitHub: ${e instanceof Error ? e.message : String(e)}` };
+  }
 }
 
 /** Render a commit template, filling `{{date}}` / `{{version}}`. */

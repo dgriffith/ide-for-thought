@@ -12,7 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { getPublishTarget } from '../project-config';
+import { getPublishTarget, getGitCredentials } from '../project-config';
 import { runExport } from './run-export';
 import * as pg from '../git/publish-git';
 import type { PublishChange } from '../git/publish-git';
@@ -50,7 +50,8 @@ export async function publishToGit(
 
   const dryRun = opts.dryRun ?? false;
   // Fail fast with a clear message before doing any work if creds are missing.
-  const token = pg.resolveGitHubToken();
+  // Prefer the target's stored token (#1508), else the gh CLI / env.
+  const token = pg.resolveGitHubToken(getGitCredentials(rootPath, targetId).token);
 
   ensurePublishCacheIgnored(rootPath);
   const workspace = path.join(rootPath, '.minerva', 'publish-cache', target.id);

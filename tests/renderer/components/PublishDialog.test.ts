@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
     removeTarget: vi.fn(async () => []),
     toGit: vi.fn(),
     checkS3: vi.fn(async () => ({ ok: true })),
+    checkGitHub: vi.fn(async () => ({ ok: true })),
   },
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api }));
@@ -69,5 +70,42 @@ describe('PublishDialog — S3 target', () => {
     await fireEvent.click(getByText('Save target'));
     const saved = api.publish.upsertTarget.mock.calls[0]![0] as Record<string, unknown>;
     expect('secretAccessKey' in saved).toBe(false);
+  });
+});
+
+describe('PublishDialog — git target token (#1508)', () => {
+  async function openGitForm() {
+    const view = render(PublishDialog, { onClose: vi.fn() });
+    await view.findByText('Add target…');
+    await fireEvent.click(view.getByText('Add target…')); // git is the default kind
+    return view;
+  }
+
+  it('Save includes the write-only GitHub token when typed, omits it otherwise', async () => {
+    const view = await openGitForm();
+    await fireEvent.input(view.getByLabelText('Label'), { target: { value: 'Site' } });
+    await fireEvent.input(view.getByLabelText('Remote URL'), { target: { value: 'https://github.com/me/site' } });
+    await fireEvent.input(view.getByLabelText('GitHub token (optional)'), { target: { value: 'ghp_x' } });
+    await fireEvent.click(view.getByText('Save target'));
+    let saved = api.publish.upsertTarget.mock.calls[0]![0] as Record<string, unknown>;
+    expect(saved).toMatchObject({ gitRemote: 'https://github.com/me/site', githubToken: 'ghp_x' });
+    expect(saved.kind).toBeUndefined(); // git targets carry no explicit kind
+
+    cleanup();
+    vi.clearAllMocks();
+    const v2 = await openGitForm();
+    await fireEvent.input(v2.getByLabelText('Label'), { target: { value: 'Site' } });
+    await fireEvent.input(v2.getByLabelText('Remote URL'), { target: { value: 'https://github.com/me/site' } });
+    await fireEvent.click(v2.getByText('Save target'));
+    saved = api.publish.upsertTarget.mock.calls[0]![0] as Record<string, unknown>;
+    expect('githubToken' in saved).toBe(false);
+  });
+
+  it('Test connection calls checkGitHub with the typed token', async () => {
+    const view = await openGitForm();
+    await fireEvent.input(view.getByLabelText('GitHub token (optional)'), { target: { value: 'ghp_x' } });
+    await fireEvent.click(view.getByText('Test connection'));
+    expect(api.publish.checkGitHub).toHaveBeenCalledWith({ token: 'ghp_x' });
+    await view.findByText(/accepted the token/);
   });
 });

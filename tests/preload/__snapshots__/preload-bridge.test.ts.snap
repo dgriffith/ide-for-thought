@@ -261,6 +261,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "reject",
   ],
   "publish": [
+    "checkGitHub",
     "checkS3",
     "listExporters",
     "listTargets",

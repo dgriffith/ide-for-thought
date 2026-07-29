@@ -66,6 +66,15 @@ export interface GitPublishTarget extends PublishTargetBase {
   gitBranch: string;
   /** Commit message, with `{{date}}` / `{{version}}` placeholders. */
   commitMessageTemplate?: string;
+  /**
+   * GitHub token (#1508). Same secret contract as S3's key: WRITE-ONLY +
+   * tri-state on upsert (string sets, '' clears, omitted keeps), stored
+   * encrypted, never returned by the read path. Preferred over the `gh` CLI /
+   * `GH_TOKEN` env at push time.
+   */
+  githubToken?: string;
+  /** Read-only: a token is stored. */
+  hasToken?: boolean;
 }
 
 /**
@@ -91,9 +100,10 @@ export interface S3PublishTarget extends PublishTargetBase {
 
 export type PublishTarget = GitPublishTarget | S3PublishTarget;
 
-/** On-disk S3 target: the encrypted secret replaces the plaintext write field. */
+/** On-disk targets: the encrypted secret replaces the plaintext write field. */
+type StoredGitTarget = Omit<GitPublishTarget, 'githubToken' | 'hasToken'> & { githubTokenEnc?: string };
 type StoredS3Target = Omit<S3PublishTarget, 'secretAccessKey' | 'hasSecret'> & { secretAccessKeyEnc?: string };
-type StoredTarget = GitPublishTarget | StoredS3Target;
+type StoredTarget = StoredGitTarget | StoredS3Target;
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -172,7 +182,8 @@ function toWireTarget(t: StoredTarget): PublishTarget {
     const { secretAccessKeyEnc, ...rest } = t;
     return { ...rest, hasSecret: !!secretAccessKeyEnc };
   }
-  return t;
+  const { githubTokenEnc, ...rest } = t;
+  return { ...rest, hasToken: !!githubTokenEnc };
 }
 
 /** All configured publish targets (#254, #1444), secrets stripped. Empty when unset. */
@@ -197,16 +208,34 @@ export function getS3Credentials(rootPath: string, id: string): { accessKeyId?: 
   };
 }
 
+/**
+ * The decrypted GitHub token for a git target (#1508) — main-only, for the
+ * push. Empty for non-git / unknown ids or when no token is stored (the
+ * `gh` CLI / env fallback then applies).
+ */
+export function getGitCredentials(rootPath: string, id: string): { token?: string } {
+  const t = readStoredTargets(rootPath).find((x) => x.id === id);
+  if (!t || t.kind === 's3') return {};
+  return t.githubTokenEnc ? { token: decryptSecret(t.githubTokenEnc) } : {};
+}
+
 /** Wire → on-disk: for S3, apply the tri-state secret (string sets/encrypts,
  *  '' clears, omitted keeps the existing encrypted value) and drop the plaintext. */
 function toStoredTarget(target: PublishTarget, existing: StoredTarget | undefined): StoredTarget {
-  if (target.kind !== 's3') return target;
-  const { secretAccessKey, hasSecret: _hasSecret, ...rest } = target;
-  const prevEnc = existing && existing.kind === 's3' ? existing.secretAccessKeyEnc : undefined;
-  const enc = secretAccessKey === undefined ? prevEnc
-    : secretAccessKey === '' ? undefined
-    : encryptSecret(secretAccessKey);
-  return { ...rest, ...(enc ? { secretAccessKeyEnc: enc } : {}) };
+  if (target.kind === 's3') {
+    const { secretAccessKey, hasSecret: _hasSecret, ...rest } = target;
+    const prevEnc = existing && existing.kind === 's3' ? existing.secretAccessKeyEnc : undefined;
+    const enc = secretAccessKey === undefined ? prevEnc
+      : secretAccessKey === '' ? undefined
+      : encryptSecret(secretAccessKey);
+    return { ...rest, ...(enc ? { secretAccessKeyEnc: enc } : {}) };
+  }
+  const { githubToken, hasToken: _hasToken, ...rest } = target;
+  const prevEnc = existing && existing.kind !== 's3' ? existing.githubTokenEnc : undefined;
+  const enc = githubToken === undefined ? prevEnc
+    : githubToken === '' ? undefined
+    : encryptSecret(githubToken);
+  return { ...rest, ...(enc ? { githubTokenEnc: enc } : {}) };
 }
 
 /** Insert or replace a target by id, preserving the rest of the list (and other

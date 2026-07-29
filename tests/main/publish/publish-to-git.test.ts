@@ -38,7 +38,7 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../../src/main/project-config', () => ({ getPublishTarget: () => h.target }));
+vi.mock('../../../src/main/project-config', () => ({ getPublishTarget: () => h.target, getGitCredentials: () => ({}) }));
 vi.mock('../../../src/main/publish/run-export', () => ({ runExport: h.runExport }));
 vi.mock('../../../src/main/git/publish-git', async (orig) => {
   const actual = await orig<typeof import('../../../src/main/git/publish-git')>();
