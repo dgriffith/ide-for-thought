@@ -103,7 +103,11 @@
       "tmp": ">=0.2.6",
       "gry": ">=6.0.0",
       "sharp": ">=0.35.0",
-      "adm-zip": ">=0.6.0"
+      "adm-zip": ">=0.6.0",
+      "tar": ">=7.5.19",
+      "fast-uri": "^3.1.4",
+      "brace-expansion": ">=5.0.8",
+      "postcss": ">=8.5.18"
     }
   },
   "devDependencies": {
