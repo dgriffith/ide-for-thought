@@ -40,26 +40,32 @@ export function getEngine(): QueryEngine {
  *  the current ~5–10k-triple working size. */
 const N3_REBUILD_WARN_MS = 75;
 
-/** Build an N3.Store from rdflib's IndexedFormula for Comunica to query.
- *  O(n) in `s.statements.length`; see `N3_REBUILD_WARN_MS`. */
+/** Flatten one rdflib statement into the N3 mirror's default graph (skipping
+ *  malformed terms), the shared inner step of buildN3Store + ensureN3Cache. */
+function addStatementToN3(n3Store: N3.Store, st: $rdf.Statement, df: typeof N3.DataFactory): void {
+  try {
+    const subject = convertTerm(st.subject, df);
+    const predicate = convertTerm(st.predicate, df) as N3.NamedNode | null;
+    const object = convertTerm(st.object, df);
+    if (subject && predicate && object) {
+      // n3.addQuad's overloads insist on (Quad_Subject, Quad_Predicate,
+      // Quad_Object, ...) but our convertTerm produces N3.Term —
+      // structurally compatible for the runtime check it does.
+      n3Store.addQuad(subject as N3.Quad_Subject, predicate, object as N3.Quad_Object, df.defaultGraph());
+    }
+  } catch { /* skip malformed triples */ }
+}
+
+/** Build an N3.Store from rdflib's IndexedFormula for Comunica to query,
+ *  SYNCHRONOUSLY (atomic — no yield). O(n) in `s.statements.length`; see
+ *  `N3_REBUILD_WARN_MS`. `ensureN3Cache` is the yielding front door that falls
+ *  back to this on a concurrent write. */
 export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
   const started = performance.now();
   const n3Store = new N3.Store();
   const df = N3.DataFactory;
 
-  for (const st of s.statements) {
-    try {
-      const subject = convertTerm(st.subject, df);
-      const predicate = convertTerm(st.predicate, df) as N3.NamedNode;
-      const object = convertTerm(st.object, df);
-      if (subject && predicate && object) {
-        // n3.addQuad's overloads insist on (Quad_Subject, Quad_Predicate,
-        // Quad_Object, ...) but our convertTerm produces N3.Term —
-        // structurally compatible for the runtime check it does.
-        n3Store.addQuad(subject as N3.Quad_Subject, predicate, object as N3.Quad_Object, df.defaultGraph());
-      }
-    } catch { /* skip malformed triples */ }
-  }
+  for (const st of s.statements) addStatementToN3(n3Store, st, df);
 
   const elapsedMs = performance.now() - started;
   if (elapsedMs > N3_REBUILD_WARN_MS && process.env.NODE_ENV !== 'production') {
@@ -74,6 +80,48 @@ export function buildN3Store(s: $rdf.IndexedFormula): N3.Store {
   }
 
   return n3Store;
+}
+
+/** Each synchronous burst of the yielding cold rebuild is kept under this long
+ *  (ms) so file I/O, git, and IPC stay responsive while a large mirror builds
+ *  (#1115). */
+const N3_YIELD_SLICE_MS = 8;
+
+/**
+ * Return the live N3 mirror, building it if cold — but YIELDING so a large cold
+ * rebuild (project open, post-`indexAllNotes`, periodic) can't jank the main
+ * thread (#1115). Builds from a synchronous snapshot of `store.statements`, so a
+ * write that interleaves during a yield can't corrupt the iteration; if such a
+ * write (or another query's build) lands, the snapshot is stale and we fall back
+ * to the atomic synchronous `buildN3Store`. All post-yield checks + the cache
+ * assignment run synchronously, so the reconcile decision can't itself race.
+ * Warm queries (cache already live) return immediately with no yield.
+ */
+export async function ensureN3Cache(state: GraphState): Promise<N3.Store> {
+  if (state.n3Cache) return state.n3Cache;
+  const marker = state.store as unknown as MirrorMarker;
+  const startMutations = marker.__minervaMutations ?? 0;
+  const df = N3.DataFactory;
+  // Atomic snapshot (synchronous, no yield) — the async loop iterates this copy,
+  // immune to concurrent rdflib mutation splicing `store.statements`.
+  const stmts = state.store.statements.slice();
+  const n3 = new N3.Store();
+  let sliceStart = performance.now();
+  for (let i = 0; i < stmts.length; i++) {
+    addStatementToN3(n3, stmts[i]!, df);
+    // Cheap clock check every 1024 statements; yield when a slice runs long.
+    if ((i & 1023) === 0 && performance.now() - sliceStart > N3_YIELD_SLICE_MS) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      sliceStart = performance.now();
+    }
+  }
+  // Another query may have built the cache during our yields — use it.
+  if (state.n3Cache) return state.n3Cache;
+  // A write raced our build: the snapshot is stale, so rebuild atomically.
+  if ((marker.__minervaMutations ?? 0) !== startMutations) {
+    return (state.n3Cache = buildN3Store(state.store));
+  }
+  return (state.n3Cache = n3);
 }
 
 // rdflib's term shape isn't fully typed at this boundary — accept anything
@@ -252,6 +300,10 @@ interface MirrorMarker {
   __minervaMirrored?: boolean;
   /** Incremental mutations applied since the last full build (periodic reset). */
   __minervaN3Writes?: number;
+  /** Monotonic mutation count (every add/removeMatches, never reset). The
+   *  yielding cold rebuild (`ensureN3Cache`) snapshots this before its yields
+   *  and re-checks after, to detect a write that raced its async build. */
+  __minervaMutations?: number;
 }
 
 /** The two rdflib mutation methods + the read used to snapshot removals, viewed
@@ -341,6 +393,7 @@ export function instrumentStoreMirror(state: GraphState): void {
   }
 
   m.add = function (s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike, g?: unknown) {
+    marker.__minervaMutations = (marker.__minervaMutations ?? 0) + 1;
     const ret = origAdd(s, p, o, g);
     mirrorAdd(state, s, p, o);
     bumpAndMaybeRebuild();
@@ -348,6 +401,7 @@ export function instrumentStoreMirror(state: GraphState): void {
   };
 
   m.removeMatches = function (s?: unknown, p?: unknown, o?: unknown, g?: unknown) {
+    marker.__minervaMutations = (marker.__minervaMutations ?? 0) + 1;
     if (!state.n3Cache) return origRemoveMatches(s, p, o, g);
     // Snapshot (.slice) the statements about to be removed BEFORE the rdflib
     // removal: rdflib's statementsMatching can return a live reference to its
