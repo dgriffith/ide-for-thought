@@ -15,10 +15,8 @@ import type {
 import { DEFAULT_WEB_SETTINGS } from '../../shared/tools/types';
 import { isEffort, type Effort } from '../../shared/tools/effort';
 import { PROVIDERS, PROVIDER_IDS, type ProviderId } from '../../shared/tools/providers';
-import { providerForModel } from '../../shared/tools/models';
+import { providerForModel, DEFAULT_MODEL } from '../../shared/tools/models';
 import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
-
-const DEFAULT_MODEL = 'claude-opus-5';
 
 const DEPRECATED_MODELS = new Set<string>([
   'claude-sonnet-4-20250514',

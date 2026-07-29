@@ -5,7 +5,8 @@
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { CONFIRM_KEYS } from '../confirm-keys';
   import { api } from '../ipc/client';
-  import { MODEL_OPTIONS, modelLabel } from '../../../shared/tools/models';
+  import { groupedModelOptions, modelLabel, DEFAULT_MODEL } from '../../../shared/tools/models';
+  import type { CustomModel } from '../../../shared/tools/types';
   import {
     EFFORT_LEVELS,
     supportedEfforts,
@@ -52,6 +53,8 @@
   // user can see which concrete model "default" resolves to.
   let defaultModel = $state<string | null>(null);
   let defaultEffort = $state<Effort | undefined>(undefined);
+  // User-defined local models, merged into the picker (BYOM #1498).
+  let customModels = $state<CustomModel[]>([]);
   // Width-of-tab-bar overflow handling deferred to polish (#505).
 
   onMount(async () => {
@@ -63,6 +66,7 @@
       const s = await api.tools.getSettings();
       defaultModel = s.model ?? null;
       defaultEffort = s.effort;
+      customModels = s.customModels ? [...s.customModels] : [];
     } catch { /* settings unavailable; picker still works without the label */ }
   });
 
@@ -106,7 +110,7 @@
   /** Resolve the model a conversation actually runs on (override → global
    *  default → built-in fallback), for gating the effort picker. */
   function effectiveModel(model: string | undefined): string {
-    return model ?? defaultModel ?? 'claude-opus-5';
+    return model ?? defaultModel ?? DEFAULT_MODEL;
   }
 
   async function handleModelChange(tabId: string, e: Event) {
@@ -242,8 +246,12 @@
             title="Model used for this conversation"
           >
             <option value="">{defaultModel ? `Default (${modelLabel(defaultModel)})` : 'Default'}</option>
-            {#each MODEL_OPTIONS.filter((m) => m.value !== defaultModel) as m}
-              <option value={m.value}>{m.label}</option>
+            {#each groupedModelOptions(customModels) as g (g.provider)}
+              <optgroup label={g.label}>
+                {#each g.models as m (m.value)}
+                  <option value={m.value}>{m.label}</option>
+                {/each}
+              </optgroup>
             {/each}
           </select>
           {#if modelSupportsEffort(effectiveModel(tab.conversation.model))}

@@ -12,7 +12,11 @@
  * allowlist.
  */
 
-import type { ProviderId } from './providers';
+import { PROVIDERS, PROVIDER_IDS, type ProviderId } from './providers';
+
+/** The default model for fresh installs / unset configs. Single source of
+ *  truth shared by main (settings.ts) and the renderer's picker fallbacks. */
+export const DEFAULT_MODEL = 'claude-opus-5';
 
 export interface ModelOption {
   value: string;
@@ -60,6 +64,24 @@ export function customModelOptions(customModels: { id: string; label?: string }[
 /** The full picker catalog: built-in models + the user's local models. */
 export function allModelOptions(customModels?: { id: string; label?: string }[]): ModelOption[] {
   return [...MODEL_OPTIONS, ...customModelOptions(customModels)];
+}
+
+export interface ModelGroup {
+  provider: ProviderId;
+  label: string;
+  models: ModelOption[];
+}
+
+/**
+ * The picker catalog grouped by provider (for `<optgroup>`s), in provider
+ * display order. Empty groups (a provider with no configured/built-in models)
+ * are omitted. `customModels` adds the user's local models to the `local` group.
+ */
+export function groupedModelOptions(customModels?: { id: string; label?: string }[]): ModelGroup[] {
+  const all = allModelOptions(customModels);
+  return PROVIDER_IDS
+    .map((provider) => ({ provider, label: PROVIDERS[provider].label, models: all.filter((m) => m.provider === provider) }))
+    .filter((g) => g.models.length > 0);
 }
 
 export function modelLabel(value: string): string {
