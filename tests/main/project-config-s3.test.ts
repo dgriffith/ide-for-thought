@@ -1,0 +1,88 @@
+/**
+ * S3 publish-target credential handling in project-config (#1444).
+ *
+ * The secret access key is encrypted at rest (secret-storage / safeStorage),
+ * stripped from the read path (only `hasSecret` crosses to the renderer),
+ * decrypted on demand for the transport, and tri-state on upsert — the same
+ * contract BYOM established for LLM keys. safeStorage is mocked reversibly.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+
+vi.mock('electron', () => ({
+  safeStorage: {
+    isEncryptionAvailable: () => true,
+    encryptString: vi.fn((s: string) => Buffer.from('FAKEENC:' + s, 'utf-8')),
+    decryptString: vi.fn((buf: Buffer) => buf.toString('utf-8').replace(/^FAKEENC:/, '')),
+  },
+}));
+
+import {
+  getPublishTargets,
+  getS3Credentials,
+  upsertPublishTarget,
+  removePublishTarget,
+  type S3PublishTarget,
+  type GitPublishTarget,
+} from '../../src/main/project-config';
+
+let root: string;
+const configFile = () => path.join(root, '.minerva', 'config.json');
+const rawTargets = () => JSON.parse(fs.readFileSync(configFile(), 'utf-8')).publish.targets;
+
+const s3: S3PublishTarget = {
+  id: 's3a', kind: 's3', label: 'Site', exporter: 'static-site', bucket: 'b', region: 'auto',
+  endpoint: 'https://x.r2.cloudflarestorage.com', accessKeyId: 'AKIA', secretAccessKey: 'super-secret',
+};
+
+beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-pcfg-')); });
+afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+describe('S3 target credentials', () => {
+  it('encrypts the secret at rest and never returns it from the read path', () => {
+    upsertPublishTarget(root, s3);
+    const onDisk = rawTargets()[0];
+    expect(onDisk.secretAccessKey).toBeUndefined();            // no plaintext field
+    expect(onDisk.secretAccessKeyEnc.startsWith('enc:v1:')).toBe(true);
+    expect(JSON.stringify(onDisk)).not.toContain('super-secret');
+
+    const wire = getPublishTargets(root)[0] as S3PublishTarget;
+    expect(wire.secretAccessKey).toBeUndefined();              // stripped from read
+    expect(wire.hasSecret).toBe(true);
+    expect(wire.accessKeyId).toBe('AKIA');                     // non-secret fields kept
+  });
+
+  it('decrypts the secret only for the transport', () => {
+    upsertPublishTarget(root, s3);
+    expect(getS3Credentials(root, 's3a')).toEqual({ accessKeyId: 'AKIA', secretAccessKey: 'super-secret' });
+  });
+
+  it('upsert secret is tri-state: omitted keeps, "" clears', () => {
+    upsertPublishTarget(root, s3);
+    // Re-save WITHOUT a secret (e.g. edited the region) → existing secret preserved.
+    upsertPublishTarget(root, { ...s3, secretAccessKey: undefined, region: 'us-east-1' });
+    expect(getS3Credentials(root, 's3a').secretAccessKey).toBe('super-secret');
+    expect((getPublishTargets(root)[0] as S3PublishTarget).region).toBe('us-east-1');
+    // Explicit '' clears it.
+    upsertPublishTarget(root, { ...s3, secretAccessKey: '' });
+    expect(getS3Credentials(root, 's3a').secretAccessKey).toBeUndefined();
+    expect((getPublishTargets(root)[0] as S3PublishTarget).hasSecret).toBe(false);
+  });
+
+  it('removing one target preserves another target\'s encrypted secret', () => {
+    const git: GitPublishTarget = { id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://x', gitBranch: 'gh-pages' };
+    upsertPublishTarget(root, s3);
+    upsertPublishTarget(root, git);
+    removePublishTarget(root, 'g');
+    expect(getS3Credentials(root, 's3a').secretAccessKey).toBe('super-secret'); // survived
+  });
+
+  it('leaves git targets unchanged (no secret handling)', () => {
+    const git: GitPublishTarget = { id: 'g', label: 'G', exporter: 'static-site', gitRemote: 'https://x', gitBranch: 'gh-pages' };
+    upsertPublishTarget(root, git);
+    expect(getPublishTargets(root)[0]).toEqual(git);
+    expect(getS3Credentials(root, 'g')).toEqual({});
+  });
+});

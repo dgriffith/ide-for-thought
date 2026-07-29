@@ -16,8 +16,9 @@ import { publishTarget, getTransport, registerTransport } from '../../../src/mai
 beforeEach(() => vi.clearAllMocks());
 
 describe('transport registry', () => {
-  it('registers the git transport by default', () => {
+  it('registers the git + s3 transports by default', () => {
     expect(getTransport('git')?.kind).toBe('git');
+    expect(getTransport('s3')?.kind).toBe('s3');
   });
 });
 

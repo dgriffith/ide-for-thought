@@ -9,6 +9,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { encryptSecret, decryptSecret } from './secret-storage';
 
 export interface ProjectConfigShape {
   baseUri?: string;
@@ -45,27 +46,54 @@ export interface ProjectConfigShape {
  * site → GitHub Pages). Stored in `.minerva/config.json`, which is
  * gitignored, so a remote URL never rides along in the thoughtbase repo.
  */
-export interface PublishTarget {
+interface PublishTargetBase {
   /** Stable id — names the publish-cache workspace and the config entry. */
   id: string;
   /** Human label shown in the Publish menu/dialog. */
   label: string;
-  /**
-   * Transport kind (#1444). Absent on pre-existing targets ⇒ treated as 'git'.
-   * The S3 variant's fields land alongside the git ones in the S3 transport PR.
-   */
-  kind?: 'git' | 's3';
   /** Exporter id whose directory-tree output gets pushed (e.g. 'static-site'). */
   exporter: string;
+  /** Output subdirectory / key prefix. '' / '.' = root. */
+  subdir?: string;
+}
+
+/** Publish → git remote (#254). `kind` absent ⇒ git (pre-#1444 targets). */
+export interface GitPublishTarget extends PublishTargetBase {
+  kind?: 'git';
   /** Remote URL. SSH forms are normalized to HTTPS at push time (#254 auth). */
   gitRemote: string;
   /** Branch to publish to, e.g. 'gh-pages'. */
   gitBranch: string;
-  /** Repo-relative subdirectory the output lands in. '' / '.' = repo root. */
-  subdir?: string;
   /** Commit message, with `{{date}}` / `{{version}}` placeholders. */
   commitMessageTemplate?: string;
 }
+
+/**
+ * Publish → S3 / S3-compatible object storage (#1444). One shape covers Amazon
+ * S3 and R2/B2/Spaces/MinIO via a custom `endpoint`. The secret access key is
+ * NEVER carried on this (wire) shape: it's stored encrypted on disk and only
+ * `hasSecret` crosses to the renderer; `secretAccessKey` is a WRITE-ONLY,
+ * tri-state field accepted on upsert (string sets, '' clears, omitted keeps) —
+ * mirroring the BYOM per-provider key handling.
+ */
+export interface S3PublishTarget extends PublishTargetBase {
+  kind: 's3';
+  bucket: string;
+  /** Custom endpoint for S3-compatible providers; omit for Amazon S3. */
+  endpoint?: string;
+  region?: string;
+  accessKeyId?: string;
+  /** Write-only on upsert; never returned by the read path. */
+  secretAccessKey?: string;
+  /** Read-only: a secret is stored. */
+  hasSecret?: boolean;
+}
+
+export type PublishTarget = GitPublishTarget | S3PublishTarget;
+
+/** On-disk S3 target: the encrypted secret replaces the plaintext write field. */
+type StoredS3Target = Omit<S3PublishTarget, 'secretAccessKey' | 'hasSecret'> & { secretAccessKeyEnc?: string };
+type StoredTarget = GitPublishTarget | StoredS3Target;
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -133,25 +161,66 @@ export function setExcerptNoteFolder(rootPath: string, folder: string): void {
   patchProjectConfig(rootPath, { excerpt: { ...existing, noteFolder: cleaned } });
 }
 
-/** All configured git-push publish targets (#254). Empty when unset. */
+function readStoredTargets(rootPath: string): StoredTarget[] {
+  return (readProjectConfig(rootPath).publish?.targets as StoredTarget[] | undefined) ?? [];
+}
+
+/** Map an on-disk target to its wire form — for S3, replace the encrypted
+ *  secret with a `hasSecret` flag so the plaintext never reaches the renderer. */
+function toWireTarget(t: StoredTarget): PublishTarget {
+  if (t.kind === 's3') {
+    const { secretAccessKeyEnc, ...rest } = t;
+    return { ...rest, hasSecret: !!secretAccessKeyEnc };
+  }
+  return t;
+}
+
+/** All configured publish targets (#254, #1444), secrets stripped. Empty when unset. */
 export function getPublishTargets(rootPath: string): PublishTarget[] {
-  return readProjectConfig(rootPath).publish?.targets ?? [];
+  return readStoredTargets(rootPath).map(toWireTarget);
 }
 
 export function getPublishTarget(rootPath: string, id: string): PublishTarget | null {
   return getPublishTargets(rootPath).find((t) => t.id === id) ?? null;
 }
 
-/** Insert or replace a target by id, preserving the rest of the list. */
+/**
+ * Decrypted S3 credentials for a target (#1444) — main-only, for the transport
+ * at publish time. Never crosses to the renderer. Empty for non-S3 / unknown ids.
+ */
+export function getS3Credentials(rootPath: string, id: string): { accessKeyId?: string; secretAccessKey?: string } {
+  const t = readStoredTargets(rootPath).find((x) => x.id === id);
+  if (!t || t.kind !== 's3') return {};
+  return {
+    ...(t.accessKeyId ? { accessKeyId: t.accessKeyId } : {}),
+    ...(t.secretAccessKeyEnc ? { secretAccessKey: decryptSecret(t.secretAccessKeyEnc) } : {}),
+  };
+}
+
+/** Wire → on-disk: for S3, apply the tri-state secret (string sets/encrypts,
+ *  '' clears, omitted keeps the existing encrypted value) and drop the plaintext. */
+function toStoredTarget(target: PublishTarget, existing: StoredTarget | undefined): StoredTarget {
+  if (target.kind !== 's3') return target;
+  const { secretAccessKey, hasSecret: _hasSecret, ...rest } = target;
+  const prevEnc = existing && existing.kind === 's3' ? existing.secretAccessKeyEnc : undefined;
+  const enc = secretAccessKey === undefined ? prevEnc
+    : secretAccessKey === '' ? undefined
+    : encryptSecret(secretAccessKey);
+  return { ...rest, ...(enc ? { secretAccessKeyEnc: enc } : {}) };
+}
+
+/** Insert or replace a target by id, preserving the rest of the list (and other
+ *  targets' encrypted secrets — CRUD operates on the STORED shape). */
 export function upsertPublishTarget(rootPath: string, target: PublishTarget): void {
-  const targets = getPublishTargets(rootPath);
+  const targets = readStoredTargets(rootPath);
   const idx = targets.findIndex((t) => t.id === target.id);
-  if (idx >= 0) targets[idx] = target;
-  else targets.push(target);
+  const stored = toStoredTarget(target, idx >= 0 ? targets[idx] : undefined);
+  if (idx >= 0) targets[idx] = stored;
+  else targets.push(stored);
   patchProjectConfig(rootPath, { publish: { targets } });
 }
 
 export function removePublishTarget(rootPath: string, id: string): void {
-  const targets = getPublishTargets(rootPath).filter((t) => t.id !== id);
+  const targets = readStoredTargets(rootPath).filter((t) => t.id !== id);
   patchProjectConfig(rootPath, { publish: { targets } });
 }

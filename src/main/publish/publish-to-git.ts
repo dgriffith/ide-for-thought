@@ -45,6 +45,8 @@ export async function publishToGit(
 ): Promise<PublishResult> {
   const target = getPublishTarget(rootPath, targetId);
   if (!target) throw new Error(`No publish target "${targetId}" is configured for this thoughtbase.`);
+  // The dispatcher routes by kind; a non-git target reaching here is a bug.
+  if (target.kind === 's3') throw new Error(`Publish target "${targetId}" is not a git target.`);
 
   const dryRun = opts.dryRun ?? false;
   // Fail fast with a clear message before doing any work if creds are missing.

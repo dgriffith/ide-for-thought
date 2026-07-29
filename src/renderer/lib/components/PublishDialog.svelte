@@ -135,7 +135,11 @@
             <div class="target-head">
               <div class="target-meta">
                 <div class="target-label">{t.label}</div>
-                <div class="target-detail">{t.exporter} → {t.gitRemote} <span class="branch">({t.gitBranch})</span></div>
+                {#if t.kind === 's3'}
+                  <div class="target-detail">{t.exporter} → s3://{t.bucket}{t.subdir && t.subdir !== '.' ? `/${t.subdir}` : ''}</div>
+                {:else}
+                  <div class="target-detail">{t.exporter} → {t.gitRemote} <span class="branch">({t.gitBranch})</span></div>
+                {/if}
               </div>
               <div class="target-actions">
                 <button onclick={() => run(t, true)} disabled={busyId === t.id}>
