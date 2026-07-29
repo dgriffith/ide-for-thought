@@ -49,6 +49,14 @@ const SUPPORT: Record<string, Effort[]> = {
   'claude-haiku-4-5': [],
 };
 
+/**
+ * Model ids with an explicit effort-support entry above. Exported so the model-
+ * registry parity test (BYOM #1493) can assert every catalog model is declared
+ * here — a model added without an entry silently loses effort control (`[]`),
+ * which this guardrail turns into a CI failure.
+ */
+export const EFFORT_ENTRY_MODEL_IDS: readonly string[] = Object.keys(SUPPORT);
+
 export function supportedEfforts(model: string): Effort[] {
   return SUPPORT[model] ?? [];
 }
