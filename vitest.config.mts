@@ -152,10 +152,10 @@ export default defineConfig({
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.
         'src/renderer/**': {
-          lines: 34,
-          functions: 34,
-          statements: 34,
-          branches: 28,
+          lines: 42,
+          functions: 40,
+          statements: 42,
+          branches: 34,
         },
       },
     },

@@ -32,6 +32,7 @@ vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogSto
 
 import { createNoteOps, type NoteOpsCtx } from '../../../src/renderer/lib/app/note-ops';
 import { getClipboardStore } from '../../../src/renderer/lib/stores/clipboard.svelte';
+import { CONFIRM_KEYS } from '../../../src/renderer/lib/confirm-keys';
 
 function dir(name: string, children: NoteFile[]): NoteFile {
   return { name, relativePath: name, isDirectory: true, children };
@@ -41,19 +42,29 @@ function file(relativePath: string): NoteFile {
 }
 
 const sidebar = { getSelectionPaths: vi.fn(() => [] as string[]), refreshTags: vi.fn(), clearSelection: vi.fn() };
+const editorComp = { restorePosition: vi.fn(), gotoLineColumn: vi.fn() };
+let editorCompRef: typeof editorComp | undefined;
 let ctx: NoteOpsCtx;
 let ops: ReturnType<typeof createNoteOps>;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  // resetAllMocks (not clearAllMocks): several tests install one-shot
+  // mockRejectedValue/mockResolvedValue implementations that would otherwise
+  // leak into later tests (clearAllMocks resets call history but not impls).
+  vi.resetAllMocks();
+  // Run requestAnimationFrame callbacks synchronously so the caret-restore /
+  // goto-line side effects (restorePosition / gotoLineColumn) are observable
+  // immediately after the awaited handler resolves.
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { cb(0); return 0; });
   h.notebase.meta = { rootPath: '/p', name: 'p' };
   h.notebase.files = [];
   h.editor.tabs = [];
   sidebar.getSelectionPaths.mockReturnValue([]);
+  editorCompRef = undefined;
   getClipboardStore().clear();
   ctx = {
     getSidebar: () => sidebar,
-    getEditorComponent: () => undefined,
+    getEditorComponent: () => editorCompRef,
     setSafeDeleteState: vi.fn(),
     setMergePickerSource: vi.fn(),
   };
@@ -174,5 +185,389 @@ describe('handleCopyWithPrompt', () => {
     await ops.handleCopyWithPrompt('a.md');
     expect(h.dialog.showConfirm).toHaveBeenCalled();
     expect(h.api.notebase.copy).not.toHaveBeenCalled();
+  });
+
+  it('treats a path-like input (dir/name) as project-root relative', async () => {
+    h.dialog.showPrompt.mockResolvedValue('sub/dup');
+    h.api.notebase.readFile.mockRejectedValue(new Error('ENOENT'));
+    await ops.handleCopyWithPrompt('notes/a.md');
+    // extension preserved on the last segment; leading dir is project-root
+    expect(h.api.notebase.copy).toHaveBeenCalledWith('notes/a.md', 'sub/dup.md');
+  });
+
+  it('does nothing on cancel or when no thoughtbase is open', async () => {
+    h.dialog.showPrompt.mockResolvedValue(null);
+    await ops.handleCopyWithPrompt('a.md');
+    expect(h.api.notebase.copy).not.toHaveBeenCalled();
+
+    h.dialog.showPrompt.mockClear();
+    h.notebase.meta = null;
+    h.dialog.showPrompt.mockResolvedValue('dup');
+    await ops.handleCopyWithPrompt('a.md');
+    expect(h.dialog.showPrompt).not.toHaveBeenCalled();
+    expect(h.api.notebase.copy).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleNewNote — template & guard paths', () => {
+  it('bails out when no thoughtbase is open', async () => {
+    h.notebase.meta = null;
+    await ops.handleNewNote('folder');
+    expect(h.dialog.showNewNoteDialog).not.toHaveBeenCalled();
+    expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+  });
+
+  it('writes the substituted template body and restores the caret offset', async () => {
+    editorCompRef = editorComp;
+    h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md', templateFilename: 'daily.md' });
+    h.api.templates.get.mockResolvedValue('Hello {{title}}{{cursor}} world');
+    await ops.handleNewNote('folder');
+    // Non-empty content routes through writeFile, not createFile.
+    expect(h.api.notebase.writeFile).toHaveBeenCalledWith('folder/fresh.md', 'Hello fresh world');
+    expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+    expect(h.editor.openFile).toHaveBeenCalledWith('folder/fresh.md');
+    // {{cursor}} sits right after "Hello fresh" → offset 11.
+    expect(editorComp.restorePosition).toHaveBeenCalledWith(11, 0);
+  });
+
+  it('cancels silently (no write) when an interactive {{prompt:…}} is dismissed', async () => {
+    h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md', templateFilename: 'daily.md' });
+    h.api.templates.get.mockResolvedValue('a{{prompt:Label}}b');
+    h.dialog.showPrompt.mockResolvedValue(null); // user cancels the template prompt
+    await ops.handleNewNote();
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+    expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+    expect(h.editor.openFile).not.toHaveBeenCalled();
+  });
+
+  it('falls back to createFile when the template file is missing', async () => {
+    h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md', templateFilename: 'gone.md' });
+    h.api.templates.get.mockResolvedValue(null); // template not found
+    await ops.handleNewNote('');
+    expect(h.api.notebase.createFile).toHaveBeenCalledWith('fresh.md');
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleNewFolder', () => {
+  it('creates the folder under the target directory', async () => {
+    h.dialog.showPrompt.mockResolvedValue('Ideas');
+    await ops.handleNewFolder('notes');
+    expect(h.api.notebase.createFolder).toHaveBeenCalledWith('notes/Ideas');
+    expect(h.notebase.refresh).toHaveBeenCalled();
+  });
+
+  it('creates at the root when no directory is passed', async () => {
+    h.dialog.showPrompt.mockResolvedValue('Ideas');
+    await ops.handleNewFolder();
+    expect(h.api.notebase.createFolder).toHaveBeenCalledWith('Ideas');
+  });
+
+  it('does nothing on cancel or without a thoughtbase', async () => {
+    h.dialog.showPrompt.mockResolvedValue(null);
+    await ops.handleNewFolder('notes');
+    expect(h.api.notebase.createFolder).not.toHaveBeenCalled();
+
+    h.notebase.meta = null;
+    h.dialog.showPrompt.mockResolvedValue('Ideas');
+    await ops.handleNewFolder('notes');
+    expect(h.api.notebase.createFolder).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleDelete / executeDeletes — folders, multi-select, failures', () => {
+  it('routes a directory target through deleteFolder', async () => {
+    h.dialog.showConfirm.mockResolvedValue(true);
+    await ops.handleDelete('archive', true);
+    expect(h.api.notebase.deleteFolder).toHaveBeenCalledWith('archive');
+    expect(h.api.notebase.deleteFile).not.toHaveBeenCalled();
+    expect(sidebar.clearSelection).toHaveBeenCalled();
+  });
+
+  it('deletes every resolved selection target', async () => {
+    h.notebase.files = [dir('notes', [file('notes/a.md'), file('notes/b.md')])];
+    sidebar.getSelectionPaths.mockReturnValue(['notes/a.md', 'notes/b.md']);
+    h.api.links.externalInbound.mockResolvedValue([]); // no blockers
+    h.dialog.showConfirm.mockResolvedValue(true);
+    await ops.handleDelete('notes/a.md', false);
+    expect(h.api.notebase.deleteFile).toHaveBeenCalledWith('notes/a.md');
+    expect(h.api.notebase.deleteFile).toHaveBeenCalledWith('notes/b.md');
+  });
+
+  it('fails open (deletes) when the inbound-link probe throws', async () => {
+    h.notebase.files = [dir('notes', [file('notes/x.md')])];
+    sidebar.getSelectionPaths.mockReturnValue(['notes/x.md']);
+    h.api.links.externalInbound.mockRejectedValue(new Error('graph down'));
+    h.dialog.showConfirm.mockResolvedValue(true);
+    await ops.handleDelete('notes/x.md', false);
+    expect(ctx.setSafeDeleteState).not.toHaveBeenCalled();
+    expect(h.api.notebase.deleteFile).toHaveBeenCalledWith('notes/x.md');
+  });
+
+  it('reports a summary dialog when a delete fails mid-batch', async () => {
+    h.dialog.showConfirm.mockResolvedValue(true);
+    h.api.notebase.deleteFile.mockRejectedValueOnce(new Error('EBUSY'));
+    await ops.handleDelete('notes/locked.md', false);
+    // First showConfirm = delete confirmation; second = the failure summary.
+    expect(h.dialog.showConfirm).toHaveBeenLastCalledWith(
+      expect.stringContaining('EBUSY'),
+      CONFIRM_KEYS.deletePartialFailure,
+      'OK',
+    );
+    expect(h.notebase.refresh).toHaveBeenCalled();
+  });
+
+  it('bails out without a thoughtbase', async () => {
+    h.notebase.meta = null;
+    await ops.handleDelete('x.md', false);
+    expect(h.api.notebase.deleteFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('openFirstReferenceFromSafeDelete', () => {
+  it('clears the safe-delete state, opens the source, and jumps to the link site', async () => {
+    editorCompRef = editorComp;
+    h.api.notebase.readFile.mockResolvedValue('line one\nsee [[x]] here');
+    await ops.openFirstReferenceFromSafeDelete('notes/y.md', 'notes/x.md');
+    expect(ctx.setSafeDeleteState).toHaveBeenCalledWith(null);
+    expect(h.editor.openFile).toHaveBeenCalledWith('notes/y.md');
+    // "[[x]]" starts at column 5 of line 2 → gotoLineColumn(2, col+1).
+    expect(editorComp.gotoLineColumn).toHaveBeenCalledWith(2, 5);
+  });
+
+  it('still opens the source (offset 0) when the reference read fails', async () => {
+    editorCompRef = editorComp;
+    h.api.notebase.readFile.mockRejectedValue(new Error('gone'));
+    await ops.openFirstReferenceFromSafeDelete('notes/y.md', 'notes/x.md');
+    expect(h.editor.openFile).toHaveBeenCalledWith('notes/y.md');
+    expect(editorComp.gotoLineColumn).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleCut / handleCopy', () => {
+  it('cut captures the fallback item when nothing is selected', () => {
+    ops.handleCut('a.md', false);
+    expect(getClipboardStore().current).toEqual({
+      items: [{ relativePath: 'a.md', isDirectory: false }],
+      mode: 'cut',
+    });
+  });
+
+  it('cut captures the resolved sidebar selection when present', () => {
+    h.notebase.files = [dir('notes', [file('notes/a.md'), file('notes/b.md')])];
+    sidebar.getSelectionPaths.mockReturnValue(['notes/a.md', 'notes/b.md']);
+    ops.handleCut('notes/a.md', false);
+    expect(getClipboardStore().current?.mode).toBe('cut');
+    expect(getClipboardStore().current?.items).toEqual([
+      { relativePath: 'notes/a.md', isDirectory: false },
+      { relativePath: 'notes/b.md', isDirectory: false },
+    ]);
+  });
+
+  it('copy sets copy mode on the clipboard', () => {
+    ops.handleCopy('a.md', false);
+    expect(getClipboardStore().current?.mode).toBe('copy');
+  });
+});
+
+describe('handleMove (drag-move)', () => {
+  it('moves a single dragged file and retargets its open tab', async () => {
+    h.notebase.files = [file('a.md')];
+    h.editor.tabs = [{ type: 'note', relativePath: 'a.md', fileName: 'a.md' }];
+    await ops.handleMove('a.md', 'dest');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
+    expect(h.editor.tabs[0]).toMatchObject({ relativePath: 'dest/a.md', fileName: 'a.md' });
+    expect(sidebar.clearSelection).toHaveBeenCalled();
+  });
+
+  it('moves the whole selection when the dragged path is part of a multi-selection', async () => {
+    h.notebase.files = [file('a.md'), file('b.md')];
+    sidebar.getSelectionPaths.mockReturnValue(['a.md', 'b.md']);
+    await ops.handleMove('a.md', 'dest');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('b.md', 'dest/b.md');
+  });
+
+  it('skips a same-directory no-op move', async () => {
+    h.notebase.files = [dir('dir', [file('dir/a.md')])];
+    await ops.handleMove('dir/a.md', 'dir');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+    expect(h.notebase.refresh).toHaveBeenCalled();
+  });
+
+  it('collects a collision and surfaces the summary dialog', async () => {
+    h.notebase.files = [file('a.md'), dir('dest', [file('dest/a.md')])];
+    await ops.handleMove('a.md', 'dest');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('Move complete'),
+      CONFIRM_KEYS.moveCollision,
+      'OK',
+    );
+  });
+
+  it('reports a failure summary when the rename rejects', async () => {
+    h.notebase.files = [file('a.md')];
+    h.api.notebase.rename.mockRejectedValue(new Error('EPERM'));
+    await ops.handleMove('a.md', 'dest');
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('EPERM'),
+      CONFIRM_KEYS.moveCollision,
+      'OK',
+    );
+  });
+
+  it('does nothing when the dragged path is not in the tree', async () => {
+    h.notebase.files = [];
+    await ops.handleMove('ghost.md', 'dest');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+  });
+
+  it('bails out without a thoughtbase', async () => {
+    h.notebase.meta = null;
+    await ops.handleMove('a.md', 'dest');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+  });
+});
+
+describe('handlePaste — collisions, failures, tab retarget', () => {
+  it('cut+paste retargets an open tab for the moved item', async () => {
+    h.editor.tabs = [{ type: 'note', relativePath: 'a.md', fileName: 'a.md' }];
+    getClipboardStore().set({ items: [{ relativePath: 'a.md', isDirectory: false }], mode: 'cut' });
+    await ops.handlePaste('dest');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
+    expect(h.editor.tabs[0]).toMatchObject({ relativePath: 'dest/a.md', fileName: 'a.md' });
+  });
+
+  it('skips a collision and reports the Copy summary', async () => {
+    h.notebase.files = [dir('dest', [file('dest/a.md')])];
+    getClipboardStore().set({ items: [{ relativePath: 'a.md', isDirectory: false }], mode: 'copy' });
+    await ops.handlePaste('dest');
+    expect(h.api.notebase.copy).not.toHaveBeenCalled();
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('Copy complete'),
+      CONFIRM_KEYS.copyCollision,
+      'OK',
+    );
+  });
+
+  it('reports a per-item failure summary', async () => {
+    h.api.notebase.copy.mockRejectedValue(new Error('ENOSPC'));
+    getClipboardStore().set({ items: [{ relativePath: 'a.md', isDirectory: false }], mode: 'copy' });
+    await ops.handlePaste('dest');
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('ENOSPC'),
+      CONFIRM_KEYS.copyCollision,
+      'OK',
+    );
+  });
+
+  it('skips a same-directory no-op paste target', async () => {
+    getClipboardStore().set({ items: [{ relativePath: 'dir/a.md', isDirectory: false }], mode: 'copy' });
+    await ops.handlePaste('dir');
+    expect(h.api.notebase.copy).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleMerge / performMerge', () => {
+  it('handleMerge flushes autosave and opens the merge picker', () => {
+    ops.handleMerge('notes/a.md');
+    expect(h.editor.flushAutoSave).toHaveBeenCalled();
+    expect(ctx.setMergePickerSource).toHaveBeenCalledWith('notes/a.md');
+  });
+
+  it('handleMerge is a no-op without a thoughtbase', () => {
+    h.notebase.meta = null;
+    ops.handleMerge('notes/a.md');
+    expect(ctx.setMergePickerSource).not.toHaveBeenCalled();
+  });
+
+  it('performMerge returns early when source === target', async () => {
+    await ops.performMerge('a.md', 'a.md');
+    expect(h.api.notebase.mergePreview).not.toHaveBeenCalled();
+    expect(h.api.notebase.merge).not.toHaveBeenCalled();
+  });
+
+  it('performMerge previews, confirms, merges, and jumps to the merge point', async () => {
+    editorCompRef = editorComp;
+    h.api.notebase.mergePreview.mockResolvedValue({ linkOccurrences: 2, affectedFiles: 1 });
+    h.dialog.showConfirm.mockResolvedValue(true);
+    h.api.notebase.merge.mockResolvedValue({ targetPath: 'notes/target.md', mergeLine: 12 });
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(h.api.notebase.mergePreview).toHaveBeenCalledWith('notes/src.md', 'notes/target.md');
+    expect(h.api.notebase.merge).toHaveBeenCalledWith('notes/src.md', 'notes/target.md');
+    expect(h.editor.openFile).toHaveBeenCalledWith('notes/target.md');
+    expect(editorComp.gotoLineColumn).toHaveBeenCalledWith(12, 1);
+    expect(h.notebase.refresh).toHaveBeenCalled();
+  });
+
+  it('performMerge handles the no-incoming-links preview branch', async () => {
+    h.api.notebase.mergePreview.mockResolvedValue({ linkOccurrences: 0, affectedFiles: 0 });
+    h.dialog.showConfirm.mockResolvedValue(true);
+    h.api.notebase.merge.mockResolvedValue({ targetPath: 'notes/target.md', mergeLine: 1 });
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('No incoming links'),
+      CONFIRM_KEYS.mergeNote,
+      'Merge',
+    );
+    expect(h.api.notebase.merge).toHaveBeenCalled();
+  });
+
+  it('performMerge aborts when the confirm is declined', async () => {
+    h.api.notebase.mergePreview.mockResolvedValue({ linkOccurrences: 1, affectedFiles: 1 });
+    h.dialog.showConfirm.mockResolvedValue(false);
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(h.api.notebase.merge).not.toHaveBeenCalled();
+  });
+
+  it('performMerge surfaces a failure dialog when the IPC throws', async () => {
+    h.api.notebase.mergePreview.mockRejectedValue(new Error('merge boom'));
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('merge boom'),
+      CONFIRM_KEYS.mergeFailed,
+      'OK',
+    );
+    expect(h.api.notebase.merge).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleMoveWithPrompt', () => {
+  it('moves to the prompted folder when there is no collision', async () => {
+    h.notebase.files = [file('a.md')];
+    h.dialog.showPrompt.mockResolvedValue('dest');
+    h.api.notebase.readFile.mockRejectedValue(new Error('ENOENT')); // dest free
+    await ops.handleMoveWithPrompt('a.md');
+    expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
+  });
+
+  it('aborts with a notice when the destination already exists', async () => {
+    h.dialog.showPrompt.mockResolvedValue('dest');
+    h.api.notebase.readFile.mockResolvedValue('existing'); // collision
+    await ops.handleMoveWithPrompt('a.md');
+    expect(h.dialog.showConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('already exists'),
+      CONFIRM_KEYS.moveCollision,
+      'OK',
+    );
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+  });
+
+  it('does nothing on cancel (null prompt) or an unchanged directory', async () => {
+    h.dialog.showPrompt.mockResolvedValue(null);
+    await ops.handleMoveWithPrompt('a.md');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+
+    // currentDir '' === destDir '' → no-op
+    h.dialog.showPrompt.mockResolvedValue('');
+    await ops.handleMoveWithPrompt('a.md');
+    expect(h.api.notebase.rename).not.toHaveBeenCalled();
+  });
+
+  it('bails out without a thoughtbase', async () => {
+    h.notebase.meta = null;
+    await ops.handleMoveWithPrompt('a.md');
+    expect(h.dialog.showPrompt).not.toHaveBeenCalled();
   });
 });
