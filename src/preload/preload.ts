@@ -201,6 +201,8 @@ contextBridge.exposeInMainWorld('api', {
     removeTarget: (id: string) => invoke(Channels.PUBLISH_REMOVE_TARGET, id),
     toGit: (targetId: string, opts?: Parameters<ChannelMap['publish:toGit']>[1]) =>
       invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
+    checkS3: (config: Parameters<ChannelMap['publish:checkS3']>[0]) =>
+      invoke(Channels.PUBLISH_CHECK_S3, config),
   },
   app: {
     getInfo: () => invoke(Channels.APP_GET_INFO),

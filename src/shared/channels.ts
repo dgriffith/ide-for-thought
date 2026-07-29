@@ -573,6 +573,8 @@ export const Channels = {
   PUBLISH_REMOVE_TARGET: 'publish:removeTarget',
   /** Publication: export + commit + push to a target (dryRun previews the diff) (#254). */
   PUBLISH_TO_GIT: 'publish:toGit',
+  /** Validate S3 credentials/endpoint against the bucket (HeadBucket) — settings "Check connection" (#1444). */
+  PUBLISH_CHECK_S3: 'publish:checkS3',
   /** Menu → "Export…" — opens the preview dialog for a specific exporter id (payload). */
   MENU_EXPORT: 'menu:export',
   /** Menu → "Publish to Web…" — opens the git-publish dialog (#254). */

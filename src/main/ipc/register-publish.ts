@@ -138,4 +138,22 @@ export function registerPublish(): void {
       }
     }),
   );
+
+  // Validate S3 credentials/endpoint before saving a target (#1444). No rootPath
+  // needed — HeadBucket only depends on the bucket + endpoint + credentials.
+  handle(Channels.PUBLISH_CHECK_S3, (_e, config: {
+    bucket: string; endpoint?: string; region?: string; accessKeyId?: string; secretAccessKey?: string;
+  }) =>
+    publish.checkS3Connection(
+      {
+        id: 'check', label: 'check', exporter: '', kind: 's3', bucket: config.bucket,
+        ...(config.endpoint ? { endpoint: config.endpoint } : {}),
+        ...(config.region ? { region: config.region } : {}),
+      },
+      {
+        ...(config.accessKeyId ? { accessKeyId: config.accessKeyId } : {}),
+        ...(config.secretAccessKey ? { secretAccessKey: config.secretAccessKey } : {}),
+      },
+    ),
+  );
 }

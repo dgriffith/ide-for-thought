@@ -22,12 +22,46 @@
   let outcome = $state<{ targetId: string; dryRun: boolean; res: PublishGitResponse } | null>(null);
 
   // ── Add-target form ─────────────────────────────────────────────────────
+  let fKind = $state<'git' | 's3'>('git');
   let fLabel = $state('');
-  let fRemote = $state('');
-  let fBranch = $state('gh-pages');
   let fExporter = $state('static-site');
   let fSubdir = $state('.');
+  // git
+  let fRemote = $state('');
+  let fBranch = $state('gh-pages');
   let fTemplate = $state('Publish {{date}} from Minerva');
+  // s3
+  let fBucket = $state('');
+  let fEndpoint = $state('');
+  let fRegion = $state('');
+  let fAccessKeyId = $state('');
+  let fSecret = $state('');
+
+  // S3 "test connection" state (#1444).
+  let s3Checking = $state(false);
+  let s3CheckResult = $state<import('../../../shared/tools/types').ConnectionCheckResult | null>(null);
+  // Any edit to the S3 credentials invalidates a prior check result.
+  $effect(() => { void fBucket; void fEndpoint; void fRegion; void fAccessKeyId; void fSecret; s3CheckResult = null; });
+  const canCheckS3 = $derived(fBucket.trim() !== '');
+
+  async function runS3Check(): Promise<void> {
+    if (s3Checking || !canCheckS3) return;
+    s3Checking = true;
+    s3CheckResult = null;
+    try {
+      s3CheckResult = await api.publish.checkS3({
+        bucket: fBucket.trim(),
+        ...(fEndpoint.trim() ? { endpoint: fEndpoint.trim() } : {}),
+        ...(fRegion.trim() ? { region: fRegion.trim() } : {}),
+        ...(fAccessKeyId.trim() ? { accessKeyId: fAccessKeyId.trim() } : {}),
+        ...(fSecret ? { secretAccessKey: fSecret } : {}),
+      });
+    } catch (e) {
+      s3CheckResult = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      s3Checking = false;
+    }
+  }
 
   onMount(async () => {
     await refresh();
@@ -57,23 +91,43 @@
     return id;
   }
 
-  const canSave = $derived(fLabel.trim() !== '' && fRemote.trim() !== '' && fBranch.trim() !== '');
+  const canSave = $derived(
+    fLabel.trim() !== '' &&
+      (fKind === 's3'
+        ? fBucket.trim() !== ''
+        : fRemote.trim() !== '' && fBranch.trim() !== ''),
+  );
 
   async function saveTarget(): Promise<void> {
     if (!canSave) return;
-    const target: PublishTarget = {
-      id: uniqueId(slug(fLabel)),
-      label: fLabel.trim(),
-      exporter: fExporter,
-      gitRemote: fRemote.trim(),
-      gitBranch: fBranch.trim(),
-      subdir: fSubdir.trim() || '.',
-      commitMessageTemplate: fTemplate.trim() || 'Publish {{date}} from Minerva',
-    };
+    const common = { id: uniqueId(slug(fLabel)), label: fLabel.trim(), exporter: fExporter, subdir: fSubdir.trim() || '.' };
+    const target: PublishTarget = fKind === 's3'
+      ? {
+          ...common,
+          kind: 's3',
+          bucket: fBucket.trim(),
+          ...(fEndpoint.trim() ? { endpoint: fEndpoint.trim() } : {}),
+          ...(fRegion.trim() ? { region: fRegion.trim() } : {}),
+          ...(fAccessKeyId.trim() ? { accessKeyId: fAccessKeyId.trim() } : {}),
+          // Write-only + tri-state: send only when the user typed one.
+          ...(fSecret ? { secretAccessKey: fSecret } : {}),
+        }
+      : {
+          ...common,
+          gitRemote: fRemote.trim(),
+          gitBranch: fBranch.trim(),
+          commitMessageTemplate: fTemplate.trim() || 'Publish {{date}} from Minerva',
+        };
     targets = await publish.upsertTarget(target);
     showForm = false;
     fLabel = '';
     fRemote = '';
+    fBucket = '';
+    fEndpoint = '';
+    fRegion = '';
+    fAccessKeyId = '';
+    fSecret = '';
+    s3CheckResult = null;
   }
 
   async function removeTarget(id: string): Promise<void> {
@@ -119,8 +173,8 @@
 <div class="publish-backdrop" onmousedown={onBackdrop} onkeydown={onKeydown}>
   <div class="publish-dialog" role="dialog" aria-labelledby="publish-title">
     <h2 id="publish-title">Publish to Web</h2>
-    <p class="sub">Push an export to a git remote — e.g. a static site to GitHub Pages.
-      Authentication uses your GitHub CLI login or a <code>GH_TOKEN</code>.</p>
+    <p class="sub">Push an export to a git remote (e.g. a static site to GitHub Pages) or upload it
+      to an S3 / S3-compatible bucket (Amazon S3, Cloudflare R2, Backblaze B2, MinIO, …).</p>
 
     {#if !loaded}
       <p class="muted">Loading…</p>
@@ -142,10 +196,14 @@
                 {/if}
               </div>
               <div class="target-actions">
-                <button onclick={() => run(t, true)} disabled={busyId === t.id}>
-                  {busyId === t.id ? 'Working…' : 'Preview'}
+                {#if t.kind !== 's3'}
+                  <button onclick={() => run(t, true)} disabled={busyId === t.id}>
+                    {busyId === t.id ? 'Working…' : 'Preview'}
+                  </button>
+                {/if}
+                <button class="primary" onclick={() => run(t, false)} disabled={busyId === t.id}>
+                  {busyId === t.id && t.kind === 's3' ? 'Uploading…' : 'Publish'}
                 </button>
-                <button class="primary" onclick={() => run(t, false)} disabled={busyId === t.id}>Publish</button>
                 <button class="ghost" onclick={() => removeTarget(t.id)} disabled={busyId === t.id} title="Remove target">✕</button>
               </div>
             </div>
@@ -174,7 +232,11 @@
                   {/if}
                 {:else if res.result.committed}
                   <div class="outcome-head">Published — {counts(res)}</div>
-                  <div class="muted">Pushed to <code>{res.result.branch}</code>{res.result.branchCreated ? ' (created)' : ''} · {res.result.sha?.slice(0, 7)} · {res.result.commitMessage}</div>
+                  {#if t.kind === 's3'}
+                    <div class="muted">Uploaded to <code>s3://{t.bucket}{t.subdir && t.subdir !== '.' ? `/${t.subdir}` : ''}</code>.</div>
+                  {:else}
+                    <div class="muted">Pushed to <code>{res.result.branch}</code>{res.result.branchCreated ? ' (created)' : ''} · {res.result.sha?.slice(0, 7)} · {res.result.commitMessage}</div>
+                  {/if}
                 {:else}
                   <div class="outcome-head">Up to date</div>
                   <div class="muted">Nothing has changed since the last publish.</div>
@@ -187,18 +249,49 @@
 
       {#if showForm}
         <div class="form">
-          <label>Label<input bind:value={fLabel} placeholder="My Garden" /></label>
-          <label>Remote URL<input bind:value={fRemote} placeholder="git@github.com:you/garden.git" /></label>
-          <div class="row">
-            <label>Branch<input bind:value={fBranch} /></label>
-            <label>Subdirectory<input bind:value={fSubdir} /></label>
+          <div class="kind-switch" role="radiogroup" aria-label="Transport">
+            <button class:selected={fKind === 'git'} role="radio" aria-checked={fKind === 'git'} onclick={() => { fKind = 'git'; }}>Git remote</button>
+            <button class:selected={fKind === 's3'} role="radio" aria-checked={fKind === 's3'} onclick={() => { fKind = 's3'; }}>S3 bucket</button>
           </div>
+
+          <label>Label<input bind:value={fLabel} placeholder="My Garden" /></label>
+
+          {#if fKind === 's3'}
+            <label>Bucket<input bind:value={fBucket} placeholder="my-site-bucket" /></label>
+            <div class="row">
+              <label>Endpoint (S3-compatible; blank for AWS)<input bind:value={fEndpoint} placeholder="https://<account>.r2.cloudflarestorage.com" /></label>
+              <label>Region<input bind:value={fRegion} placeholder="auto" /></label>
+            </div>
+            <label>Key prefix<input bind:value={fSubdir} placeholder="." /></label>
+            <div class="row">
+              <label>Access key ID<input bind:value={fAccessKeyId} autocomplete="off" spellcheck="false" /></label>
+              <label>Secret access key<input type="password" bind:value={fSecret} autocomplete="off" spellcheck="false"
+                oncopy={(e) => e.preventDefault()} oncut={(e) => e.preventDefault()} placeholder="stored encrypted" /></label>
+            </div>
+            <p class="muted">Leave the keys blank to use the AWS default credential chain (<code>~/.aws</code>, env vars). Preview isn't available for S3 yet — Publish uploads changed files and removes ones no longer exported.</p>
+            <div class="check-conn">
+              <button onclick={runS3Check} disabled={!canCheckS3 || s3Checking}>{s3Checking ? 'Checking…' : 'Test connection'}</button>
+              {#if s3CheckResult}
+                <span class="check-result" class:ok={s3CheckResult.ok} class:bad={!s3CheckResult.ok}>
+                  {#if s3CheckResult.ok}✓ Reached the bucket.{:else}✗ {s3CheckResult.error}{/if}
+                </span>
+              {/if}
+            </div>
+          {:else}
+            <label>Remote URL<input bind:value={fRemote} placeholder="git@github.com:you/garden.git" /></label>
+            <div class="row">
+              <label>Branch<input bind:value={fBranch} /></label>
+              <label>Subdirectory<input bind:value={fSubdir} /></label>
+            </div>
+            <label>Commit message<input bind:value={fTemplate} /></label>
+            <p class="muted">Authentication uses your GitHub CLI login or a <code>GH_TOKEN</code>.</p>
+          {/if}
+
           <label>Exporter
             <select bind:value={fExporter}>
               {#each exporters as e (e.id)}<option value={e.id}>{e.label}</option>{/each}
             </select>
           </label>
-          <label>Commit message<input bind:value={fTemplate} /></label>
           <div class="form-actions">
             <button class="ghost" onclick={() => { showForm = false; }}>Cancel</button>
             <button class="primary" onclick={saveTarget} disabled={!canSave}>Save target</button>
@@ -268,6 +361,14 @@
   .form .row label { flex: 1; }
   .form input, .form select { background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 0.88rem; }
   .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+  .kind-switch { display: flex; gap: 6px; }
+  .kind-switch button { flex: 1; }
+  .kind-switch button.selected { background: var(--accent); color: var(--accent-ink, #1a1a1a); border-color: transparent; }
+  .check-conn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .check-result { font-size: 0.82rem; }
+  .check-result.ok { color: var(--sage, #6a9); }
+  .check-result.bad { color: var(--rust, #c66); }
 
   .footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
 </style>
