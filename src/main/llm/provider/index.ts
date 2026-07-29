@@ -37,11 +37,14 @@ function missingKeyError(id: ProviderId): Error {
 
 /**
  * Which provider a model belongs to. Built-in models carry it in the catalog;
- * an unknown id falls back to Anthropic (user-defined local models get their own
- * resolution in BYOM #1497).
+ * a user-defined custom model (settings.customModels) routes to `local`; an
+ * otherwise-unknown id falls back to Anthropic.
  */
-function resolveProviderId(model: string): ProviderId {
-  return providerForModel(model) ?? 'anthropic';
+function resolveProviderId(model: string, settings: LLMSettings): ProviderId {
+  const builtIn = providerForModel(model);
+  if (builtIn) return builtIn;
+  if (settings.customModels?.some((m) => m.id === model)) return 'local';
+  return 'anthropic';
 }
 
 /** Construct the provider for `id`, reading its credentials from settings.
@@ -63,8 +66,18 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
       if (!c?.apiKey) throw missingKeyError('google');
       return new GoogleProvider(c.apiKey);
     }
-    case 'local':
-      throw new Error(`Local / OpenAI-compatible models aren't wired up yet (BYOM #1497).`);
+    case 'local': {
+      // OpenAI-compatible endpoint (Ollama/LM Studio/vLLM/…). Reuses the OpenAI
+      // implementation with a custom base URL; the key is optional (keyless
+      // local servers). Reports id 'local' for provenance.
+      const c = settings.providers.local;
+      if (!c?.baseURL) {
+        throw new Error(
+          `${MISSING_API_KEY_MARKER}. Set a base URL for the ${PROVIDERS.local.label} endpoint in the LLM settings.`,
+        );
+      }
+      return new OpenAIProvider(c.apiKey ?? '', c.baseURL, undefined, 'local');
+    }
   }
 }
 
@@ -77,7 +90,7 @@ function buildProvider(id: ProviderId, settings: LLMSettings): LLMProvider {
 export async function getProvider(modelOverride?: string): Promise<ResolvedProvider> {
   const settings = await getSettings();
   const model = modelOverride ?? settings.model;
-  const provider = buildProvider(resolveProviderId(model), settings);
+  const provider = buildProvider(resolveProviderId(model, settings), settings);
   return {
     provider,
     model,
@@ -95,12 +108,12 @@ export function createProviderForKey(providerId: ProviderId, apiKey: string, bas
   switch (providerId) {
     case 'openai':
       return new OpenAIProvider(apiKey, baseURL);
+    case 'local':
+      return new OpenAIProvider(apiKey, baseURL, undefined, 'local');
     case 'google':
       return new GoogleProvider(apiKey);
     case 'anthropic':
     default:
-      // local reuses an OpenAI-shaped check once wired (#1497); until then only
-      // anthropic/openai/google reach here from the settings UI.
       return new AnthropicProvider(apiKey);
   }
 }

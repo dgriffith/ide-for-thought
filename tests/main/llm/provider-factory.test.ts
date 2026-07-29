@@ -53,6 +53,31 @@ describe('getProvider — provider resolution from the effective model', () => {
   });
 });
 
+describe('getProvider — local / custom models (#1497)', () => {
+  it('routes a custom model to the local provider with the configured base URL', async () => {
+    h.getSettings.mockResolvedValue({
+      providers: { local: { baseURL: 'http://localhost:11434/v1' } },
+      customModels: [{ id: 'llama3.1' }],
+      model: 'claude-opus-5',
+    });
+    const r = await getProvider('llama3.1');
+    expect(r.provider.id).toBe('local');
+    expect(r.model).toBe('llama3.1');
+  });
+
+  it('throws asking for a base URL when a custom model is selected but local has none', async () => {
+    h.getSettings.mockResolvedValue({ providers: {}, customModels: [{ id: 'llama3.1' }], model: 'claude-opus-5' });
+    await expect(getProvider('llama3.1')).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider('llama3.1')).rejects.toThrow(/base URL/i);
+  });
+
+  it('an unknown id that is NOT a custom model still falls back to Anthropic', async () => {
+    h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
+    const r = await getProvider('totally-unknown');
+    expect(r.provider.id).toBe('anthropic');
+  });
+});
+
 describe('getProvider — missing credentials', () => {
   it('throws the marker error naming OpenAI when its key is absent', async () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });

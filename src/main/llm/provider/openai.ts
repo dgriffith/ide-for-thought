@@ -103,13 +103,15 @@ export function parseToolArgs(args: string): unknown {
 }
 
 export class OpenAIProvider implements LLMProvider {
-  readonly id = 'openai';
+  readonly id: string;
   private readonly client: OpenAI;
 
   /** `client` is injectable for tests; production passes only key + baseURL.
    *  An empty key (keyless local endpoints, #1497) is replaced with a dummy the
-   *  SDK accepts — those servers ignore it. */
-  constructor(apiKey: string, baseURL?: string, client?: OpenAI) {
+   *  SDK accepts — those servers ignore it. `id` lets a local OpenAI-compatible
+   *  endpoint report `'local'` for provenance while reusing this implementation. */
+  constructor(apiKey: string, baseURL?: string, client?: OpenAI, id = 'openai') {
+    this.id = id;
     this.client = client ?? new OpenAI({ apiKey: apiKey || 'no-key', ...(baseURL ? { baseURL } : {}) });
   }
 
