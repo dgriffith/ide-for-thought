@@ -15,7 +15,7 @@ import type { ProjectContext } from '../project-context-types';
 import {
   type GraphState,
   getEngine,
-  getState, setState, deleteState, invalidate,
+  getState, setState, deleteState, invalidate, instrumentStoreMirror,
 } from './state';
 
 // ── Public read API (#671) ───────────────────────────────────────────────────
@@ -121,6 +121,10 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     frontmatterKeysPerNote: new Map(),
     neighborhoodCache: new Map(),
   };
+  // Wrap the store's mutation methods so the N3 mirror is maintained
+  // incrementally for this store's whole life (#1110). n3Cache is null now, so
+  // the load below isn't mirrored — the first query rebuilds it from scratch.
+  instrumentStoreMirror(state);
 
   // Load persisted graph if it exists
   const graphPath = path.join(metaDir, 'graph.ttl');
