@@ -319,6 +319,14 @@ export interface PublishApi {
   removeTarget(id: string): Promise<PublishTarget[]>;
   /** Export + commit + push (or, with `dryRun`, preview the diff only). */
   toGit(targetId: string, opts?: { dryRun?: boolean }): Promise<PublishGitResponse>;
+  /** Validate S3 credentials + endpoint against the bucket, before saving (#1444). */
+  checkS3(config: {
+    bucket: string;
+    endpoint?: string;
+    region?: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+  }): Promise<import('../../../shared/tools/types').ConnectionCheckResult>;
 }
 
 /** A configured publish destination (#254; multi-transport #1444). */

@@ -289,6 +289,14 @@ export interface ChannelMap {
         commitMessage?: string;
       } }
     | { ok: false; error: string };
+  /** Validate S3 credentials + endpoint against the bucket, before saving (#1444). */
+  'publish:checkS3': (config: {
+    bucket: string;
+    endpoint?: string;
+    region?: string;
+    accessKeyId?: string;
+    secretAccessKey?: string;
+  }) => ConnectionCheckResult;
 
   // Compute (notebook cells)
   'compute:runCell': (language: string, code: string, notePath?: string) => CellResult;
