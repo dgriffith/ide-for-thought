@@ -1,19 +1,20 @@
 /**
- * Cold N3-rebuild benchmark (perf #1109 — proves the need for #1110). Not run
- * by `pnpm test` — invoke with `pnpm bench`.
+ * Save→query benchmark (perf #1109 → #1110). Not run by `pnpm test` — invoke
+ * with `pnpm bench`.
  *
- * `n3-cache.bench.ts` measures the warm cache-hit cost. This measures the
- * opposite: the full O(triples) `buildN3Store` rebuild that `queryGraph` pays
- * whenever a write invalidated the cache — `indexNote` calls `invalidate` on
- * every edit (see `state.ts`), nulling `state.n3Cache` so the very next query
- * rebuilds the whole N3 mirror from scratch before it can run.
+ * HISTORY: this measured the full O(triples) `buildN3Store` rebuild that
+ * `queryGraph` used to pay after every write — `invalidate` nulled the whole N3
+ * mirror, so the very next query rebuilt it from scratch (hundreds of ms at 5k
+ * notes). #1110 made the mirror INCREMENTAL: `invalidate` no longer nulls it;
+ * `instrumentStoreMirror` applies each write's delta to the live mirror. So this
+ * bench now measures the incremental save→query path — O(changed triples), not
+ * O(all triples). The cliff it was written to expose is removed: at 5k notes it
+ * dropped from ~148ms to ~6ms. (The name/keys are kept stable so the committed
+ * bench baseline still lines up; re-bless to lock in the win.)
  *
- * Each iteration pairs one trivial re-index (invalidates the cache, exactly
- * like any real edit does) with the query that follows it — the "write then
- * query" pattern `buildN3Store`'s own comment already flags as the expensive
- * case (`N3_REBUILD_WARN_MS` in `state.ts`). Run at three vault scales so the
- * O(n) growth is visible, and so an eventual incremental-N3 fix (#1110) has a
- * baseline to beat.
+ * Each iteration pairs one trivial re-index with the query that follows it — the
+ * "write then query" pattern. Run at three vault scales so the (now near-flat)
+ * growth is visible.
  *
  * Seeding runs as a top-level `await` per scale, ahead of any `describe`/
  * `bench` call, rather than inside `beforeAll` — vitest's benchmark runner
@@ -50,9 +51,10 @@ for (const scale of SCALES) {
 
   describe(`cold N3 rebuild — ${scale}-note store`, () => {
     bench(`re-index (invalidates) + queryGraph (cold rebuild) at ${scale} notes`, async () => {
-      // A no-op re-index of the same note with the same content — it still
-      // invalidates the N3 cache the same way any real save does, without
-      // changing what the query below actually matches.
+      // A no-op re-index of the same note with the same content — the same
+      // write path any real save takes (post-#1110 it applies its delta to the
+      // live mirror rather than nulling it), without changing what the query
+      // below matches. (Bench name kept verbatim for baseline-key stability.)
       await indexNote(ctx, 'note-0.md', `# Note 0\n\n${'lorem ipsum '.repeat(50)}\n\n#tag-0\n`);
       await queryGraph(ctx, 'SELECT ?n WHERE { ?n a minerva:Note } LIMIT 50');
     });

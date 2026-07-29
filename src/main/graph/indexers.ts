@@ -31,7 +31,7 @@ import type { ProjectContext } from '../project-context-types';
 
 import {
   type GraphState, type HeadingSnapshot,
-  getState, invalidate,
+  getState, invalidate, resetN3Mirror, instrumentStoreMirror,
   MINERVA, DC, RDF, RDFS, XSD, CSVW, OWL, BIBO, SCHEMA, PROV, THOUGHT,
   STANDARD_PREFIXES,
   noteUri, tagUri, folderUri, sourceUri, excerptUri, tableUri, projectUri,
@@ -1347,8 +1347,12 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   // Carry proposals across the from-scratch reset below (see the helper's note).
   const preservedProposals = captureProposalStatements(state.store);
 
-  // Reset and rebuild from scratch with ontology
+  // Reset and rebuild from scratch with ontology. The wholesale store swap is
+  // the one mutation the incremental N3 mirror can't track, so drop the mirror
+  // (rebuilt lazily on the next query) and re-instrument the fresh store (#1110).
   state.store = $rdf.graph();
+  instrumentStoreMirror(state);
+  resetN3Mirror(state);
   invalidate(state);
   addOntologyToStore(state);
   state.aliasesPerNote.clear();

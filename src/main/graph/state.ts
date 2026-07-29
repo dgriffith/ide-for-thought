@@ -219,9 +219,146 @@ export function deleteState(ctx: ProjectContext): void {
 }
 
 export function invalidate(state: GraphState): void {
-  state.n3Cache = null;
+  // NOTE (#1110): this no longer nulls `n3Cache`. The N3 mirror is now
+  // maintained incrementally by `instrumentStoreMirror` — every rdflib
+  // add/removeMatches applies the same delta to the live mirror — so a write no
+  // longer discards a mirror that may hold 100k triples for the next query to
+  // rebuild from scratch. The only path that must drop the mirror is a
+  // wholesale store swap (`indexAllNotes`), which calls `resetN3Mirror`.
   // Any triple change can alter some note's neighborhood; drop the memo (#1113).
   state.neighborhoodCache.clear();
+}
+
+// ── Incremental N3 mirror maintenance (#1110) ────────────────────────────────
+//
+// rdflib's mutable IndexedFormula is the source of truth; the N3.Store mirror
+// (`state.n3Cache`) is what Comunica reads. Rather than null-and-full-rebuild on
+// every write (O(all triples) on the next query), we wrap the store's two
+// mutation methods so each write applies the equivalent delta to the live
+// mirror — O(changed triples). The mirror flattens every named graph into the
+// default graph, exactly as `buildN3Store` does, so query semantics are
+// unchanged. Correctness on removal leans on rdflib itself as the reference
+// count: a flattened quad is dropped only when rdflib no longer asserts that
+// (s,p,o) in ANY graph — provably identical to a from-scratch `buildN3Store`.
+
+/** Belt-and-suspenders: force a fresh full rebuild after this many incremental
+ *  mirror mutations, so any unforeseen drift self-heals within a bounded window
+ *  (#1110 asks for a periodic/fallback rebuild). Generous — the amortized cost
+ *  of one O(n) rebuild per N writes is negligible next to N incremental deltas. */
+const N3_PERIODIC_REBUILD_EVERY = 1000;
+
+interface MirrorMarker {
+  /** Set once per store instance so we never double-wrap. */
+  __minervaMirrored?: boolean;
+  /** Incremental mutations applied since the last full build (periodic reset). */
+  __minervaN3Writes?: number;
+}
+
+/** The two rdflib mutation methods + the read used to snapshot removals, viewed
+ *  with loose params so we can wrap them without fighting rdflib's Quad_* types. */
+interface MutableStore {
+  add(s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike, g?: unknown): unknown;
+  removeMatches(s?: unknown, p?: unknown, o?: unknown, g?: unknown): unknown;
+  statementsMatching(s?: unknown, p?: unknown, o?: unknown, g?: unknown): $rdf.Statement[];
+}
+
+/** Null the mirror so the next `queryGraph` rebuilds it from scratch. Use on a
+ *  wholesale store swap or as the periodic/fallback rebuild. */
+export function resetN3Mirror(state: GraphState): void {
+  state.n3Cache = null;
+  (state.store as unknown as MirrorMarker).__minervaN3Writes = 0;
+}
+
+function mirrorAdd(state: GraphState, s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike): void {
+  const n3 = state.n3Cache;
+  if (!n3) return;
+  const df = N3.DataFactory;
+  try {
+    const subject = convertTerm(s, df);
+    const predicate = convertTerm(p, df) as N3.NamedNode | null;
+    const object = convertTerm(o, df);
+    // Same guard + default-graph flattening as buildN3Store; addQuad is
+    // idempotent, so re-asserting an existing triple is a no-op.
+    if (subject && predicate && object) {
+      n3.addQuad(subject as N3.Quad_Subject, predicate, object as N3.Quad_Object, df.defaultGraph());
+    }
+  } catch { /* mirror buildN3Store's skip-malformed resilience */ }
+}
+
+function mirrorRemove(state: GraphState, removed: $rdf.Statement[]): void {
+  const n3 = state.n3Cache;
+  if (!n3) return;
+  const df = N3.DataFactory;
+  for (const st of removed) {
+    try {
+      // Drop the flattened quad ONLY when rdflib no longer asserts this (s,p,o)
+      // in any graph — otherwise a sibling named graph still needs it (rdflib is
+      // the reference count). `undefined` graph = match across all graphs.
+      if (state.store.statementsMatching(st.subject, st.predicate, st.object, undefined).length > 0) continue;
+      const subject = convertTerm(st.subject, df);
+      const predicate = convertTerm(st.predicate, df) as N3.NamedNode | null;
+      const object = convertTerm(st.object, df);
+      if (!subject || !predicate || !object) continue;
+      // Remove the ACTUAL stored quad(s), located by value via getQuads, rather
+      // than a freshly-reconstructed term — literal datatype/canonicalization
+      // can differ just enough that removeQuad(reconstructed) misses. getQuads
+      // matches by term value; removeQuad(quad) mutates synchronously (unlike
+      // removeMatches, which returns a stream and wouldn't mutate in place).
+      for (const q of n3.getQuads(subject, predicate, object, df.defaultGraph())) {
+        n3.removeQuad(q);
+      }
+    } catch { /* skip malformed, same as buildN3Store */ }
+  }
+}
+
+/**
+ * Wrap `state.store`'s `add` / `removeMatches` so every rdflib mutation applies
+ * the matching delta to the live N3 mirror. Idempotent per store instance; call
+ * after each `state.store = $rdf.graph()`. When `n3Cache` is null (cold, or
+ * during a bulk load before the first query) mirroring is skipped and the next
+ * query rebuilds from scratch — so this adds only a cheap null-check per write
+ * on the cold path.
+ */
+export function instrumentStoreMirror(state: GraphState): void {
+  const store = state.store;
+  const marker = store as unknown as MirrorMarker;
+  if (marker.__minervaMirrored) return;
+  marker.__minervaMirrored = true;
+  marker.__minervaN3Writes = 0;
+
+  // rdflib's method signatures use Quad_* subtypes we don't satisfy at this
+  // boundary; view the store through a loose interface so the wrapping stays
+  // type-clean without `any`.
+  const m = store as unknown as MutableStore;
+  const origAdd = m.add.bind(m);
+  const origRemoveMatches = m.removeMatches.bind(m);
+  const matchAny = m.statementsMatching.bind(m);
+
+  function bumpAndMaybeRebuild(): void {
+    if (!state.n3Cache) return;
+    marker.__minervaN3Writes = (marker.__minervaN3Writes ?? 0) + 1;
+    if (marker.__minervaN3Writes >= N3_PERIODIC_REBUILD_EVERY) resetN3Mirror(state);
+  }
+
+  m.add = function (s: RdflibTermLike, p: RdflibTermLike, o: RdflibTermLike, g?: unknown) {
+    const ret = origAdd(s, p, o, g);
+    mirrorAdd(state, s, p, o);
+    bumpAndMaybeRebuild();
+    return ret;
+  };
+
+  m.removeMatches = function (s?: unknown, p?: unknown, o?: unknown, g?: unknown) {
+    if (!state.n3Cache) return origRemoveMatches(s, p, o, g);
+    // Snapshot (.slice) the statements about to be removed BEFORE the rdflib
+    // removal: rdflib's statementsMatching can return a live reference to its
+    // internal array, which origRemoveMatches then splices in place — so without
+    // the copy `removed` would be empty by the time we reconcile the mirror.
+    const removed = matchAny(s ?? undefined, p ?? undefined, o ?? undefined, g ?? undefined).slice();
+    const ret = origRemoveMatches(s, p, o, g);
+    mirrorRemove(state, removed);
+    bumpAndMaybeRebuild();
+    return ret;
+  };
 }
 
 // ── URI helpers (delegate to uri-helpers module) ────────────────────────────
