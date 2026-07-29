@@ -29,27 +29,49 @@ function collectTsFiles(dir: string): string[] {
   return out;
 }
 
-// Match a real import/require of the SDK, not a passing mention in a comment
-// (types.ts, for instance, names it in prose while importing nothing from it).
-const SDK_IMPORT = /(?:from|require\()\s*['"]@anthropic-ai\/sdk['"]/;
-// The single sanctioned home of the SDK. Everything Claude-specific lives here.
-const SANCTIONED = path.join('src', 'main', 'llm', 'provider', 'anthropic.ts');
+// Each provider SDK is confined to its own implementation file. A real
+// import/require (not a passing mention in a comment — types.ts names Anthropic
+// in prose while importing nothing) anywhere else breaks the seam. As providers
+// are added (BYOM #1492) each SDK gets a row here.
+const SDKS: { name: string; importRe: RegExp; sanctioned: string }[] = [
+  {
+    name: '@anthropic-ai/sdk',
+    importRe: /(?:from|require\()\s*['"]@anthropic-ai\/sdk['"]/,
+    sanctioned: path.join('src', 'main', 'llm', 'provider', 'anthropic.ts'),
+  },
+  {
+    name: 'openai',
+    importRe: /(?:from|require\()\s*['"]openai(?:\/[^'"]*)?['"]/,
+    sanctioned: path.join('src', 'main', 'llm', 'provider', 'openai.ts'),
+  },
+];
 
-describe('provider seam (#1148)', () => {
-  const importers = collectTsFiles(srcRoot)
-    .filter((f) => SDK_IMPORT.test(fs.readFileSync(f, 'utf-8')))
-    .map((f) => path.relative(repoRoot, f))
-    .sort();
+const NON_PROVIDER_FILES = [
+  path.join('src', 'main', 'llm', 'index.ts'),
+  path.join('src', 'main', 'llm', 'tools', 'registry.ts'),
+  path.join('src', 'main', 'llm', 'tools', 'types.ts'),
+];
 
-  it('confines the Anthropic SDK to the single provider implementation', () => {
-    expect(importers).toEqual([SANCTIONED]);
-  });
+describe('provider seam (#1148, BYOM #1492)', () => {
+  const files = collectTsFiles(srcRoot);
+  const importersOf = (re: RegExp) =>
+    files
+      .filter((f) => re.test(fs.readFileSync(f, 'utf-8')))
+      .map((f) => path.relative(repoRoot, f))
+      .sort();
 
-  it('does not let the SDK leak into tool definitions or the agentic loop', () => {
-    // Belt-and-braces: name the two files that used to import the SDK, so a
-    // reader of a failure sees *where* the seam broke, not just a count.
-    expect(importers).not.toContain(path.join('src', 'main', 'llm', 'index.ts'));
-    expect(importers).not.toContain(path.join('src', 'main', 'llm', 'tools', 'registry.ts'));
-    expect(importers).not.toContain(path.join('src', 'main', 'llm', 'tools', 'types.ts'));
+  for (const sdk of SDKS) {
+    it(`confines ${sdk.name} to its single provider implementation`, () => {
+      expect(importersOf(sdk.importRe)).toEqual([sdk.sanctioned]);
+    });
+  }
+
+  it('does not let any provider SDK leak into tool definitions or the agentic loop', () => {
+    // Belt-and-braces: name the files that must never import a provider SDK, so
+    // a reader of a failure sees *where* the seam broke, not just a count.
+    for (const sdk of SDKS) {
+      const importers = importersOf(sdk.importRe);
+      for (const f of NON_PROVIDER_FILES) expect(importers).not.toContain(f);
+    }
   });
 });

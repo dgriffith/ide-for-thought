@@ -30,13 +30,13 @@ describe('checkConnection — key resolution', () => {
     const res = await checkConnection('  sk-typed  ');
     expect(res).toEqual({ ok: true });
     expect(h.getSettings).not.toHaveBeenCalled();
-    expect(h.createProviderForKey).toHaveBeenCalledWith('sk-typed');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-typed');
   });
 
   it('falls back to the stored key when no candidate is given', async () => {
     await checkConnection('');
     expect(h.getSettings).toHaveBeenCalled();
-    expect(h.createProviderForKey).toHaveBeenCalledWith('sk-stored');
+    expect(h.createProviderForKey).toHaveBeenCalledWith('anthropic', 'sk-stored');
   });
 
   it('short-circuits with no provider call when there is no key at all', async () => {

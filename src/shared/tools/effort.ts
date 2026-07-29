@@ -47,6 +47,13 @@ const SUPPORT: Record<string, Effort[]> = {
   'claude-sonnet-5': ['low', 'medium', 'high', 'max'],
   'claude-sonnet-4-6': ['low', 'medium', 'high', 'max'],
   'claude-haiku-4-5': [],
+  // OpenAI reasoning models take `reasoning_effort` (low/medium/high). The
+  // provider maps neutral xhigh/max → high, and clampEffort snaps a picked
+  // xhigh/max down to high since it's not listed here.
+  'gpt-5': ['low', 'medium', 'high'],
+  'gpt-5-mini': ['low', 'medium', 'high'],
+  'o3': ['low', 'medium', 'high'],
+  'o4-mini': ['low', 'medium', 'high'],
 };
 
 /**

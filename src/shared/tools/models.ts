@@ -34,6 +34,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'claude-sonnet-5', label: 'Claude Sonnet 5', provider: 'anthropic' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic' },
   { value: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'anthropic' },
+  // OpenAI (BYOM #1495). Reasoning-capable models with large output caps, so
+  // they clear the provider's max_completion_tokens clamp. gpt-4o / non-reasoning
+  // tiers are intentionally omitted for now (lower output caps + no reasoning).
+  { value: 'gpt-5', label: 'GPT-5', provider: 'openai' },
+  { value: 'gpt-5-mini', label: 'GPT-5 mini', provider: 'openai' },
+  { value: 'o3', label: 'OpenAI o3', provider: 'openai' },
+  { value: 'o4-mini', label: 'OpenAI o4-mini', provider: 'openai' },
 ];
 
 export function modelLabel(value: string): string {
@@ -77,6 +84,15 @@ export const MODEL_PRICING: Record<string, ModelPrice> = {
   'claude-sonnet-5': { input: 3, output: 15 },
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-haiku-4-5': { input: 1, output: 5 },
+  // OpenAI (BYOM #1495). Representative published $/MTok at authoring time —
+  // verify before relying on the cost figure; like the Sonnet note above, an
+  // out-of-date rate over- or under-estimates rather than failing. OpenAI's
+  // cached-input discount isn't modelled (usage counts cached tokens as full
+  // input — see foldOpenAIUsage), so real cost trends slightly below these.
+  'gpt-5': { input: 1.25, output: 10 },
+  'gpt-5-mini': { input: 0.25, output: 2 },
+  'o3': { input: 2, output: 8 },
+  'o4-mini': { input: 1.1, output: 4.4 },
 };
 
 /**

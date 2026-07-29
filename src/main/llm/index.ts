@@ -228,8 +228,7 @@ export async function complete(
     messages = [{ role: 'user', content: prompt }];
   }
 
-  const { provider, model: defaultModel, effort: defaultEffort } = await getProvider();
-  const model = modelOverride ?? defaultModel;
+  const { provider, model, effort: defaultEffort } = await getProvider(modelOverride);
   const effort = resolveEffort(model, effortOverride, defaultEffort);
 
   // `const` (not the outer `let`) so TS keeps the narrowing inside the closure.
@@ -262,8 +261,7 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { provider, model: defaultModel, web, effort: defaultEffort } = await getProvider();
-  const model = options.model ?? defaultModel;
+  const { provider, model, web, effort: defaultEffort } = await getProvider(options.model);
   const effort = resolveEffort(model, options.effort, defaultEffort);
   const { toolContext, callbacks, maxIterations = 10 } = options;
 

@@ -25,5 +25,5 @@ export async function checkConnection(candidateKey?: string): Promise<Connection
   if (!key) {
     return { ok: false, error: 'No API key to check — enter one above or save it first.' };
   }
-  return createProviderForKey(key).checkConnection();
+  return createProviderForKey('anthropic', key).checkConnection();
 }
