@@ -44,6 +44,11 @@ const SDKS: { name: string; importRe: RegExp; sanctioned: string }[] = [
     importRe: /(?:from|require\()\s*['"]openai(?:\/[^'"]*)?['"]/,
     sanctioned: path.join('src', 'main', 'llm', 'provider', 'openai.ts'),
   },
+  {
+    name: '@google/genai',
+    importRe: /(?:from|require\()\s*['"]@google\/genai['"]/,
+    sanctioned: path.join('src', 'main', 'llm', 'provider', 'google.ts'),
+  },
 ];
 
 const NON_PROVIDER_FILES = [

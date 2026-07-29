@@ -18,7 +18,7 @@ import { MISSING_API_KEY_MARKER } from '../../../src/shared/llm-errors';
 beforeEach(() => {
   vi.clearAllMocks();
   h.getSettings.mockResolvedValue({
-    providers: { anthropic: { apiKey: 'sk-ant' }, openai: { apiKey: 'sk-openai' } },
+    providers: { anthropic: { apiKey: 'sk-ant' }, openai: { apiKey: 'sk-openai' }, google: { apiKey: 'sk-gemini' } },
     model: 'claude-opus-5',
   });
 });
@@ -41,6 +41,12 @@ describe('getProvider — provider resolution from the effective model', () => {
     expect(r.provider.id).toBe('anthropic');
   });
 
+  it('routes a Gemini model override to the Google provider', async () => {
+    const r = await getProvider('gemini-2.5-pro');
+    expect(r.provider.id).toBe('google');
+    expect(r.model).toBe('gemini-2.5-pro');
+  });
+
   it('falls back to Anthropic for an unknown model id', async () => {
     const r = await getProvider('some-unlisted-model');
     expect(r.provider.id).toBe('anthropic');
@@ -52,6 +58,12 @@ describe('getProvider — missing credentials', () => {
     h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
     await expect(getProvider('gpt-5')).rejects.toThrow(MISSING_API_KEY_MARKER);
     await expect(getProvider('gpt-5')).rejects.toThrow(/OpenAI/);
+  });
+
+  it('throws the marker error naming Gemini when its key is absent', async () => {
+    h.getSettings.mockResolvedValue({ providers: { anthropic: { apiKey: 'sk-ant' } }, model: 'claude-opus-5' });
+    await expect(getProvider('gemini-2.5-pro')).rejects.toThrow(MISSING_API_KEY_MARKER);
+    await expect(getProvider('gemini-2.5-pro')).rejects.toThrow(/Gemini/);
   });
 
   it('throws the marker error naming Anthropic when its key is absent', async () => {
