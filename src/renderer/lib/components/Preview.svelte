@@ -9,6 +9,7 @@
     import {hydrateCardCallouts} from '../markdown/card-callout';
     import {slugify} from '../../../shared/slug';
     import {createPreviewMarkdown} from '../preview/markdown-config';
+    import {sanitizeNoteHtml} from '../preview/sanitize-note-html';
     import {api} from '../ipc/client';
     import {clampSubmenu} from '../utils/menuClamp';
     import {type ChartHandle} from '../charts';
@@ -252,6 +253,14 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     // synchronously so there's no FOUC, then coalesce subsequent
     // changes to one render per ~120ms idle window.
     function renderContent(c: string): string {
+        // DOMPurify pass before the result reaches `{@html rendered}` (#1327 /
+        // M2 + #1332 / L4). Single choke point so both the initial seed and the
+        // debounced re-render are sanitised; preserves the rich markup (KaTeX,
+        // mermaid/vega/query placeholders, wiki-links, task checkboxes) while
+        // stripping scripting vectors + remote privacy beacons.
+        return sanitizeNoteHtml(renderContentRaw(c));
+    }
+    function renderContentRaw(c: string): string {
         // Turtle files are indexable + previewable but they aren't
         // markdown — running them through markdown-it turns `@prefix`
         // lines into stray HTML and IRI angle-brackets into wrecked
@@ -948,8 +957,8 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         <aside class="csl-numeric-bibliography" aria-label="References">
             <h2>References</h2>
             {#each cslBibliographyEntries as entry, i (i)}
-                <!-- citeproc emits trusted HTML from project-controlled meta.ttl -->
-                <div class="csl-bibliography-entry">{@html entry}</div>
+                <!-- citeproc HTML from project-controlled meta.ttl — sanitised as defence-in-depth (#1327) -->
+                <div class="csl-bibliography-entry">{@html sanitizeNoteHtml(entry)}</div>
             {/each}
         </aside>
     {/if}
@@ -959,7 +968,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             style={tooltipStyle}
             aria-hidden="true"
     >
-        {@html tooltipHtml}
+        {@html sanitizeNoteHtml(tooltipHtml)}
     </div>
 </div>
 
