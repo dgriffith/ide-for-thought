@@ -41,10 +41,12 @@ export interface ProjectConfigShape {
 }
 
 /**
- * A configured "Publish → git remote" destination (#254): an exporter
- * paired with a git remote/branch to push its output to (e.g. a static
- * site → GitHub Pages). Stored in `.minerva/config.json`, which is
- * gitignored, so a remote URL never rides along in the thoughtbase repo.
+ * A configured publish destination (#254; multi-transport #1444). Non-secret
+ * fields (remote URL, bucket, endpoint, region, prefix, access-key id) live in
+ * `.minerva/config.json`, which travels with the thoughtbase. Credentials do
+ * NOT: they're encrypted in the gitignored `.minerva/secrets.json` so they never
+ * ride along in a git-backed / shared thoughtbase — same reasoning that moved
+ * compute trust out of the config (#1412).
  */
 interface PublishTargetBase {
   /** Stable id — names the publish-cache workspace and the config entry. */
@@ -100,10 +102,14 @@ export interface S3PublishTarget extends PublishTargetBase {
 
 export type PublishTarget = GitPublishTarget | S3PublishTarget;
 
-/** On-disk targets: the encrypted secret replaces the plaintext write field. */
-type StoredGitTarget = Omit<GitPublishTarget, 'githubToken' | 'hasToken'> & { githubTokenEnc?: string };
-type StoredS3Target = Omit<S3PublishTarget, 'secretAccessKey' | 'hasSecret'> & { secretAccessKeyEnc?: string };
+/** On-disk (config.json) target: non-secret fields only. The encrypted secret
+ *  lives in the gitignored `.minerva/secrets.json`. */
+type StoredGitTarget = Omit<GitPublishTarget, 'githubToken' | 'hasToken'>;
+type StoredS3Target = Omit<S3PublishTarget, 'secretAccessKey' | 'hasSecret'>;
 type StoredTarget = StoredGitTarget | StoredS3Target;
+
+/** Encrypted per-target credentials, stored in `.minerva/secrets.json`. */
+interface TargetSecret { s3Secret?: string; githubToken?: string }
 
 function configPath(rootPath: string): string {
   return path.join(rootPath, '.minerva', 'config.json');
@@ -171,24 +177,80 @@ export function setExcerptNoteFolder(rootPath: string, folder: string): void {
   patchProjectConfig(rootPath, { excerpt: { ...existing, noteFolder: cleaned } });
 }
 
-function readStoredTargets(rootPath: string): StoredTarget[] {
-  return (readProjectConfig(rootPath).publish?.targets as StoredTarget[] | undefined) ?? [];
+function secretsPath(rootPath: string): string {
+  return path.join(rootPath, '.minerva', 'secrets.json');
 }
 
-/** Map an on-disk target to its wire form — for S3, replace the encrypted
- *  secret with a `hasSecret` flag so the plaintext never reaches the renderer. */
-function toWireTarget(t: StoredTarget): PublishTarget {
-  if (t.kind === 's3') {
-    const { secretAccessKeyEnc, ...rest } = t;
-    return { ...rest, hasSecret: !!secretAccessKeyEnc };
+function readSecrets(rootPath: string): Record<string, TargetSecret> {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(secretsPath(rootPath), 'utf-8')) as { publishTargets?: Record<string, TargetSecret> };
+    return parsed.publishTargets ?? {};
+  } catch {
+    return {};
   }
-  const { githubTokenEnc, ...rest } = t;
-  return { ...rest, hasToken: !!githubTokenEnc };
+}
+
+/** Ensure a rule is present in the Minerva-owned `.minerva/.gitignore`. */
+function ensureMinervaGitignored(rootPath: string, rule: string): void {
+  const dir = path.join(rootPath, '.minerva');
+  const file = path.join(dir, '.gitignore');
+  let current = '';
+  try { current = fs.readFileSync(file, 'utf-8'); } catch { /* none yet */ }
+  if (current.split(/\r?\n/).some((l) => l.trim() === rule)) return;
+  fs.mkdirSync(dir, { recursive: true });
+  const next = current && !current.endsWith('\n') ? `${current}\n` : current;
+  fs.writeFileSync(file, `${next}${rule}\n`, 'utf-8');
+}
+
+function writeSecrets(rootPath: string, secrets: Record<string, TargetSecret>): void {
+  const file = secretsPath(rootPath);
+  if (Object.keys(secrets).length === 0) {
+    try { fs.unlinkSync(file); } catch { /* already absent */ }
+    return;
+  }
+  ensureMinervaGitignored(rootPath, 'secrets.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify({ publishTargets: secrets }, null, 2), 'utf-8');
+}
+
+/**
+ * Config targets (non-secret) + the per-target secret map, migrating any legacy
+ * inline `*Enc` (pre-split, when secrets lived in config.json) out into
+ * `secrets.json` on first access — so a git-backed thoughtbase never commits them.
+ */
+function loadPublishState(rootPath: string): { targets: StoredTarget[]; secrets: Record<string, TargetSecret> } {
+  const raw = (readProjectConfig(rootPath).publish?.targets ?? []) as (StoredTarget & { secretAccessKeyEnc?: string; githubTokenEnc?: string })[];
+  const secrets = readSecrets(rootPath);
+  let migrated = false;
+  const targets: StoredTarget[] = raw.map((t) => {
+    const { secretAccessKeyEnc, githubTokenEnc, ...rest } = t;
+    if (secretAccessKeyEnc || githubTokenEnc) {
+      migrated = true;
+      const cur = { ...(secrets[t.id] ?? {}) };
+      if (secretAccessKeyEnc && !cur.s3Secret) cur.s3Secret = secretAccessKeyEnc;
+      if (githubTokenEnc && !cur.githubToken) cur.githubToken = githubTokenEnc;
+      secrets[t.id] = cur;
+    }
+    return rest;
+  });
+  if (migrated) {
+    patchProjectConfig(rootPath, { publish: { targets } });
+    writeSecrets(rootPath, secrets);
+  }
+  return { targets, secrets };
+}
+
+/** Map an on-disk target + its secret entry to the wire form: presence flags
+ *  only, never the encrypted credential. */
+function toWireTarget(t: StoredTarget, secret: TargetSecret | undefined): PublishTarget {
+  if (t.kind === 's3') return { ...t, hasSecret: !!secret?.s3Secret };
+  return { ...t, hasToken: !!secret?.githubToken };
 }
 
 /** All configured publish targets (#254, #1444), secrets stripped. Empty when unset. */
 export function getPublishTargets(rootPath: string): PublishTarget[] {
-  return readStoredTargets(rootPath).map(toWireTarget);
+  const { targets, secrets } = loadPublishState(rootPath);
+  return targets.map((t) => toWireTarget(t, secrets[t.id]));
 }
 
 export function getPublishTarget(rootPath: string, id: string): PublishTarget | null {
@@ -200,11 +262,13 @@ export function getPublishTarget(rootPath: string, id: string): PublishTarget | 
  * at publish time. Never crosses to the renderer. Empty for non-S3 / unknown ids.
  */
 export function getS3Credentials(rootPath: string, id: string): { accessKeyId?: string; secretAccessKey?: string } {
-  const t = readStoredTargets(rootPath).find((x) => x.id === id);
+  const { targets, secrets } = loadPublishState(rootPath);
+  const t = targets.find((x) => x.id === id);
   if (!t || t.kind !== 's3') return {};
+  const enc = secrets[id]?.s3Secret;
   return {
     ...(t.accessKeyId ? { accessKeyId: t.accessKeyId } : {}),
-    ...(t.secretAccessKeyEnc ? { secretAccessKey: decryptSecret(t.secretAccessKeyEnc) } : {}),
+    ...(enc ? { secretAccessKey: decryptSecret(enc) } : {}),
   };
 }
 
@@ -214,42 +278,54 @@ export function getS3Credentials(rootPath: string, id: string): { accessKeyId?: 
  * `gh` CLI / env fallback then applies).
  */
 export function getGitCredentials(rootPath: string, id: string): { token?: string } {
-  const t = readStoredTargets(rootPath).find((x) => x.id === id);
+  const { targets, secrets } = loadPublishState(rootPath);
+  const t = targets.find((x) => x.id === id);
   if (!t || t.kind === 's3') return {};
-  return t.githubTokenEnc ? { token: decryptSecret(t.githubTokenEnc) } : {};
+  const enc = secrets[id]?.githubToken;
+  return enc ? { token: decryptSecret(enc) } : {};
 }
 
-/** Wire → on-disk: for S3, apply the tri-state secret (string sets/encrypts,
- *  '' clears, omitted keeps the existing encrypted value) and drop the plaintext. */
-function toStoredTarget(target: PublishTarget, existing: StoredTarget | undefined): StoredTarget {
+/** Wire → on-disk config form: drop the write-only secret + its presence flag. */
+function toStoredTarget(target: PublishTarget): StoredTarget {
   if (target.kind === 's3') {
-    const { secretAccessKey, hasSecret: _hasSecret, ...rest } = target;
-    const prevEnc = existing && existing.kind === 's3' ? existing.secretAccessKeyEnc : undefined;
-    const enc = secretAccessKey === undefined ? prevEnc
-      : secretAccessKey === '' ? undefined
-      : encryptSecret(secretAccessKey);
-    return { ...rest, ...(enc ? { secretAccessKeyEnc: enc } : {}) };
+    const { secretAccessKey: _s, hasSecret: _h, ...rest } = target;
+    return rest;
   }
-  const { githubToken, hasToken: _hasToken, ...rest } = target;
-  const prevEnc = existing && existing.kind !== 's3' ? existing.githubTokenEnc : undefined;
-  const enc = githubToken === undefined ? prevEnc
-    : githubToken === '' ? undefined
-    : encryptSecret(githubToken);
-  return { ...rest, ...(enc ? { githubTokenEnc: enc } : {}) };
+  const { githubToken: _t, hasToken: _ht, ...rest } = target;
+  return rest;
 }
 
-/** Insert or replace a target by id, preserving the rest of the list (and other
- *  targets' encrypted secrets — CRUD operates on the STORED shape). */
+/** Apply a wire target's tri-state secret onto its secret entry: a string sets
+ *  (encrypted), '' clears, omitted keeps the stored value. Returns undefined
+ *  when nothing remains, so the entry can be dropped. */
+function applySecret(prev: TargetSecret | undefined, target: PublishTarget): TargetSecret | undefined {
+  const cur: TargetSecret = { ...(prev ?? {}) };
+  const field: keyof TargetSecret = target.kind === 's3' ? 's3Secret' : 'githubToken';
+  const value = target.kind === 's3' ? target.secretAccessKey : target.githubToken;
+  if (value === '') delete cur[field];
+  else if (value !== undefined) cur[field] = encryptSecret(value);
+  return Object.keys(cur).length > 0 ? cur : undefined;
+}
+
+/** Insert or replace a target by id, preserving the rest of the list and other
+ *  targets' secrets. Non-secret fields → config.json; the credential → secrets.json. */
 export function upsertPublishTarget(rootPath: string, target: PublishTarget): void {
-  const targets = readStoredTargets(rootPath);
+  const { targets, secrets } = loadPublishState(rootPath);
+  const stored = toStoredTarget(target);
   const idx = targets.findIndex((t) => t.id === target.id);
-  const stored = toStoredTarget(target, idx >= 0 ? targets[idx] : undefined);
   if (idx >= 0) targets[idx] = stored;
   else targets.push(stored);
+  const secret = applySecret(secrets[target.id], target);
+  if (secret) secrets[target.id] = secret;
+  else delete secrets[target.id];
   patchProjectConfig(rootPath, { publish: { targets } });
+  writeSecrets(rootPath, secrets);
 }
 
 export function removePublishTarget(rootPath: string, id: string): void {
-  const targets = readStoredTargets(rootPath).filter((t) => t.id !== id);
-  patchProjectConfig(rootPath, { publish: { targets } });
+  const { targets, secrets } = loadPublishState(rootPath);
+  const next = targets.filter((t) => t.id !== id);
+  delete secrets[id];
+  patchProjectConfig(rootPath, { publish: { targets: next } });
+  writeSecrets(rootPath, secrets);
 }
