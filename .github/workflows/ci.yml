@@ -85,17 +85,22 @@ jobs:
   # visible on every PR/push. Lightweight + decoupled — audit reads only the
   # lockfile, so no node_modules install, no native binaries, ubuntu is fine.
   #
-  # NON-BLOCKING FOR NOW (continue-on-error). Baseline at add-time (2026-07-27):
-  # 38 high + 3 critical total, but only 8 high + 2 critical on the *shipped*
-  # (`--prod`) surface — the rest live in build/dev tooling (@electron-forge/cli,
-  # eslint, vite) that never reaches users.
+  # `audit:prod` (shipped surface) is now BLOCKING (#1455). The 8 high + 2
+  # critical shipped advisories from the 2026-07-27 baseline were all in
+  # transitive tooling unreachable at runtime — rdflib's git-URL resolver
+  # (parse-url SSRF ×2, tmp, gry) and @huggingface/transformers' native/image
+  # deps (sharp, adm-zip via onnxruntime-node, which our WASM-only voice +
+  # embeddings paths never load) — and were force-patched via `pnpm.overrides`
+  # (parse-url ≥8.1, tmp ≥0.2.6, gry ≥6, sharp ≥0.35, adm-zip ≥0.6). No
+  # `--ignore` allowlist was needed; the overrides resolved cleanly and graph/
+  # SPARQL/voice were verified (pnpm lint + test + e2e).
   #
-  # PROMOTION PATH to a gating check (do this as the tree is remediated):
-  #   1. Clear the shipped surface, then flip the `audit:prod` step below to
-  #      blocking by removing its `continue-on-error` (gates `--prod` only —
-  #      protects users first without being held hostage by build-tool CVEs).
-  #   2. Once the full tree is clean, remove `continue-on-error` from `audit:all`
-  #      too, or drop `audit:prod` and gate `audit:all`.
+  # `audit:all` (full tree incl. build/dev tooling) stays NON-BLOCKING — the
+  # remaining high/critical live in @electron-forge/cli, eslint, vite, etc.,
+  # which never reach users. STEP 2 of the promotion path: once the full tree
+  # is clean, remove `continue-on-error` from `audit:all` too (or drop
+  # `audit:prod` and gate `audit:all`).
+  #
   # Remediation levers: bump via the Dependabot PRs; force a patched transitive
   # with a `pnpm.overrides` entry in package.json; allowlist an accepted/unfixable
   # advisory with `--ignore <CVE>` (append to the commands below with a comment
@@ -116,10 +121,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Shipped surface — the advisories that actually reach users. This is the
-      # first step slated to become blocking (see PROMOTION PATH above).
+      # Shipped surface — the advisories that actually reach users. BLOCKING
+      # (#1455): a new high/critical on a --prod dependency fails CI.
       - name: audit:prod (shipped deps, high+critical)
-        continue-on-error: true
         run: pnpm audit --prod --audit-level=high
 
       # Full tree incl. build/dev tooling — visibility only until the whole
