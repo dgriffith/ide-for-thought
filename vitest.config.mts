@@ -40,6 +40,19 @@ export default defineConfig({
         'src/main/publish/csl/bundled/**',
         // Ontology turtle blobs aren't code.
         '**/*.ttl',
+        // Effectively unrenderable in jsdom, so unit coverage can't reach them
+        // and their 0% would misrepresent the testable-code percentage (#1453):
+        //   - App.svelte is the composition root — `<svelte:window>`, every
+        //     store + ops cluster, IPC orchestration; there's no meaningful
+        //     unit render.
+        //   - Editor.svelte hosts a live CodeMirror EditorView, which needs a
+        //     real DOM/layout jsdom doesn't provide.
+        // Both ARE exercised at runtime by the Playwright e2e suite (smoke /
+        // a11y / journeys / focus-trap) in real Electron — that, not a line
+        // floor, is their gate. Excluding them makes `src/renderer/**` reflect
+        // code that unit tests can actually cover.
+        'src/renderer/App.svelte',
+        'src/renderer/lib/components/Editor.svelte',
       ],
       // Floors per area (#679). Set below the current numbers with headroom
       // so a small refactor won't flap CI, but a real regression on the trust
@@ -138,13 +151,17 @@ export default defineConfig({
         // QA C1). Floors sit below the measured-at-floor numbers with extra
         // headroom because this tree is volatile (a single new component moves
         // the needle): a mass test deletion or a large untested addition still
-        // fails CI. Ratcheted twice: #1451 (bucket A, pure-lib helpers) →
-        // ~42% L, then #1452 (bucket B, the store/ops data-flow spine:
-        // app/refactor-ops + note-ops + source-ops, stores/conversations +
-        // editor — incl. the Trust-Principle propose_*→file*Draft paths) →
-        // measured ~48% L / ~46% F / ~48% S / ~41% B (from ~36/39/35/31 pre-A).
-        // Ratchet upward again as the approval-proposal UI + remaining
-        // components gain tests.
+        // fails CI. Ratcheted three times: #1451 (bucket A, pure-lib helpers)
+        // → ~42% L; #1452 (bucket B, the store/ops data-flow spine) → ~48% L;
+        // #1453 (bucket C, mid-size dialogs/panels rendered via @testing-
+        // library/svelte: Export/Publish/FindInNotes/EditSavedQueries/Collection
+        // Picker dialogs, Tags/Inspections panels, conversation Composer +
+        // MessageList) → measured ~58% L / ~56% F / ~58% S / ~48% B (from
+        // ~36/39/35/31 pre-A). Note: #1453 also excluded App.svelte +
+        // Editor.svelte from the coverage `include` (unrenderable in jsdom,
+        // e2e-covered — see the exclude block above), so this % now reflects
+        // unit-testable renderer code. Ratchet upward as the approval-proposal
+        // UI + remaining components gain tests.
         //
         // NOTE: src/preload is deliberately NOT given a line-coverage floor.
         // It's a declarative contextBridge passthrough (~326 lines of
@@ -153,10 +170,10 @@ export default defineConfig({
         // #676), not line execution. Calling every passthrough to hit a line
         // floor would verify nothing the snapshot doesn't already pin.
         'src/renderer/**': {
-          lines: 42,
-          functions: 40,
-          statements: 42,
-          branches: 34,
+          lines: 50,
+          functions: 48,
+          statements: 50,
+          branches: 40,
         },
       },
     },
