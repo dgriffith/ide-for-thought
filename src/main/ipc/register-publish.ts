@@ -11,6 +11,7 @@ import {
   removePublishTarget,
   type PublishTarget,
 } from '../project-config';
+import { checkGitHubToken } from '../git/publish-git';
 import { withRootPath, withRootPathWin } from './helpers';
 
 export function registerPublish(): void {
@@ -155,5 +156,11 @@ export function registerPublish(): void {
         ...(config.secretAccessKey ? { secretAccessKey: config.secretAccessKey } : {}),
       },
     ),
+  );
+
+  // Validate a GitHub token (#1508) — a blank token tests the gh CLI / env
+  // fallback, matching what the push would resolve.
+  handle(Channels.PUBLISH_CHECK_GITHUB, (_e, config: { token?: string }) =>
+    checkGitHubToken(config.token),
   );
 }

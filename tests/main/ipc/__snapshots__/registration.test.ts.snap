@@ -139,6 +139,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "proposal:expire",
   "proposal:list",
   "proposal:reject",
+  "publish:checkGitHub",
   "publish:checkS3",
   "publish:listExporters",
   "publish:listTargets",

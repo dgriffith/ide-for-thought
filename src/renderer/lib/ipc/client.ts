@@ -327,6 +327,8 @@ export interface PublishApi {
     accessKeyId?: string;
     secretAccessKey?: string;
   }): Promise<import('../../../shared/tools/types').ConnectionCheckResult>;
+  /** Validate a GitHub token; blank tests the gh CLI / env fallback (#1508). */
+  checkGitHub(config: { token?: string }): Promise<import('../../../shared/tools/types').ConnectionCheckResult>;
 }
 
 /** A configured publish destination (#254; multi-transport #1444). */

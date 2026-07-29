@@ -575,6 +575,8 @@ export const Channels = {
   PUBLISH_TO_GIT: 'publish:toGit',
   /** Validate S3 credentials/endpoint against the bucket (HeadBucket) — settings "Check connection" (#1444). */
   PUBLISH_CHECK_S3: 'publish:checkS3',
+  /** Validate a GitHub token (GET /user) — publish dialog "Test connection" (#1508). */
+  PUBLISH_CHECK_GITHUB: 'publish:checkGitHub',
   /** Menu → "Export…" — opens the preview dialog for a specific exporter id (payload). */
   MENU_EXPORT: 'menu:export',
   /** Menu → "Publish to Web…" — opens the git-publish dialog (#254). */

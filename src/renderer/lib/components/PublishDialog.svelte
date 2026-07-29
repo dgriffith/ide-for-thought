@@ -30,6 +30,7 @@
   let fRemote = $state('');
   let fBranch = $state('gh-pages');
   let fTemplate = $state('Publish {{date}} from Minerva');
+  let fToken = $state('');
   // s3
   let fBucket = $state('');
   let fEndpoint = $state('');
@@ -43,6 +44,24 @@
   // Any edit to the S3 credentials invalidates a prior check result.
   $effect(() => { void fBucket; void fEndpoint; void fRegion; void fAccessKeyId; void fSecret; s3CheckResult = null; });
   const canCheckS3 = $derived(fBucket.trim() !== '');
+
+  // GitHub "test connection" (#1508). A blank token tests the gh CLI / env fallback.
+  let gitChecking = $state(false);
+  let gitCheckResult = $state<import('../../../shared/tools/types').ConnectionCheckResult | null>(null);
+  $effect(() => { void fToken; gitCheckResult = null; });
+
+  async function runGitHubCheck(): Promise<void> {
+    if (gitChecking) return;
+    gitChecking = true;
+    gitCheckResult = null;
+    try {
+      gitCheckResult = await api.publish.checkGitHub({ ...(fToken.trim() ? { token: fToken.trim() } : {}) });
+    } catch (e) {
+      gitCheckResult = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    } finally {
+      gitChecking = false;
+    }
+  }
 
   async function runS3Check(): Promise<void> {
     if (s3Checking || !canCheckS3) return;
@@ -117,17 +136,21 @@
           gitRemote: fRemote.trim(),
           gitBranch: fBranch.trim(),
           commitMessageTemplate: fTemplate.trim() || 'Publish {{date}} from Minerva',
+          // Write-only + tri-state: send only when the user typed one.
+          ...(fToken ? { githubToken: fToken } : {}),
         };
     targets = await publish.upsertTarget(target);
     showForm = false;
     fLabel = '';
     fRemote = '';
+    fToken = '';
     fBucket = '';
     fEndpoint = '';
     fRegion = '';
     fAccessKeyId = '';
     fSecret = '';
     s3CheckResult = null;
+    gitCheckResult = null;
   }
 
   async function removeTarget(id: string): Promise<void> {
@@ -284,7 +307,17 @@
               <label>Subdirectory<input bind:value={fSubdir} /></label>
             </div>
             <label>Commit message<input bind:value={fTemplate} /></label>
-            <p class="muted">Authentication uses your GitHub CLI login or a <code>GH_TOKEN</code>.</p>
+            <label>GitHub token (optional)<input type="password" bind:value={fToken} autocomplete="off" spellcheck="false"
+              oncopy={(e) => e.preventDefault()} oncut={(e) => e.preventDefault()} placeholder="stored encrypted" /></label>
+            <p class="muted">Leave blank to use your GitHub CLI login (<code>gh</code>) or a <code>GH_TOKEN</code> environment variable.</p>
+            <div class="check-conn">
+              <button onclick={runGitHubCheck} disabled={gitChecking}>{gitChecking ? 'Checking…' : 'Test connection'}</button>
+              {#if gitCheckResult}
+                <span class="check-result" class:ok={gitCheckResult.ok} class:bad={!gitCheckResult.ok}>
+                  {#if gitCheckResult.ok}✓ GitHub accepted the token.{:else}✗ {gitCheckResult.error}{/if}
+                </span>
+              {/if}
+            </div>
           {/if}
 
           <label>Exporter

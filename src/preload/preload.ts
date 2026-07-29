@@ -203,6 +203,8 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.PUBLISH_TO_GIT, targetId, opts),
     checkS3: (config: Parameters<ChannelMap['publish:checkS3']>[0]) =>
       invoke(Channels.PUBLISH_CHECK_S3, config),
+    checkGitHub: (config: Parameters<ChannelMap['publish:checkGitHub']>[0]) =>
+      invoke(Channels.PUBLISH_CHECK_GITHUB, config),
   },
   app: {
     getInfo: () => invoke(Channels.APP_GET_INFO),
