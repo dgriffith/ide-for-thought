@@ -95,11 +95,19 @@ jobs:
   # `--ignore` allowlist was needed; the overrides resolved cleanly and graph/
   # SPARQL/voice were verified (pnpm lint + test + e2e).
   #
-  # `audit:all` (full tree incl. build/dev tooling) stays NON-BLOCKING — the
-  # remaining high/critical live in @electron-forge/cli, eslint, vite, etc.,
-  # which never reach users. STEP 2 of the promotion path: once the full tree
-  # is clean, remove `continue-on-error` from `audit:all` too (or drop
-  # `audit:prod` and gate `audit:all`).
+  # `audit:all` (full tree incl. build/dev tooling) is now also CLEAN at
+  # high+critical: the remaining cluster — @electron-forge/cli's tar (incl. a
+  # critical), fast-uri + brace-expansion, and svelte-eslint-parser's postcss,
+  # all build/lint-time only — was force-patched via the same `pnpm.overrides`
+  # (tar ≥7.5.19, fast-uri ^3.1.4, brace-expansion ≥5.0.8, postcss ≥8.5.18),
+  # verified with pnpm lint + build:e2e + smoke.
+  #
+  # It stays NON-BLOCKING by choice: the dev/build tree is ~1600 packages and
+  # a fresh advisory in eslint / vite / vitest / electron-forge appears often;
+  # gating it would block unrelated PRs on a CVE that never reaches users. The
+  # step stays for visibility — re-triage on Dependabot's cadence (overrides /
+  # `--ignore` as needed). Flip to blocking only if the maintenance tax is
+  # acceptable.
   #
   # Remediation levers: bump via the Dependabot PRs; force a patched transitive
   # with a `pnpm.overrides` entry in package.json; allowlist an accepted/unfixable
