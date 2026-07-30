@@ -1347,17 +1347,63 @@ function captureProposalStatements(store: $rdf.IndexedFormula): $rdf.Statement[]
   return out;
 }
 
-function restoreProposalStatements(store: $rdf.IndexedFormula, stmts: $rdf.Statement[]): void {
-  for (const st of stmts) store.add(st.subject, st.predicate, st.object);
+/**
+ * Rewrite a term whose IRI/literal carries the old base to the new base
+ * (#1443 Part B — rewrite-on-rebase). NamedNodes under `from` are re-pointed;
+ * literals containing `from` (the proposal's `thought:payloadJson`, which
+ * embeds base IRIs in its turtle) get every occurrence replaced. The base is a
+ * unique URL prefix, so this can't touch the fixed `minerva:`/`thought:`/`prov:`
+ * ontology namespaces. Other terms pass through untouched.
+ */
+function rebaseTerm(term: $rdf.Node, from: string, to: string): $rdf.Node {
+  if (term.termType === 'NamedNode' && term.value.startsWith(from)) {
+    return $rdf.sym(to + term.value.slice(from.length));
+  }
+  if (term.termType === 'Literal' && term.value.includes(from)) {
+    const lit = term as $rdf.Literal;
+    return $rdf.literal(lit.value.split(from).join(to), lit.language || lit.datatype);
+  }
+  return term;
 }
 
-export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
+function restoreProposalStatements(
+  store: $rdf.IndexedFormula,
+  stmts: $rdf.Statement[],
+  rebase?: { from: string; to: string },
+): void {
+  for (const st of stmts) {
+    if (rebase) {
+      // Predicates are ontology terms (never base-derived), so leave them.
+      store.add(
+        rebaseTerm(st.subject, rebase.from, rebase.to) as $rdf.NamedNode,
+        st.predicate,
+        rebaseTerm(st.object as $rdf.Node, rebase.from, rebase.to),
+      );
+    } else {
+      store.add(st.subject, st.predicate, st.object);
+    }
+  }
+}
+
+/**
+ * `rebaseFrom` (#1443 Part B): the previous base IRI when this rebuild is a
+ * rebase. Pending/approved proposals aren't re-derivable from files, so they're
+ * carried across the reset — and, when rebasing, their base-prefixed IRIs +
+ * payload turtle are rewritten to the (already-updated) `state.baseUri` so they
+ * neither dangle on apply nor break the trust-integrity join for approved ones.
+ */
+export interface IndexAllNotesOptions { rebaseFrom?: string }
+
+export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOptions): Promise<number> {
   const state = getState(ctx);
   if (!state) return 0;
   const { rootPath } = state;
 
   // Carry proposals across the from-scratch reset below (see the helper's note).
   const preservedProposals = captureProposalStatements(state.store);
+  const rebase = opts?.rebaseFrom && opts.rebaseFrom !== state.baseUri
+    ? { from: opts.rebaseFrom, to: state.baseUri }
+    : undefined;
 
   // Reset and rebuild from scratch with ontology. The wholesale store swap is
   // the one mutation the incremental N3 mirror can't track, so drop the mirror
@@ -1372,7 +1418,7 @@ export async function indexAllNotes(ctx: ProjectContext): Promise<number> {
   state.indexedNotePaths.clear();
 
   ensureProject(state);
-  restoreProposalStatements(state.store, preservedProposals);
+  restoreProposalStatements(state.store, preservedProposals, rebase);
 
   // Two-pass build (#469): the first walk just reads frontmatter
   // aliases so the alias map is fully populated before any link gets

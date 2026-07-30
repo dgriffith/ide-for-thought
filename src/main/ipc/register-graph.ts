@@ -9,8 +9,7 @@ import * as tables from '../sources/tables';
 import type { QueryResult, TableInfo } from '../sources/tables';
 import * as healthChecks from '../graph/health-checks';
 import type { Inspection } from '../graph/health-checks';
-import { patchProjectConfig } from '../project-config';
-import { listProposals } from '../llm/proposal-persistence';
+import { patchProjectConfig, readProjectConfig } from '../project-config';
 import { checkRebase } from '../graph/rebase-guard';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 
@@ -21,19 +20,23 @@ export function registerGraph(): void {
 
   // Rebase the graph to a new base IRI (#1443 Part B). No in-place triple
   // rewriting: persist the new base, point the live state at it, then rebuild
-  // every index from the files (indexAllNotes) so all IRIs regenerate. Refuses
-  // while the review queue is non-empty — pending proposals hold absolute note
-  // IRIs that are copied verbatim across a rebuild and would dangle otherwise.
+  // every index from the files (indexAllNotes) so all IRIs regenerate. Proposals
+  // aren't file-derived, so their base-prefixed IRIs + payload turtle are
+  // rewritten old→new during the rebuild (indexAllNotes `rebaseFrom`) — no need
+  // to refuse while the review queue is non-empty.
   handle(Channels.GRAPH_SET_BASE_URI, withRootPathWin(async (rootPath, win, rawUri: string) => {
     const ctx = projectContext(rootPath);
-    const pending = await listProposals(ctx, 'pending');
-    const check = checkRebase(rawUri, pending.length);
+    const check = checkRebase(rawUri);
     if (!check.ok) return check;
+    const oldBase = readProjectConfig(rootPath).baseUri;
     patchProjectConfig(rootPath, { baseUri: check.uri });
     graph.setBaseUri(ctx, check.uri);
     // Same rebuild sequence as "Rebuild All Indexes" (menu.ts) — CSVs after the
     // store reset so their schema triples survive; note tables last (#1358).
-    await Promise.all([graph.indexAllNotes(ctx), search.indexAllNotes(ctx)]);
+    await Promise.all([
+      graph.indexAllNotes(ctx, oldBase ? { rebaseFrom: oldBase } : undefined),
+      search.indexAllNotes(ctx),
+    ]);
     await tables.registerAllCsvs(ctx);
     await tables.registerAllNoteTables(ctx);
     if (win && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);

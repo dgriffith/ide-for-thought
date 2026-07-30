@@ -57,9 +57,8 @@ export interface NotebaseApi {
    *  new-thoughtbase onboarding modal. Default false; set on user opt-out. */
   getOnboardingDismissed(): Promise<boolean>;
   setOnboardingDismissed(dismissed: boolean): Promise<void>;
-  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI,
-   *  and the review-queue size. */
-  getProperties(): Promise<{ displayName: string; folderName: string; baseUri: string; pendingProposalCount: number }>;
+  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI. */
+  getProperties(): Promise<{ displayName: string; folderName: string; baseUri: string }>;
   /** Set the display name ('' clears → folder basename); resolves to fresh meta. */
   setDisplayName(name: string): Promise<import('../../../shared/types').NotebaseMeta>;
 }
