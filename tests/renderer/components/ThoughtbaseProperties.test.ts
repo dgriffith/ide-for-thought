@@ -2,8 +2,9 @@
  * @vitest-environment happy-dom
  *
  * ThoughtbaseProperties dialog (#1443). Rename (Part A) + the Advanced base-IRI
- * tier (Part B): change is sent only when edited, disabled while proposals are
- * pending, and a refusal/error from the save is surfaced inline.
+ * tier (Part B): the base change is sent only when edited, and a
+ * validation/refusal error from the save is surfaced inline. (Proposals are
+ * migrated during the rebase, so the field is no longer locked.)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/svelte';
@@ -14,7 +15,6 @@ const api = vi.hoisted(() => ({
       displayName: 'Current',
       folderName: 'my-folder',
       baseUri: 'https://project.minerva.dev/u/p/',
-      pendingProposalCount: 0,
     })),
   },
 }));
@@ -46,23 +46,14 @@ describe('ThoughtbaseProperties', () => {
     expect(onSave).toHaveBeenCalledWith({ name: 'Current', baseUri: 'https://new.example/base/' });
   });
 
-  it('locks the base IRI field while proposals are pending', async () => {
-    api.notebase.getProperties.mockResolvedValueOnce({
-      displayName: 'Current', folderName: 'my-folder', baseUri: 'https://project.minerva.dev/u/p/', pendingProposalCount: 3,
-    });
-    const { getByLabelText, findByText } = render(ThoughtbaseProperties, { onSave: vi.fn(ok), onCancel: vi.fn() });
-    await findByText(/3 proposals await review/);
-    expect((getByLabelText('Graph base IRI') as HTMLInputElement).disabled).toBe(true);
-  });
-
-  it('surfaces a save refusal inline and keeps the dialog open', async () => {
-    const onSave = vi.fn(async () => ({ ok: false as const, error: 'Resolve the 2 pending proposal(s) first.' }));
+  it('surfaces a save error inline and keeps the dialog open', async () => {
+    const onSave = vi.fn(async () => ({ ok: false as const, error: 'Base IRI must be an absolute http(s) URL ending in "/".' }));
     const onCancel = vi.fn();
     const { getByLabelText, getByText, findByText, findByDisplayValue } = render(ThoughtbaseProperties, { onSave, onCancel });
     await findByDisplayValue('Current');
-    await fireEvent.input(getByLabelText('Graph base IRI'), { target: { value: 'https://new.example/base/' } });
+    await fireEvent.input(getByLabelText('Graph base IRI'), { target: { value: 'not-a-url' } });
     await fireEvent.click(getByText('Save'));
-    await findByText(/Resolve the 2 pending/);
+    await findByText(/absolute http/);
     expect(onCancel).not.toHaveBeenCalled(); // stays open
   });
 

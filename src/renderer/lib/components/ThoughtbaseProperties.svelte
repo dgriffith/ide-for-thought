@@ -24,13 +24,10 @@
   let folderName = $state('');
   let baseUri = $state('');
   let initialBaseUri = $state('');
-  let pendingCount = $state(0);
   let nameInput = $state<HTMLInputElement>();
 
   let saving = $state(false);
   let error = $state<string | null>(null);
-
-  const baseLocked = $derived(pendingCount > 0);
 
   onMount(async () => {
     try {
@@ -39,7 +36,6 @@
       folderName = p.folderName;
       baseUri = p.baseUri;
       initialBaseUri = p.baseUri;
-      pendingCount = p.pendingProposalCount;
     } catch (e) {
       console.warn('[thoughtbase] failed to load properties:', e);
     }
@@ -50,7 +46,7 @@
     if (saving) return;
     saving = true;
     error = null;
-    const baseChanged = !baseLocked && baseUri.trim() !== initialBaseUri;
+    const baseChanged = baseUri.trim() !== initialBaseUri;
     try {
       const r = await onSave({ name: name.trim(), ...(baseChanged ? { baseUri: baseUri.trim() } : {}) });
       if (!r.ok) error = r.error ?? 'Could not save.';
@@ -106,20 +102,13 @@
             class="input"
             autocomplete="off"
             spellcheck="false"
-            disabled={baseLocked}
           />
-          {#if baseLocked}
-            <p class="hint warn">
-              Locked while {pendingCount} proposal{pendingCount === 1 ? '' : 's'} await review — they
-              reference notes by absolute IRI and can't survive a rebase. Clear the review queue first.
-            </p>
-          {:else}
-            <p class="hint warn">
-              Rewrites every knowledge-graph identifier (a full re-index runs on save).
-              Existing exports and any hand-pasted IRIs that used the old base will no
-              longer resolve. Wiki-links are unaffected.
-            </p>
-          {/if}
+          <p class="hint warn">
+            Rewrites every knowledge-graph identifier (a full re-index runs on save).
+            Pending and reviewed proposals are migrated to the new base automatically;
+            wiki-links are unaffected. Existing exports and any hand-pasted IRIs that
+            used the old base will no longer resolve.
+          </p>
         </div>
       </details>
 

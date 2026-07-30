@@ -117,9 +117,8 @@ export interface ChannelMap {
   'notebase:renameExcerpt': (oldId: string, newId: string) => { rewrittenPaths: string[] };
   'notebase:getOnboardingDismissed': () => boolean;
   'notebase:setOnboardingDismissed': (dismissed: boolean) => void;
-  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI,
-   *  and the review-queue size (base-IRI edit is disabled while non-zero). */
-  'notebase:getProperties': () => { displayName: string; folderName: string; baseUri: string; pendingProposalCount: number };
+  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI. */
+  'notebase:getProperties': () => { displayName: string; folderName: string; baseUri: string };
   /** Set the display name ('' clears → folder basename); returns fresh meta. */
   'notebase:setDisplayName': (name: string) => NotebaseMeta;
 
