@@ -1525,7 +1525,15 @@
 
   {#if showThoughtbaseProperties}
     <ThoughtbaseProperties
-      onSave={(name) => { void notebase.setDisplayName(name); showThoughtbaseProperties = false; }}
+      onSave={async ({ name, baseUri }) => {
+        await notebase.setDisplayName(name);
+        if (baseUri !== undefined) {
+          const r = await notebase.setBaseUri(baseUri);
+          if (!r.ok) return r; // keep the dialog open to show the refusal/error
+        }
+        showThoughtbaseProperties = false;
+        return { ok: true };
+      }}
       onCancel={() => { showThoughtbaseProperties = false; }}
     />
   {/if}

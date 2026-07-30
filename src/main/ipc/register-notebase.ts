@@ -8,7 +8,8 @@ import { mergeNotes, previewMergeNotes } from '../notebase/merge';
 import { renameAnchor } from '../notebase/rename-anchor';
 import { renameSource, renameExcerpt } from '../notebase/rename-source-excerpt';
 import { getOrFetchRemoteImage } from '../images/remote-image-cache';
-import { resolveDisplayName, setDisplayName, getDisplayName } from '../project-config';
+import { resolveDisplayName, setDisplayName, getDisplayName, readProjectConfig } from '../project-config';
+import { listProposals } from '../llm/proposal-persistence';
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -362,9 +363,13 @@ export function registerNotebase(): void {
   // Thoughtbase Properties (#1443). Read the current display name + folder
   // basename for the dialog; set the display name and return fresh meta so the
   // renderer's notebase store updates the label everywhere immediately.
-  handle(Channels.NOTEBASE_GET_PROPERTIES, withRootPath((rootPath) => ({
+  handle(Channels.NOTEBASE_GET_PROPERTIES, withRootPath(async (rootPath) => ({
     displayName: getDisplayName(rootPath) ?? '',
     folderName: path.basename(rootPath),
+    // Base IRI + review-queue size drive the dialog's advanced tier (#1443 B):
+    // the field shows the current base and disables when proposals are pending.
+    baseUri: readProjectConfig(rootPath).baseUri ?? '',
+    pendingProposalCount: (await listProposals(projectContext(rootPath), 'pending')).length,
   })));
 
   handle(Channels.NOTEBASE_SET_DISPLAY_NAME, withRootPath((rootPath, name: string) => {

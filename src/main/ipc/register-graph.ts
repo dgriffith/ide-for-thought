@@ -3,17 +3,42 @@ import path from 'node:path';
 import { Channels } from '../../shared/channels';
 import { handle } from './typed-ipc';
 import * as graph from '../graph/index';
+import * as search from '../search/index';
 import { projectContext } from '../project-context-types';
 import * as tables from '../sources/tables';
 import type { QueryResult, TableInfo } from '../sources/tables';
 import * as healthChecks from '../graph/health-checks';
 import type { Inspection } from '../graph/health-checks';
-import { withRootPath, withRootPathOr } from './helpers';
+import { patchProjectConfig } from '../project-config';
+import { listProposals } from '../llm/proposal-persistence';
+import { checkRebase } from '../graph/rebase-guard';
+import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 
 export function registerGraph(): void {
   // Graph
   handle(Channels.GRAPH_QUERY, withRootPath((rootPath, sparql: string) =>
     graph.queryGraph(projectContext(rootPath), sparql)));
+
+  // Rebase the graph to a new base IRI (#1443 Part B). No in-place triple
+  // rewriting: persist the new base, point the live state at it, then rebuild
+  // every index from the files (indexAllNotes) so all IRIs regenerate. Refuses
+  // while the review queue is non-empty — pending proposals hold absolute note
+  // IRIs that are copied verbatim across a rebuild and would dangle otherwise.
+  handle(Channels.GRAPH_SET_BASE_URI, withRootPathWin(async (rootPath, win, rawUri: string) => {
+    const ctx = projectContext(rootPath);
+    const pending = await listProposals(ctx, 'pending');
+    const check = checkRebase(rawUri, pending.length);
+    if (!check.ok) return check;
+    patchProjectConfig(rootPath, { baseUri: check.uri });
+    graph.setBaseUri(ctx, check.uri);
+    // Same rebuild sequence as "Rebuild All Indexes" (menu.ts) — CSVs after the
+    // store reset so their schema triples survive; note tables last (#1358).
+    await Promise.all([graph.indexAllNotes(ctx), search.indexAllNotes(ctx)]);
+    await tables.registerAllCsvs(ctx);
+    await tables.registerAllNoteTables(ctx);
+    if (win && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+    return { ok: true as const };
+  }));
 
   // Tables (DuckDB)
   handle(Channels.TABLES_QUERY, withRootPathOr<[string], QueryResult | Promise<QueryResult>>({ ok: false, error: 'No project open' }, (rootPath, sql: string) =>
