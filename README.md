@@ -201,6 +201,12 @@ src/
 | Cmd+F | Find |
 | Cmd+H | Find & Replace |
 
+## Contributing
+
+Bug reports, feature ideas, skills, and pull requests are all welcome. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and how to open a
+good PR.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
