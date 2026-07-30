@@ -8,6 +8,7 @@ import { mergeNotes, previewMergeNotes } from '../notebase/merge';
 import { renameAnchor } from '../notebase/rename-anchor';
 import { renameSource, renameExcerpt } from '../notebase/rename-source-excerpt';
 import { getOrFetchRemoteImage } from '../images/remote-image-cache';
+import { resolveDisplayName, setDisplayName, getDisplayName } from '../project-config';
 import { getOrFetchThumbnail } from '../youtube/thumbnail-cache';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -47,7 +48,7 @@ export function registerNotebase(): void {
   handle(Channels.NOTEBASE_OPEN_PATH, async (e, rootPath: string) => {
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
-    return { rootPath, name: path.basename(rootPath) };
+    return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
   handle(Channels.NOTEBASE_NEW_PROJECT, async (e) => {
@@ -61,7 +62,7 @@ export function registerNotebase(): void {
     const rootPath = result.filePaths[0]!;
     const win = winFromEvent(e);
     await openProjectInWindow(win, rootPath);
-    return { rootPath, name: path.basename(rootPath) };
+    return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
   handle(Channels.NOTEBASE_CLOSE, (e) => {
@@ -87,9 +88,9 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
-    return { rootPath, name: path.basename(rootPath) };
+    return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
   handle(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW, async (e) => {
@@ -104,18 +105,18 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
-    return { rootPath, name: path.basename(rootPath) };
+    return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
   handle(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, (_e, rootPath: string) => {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: path.basename(rootPath) });
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
-    return { rootPath, name: path.basename(rootPath) };
+    return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
   handle(Channels.RECENT_CLEAR, () => {
@@ -356,6 +357,19 @@ export function registerNotebase(): void {
 
   handle(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, withRootPath((rootPath, dismissed: boolean) => {
     setOnboardingDismissed(rootPath, dismissed === true);
+  }));
+
+  // Thoughtbase Properties (#1443). Read the current display name + folder
+  // basename for the dialog; set the display name and return fresh meta so the
+  // renderer's notebase store updates the label everywhere immediately.
+  handle(Channels.NOTEBASE_GET_PROPERTIES, withRootPath((rootPath) => ({
+    displayName: getDisplayName(rootPath) ?? '',
+    folderName: path.basename(rootPath),
+  })));
+
+  handle(Channels.NOTEBASE_SET_DISPLAY_NAME, withRootPath((rootPath, name: string) => {
+    setDisplayName(rootPath, name);
+    return { rootPath, name: resolveDisplayName(rootPath) };
   }));
 
   handle(Channels.FILES_DROP_IMPORT, withRootPath(async (rootPath, targetFolder: string, localPaths: string[]) => {

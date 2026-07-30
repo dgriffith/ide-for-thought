@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { appIconPath } from './app-icon';
+import { resolveDisplayName } from './project-config';
 import { startWatching, stopWatching } from './notebase/watcher';
 import { markPathHandled as markPathHandledImpl, wasHandled } from './notebase/path-dedup';
 import * as graph from './graph/index';
@@ -119,7 +120,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
     if (ctx?.rootPath && !win.isDestroyed()) {
       win.webContents.send(Channels.PROJECT_OPENED, {
         rootPath: ctx.rootPath,
-        name: path.basename(ctx.rootPath),
+        name: resolveDisplayName(ctx.rootPath),
       });
     }
   });

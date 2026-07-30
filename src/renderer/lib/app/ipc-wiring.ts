@@ -93,6 +93,7 @@ export interface IpcWiringCtx {
   // Ops handlers + App-local flows (fire-and-forget; some return promises).
   newNote: () => void;
   editThoughtbaseGuide: () => void;
+  openThoughtbaseProperties: () => void;
   save: () => void;
   saveAsTemplate: () => void;
   insertTemplate: () => void;
@@ -224,6 +225,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // Listen for menu events from main process
   api.menu.onNewNote(() => ctx.newNote());
   api.menu.onEditThoughtbaseDoc(() => { void ctx.editThoughtbaseGuide(); });
+  api.menu.onThoughtbaseProperties(() => { ctx.openThoughtbaseProperties(); });
   api.menu.onSave(() => ctx.save());
   api.menu.onSaveAsTemplate(() => { void ctx.saveAsTemplate(); });
   api.menu.onInsertTemplate(() => { void ctx.insertTemplate(); });

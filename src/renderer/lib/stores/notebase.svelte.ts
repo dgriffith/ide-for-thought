@@ -58,6 +58,13 @@ export function getNotebaseStore() {
     return api.notebase.replaceInNotes(opts);
   }
 
+  /** Set the thoughtbase display name (#1443). Mutation → store-owned; updates
+   *  `meta` so the label refreshes everywhere the store is read. '' clears the
+   *  override (falls back to the folder basename). */
+  async function setDisplayName(name: string): Promise<void> {
+    meta = await api.notebase.setDisplayName(name);
+  }
+
   return {
     get meta() { return meta; },
     get files() { return files; },
@@ -68,6 +75,7 @@ export function getNotebaseStore() {
     refresh,
     writeFile,
     replaceInNotes,
+    setDisplayName,
     // ── File-change subscriptions (main → renderer) ───────────────────────
     // The store owns these `api.notebase.on*` subscriptions so components read
     // the effects without touching `api` directly (renderer data-flow rule).
