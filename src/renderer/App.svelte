@@ -1237,13 +1237,18 @@
             dictationActive={voice.surface === 'editor' && voice.busy}
             dictationDisabled={editor.viewMode === 'preview'}
           />
-          <ToolPanel
-            bind:this={toolPanelComponent}
-            onNoteCreated={() => { void notebase.refresh(); sidebar?.refreshTags(); }}
-            onOpenConversation={handleOpenConversationFromTool}
-            onMissingApiKey={() => { void handleMissingApiKey(); }}
-          />
         {/if}
+        <!-- ToolPanel is mounted for ANY active tab, not just notes (#1514):
+             source-scoped tools (e.g. Extract Key Claims) run from a source tab
+             and route through toolPanelComponent.startExecution(), which no-ops
+             if the panel isn't bound. It renders nothing until a tool runs, so
+             mounting it unconditionally is invisible on non-note tabs. -->
+        <ToolPanel
+          bind:this={toolPanelComponent}
+          onNoteCreated={() => { void notebase.refresh(); sidebar?.refreshTags(); }}
+          onOpenConversation={handleOpenConversationFromTool}
+          onMissingApiKey={() => { void handleMissingApiKey(); }}
+        />
       </div>
       {#if rightSidebarVisible && editor.activeTab?.type === 'note'}
         <RightSidebar
