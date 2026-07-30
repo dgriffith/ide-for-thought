@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
+import { resolveDisplayName } from '../project-config';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
@@ -21,7 +22,7 @@ export async function openNotebase(): Promise<NotebaseMeta | null> {
   const rootPath = result.filePaths[0]!;
   return {
     rootPath,
-    name: path.basename(rootPath),
+    name: resolveDisplayName(rootPath),
   };
 }
 

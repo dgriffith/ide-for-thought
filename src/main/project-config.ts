@@ -13,6 +13,12 @@ import { encryptSecret, decryptSecret } from './secret-storage';
 
 export interface ProjectConfigShape {
   baseUri?: string;
+  /**
+   * User-chosen display name (#1443). Decoupled from the folder: renaming here
+   * changes the label everywhere the thoughtbase is shown without touching the
+   * folder path or any graph IRI. Absent ⇒ fall back to the folder basename.
+   */
+  displayName?: string;
   bibliography?: {
     /** CSL style id; one of BUNDLED_STYLES keys. Falls back to APA. */
     styleId?: string;
@@ -136,6 +142,25 @@ export function patchProjectConfig(rootPath: string, patch: ProjectConfigShape):
   const next: ProjectConfigShape = { ...existing, ...patch };
   fs.mkdirSync(path.dirname(configPath(rootPath)), { recursive: true });
   fs.writeFileSync(configPath(rootPath), JSON.stringify(next, null, 2), 'utf-8');
+}
+
+/** The user-chosen display name, or null when unset (#1443). */
+export function getDisplayName(rootPath: string): string | null {
+  return readProjectConfig(rootPath).displayName?.trim() || null;
+}
+
+/** Set (or, with '', clear) the display name. Clearing falls back to the
+ *  folder basename via `resolveDisplayName`. */
+export function setDisplayName(rootPath: string, name: string): void {
+  // Store '' to clear — `getDisplayName` treats empty as unset, so
+  // `resolveDisplayName` falls back to the folder basename.
+  patchProjectConfig(rootPath, { displayName: name.trim() });
+}
+
+/** The name to show for a thoughtbase: the chosen display name, else the
+ *  folder basename (#1443). The single resolver every name site calls. */
+export function resolveDisplayName(rootPath: string): string {
+  return getDisplayName(rootPath) ?? path.basename(rootPath);
 }
 
 export function getBibliographyStyleId(rootPath: string): string | null {

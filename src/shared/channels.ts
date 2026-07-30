@@ -55,6 +55,9 @@ export const Channels = {
    *  written when the user clicks "Don't show again". */
   NOTEBASE_GET_ONBOARDING_DISMISSED: 'notebase:getOnboardingDismissed',
   NOTEBASE_SET_ONBOARDING_DISMISSED: 'notebase:setOnboardingDismissed',
+  /** Thoughtbase Properties (#1443): read {displayName, folderName}; set the display name. */
+  NOTEBASE_GET_PROPERTIES: 'notebase:getProperties',
+  NOTEBASE_SET_DISPLAY_NAME: 'notebase:setDisplayName',
   /** Emitted when indexNote detects a single-heading rename with incoming links (main → renderer). */
   NOTEBASE_HEADING_RENAME_SUGGESTED: 'notebase:headingRenameSuggested',
   /** Renderer-initiated rewrite of `[[path#oldSlug]]` → `[[path#newSlug]]`. */
@@ -156,6 +159,8 @@ export const Channels = {
   MENU_OPEN_IN_TERMINAL: 'menu:openInTerminal',
   MENU_NEW_NOTE: 'menu:newNote',
   MENU_EDIT_THOUGHTBASE_DOC: 'menu:editThoughtbaseDoc',
+  /** File → "Thoughtbase Properties…" — renderer opens the rename / base-IRI dialog (#1443). */
+  MENU_THOUGHTBASE_PROPERTIES: 'menu:thoughtbaseProperties',
   MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
   MENU_INSERT_TEMPLATE: 'menu:insertTemplate',
   MENU_SAVE: 'menu:save',

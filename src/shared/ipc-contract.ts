@@ -117,6 +117,10 @@ export interface ChannelMap {
   'notebase:renameExcerpt': (oldId: string, newId: string) => { rewrittenPaths: string[] };
   'notebase:getOnboardingDismissed': () => boolean;
   'notebase:setOnboardingDismissed': (dismissed: boolean) => void;
+  /** Thoughtbase Properties (#1443): current display name + the folder basename. */
+  'notebase:getProperties': () => { displayName: string; folderName: string };
+  /** Set the display name ('' clears → folder basename); returns fresh meta. */
+  'notebase:setDisplayName': (name: string) => NotebaseMeta;
 
   // Tags
   'tags:list': () => TagInfo[];

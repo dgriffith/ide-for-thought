@@ -57,6 +57,10 @@ export interface NotebaseApi {
    *  new-thoughtbase onboarding modal. Default false; set on user opt-out. */
   getOnboardingDismissed(): Promise<boolean>;
   setOnboardingDismissed(dismissed: boolean): Promise<void>;
+  /** Thoughtbase Properties (#1443): current display name + folder basename. */
+  getProperties(): Promise<{ displayName: string; folderName: string }>;
+  /** Set the display name ('' clears → folder basename); resolves to fresh meta. */
+  setDisplayName(name: string): Promise<import('../../../shared/types').NotebaseMeta>;
 }
 
 export type {
@@ -744,6 +748,7 @@ export interface SkillsApi {
 export interface MenuApi {
   onNewNote(cb: () => void): void;
   onEditThoughtbaseDoc(cb: () => void): void;
+  onThoughtbaseProperties(cb: () => void): void;
   onSave(cb: () => void): void;
   onSaveAsTemplate(cb: () => void): void;
   onInsertTemplate(cb: () => void): void;

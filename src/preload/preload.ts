@@ -80,6 +80,8 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.NOTEBASE_GET_ONBOARDING_DISMISSED),
     setOnboardingDismissed: (dismissed: boolean) =>
       invoke(Channels.NOTEBASE_SET_ONBOARDING_DISMISSED, dismissed),
+    getProperties: () => invoke(Channels.NOTEBASE_GET_PROPERTIES),
+    setDisplayName: (name: string) => invoke(Channels.NOTEBASE_SET_DISPLAY_NAME, name),
   },
   links: {
     outgoing: (relativePath: string) => invoke(Channels.LINKS_OUTGOING, relativePath),
@@ -487,6 +489,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onEditThoughtbaseDoc: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_EDIT_THOUGHTBASE_DOC, () => cb());
+    },
+    onThoughtbaseProperties: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_THOUGHTBASE_PROPERTIES, () => cb());
     },
     onSave: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE, () => cb());

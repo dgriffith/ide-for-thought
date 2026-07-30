@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { registerIpcHandlers } from './ipc';
+import { resolveDisplayName } from './project-config';
 import { buildMenu, rebuildMenu, clearMenuEditorState } from './menu';
 import { createWindow, openProjectInWindow, setMenuRebuilder, setMenuStateCleaner } from './window-manager';
 import { appIconPath } from './app-icon';
@@ -88,7 +89,7 @@ void app.whenReady().then(async () => {
         boot(`project indexed ${path.basename(state.rootPath)}`);
         win.webContents.send(Channels.PROJECT_OPENED, {
           rootPath: state.rootPath,
-          name: path.basename(state.rootPath),
+          name: resolveDisplayName(state.rootPath),
         });
       });
     }

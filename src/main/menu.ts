@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { THEME_MODES, type ThemeMode } from '../shared/theme';
 import { getRecentProjects } from './recent-projects';
+import { resolveDisplayName } from './project-config';
 import { createWindow, openProjectInWindow, getRootPath, broadcastBackfillProgress } from './window-manager';
 import { runBackfill } from './embeddings/backfill';
 import * as graph from './graph/index';
@@ -183,7 +184,7 @@ function buildRecentSubmenu(): Electron.MenuItemConstructorOptions[] {
               const win = createWindow();
               win.webContents.once('did-finish-load', async () => {
                 await openProjectInWindow(win, projectPath);
-                win.webContents.send(Channels.PROJECT_OPENED, { rootPath: projectPath, name: path.basename(projectPath) });
+                win.webContents.send(Channels.PROJECT_OPENED, { rootPath: projectPath, name: resolveDisplayName(projectPath) });
               });
             }
           },
@@ -226,6 +227,11 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Edit Thoughtbase Guide…',
         toolTip: 'Open thoughtbase.md — the plain-English guide (structure, intent, conventions) shown to the assistant at the start of every conversation. Created from a template if it doesn\'t exist yet.',
         click: () => send(Channels.MENU_EDIT_THOUGHTBASE_DOC),
+      }),
+      gate({
+        label: 'Thoughtbase Properties…',
+        toolTip: 'Rename the thoughtbase and (advanced) set its knowledge-graph base IRI.',
+        click: () => send(Channels.MENU_THOUGHTBASE_PROPERTIES),
       }),
       { type: 'separator' },
 
@@ -839,7 +845,7 @@ function buildWindowMenu(isMac: boolean): Electron.MenuItemConstructorOptions[] 
           .filter(w => !w.isDestroyed())
           .map(w => {
             const rootPath = getRootPath(w.id);
-            const label = rootPath ? path.basename(rootPath) : 'Untitled';
+            const label = rootPath ? resolveDisplayName(rootPath) : 'Untitled';
             const focused = w === BrowserWindow.getFocusedWindow();
             return {
               label,

@@ -68,6 +68,7 @@
   import CsvTable from './lib/components/CsvTable.svelte';
   import SettingsDialog from './lib/components/SettingsDialog.svelte';
   import OnboardingDialog from './lib/components/OnboardingDialog.svelte';
+  import ThoughtbaseProperties from './lib/components/ThoughtbaseProperties.svelte';
   import { api } from './lib/ipc/client';
   import { getNavigationStore } from './lib/stores/navigation.svelte';
   import { initTheme, cycleTheme, getThemeMode, setThemeMode, type ThemeMode } from './lib/theme';
@@ -122,6 +123,8 @@
    *  the thoughtbase has zero notes AND its per-project
    *  `onboarding.dismissed` flag is false. */
   let showOnboarding = $state(false);
+  /** Thoughtbase Properties dialog visibility (#1443), opened from File → Thoughtbase Properties…. */
+  let showThoughtbaseProperties = $state(false);
 
   // Inspections hidden for v1.0 — kept at 0 (no polling), so the status-bar
   // badge never shows. See the disabled polling in the project-open handler.
@@ -799,6 +802,7 @@
       refreshBacklinkCount: () => { void refreshBacklinkCount(); },
       newNote: () => { void handleNewNote(); },
       editThoughtbaseGuide: () => { void handleEditThoughtbaseDoc(); },
+      openThoughtbaseProperties: () => { showThoughtbaseProperties = true; },
       save: () => { void handleSave(); },
       saveAsTemplate: () => { void handleSaveAsTemplate(); },
       insertTemplate: () => { void handleInsertTemplate(); },
@@ -1516,6 +1520,13 @@
     <OnboardingDialog
       onAccept={(answers, dontAskAgain) => { void handleOnboardingAccept(answers, dontAskAgain); }}
       onDecline={(dontAskAgain) => { void handleOnboardingDecline(dontAskAgain); }}
+    />
+  {/if}
+
+  {#if showThoughtbaseProperties}
+    <ThoughtbaseProperties
+      onSave={(name) => { void notebase.setDisplayName(name); showThoughtbaseProperties = false; }}
+      onCancel={() => { showThoughtbaseProperties = false; }}
     />
   {/if}
 </div>
