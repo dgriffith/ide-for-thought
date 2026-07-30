@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const MENU_CHANNELS = [
-    'onNewNote', 'onEditThoughtbaseDoc', 'onSave', 'onSaveAsTemplate', 'onInsertTemplate',
+    'onNewNote', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onInsertTemplate',
     'onCycleTheme', 'onSetTheme', 'onFontIncrease', 'onFontDecrease', 'onFontReset',
     'onToggleSidebar', 'onToggleRightSidebar', 'onToggleConversations', 'onNewConversation',
     'onTogglePreview', 'onSplitRight', 'onSplitDown', 'onFocusNextGroup', 'onFocusPrevGroup',
@@ -119,7 +119,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
     'setShowGotoLine', 'setShowGotoNote', 'setShowEditSavedQueries', 'setShowAbout',
     'setShowShortcuts', 'setShowSettings', 'setPublishDialogOpen', 'setFindInNotesMode',
     'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
-    'newNote', 'editThoughtbaseGuide', 'save', 'saveAsTemplate', 'insertTemplate', 'cycleTheme',
+    'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'insertTemplate', 'cycleTheme',
     'selectTheme', 'openThoughtbase', 'newThoughtbase', 'openRecentThoughtbase', 'navBack',
     'navForward', 'rename', 'move', 'copy', 'extractSelection', 'splitHere', 'splitByHeading',
     'autoTag', 'autoLink', 'autoLinkInbound', 'decompose', 'format', 'bibliography', 'ingestUrl',
@@ -182,6 +182,7 @@ describe('menu bindings dispatch to the right action (no arg / no guard)', () =>
   const table: Array<[string, string]> = [
     ['onNewNote', 'newNote'],
     ['onEditThoughtbaseDoc', 'editThoughtbaseGuide'],
+    ['onThoughtbaseProperties', 'openThoughtbaseProperties'],
     ['onSave', 'save'],
     ['onSaveAsTemplate', 'saveAsTemplate'],
     ['onInsertTemplate', 'insertTemplate'],
