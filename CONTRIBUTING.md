@@ -18,7 +18,10 @@ the codebase follows, and what a good pull request looks like.
 - **Suggest a feature** — open an issue describing the problem you're trying to
   solve, not just the solution you have in mind. Minerva is an opinionated,
   professional tool (see [Design philosophy](#design-philosophy)); framing the
-  underlying need helps us find the fix that fits.
+  underlying need helps us find the fix that fits. Please check
+  [Scope and non-negotiables](#scope-and-non-negotiables) first — some
+  directions (groupware, telemetry) are out of scope and will be declined
+  regardless of implementation quality.
 - **Author a skill** — the Learning / Research / Analysis menus are populated by
   markdown *skill* files, not code. You can add one without touching TypeScript;
   see [`docs/authoring-skills.md`](docs/authoring-skills.md).
@@ -117,6 +120,36 @@ write guard can catch a regression. Under the test runner the guard *throws*, so
 an accidental bypass fails CI. See the *LLM Integration Principles* and *Code
 Review Checklist for LLM/Graph PRs* sections of [`CLAUDE.md`](CLAUDE.md) before
 touching this area.
+
+## Scope and non-negotiables
+
+Some things about Minerva are settled and not up for a PR to change. Please read
+these before investing in a large contribution — a PR that crosses one of these
+lines will be declined regardless of how well it's built.
+
+- **Not groupware.** Minerva is a single-user, local-first tool for one person's
+  thinking. It is **not** collaboration software, and we are **not** accepting
+  contributions that add groupware functionality of any kind — real-time
+  co-editing, shared servers, multi-user accounts, presence, comments,
+  server-side sync-as-a-service, and the like. (Publishing to a target you own,
+  and future device-to-device sync for a *single* user, are different things and
+  remain in scope.)
+- **Security-first.** Every potentially dangerous capability must be **warned
+  about, guarded, and sandboxed** — never on by default and never silent. Code
+  execution (Python / SQL cells), file-system access, network fetches, and
+  publishing all run behind explicit boundaries: path-traversal protection in
+  `notebase/fs.ts`, the approval engine for anything an LLM originates, a strict
+  CSP in the renderer, and context isolation across the process boundary. A PR
+  that adds a capability which can touch the disk, the network, or run code must
+  keep it inside those boundaries — don't widen a trust boundary for
+  convenience, and call out the security implications in the PR.
+- **Privacy-first.** Minerva runs on the user's machine and keeps their data
+  there — voice, embeddings, and search all run on-device. **Any PR that adds
+  telemetry, analytics, tracking, "phone-home" behavior, or that silently
+  exfiltrates _any_ user data will be summarily rejected.** Network access
+  happens only for actions the user explicitly took (fetching a source they
+  asked to import, publishing to a target they configured, calling an LLM they
+  set up) — never in the background, never for us.
 
 ## Design philosophy
 
