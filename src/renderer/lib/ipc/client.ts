@@ -57,8 +57,9 @@ export interface NotebaseApi {
    *  new-thoughtbase onboarding modal. Default false; set on user opt-out. */
   getOnboardingDismissed(): Promise<boolean>;
   setOnboardingDismissed(dismissed: boolean): Promise<void>;
-  /** Thoughtbase Properties (#1443): current display name + folder basename. */
-  getProperties(): Promise<{ displayName: string; folderName: string }>;
+  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI,
+   *  and the review-queue size. */
+  getProperties(): Promise<{ displayName: string; folderName: string; baseUri: string; pendingProposalCount: number }>;
   /** Set the display name ('' clears → folder basename); resolves to fresh meta. */
   setDisplayName(name: string): Promise<import('../../../shared/types').NotebaseMeta>;
 }
@@ -120,6 +121,8 @@ export interface GitApi {
 
 export interface GraphApi {
   query(sparql: string): Promise<{ results: unknown[]; columns: string[]; error?: string }>;
+  /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
+  setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
   inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;
   runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[]>;

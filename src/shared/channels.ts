@@ -110,6 +110,8 @@ export const Channels = {
 
   // Graph
   GRAPH_QUERY: 'graph:query',
+  /** Rebase the graph to a new base IRI + rebuild all indexes (#1443 Part B). */
+  GRAPH_SET_BASE_URI: 'graph:setBaseUri',
   /** Main→renderer: embedding backfill progress `{ done, total, running }` (#836). */
   EMBEDDINGS_BACKFILL_PROGRESS: 'embeddings:backfillProgress',
   /** Notes semantically related to a note, for the Related sidebar panel (#838). */

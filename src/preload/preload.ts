@@ -118,6 +118,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   graph: {
     query: (sparql: string) => invoke(Channels.GRAPH_QUERY, sparql),
+    setBaseUri: (uri: string) => invoke(Channels.GRAPH_SET_BASE_URI, uri),
     groundCheck: (claimText: string) => invoke(Channels.GRAPH_GROUND_CHECK, claimText),
     inspections: () => invoke(Channels.INSPECTIONS_LIST),
     runInspections: () => invoke(Channels.INSPECTIONS_RUN),

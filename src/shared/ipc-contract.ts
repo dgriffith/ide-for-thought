@@ -117,8 +117,9 @@ export interface ChannelMap {
   'notebase:renameExcerpt': (oldId: string, newId: string) => { rewrittenPaths: string[] };
   'notebase:getOnboardingDismissed': () => boolean;
   'notebase:setOnboardingDismissed': (dismissed: boolean) => void;
-  /** Thoughtbase Properties (#1443): current display name + the folder basename. */
-  'notebase:getProperties': () => { displayName: string; folderName: string };
+  /** Thoughtbase Properties (#1443): display name, folder basename, base IRI,
+   *  and the review-queue size (base-IRI edit is disabled while non-zero). */
+  'notebase:getProperties': () => { displayName: string; folderName: string; baseUri: string; pendingProposalCount: number };
   /** Set the display name ('' clears → folder basename); returns fresh meta. */
   'notebase:setDisplayName': (name: string) => NotebaseMeta;
 
@@ -194,6 +195,9 @@ export interface ChannelMap {
 
   // Graph
   'graph:query': (sparql: string) => { results: unknown[]; columns: string[]; error?: string };
+  /** Rebase to a new base IRI + rebuild indexes (#1443 Part B); refuses when the
+   *  review queue is non-empty. */
+  'graph:setBaseUri': (uri: string) => { ok: true } | { ok: false; error: string };
   'graph:groundCheck': (claimText: string) => { node: string; label: string; type: string }[];
   'graph:export': () => void;
   'graph:sourceDetail': (sourceId: string) => SourceDetail | null;

@@ -91,6 +91,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "graph:groundCheck",
   "graph:query",
   "graph:schemaForCompletion",
+  "graph:setBaseUri",
   "graph:sourceDetail",
   "images:cacheExternal",
   "ingest:getSettings",

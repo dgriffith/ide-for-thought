@@ -65,6 +65,14 @@ export function getNotebaseStore() {
     meta = await api.notebase.setDisplayName(name);
   }
 
+  /** Rebase the knowledge graph to a new base IRI (#1443 Part B). Mutation →
+   *  store-owned; persists + rebuilds all indexes main-side (refuses while the
+   *  review queue is non-empty). Returns the outcome so the dialog can surface
+   *  a refusal/validation error inline. */
+  function setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    return api.graph.setBaseUri(uri);
+  }
+
   return {
     get meta() { return meta; },
     get files() { return files; },
@@ -76,6 +84,7 @@ export function getNotebaseStore() {
     writeFile,
     replaceInNotes,
     setDisplayName,
+    setBaseUri,
     // ── File-change subscriptions (main → renderer) ───────────────────────
     // The store owns these `api.notebase.on*` subscriptions so components read
     // the effects without touching `api` directly (renderer data-flow rule).

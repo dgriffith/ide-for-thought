@@ -195,6 +195,17 @@ export function removeMatchingTriples(
   state.store.removeMatches($rdf.sym(subjectIri), $rdf.sym(predicateIri), undefined);
 }
 
+/**
+ * Point the in-memory graph state at a new base IRI (#1443 Part B). The caller
+ * persists it to config and runs `indexAllNotes`, which regenerates every note/
+ * tag/folder IRI from the files under the new base. No-op if the project isn't
+ * live. Does NOT rewrite triples in place — the rebuild is the mechanism.
+ */
+export function setBaseUri(ctx: ProjectContext, baseUri: string): void {
+  const state = getState(ctx);
+  if (state) state.baseUri = baseUri;
+}
+
 export function serializeGraph(ctx: ProjectContext): string {
   const state = getState(ctx);
   if (!state) return '';
