@@ -23,6 +23,26 @@ export function resolveToolModel(
   return tool.preferredModel;
 }
 
+/**
+ * Pure payload builder for one-shot (non-conversational) tools — the sibling of
+ * `buildConversationPayload`. Extracted so callers that need to package the
+ * prompt WITHOUT firing the LLM (the skill-eval harness, #1522) share the exact
+ * same prompt + model resolution `executeTool` uses, instead of reimplementing
+ * it and drifting.
+ */
+export function buildOneShotPayload(
+  tool: ThinkingToolDef,
+  settings: Pick<LLMSettings, 'toolModelOverrides'>,
+  request: Pick<ToolExecutionRequest, 'context'> & { modelOverride?: string },
+): { prompt: string; model?: string } {
+  if (tool.outputMode === 'openConversation') {
+    throw new Error(`Tool ${tool.id} is conversational — use buildConversationPayload instead.`);
+  }
+  const prompt = tool.buildPrompt(request.context);
+  const model = resolveToolModel(tool, settings, request.modelOverride);
+  return { prompt, ...(model ? { model } : {}) };
+}
+
 export async function executeTool(
   request: ToolExecutionRequest & { modelOverride?: string },
   onChunk?: (text: string) => void,
@@ -34,9 +54,8 @@ export async function executeTool(
     throw new Error(`Tool ${request.toolId} is conversational — use prepareConversationTool instead of executeTool.`);
   }
 
-  const prompt = tool.buildPrompt(request.context);
   const settings = await getSettings();
-  const model = resolveToolModel(tool, settings, request.modelOverride);
+  const { prompt, model } = buildOneShotPayload(tool, settings, request);
 
   const output = await complete(prompt, {
     ...(onChunk ? { callbacks: { onChunk, signal } } : {}),
