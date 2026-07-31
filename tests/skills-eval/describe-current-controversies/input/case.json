@@ -1,0 +1,6 @@
+{
+  "skill": "research.describe-current-controversies",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": { "note": "notes/upzoning-lowers-rents.md" }
+}

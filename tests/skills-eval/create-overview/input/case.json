@@ -1,0 +1,13 @@
+{
+  "skill": "learning.create-overview",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/upzoning-lowers-rents.md"
+  },
+  "parameters": {
+    "depth": "a quick orientation: an index note plus 3–5 child notes",
+    "level": "The reader is already deep — pitch the notes at peer level, focus on structure, debates, and frontiers rather than fundamentals.",
+    "use": "onboarding a new teammate to the housing-supply debate"
+  }
+}
