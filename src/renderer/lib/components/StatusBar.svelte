@@ -11,6 +11,9 @@
      *  checked item in the picker. */
     theme: ThemeMode;
     inspectionCount?: number;
+    /** Pending proposals awaiting review (#1528). 0 hides the badge; clicking
+     *  it opens the left Proposals panel. Complements the always-on dock badge. */
+    pendingCount?: number;
     /** Number of incoming wiki-links to the active note (#472). 0
      *  hides the item entirely — keeps the bar tidy for unlinked
      *  notes; we'll revisit if anyone wants the affirmative signal. */
@@ -29,6 +32,9 @@
     /** Click handler for the backlink-count item — App reveals + focuses
      *  the right-sidebar Backlinks panel. */
     onShowBacklinks?: () => void;
+    /** Click handler for the pending-proposals badge — App opens the left
+     *  Proposals panel (#1528). */
+    onShowProposals?: () => void;
     /** Semantic-index backfill progress (#836); null hides the indicator. */
     backfill?: { done: number; total: number } | null;
     /** Toggle voice dictation into the editor — same action as the right-click
@@ -43,9 +49,9 @@
 
   let {
     cursor, fontSize, theme,
-    inspectionCount = 0, backlinkCount = 0,
+    inspectionCount = 0, pendingCount = 0, backlinkCount = 0,
     isDirty = false, hasActiveNote = false,
-    onGotoLine, onSelectTheme, onShowInspections, onShowBacklinks,
+    onGotoLine, onSelectTheme, onShowInspections, onShowBacklinks, onShowProposals,
     backfill = null,
     onToggleDictation, dictationActive = false, dictationDisabled = false,
   }: Props = $props();
@@ -134,6 +140,16 @@
       <button class="status-item clickable inspection-count" onclick={onShowInspections} title="Show inspections">
         <Icon name="warn" size={12} />
         <span class="nums">{inspectionCount}</span>
+      </button>
+    {/if}
+    {#if pendingCount > 0}
+      <button
+        class="status-item clickable pending-count"
+        onclick={onShowProposals}
+        title="{pendingCount} proposal{pendingCount === 1 ? '' : 's'} awaiting review — open Proposals"
+      >
+        <Icon name="proposals" size={12} />
+        <span class="nums">{pendingCount}</span>
       </button>
     {/if}
     <span class="rule" aria-hidden="true"></span>
@@ -303,6 +319,16 @@
   }
   .inspection-count:hover {
     color: var(--rust);
+    opacity: 0.85;
+  }
+
+  /* Pending-proposals badge uses --accent — a prompt to review, not a warning
+     (no danger styling per CLAUDE.md). */
+  .pending-count {
+    color: var(--accent);
+  }
+  .pending-count:hover {
+    color: var(--accent);
     opacity: 0.85;
   }
 </style>

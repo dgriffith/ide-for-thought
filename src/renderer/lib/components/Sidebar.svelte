@@ -481,6 +481,12 @@
     tablesPanel?.refresh();
   }
 
+  /** Switch the active left-sidebar view (e.g. App opens 'proposals' when the
+   *  status-bar pending badge is clicked, #1528). */
+  export function showPanel(panel: PanelType) {
+    activePanel = panel;
+  }
+
   export function selectTag(tag: string) {
     activePanel = 'tags';
     // Wait for TagPanel to mount before driving it — bind:this resolves
