@@ -21,10 +21,16 @@ const { listMock, approveMock, rejectMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { proposals: { list: listMock, approve: approveMock, reject: rejectMock } },
+  api: {
+    // The proposals store's start() subscribes to these on first access; return
+    // no-op unsubscribers so getProposalsStore() initialises under test.
+    proposals: { list: listMock, approve: approveMock, reject: rejectMock, onChanged: () => () => {} },
+    menu: { onProjectOpened: () => () => {} },
+  },
 }));
 
-import ProposalsPanel from '../../../src/renderer/lib/components/right-sidebar/ProposalsPanel.svelte';
+import ProposalsPanel from '../../../src/renderer/lib/components/ProposalsPanel.svelte';
+import { getProposalsStore } from '../../../src/renderer/lib/stores/proposals.svelte';
 
 interface Payload { kind: string; [k: string]: unknown }
 function pendingProposal(over: Record<string, unknown> = {}) {
@@ -43,17 +49,28 @@ function pendingProposal(over: Record<string, unknown> = {}) {
   };
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // The proposals store is a module singleton; drain it between tests so a
+  // prior test's data can't leak into the next render.
+  listMock.mockResolvedValue([]);
+  await getProposalsStore().refresh();
   listMock.mockReset();
   approveMock.mockReset();
   rejectMock.mockReset();
 });
 
-/** Render, then wait for the onMount list() to resolve into the DOM. */
-async function renderPanel() {
-  const utils = render(ProposalsPanel, { revision: 0 });
-  await utils.findByText('Crystallize claim about photosynthesis');
+/**
+ * Populate the proposals store (as App does at boot — the panel reads
+ * `store.proposals`, it no longer fetches on mount) and render. The store's
+ * `refresh()` pulls through the mocked `api.proposals.list`; approve/reject
+ * still route through the review store to `api.proposals.approve/reject`.
+ */
+async function renderPanel(proposals: ReturnType<typeof pendingProposal>[] = [pendingProposal()]) {
+  listMock.mockResolvedValue(proposals);
+  await getProposalsStore().refresh();
+  const utils = render(ProposalsPanel);
+  if (proposals.length > 0) await utils.findByText(proposals[0]!.note);
   return utils;
 }
 
@@ -125,12 +142,26 @@ describe('ProposalsPanel — approval diff UI (#680)', () => {
     expect(await findByText(/Approve returned false/)).toBeTruthy();
   });
 
-  it('clicking the Pending status tab re-queries the list filtered to pending', async () => {
-    listMock.mockResolvedValue([pendingProposal()]);
-    const { getByText } = await renderPanel();
+  it('status tabs filter the loaded set client-side (no re-query)', async () => {
+    // The store now holds the FULL set; the panel filters by status locally
+    // (#1525), so switching tabs must not hit IPC again.
+    const pending = pendingProposal();
+    const approved = pendingProposal({
+      uri: 'urn:proposal:2',
+      status: 'approved',
+      note: 'Already approved thing',
+    });
+    const { getByText, queryByText } = await renderPanel([pending, approved]);
+    listMock.mockClear();
 
-    await fireEvent.click(getByText('Pending'));
+    // "All" shows both.
+    expect(getByText('Crystallize claim about photosynthesis')).toBeTruthy();
+    expect(getByText('Already approved thing')).toBeTruthy();
 
-    await waitFor(() => expect(listMock).toHaveBeenCalledWith('pending'));
+    // Switching to "Approved" hides the pending one, locally — no new list() call.
+    await fireEvent.click(getByText('Approved'));
+    await waitFor(() => expect(queryByText('Crystallize claim about photosynthesis')).toBeNull());
+    expect(getByText('Already approved thing')).toBeTruthy();
+    expect(listMock).not.toHaveBeenCalled();
   });
 });
