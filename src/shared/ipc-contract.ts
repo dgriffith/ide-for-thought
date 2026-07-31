@@ -93,6 +93,7 @@ export interface ChannelMap {
   'notebase:newProjectInNewWindow': () => NotebaseMeta | null;
   'notebase:openPathInNewWindow': (rootPath: string) => NotebaseMeta;
   'notebase:installTutorial': () => NotebaseMeta | null;
+  'notebase:installTutorialInNewWindow': () => NotebaseMeta | null;
   'notebase:close': () => null;
   'recent:clear': () => void;
   'notebase:listFiles': () => NoteFile[];

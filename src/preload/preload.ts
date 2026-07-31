@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
     newProjectInNewWindow: () => invoke(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW),
     openPathInNewWindow: (rootPath: string) => invoke(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, rootPath),
     installTutorial: () => invoke(Channels.NOTEBASE_INSTALL_TUTORIAL),
+    installTutorialInNewWindow: () => invoke(Channels.NOTEBASE_INSTALL_TUTORIAL_IN_NEW_WINDOW),
     close: () => invoke(Channels.NOTEBASE_CLOSE),
     clearRecent: () => invoke(Channels.RECENT_CLEAR),
     listFiles: () => invoke(Channels.NOTEBASE_LIST_FILES),
@@ -600,6 +601,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onNewProject: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_NEW_PROJECT, () => cb());
+    },
+    onInstallTutorial: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_INSTALL_TUTORIAL, () => cb());
     },
     onOpenRecentProject: (cb: (path: string) => void) => subscribeIpc('menu:openRecentProject', cb),
     onCloseProject: (cb: () => void) => {

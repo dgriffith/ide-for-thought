@@ -16,6 +16,9 @@ export interface NotebaseApi {
   /** Copy the bundled tutorial thoughtbase to a picked dir and open it (#1542).
    *  Returns the installed meta, or null if the user cancelled the picker. */
   installTutorial(): Promise<NotebaseMeta | null>;
+  /** Install the tutorial into a fresh window (#1544) — used when another
+   *  thoughtbase is already open so the current one stays put. */
+  installTutorialInNewWindow(): Promise<NotebaseMeta | null>;
   close(): Promise<null>;
   clearRecent(): Promise<void>;
   listFiles(): Promise<NoteFile[]>;
@@ -797,6 +800,7 @@ export interface MenuApi {
   onOpenInTerminal(cb: () => void): void;
   onOpenProject(cb: () => void): void;
   onNewProject(cb: () => void): void;
+  onInstallTutorial(cb: () => void): void;
   onOpenRecentProject(cb: (path: string) => void): void;
   onCloseProject(cb: () => void): void;
   onClearRecent(cb: () => void): void;

@@ -868,6 +868,13 @@ function buildHelpMenu(isMac: boolean): Electron.MenuItemConstructorOptions {
     role: 'help',
     label: 'Help',
     submenu: [
+      // A guided, hands-on thoughtbase that teaches Minerva by being Minerva
+      // (#1544, epic #1518). Reachable any time, not just at first run.
+      {
+        label: 'Install Tutorial Thoughtbase…',
+        click: () => send(Channels.MENU_INSTALL_TUTORIAL),
+      },
+      { type: 'separator' },
       {
         label: 'Keyboard Shortcuts…',
         accelerator: 'CmdOrCtrl+/',

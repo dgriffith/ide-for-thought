@@ -247,6 +247,27 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
     }
   }
 
+  async function handleInstallTutorial(): Promise<void> {
+    // From the welcome screen (nothing open) install straight into this window.
+    // If a thoughtbase is already open, offer new-window so the user's current
+    // work stays put. The picker + recursive copy + open all happen in main
+    // (#1542/#1544); the tutorial ships with content + an `entrypoint` note, so
+    // we skip onboarding and just land on Start Here.
+    if (notebase.meta) {
+      const choice = await askOpenTarget('A thoughtbase is already open in this window. Install the tutorial in:');
+      if (choice === 'cancel') return;
+      if (choice === 'new') {
+        await api.notebase.installTutorialInNewWindow();
+        return;
+      }
+      editor.clear();
+    }
+    const opened = await notebase.installTutorial();
+    if (opened) {
+      await maybeOpenEntrypoints();
+    }
+  }
+
   async function handleOpenRecentThoughtbase(rootPath: string): Promise<void> {
     const choice = await askOpenTarget('A thoughtbase is already open in this window. Open the recent one in:');
     if (choice === 'cancel') return;
@@ -270,6 +291,7 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
     maybeOpenEntrypoints,
     handleOpenThoughtbase,
     handleNewThoughtbase,
+    handleInstallTutorial,
     handleOpenRecentThoughtbase,
   };
 }
