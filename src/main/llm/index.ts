@@ -3,6 +3,7 @@ import type {
   ChatMessage,
   ProviderMessage,
   ProviderToolResult,
+  WebToolSettings,
 } from './provider/types';
 import {
   buildConversationTools,
@@ -168,6 +169,14 @@ export interface CompleteWithToolsOptions {
   /** Template-scoped tools to enable in addition to the default toolset. */
   extraTools?: ConversationToolKey[] | undefined;
   /**
+   * Per-call override of the server-side web tools, replacing the global
+   * `settings.web`. Lets a caller run a turn with web off (or a narrowed
+   * allow/block list) regardless of the user's global setting — the skill-eval
+   * harness uses `{ enabled: false }` to run a skill that declares `web: false`
+   * without web tools. Omitted ⇒ the global setting applies.
+   */
+  web?: WebToolSettings | undefined;
+  /**
    * Code-execution sandbox id from a prior agent turn for the same
    * conversation. Must be echoed back whenever the `messages` history
    * carries a `server_tool_use` block (web_search / web_fetch /
@@ -261,7 +270,10 @@ export async function complete(
 export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
-  const { provider, model, web, effort: defaultEffort } = await getProvider(options.model);
+  const { provider, model, web: providerWeb, effort: defaultEffort } = await getProvider(options.model);
+  // A per-call `web` override (e.g. the eval harness running a `web: false` skill)
+  // wins over the global setting; otherwise the provider's global web applies.
+  const web = options.web ?? providerWeb;
   const effort = resolveEffort(model, options.effort, defaultEffort);
   const { toolContext, callbacks, maxIterations = 10 } = options;
 

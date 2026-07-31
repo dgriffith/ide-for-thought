@@ -101,6 +101,43 @@ describe('skill-eval harness — live capture (#1522 PR 2)', () => {
     expect(JSON.parse(fs.readFileSync(path.join(out, 'drafts.json'), 'utf-8'))).toEqual([]);
   });
 
+  it('honors a web:false skill by disabling web on the live call', async () => {
+    // conv-case runs analysis.antithesize, which declares `web: false`; the
+    // harness must pass a web-off override so it doesn't get server web tools.
+    let seenWeb: unknown = 'unset';
+    const seam: LlmSeam = {
+      async complete() {
+        return 'x';
+      },
+      async completeWithTools(opts) {
+        seenWeb = opts.web;
+        return { text: '', citations: [], usage: USAGE, usageModel: 'm' };
+      },
+    };
+    await runEval(['conv-case'], { cwd, live: true, llm: seam });
+    expect(seenWeb).toEqual({ enabled: false });
+  });
+
+  it('captures a live error into the case instead of aborting the batch', async () => {
+    // A seam whose conversation call always throws (e.g. a provider 400). The
+    // run must record the error on the case and still complete.
+    const throwing: LlmSeam = {
+      async complete() {
+        return 'x';
+      },
+      async completeWithTools() {
+        throw new Error('400 container_id is required when there are pending tool uses');
+      },
+    };
+    const [res] = await runEval(['conv-case'], { cwd, live: true, llm: throwing });
+    expect(res!.live!.error).toContain('container_id is required');
+    expect(res!.live!.response).toContain('[eval error]');
+    const meta = JSON.parse(fs.readFileSync(path.join(cwd, 'conv-case', 'output', 'meta.json'), 'utf-8'));
+    expect(meta.error).toContain('container_id is required');
+    // The case's response.md is written with the error marker (batch didn't die).
+    expect(fs.readFileSync(path.join(cwd, 'conv-case', 'output', 'response.md'), 'utf-8')).toContain('[eval error]');
+  });
+
   it('a non-live run writes neither response.md nor drafts.json', async () => {
     // A fresh case that never saw a live run, so the live-only artifacts can
     // only be absent because non-live skips them.

@@ -1,0 +1,6 @@
+{
+  "skill": "research.describe-historical-background",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": { "note": "notes/upzoning-lowers-rents.md" }
+}

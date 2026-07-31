@@ -97,6 +97,8 @@ export interface EvalMeta {
   draftCount?: number;
   /** Short git commit of the CLI build that produced this run. */
   harnessVersion?: string;
+  /** Set when the live call failed for this case (the batch still continues). */
+  error?: string;
 }
 
 /** A proposal draft captured from the live agentic loop via a `StreamCallbacks`
@@ -114,6 +116,8 @@ export interface LiveOutput {
   usage?: TurnUsage;
   usageModel?: string;
   timingMs: number;
+  /** Present when the model call threw — the batch records it and moves on. */
+  error?: string;
 }
 
 export interface EvalResult {
@@ -252,55 +256,90 @@ async function runLive(
   };
   const start = Date.now();
 
-  // A one-shot skill (no system prompt) is a plain completion — no tools, no
-  // drafts.
-  if (request.system === undefined) {
-    let usage: TurnUsage | undefined;
-    let usageModel: string | undefined;
-    const text = await llm.complete(request.messages[0]!.content, {
+  try {
+    // A one-shot skill (no system prompt) is a plain completion — no tools, no
+    // drafts.
+    if (request.system === undefined) {
+      let usage: TurnUsage | undefined;
+      let usageModel: string | undefined;
+      const text = await llm.complete(request.messages[0]!.content, {
+        ...(request.model ? { model: request.model } : {}),
+        onUsage: (u, m) => {
+          usage = u;
+          usageModel = m;
+        },
+      });
+      return {
+        response: text,
+        drafts,
+        ...(usage ? { usage } : {}),
+        ...(usageModel ? { usageModel } : {}),
+        timingMs: Date.now() - start,
+      };
+    }
+
+    const callbacks: StreamCallbacks = {
+      onChunk: () => {},
+      onDraft: capture('notes'),
+      onSourceDraft: capture('sources'),
+      onPropertyDraft: capture('properties'),
+      onSourcePropertyDraft: capture('source_properties'),
+      onClaimsDraft: capture('claims'),
+      onComputeDraft: capture('compute'),
+      onRefactorDraft: capture('refactor'),
+      onReorgDraft: capture('reorg'),
+      onDeleteDraft: capture('delete'),
+      onNoteBodyDraft: capture('note_body'),
+    };
+    const result = await completeWithContainerRetry(llm, {
+      system: request.system,
+      messages: request.messages,
+      toolContext: { rootPath, conversationId: `eval:${caseName}` },
       ...(request.model ? { model: request.model } : {}),
-      onUsage: (u, m) => {
-        usage = u;
-        usageModel = m;
-      },
+      ...(request.requiresTools ? { extraTools: request.requiresTools } : {}),
+      // Honor the skill's declared web setting: a `web: false` skill runs without
+      // web tools (the global default is on headless, and per-skill web isn't yet
+      // wired in the app — so the harness enforces the declaration itself).
+      ...(request.webEnabled === false ? { web: { enabled: false } } : {}),
+      callbacks,
     });
     return {
-      response: text,
+      response: result.text,
       drafts,
-      ...(usage ? { usage } : {}),
-      ...(usageModel ? { usageModel } : {}),
+      usage: result.usage,
+      usageModel: result.usageModel,
       timingMs: Date.now() - start,
     };
+  } catch (err) {
+    // A live batch must not die because one case errored (e.g. a provider 400) —
+    // capture it, write it as this case's response, and let the batch continue.
+    const msg = err instanceof Error ? err.message : String(err);
+    return { response: `[eval error] ${msg}`, drafts, error: msg, timingMs: Date.now() - start };
   }
+}
 
-  const callbacks: StreamCallbacks = {
-    onChunk: () => {},
-    onDraft: capture('notes'),
-    onSourceDraft: capture('sources'),
-    onPropertyDraft: capture('properties'),
-    onSourcePropertyDraft: capture('source_properties'),
-    onClaimsDraft: capture('claims'),
-    onComputeDraft: capture('compute'),
-    onRefactorDraft: capture('refactor'),
-    onReorgDraft: capture('reorg'),
-    onDeleteDraft: capture('delete'),
-    onNoteBodyDraft: capture('note_body'),
-  };
-  const result = await llm.completeWithTools({
-    system: request.system,
-    messages: request.messages,
-    toolContext: { rootPath, conversationId: `eval:${caseName}` },
-    ...(request.model ? { model: request.model } : {}),
-    ...(request.requiresTools ? { extraTools: request.requiresTools } : {}),
-    callbacks,
-  });
-  return {
-    response: result.text,
-    drafts,
-    usage: result.usage,
-    usageModel: result.usageModel,
-    timingMs: Date.now() - start,
-  };
+/** Marker for the API 400 raised when a `server_tool_use` (web_search / code
+ *  execution) block is pending but no sandbox id was echoed back. */
+const CONTAINER_REQUIRED_MARKER = 'container_id is required';
+
+/**
+ * `completeWithTools` with the same one-shot recovery `register-conversation.ts`
+ * applies: web-grounded turns produce a code-execution container the API then
+ * demands back, and a headless run can trip its "container_id is required" 400.
+ * Retry once — for a fresh eval call there's no prior history to strip, so this
+ * is a plain re-attempt; a persistent failure propagates to the per-case handler.
+ */
+async function completeWithContainerRetry(
+  llm: LlmSeam,
+  opts: CompleteWithToolsOptions,
+): Promise<CompleteWithToolsResult> {
+  try {
+    return await llm.completeWithTools(opts);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes(CONTAINER_REQUIRED_MARKER)) throw err;
+    return await llm.completeWithTools(opts);
+  }
 }
 
 /**
@@ -354,6 +393,7 @@ export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise
       meta.harnessVersion = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'unknown';
       if (live.usage) meta.usage = live.usage;
       if (live.usageModel) meta.usageModel = live.usageModel;
+      if (live.error) meta.error = live.error;
     }
 
     if (opts.write !== false) {
