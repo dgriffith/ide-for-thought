@@ -36,6 +36,22 @@ import {
   hooks,
 } from './helpers';
 
+/**
+ * Prompt for the tutorial's install destination (#1542/#1544). A Save panel
+ * pre-filled at `~/Minerva Tutorial` lets the user confirm or relocate rather
+ * than silently creating a folder; returns the picked path, or null if cancelled.
+ * Shared by the in-window and new-window install handlers.
+ */
+async function promptTutorialDestination(win: Electron.BrowserWindow): Promise<string | null> {
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Install Tutorial Thoughtbase',
+    defaultPath: path.join(app.getPath('home'), TUTORIAL_DEFAULT_NAME),
+    buttonLabel: 'Install Tutorial',
+    properties: ['createDirectory'],
+  });
+  return result.canceled || !result.filePath ? null : result.filePath;
+}
+
 export function registerNotebase(): void {
   handle(Channels.NOTEBASE_OPEN, async (e) => {
     const meta = await notebaseFs.openNotebase();
@@ -66,23 +82,32 @@ export function registerNotebase(): void {
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
 
-  // Install the bundled tutorial thoughtbase (#1542, epic #1518). Prompt-with-
-  // default: a Save panel pre-filled at `~/Minerva Tutorial` lets the user
-  // confirm or relocate rather than silently creating a folder. The copy never
+  // Install the bundled tutorial thoughtbase (#1542, epic #1518). The copy never
   // clobbers — `installTutorialThoughtbase` suffixes ` 2`, ` 3`… on collision —
-  // so re-installing always yields a fresh, editable copy.
+  // so re-installing always yields a fresh, editable copy. Opens in this window.
   handle(Channels.NOTEBASE_INSTALL_TUTORIAL, async (e) => {
     const win = winFromEvent(e);
-    const result = await dialog.showSaveDialog(win, {
-      title: 'Install Tutorial Thoughtbase',
-      defaultPath: path.join(app.getPath('home'), TUTORIAL_DEFAULT_NAME),
-      buttonLabel: 'Install Tutorial',
-      properties: ['createDirectory'],
-    });
-    if (result.canceled || !result.filePath) return null;
+    const dest = await promptTutorialDestination(win);
+    if (!dest) return null;
 
-    const rootPath = await installTutorialThoughtbase(result.filePath);
+    const rootPath = await installTutorialThoughtbase(dest);
     await openProjectInWindow(win, rootPath);
+    return { rootPath, name: resolveDisplayName(rootPath) };
+  });
+
+  // Same install, but into a fresh window (#1544) — used when the user takes the
+  // tutorial while another thoughtbase is open, so their current work stays put.
+  handle(Channels.NOTEBASE_INSTALL_TUTORIAL_IN_NEW_WINDOW, async (e) => {
+    const parentWin = winFromEvent(e);
+    const dest = await promptTutorialDestination(parentWin);
+    if (!dest) return null;
+
+    const rootPath = await installTutorialThoughtbase(dest);
+    const freshWin = createWindow();
+    freshWin.webContents.once('did-finish-load', async () => {
+      await openProjectInWindow(freshWin, rootPath);
+      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+    });
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
 

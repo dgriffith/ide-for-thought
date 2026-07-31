@@ -699,7 +699,7 @@
   const {
     handleOnboardingAccept, handleOnboardingDecline, handleEditThoughtbaseDoc,
     maybeShowOnboarding, maybeOpenEntrypoints,
-    handleOpenThoughtbase, handleNewThoughtbase, handleOpenRecentThoughtbase,
+    handleOpenThoughtbase, handleNewThoughtbase, handleInstallTutorial, handleOpenRecentThoughtbase,
   } = createProjectOps({
     setShowOnboarding: (v) => { showOnboarding = v; },
   } satisfies ProjectOpsCtx);
@@ -814,6 +814,7 @@
       selectTheme: (mode) => handleSelectTheme(mode),
       openThoughtbase: () => { void handleOpenThoughtbase(); },
       newThoughtbase: () => { void handleNewThoughtbase(); },
+      installTutorial: () => { void handleInstallTutorial(); },
       openRecentThoughtbase: (p) => { void handleOpenRecentThoughtbase(p); },
       navBack: () => { void handleNavBack(); },
       navForward: () => { void handleNavForward(); },
@@ -1284,6 +1285,7 @@
         <div class="welcome-actions">
           <button onclick={handleNewThoughtbase}>New Thoughtbase</button>
           <button onclick={notebase.open}>Open Thoughtbase</button>
+          <button onclick={handleInstallTutorial}>Take the Tutorial</button>
         </div>
       </div>
     {/if}

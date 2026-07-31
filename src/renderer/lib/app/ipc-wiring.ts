@@ -101,6 +101,7 @@ export interface IpcWiringCtx {
   selectTheme: (mode: ThemeMode) => void;
   openThoughtbase: () => void;
   newThoughtbase: () => void;
+  installTutorial: () => void;
   openRecentThoughtbase: (rootPath: string) => void;
   navBack: () => void;
   navForward: () => void;
@@ -247,6 +248,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onCloseGroup(() => editor.closeActiveGroup());
   api.menu.onOpenProject(() => ctx.openThoughtbase());
   api.menu.onNewProject(() => ctx.newThoughtbase());
+  api.menu.onInstallTutorial(() => ctx.installTutorial());
   api.menu.onOpenRecentProject((p) => ctx.openRecentThoughtbase(p));
   api.menu.onCloseProject(() => {
     notebase.close();

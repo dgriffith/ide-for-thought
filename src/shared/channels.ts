@@ -38,6 +38,8 @@ export const Channels = {
   NOTEBASE_OPEN_PATH_IN_NEW_WINDOW: 'notebase:openPathInNewWindow',
   /** Copy the bundled tutorial thoughtbase to a picked dir and open it (#1542). */
   NOTEBASE_INSTALL_TUTORIAL: 'notebase:installTutorial',
+  /** Install the tutorial thoughtbase into a fresh window (#1544). */
+  NOTEBASE_INSTALL_TUTORIAL_IN_NEW_WINDOW: 'notebase:installTutorialInNewWindow',
   /** Clear the recent-projects list. */
   RECENT_CLEAR: 'recent:clear',
   /** main → renderer: a project finished opening in this window. Payload is
@@ -154,6 +156,7 @@ export const Channels = {
   // Project / file menu actions (#673)
   MENU_OPEN_PROJECT: 'menu:openProject',
   MENU_NEW_PROJECT: 'menu:newProject',
+  MENU_INSTALL_TUTORIAL: 'menu:installTutorial',
   MENU_CLOSE_PROJECT: 'menu:closeProject',
   MENU_CLEAR_RECENT: 'menu:clearRecent',
   MENU_PRINT: 'menu:print',
