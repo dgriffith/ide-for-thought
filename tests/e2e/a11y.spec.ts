@@ -241,16 +241,11 @@ test('proposals panel: no NEW serious a11y violations (real-browser, incl. color
       await g.__minervaE2E.seedProposal();
     });
 
-    // Open the right sidebar by firing the same menu IPC its menu item sends
-    // (native menus can't be clicked in Playwright, and there's no title-bar
-    // toggle button). Then navigate Activity group → Proposals sub-tab.
-    await app.evaluate(({ BrowserWindow }) => {
-      for (const w of BrowserWindow.getAllWindows()) w.webContents.send('menu:toggleRightSidebar');
-    });
-    await expect(win.locator('aside.right-sidebar')).toBeVisible({ timeout: 8000 });
-    await win.locator('.group-tab[title="Activity"]').first().click();
-    await win.waitForTimeout(200);
-    await win.locator('.sub-tab[title="Proposals"]').first().click();
+    // The Proposals panel now lives in the LEFT sidebar (#1526, after the
+    // right-sidebar surface was retired in #1540) — open it via its panel tab.
+    // The left sidebar is already visible (we clicked a note in it above), so
+    // no toggle is needed.
+    await win.locator('.panel-tab[title="Proposals"]').first().click();
     await win.waitForTimeout(400);
     // Expand the seeded proposal's review detail (payloads + Approve/Reject).
     const firstProposal = win.locator('.proposal-item').first();
