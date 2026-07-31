@@ -457,6 +457,9 @@ async function openConversationTab(opts: {
   systemPrompt?: string;
   model?: string;
   initialMessage?: string;
+  /** Per-conversation web override (#1533) — from a launching skill's `web:`
+   *  declaration. Persisted on the conversation; the send handler applies it. */
+  webEnabled?: boolean;
   /** Template-scoped tools (e.g. `'ask_user'`) the agent should have in
    *  scope for this conversation. Mirrors ConversationTemplate's
    *  `requiresTools` and ThinkingTool's `requiresTools` (#514). */
@@ -464,9 +467,10 @@ async function openConversationTab(opts: {
 }): Promise<TabRuntime> {
   ensureSubscriptions();
   const bundle: ContextBundle = opts.notePath ? { notePath: opts.notePath } : {};
-  const createOpts: { systemPrompt?: string; model?: string } = {};
+  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
   if (opts.systemPrompt) createOpts.systemPrompt = opts.systemPrompt;
   if (opts.model) createOpts.model = opts.model;
+  if (opts.webEnabled !== undefined) createOpts.webEnabled = opts.webEnabled;
   const conv = await api.conversations.create(
     bundle,
     undefined,
@@ -707,9 +711,10 @@ async function clearConversation(): Promise<void> {
     // regardless so the user still gets their clean slate.
     console.warn('[conv] /clear: archive failed', e);
   }
-  const createOpts: { systemPrompt?: string; model?: string } = {};
+  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
   if (prev.systemPrompt) createOpts.systemPrompt = prev.systemPrompt;
   if (prev.model) createOpts.model = prev.model;
+  if (prev.webEnabled !== undefined) createOpts.webEnabled = prev.webEnabled;
   const fresh = await api.conversations.create(
     prev.contextBundle,
     prev.triggerNodeUri,

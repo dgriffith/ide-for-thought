@@ -535,7 +535,7 @@ export interface ClipperApi {
 }
 
 export interface ConversationsApi {
-  create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }): Promise<Conversation>;
+  create(contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string; webEnabled?: boolean }): Promise<Conversation>;
   append(id: string, role: ConversationMessage['role'], content: string): Promise<Conversation>;
   archive(id: string): Promise<Conversation>;
   load(id: string): Promise<Conversation | null>;

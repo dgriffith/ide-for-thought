@@ -163,6 +163,8 @@ export function createConversationOps(ctx: ConversationOpsCtx) {
       systemPrompt: prep.systemPrompt,
       ...(prep.model ? { model: prep.model } : {}),
       ...(prep.firstMessage ? { initialMessage: prep.firstMessage } : {}),
+      // Honor the skill's declared web preference on the conversation (#1533).
+      webEnabled: prep.webEnabled,
       ...(prep.requiresTools && prep.requiresTools.length > 0
         ? { extraTools: prep.requiresTools }
         : {}),

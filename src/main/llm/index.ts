@@ -271,9 +271,10 @@ export async function completeWithTools(
   options: CompleteWithToolsOptions,
 ): Promise<CompleteWithToolsResult> {
   const { provider, model, web: providerWeb, effort: defaultEffort } = await getProvider(options.model);
-  // A per-call `web` override (e.g. the eval harness running a `web: false` skill)
-  // wins over the global setting; otherwise the provider's global web applies.
-  const web = options.web ?? providerWeb;
+  // A per-call `web` override (a `web: false` skill in the eval harness; a
+  // per-conversation web setting, #1533) merges over the global web — so a caller
+  // that overrides just `enabled` keeps the user's global allow/block domain lists.
+  const web = options.web ? { ...providerWeb, ...options.web } : providerWeb;
   const effort = resolveEffort(model, options.effort, defaultEffort);
   const { toolContext, callbacks, maxIterations = 10 } = options;
 

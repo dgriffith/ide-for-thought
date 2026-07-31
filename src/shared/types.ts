@@ -611,6 +611,14 @@ export interface Conversation {
    */
   systemPrompt?: string;
   /**
+   * Per-conversation web-search override (#1533). `undefined` inherits the
+   * global `LLMSettings.web.enabled`; `true`/`false` pin web on/off for this
+   * conversation. Set from a launching skill's `web:` declaration (via
+   * `ConversationToolPayload.webEnabled`). The global allow/block domain lists
+   * still apply. Mirrors the `model` / `effort` override pattern.
+   */
+  webEnabled?: boolean;
+  /**
    * Code-execution sandbox id returned by Anthropic when the model used a
    * `code_execution` server-side tool (which is how `web_search_20260209`
    * and `web_fetch_20260209` are wrapped). Every subsequent request whose

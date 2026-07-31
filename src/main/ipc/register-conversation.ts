@@ -311,6 +311,14 @@ export function registerConversation(): void {
           return !/_(?:🔍 Searching|🌐 Fetching|⚙️ Running code)/.test(m.content);
         });
 
+      // Per-conversation web override (#1533): when the conversation pins web
+      // on/off (e.g. from a launching skill's `web:` declaration), send it as a
+      // `web` override — completeWithTools merges it over the global setting, so
+      // the user's global allow/block domain lists still apply. Unset ⇒ omit,
+      // and web resolves from the global setting exactly as before.
+      const webOverride =
+        conv.webEnabled !== undefined ? { web: { enabled: conv.webEnabled } } : {};
+
       let result: Awaited<ReturnType<typeof completeWithTools>>;
       try {
         result = await completeWithTools({
@@ -320,6 +328,7 @@ export function registerConversation(): void {
           model: conv.model,
           effort: conv.effort,
           extraTools,
+          ...webOverride,
           // Re-echo any prior turn's code-execution sandbox id. Required
           // by the API whenever the persisted message history still
           // contains a `server_tool_use` block; without it the next
@@ -351,6 +360,7 @@ export function registerConversation(): void {
           model: conv.model,
           effort: conv.effort,
           extraTools,
+          ...webOverride,
           callbacks: streamCallbacks,
         });
       }
@@ -921,9 +931,10 @@ async function compactConversation(
   // Archive the original (files the full transcript as a thought:Source —
   // recoverable) before opening the compacted continuation.
   await conversation.archive(convId);
-  const createOpts: { systemPrompt?: string; model?: string } = {};
+  const createOpts: { systemPrompt?: string; model?: string; webEnabled?: boolean } = {};
   if (conv.systemPrompt) createOpts.systemPrompt = conv.systemPrompt;
   if (conv.model) createOpts.model = conv.model;
+  if (conv.webEnabled !== undefined) createOpts.webEnabled = conv.webEnabled;
   const fresh = await conversation.create(
     conv.contextBundle,
     conv.triggerNodeUri,
