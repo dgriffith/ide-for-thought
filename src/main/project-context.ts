@@ -20,6 +20,7 @@ import * as healthChecks from './graph/health-checks';
 import * as conversation from './llm/conversation';
 import { projectContext, type ProjectContext } from './project-context-types';
 import { disposeAllProjectStores } from './project-store';
+import { registerProject, unregisterProject } from './substrate/app-server';
 
 interface ProjectRecord {
   ctx: ProjectContext;
@@ -94,6 +95,10 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // Fire-and-forget — no need to block project init on the result.
       void healthChecks.runAllChecks(ctx);
       healthChecks.startPeriodicChecks(ctx);
+      // Advertise this project to out-of-process CLI/MCP clients (#1524) so they
+      // route proposals + semantic search through us instead of racing our
+      // files. Best-effort; awaited so the advert exists the moment open resolves.
+      await registerProject(ctx);
     })();
     rec = { ctx, rootPath, acquirers: new Set(), initPromise };
     projects.set(rootPath, rec);
@@ -116,6 +121,9 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   // Last window closed for this project — dispose.
   abortBackfill(rootPath); // stop any in-flight embedding backfill (#836)
   healthChecks.stopPeriodicChecks(rec.ctx);
+  // Stop advertising to out-of-process clients before we tear the ctx down, so
+  // no routed request can land on a half-disposed project (#1524).
+  await unregisterProject(rootPath);
   // Best-effort final persist before tearing down state. A failure here
   // shouldn't block disposal — the on-disk graph is already up to date
   // through the debounced persist that runs while the window is open.

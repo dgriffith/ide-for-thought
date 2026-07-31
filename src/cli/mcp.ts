@@ -16,7 +16,8 @@
  * approval gate — an external agent proposes, the human confirms.
  */
 import * as readline from 'node:readline';
-import { createEngine, type Engine, type EngineOptions, type ExecResult } from './engine';
+import { type Engine, type EngineOptions, type ExecResult } from './engine';
+import { createRoutedEngine } from './routed-engine';
 import { jsonStringify } from './json';
 import { projectContext } from '../main/project-context-types';
 
@@ -281,7 +282,9 @@ export async function runMcpServer(
     output?: NodeJS.WritableStream;
   } = {},
 ): Promise<void> {
-  const engine = createEngine(projectContext(root), {
+  // Routed engine (#1524): proxy propose + semantic to a running app when one
+  // is open on this thoughtbase; run direct otherwise.
+  const engine = createRoutedEngine(projectContext(root), {
     embedder: opts.embedder,
     resourcesBase: opts.resourcesBase,
   });

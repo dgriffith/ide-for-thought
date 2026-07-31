@@ -20,6 +20,7 @@ import type {
   ProposedWrite,
 } from './proposal-types';
 import { applyBundle, collectAffectsNodes, wiredPayloadKinds } from './apply-dispatch';
+import { emitProposalsChanged } from './proposal-events';
 import {
   getProposal,
   proposalUri,
@@ -86,6 +87,7 @@ export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): P
   };
 
   await writeProposalToGraph(ctx, proposal);
+  emitProposalsChanged(ctx.rootPath);
   return proposal;
 }
 
@@ -112,6 +114,7 @@ export async function approveProposal(ctx: ProjectContext, uri: string): Promise
 
   const applied = await applyBundle(ctx, proposal.payloads);
   await updateProposalStatus(ctx, uri, 'approved');
+  emitProposalsChanged(ctx.rootPath);
   const filedPaths = applied
     .filter((a): a is AppliedRecord & { kind: 'note' } => a.kind === 'note')
     .map((a) => (a.rollbackData as { resolvedPath: string }).resolvedPath);
@@ -129,6 +132,7 @@ export async function rejectProposal(ctx: ProjectContext, uri: string): Promise<
   if (!proposal || proposal.status !== 'pending') return false;
 
   await updateProposalStatus(ctx, uri, 'rejected');
+  emitProposalsChanged(ctx.rootPath);
   return true;
 }
 
@@ -154,5 +158,6 @@ export async function expireProposals(ctx: ProjectContext): Promise<number> {
       count++;
     }
   }
+  if (count > 0) emitProposalsChanged(ctx.rootPath);
   return count;
 }

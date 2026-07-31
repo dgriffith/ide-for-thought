@@ -17,8 +17,14 @@ import { registerConversation } from './ipc/register-conversation';
 import { registerBookmarks } from './ipc/register-bookmarks';
 import { registerClipper } from './ipc/register-clipper';
 import { registerApp } from './ipc/register-app';
+import { onProposalsChanged } from './llm/proposal-events';
+import { broadcastProposalsChanged } from './ipc/helpers';
 
 export function registerIpcHandlers(): void {
+  // Turn Electron-free proposal-lifecycle events (fired by the shared approval
+  // engine, in-app or via the substrate server) into a renderer broadcast (#1524).
+  onProposalsChanged(broadcastProposalsChanged);
+
   registerNotebase();
   registerLinks();
   registerQueries();

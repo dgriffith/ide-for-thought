@@ -309,6 +309,12 @@ contextBridge.exposeInMainWorld('api', {
     approve: (uri: string) => invoke(Channels.PROPOSAL_APPROVE, uri),
     reject: (uri: string) => invoke(Channels.PROPOSAL_REJECT, uri),
     expire: () => invoke(Channels.PROPOSAL_EXPIRE),
+    /** The pending-proposal set changed — filed in-app, filed out-of-process
+     *  and routed through the substrate server, approved, rejected, or expired
+     *  (#1524). The proposals store re-fetches on this. */
+    onChanged: (cb: () => void) => {
+      ipcRenderer.on(Channels.PROPOSALS_CHANGED, () => cb());
+    },
   },
   bookmarks: {
     load: () => invoke(Channels.BOOKMARKS_LOAD),

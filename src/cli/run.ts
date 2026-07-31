@@ -21,7 +21,8 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import type { ChunkEmbedder } from '../main/embeddings/vector-store';
 import { projectContext } from '../main/project-context-types';
-import { createEngine, type Engine, type ExecResult } from './engine';
+import { type Engine, type ExecResult } from './engine';
+import { createRoutedEngine } from './routed-engine';
 import { jsonStringify } from './json';
 import { runMcpServer } from './mcp';
 import { runEval } from './eval';
@@ -239,7 +240,10 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
       return { stdout: '', stderr: '', code: 0 };
     }
 
-    const engine: Engine = createEngine(projectContext(root), {
+    // Routed engine (#1524): if a Minerva app is open on this thoughtbase,
+    // `propose-note` + `semantic` run inside it (single writer / DuckDB holder);
+    // otherwise they run direct, as before.
+    const engine: Engine = createRoutedEngine(projectContext(root), {
       embedder: opts.embedder,
       resourcesBase,
     });
