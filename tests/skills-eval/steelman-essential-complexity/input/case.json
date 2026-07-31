@@ -1,0 +1,9 @@
+{
+  "skill": "planning.steelman",
+  "model": "claude-opus-5",
+  "thoughtbase": "../../fixtures/sample-project",
+  "context": {
+    "note": "research/essential-complexity.md",
+    "selection": "no further tooling improvement can produce an order-of-magnitude\nproductivity jump"
+  }
+}

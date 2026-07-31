@@ -1,0 +1,11 @@
+{
+  "skill": "analysis.antithesize",
+  "thoughtbase": "../../fixtures/sample-project",
+  "context": {
+    "note": "research/essential-complexity.md",
+    "selection": "no further tooling improvement can produce an order-of-magnitude\nproductivity jump"
+  },
+  "parameters": {
+    "intensity": "adversarial. Push the opposition to the far edge of plausibility. The author should find this view alien but not strawmanned. Identity-attacking moves are fine if they cut at real assumptions."
+  }
+}

@@ -24,6 +24,7 @@ import { projectContext } from '../main/project-context-types';
 import { createEngine, type Engine, type ExecResult } from './engine';
 import { jsonStringify } from './json';
 import { runMcpServer } from './mcp';
+import { runEval } from './eval';
 
 export interface CliResult {
   stdout: string;
@@ -60,6 +61,10 @@ Commands:
                         for review in Minerva.               [--by <client-id>]
   mcp                   Start a stdio MCP server exposing the read + propose
                         tools to agent clients (Claude Desktop, coding agents…).
+  eval <case-dir>…      Package a skill's prompt exactly as Minerva does and
+                        overwrite each case's output/. Deterministic (no LLM
+                        call). Diff the output to review prompt/context changes
+                        (#1522).                                       [--all]
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
@@ -67,6 +72,7 @@ Options:
   --regex               Treat a grep pattern as a regular expression.
   --case-sensitive      Match case exactly (grep; default: case-insensitive).
   --by <client-id>      Provenance for propose-note (default: cli).
+  --all                 eval: run every case under tests/skills-eval/.
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
@@ -81,6 +87,7 @@ interface ParsedArgs {
   by: string | undefined;
   regex: boolean;
   caseSensitive: boolean;
+  all: boolean;
   help: boolean;
 }
 
@@ -94,6 +101,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let by: string | undefined;
   let regex = false;
   let caseSensitive = false;
+  let all = false;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -116,12 +124,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
       regex = true;
     } else if (arg === '--case-sensitive') {
       caseSensitive = true;
+    } else if (arg === '--all') {
+      all = true;
     } else {
       positionals.push(arg);
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, help };
 }
 
 function json(value: unknown): string {
@@ -144,6 +154,24 @@ async function resolveProjectRoot(project: string | undefined, cwd: string): Pro
  *  opposed to an unexpected throw (exit code 1). */
 class UsageError extends Error {}
 
+/** All eval case dirs under `tests/skills-eval/` (each holding an
+ *  `input/case.json`), for `eval --all`. Sorted for stable ordering. */
+async function discoverEvalCases(cwd: string): Promise<string[]> {
+  const base = path.join(cwd, 'tests', 'skills-eval');
+  const entries = await fs.readdir(base, { withFileTypes: true }).catch(() => []);
+  const cases: string[] = [];
+  for (const ent of entries) {
+    if (!ent.isDirectory()) continue;
+    const caseDir = path.join(base, ent.name);
+    const hasManifest = await fs
+      .stat(path.join(caseDir, 'input', 'case.json'))
+      .then(() => true)
+      .catch(() => false);
+    if (hasManifest) cases.push(caseDir);
+  }
+  return cases.sort();
+}
+
 /** Format an Engine result as a CliResult: success → pretty JSON + code 0;
  *  failure → `<prefix>: <error>` on stderr + code 1. */
 function format(result: ExecResult, errorPrefix: string): CliResult {
@@ -165,6 +193,28 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
   }
 
   try {
+    // The eval harness (#1522) manages its own per-case thoughtbase roots, so
+    // it's dispatched before the single-root resolution below.
+    if (args.command === 'eval') {
+      const caseDirs = args.all ? await discoverEvalCases(opts.cwd) : args.positionals;
+      if (caseDirs.length === 0) {
+        throw new UsageError('eval: pass one or more case directories, or --all.');
+      }
+      const results = await runEval(caseDirs, { cwd: opts.cwd });
+      return {
+        stdout: json(
+          results.map((r) => ({
+            case: r.caseDir,
+            skill: r.meta.skill,
+            model: r.meta.model ?? null,
+            outputMode: r.meta.outputMode,
+          })),
+        ),
+        stderr: '',
+        code: 0,
+      };
+    }
+
     const root = await resolveProjectRoot(args.project, opts.cwd);
 
     // The bundled model lives at <repo>/resources. Both the built bundle
