@@ -9,7 +9,6 @@
   import TagsPanel from './right-sidebar/TagsPanel.svelte';
   import BookmarksPanel from './right-sidebar/BookmarksPanel.svelte';
   import InspectionsPanel from './right-sidebar/InspectionsPanel.svelte';
-  import ProposalsPanel from './right-sidebar/ProposalsPanel.svelte';
   import TablesPanel from './right-sidebar/TablesPanel.svelte';
   import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
   import Icon from './Icon.svelte';
@@ -17,7 +16,7 @@
 
   type PanelType =
     | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
-    | 'bookmarks' | 'inspections' | 'proposals';
+    | 'bookmarks' | 'inspections';
 
   type PanelGroupId = 'note' | 'links' | 'activity';
 
@@ -66,15 +65,11 @@
         { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
       ],
     },
-    {
-      id: 'activity',
-      label: 'Activity',
-      items: [
-        // Inspections panel hidden for v1.0 — the InspectionsPanel component +
-        // render branch are kept; restore this tab entry to re-enable.
-        { id: 'proposals',   label: 'Proposals',   icon: 'proposals' },
-      ],
-    },
+    // Activity group retired (#1527): proposals moved to the always-available
+    // left sidebar (#1523), and Inspections is hidden for v1.0. The
+    // InspectionsPanel component, its 'inspections' PanelType, and its render
+    // branch below are kept dormant — to re-enable, restore an Activity group
+    // here with a `{ id: 'inspections', … }` tab entry.
   ];
 
   /** Reverse lookup: panel → its parent group. Built once at module
@@ -263,8 +258,6 @@
       <BookmarksPanel {activeFilePath} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} />
     {:else if activePanel === 'inspections'}
       <InspectionsPanel {revision} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} />
-    {:else if activePanel === 'proposals'}
-      <ProposalsPanel {revision} />
     {/if}
   </div>
 </aside>
