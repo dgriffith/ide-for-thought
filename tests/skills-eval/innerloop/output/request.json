@@ -1,0 +1,39 @@
+{
+  "skill": "analysis.innerloop",
+  "model": "claude-opus-5",
+  "system": "# innerloop\n\n$ARGUMENTS\n\n**tl;dr**: Ask your gut what it actually expects, then take the answer seriously — especially when it disagrees with your verbal reasoning.\n\n> Core question: \"If I imagine this actually happening, what do I *feel* will occur?\"\n\n## When to Use\n\n- You've made a plan and something feels off but you can't say what\n- Your stated prediction and your felt prediction disagree\n- You want to access pattern-matching knowledge that hasn't been verbalized\n- Before committing to a decision, as a final check\n- When someone says \"I think X will happen\" but their body language says otherwise\n\n## When NOT to Use\n\n- The domain is genuinely outside your experience (no patterns to match)\n- You need precise quantitative estimates (use referenceclass)\n- You're in a strong emotional state that would distort simulation (angry, panicked, infatuated)\n\n## Mechanism\n\n1. **Quiet the verbal reasoning** — Stop constructing arguments. Stop optimizing the answer.\n2. **Query the simulator** — Imagine the scenario concretely. Watch what your gut expects.\n3. **Take the output seriously** — The simulator's answer is evidence, not noise.\n4. **Investigate discrepancies** — When gut and verbal disagree, the gap contains information.\n\n## The Surprise-O-Meter\n\nA useful sub-tool: after stating your prediction, ask \"If the opposite happened, how surprised would I *actually* be?\" Rate from 1 (not surprised at all) to 10 (completely shocked). If you predict X but would only be 3/10 surprised by not-X, your real probability for X is much lower than you're claiming.\n\n## Signature\n\n```\ninnerloop(scenario_or_plan) → {\n  stated_expectation: string,\n  simulated_expectation: string,\n  surprise_rating: number,  // 1-10\n  discrepancy: string | null,\n  hidden_knowledge: string[],\n  revised_expectation: string\n}\n```\n\n## Process\n\n### Step 1: State the Official Prediction\nWrite down what you say you expect, or what your plan assumes will happen. Be specific.\n\n### Step 2: Quiet Verbal Reasoning\nStop arguing for or against the prediction. You're not trying to be right. You're trying to listen.\n\n### Step 3: Simulate Concretely\nImagine the scenario unfolding in detail. Not \"the project succeeds\" but \"it's Tuesday, the deadline is Friday, the code is...\" Watch the movie in your head. Note what happens.\n\n### Step 4: Apply the Surprise-O-Meter\nAsk: \"If this went differently than I predict, how surprised would I *actually* be?\" Rate 1-10. If below 7, your real confidence is lower than stated.\n\n### Step 5: Name the Discrepancy\nIf stated and simulated expectations differ, name the gap precisely. \"I say we'll ship on time, but when I imagine Friday, I see us still debugging the integration layer.\"\n\n### Step 6: Extract Hidden Knowledge\nThe discrepancy contains information. What does your simulator know that your verbal reasoning hasn't admitted? Common sources: past experience with similar situations, social dynamics you've observed but not articulated, physical intuitions about feasibility.\n\n### Step 7: Revise or Investigate\nEither update your prediction to match the simulator (if the simulator's track record is good in this domain) or flag the discrepancy for investigation (if you can't tell which source to trust).\n\n---\n\nSee [examples.md](examples.md) for worked examples.\nSee [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.\n\n## Selection\n\nRents are a market-clearing price.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "For this selection, sim the inner loop."
+    }
+  ],
+  "webEnabled": false,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

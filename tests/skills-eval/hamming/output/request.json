@@ -1,0 +1,39 @@
+{
+  "skill": "analysis.hamming",
+  "model": "claude-opus-5",
+  "system": "# hamming\n\n$ARGUMENTS\n\n**tl;dr**: Find the gap between what you're doing and what actually matters, then confront why the gap exists.\n\n> Core question: \"What are the most important problems in your field, and why aren't you working on them?\"\n\n## When to Use\n\n- Feeling busy but not impactful\n- Choosing between projects or priorities\n- Annual/quarterly planning and review\n- Sensing that your effort allocation doesn't match your stated values\n- When someone asks \"am I working on the right things?\"\n\n## When NOT to Use\n\n- In the middle of executing on a clear, validated plan (don't derail momentum)\n- When someone needs tactical help, not strategic reflection\n- When the domain is too narrow for meaningful prioritization\n\n## The Original Hamming Questions\n\nRichard Hamming would corner scientists at Bell Labs and ask three questions:\n\n1. **\"What are the most important problems in your field?\"**\n2. **\"What are you working on?\"**\n3. **\"If what you're working on isn't important, why are you working on it?\"**\n\nMost people could answer 1 and 2 but became uncomfortable at 3. That discomfort is the signal.\n\n## Mechanism\n\n1. **Identify the important problems** — What would matter most if solved?\n2. **Confront the gap** — Compare important problems with current allocation\n3. **Surface the reasons** — Why the gap exists (fear, comfort, inertia, politics)\n4. **Decide** — Either close the gap or articulate why the gap is justified\n\n## Signature\n\n```\nhamming(domain) → {\n  important_problems: [{problem, impact, tractability, neglectedness}],\n  current_work: [{activity, category, time_fraction}],\n  gaps: [{important_problem, reason_not_working_on_it, reason_type}],\n  decision: string\n}\n```\n\n## Process\n\n### Step 1: Define the Domain\nBound the scope. \"My career\" is too broad; \"my work as a data scientist at company X\" is right. The domain should be specific enough that \"important\" has a clear meaning.\n\n### Step 2: Identify the Important Problems\nList the 3-5 most important problems in this domain. For each, assess:\n- **Impact**: How much would solving this matter?\n- **Tractability**: Could you actually make progress on it?\n- **Neglectedness**: Is anyone else working on it?\n\nProblems that are high-impact, tractable, and neglected are where the leverage lives.\n\n### Step 3: Categorize Current Work\nList what you actually spend time on. For each activity, estimate the fraction of your time it consumes. Categorize each as: important-and-working-on-it, important-but-not-working-on-it, unimportant-but-working-on-it, or maintenance/overhead.\n\n### Step 4: Compare and Find Gaps\nPlace the important problems next to the current work. Identify: Which important problems get zero time? Which unimportant activities consume significant time?\n\n### Step 5: Diagnose the Reasons\nFor each gap, ask *why* honestly. Common reasons:\n- **Fear of failure**: The important problem is hard and failure is visible\n- **Comfort**: Current work is familiar and provides regular wins\n- **Inertia**: \"I've always worked on this\"\n- **Social pressure**: Others expect you to do the less-important work\n- **False constraints**: \"I can't work on that because...\" (test the constraint)\n- **Legitimate reasons**: Sometimes the gap is justified (dependencies, timing, skill gaps)\n\n### Step 6: Decide\nFor each gap, choose one:\n- **Close it**: Shift time toward the important problem. Specify how much, starting when.\n- **Justify it**: Articulate clearly why the gap should remain. If the justification sounds weak when written down, it probably is.\n- **Investigate**: If you can't tell whether closing the gap is feasible, make that investigation your next action.\n\n---\n\nSee [examples.md](examples.md) for worked examples.\nSee [reference.md](reference.md) for quality criteria, anti-patterns, and integration points.\n\n## Selection\n\nRents are a market-clearing price.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "For this selection, apply the Hamming question."
+    }
+  ],
+  "webEnabled": false,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

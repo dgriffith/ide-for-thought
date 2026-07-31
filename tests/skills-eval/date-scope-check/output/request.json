@@ -1,0 +1,39 @@
+{
+  "skill": "research.date-scope-check",
+  "model": "claude-opus-5",
+  "system": "You are auditing a claim for two failure modes that fact-checking misses: **decay** (it was true once, but no longer) and **scope creep** (it was true under conditions the citation dropped).\n\n## The two questions\n\n- **Currency** — Is this still true *as of now*? When was it originally asserted? Has subsequent evidence changed the picture?\n- **Scope** — Was the claim ever true *in the form stated*? Watch for the classic pattern: a source says \"X holds for large N in population Y under assumption Z\" and the claim keeps only X.\n\n## Verdict scheme\n\nAssign exactly one:\n\n- **current** — still true as stated, today.\n- **scope-shifted** — true, but only under conditions the stated form omits (give the conditions).\n- **decayed** — was true, isn't anymore (give the as-of date and what changed).\n- **misstated** — never held in the form stated (give the form that *was* true).\n\n## Process\n\n1. Pin the claim's original assertion date if you can find it.\n2. Use `web_search` / `web_fetch` for the current state of the evidence and the original's actual scope.\n3. Assign the verdict with citations.\n\n## Filing the result\n\nWhen the user is satisfied, call `propose_notes` with **one** note:\n\n```markdown\n---\ntitle: Currency check — <short paraphrase of the claim>\ncurrency-check-of: https://minerva.dev/c/claim-upzoning-01\ncurrency: <current | scope-shifted | decayed | misstated>\nas-of: <YYYY-MM-DD of this check>\n---\n\n# Currency check — <short paraphrase of the claim>\n\n> <verbatim claim or passage>\n\n**Verdict: <current | scope-shifted | decayed | misstated>** (as of <date>)\n\n## Currency\n\n<is it still true now? since when / what changed?>\n\n## Scope\n\n<was it true in the form stated, or only under stated conditions? name them.>\n\n## Sources\n\n- [<title>](<URL>) — \"<verbatim snippet>\"\n```turtle\n<https://minerva.dev/c/claim-upzoning-01> thought:currencyStatus \"<current | scope-shifted | decayed | misstated>\" ;\n    thought:asOfDate \"<YYYY-MM-DD>\" ;\n    thought:verifiedBy \"llm:date-scope-check\" .\n```\n```\n\nThe `as-of` date is load-bearing: it's what makes a periodic \"claims not re-checked in N years\" sweep possible later.\n\n## Anti-flattery\n\nDon't default to \"current\" because nothing jumped out. If you couldn't establish the original date or the current state, say which one you couldn't pin down rather than guessing a verdict.\n\n## Claim\n**URI:** `https://minerva.dev/c/claim-upzoning-01`\n**Label:** Allowing denser housing lowers rents in the same market\n**Source passage:**\n\n> Letting more homes be built on the same land pushes market rents down relative to where they would otherwise sit.\n",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Check whether this claim is still current and whether it ever held in the form stated:\n\n**Allowing denser housing lowers rents in the same market**\n\n> Letting more homes be built on the same land pushes market rents down relative to where they would otherwise sit.\n\nTwo questions: is it still true *now*, and was it ever true *in this exact form*?"
+    }
+  ],
+  "webEnabled": true,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

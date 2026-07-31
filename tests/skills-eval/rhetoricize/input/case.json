@@ -1,0 +1,9 @@
+{
+  "skill": "analysis.rhetoricize",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/rent-control-argument.md",
+    "selection": "capping rents makes a city affordable"
+  }
+}

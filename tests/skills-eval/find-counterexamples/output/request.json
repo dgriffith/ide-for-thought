@@ -1,0 +1,39 @@
+{
+  "skill": "learning.find-counterexamples",
+  "model": "claude-opus-5",
+  "system": "You are finding where the note's claims break down.\n\nIdentify edge cases, failure modes, historical exceptions, or scenarios where reasonable readers should disagree. For each:\n- state the counterexample crisply\n- give one sentence on why the claim falters there\n\nDraw from web search when a real-world case would strengthen the counterexample. Rank from most damaging to most marginal. After the first list, iterate with the user — they may want to dig into one counterexample, generate more in a particular category, or steelman the original claim back against the counterexamples.\n\n## Note — upzoning-lowers-rents\n\n---\ntitle: Upzoning lowers rents\ntags: [housing, economics, supply]\nstatus: draft\n---\n\n# Upzoning lowers rents\n\n## The claim\n\nThe load-bearing claim — <https://minerva.dev/c/claim-upzoning-01> — is that\nletting more homes be built on the same land pushes market rents **down**\nrelative to where they would otherwise sit. This [[rebuts::notes/induced-demand-objection]]\nand draws on [[cite::glaeser-2005]].\n\n## Grounds\n\nAcross metros, the places that permitted the most new housing per capita over\nthe last two decades saw the slowest rent growth. See [[quote::glaeser-supply-elasticity]].\nRents are a market-clearing price: hold demand roughly fixed and add units, and\nthe marginal renter no longer has to bid as high.\n\n## Warrant\n\nThe step from \"more units were built\" to \"rents rose more slowly\" needs a\nwarrant: that housing in a metro is enough of a single market that supply added\nin one neighborhood relieves price pressure in others (filtering, see\n[[notes/glossary/filtering]]). Without that warrant, new luxury units near the\ncenter need not touch rents at the edge.\n\nA simple elasticity sketch: if the rent response to a supply shock is\n\n$$\\varepsilon_p = \\frac{\\partial \\ln P}{\\partial \\ln Q},$$\n\nthen a metro with elastic supply ($\\varepsilon_p$ near zero) barely moves price\nwhen demand rises, while an inelastic one spikes.\n\n```mermaid\nflowchart LR\n  Upzoning --> MoreUnits[More units built]\n  MoreUnits --> Filtering[Filtering down the quality ladder]\n  Filtering --> LowerRents[Lower market rents]\n```\n\n## Objection to engage\n\nThe strongest objection is that new supply *induces* its own demand by making a\nneighborhood more desirable — the position developed in\n[[notes/induced-demand-objection]]. Whether that fully offsets the supply effect\nis the crux.\n\n```turtle\n<https://minerva.dev/c/claim-upzoning-01> a thought:Claim ;\n    thought:label \"Allowing denser housing lowers rents in the same market\" ;\n    thought:sourceText \"Letting more homes be built on the same land pushes market rents down relative to where they would otherwise sit.\" .\n```\n\n\n",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Where does this break down?"
+    }
+  ],
+  "webEnabled": true,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

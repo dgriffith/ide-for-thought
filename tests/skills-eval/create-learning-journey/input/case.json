@@ -1,0 +1,8 @@
+{
+  "skill": "learning.create-learning-journey",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/upzoning-lowers-rents.md"
+  }
+}

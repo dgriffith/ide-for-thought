@@ -148,6 +148,54 @@ export async function buildEvalContext(
   return out;
 }
 
+/**
+ * Pre-fill every skill parameter with its `defaultValue` (or ''), exactly as the
+ * invocation dialog (`ToolParamsDialog.svelte`) does — it seeds `paramValues`
+ * from `p.defaultValue ?? ''` for *every* parameter, so at runtime the rendered
+ * prompt always sees all params. A case's explicit values override the defaults.
+ */
+export function applyParamDefaults(
+  def: ThinkingToolDef,
+  provided: Record<string, string>,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of def.parameters ?? []) {
+    out[p.id] = provided[p.id] ?? p.defaultValue ?? '';
+  }
+  // Keep any extra keys the case supplied that aren't declared params (harmless).
+  for (const [k, v] of Object.entries(provided)) if (!(k in out)) out[k] = v;
+  return out;
+}
+
+/**
+ * Resolve `note`-type parameter companions (#516), headless mirror of the
+ * renderer's `resolve-note-params.ts`: for each note param holding a picked
+ * path, read that note from the thoughtbase and expose its body + title as the
+ * companion vars `{{param.<id>.content}}` / `{{param.<id>.title}}` (the picked
+ * path stays as `{{param.<id>}}`). Used by the harness so a skill like
+ * find-tensions, which compares the active note against a second one, packages
+ * the same prompt Minerva would. Returns a new merged map.
+ */
+export async function resolveNoteParamCompanions(
+  ctx: ProjectContext,
+  def: ThinkingToolDef,
+  values: Record<string, string>,
+): Promise<Record<string, string>> {
+  const out = { ...values };
+  for (const p of def.parameters ?? []) {
+    if (p.type !== 'note') continue;
+    const rel = out[p.id];
+    if (!rel) continue;
+    out[`${p.id}.title`] = titleFromPath(rel);
+    try {
+      out[`${p.id}.content`] = await readFile(ctx.rootPath, rel);
+    } catch {
+      // Picked note unreadable — keep path + title, omit content (as the app does).
+    }
+  }
+  return out;
+}
+
 /** 1-based line number of a character offset in `text`. */
 function lineAt(text: string, offset: number): number {
   let line = 1;

@@ -40,7 +40,13 @@ import type { ThinkingToolDef } from '../shared/tools/types';
 import type { ConversationToolKey } from '../shared/conversation-tools';
 import type { TurnUsage } from '../shared/types';
 import { jsonStringify } from './json';
-import { buildEvalContext, type CaseContextRefs, type InlineInputs } from './eval-context';
+import {
+  buildEvalContext,
+  applyParamDefaults,
+  resolveNoteParamCompanions,
+  type CaseContextRefs,
+  type InlineInputs,
+} from './eval-context';
 
 // Injected by the CLI build (vite.cli.config.ts); absent under vitest — the
 // `typeof` guard at the use site falls back to 'unknown', matching register-app.ts.
@@ -184,7 +190,13 @@ async function packageCase(
   settings: Awaited<ReturnType<typeof getSettings>>,
 ): Promise<{ request: PackagedRequest; meta: EvalMeta }> {
   const context = await buildEvalContext(ctx, def, manifest.context ?? {}, inline);
-  if (manifest.parameters) context.parameterValues = manifest.parameters;
+  // Pre-fill param defaults (as the invocation dialog does), then resolve any
+  // `note`-type param's companion vars (`{{param.<id>.content/title}}`) from the
+  // thoughtbase — so the rendered prompt matches what Minerva would send.
+  const paramValues = applyParamDefaults(def, manifest.parameters ?? {});
+  if (Object.keys(paramValues).length > 0) {
+    context.parameterValues = await resolveNoteParamCompanions(ctx, def, paramValues);
+  }
 
   // Record the effective model directly (not the payload's UI-omitted field) so a
   // pinned model is always visible and a model swap shows up as a diff.

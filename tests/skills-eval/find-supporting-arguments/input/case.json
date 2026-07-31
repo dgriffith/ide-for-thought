@@ -1,0 +1,8 @@
+{
+  "skill": "research.find-supporting-arguments",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "selection": "<https://minerva.dev/c/claim-upzoning-01>"
+  }
+}

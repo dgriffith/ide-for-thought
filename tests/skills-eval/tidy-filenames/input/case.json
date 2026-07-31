@@ -1,0 +1,5 @@
+{
+  "skill": "analysis.tidy-filenames",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase"
+}

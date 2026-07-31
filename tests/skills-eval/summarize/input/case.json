@@ -1,0 +1,8 @@
+{
+  "skill": "learning.summarize",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/messy-braindump.md"
+  }
+}
