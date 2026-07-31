@@ -11,9 +11,9 @@ context: [fullNote]
 requiresNote: false
 slashCommand: /overview
 model: claude-opus-5
-# Drafts from the open note + model knowledge, like the onboarding flow it's
-# based on — no web grounding needed; the user reviews the bundle before it lands.
-web: false
+# Web on: an overview is factual scaffolding, so let the assistant check names,
+# dates, and specifics as it drafts — the onboarding overview wants this too.
+web: true
 tools: [ask_user]
 firstMessage: "{{#if note}}Build me an overview of \"{{note.title}}\".{{/if}}"
 longDescription: >-

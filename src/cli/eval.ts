@@ -297,6 +297,10 @@ async function runLive(
       toolContext: { rootPath, conversationId: `eval:${caseName}` },
       ...(request.model ? { model: request.model } : {}),
       ...(request.requiresTools ? { extraTools: request.requiresTools } : {}),
+      // Honor the skill's declared web setting: a `web: false` skill runs without
+      // web tools (the global default is on headless, and per-skill web isn't yet
+      // wired in the app — so the harness enforces the declaration itself).
+      ...(request.webEnabled === false ? { web: { enabled: false } } : {}),
       callbacks,
     });
     return {

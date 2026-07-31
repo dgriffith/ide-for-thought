@@ -8,7 +8,7 @@
       "content": "Build me an overview of \"upzoning-lowers-rents\"."
     }
   ],
-  "webEnabled": false,
+  "webEnabled": true,
   "tools": [
     "search_notes",
     "grep_notes",

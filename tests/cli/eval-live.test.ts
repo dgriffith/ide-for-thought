@@ -101,6 +101,23 @@ describe('skill-eval harness — live capture (#1522 PR 2)', () => {
     expect(JSON.parse(fs.readFileSync(path.join(out, 'drafts.json'), 'utf-8'))).toEqual([]);
   });
 
+  it('honors a web:false skill by disabling web on the live call', async () => {
+    // conv-case runs analysis.antithesize, which declares `web: false`; the
+    // harness must pass a web-off override so it doesn't get server web tools.
+    let seenWeb: unknown = 'unset';
+    const seam: LlmSeam = {
+      async complete() {
+        return 'x';
+      },
+      async completeWithTools(opts) {
+        seenWeb = opts.web;
+        return { text: '', citations: [], usage: USAGE, usageModel: 'm' };
+      },
+    };
+    await runEval(['conv-case'], { cwd, live: true, llm: seam });
+    expect(seenWeb).toEqual({ enabled: false });
+  });
+
   it('captures a live error into the case instead of aborting the batch', async () => {
     // A seam whose conversation call always throws (e.g. a provider 400). The
     // run must record the error on the case and still complete.
