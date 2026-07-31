@@ -43,11 +43,18 @@ only touch the graph on human approval in Minerva).
 ## Two context modes
 
 - **Reference into a thoughtbase** (primary): `case.json` sets `thoughtbase`
-  (relative to the case dir) and `context.note` / `context.source`; the harness
-  assembles graph-derived context (relatedNotes, taggedNotes, claim metadata,
-  source) headlessly. See `steelman-essential-complexity`.
+  (relative to the case dir) and `context.note` / `context.source` /
+  `context.selection`; the harness assembles graph-derived context (claim
+  metadata, source body, `note`-type param companions) headlessly. Most cases
+  point at the purpose-built [`thoughtbase/`](./thoughtbase/README.md) — one
+  canonical case per stock skill.
 - **Inline files** (synthetic): drop `input/note.md` / `input/selection.txt` and
   omit `thoughtbase`. See `taboo-inline`.
+
+Skill parameters are pre-filled with each param's `defaultValue` (as the
+invocation dialog does); a case's `parameters` override them. A required param
+with no default (e.g. taboo's `term`, find-tensions' `otherNote`) must be set in
+the case.
 
 ## Determinism
 

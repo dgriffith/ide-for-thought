@@ -1,0 +1,13 @@
+city,homes_per_1k,median_rent,vacancy_rate
+Detroit,500,1100,22.0
+Austin,480,1500,7.5
+Houston,470,1450,8.0
+Dallas,460,1550,7.8
+Minneapolis,455,1600,6.5
+Atlanta,450,1650,7.0
+Chicago,445,1750,6.0
+Denver,435,1900,5.5
+Seattle,430,2100,4.5
+Boston,405,2600,3.0
+New York,395,3000,2.8
+San Francisco,390,3300,3.5

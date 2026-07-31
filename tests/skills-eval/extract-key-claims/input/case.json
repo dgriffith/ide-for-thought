@@ -1,0 +1,8 @@
+{
+  "skill": "research.extract-key-claims",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "source": "glaeser-2005"
+  }
+}

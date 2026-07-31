@@ -1,0 +1,8 @@
+{
+  "skill": "learning.give-examples",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/glossary/elasticity-of-supply.md"
+  }
+}

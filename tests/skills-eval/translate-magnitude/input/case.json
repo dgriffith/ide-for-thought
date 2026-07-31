@@ -1,0 +1,9 @@
+{
+  "skill": "research.translate-magnitude",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/upzoning-lowers-rents.md",
+    "selection": "<https://minerva.dev/c/claim-upzoning-01>"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "skill": "analysis.antithesize",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/upzoning-lowers-rents.md",
+    "selection": "Rents are a market-clearing price."
+  },
+  "parameters": {
+    "intensity": "adversarial. Push the opposition to the far edge of plausibility. The author should find this view alien but not strawmanned. Identity-attacking moves are fine if they cut at real assumptions."
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "skill": "analysis.handlize",
+  "model": "claude-opus-5",
+  "system": "# handlize\n\nhandlize strips rhetoric, tests novelty, and returns only **handles**—concepts or distinctions with operational grip. It answers: **\"what here could actually change what I do?\"** Not summary, not critique—just residue extraction.\n\n## Definition: what counts as a handle\n\nA handle is a concept, frame, or distinction that:\n- **Constrain or enable action:** changes what decisions or designs are viable.\n- **Operationalizable:** can be measured, modeled, or intervened on.\n- **Non-rhetorical:** not merely a justification or applause light.\n\nEach handle is classified by context as **live** (executable, low decay), **burned** (real referent but term degraded), or **dead** (no operational content).\n\n## Dials\n\n| Dial | Range | Purpose | Failure modes |\n| --- | --- | --- | --- |\n| **Extraction strictness** | permissive → strict | How aggressively to discard non-executable material | Too permissive → summary drift; too strict → false negatives |\n| **Novelty threshold** | contextual → primitive | How new a concept must be | Too low → repackaged common sense; too high → only research-grade ideas |\n| **Operational demand** | sketch → concrete | How fully the handle must be cashed out | Too low → vibes pass; too high → early ideas rejected |\n| **Burned handle policy** | ignore / drop / rehabilitate | How to treat socially degraded terms | Ignore → buzzword drift; drop → lose real phenomena; rehabilitate → raises operational demand for burned terms |\n\n**Implicit dial: context.** Always state which domain/audience/problem frame is assumed; handle status is context-relative.\n\n## When to use\n- A text feels dense but unclear which ideas change action.\n- You need to separate executable concepts from rhetoric before planning.\n- You want to rehabilitate or discard buzzwords based on operational content.\n\n## When not to use\n- You need a summary or critique (use @synthesize / @antithesize).\n- There is no concrete situation or audience—context-free inputs make status classification meaningless.\n\n## Core operation (high-level)\n1. **Strip rhetorical mass:** drop throat-clearing, prestige adjectives, moral signaling, and audience-calibration fluff.\n2. **Identify candidate handles:** claims, frames, or distinctions that would shift choices or protocols.\n3. **Test candidates:** actionability, operationalizability, novelty relative to context.\n4. **Classify status:** live vs burned vs dead (context-aware). Burned terms must be operationalized to survive.\n5. **Check gestalt risk:** if decomposition loses causal grip, preserve as a single handle and flag **gestalt-dependent**.\n6. **Output executable residue:** only handles that pass the tests; allow null output if none survive.\n\n## Process (explicit steps)\n1. **Set context + dials:** state assumed domain/audience/problem; set strictness, novelty, operational demand, burned-handle policy; note interactions (rehabilitate ⇒ higher operational bar for burned terms).\n2. **Remove rhetorical mass:** excise non-load-bearing rhetoric; keep just enough wording to preserve candidate meaning.\n3. **Harvest candidates:** pull any concept, frame, or distinction implying different decisions, models, or interventions.\n4. **Evaluate each candidate:**\n   - Actionability: would this change a decision boundary, design, or protocol?\n   - Operationalizability: can it be expressed in variables, mechanisms, metrics, or levers?\n   - Novelty: is it new to this context vs just renamed common sense?\n5. **Classify status (context-relative):**\n   - **Live:** executable, underused, low decay.\n   - **Burned:** real referent but term degraded; keep only if operationalized (and raise operational demand when policy = rehabilitate).\n   - **Dead:** no operational content; drop.\n6. **Gestalt check:** if breaking into parts removes causal grip, keep it as one handle and mark **gestalt-dependent**.\n7. **Emit residue:** use the output schema; include a null result if nothing survives.\n\n## Output schema (required)\n\nFor each surviving handle:\n- **handle:** concise formulation\n- **status:** live | burned | dead\n- **context:** assumed domain/audience\n- **why it matters:** what action, model, or decision it enables\n- **operationalization sketch:** variables, mechanism, possible measurement or test (for live/burned)\n- **gestalt-dependent:** yes | no\n\nIf no handles survive: state **\"no executable residue found\"** and briefly why.\n\n## Quality criteria\n- States context and dial settings up front.\n- Discards rhetoric without erasing candidate meaning.\n- Distinguishes live vs burned vs dead with justification.\n- Raises operational bar when rehabilitating burned terms.\n- Flags gestalt dependence instead of fragmenting useful constructs.\n- Allows null output; no forced handles.\n\n## Common failure modes to avoid\n- **Summary drift:** turning into a tidy recap instead of residue extraction.\n- **Buzzword laundering:** relabeling burned terms without mechanism.\n- **False novelty:** treating reframes of common sense as new handles.\n- **Over-rehabilitation:** rescuing concepts that were always empty.\n- **Over-pruning:** strictness so high that viable proto-handles are dropped.\n\n## Examples (abbreviated)\n- **Live:** \"orgs as simulable dynamical systems, not static snapshots\" → enables modeling flows and interventions.\n- **Burned (rehabilitated):** \"alignment\" in corporate strategy → only keep if tied to measurable gradient matching between stated objectives and incentives.\n- **Dead:** \"future-proofing\" → no operational content; drop.\n\n\n## Selection\n\nRents are a market-clearing price.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "For this selection, extract the handles."
+    }
+  ],
+  "webEnabled": false,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

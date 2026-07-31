@@ -1,0 +1,12 @@
+{
+  "skill": "planning.taboo",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/upzoning-lowers-rents.md",
+    "selection": "Rents are a market-clearing price."
+  },
+  "parameters": {
+    "term": "affordable"
+  }
+}

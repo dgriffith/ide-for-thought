@@ -1,0 +1,8 @@
+{
+  "skill": "learning.propose-flashcards",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/glossary/filtering.md"
+  }
+}

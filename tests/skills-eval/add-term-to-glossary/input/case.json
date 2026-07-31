@@ -1,0 +1,9 @@
+{
+  "skill": "learning.add-term-to-glossary",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/glossary/filtering.md",
+    "selection": "Filtering"
+  }
+}

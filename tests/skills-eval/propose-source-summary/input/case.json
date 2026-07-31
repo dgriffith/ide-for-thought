@@ -1,0 +1,8 @@
+{
+  "skill": "research.propose-source-summary",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "source": "glaeser-2005"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "skill": "planning.steelman",
+  "model": "claude-opus-5",
+  "thoughtbase": "../thoughtbase",
+  "context": {
+    "note": "notes/induced-demand-objection.md",
+    "selection": "New market-rate housing, on this view, does not lower rents where it is built"
+  }
+}

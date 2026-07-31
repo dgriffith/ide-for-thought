@@ -1,0 +1,5 @@
+{
+  "skill": "learning.add-term-to-glossary",
+  "model": "claude-opus-5",
+  "outputMode": "openConversation"
+}

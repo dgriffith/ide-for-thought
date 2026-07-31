@@ -1,0 +1,11 @@
+this: a thought:Article ;
+    dc:title "Why Have Housing Prices Gone Up?" ;
+    dc:creator "Edward L. Glaeser" ;
+    dc:creator "Joseph Gyourko" ;
+    dc:creator "Raven Saks" ;
+    dc:issued "2005"^^xsd:gYear ;
+    dc:publisher "American Economic Review" ;
+    bibo:volume "95" ;
+    bibo:issue "2" ;
+    bibo:pages "329-333" ;
+    dc:abstract "Argues that in much of the United States the gap between house prices and construction costs is best explained not by a scarcity of land but by regulatory limits on building. Where zoning and permitting are permissive, supply is elastic and prices track construction costs; where they are restrictive, supply is inelastic and prices rise well above cost." .

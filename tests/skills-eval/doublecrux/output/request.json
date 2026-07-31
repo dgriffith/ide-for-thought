@@ -1,0 +1,39 @@
+{
+  "skill": "analysis.doublecrux",
+  "model": "claude-opus-5",
+  "system": "Apply doublecrux to: $ARGUMENTS\n\nIf no positions are specified, identify the most significant disagreement or tension in the current conversation and find the crux.\n\n## tl;dr\n\nFind the belief that would change the conclusion if flipped. Disagreement resolution operator.\n\n> \"what's the one thing that, if you learned you were wrong about it, would make you change your mind?\"\n\n## when to use\n\nUse when:\n- Two parties hold **opposing positions** and neither is moving\n- An argument is **generating heat but not light**\n- You want to find out if a disagreement is **resolvable in principle**\n- You need to identify what **evidence would actually matter**\n- You're trying to understand **why you believe something**\n\nDon't use when:\n- The disagreement is purely semantic -- use **taboo**\n- You need to surface hidden assumptions -- use **excavate**\n- There's no genuine disagreement to resolve\n\n## the mechanism\n\nMost arguments are about conclusions, not reasons. People defend positions without examining what's actually holding them up. Doublecrux reverses this:\n\n1. **Identifying cruxes** -- beliefs that are necessary for the conclusion\n2. **Checking for shared cruxes** -- finding where both parties' conclusions depend on the same belief\n3. **Targeting the crux** -- investigating that specific claim rather than the whole debate\n\nThe insight: if you find a crux that both parties agree would change their minds, you've transformed an argument into an investigation.\n\n**Double** crux means: the crux must be load-bearing for *both* sides. A believes X, B believes not-X. If both would flip their conclusion upon learning the truth about claim C, then C is the double crux.\n\n## signature\n\n`doublecrux(position_A, position_B) -> {cruxes_A, cruxes_B, double_cruxes, investigation_plan}`\n\n- **position_A:** first party's conclusion and reasoning\n- **position_B:** second party's conclusion and reasoning\n\nOutput:\n- **cruxes_A** -- beliefs that A would need to change to flip\n- **cruxes_B** -- beliefs that B would need to change to flip\n- **double_cruxes** -- cruxes shared by both (the investigation targets)\n- **investigation_plan** -- how to resolve the double crux empirically or logically\n\n## process\n\n### step 0: clarify the disagreement\nState both positions clearly. Ensure you're disagreeing about the same thing (use **taboo** if needed).\n\n### step 1: generate cruxes for A\nAsk A: \"List the beliefs that, if you learned they were false, would make you change your conclusion.\"\n\nFor each belief, verify:\n- Is it actually necessary? (If this were false, would you really change your mind?)\n- Is it specific enough to test or investigate?\n\nAim for 3-7 genuine cruxes.\n\n### step 2: generate cruxes for B\nRepeat for B. Same verification process.\n\n### step 3: identify double cruxes\nCompare the lists. Look for:\n- **Direct overlaps** -- same belief on both lists\n- **Inverse pairs** -- A's crux is \"X is true,\" B's crux is \"X is false\"\n- **Upstream connections** -- both cruxes depend on a shared third belief\n\nA double crux is a belief where:\n- If A learned it was false, A would move toward B's position\n- If B learned it was true, B would move toward A's position\n\n### step 4: verify the double crux\nAsk both parties:\n- \"If we discovered that [double crux] was actually [true/false], would you change your conclusion?\"\n- \"Is there anything else you'd need, or is this the crux?\"\n\nIf either says \"no, I'd still believe my conclusion,\" it's not a real crux. Go back to step 1.\n\n### step 5: design the investigation\nFor the verified double crux:\n- What evidence would resolve it?\n- What experiment, analysis, or research would help?\n- What would each outcome mean for the original disagreement?\n\n### step 6: investigate or acknowledge limits\nEither:\n- Pursue the investigation and update based on findings\n- Acknowledge that the crux is currently unresolvable (and the disagreement is therefore rational)\n\n## additional resources\n\n- For worked examples, see [examples.md](examples.md)\n- For quality criteria, anti-patterns, and integration points, see [reference.md](reference.md)\n\n## Selection\n\nNew market-rate housing, on this view, does not lower rents where it is built",
+  "messages": [
+    {
+      "role": "user",
+      "content": "For this selection, find the double crux."
+    }
+  ],
+  "webEnabled": false,
+  "tools": [
+    "search_notes",
+    "grep_notes",
+    "read_note",
+    "read_source",
+    "search_related",
+    "search_help",
+    "query_graph",
+    "list_notes",
+    "propose_note_rename",
+    "propose_note_move",
+    "propose_reorganization",
+    "propose_note_delete",
+    "propose_folder_move",
+    "propose_folder_delete",
+    "propose_note_body",
+    "propose_notes",
+    "describe_graph_schema",
+    "describe_tables",
+    "query_sql",
+    "propose_sources",
+    "fetch_properties",
+    "set_properties",
+    "propose_source_properties",
+    "propose_claims",
+    "propose_compute"
+  ]
+}

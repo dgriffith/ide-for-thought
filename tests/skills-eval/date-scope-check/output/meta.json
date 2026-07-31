@@ -1,0 +1,5 @@
+{
+  "skill": "research.date-scope-check",
+  "model": "claude-opus-5",
+  "outputMode": "openConversation"
+}

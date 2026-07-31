@@ -1,0 +1,10 @@
+{
+  "skill": "analysis.excavate",
+  "model": "claude-opus-5",
+  "messages": [
+    {
+      "role": "user",
+      "content": "You are performing an Excavate analysis — assumption archaeology. Your goal is to map the hidden assumptions supporting the claim, belief, or plan presented below. The core question is: **\"What must be true for this to make sense?\"**\n\n## Assumption Categories\n\nTag each assumption with its type:\n1. **Empirical** — factual claims about the world\n2. **Normative** — value judgments and priorities\n3. **Structural** — incentives, institutions, competitive dynamics\n4. **Psychological** — cognition, motivation, perception\n5. **Definitional** — category boundaries and meaning\n\n## Instructions\n\n**Step 1 — Normalize** the claim into a crisp, single statement.\n\nPerform a **standard** excavation:\n- Generate layer-1 assumptions (3-7 items)\n- Recurse downward for 2-3 levels, tagging with [CRUX], [HIGH-UNCERTAINTY], [HIGH-LEVERAGE]\n- Categorize each assumption: Empirical, Normative, Structural, Psychological, or Definitional\n- Summarize the 3-7 load-bearing cruxes\n- Generate probe questions for each crux\n\n## Expected Output\n\nProduce three artifacts:\n\n1. **Layered assumption tree** — clean, non-redundant branches with category tags and importance markers\n2. **Crux list** — the 3-7 highest-impact assumptions that, if wrong, would most undermine the position\n3. **Probe questions** — concrete, testable or investigable questions that would update the cruxes\n\n## Key Principle\n\nThe goal isn't judgment — it's mapping where effort and evidence should focus next. You are not arguing for or against the position; you are excavating its foundations.\n\n## Selected Text\n\nRents are a market-clearing price.\n\nRespond in markdown. Use indented lists or tree notation for the assumption layers. Bold the [CRUX] items. End with the probe questions as a numbered list."
+    }
+  ]
+}

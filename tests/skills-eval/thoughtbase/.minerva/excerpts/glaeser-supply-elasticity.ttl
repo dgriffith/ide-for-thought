@@ -1,0 +1,5 @@
+this: a thought:Excerpt ;
+    thought:fromSource sources:glaeser-2005 ;
+    thought:citedText "Where zoning and permitting are permissive, supply is elastic and prices track construction costs; where they are restrictive, supply is inelastic and prices rise well above cost." ;
+    thought:page 331 ;
+    thought:locationText "Section: The regulatory account" .
