@@ -82,6 +82,7 @@
   import { clampFontSize } from './lib/editor/font-size';
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
+  import { getProposalsStore } from './lib/stores/proposals.svelte';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { sectionAnchorAt } from './lib/markdown/headings';
   import { isMissingApiKeyError } from '../shared/llm-errors';
@@ -109,6 +110,9 @@
   const nav = getNavigationStore();
   const conversationsStore = getConversationsStore();
   const bookmarkStore = getBookmarksStore();
+  // Pending-proposals count drives the status-bar badge (#1528); the store also
+  // powers the left Proposals panel and self-updates on out-of-process changes.
+  const proposalsStore = getProposalsStore();
   const voice = getVoiceStore();
   // Position-bearing bookmarks are resolved per pane at the Editor mount via
   // `collectBookmarksForPath(bookmarkStore.tree, <that pane's file>)` (#813),
@@ -1222,6 +1226,7 @@
             fontSize={editorFontSize}
             theme={themeLabel}
             {inspectionCount}
+            pendingCount={proposalsStore.pendingCount}
             {backlinkCount}
             backfill={embeddingProgress}
             isDirty={editor.isDirty}
@@ -1232,6 +1237,10 @@
             onShowBacklinks={() => {
               rightSidebarVisible = true;
               rightSidebar?.showPanel('backlinks');
+            }}
+            onShowProposals={() => {
+              sidebarVisible = true;
+              sidebar?.showPanel('proposals');
             }}
             onToggleDictation={() => { void toggleEditorDictation(editorComponent?.getView() ?? null); }}
             dictationActive={voice.surface === 'editor' && voice.busy}

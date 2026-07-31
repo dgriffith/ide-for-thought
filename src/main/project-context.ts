@@ -10,8 +10,10 @@
  * and releases on close.
  */
 
+import { app } from 'electron';
 import * as graph from './graph/index';
 import * as search from './search/index';
+import { listProposals } from './llm/approval';
 import * as tables from './sources/tables';
 import * as vectors from './embeddings/vector-store';
 import { getSharedEmbedder } from './embeddings/shared-embedder';
@@ -99,6 +101,9 @@ export async function acquireProject(rootPath: string, winId: number): Promise<P
       // route proposals + semantic search through us instead of racing our
       // files. Best-effort; awaited so the advert exists the moment open resolves.
       await registerProject(ctx);
+      // Reflect any proposals filed while this project was closed in the dock
+      // badge the moment it opens (#1528).
+      void updateDockBadge();
     })();
     rec = { ctx, rootPath, acquirers: new Set(), initPromise };
     projects.set(rootPath, rec);
@@ -137,11 +142,33 @@ export async function releaseProject(rootPath: string, winId: number): Promise<v
   // each (#1085). Disposal has no cross-store ordering dependency, unlike init.
   await disposeAllProjectStores(rec.ctx);
   projects.delete(rootPath);
+  // Drop this project's pending proposals from the dock badge (#1528).
+  void updateDockBadge();
 }
 
 /** Resolve the live ProjectContext for a rootPath, if currently held. */
 export function getProjectContext(rootPath: string): ProjectContext | null {
   return projects.get(rootPath)?.ctx ?? null;
+}
+
+/**
+ * Refresh the OS dock/taskbar badge with the total pending-proposal count
+ * across every open project (#1528) — so "you have N proposals" is visible even
+ * when Minerva is unfocused, and stays live as proposals are filed (in-app or
+ * out-of-process), approved, rejected, expired, or as projects open/close.
+ * Best-effort: `app.setBadgeCount` is a no-op on platforms without a badge
+ * (Windows), and a failure must never disrupt the change that triggered it.
+ */
+export async function updateDockBadge(): Promise<void> {
+  try {
+    let total = 0;
+    for (const rec of projects.values()) {
+      total += (await listProposals(rec.ctx, 'pending')).length;
+    }
+    app.setBadgeCount(total);
+  } catch (err) {
+    console.warn('[project-context] dock badge update failed:', err);
+  }
 }
 
 /**
