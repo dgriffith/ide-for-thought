@@ -52,6 +52,18 @@ tests/skills-eval/thoughtbase/.minerva/*
 !tests/skills-eval/thoughtbase/.minerva/excerpts/
 !tests/skills-eval/thoughtbase/.minerva/excerpts/**
 
+# Bundled tutorial thoughtbase (#1543): ship its .minerva/ payload. Unlike the
+# fixtures above, config.json IS tracked here — it carries the canonical baseUri
+# the pre-authored source/excerpt/turtle IRIs are written against, so it must
+# ship verbatim. graph.ttl / indexes stay ignored (rebuilt on first open).
+!resources/tutorial-thoughtbase/.minerva/
+resources/tutorial-thoughtbase/.minerva/*
+!resources/tutorial-thoughtbase/.minerva/config.json
+!resources/tutorial-thoughtbase/.minerva/sources/
+!resources/tutorial-thoughtbase/.minerva/sources/**
+!resources/tutorial-thoughtbase/.minerva/excerpts/
+!resources/tutorial-thoughtbase/.minerva/excerpts/**
+
 # Bundled embedding model (#834): the 23MB ONNX weights are fetched at
 # build/dev time, not vendored. The small tokenizer/vocab/config ARE committed
 # so the WordPiece ground-truth test runs in CI without a network fetch.

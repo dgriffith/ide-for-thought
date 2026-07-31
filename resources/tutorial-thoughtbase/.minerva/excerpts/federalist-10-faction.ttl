@@ -1,0 +1,6 @@
+this: a thought:Excerpt ;
+    thought:fromSource sources:federalist-10 ;
+    thought:citedText "The latent causes of faction are thus sown in the nature of man" ;
+    thought:charStart 638 ;
+    thought:charEnd 701 ;
+    thought:locationText "on the causes of faction" .
