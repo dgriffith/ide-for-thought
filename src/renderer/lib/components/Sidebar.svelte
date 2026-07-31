@@ -5,6 +5,7 @@
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
   import BookmarksPanel from './BookmarksPanel.svelte';
+  import ProposalsPanel from './ProposalsPanel.svelte';
   import Icon from './Icon.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
@@ -13,16 +14,17 @@
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick, untrack } from 'svelte';
 
-  type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'bookmarks';
+  type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'bookmarks' | 'proposals';
 
   /** Hybrid icon-rail definition: the active tab shows the label, the
    *  others are icon-only. Per IMPLEMENTATION.md §5.1. */
-  const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' | 'bookmark' }> = [
+  const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' | 'bookmark' | 'proposals' }> = [
     { id: 'notes',     label: 'Notes',     icon: 'notes' },
     { id: 'sites',     label: 'Sources',   icon: 'sites' },
     { id: 'tags',      label: 'Tags',      icon: 'tags' },
     { id: 'tables',    label: 'Tables',    icon: 'tables' },
     { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
+    { id: 'proposals', label: 'Proposals', icon: 'proposals' },
   ];
 
   /** Recursively count files (not folders) in the tree — drives the
@@ -643,6 +645,8 @@
       {#if onShowPrompt}
         <BookmarksPanel {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} {onShowPrompt} />
       {/if}
+    {:else if activePanel === 'proposals'}
+      <ProposalsPanel />
     {/if}
   </div>
 
