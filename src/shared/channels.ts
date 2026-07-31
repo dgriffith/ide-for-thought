@@ -36,6 +36,8 @@ export const Channels = {
   NOTEBASE_OPEN_IN_NEW_WINDOW: 'notebase:openInNewWindow',
   NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW: 'notebase:newProjectInNewWindow',
   NOTEBASE_OPEN_PATH_IN_NEW_WINDOW: 'notebase:openPathInNewWindow',
+  /** Copy the bundled tutorial thoughtbase to a picked dir and open it (#1542). */
+  NOTEBASE_INSTALL_TUTORIAL: 'notebase:installTutorial',
   /** Clear the recent-projects list. */
   RECENT_CLEAR: 'recent:clear',
   /** main → renderer: a project finished opening in this window. Payload is
