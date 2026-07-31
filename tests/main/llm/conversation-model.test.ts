@@ -68,3 +68,36 @@ describe('conversation.setModel (issue #168)', () => {
     await expect(setModel('nope', 'claude-opus-4-7')).rejects.toThrow(/not found/i);
   });
 });
+
+describe('conversation.create webEnabled (#1533 — per-conversation web)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = mkTempProject();
+    ctx = projectContext(root);
+    await initGraph(ctx);
+    initConversations(root);
+  });
+
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('defaults to undefined (inherit the global web setting)', async () => {
+    const conv = await create({ notePath: 'x.md' });
+    expect(conv.webEnabled).toBeUndefined();
+    expect((await load(conv.id))?.webEnabled).toBeUndefined();
+  });
+
+  it('persists an explicit web:false from a launching skill', async () => {
+    const conv = await create({ notePath: 'x.md' }, undefined, { webEnabled: false });
+    expect(conv.webEnabled).toBe(false);
+    expect((await load(conv.id))?.webEnabled).toBe(false);
+  });
+
+  it('persists an explicit web:true', async () => {
+    const conv = await create({ notePath: 'x.md' }, undefined, { webEnabled: true });
+    expect((await load(conv.id))?.webEnabled).toBe(true);
+  });
+});

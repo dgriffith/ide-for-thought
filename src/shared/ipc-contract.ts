@@ -469,7 +469,7 @@ export interface ChannelMap {
   'proposal:expire': () => number;
 
   // Conversations
-  'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) => Conversation;
+  'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string; webEnabled?: boolean }) => Conversation;
   'conversation:append': (id: string, role: ConversationMessage['role'], content: string) => Conversation;
   'conversation:archive': (id: string) => Conversation;
   'conversation:load': (id: string) => Conversation | null;

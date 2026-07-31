@@ -83,7 +83,7 @@ function generateId(): string {
 export async function create(
   contextBundle: ContextBundle,
   triggerNodeUri?: string,
-  options?: { systemPrompt?: string; model?: string },
+  options?: { systemPrompt?: string; model?: string; webEnabled?: boolean },
 ): Promise<Conversation> {
   const dir = ensureDir();
   await fs.mkdir(dir, { recursive: true });
@@ -99,6 +99,7 @@ export async function create(
   };
   if (options?.systemPrompt) conv.systemPrompt = options.systemPrompt;
   if (options?.model) conv.model = options.model;
+  if (options?.webEnabled !== undefined) conv.webEnabled = options.webEnabled;
 
   await persist(conv);
   writeConversationToGraph(conv);
