@@ -440,6 +440,11 @@ export const Channels = {
   PROPOSAL_APPROVE: 'proposal:approve',
   PROPOSAL_REJECT: 'proposal:reject',
   PROPOSAL_EXPIRE: 'proposal:expire',
+  /** One-way broadcast: the pending-proposal set changed (filed in-app, filed
+   *  out-of-process via the substrate server, approved, rejected, or expired).
+   *  The renderer's proposals store re-fetches on this. Not an invoke channel,
+   *  so it has no `ChannelMap` entry (#1524). */
+  PROPOSALS_CHANGED: 'proposals:changed',
 
   // Conversations
   CONVERSATION_CREATE: 'conversation:create',

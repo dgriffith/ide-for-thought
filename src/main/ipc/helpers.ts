@@ -129,6 +129,18 @@ export function broadcastHeadingRename(rootPath: string, candidate: graph.Headin
   }
 }
 
+/**
+ * Broadcast that `rootPath`'s pending-proposal set changed (#1524). Fired via
+ * the Electron-free `onProposalsChanged` subscription (wired once in `ipc.ts`),
+ * so it covers proposals filed in-app AND those filed out-of-process and routed
+ * through the substrate server.
+ */
+export function broadcastProposalsChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    targetWin.webContents.send(Channels.PROPOSALS_CHANGED);
+  }
+}
+
 export const hooks: WritePipelineHooks = {
   markPathHandled,
   broadcastRewritten,

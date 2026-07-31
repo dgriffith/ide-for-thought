@@ -656,6 +656,9 @@ export interface ProposalsApi {
   approve(uri: string): Promise<boolean>;
   reject(uri: string): Promise<boolean>;
   expire(): Promise<number>;
+  /** Fires when the pending-proposal set changes (in-app or routed from a
+   *  CLI/MCP client) — the proposals store re-fetches on it (#1524). */
+  onChanged(cb: () => void): void;
 }
 
 export interface TabsApi {
