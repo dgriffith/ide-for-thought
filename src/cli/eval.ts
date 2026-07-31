@@ -28,10 +28,23 @@ import {
   resolveToolModel,
 } from '../main/tools/executor';
 import { buildConversationTools } from '../main/llm/tools/registry';
+import {
+  complete,
+  completeWithTools,
+  type CompleteOptions,
+  type CompleteWithToolsOptions,
+  type CompleteWithToolsResult,
+  type StreamCallbacks,
+} from '../main/llm/index';
 import type { ThinkingToolDef } from '../shared/tools/types';
 import type { ConversationToolKey } from '../shared/conversation-tools';
+import type { TurnUsage } from '../shared/types';
 import { jsonStringify } from './json';
 import { buildEvalContext, type CaseContextRefs, type InlineInputs } from './eval-context';
+
+// Injected by the CLI build (vite.cli.config.ts); absent under vitest — the
+// `typeof` guard at the use site falls back to 'unknown', matching register-app.ts.
+declare const __APP_COMMIT__: string;
 
 /** The human-authored `input/case.json`. */
 export interface EvalCaseManifest {
@@ -69,6 +82,32 @@ export interface EvalMeta {
   skill: string;
   model?: string;
   outputMode: string;
+  /** Live-run fields (#1522 PR 2) — present only when `--live` made a real call. */
+  usage?: TurnUsage;
+  usageModel?: string;
+  /** Wall-clock duration of the model call, milliseconds. */
+  timingMs?: number;
+  /** Number of proposal drafts the model produced (mirrors drafts.json length). */
+  draftCount?: number;
+  /** Short git commit of the CLI build that produced this run. */
+  harnessVersion?: string;
+}
+
+/** A proposal draft captured from the live agentic loop via a `StreamCallbacks`
+ *  callback (propose_notes → `onDraft`, etc.). `kind` names the callback so the
+ *  reviewer can tell note vs claim vs source drafts apart. */
+export interface CapturedDraft {
+  kind: string;
+  draft: unknown;
+}
+
+/** The non-deterministic half of a case — only produced by a `--live` run. */
+export interface LiveOutput {
+  response: string;
+  drafts: CapturedDraft[];
+  usage?: TurnUsage;
+  usageModel?: string;
+  timingMs: number;
 }
 
 export interface EvalResult {
@@ -76,13 +115,31 @@ export interface EvalResult {
   caseDir: string;
   request: PackagedRequest;
   meta: EvalMeta;
+  /** Present only when `opts.live` made a real model call. */
+  live?: LiveOutput;
 }
+
+/** The two model-call entry points the harness drives, injectable so the live
+ *  path is testable without a real provider / API key. Defaults to the real
+ *  `complete` / `completeWithTools`. */
+export interface LlmSeam {
+  complete(prompt: string, opts?: CompleteOptions): Promise<string>;
+  completeWithTools(opts: CompleteWithToolsOptions): Promise<CompleteWithToolsResult>;
+}
+
+const REAL_LLM: LlmSeam = { complete, completeWithTools };
 
 export interface RunEvalOptions {
   cwd: string;
   /** Write each case's `output/` (overwriting). Default true; the snapshot test
    *  passes false to compare against the committed files without mutating them. */
   write?: boolean;
+  /** Make a real model call and capture `response.md` + `drafts.json` (#1522 PR
+   *  2). Opt-in, off by default; needs a provider API key in the environment. */
+  live?: boolean;
+  /** Injectable LLM seam for the live path. Defaults to the real provider calls;
+   *  tests pass a fake to exercise capture without spending tokens. */
+  llm?: LlmSeam;
   /** User-skills dir to load on top of stock. Defaults to stock-only (an
    *  intentionally-absent path) so the catalog — and thus the packaged prompt —
    *  is identical on every machine and in CI. */
@@ -163,8 +220,83 @@ async function packageCase(
 }
 
 /**
+ * Drive a real model call for a packaged case and capture the non-deterministic
+ * half — the response text and any proposal drafts (#1522 PR 2). Reuses the exact
+ * runtime call: `complete` for one-shot skills, `completeWithTools` for
+ * conversation skills, with a notebase `toolContext` and the same draft callbacks
+ * `register-conversation.ts` wires — so `propose_notes` etc. surface as captured
+ * drafts (they fire the callback and only touch the graph on human approval, so
+ * nothing is written to the thoughtbase here).
+ */
+async function runLive(
+  request: PackagedRequest,
+  rootPath: string,
+  caseName: string,
+  llm: LlmSeam,
+): Promise<LiveOutput> {
+  const drafts: CapturedDraft[] = [];
+  const capture = (kind: string) => (draft: unknown) => {
+    drafts.push({ kind, draft });
+  };
+  const start = Date.now();
+
+  // A one-shot skill (no system prompt) is a plain completion — no tools, no
+  // drafts.
+  if (request.system === undefined) {
+    let usage: TurnUsage | undefined;
+    let usageModel: string | undefined;
+    const text = await llm.complete(request.messages[0]!.content, {
+      ...(request.model ? { model: request.model } : {}),
+      onUsage: (u, m) => {
+        usage = u;
+        usageModel = m;
+      },
+    });
+    return {
+      response: text,
+      drafts,
+      ...(usage ? { usage } : {}),
+      ...(usageModel ? { usageModel } : {}),
+      timingMs: Date.now() - start,
+    };
+  }
+
+  const callbacks: StreamCallbacks = {
+    onChunk: () => {},
+    onDraft: capture('notes'),
+    onSourceDraft: capture('sources'),
+    onPropertyDraft: capture('properties'),
+    onSourcePropertyDraft: capture('source_properties'),
+    onClaimsDraft: capture('claims'),
+    onComputeDraft: capture('compute'),
+    onRefactorDraft: capture('refactor'),
+    onReorgDraft: capture('reorg'),
+    onDeleteDraft: capture('delete'),
+    onNoteBodyDraft: capture('note_body'),
+  };
+  const result = await llm.completeWithTools({
+    system: request.system,
+    messages: request.messages,
+    toolContext: { rootPath, conversationId: `eval:${caseName}` },
+    ...(request.model ? { model: request.model } : {}),
+    ...(request.requiresTools ? { extraTools: request.requiresTools } : {}),
+    callbacks,
+  });
+  return {
+    response: result.text,
+    drafts,
+    usage: result.usage,
+    usageModel: result.usageModel,
+    timingMs: Date.now() - start,
+  };
+}
+
+/**
  * Run one or more eval cases. Packages each case's prompt as Minerva would and,
- * unless `write` is false, overwrites the case's `output/{request.json,meta.json}`.
+ * unless `write` is false, overwrites the case's `output/`. Writes `request.json`
+ * + `meta.json` always; a `--live` run additionally makes a real model call and
+ * writes `response.md` + `drafts.json` (and enriches `meta.json` with usage +
+ * timing).
  */
 export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise<EvalResult[]> {
   const catalog = await loadSkillCatalog(opts.userSkillsDir ?? stockOnlyDir(opts.cwd));
@@ -202,14 +334,28 @@ export async function runEval(caseDirs: string[], opts: RunEvalOptions): Promise
 
     const { request, meta } = await packageCase(manifest, inline, def, ctx, settings);
 
+    let live: LiveOutput | undefined;
+    if (opts.live) {
+      live = await runLive(request, ctx.rootPath, path.basename(caseDir), opts.llm ?? REAL_LLM);
+      meta.timingMs = live.timingMs;
+      meta.draftCount = live.drafts.length;
+      meta.harnessVersion = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'unknown';
+      if (live.usage) meta.usage = live.usage;
+      if (live.usageModel) meta.usageModel = live.usageModel;
+    }
+
     if (opts.write !== false) {
       const outDir = path.join(caseDir, 'output');
       await fs.mkdir(outDir, { recursive: true });
       await fs.writeFile(path.join(outDir, 'request.json'), `${jsonStringify(request, true)}\n`, 'utf-8');
       await fs.writeFile(path.join(outDir, 'meta.json'), `${jsonStringify(meta, true)}\n`, 'utf-8');
+      if (live) {
+        await fs.writeFile(path.join(outDir, 'response.md'), `${live.response.replace(/\n*$/, '')}\n`, 'utf-8');
+        await fs.writeFile(path.join(outDir, 'drafts.json'), `${jsonStringify(live.drafts, true)}\n`, 'utf-8');
+      }
     }
 
-    results.push({ caseDir: given, request, meta });
+    results.push({ caseDir: given, request, meta, ...(live ? { live } : {}) });
   }
   return results;
 }

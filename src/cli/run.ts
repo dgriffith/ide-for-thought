@@ -63,8 +63,8 @@ Commands:
                         tools to agent clients (Claude Desktop, coding agents…).
   eval <case-dir>…      Package a skill's prompt exactly as Minerva does and
                         overwrite each case's output/. Deterministic (no LLM
-                        call). Diff the output to review prompt/context changes
-                        (#1522).                                       [--all]
+                        call) unless --live. Diff the output to review
+                        prompt/context changes (#1522).        [--all] [--live]
 
 Options:
   --project <path>      Thoughtbase root (default: current directory).
@@ -73,6 +73,8 @@ Options:
   --case-sensitive      Match case exactly (grep; default: case-insensitive).
   --by <client-id>      Provenance for propose-note (default: cli).
   --all                 eval: run every case under tests/skills-eval/.
+  --live                eval: make a real model call, capturing response.md +
+                        drafts.json. Opt-in; needs a provider key in the env.
   --help, -h            Show this help.
 
 Results are JSON on stdout, grounded with node IRIs / note paths so the output
@@ -88,6 +90,7 @@ interface ParsedArgs {
   regex: boolean;
   caseSensitive: boolean;
   all: boolean;
+  live: boolean;
   help: boolean;
 }
 
@@ -102,6 +105,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   let regex = false;
   let caseSensitive = false;
   let all = false;
+  let live = false;
   let help = false;
 
   for (let i = 0; i < argv.length; i++) {
@@ -126,12 +130,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
       caseSensitive = true;
     } else if (arg === '--all') {
       all = true;
+    } else if (arg === '--live') {
+      live = true;
     } else {
       positionals.push(arg);
     }
   }
 
-  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, help };
+  return { command: positionals.shift(), positionals, project, limit, by, regex, caseSensitive, all, live, help };
 }
 
 function json(value: unknown): string {
@@ -200,7 +206,7 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
       if (caseDirs.length === 0) {
         throw new UsageError('eval: pass one or more case directories, or --all.');
       }
-      const results = await runEval(caseDirs, { cwd: opts.cwd });
+      const results = await runEval(caseDirs, { cwd: opts.cwd, live: args.live });
       return {
         stdout: json(
           results.map((r) => ({
@@ -208,6 +214,9 @@ export async function runCli(argv: string[], opts: RunOptions): Promise<CliResul
             skill: r.meta.skill,
             model: r.meta.model ?? null,
             outputMode: r.meta.outputMode,
+            ...(r.live
+              ? { responseChars: r.live.response.length, drafts: r.live.drafts.length, timingMs: r.live.timingMs }
+              : {}),
           })),
         ),
         stderr: '',
