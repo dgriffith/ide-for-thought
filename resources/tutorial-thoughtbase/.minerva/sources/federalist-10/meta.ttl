@@ -1,0 +1,9 @@
+this: a thought:Article ;
+    dc:title "The Federalist No. 10: The Utility of the Union as a Safeguard Against Domestic Faction and Insurrection" ;
+    dc:creator "James Madison" ;
+    dc:issued "1787-11-22"^^xsd:date ;
+    dc:publisher "The New York Packet" ;
+    schema:inContainer "The Federalist Papers" ;
+    bibo:uri <https://guides.loc.gov/federalist-papers/text-1-10> ;
+    dc:language "en" ;
+    dc:abstract "Madison argues that a large, well-constructed republic is the best remedy for the dangers of faction: rather than removing liberty or enforcing uniform opinion, an extended republic controls faction's effects by taking in so many interests that no single majority faction can easily form or oppress." .
