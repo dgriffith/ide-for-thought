@@ -116,6 +116,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "notebase:fileExists",
   "notebase:getOnboardingDismissed",
   "notebase:getProperties",
+  "notebase:installTutorial",
   "notebase:listFiles",
   "notebase:merge",
   "notebase:mergePreview",

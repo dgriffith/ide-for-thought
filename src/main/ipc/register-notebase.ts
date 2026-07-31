@@ -1,4 +1,4 @@
-import { dialog } from 'electron';
+import { app, dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
@@ -20,6 +20,7 @@ import { rebuildMenu } from '../menu';
 import { createWindow, openProjectInWindow, closeProjectInWindow, markPathHandled, windowsForProject } from '../window-manager';
 import { getOnboardingDismissed, setOnboardingDismissed } from '../project-config';
 import { dropImport } from '../notebase/drop-import';
+import { installTutorialThoughtbase, TUTORIAL_DEFAULT_NAME } from '../notebase/install-tutorial';
 import { searchInNotes, replaceInNotes, type SearchOptions, type ReplaceSelection } from '../notebase/search-in-notes';
 import { handle } from './typed-ipc';
 import {
@@ -61,6 +62,26 @@ export function registerNotebase(): void {
 
     const rootPath = result.filePaths[0]!;
     const win = winFromEvent(e);
+    await openProjectInWindow(win, rootPath);
+    return { rootPath, name: resolveDisplayName(rootPath) };
+  });
+
+  // Install the bundled tutorial thoughtbase (#1542, epic #1518). Prompt-with-
+  // default: a Save panel pre-filled at `~/Minerva Tutorial` lets the user
+  // confirm or relocate rather than silently creating a folder. The copy never
+  // clobbers — `installTutorialThoughtbase` suffixes ` 2`, ` 3`… on collision —
+  // so re-installing always yields a fresh, editable copy.
+  handle(Channels.NOTEBASE_INSTALL_TUTORIAL, async (e) => {
+    const win = winFromEvent(e);
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Install Tutorial Thoughtbase',
+      defaultPath: path.join(app.getPath('home'), TUTORIAL_DEFAULT_NAME),
+      buttonLabel: 'Install Tutorial',
+      properties: ['createDirectory'],
+    });
+    if (result.canceled || !result.filePath) return null;
+
+    const rootPath = await installTutorialThoughtbase(result.filePath);
     await openProjectInWindow(win, rootPath);
     return { rootPath, name: resolveDisplayName(rootPath) };
   });

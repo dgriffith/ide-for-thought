@@ -30,6 +30,18 @@ export function getNotebaseStore() {
     return result;
   }
 
+  /** Install + open the bundled tutorial thoughtbase (#1542). Mutation (creates
+   *  a project) → store-owned; the main handler picks the destination, copies
+   *  the tree, and opens it, so we adopt the returned meta like `newProject`. */
+  async function installTutorial(): Promise<NotebaseMeta | null> {
+    const result = await api.notebase.installTutorial();
+    if (result) {
+      meta = result;
+      files = await api.notebase.listFiles();
+    }
+    return result;
+  }
+
   function close() {
     void api.notebase.close();
     meta = null;
@@ -79,6 +91,7 @@ export function getNotebaseStore() {
     open,
     openPath,
     newProject,
+    installTutorial,
     close,
     refresh,
     writeFile,

@@ -13,6 +13,9 @@ export interface NotebaseApi {
   newProjectInNewWindow(): Promise<NotebaseMeta | null>;
   /** Open a known path in a fresh window (used by Recent Thoughtbases → new window). */
   openPathInNewWindow(rootPath: string): Promise<NotebaseMeta>;
+  /** Copy the bundled tutorial thoughtbase to a picked dir and open it (#1542).
+   *  Returns the installed meta, or null if the user cancelled the picker. */
+  installTutorial(): Promise<NotebaseMeta | null>;
   close(): Promise<null>;
   clearRecent(): Promise<void>;
   listFiles(): Promise<NoteFile[]>;

@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
     openInNewWindow: () => invoke(Channels.NOTEBASE_OPEN_IN_NEW_WINDOW),
     newProjectInNewWindow: () => invoke(Channels.NOTEBASE_NEW_PROJECT_IN_NEW_WINDOW),
     openPathInNewWindow: (rootPath: string) => invoke(Channels.NOTEBASE_OPEN_PATH_IN_NEW_WINDOW, rootPath),
+    installTutorial: () => invoke(Channels.NOTEBASE_INSTALL_TUTORIAL),
     close: () => invoke(Channels.NOTEBASE_CLOSE),
     clearRecent: () => invoke(Channels.RECENT_CLEAR),
     listFiles: () => invoke(Channels.NOTEBASE_LIST_FILES),
