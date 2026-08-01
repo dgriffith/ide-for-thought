@@ -43,6 +43,7 @@ import {
 } from './state';
 import { loadTypeCatalog } from '../types/loader';
 import { materializeTypeClasses } from '../types/compile';
+import type { PropertyType } from '../../shared/objects/type-def';
 
 import { checkLLMWriteGuard } from './write-guard';
 
@@ -224,13 +225,18 @@ function emitFrontmatterValue(
   graph: $rdf.NamedNode,
   rc: LinkResolveCtx,
   depth: number,
+  // When the key is a declared property of the note's type (#1063), its declared
+  // property-type drives the RDF datatype (schema over value-guessing) — so a
+  // `text` value that looks like a year stays a string, a numeric string becomes
+  // xsd:integer, etc. Undefined for untyped notes / undeclared keys (unchanged).
+  declaredType?: PropertyType,
 ): void {
   if (depth > 8) return;
   const recovered = recoverYamlEatenWikiLink(value);
   if (recovered === null || recovered === undefined) return;
   if (Array.isArray(recovered)) {
     for (const item of recovered) {
-      emitFrontmatterValue(state, store, subject, keyPredicate, item, graph, rc, depth + 1);
+      emitFrontmatterValue(state, store, subject, keyPredicate, item, graph, rc, depth + 1, declaredType);
     }
     return;
   }
@@ -249,11 +255,11 @@ function emitFrontmatterValue(
     if (childCount > 0) store.add(subject, keyPredicate, bnode, graph);
     return;
   }
-  const edge = frontmatterValueToEdge(recovered, state, keyPredicate, rc);
+  const edge = frontmatterValueToEdge(recovered, state, keyPredicate, rc, declaredType);
   if (edge) store.add(subject, edge.predicate, edge.term, graph);
 }
 
-function resolveFrontmatterPredicate(key: string) {
+export function resolveFrontmatterPredicate(key: string) {
   const mapped: FrontmatterPredicate | null = mapFrontmatterKey(key);
   if (!mapped) return MINERVA(`meta-${key}`);
   switch (mapped.ns) {
@@ -295,9 +301,14 @@ function frontmatterValueToEdge(
   state: GraphState,
   keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
   rc: LinkResolveCtx,
+  declaredType?: PropertyType,
 ) {
   type Term = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
   const plain = (term: Term) => ({ predicate: keyPredicate, term });
+
+  // Schema-driven coercion (#1063): when the type declares this property, the
+  // declared type — not a guess from the value's shape — picks the RDF datatype.
+  if (declaredType) return coerceDeclared(value, declaredType, state, keyPredicate, rc);
 
   if (value instanceof Date) return plain($rdf.lit(value.toISOString(), undefined, XSD('dateTime')));
   if (typeof value === 'boolean') return plain($rdf.lit(String(value), undefined, XSD('boolean')));
@@ -334,6 +345,62 @@ function frontmatterValueToEdge(
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return plain($rdf.lit(value, undefined, XSD('dateTime')));
   if (/^\d{4}$/.test(value)) return plain($rdf.lit(value, undefined, XSD('gYear')));
   return plain($rdf.lit(value));
+}
+
+/**
+ * Coerce a frontmatter value to the datatype its type DECLARES (#1063), rather
+ * than guessing from the value's shape. `text`/`enum` are always plain strings
+ * (so an isbn `978…` or a title `2020` isn't mis-typed as a number/year);
+ * `number` rescues numeric strings; `date` accepts the ISO shapes; `link-to-type`
+ * resolves a whole-value wiki-link to its target (edge-labeling is #1073), else a
+ * string. Anything that can't be coerced falls back to a plain string literal.
+ */
+function coerceDeclared(
+  value: FrontmatterScalarNonNull,
+  declaredType: PropertyType,
+  state: GraphState,
+  keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
+  rc: LinkResolveCtx,
+) {
+  type Term = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
+  const plain = (term: Term) => ({ predicate: keyPredicate, term });
+  const str = value instanceof Date ? value.toISOString() : String(value);
+  const asString = () => plain($rdf.lit(str));
+
+  switch (declaredType) {
+    case 'text':
+    case 'enum':
+      return asString();
+    case 'number': {
+      const n = typeof value === 'number' ? value : Number(str.trim());
+      if (str.trim() !== '' && Number.isFinite(n)) {
+        return plain($rdf.lit(String(n), undefined, XSD(Number.isInteger(n) ? 'integer' : 'decimal')));
+      }
+      return asString();
+    }
+    case 'date': {
+      if (value instanceof Date) return plain($rdf.lit(str.slice(0, 10), undefined, XSD('date')));
+      const s = str.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('date')));
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return plain($rdf.lit(s, undefined, XSD('dateTime')));
+      if (/^\d{4}-\d{2}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('gYearMonth')));
+      if (/^\d{4}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('gYear')));
+      return asString();
+    }
+    case 'link-to-type': {
+      const inner = state.baseUri ? str.match(WHOLE_WIKILINK_RE) : null;
+      if (inner) {
+        const link = parseWikiInner(inner[1]!);
+        if (!link.type && link.target.startsWith('sources/')) {
+          const sid = link.target.slice('sources/'.length);
+          if (sid) return plain(sourceUri(state, sid));
+        }
+        const anchor = link.anchor ? link.anchor.slice(1) : undefined;
+        return { predicate: keyPredicate, term: resolveLinkTarget(state, getLinkType('references'), link.target, rc, anchor) };
+      }
+      return asString();
+    }
+  }
 }
 
 /**
@@ -574,10 +641,16 @@ export async function indexNote(
   // id is ignored (no class edge) — properties expected, never enforced. `type`
   // is in the frontmatter skip-list below so it isn't also emitted as a literal.
   const fmType = parsed.frontmatter.type;
+  // Declared property name → declared PropertyType, for schema-driven value
+  // coercion in the frontmatter loop below (#1063).
+  let declaredProps: Map<string, PropertyType> | undefined;
   if (fmType !== undefined) {
     for (const typeId of flattenFrontmatterStrings(fmType)) {
       const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
-      if (def) store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
+      if (!def) continue;
+      store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
+      declaredProps ??= new Map();
+      for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p.type);
     }
   }
 
@@ -618,8 +691,9 @@ export async function indexNote(
     if (key === 'title' || key === 'tags' || key === 'publish' || key === 'type') continue;
     // A typed wiki-link value (`[[supports::x]]`) overrides keyPredicate with
     // its own type; a nested mapping materialises as a blank node; everything
-    // else stays a scalar edge under the key's predicate.
-    emitFrontmatterValue(state, store, subject, resolveFrontmatterPredicate(key), value, graph, linkCtx, 0);
+    // else stays a scalar edge under the key's predicate. A declared property's
+    // type drives datatype coercion (#1063).
+    emitFrontmatterValue(state, store, subject, resolveFrontmatterPredicate(key), value, graph, linkCtx, 0, declaredProps?.get(key));
   }
 
   // Embedded turtle blocks — parse into the note's named graph

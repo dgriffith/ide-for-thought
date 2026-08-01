@@ -750,6 +750,8 @@ export interface ToolsApi {
 export interface TypesApi {
   /** The current project's type catalog (stock + in-tree user types, #1062). */
   list(): Promise<import('../../../shared/objects/type-def').TypeCatalogInfo>;
+  /** A note's declared properties + current values, keyed to its type (#1063). */
+  noteProperties(relativePath: string): Promise<import('../../../shared/objects/type-def').NoteTypedProperties>;
 }
 
 export interface SkillsApi {

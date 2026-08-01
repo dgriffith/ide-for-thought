@@ -60,4 +60,6 @@ export const CANONICAL_FRONTMATTER_KEYS: readonly string[] = [
 
   // Universally-supported but predicate-free
   'tags',
+  // Typed objects (#1063): selects a note's domain type + its property schema.
+  'type',
 ];
