@@ -16,11 +16,16 @@ const h = vi.hoisted(() => {
     },
     links: { externalInbound: vi.fn() },
     templates: { get: vi.fn() },
+    types: { list: vi.fn() },
   };
   const notebase = { meta: { rootPath: '/p', name: 'p' } as unknown, files: [] as NoteFile[], refresh: vi.fn() };
-  const editor = { openFile: vi.fn(), tabs: [] as unknown[], closeTabsForDeletedPath: vi.fn(), flushAutoSave: vi.fn() };
+  const editor = {
+    openFile: vi.fn(), tabs: [] as unknown[], closeTabsForDeletedPath: vi.fn(), flushAutoSave: vi.fn(),
+    activeFilePath: 'Note.md' as string | null, content: '', setContent: vi.fn(),
+  };
   const dialog = {
     showPrompt: vi.fn(), showConfirm: vi.fn(), showNewNoteDialog: vi.fn(), showSnippetPicker: vi.fn(),
+    showTypePicker: vi.fn(),
   };
   return { api, notebase, editor, dialog };
 });
@@ -67,6 +72,7 @@ beforeEach(() => {
     getEditorComponent: () => editorCompRef,
     setSafeDeleteState: vi.fn(),
     setMergePickerSource: vi.fn(),
+    openTypeFields: vi.fn(),
   };
   ops = createNoteOps(ctx);
 });
@@ -297,6 +303,39 @@ describe('handleInlineTypeCreate (#1065)', () => {
     h.dialog.showPrompt.mockResolvedValue(null);
     expect(await ops.handleInlineTypeCreate(book)).toBeNull();
     expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('handlePromoteToType (#1067)', () => {
+  const book = { id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock' as const, properties: [] };
+
+  it('sets type: on the active note (body + keys intact) and opens the Fields form', async () => {
+    h.editor.activeFilePath = 'Note.md';
+    h.editor.content = '---\ntitle: Existing\n---\n# Body\n';
+    h.api.types.list.mockResolvedValue({ types: [book], errors: [] });
+    h.dialog.showTypePicker.mockResolvedValue(book);
+    await ops.handlePromoteToType();
+    const [text] = h.editor.setContent.mock.calls[0] as [string];
+    expect(text).toContain('type: book');
+    expect(text).toContain('title: Existing'); // existing frontmatter untouched
+    expect(text).toContain('# Body');
+    expect(ctx.openTypeFields).toHaveBeenCalled();
+  });
+
+  it('is a no-op when the picker is cancelled', async () => {
+    h.editor.activeFilePath = 'Note.md';
+    h.editor.content = '# Body\n';
+    h.api.types.list.mockResolvedValue({ types: [book], errors: [] });
+    h.dialog.showTypePicker.mockResolvedValue(null);
+    await ops.handlePromoteToType();
+    expect(h.editor.setContent).not.toHaveBeenCalled();
+    expect(ctx.openTypeFields).not.toHaveBeenCalled();
+  });
+
+  it('bails when no note is active', async () => {
+    h.editor.activeFilePath = null;
+    await ops.handlePromoteToType();
+    expect(h.dialog.showTypePicker).not.toHaveBeenCalled();
   });
 });
 

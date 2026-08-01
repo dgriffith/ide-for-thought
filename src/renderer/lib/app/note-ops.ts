@@ -15,6 +15,7 @@ import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
 import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths } from './text-helpers';
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
+import { setFrontmatterProperty } from '../../../shared/frontmatter-edit';
 import type { TypeInfo } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
@@ -31,6 +32,8 @@ export interface NoteOpsCtx {
   getEditorComponent: () => EditorRef | undefined;
   setSafeDeleteState: (s: SafeDeleteState | null) => void;
   setMergePickerSource: (s: string | null) => void;
+  /** Reveal the right-sidebar "Fields" panel after promoting a note (#1067). */
+  openTypeFields?: () => void;
 }
 
 export function createNoteOps(ctx: NoteOpsCtx) {
@@ -39,7 +42,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   const dialogs = getDialogStore();
   const busy = getBusyStore();
   const clipboard = getClipboardStore();
-  const { showPrompt, showConfirm, showNewNoteDialog } = dialogs;
+  const { showPrompt, showConfirm, showNewNoteDialog, showTypePicker } = dialogs;
 
   async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
@@ -130,6 +133,23 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await notebase.refresh();
     ctx.getSidebar()?.refreshTags();
     return title;
+  }
+
+  /**
+   * Promote the active note to a type (#1067) — "treat this as a Book". Shows a
+   * type picker, sets `type:` in the note's frontmatter (leaving body + existing
+   * keys untouched — reversible: remove `type:` → plain note), then reveals the
+   * Fields form so the user can fill the gaps. Never invents values; pre-existing
+   * keys that match declared properties are already-filled in the form.
+   */
+  async function handlePromoteToType() {
+    if (!notebase.meta || !editor.activeFilePath) return;
+    const cat = await api.types.list();
+    if (cat.types.length === 0) return;
+    const type = await showTypePicker(cat.types);
+    if (!type) return;
+    editor.setContent(setFrontmatterProperty(editor.content, 'type', type.id));
+    ctx.openTypeFields?.();
   }
 
   async function handleNewFolder(directory: string = '') {
@@ -566,5 +586,5 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, handleInlineTypeCreate, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  return { handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

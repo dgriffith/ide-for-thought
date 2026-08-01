@@ -525,6 +525,7 @@
     move: (p) => { void handleMoveWithPrompt(p); },
     copy: (p) => { void handleCopyWithPrompt(p); },
     autoTag: (p) => { void handleAutoTag(p); },
+    promoteToType: () => { void handlePromoteToType(); },
     autoLink: (p) => { void handleAutoLink(p); },
     autoLinkInbound: (p) => { void handleAutoLinkInbound(p); },
     decompose: (p) => { void handleDecompose(p); },
@@ -629,9 +630,10 @@
     getEditorComponent: () => editorComponent,
     setSafeDeleteState: (s) => { safeDeleteDialogState = s; },
     setMergePickerSource: (s) => { mergePickerSource = s; },
+    openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('fields'); },
   };
   const {
-    handleNewNote, handleInlineTypeCreate, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);

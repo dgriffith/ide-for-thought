@@ -72,6 +72,7 @@ export interface CommandKeymapCtx {
   move: (path: string) => void;
   copy: (path: string) => void;
   autoTag: (path: string) => void;
+  promoteToType: () => void;
   autoLink: (path: string) => void;
   autoLinkInbound: (path: string) => void;
   decompose: (path: string) => void;
@@ -165,6 +166,7 @@ export function createCommandKeymap(ctx: CommandKeymapCtx): {
     splitHere: ctx.splitHere,
     splitByHeading: ctx.splitByHeading,
     autoTagActive: () => { if (editor.activeFilePath) ctx.autoTag(editor.activeFilePath); },
+    promoteToType: () => ctx.promoteToType(),
     autoLinkActive: () => { if (editor.activeFilePath) ctx.autoLink(editor.activeFilePath); },
     autoLinkInboundActive: () => { if (editor.activeFilePath) ctx.autoLinkInbound(editor.activeFilePath); },
     decomposeActive: () => { if (editor.activeFilePath) ctx.decompose(editor.activeFilePath); },
