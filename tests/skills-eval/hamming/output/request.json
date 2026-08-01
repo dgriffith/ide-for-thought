@@ -33,6 +33,7 @@
     "fetch_properties",
     "set_properties",
     "propose_source_properties",
+    "propose_note_types",
     "propose_claims",
     "propose_compute"
   ]
