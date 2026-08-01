@@ -55,7 +55,7 @@ import type {
   ConnectionCheckResult,
 } from './tools/types';
 import type { SkillCatalogInfo } from './skills/types';
-import type { TypeCatalogInfo } from './objects/type-def';
+import type { TypeCatalogInfo, NoteTypedProperties } from './objects/type-def';
 import type { ProviderId } from './tools/providers';
 import type { MenuConfig } from './skills/menu-config';
 import type {
@@ -383,6 +383,7 @@ export interface ChannelMap {
 
   // Typed objects (type registry — #1062)
   'types:list': () => TypeCatalogInfo;
+  'types:noteProperties': (relativePath: string) => NoteTypedProperties;
 
   // Skills (markdown skill files — #622)
   'skills:list': () => SkillCatalogInfo;

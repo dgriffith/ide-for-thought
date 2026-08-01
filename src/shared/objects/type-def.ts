@@ -90,6 +90,27 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
 
 export const EMPTY_TYPE_CATALOG: TypeCatalog = { types: [], errors: [] };
 
+/** One declared property of a typed note, with its current value (#1063). Used
+ *  by the property form (#1066) and type-keyed renderers (#1071). */
+export interface NoteTypedPropertyValue {
+  name: string;
+  type: PropertyType;
+  label?: string | undefined;
+  options?: string[] | undefined;
+  targetType?: string | undefined;
+  /** Lexical value from the graph (e.g. `"5"`, `"2020-01-01"`, a target IRI),
+   *  or null when the note doesn't set this declared property. */
+  value: string | null;
+}
+
+/** A note's typed properties, keyed to its type's declared schema (#1063). */
+export interface NoteTypedProperties {
+  /** The note's type, or null when it has none / an unknown one. */
+  type: TypeInfo | null;
+  /** Every property the type declares, including ones the note leaves empty. */
+  properties: NoteTypedPropertyValue[];
+}
+
 /** `article-source` → `ArticleSource`; used for the ontology class local name. */
 export function pascalCase(id: string): string {
   return id

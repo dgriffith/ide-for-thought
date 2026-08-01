@@ -428,6 +428,8 @@ export const Channels = {
   // Typed objects (type registry — #1062)
   /** List the current project's type catalog (stock + in-tree user types). */
   TYPES_LIST: 'types:list',
+  /** A note's declared properties + current values, keyed to its type (#1063). */
+  TYPES_NOTE_PROPERTIES: 'types:noteProperties',
 
   // Skills (markdown skill files — #622)
   /** List the loaded skill catalog (metadata + load errors). */
