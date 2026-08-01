@@ -24,6 +24,7 @@ import { proposeSources } from './propose-sources';
 import { fetchProperties } from './fetch-properties';
 import { setProperties } from './set-properties';
 import { proposeSourceProperties } from './propose-source-properties';
+import { proposeNoteTypes } from './propose-note-types';
 import { proposeClaims } from './propose-claims';
 import { proposeCompute } from './propose-compute';
 import { askUser } from './ask-user';
@@ -56,6 +57,7 @@ const DEFAULT_TOOLS: NotebaseTool[] = [
   fetchProperties,
   setProperties,
   proposeSourceProperties,
+  proposeNoteTypes,
   proposeClaims,
   proposeCompute,
 ];
