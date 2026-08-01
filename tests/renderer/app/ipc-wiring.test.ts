@@ -56,6 +56,7 @@ const h = vi.hoisted(() => {
       renameAnchor: vi.fn().mockResolvedValue(undefined),
     },
     tools: { onStream: cap('tools.stream'), onInvoke: cap('tools.invoke') },
+    proposals: { onShowRequested: cap('proposals.onShowRequested') },
     shell: { openInDefault: vi.fn(), openInTerminal: vi.fn() },
   };
 
@@ -120,7 +121,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
     'setShowShortcuts', 'setShowSettings', 'setPublishDialogOpen', 'setFindInNotesMode',
     'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
     'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'insertTemplate', 'cycleTheme',
-    'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'openRecentThoughtbase', 'navBack',
+    'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'showProposals', 'openRecentThoughtbase', 'navBack',
     'navForward', 'rename', 'move', 'copy', 'extractSelection', 'splitHere', 'splitByHeading',
     'autoTag', 'autoLink', 'autoLinkInbound', 'decompose', 'format', 'bibliography', 'ingestUrl',
     'ingestIdentifier', 'ingestFile', 'importBibtex', 'importZoteroRdf', 'toolInvoke',
@@ -171,9 +172,15 @@ describe('every registration is wired', () => {
       'sources.onChanged', 'tables.onChanged', 'tables.collision', 'embeddings.backfill',
       'nb.created', 'nb.deleted', 'nb.renamed', 'nb.rewritten', 'nb.heading',
       'tools.stream', 'tools.invoke', 'sources.bibtex', 'sources.zotero',
+      'proposals.onShowRequested',
     ]) {
       expect(h.captured[key], `${key} not registered`).toBeTypeOf('function');
     }
+  });
+
+  it('proposals.onShowRequested dispatches to ctx.showProposals (#1541)', () => {
+    fire('proposals.onShowRequested');
+    expect(spies.showProposals).toHaveBeenCalledTimes(1);
   });
 });
 

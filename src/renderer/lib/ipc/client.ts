@@ -665,6 +665,10 @@ export interface ProposalsApi {
   /** Fires when the pending-proposal set changes (in-app or routed from a
    *  CLI/MCP client) — the proposals store re-fetches on it (#1524). */
   onChanged(cb: () => void): void;
+  /** Raise a native OS notification for an arrival while unfocused (#1541). */
+  notifyArrival(arg: { count: number; proposer: string }): Promise<void>;
+  /** Main → renderer: surface the Proposals panel (native notification clicked). */
+  onShowRequested(cb: () => void): void;
 }
 
 export interface TabsApi {

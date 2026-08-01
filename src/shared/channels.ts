@@ -450,6 +450,13 @@ export const Channels = {
    *  The renderer's proposals store re-fetches on this. Not an invoke channel,
    *  so it has no `ChannelMap` entry (#1524). */
   PROPOSALS_CHANGED: 'proposals:changed',
+  /** renderer → main: a new pending proposal arrived while Minerva was
+   *  unfocused — raise a native OS notification (#1541). */
+  PROPOSALS_NOTIFY_ARRIVAL: 'proposals:notifyArrival',
+  /** One-way broadcast: main → renderer request to surface the Proposals panel
+   *  (e.g. the user clicked the native arrival notification, #1541). Not an
+   *  invoke channel, so it has no `ChannelMap` entry. */
+  PROPOSALS_SHOW: 'proposals:show',
 
   // Conversations
   CONVERSATION_CREATE: 'conversation:create',
