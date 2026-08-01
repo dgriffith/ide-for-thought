@@ -82,7 +82,18 @@ export interface UnsupportedTab {
   ext: string;
 }
 
-export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | UnsupportedTab;
+/** Multi-view over all instances of a typed-object type (#1070). */
+export type TypeViewLayout = 'list' | 'table' | 'gallery';
+export interface TypeViewTab {
+  type: 'type-view';
+  /** The type whose instances are shown (e.g. `book`). */
+  typeId: string;
+  /** Which projection is showing; the viewer mutates it via `setTypeViewLayout`
+   *  so reopening the tab restores the chosen view. */
+  layout: TypeViewLayout;
+}
+
+export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | UnsupportedTab;
 
 /**
  * Source / preview view mode. `'editor-preview'` = source editor + rendered
@@ -111,6 +122,7 @@ function isQuery(tab: Tab): tab is QueryTab { return tab.type === 'query'; }
 function isSource(tab: Tab): tab is SourceTab { return tab.type === 'source'; }
 function isPdf(tab: Tab): tab is PdfTab { return tab.type === 'pdf'; }
 function isGraph(tab: Tab): tab is GraphTab { return tab.type === 'graph'; }
+function isTypeView(tab: Tab): tab is TypeViewTab { return tab.type === 'type-view'; }
 function isUnsupported(tab: Tab): tab is UnsupportedTab { return tab.type === 'unsupported'; }
 
 let queryCounter = 0;
@@ -379,6 +391,28 @@ export function getEditorStore() {
     }
   }
 
+  /** Open (or refocus) the multi-view over a type's instances (#1070). One tab
+   *  per type; reopening refocuses rather than duplicating. */
+  function openTypeView(typeId: string, opts?: { layout?: TypeViewLayout; groupId?: string }) {
+    const found = locateTab((t) => isTypeView(t) && t.typeId === typeId);
+    if (found) { focusExistingTab(found); return; }
+    const grp = resolveGroup(opts?.groupId);
+    activeGroupId = grp.id;
+    const tab: TypeViewTab = { type: 'type-view', typeId, layout: opts?.layout ?? 'table' };
+    grp.tabs.push(tab);
+    grp.activeIndex = grp.tabs.length - 1;
+    schedulePersistTabs();
+  }
+
+  /** Update a type-view tab's projection (the list/table/gallery switch). */
+  function setTypeViewLayout(typeId: string, layout: TypeViewLayout) {
+    const found = locateTab((t) => isTypeView(t) && t.typeId === typeId);
+    if (found) {
+      (found.group.tabs[found.index] as TypeViewTab).layout = layout;
+      schedulePersistTabs();
+    }
+  }
+
   function openPdf(sourceId: string, opts?: { page?: number; groupId?: string }) {
     // Forbid duplicate open (#815): if this PDF is already open in any pane,
     // refocus it (jumping to the requested page) instead of opening a copy.
@@ -611,6 +645,8 @@ export function getEditorStore() {
       return { type: 'pdf', sourceId: t.sourceId, page: t.page };
     } else if (isGraph(t)) {
       return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
+    } else if (isTypeView(t)) {
+      return { type: 'type-view', typeId: t.typeId, layout: t.layout };
     } else {
       return {
         type: 'source',
@@ -681,6 +717,8 @@ export function getEditorStore() {
       return { type: 'pdf', sourceId: saved.sourceId, page: saved.page ?? 1 };
     } else if (saved.type === 'graph') {
       return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
+    } else if (saved.type === 'type-view') {
+      return { type: 'type-view', typeId: saved.typeId, layout: saved.layout ?? 'table' };
     } else {
       return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
     }
@@ -697,6 +735,7 @@ export function getEditorStore() {
     if (t.type === 'note') return `note:${t.relativePath}`;
     if (t.type === 'source') return `source:${t.sourceId}`;
     if (t.type === 'pdf') return `pdf:${t.sourceId}`;
+    if (t.type === 'type-view') return `type-view:${t.typeId}`;
     return null;
   }
 
@@ -1052,6 +1091,8 @@ export function getEditorStore() {
     openPdf,
     openNeighborhood,
     setGraphDepth,
+    openTypeView,
+    setTypeViewLayout,
     setPdfPage,
     save,
     isPathDirty,

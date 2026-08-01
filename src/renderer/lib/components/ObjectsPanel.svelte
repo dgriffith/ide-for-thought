@@ -16,8 +16,10 @@
     onFileSelect: (relativePath: string) => void;
     /** Open an excerpt (source at its anchor) — for the built-in Excerpts type (#1069). */
     onOpenExcerpt?: (excerptId: string) => void;
+    /** Open a type's instances in the main-pane list/table/gallery view (#1070). */
+    onOpenType?: (typeId: string) => void;
   }
-  let { onFileSelect, onOpenExcerpt }: Props = $props();
+  let { onFileSelect, onOpenExcerpt, onOpenType }: Props = $props();
 
   interface TypeRow { type: TypeInfo; count: number; }
   interface Instance { title: string; path: string; }
@@ -86,12 +88,18 @@
 <div class="objects-panel">
   {#each rows as row (row.type.id)}
     {@const open = expanded.has(row.type.id)}
-    <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
-      <span class="chevron" class:open>▸</span>
-      <span class="type-icon" style={row.type.color ? `color:${row.type.color}` : undefined}>{row.type.icon ?? '◆'}</span>
-      <span class="type-label">{row.type.label}</span>
-      <span class="type-count">{row.count}</span>
-    </button>
+    <div class="type-row-wrap">
+      <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
+        <span class="chevron" class:open>▸</span>
+        <span class="type-icon" style={row.type.color ? `color:${row.type.color}` : undefined}>{row.type.icon ?? '◆'}</span>
+        <span class="type-label">{row.type.label}</span>
+        <span class="type-count">{row.count}</span>
+      </button>
+      {#if onOpenType}
+        <!-- Open all instances of this type in the main-pane multi-view (#1070). -->
+        <button class="open-view" title={`Open ${row.type.label} view`} aria-label={`Open ${row.type.label} view`} onclick={() => onOpenType(row.type.id)}>⤢</button>
+      {/if}
+    </div>
     {#if open}
       {#if (instances[row.type.id] ?? []).length === 0}
         <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
@@ -129,7 +137,10 @@
 <style>
   .objects-panel { display: flex; flex-direction: column; padding: 4px; }
   .empty { font-size: 12px; color: var(--text-faint); padding: 12px 8px; }
+  .type-row-wrap { position: relative; display: flex; align-items: center; }
   .type-row {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -144,6 +155,28 @@
     text-align: left;
   }
   .type-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
+  /* Hover-revealed "open in main view" affordance — stays out of the way until
+     the row is hovered/focused (house UX: quiet contextual actions, #1070). */
+  .open-view {
+    position: absolute;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 4px;
+    background: var(--bg-button);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+  }
+  .type-row-wrap:hover .open-view,
+  .open-view:focus-visible { opacity: 1; }
+  .open-view:hover { color: var(--text); }
   .chevron {
     font-size: 9px;
     color: var(--text-faint);

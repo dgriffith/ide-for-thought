@@ -752,6 +752,8 @@ export interface TypesApi {
   list(): Promise<import('../../../shared/objects/type-def').TypeCatalogInfo>;
   /** A note's declared properties + current values, keyed to its type (#1063). */
   noteProperties(relativePath: string): Promise<import('../../../shared/objects/type-def').NoteTypedProperties>;
+  /** Every instance of a type + its property values, for the multi-view (#1070). */
+  instances(typeId: string): Promise<import('../../../shared/objects/type-def').TypeInstancesResult>;
 }
 
 export interface SkillsApi {

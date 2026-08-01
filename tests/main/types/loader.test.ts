@@ -99,4 +99,16 @@ describe('parseType (#1062)', () => {
     expect(r.type?.properties).toHaveLength(0);
     expect(r.errors.some((e) => /unknown type/.test(e))).toBe(true);
   });
+
+  it('carries a `cover` that names a declared property (#1070)', () => {
+    const r = parseType(`---\nlabel: Gadget\ncover: image\nproperties:\n  - name: image\n    type: text\n---\n`, 'user', '/x/gadget.md');
+    expect(r.type?.cover).toBe('image');
+    expect(r.errors).toHaveLength(0);
+  });
+
+  it('still loads but flags a `cover` that is not a declared property (#1070)', () => {
+    const r = parseType(`---\nlabel: Gadget\ncover: missing\nproperties:\n  - name: image\n    type: text\n---\n`, 'user', '/x/gadget.md');
+    expect(r.type?.cover).toBe('missing'); // house UX: no hand-holding — still loads
+    expect(r.errors.some((e) => /not a declared property/.test(e))).toBe(true);
+  });
 });

@@ -126,6 +126,15 @@ export function parseType(content: string, source: TypeSource, filePath: string)
   if (icon) type.icon = icon;
   const color = asString(fm.color);
   if (color) type.color = color;
+  const cover = asString(fm.cover);
+  if (cover) {
+    // Soft-validate: `cover` must name a declared property (else the gallery has
+    // nothing to key off). Report but still load — house UX: no hand-holding.
+    if (!properties.some((p) => p.name === cover)) {
+      errors.push(`\`cover\` names "${cover}", which is not a declared property`);
+    }
+    type.cover = cover;
+  }
 
   return { type, errors, label: bestLabel };
 }

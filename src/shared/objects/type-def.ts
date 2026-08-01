@@ -41,6 +41,8 @@ export interface TypeDef {
   template?: string | undefined;
   icon?: string | undefined;
   color?: string | undefined;
+  /** Property name whose value is the gallery card's cover image (#1070). */
+  cover?: string | undefined;
   source: TypeSource;
   /** Absolute path for user types; the glob key for stock types. */
   filePath: string;
@@ -57,6 +59,8 @@ export interface TypeInfo {
   template?: string | undefined;
   icon?: string | undefined;
   color?: string | undefined;
+  /** Property name whose value is the gallery card's cover image (#1070). */
+  cover?: string | undefined;
   source: TypeSource;
 }
 
@@ -88,6 +92,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     template: t.template,
     icon: t.icon,
     color: t.color,
+    cover: t.cover,
     source: t.source,
   };
 }
@@ -113,6 +118,29 @@ export interface NoteTypedProperties {
   type: TypeInfo | null;
   /** Every property the type declares, including ones the note leaves empty. */
   properties: NoteTypedPropertyValue[];
+}
+
+/** One instance of a type — a typed note, with its declared property values
+ *  projected as columns for the multi-view (#1070). Values are the same lexical
+ *  strings the property read-back (#1063) returns; null when the note leaves a
+ *  declared property empty. */
+export interface TypeInstanceRow {
+  /** The note's project-relative path (the row's identity + deep-link target). */
+  path: string;
+  title: string;
+  /** Declared-property values keyed by property `name` (every declared property
+   *  present; null where the note doesn't set it). */
+  values: Record<string, string | null>;
+  /** The designated cover property's value, or null — for the gallery (#1070). */
+  cover: string | null;
+}
+
+/** A type plus all its instances, for the list/table/gallery multi-view (#1070). */
+export interface TypeInstancesResult {
+  /** The resolved type (its declared properties are the table columns), or null
+   *  when the id doesn't match a loaded type. */
+  type: TypeInfo | null;
+  instances: TypeInstanceRow[];
 }
 
 /** `article-source` → `ArticleSource`; used for the ontology class local name. */
