@@ -13,6 +13,7 @@
   import Icon from './Icon.svelte';
   import type { IconName } from './icons/registry';
   import { api, type TemplateInfo } from '../ipc/client';
+  import type { TypeInfo } from '../../../shared/objects/type-def';
   import type { NoteExt, NewNoteResult } from './new-note-dialog-types';
 
   interface TypeOption {
@@ -48,19 +49,35 @@
   /** `null` = blank file. Empty string from the select element maps
    *  to null on read; the select stores filenames. */
   let templateFilename = $state<string | null>(null);
+  /** Domain types from the live registry (#1064). Creating a note *as* a type
+   *  seeds its template + property scaffold. */
+  let types = $state<TypeInfo[]>([]);
+  let selectedType = $state<TypeInfo | null>(null);
 
   $effect(() => { inputEl?.focus(); });
 
-  // Load templates once on mount; the list is small and refreshing
-  // on every keystroke would be wasteful.
+  // Load templates + types once on mount; both lists are small.
   $effect(() => {
     void api.templates.list().then((list) => { templates = list; });
+    void api.types.list().then((cat) => { types = cat.types; });
   });
 
-  /** Templates only make sense for markdown notes — substitution
-   *  produces markdown content. Hide the slot for other types so the
-   *  user doesn't pick a template that won't apply. */
-  const templatesApply = $derived(ext === '.md');
+  /** Pick a plain file kind — clears any domain type. */
+  function pickExt(next: NoteExt) {
+    ext = next;
+    selectedType = null;
+    inputEl?.focus();
+  }
+  /** Create *as* a domain type — always a markdown note (#1064). */
+  function pickType(t: TypeInfo) {
+    selectedType = t;
+    ext = '.md';
+    inputEl?.focus();
+  }
+
+  /** Templates only make sense for a plain markdown note — a domain type brings
+   *  its own template, and other file kinds don't take one. */
+  const templatesApply = $derived(ext === '.md' && !selectedType);
 
   /** Strip the chosen type's extension from the typed name if the
    *  user typed it explicitly — keeps the on-disk filename clean
@@ -76,6 +93,7 @@
       name: stripped,
       ext,
       templateFilename: templatesApply ? templateFilename : null,
+      type: selectedType,
     };
   }
 
@@ -94,7 +112,7 @@
   <div class="dialog" role="dialog" aria-modal="true">
     <header class="card-header">
       <div class="eyebrow">New</div>
-      <h2 class="title">New Note</h2>
+      <h2 class="title">{selectedType ? `New ${selectedType.label}` : 'New Note'}</h2>
     </header>
 
     <div class="body">
@@ -102,14 +120,14 @@
            pinch the horizontal layout. -->
       <div class="type-list" role="radiogroup" aria-label="Note type">
         {#each TYPES as t (t.ext)}
-          {@const active = ext === t.ext}
+          {@const active = ext === t.ext && !selectedType}
           <button
             type="button"
             class="type-row"
             class:active
             role="radio"
             aria-checked={active}
-            onclick={() => { ext = t.ext; inputEl?.focus(); }}
+            onclick={() => pickExt(t.ext)}
           >
             <Icon name={t.icon} size={14} color={active ? 'var(--accent)' : 'currentColor'} />
             <span class="type-text">
@@ -119,6 +137,29 @@
             <span class="type-ext">{t.ext}</span>
           </button>
         {/each}
+
+        <!-- Domain types (#1064): "New Book" is a menu choice, not a syntax. -->
+        {#if types.length > 0}
+          <div class="type-divider">Types</div>
+          {#each types as t (t.id)}
+            {@const active = selectedType?.id === t.id}
+            <button
+              type="button"
+              class="type-row"
+              class:active
+              role="radio"
+              aria-checked={active}
+              onclick={() => pickType(t)}
+              title={t.source === 'user' ? 'Your type' : 'Built-in type'}
+            >
+              <span class="type-emoji" style={t.color ? `color:${t.color}` : undefined}>{t.icon ?? '◆'}</span>
+              <span class="type-text">
+                <span class="type-label">{t.label}</span>
+                <span class="type-desc">{t.properties.length} field{t.properties.length === 1 ? '' : 's'}</span>
+              </span>
+            </button>
+          {/each}
+        {/if}
       </div>
 
       <!-- Right: name + reserved Template slot. -->
@@ -298,6 +339,21 @@
     flex-shrink: 0;
   }
   .type-row.active .type-ext { color: var(--accent); opacity: 0.8; }
+  .type-divider {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 8px 9px 3px;
+  }
+  .type-emoji {
+    width: 14px;
+    font-size: 13px;
+    line-height: 1;
+    text-align: center;
+    flex-shrink: 0;
+  }
 
   /* ── Form (right column) ───────────────────────────────────────── */
   .form {

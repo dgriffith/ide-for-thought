@@ -230,6 +230,24 @@ describe('handleNewNote — template & guard paths', () => {
     expect(editorComp.restorePosition).toHaveBeenCalledWith(11, 0);
   });
 
+  it('creates a note *as* a type — type: frontmatter + property scaffold + template body (#1064)', async () => {
+    h.dialog.showNewNoteDialog.mockResolvedValue({
+      name: 'Dune', ext: '.md', templateFilename: null,
+      type: {
+        id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock',
+        template: '## Summary',
+        properties: [{ name: 'author', type: 'text' }, { name: 'rating', type: 'number' }],
+      },
+    });
+    await ops.handleNewNote('');
+    const [pathArg, contentArg] = h.api.notebase.writeFile.mock.calls[0] as [string, string];
+    expect(pathArg).toBe('Dune.md');
+    expect(contentArg).toMatch(/^---\ntype: book\nauthor:\nrating:\n---/);
+    expect(contentArg).toContain('## Summary');
+    expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+    expect(h.api.templates.get).not.toHaveBeenCalled(); // type template, not a file template
+  });
+
   it('cancels silently (no write) when an interactive {{prompt:…}} is dismissed', async () => {
     h.dialog.showNewNoteDialog.mockResolvedValue({ name: 'fresh', ext: '.md', templateFilename: 'daily.md' });
     h.api.templates.get.mockResolvedValue('a{{prompt:Label}}b');

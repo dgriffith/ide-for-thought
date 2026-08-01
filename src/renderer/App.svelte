@@ -1572,6 +1572,7 @@
     <OnboardingDialog
       onAccept={(answers, dontAskAgain) => { void handleOnboardingAccept(answers, dontAskAgain); }}
       onDecline={(dontAskAgain) => { void handleOnboardingDecline(dontAskAgain); }}
+      onStartFromType={() => { showOnboarding = false; void handleNewNote(); }}
     />
   {/if}
 

@@ -46,12 +46,15 @@ export interface TypeDef {
   filePath: string;
 }
 
-/** Serializable metadata sent to the renderer over IPC — no template body. */
+/** Serializable metadata sent to the renderer over IPC. Carries the template
+ *  body (a plain note scaffold, unlike a skill's LLM-prompt body) so the type
+ *  picker (#1064) / inline creation (#1065) can instantiate without a round-trip. */
 export interface TypeInfo {
   id: string;
   label: string;
   classLocalName: string;
   properties: PropertyDef[];
+  template?: string | undefined;
   icon?: string | undefined;
   color?: string | undefined;
   source: TypeSource;
@@ -82,6 +85,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     label: t.label,
     classLocalName: t.classLocalName,
     properties: t.properties,
+    template: t.template,
     icon: t.icon,
     color: t.color,
     source: t.source,
