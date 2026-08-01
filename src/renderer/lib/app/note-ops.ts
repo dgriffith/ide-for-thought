@@ -13,7 +13,9 @@ import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
-import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol } from './text-helpers';
+import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths } from './text-helpers';
+import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
+import type { TypeInfo } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
@@ -96,6 +98,38 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       requestAnimationFrame(() => ctx.getEditorComponent()?.restorePosition(offset, 0));
     }
     ctx.getSidebar()?.refreshTags();
+  }
+
+  /**
+   * Inline `/book` typed creation (#1065). Prompts for a title, then EITHER
+   * links an existing note that already resolves for it (link-don't-duplicate)
+   * OR creates a fresh typed note (`type:` + scaffold + template, the #1064
+   * path — no dialog, no open). Returns the wiki-link target for the editor to
+   * insert, or null if cancelled. The editor owns the doc edits.
+   */
+  async function handleInlineTypeCreate(type: TypeInfo): Promise<string | null> {
+    if (!notebase.meta) return null;
+    const title = (await showPrompt(`New ${type.label} — title:`))?.trim();
+    if (!title) return null;
+
+    // If a note already resolves for this title, link it instead of duplicating.
+    const files = flattenNotePaths(notebase.files).map((relativePath) => ({ relativePath, isDirectory: false }));
+    if (resolveWikiLinkTarget(title, files)) return title;
+
+    let body = '';
+    if (type.template) {
+      const sub = await substituteTemplate(type.template, {
+        title,
+        prompt: (label: string) => showPrompt(`${label}:`),
+      });
+      if (sub.cancelled) return null;
+      body = sub.content;
+    }
+    const { content } = buildTypedNoteScaffold(type, body);
+    await api.notebase.writeFile(`${title}.md`, content);
+    await notebase.refresh();
+    ctx.getSidebar()?.refreshTags();
+    return title;
   }
 
   async function handleNewFolder(directory: string = '') {
@@ -532,5 +566,5 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  return { handleNewNote, handleInlineTypeCreate, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

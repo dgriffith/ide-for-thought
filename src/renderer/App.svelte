@@ -631,7 +631,7 @@
     setMergePickerSource: (s) => { mergePickerSource = s; },
   };
   const {
-    handleNewNote, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, handleInlineTypeCreate, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
@@ -1100,6 +1100,7 @@
                           getNotePaths={() => flattenNotePaths(notebase.files)}
                           getSources={() => sourcesCache}
                           getAliases={() => aliasEntries}
+                          resolveInlineTypeCreate={handleInlineTypeCreate}
                           onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
                           onBookmarkSection={() => { void handleBookmarkSection(); }}
                           onBookmarkLine={handleBookmarkLine}

@@ -267,6 +267,39 @@ describe('handleNewNote — template & guard paths', () => {
   });
 });
 
+describe('handleInlineTypeCreate (#1065)', () => {
+  const book = {
+    id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock' as const,
+    template: '## Summary',
+    properties: [{ name: 'author', type: 'text' as const }],
+  };
+
+  it('creates a typed note and returns its wiki-link target', async () => {
+    h.notebase.files = [];
+    h.dialog.showPrompt.mockResolvedValue('Ada Lovelace');
+    const target = await ops.handleInlineTypeCreate(book);
+    expect(target).toBe('Ada Lovelace');
+    const [p, c] = h.api.notebase.writeFile.mock.calls[0] as [string, string];
+    expect(p).toBe('Ada Lovelace.md');
+    expect(c).toMatch(/^---\ntype: book\nauthor:\n---/);
+    expect(c).toContain('## Summary');
+  });
+
+  it('links an existing note instead of duplicating', async () => {
+    h.notebase.files = [file('Ada Lovelace.md')];
+    h.dialog.showPrompt.mockResolvedValue('Ada Lovelace');
+    const target = await ops.handleInlineTypeCreate(book);
+    expect(target).toBe('Ada Lovelace'); // resolves to the existing note
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+
+  it('returns null (no write) when the title prompt is cancelled', async () => {
+    h.dialog.showPrompt.mockResolvedValue(null);
+    expect(await ops.handleInlineTypeCreate(book)).toBeNull();
+    expect(h.api.notebase.writeFile).not.toHaveBeenCalled();
+  });
+});
+
 describe('handleNewFolder', () => {
   it('creates the folder under the target directory', async () => {
     h.dialog.showPrompt.mockResolvedValue('Ideas');
