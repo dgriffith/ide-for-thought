@@ -483,6 +483,7 @@ contextBridge.exposeInMainWorld('api', {
     noteProperties: (relativePath: string) => invoke(Channels.TYPES_NOTE_PROPERTIES, relativePath),
     instances: (typeId: string) => invoke(Channels.TYPES_INSTANCES, typeId),
     save: (input: Parameters<ChannelMap['types:save']>[0]) => invoke(Channels.TYPES_SAVE, input),
+    delete: (id: string) => invoke(Channels.TYPES_DELETE, id),
   },
   skills: {
     list: () => invoke(Channels.SKILLS_LIST),

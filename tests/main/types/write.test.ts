@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { serializeTypeFile, saveType } from '../../../src/main/types/write';
+import { serializeTypeFile, saveType, deleteType } from '../../../src/main/types/write';
 import { parseType } from '../../../src/main/types/parse';
 import { loadTypeCatalog } from '../../../src/main/types/loader';
 import type { PropertyDef } from '../../../src/shared/objects/type-def';
@@ -28,6 +28,16 @@ describe('serializeTypeFile (#save-as-type)', () => {
     expect(byName.get('author')).toMatchObject({ type: 'link-to-type', targetType: 'person' });
     expect(byName.get('rating')).toMatchObject({ type: 'number' });
     expect(byName.get('status')).toMatchObject({ type: 'enum', options: ['reading', 'read'] });
+  });
+
+  it('carries icon/color/cover/card + a template body through the round-trip (#1584)', () => {
+    const content = serializeTypeFile('book', {
+      label: 'Book', properties: PROPS, icon: '📖', color: '#89b4fa', cover: 'author', card: ['rating'],
+      template: '## Notes\n',
+    });
+    const r = parseType(content, 'user', '/x/book.md');
+    expect(r.type).toMatchObject({ icon: '📖', color: '#89b4fa', cover: 'author', card: ['rating'] });
+    expect(r.type?.template).toContain('## Notes');
   });
 });
 
@@ -52,5 +62,14 @@ describe('saveType (#save-as-type)', () => {
 
   it('rejects an empty name', async () => {
     await expect(saveType(root, { label: '   ', properties: [] })).rejects.toThrow(/empty/i);
+  });
+
+  it('deleteType removes the user type file (#1584)', async () => {
+    const { filePath } = await saveType(root, { label: 'Gadget', properties: [] });
+    expect(fs.existsSync(path.join(root, filePath))).toBe(true);
+    await deleteType(root, 'gadget');
+    expect(fs.existsSync(path.join(root, filePath))).toBe(false);
+    // Idempotent — deleting a stock-only / missing id is a no-op, not an error.
+    await expect(deleteType(root, 'nonexistent')).resolves.toBeUndefined();
   });
 });

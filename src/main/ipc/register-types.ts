@@ -7,7 +7,7 @@
  */
 import { Channels } from '../../shared/channels';
 import { loadTypeCatalog } from '../types/loader';
-import { saveType, type SaveTypeInput } from '../types/write';
+import { saveType, deleteType, type SaveTypeInput } from '../types/write';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
@@ -50,5 +50,10 @@ export function registerTypes(): void {
     const result = await saveType(rootPath, input);
     await graph.reloadTypeCatalog(projectContext(rootPath));
     return result;
+  }));
+
+  handle(Channels.TYPES_DELETE, withRootPath(async (rootPath, id: string) => {
+    await deleteType(rootPath, id);
+    await graph.reloadTypeCatalog(projectContext(rootPath));
   }));
 }
