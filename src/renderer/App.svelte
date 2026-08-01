@@ -936,6 +936,7 @@
           onBookmark={(path) => bookmarkStore.add(path.split('/').pop()?.replace(/\.(md|ttl|csv)$/, '') ?? path, path)}
           onToggleEntrypoint={handleToggleEntrypoint}
           onSourceSelect={(id) => handleOpenSource(id)}
+          onOpenExcerpt={handleOpenExcerpt}
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
           onShowPrompt={showPrompt}
