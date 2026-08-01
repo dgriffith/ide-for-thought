@@ -10,6 +10,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
+  import { getProposalsStore } from '../stores/proposals.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick, untrack } from 'svelte';
@@ -107,6 +108,10 @@
   // session; not saved to disk.
   let expanded = $state<Record<string, boolean>>({});
   const selectionStore = getSidebarSelectionStore();
+  // Read-only: the pending-proposal count drives an at-a-glance cue on the
+  // Proposals tab (#1541 follow-up) — same accent signal as the status-bar /
+  // dock badge, so an arrival (e.g. from the CLI) is visible in-app too.
+  const proposalsStore = getProposalsStore();
 
   function toggleDir(path: string): void {
     expanded = { ...expanded, [path]: !expanded[path] };
@@ -507,14 +512,16 @@
   <div class="panel-tabs">
     {#each PANELS as p (p.id)}
       {@const active = activePanel === p.id}
+      {@const pending = p.id === 'proposals' ? proposalsStore.pendingCount : 0}
       <button
         class="panel-tab"
         class:active
         onclick={() => activePanel = p.id}
         title={p.label}
       >
-        <Icon name={p.icon} size={14} color={active ? 'var(--accent)' : 'currentColor'} />
+        <Icon name={p.icon} size={14} color={active || pending > 0 ? 'var(--accent)' : 'currentColor'} />
         {#if active}<span class="panel-tab-label">{p.label}</span>{/if}
+        {#if pending > 0}<span class="tab-badge" aria-label="{pending} pending proposals">{pending}</span>{/if}
       </button>
     {/each}
   </div>
@@ -717,6 +724,7 @@
   }
 
   .panel-tab {
+    position: relative;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
@@ -730,6 +738,26 @@
     font-size: 12.5px;
     font-weight: 450;
     cursor: pointer;
+  }
+
+  /* Pending-proposals cue (#1541 follow-up): a small count badge on the
+     Proposals tab, in --accent — a prompt to review, not a warning (no danger
+     styling per CLAUDE.md), matching the status-bar / dock badge. */
+  .tab-badge {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
   }
 
   .panel-tab:hover:not(.active) {
