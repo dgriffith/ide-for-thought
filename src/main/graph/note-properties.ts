@@ -12,7 +12,7 @@
 import type { ProjectContext } from '../project-context-types';
 import { getState } from './state';
 import { noteUriFor, queryGraph } from './queries';
-import { resolveFrontmatterPredicate } from './indexers';
+import { declaredPropertyPredicate } from './indexers';
 import {
   toTypeInfo,
   type NoteTypedProperties,
@@ -51,7 +51,7 @@ export async function getNoteTypedProperties(
     label: pd.label,
     options: pd.options,
     targetType: pd.targetType,
-    value: byPredicate.get(resolveFrontmatterPredicate(pd.name).value) ?? null,
+    value: byPredicate.get(declaredPropertyPredicate(pd.name, pd.type).value) ?? null,
   }));
 
   return { type: toTypeInfo(def), properties };
@@ -82,7 +82,7 @@ export async function getTypeInstances(
   const cols = def.properties.map((pd, i) => ({
     pd,
     alias: `c${i}`,
-    predicate: resolveFrontmatterPredicate(pd.name).value,
+    predicate: declaredPropertyPredicate(pd.name, pd.type).value,
   }));
   const optionals = cols
     .map((c) => `OPTIONAL { ?n <${c.predicate}> ?${c.alias} }`)

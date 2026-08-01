@@ -55,16 +55,21 @@ describe('typed properties: datatype coercion (#1063)', () => {
     expect(await datatypeOf('A', 'bibo:isbn')).toMatch(/#string$/);
   });
 
-  it('a `link-to-type` value that is a wiki-link resolves to the target note', async () => {
+  it('a `link-to-type` value materialises a labeled ROLE edge to the target (#1073)', async () => {
     writeNote('Alice.md', `---\ntitle: Alice\ntype: person\n---\n`);
     writeNote('Roadmap.md', `---\ntitle: Roadmap\ntype: project\nowner: "[[Alice]]"\n---\n`);
     await indexAllNotes(ctx);
+    // The edge is under the property's ROLE predicate (types:owner), not a
+    // generic dc:*/minerva:meta-* one — queryable by its role.
     const { results } = await queryGraph(
       ctx,
-      `SELECT ?o WHERE { ?n dc:title "Roadmap" ; minerva:meta-owner ?o }`,
+      `SELECT ?o WHERE { ?n dc:title "Roadmap" ; types:owner ?o }`,
     );
     const owner = (results as Array<{ o?: string }>)[0]?.o ?? '';
     expect(owner).toContain('/note/Alice'); // an object ref, not a literal
+    // And NOT under the old generic predicate.
+    const { results: old } = await queryGraph(ctx, `SELECT ?o WHERE { ?n dc:title "Roadmap" ; minerva:meta-owner ?o }`);
+    expect(old).toHaveLength(0);
   });
 
   it('a note missing an expected property still indexes cleanly (no enforcement)', async () => {

@@ -59,6 +59,7 @@
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import EditSavedViewsDialog from './lib/components/EditSavedViewsDialog.svelte';
+  import AttachEvidenceDialog from './lib/components/AttachEvidenceDialog.svelte';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
@@ -390,6 +391,21 @@
   const { showPrompt, showConfirm, showComputeConsent } = dialogs;
 
   let showEditSavedViews = $state(false);
+
+  // Attach-excerpt-as-evidence (#1073): the excerpt whose evidence dialog is open.
+  let attachEvidenceExcerptId = $state<string | null>(null);
+  async function handleAttachEvidence(claimPath: string, role: 'grounds' | 'supports' | 'rebuts'): Promise<void> {
+    const excerptId = attachEvidenceExcerptId;
+    attachEvidenceExcerptId = null;
+    if (!excerptId) return;
+    const res = await api.graph.attachExcerptEvidence(excerptId, claimPath, role);
+    if (res.ok) {
+      void proposalsStore.refresh();
+      toasts.push({ message: `Evidence proposal filed — review it in Proposals`, onClick: openProposals });
+    } else {
+      toasts.push({ message: `Could not attach evidence: ${res.error ?? 'unknown error'}` });
+    }
+  }
 
   // Open a saved view (#1072): its exact projection — mode, sort, columns —
   // re-applied onto (or opening) the type's multi-view tab.
@@ -1231,6 +1247,7 @@
                     onCreateNoteFromExcerpt={handleCreateNoteFromExcerpt}
                     onAppendExcerptToCurrent={handleAppendExcerptToCurrent}
                     canAppendToCurrent={lastNotePath !== null}
+                    onAttachEvidence={(id) => { attachEvidenceExcerptId = id; }}
                     onInvokeTool={handleToolInvoke}
                   />
                 {/key}
@@ -1441,6 +1458,13 @@
   {/if}
   {#if showEditSavedViews}
     <EditSavedViewsDialog onClose={() => { showEditSavedViews = false; }} />
+  {/if}
+  {#if attachEvidenceExcerptId}
+    <AttachEvidenceDialog
+      excerptId={attachEvidenceExcerptId}
+      onClose={() => { attachEvidenceExcerptId = null; }}
+      onAttach={handleAttachEvidence}
+    />
   {/if}
   {#if saveQueryRequest}
     <SaveQueryDialog

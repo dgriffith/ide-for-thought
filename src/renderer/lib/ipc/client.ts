@@ -143,6 +143,9 @@ export interface GraphApi {
   export(): Promise<void>;
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;
+  /** Attach an excerpt as grounds/supports/rebuts evidence for a claim (#1073) —
+   *  files a pending proposal reviewed in the Proposals panel. */
+  attachExcerptEvidence(excerptId: string, claimPath: string, role: 'grounds' | 'supports' | 'rebuts'): Promise<{ ok: boolean; error?: string; proposalUri?: string }>;
   schemaForCompletion(): Promise<{
     prefixes: Array<{ prefix: string; iri: string }>;
     predicates: Array<{ iri: string; prefixed?: string }>;

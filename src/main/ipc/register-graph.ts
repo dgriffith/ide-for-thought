@@ -11,6 +11,7 @@ import * as healthChecks from '../graph/health-checks';
 import type { Inspection } from '../graph/health-checks';
 import { patchProjectConfig, readProjectConfig } from '../project-config';
 import { checkRebase } from '../graph/rebase-guard';
+import { proposeExcerptEvidence, type AttachEvidenceResult } from '../llm/attach-evidence';
 import { withRootPath, withRootPathOr, withRootPathWin } from './helpers';
 
 export function registerGraph(): void {
@@ -58,6 +59,11 @@ export function registerGraph(): void {
 
   handle(Channels.GRAPH_EXCERPT_SOURCE, withRootPathOr(null, (rootPath, excerptId: string) =>
     graph.getExcerptSource(projectContext(rootPath), excerptId)));
+
+  handle(Channels.GRAPH_ATTACH_EXCERPT_EVIDENCE, withRootPathOr<[string, string, 'grounds' | 'supports' | 'rebuts'], AttachEvidenceResult | Promise<AttachEvidenceResult>>(
+    { ok: false, error: 'no project open' },
+    (rootPath, excerptId, claimPath, role) => proposeExcerptEvidence(rootPath, excerptId, claimPath, role),
+  ));
 
   handle(Channels.GRAPH_ALIAS_MAP, withRootPathOr({}, (rootPath) =>
     graph.getAliasMap(projectContext(rootPath))));

@@ -213,6 +213,7 @@ export interface ChannelMap {
   'graph:export': () => void;
   'graph:sourceDetail': (sourceId: string) => SourceDetail | null;
   'graph:excerptSource': (excerptId: string) => { sourceId: string } | null;
+  'graph:attachExcerptEvidence': (excerptId: string, claimPath: string, role: 'grounds' | 'supports' | 'rebuts') => { ok: boolean; error?: string; proposalUri?: string };
   'graph:schemaForCompletion': () =>
     | { prefixes: Array<{ prefix: string; iri: string }>; predicates: Array<{ iri: string; prefixed?: string }>; classes: Array<{ iri: string; prefixed?: string }> }
     | null;

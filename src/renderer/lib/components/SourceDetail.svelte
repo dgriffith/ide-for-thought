@@ -68,6 +68,9 @@
     /** Whether the host currently has an active note tab — used to
      *  enable / disable the Append button. */
     canAppendToCurrent?: boolean;
+    /** Attach this excerpt as grounds/supports/rebuts evidence for a claim
+     *  (#1073) — the host opens a role + claim picker and files a proposal. */
+    onAttachEvidence?: (excerptId: string) => void;
     /** Invoke a source-scoped tool (#103) on this source. The host runs
      *  the same gather-context → tool-panel / conversation flow used by
      *  the note menus; since this source is the active tab, gatherContext
@@ -82,7 +85,7 @@
     sourceId, highlightExcerptId, onNavigate, onShowConfirm, onShowPrompt, onDeleted,
     onCreateAboutNote, onOpenReference, onResolveStub, onOpenPdf,
     onCreateNoteFromExcerpt, onAppendExcerptToCurrent, canAppendToCurrent = false,
-    onInvokeTool, numberedHeadings = false,
+    onAttachEvidence, onInvokeTool, numberedHeadings = false,
   }: Props = $props();
   let resolving = $state(false);
   let appendFlashId = $state<string | null>(null);
@@ -659,6 +662,13 @@
                     >
                       {appendFlashId === excerpt.excerptId ? 'Appended ✓' : 'Append to current'}
                     </button>
+                  {/if}
+                  {#if onAttachEvidence}
+                    <button
+                      class="excerpt-action"
+                      onclick={() => onAttachEvidence?.(excerpt.excerptId)}
+                      title="Attach this excerpt as grounds/supports/rebuts evidence for a claim"
+                    >Attach evidence…</button>
                   {/if}
                 </span>
               </div>

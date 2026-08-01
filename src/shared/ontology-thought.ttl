@@ -486,6 +486,18 @@ thought:challenges a owl:ObjectProperty ;
     rdfs:domain thought:Component ;
     rdfs:range thought:Component .
 
+thought:grounds a owl:ObjectProperty ;
+    rdfs:label "grounds" ;
+    rdfs:comment "This evidence (typically an Excerpt) grounds another component — it is the factual basis a claim or argument rests on (#1073)." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
+thought:rebuts a owl:ObjectProperty ;
+    rdfs:label "rebuts" ;
+    rdfs:comment "This evidence (typically an Excerpt) rebuts another component — it is the factual basis for rejecting a claim or argument (#1073)." ;
+    rdfs:domain thought:Component ;
+    rdfs:range thought:Component .
+
 thought:qualifies a owl:ObjectProperty ;
     rdfs:label "qualifies" ;
     rdfs:comment "This component limits or conditions another." ;

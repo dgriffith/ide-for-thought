@@ -177,6 +177,34 @@ register<'excerpt'>({
   },
 });
 
+register<'excerpt-evidence'>({
+  kind: 'excerpt-evidence',
+  apply: async (ctx, p): Promise<{ excerptId: string; excerptPath: string; before: string }> => {
+    // Append the evidence edge to the excerpt's meta.ttl (durable + reference-
+    // not-copy). Recompute against the CURRENT ttl, idempotently, so a
+    // concurrent evidence edit isn't clobbered and re-attaching the same edge is
+    // a no-op. Pre-image captured for verbatim rollback (mirrors note-rewrite).
+    const excerptPath = `.minerva/excerpts/${p.excerptId}.ttl`;
+    const before = await notebaseFs.readFile(ctx.rootPath, excerptPath);
+    const line = `this: thought:${p.role} <${p.targetUri}> .`;
+    const already = before.split('\n').some((l) => l.trim() === line);
+    const next = already ? before : `${before.replace(/\n*$/, '')}\n${line}\n`;
+    if (!already) {
+      await notebaseFs.writeFile(ctx.rootPath, excerptPath, next);
+      graph.indexExcerpt(ctx, p.excerptId, next);
+    }
+    return { excerptId: p.excerptId, excerptPath, before };
+  },
+  rollback: async (ctx, rollbackData) => {
+    const data = rollbackData as { excerptId: string; excerptPath: string; before: string };
+    try {
+      await notebaseFs.writeFile(ctx.rootPath, data.excerptPath, data.before);
+      graph.indexExcerpt(ctx, data.excerptId, data.before);
+    } catch { /* best-effort, a reindex reconciles */ }
+  },
+  affectsNodes: (_ctx, p) => p.affectsNodeUris,
+});
+
 register<'note-refactor'>({
   kind: 'note-refactor',
   apply: async (ctx, p): Promise<unknown> => {

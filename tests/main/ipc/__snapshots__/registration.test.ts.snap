@@ -85,6 +85,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "git:status",
   "graph:aliasEntries",
   "graph:aliasMap",
+  "graph:attachExcerptEvidence",
   "graph:excerptSource",
   "graph:export",
   "graph:frontmatterKeys",

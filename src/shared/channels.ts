@@ -135,6 +135,9 @@ export const Channels = {
   GRAPH_SCHEMA_FOR_COMPLETION: 'graph:schemaForCompletion',
   GRAPH_SOURCE_DETAIL: 'graph:sourceDetail',
   GRAPH_EXCERPT_SOURCE: 'graph:excerptSource',
+  /** Attach an excerpt as grounds/supports/rebuts evidence for a claim (#1073) —
+   *  files a pending proposal. */
+  GRAPH_ATTACH_EXCERPT_EVIDENCE: 'graph:attachExcerptEvidence',
   /** Frontmatter alias → relativePath map for wiki-link resolution (#469). */
   GRAPH_ALIAS_MAP: 'graph:aliasMap',
   /** Same data as GRAPH_ALIAS_MAP but in entries form, preserving the

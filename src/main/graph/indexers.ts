@@ -271,6 +271,19 @@ export function resolveFrontmatterPredicate(key: string) {
   }
 }
 
+/**
+ * The predicate a declared property's value is indexed under (#1073). A
+ * `link-to-type` property materialises as a labeled **role edge** in the types
+ * namespace — `types:author` — so the relation is queryable by its role and
+ * shows that role in backlinks, instead of collapsing to a generic
+ * `dc:creator`/`minerva:meta-*` predicate. Every other property keeps the
+ * frontmatter-key predicate. The indexer (write) and the #1063 read-back +
+ * #1070 projection (read) MUST both resolve through here so they stay in sync.
+ */
+export function declaredPropertyPredicate(name: string, type?: PropertyType) {
+  return type === 'link-to-type' ? TYPES(name) : resolveFrontmatterPredicate(name);
+}
+
 /** Whole frontmatter value that is a single wiki-link — `[[…]]` and nothing
  *  else. The inner is then parsed by the shared body grammar (`parseWikiInner`)
  *  so type prefixes and anchors are honoured, not swept into the target. */
@@ -693,7 +706,7 @@ export async function indexNote(
     // its own type; a nested mapping materialises as a blank node; everything
     // else stays a scalar edge under the key's predicate. A declared property's
     // type drives datatype coercion (#1063).
-    emitFrontmatterValue(state, store, subject, resolveFrontmatterPredicate(key), value, graph, linkCtx, 0, declaredProps?.get(key));
+    emitFrontmatterValue(state, store, subject, declaredPropertyPredicate(key, declaredProps?.get(key)), value, graph, linkCtx, 0, declaredProps?.get(key));
   }
 
   // Embedded turtle blocks — parse into the note's named graph

@@ -79,6 +79,20 @@ export type ProposalPayload =
       excerptTtl: string;
     }
   | {
+      kind: 'excerpt-evidence';
+      /** Attach an excerpt as evidence for a component (#1073): append
+       *  `this: thought:<role> <targetUri> .` to the excerpt's meta.ttl, so the
+       *  edge is durable (re-derived on reindex) and reference-not-copy (the
+       *  excerpt lives once; multiple claims add multiple lines). Apply reads the
+       *  CURRENT ttl and appends (idempotent), capturing a pre-image for rollback
+       *  — never clobbering a concurrent evidence edit. */
+      excerptId: string;
+      role: 'grounds' | 'supports' | 'rebuts';
+      /** Full IRI of the component this excerpt is evidence for (a claim note). */
+      targetUri: string;
+      affectsNodeUris: string[];
+    }
+  | {
       kind: 'saved-query';
       scope: 'project' | 'global';
       name: string;
