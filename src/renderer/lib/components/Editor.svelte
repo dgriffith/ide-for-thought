@@ -47,6 +47,8 @@
   import { linkPreview } from '../editor/link-preview';
   import { footnoteDecorations } from '../editor/footnote-decorations';
   import { linkCompletionSource } from '../editor/link-autocomplete';
+  import { typeCreateCompletionSource } from '../editor/type-create-autocomplete';
+  import type { TypeInfo } from '../../../shared/objects/type-def';
   import { planBlockLink } from '../editor/block-link';
   import { toHistorySnapshot, canRestoreHistory } from '../editor/history-snapshot';
   import { DEFAULT_FONT, clampFontSize, parseStoredFontSize } from '../editor/font-size';
@@ -141,6 +143,10 @@
     /** Live list of frontmatter alias entries so wiki-link autocomplete
      *  can suggest aliases alongside note paths (#492). */
     getAliases?: () => readonly { alias: string; relativePath: string }[];
+    /** Inline `/book` typed-creation (#1065): given the picked type, prompt for
+     *  a title, create (or link an existing) typed note, and return the
+     *  wiki-link target — or null if cancelled. Wired by the host to note-ops. */
+    resolveInlineTypeCreate?: (type: TypeInfo) => Promise<string | null>;
     /**
      * Callback for image upload rejections — too-large, unsupported
      * MIME, etc. — so the host app can surface a toast / dialog (#455).
@@ -209,6 +215,7 @@
     getNotePaths,
     getSources,
     getAliases,
+    resolveInlineTypeCreate,
     initialHistory,
     onUploadError,
     onRunCell,
@@ -910,8 +917,24 @@
       readNote: (p) => api.notebase.readFile(p),
     });
 
+    // Inline `/book` typed creation (#1065). The apply removes the `/partial`,
+    // then the host prompt+create runs async and its target is linked at the
+    // same spot — type, template, and link in one gesture.
+    const typeCreateCompletion = typeCreateCompletionSource({
+      loadTypes: () => api.types.list().then((c) => c.types),
+      onPick: (type, view, from, to) => {
+        view.dispatch({ changes: { from, to, insert: '' } });
+        void resolveInlineTypeCreate?.(type).then((target) => {
+          if (!target || !view.dom.isConnected) return;
+          const link = `[[${target}]]`;
+          const at = Math.min(from, view.state.doc.length);
+          view.dispatch({ changes: { from: at, insert: link }, selection: { anchor: at + link.length } });
+        });
+      },
+    });
+
     const completion = autocompletion({
-      override: [tagCompletion, linkCompletion],
+      override: [tagCompletion, linkCompletion, typeCreateCompletion],
       activateOnTyping: true,
       closeOnBlur: true,
       // Our Enter binding (acceptCompletionEatTail) owns accept-on-Enter; the
