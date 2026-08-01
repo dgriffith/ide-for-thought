@@ -21,6 +21,7 @@ const MEETING = { id: 'meeting', label: 'Meeting', classLocalName: 'Meeting', so
 beforeEach(() => {
   typesMock.mockResolvedValue({ types: [BOOK, MEETING], errors: [] });
   queryMock.mockImplementation((sparql: string) => {
+    if (sparql.includes('thought:Excerpt')) return Promise.resolve({ results: [{ n: '7' }], columns: [] }); // excerpt count
     if (sparql.includes('COUNT')) return Promise.resolve({ results: [{ id: 'book', n: '2' }], columns: [] });
     if (sparql.includes('types:Book')) {
       return Promise.resolve({ results: [{ path: 'Dune.md', title: 'Dune' }, { path: 'Neuro.md', title: 'Neuromancer' }], columns: [] });
@@ -37,6 +38,8 @@ describe('ObjectsPanel (#1068)', () => {
     expect(screen.getByText('Meeting')).toBeTruthy(); // zero-instance, still shown
     expect(screen.getByText('2')).toBeTruthy(); // Book count
     expect(screen.getByText('0')).toBeTruthy(); // Meeting count
+    expect(screen.getByText('Excerpts')).toBeTruthy(); // built-in Excerpts type (#1069)
+    expect(screen.getByText('7')).toBeTruthy(); // excerpt count
   });
 
   it('expands a type to its instances and opens a note on click', async () => {

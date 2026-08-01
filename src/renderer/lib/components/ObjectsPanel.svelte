@@ -9,12 +9,15 @@
    * host calls `refresh()` on write/reindex (mirroring the Tags panel).
    */
   import { api } from '../ipc/client';
+  import ExcerptsBrowser from './ExcerptsBrowser.svelte';
   import type { TypeInfo } from '../../../shared/objects/type-def';
 
   interface Props {
     onFileSelect: (relativePath: string) => void;
+    /** Open an excerpt (source at its anchor) — for the built-in Excerpts type (#1069). */
+    onOpenExcerpt?: (excerptId: string) => void;
   }
-  let { onFileSelect }: Props = $props();
+  let { onFileSelect, onOpenExcerpt }: Props = $props();
 
   interface TypeRow { type: TypeInfo; count: number; }
   interface Instance { title: string; path: string; }
@@ -22,6 +25,9 @@
   let rows = $state<TypeRow[]>([]);
   let expanded = $state<Set<string>>(new Set());
   let instances = $state<Record<string, Instance[]>>({});
+  // Built-in Excerpts type (#1069) — thought:Excerpt, not a registry type.
+  let excerptCount = $state(0);
+  let excerptsOpen = $state(false);
 
   async function loadCounts(): Promise<Record<string, number>> {
     const { results } = await api.graph.query(
@@ -55,9 +61,15 @@
 
   /** Reload counts, and re-project any expanded type. Called on mount + by the
    *  host after a write/reindex. */
+  async function loadExcerptCount(): Promise<number> {
+    const { results } = await api.graph.query(`SELECT (COUNT(?e) AS ?n) WHERE { ?e a thought:Excerpt }`);
+    return Number((results as Array<{ n?: string }>)[0]?.n ?? 0);
+  }
+
   export async function refresh(): Promise<void> {
-    const [cat, counts] = await Promise.all([api.types.list(), loadCounts()]);
+    const [cat, counts, exCount] = await Promise.all([api.types.list(), loadCounts(), loadExcerptCount()]);
     rows = cat.types.map((type) => ({ type, count: counts[type.id] ?? 0 }));
+    excerptCount = exCount;
     await Promise.all([...expanded].map((id) => loadInstances(id)));
   }
 
@@ -72,32 +84,45 @@
 </script>
 
 <div class="objects-panel">
-  {#if rows.length === 0}
-    <p class="empty">No types in this project yet.</p>
-  {:else}
-    {#each rows as row (row.type.id)}
-      {@const open = expanded.has(row.type.id)}
-      <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
-        <span class="chevron" class:open>▸</span>
-        <span class="type-icon" style={row.type.color ? `color:${row.type.color}` : undefined}>{row.type.icon ?? '◆'}</span>
-        <span class="type-label">{row.type.label}</span>
-        <span class="type-count">{row.count}</span>
-      </button>
-      {#if open}
-        {#if (instances[row.type.id] ?? []).length === 0}
-          <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
-        {:else}
-          {#each instances[row.type.id] ?? [] as inst (inst.path)}
-            <button
-              class="instance-row"
-              onclick={() => onFileSelect(inst.path)}
-              ondblclick={() => onFileSelect(inst.path)}
-              title={inst.path}
-            >{inst.title}</button>
-          {/each}
-        {/if}
+  {#each rows as row (row.type.id)}
+    {@const open = expanded.has(row.type.id)}
+    <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
+      <span class="chevron" class:open>▸</span>
+      <span class="type-icon" style={row.type.color ? `color:${row.type.color}` : undefined}>{row.type.icon ?? '◆'}</span>
+      <span class="type-label">{row.type.label}</span>
+      <span class="type-count">{row.count}</span>
+    </button>
+    {#if open}
+      {#if (instances[row.type.id] ?? []).length === 0}
+        <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
+      {:else}
+        {#each instances[row.type.id] ?? [] as inst (inst.path)}
+          <button
+            class="instance-row"
+            onclick={() => onFileSelect(inst.path)}
+            ondblclick={() => onFileSelect(inst.path)}
+            title={inst.path}
+          >{inst.title}</button>
+        {/each}
       {/if}
-    {/each}
+    {/if}
+  {/each}
+
+  <!-- Built-in Excerpts type (#1069): thought:Excerpt, browsable + filterable. -->
+  <button class="type-row" onclick={() => (excerptsOpen = !excerptsOpen)} aria-expanded={excerptsOpen}>
+    <span class="chevron" class:open={excerptsOpen}>▸</span>
+    <span class="type-icon">✂️</span>
+    <span class="type-label">Excerpts</span>
+    <span class="type-count">{excerptCount}</span>
+  </button>
+  {#if excerptsOpen}
+    {#if onOpenExcerpt}
+      <ExcerptsBrowser {onOpenExcerpt} />
+    {/if}
+  {/if}
+
+  {#if rows.length === 0 && excerptCount === 0}
+    <p class="empty">No types or excerpts in this project yet.</p>
   {/if}
 </div>
 
