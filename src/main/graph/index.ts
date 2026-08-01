@@ -23,7 +23,7 @@ import {
 // The read/query layer lives in ./queries. Re-export its public surface so
 // external `import * as graph from './graph/index'` callers are unchanged.
 export {
-  getAliasMap, getAliasEntries, getAllFrontmatterKeys, noteUriFor, headingsFor,
+  getAliasMap, getAliasEntries, aliasesForNote, getAllFrontmatterKeys, noteUriFor, headingsFor,
   findNotesCitingSource, findNotesQuotingExcerpt, findNotesLinkingToAnchor, allNotePaths,
   injectSparqlPrefixes, schemaForCompletion, queryGraph,
   listTags, notesByTagPrefix, notesByTag, sourcesByTag, listAllSources, allTags,

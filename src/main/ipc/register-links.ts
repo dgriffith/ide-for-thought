@@ -37,6 +37,29 @@ export function registerLinks(): void {
     return { enabled: true, notes: markAlreadyLinked(ranked, linked) };
   }));
 
+  // Unlinked mentions of a typed object (#1074): notes that semantically mention
+  // this object — pointed at its TITLE + ALIASES (not its whole content, unlike
+  // EMBEDDINGS_RELATED) — but don't yet wiki-link it. Reuses the embed-at-query
+  // machinery (searchRelated embeds the title string) + the already-linked flag,
+  // so the surface can suggest "link it" only on genuinely unlinked notes.
+  handle(Channels.EMBEDDINGS_UNLINKED_MENTIONS, withRootPathOr<[string, number?], RelatedNotesResult | Promise<RelatedNotesResult>>({ enabled: false, notes: [] }, async (rootPath, relativePath: string, limit?: number): Promise<RelatedNotesResult> => {
+    const ctx = projectContext(rootPath);
+    if (!vectors.isEnabled(ctx)) return { enabled: false, notes: [] };
+    const query = [graph.noteTitle(ctx, relativePath), ...graph.aliasesForNote(ctx, relativePath)]
+      .filter((s) => s.trim()).join('\n');
+    if (!query.trim()) return { enabled: true, notes: [] };
+    const n = Math.min(Math.max(Math.floor(limit ?? 8), 1), 25);
+    const hits = await vectors.searchRelated(ctx, query, { limit: n * 5, kinds: ['note'], exclude: { kind: 'note', ref: relativePath } });
+    const ranked = topRelatedNotes(hits, { limit: n, titleOf: (h) => graph.noteTitle(ctx, h.ref) });
+    // Already-linked = a note that links this object in either direction; the
+    // surface shows only the unlinked ones.
+    const linked = new Set<string>([
+      ...graph.outgoingLinks(ctx, relativePath).map((l) => l.target),
+      ...graph.backlinks(ctx, relativePath).map((l) => l.source),
+    ]);
+    return { enabled: true, notes: markAlreadyLinked(ranked, linked) };
+  }));
+
   // Free-text semantic search for the live `:::query-semantic` block (#1128).
   // Embeds the block's query text at request time (searchRelated does the
   // embed) and ranks the corpus — read-only, nothing is written. `excludePath`

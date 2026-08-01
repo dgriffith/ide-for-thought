@@ -58,6 +58,13 @@ export interface AliasEntry {
   alias: string;
   relativePath: string;
 }
+/** The frontmatter aliases declared by a single note (#1074) — for pointing the
+ *  unlinked-mentions embeddings query at an object's title + aliases. */
+export function aliasesForNote(ctx: ProjectContext, relativePath: string): string[] {
+  const state = getState(ctx);
+  return state?.aliasesPerNote.get(relativePath) ?? [];
+}
+
 export function getAliasEntries(ctx: ProjectContext): AliasEntry[] {
   const state = getState(ctx);
   if (!state) return [];
