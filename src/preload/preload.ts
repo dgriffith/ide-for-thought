@@ -465,6 +465,9 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.TOOL_CHECK_CONNECTION, providerId, candidateKey, baseURL),
     onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
   },
+  types: {
+    list: () => invoke(Channels.TYPES_LIST),
+  },
   skills: {
     list: () => invoke(Channels.SKILLS_LIST),
     reload: () => invoke(Channels.SKILLS_RELOAD),

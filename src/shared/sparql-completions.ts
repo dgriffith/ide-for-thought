@@ -56,6 +56,7 @@ export const STANDARD_PREFIXES: ReadonlyArray<{ prefix: string; iri: string }> =
   { prefix: 'prov', iri: 'http://www.w3.org/ns/prov#' },
   { prefix: 'bibo', iri: 'http://purl.org/ontology/bibo/' },
   { prefix: 'schema', iri: 'http://schema.org/' },
+  { prefix: 'types', iri: 'https://minerva.dev/ontology/types#' },
 ];
 
 // ── Phase detection ──────────────────────────────────────────────────────

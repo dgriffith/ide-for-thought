@@ -9,6 +9,7 @@ import { registerGit } from './ipc/register-git';
 import { registerSites } from './ipc/register-sites';
 import { registerBibliography } from './ipc/register-bibliography';
 import { registerTools } from './ipc/register-tools';
+import { registerTypes } from './ipc/register-types';
 import { registerRefactor } from './ipc/register-refactor';
 import { registerSources } from './ipc/register-sources';
 import { registerCompute } from './ipc/register-compute';
@@ -41,6 +42,7 @@ export function registerIpcHandlers(): void {
   registerSites();
   registerBibliography();
   registerTools();
+  registerTypes();
   registerRefactor();
   registerSources();
   registerCompute();

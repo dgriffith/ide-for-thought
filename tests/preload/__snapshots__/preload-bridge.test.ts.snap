@@ -390,6 +390,9 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "prepareConversation",
     "setSettings",
   ],
+  "types": [
+    "list",
+  ],
   "view": [
     "getZoomFactor",
     "setZoomFactor",

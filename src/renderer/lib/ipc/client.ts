@@ -747,6 +747,11 @@ export interface ToolsApi {
   onInvoke(cb: (toolId: string) => void): void;
 }
 
+export interface TypesApi {
+  /** The current project's type catalog (stock + in-tree user types, #1062). */
+  list(): Promise<import('../../../shared/objects/type-def').TypeCatalogInfo>;
+}
+
 export interface SkillsApi {
   list(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
   reload(): Promise<import('../../../shared/skills/types').SkillCatalogInfo>;
@@ -856,6 +861,7 @@ export interface IdeApi {
   proposals: ProposalsApi;
   tabs: TabsApi;
   tools: ToolsApi;
+  types: TypesApi;
   skills: SkillsApi;
   refactor: RefactorApi;
   formatter: FormatterApi;

@@ -58,7 +58,7 @@ describe('preload contextBridge contract (#676)', () => {
       'conversations', 'csl', 'embeddings', 'export', 'files', 'formatter', 'git', 'graph',
       'images', 'links', 'menu', 'notebase', 'proposals', 'publish', 'queries',
       'refactor', 'search', 'shell', 'sites', 'skills', 'sources', 'tables',
-      'tabs', 'tags', 'templates', 'tools', 'view', 'youtube',
+      'tabs', 'tags', 'templates', 'tools', 'types', 'view', 'youtube',
     ]);
   });
 

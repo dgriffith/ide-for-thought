@@ -55,6 +55,7 @@ import type {
   ConnectionCheckResult,
 } from './tools/types';
 import type { SkillCatalogInfo } from './skills/types';
+import type { TypeCatalogInfo } from './objects/type-def';
 import type { ProviderId } from './tools/providers';
 import type { MenuConfig } from './skills/menu-config';
 import type {
@@ -379,6 +380,9 @@ export interface ChannelMap {
   'tool:setSettings': (update: LLMSettingsUpdate) => void;
   'tool:getKeyStorage': () => ApiKeyStorage;
   'tool:checkConnection': (providerId: ProviderId, candidateKey?: string, baseURL?: string) => ConnectionCheckResult;
+
+  // Typed objects (type registry — #1062)
+  'types:list': () => TypeCatalogInfo;
 
   // Skills (markdown skill files — #622)
   'skills:list': () => SkillCatalogInfo;
