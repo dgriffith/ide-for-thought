@@ -127,6 +127,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   "graph": [
     "aliasEntries",
     "aliasMap",
+    "attachExcerptEvidence",
     "excerptSource",
     "export",
     "frontmatterKeys",

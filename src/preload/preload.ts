@@ -136,6 +136,8 @@ contextBridge.exposeInMainWorld('api', {
     export: () => invoke(Channels.GRAPH_EXPORT),
     sourceDetail: (sourceId: string) => invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
     excerptSource: (excerptId: string) => invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),
+    attachExcerptEvidence: (excerptId: string, claimPath: string, role: 'grounds' | 'supports' | 'rebuts') =>
+      invoke(Channels.GRAPH_ATTACH_EXCERPT_EVIDENCE, excerptId, claimPath, role),
     schemaForCompletion: () => invoke(Channels.GRAPH_SCHEMA_FOR_COMPLETION),
     aliasMap: () => invoke(Channels.GRAPH_ALIAS_MAP),
     aliasEntries: () => invoke(Channels.GRAPH_ALIAS_ENTRIES),
