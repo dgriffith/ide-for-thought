@@ -6,6 +6,9 @@
  * lives in `./run` so it stays testable without spawning a process. Built as a
  * standalone Node bundle via `vite.cli.config.ts` → `.vite/build/cli.js`.
  */
+// FIRST — install the punycode-deprecation mask before `./run` pulls in the RDF
+// + fetch stack that triggers DEP0040 on load (side-effect import, order matters).
+import './suppress-punycode-warning';
 import { runCli } from './run';
 
 /** Read all of stdin (the `propose-note` note body). Returns '' at a TTY, so an
