@@ -24,7 +24,7 @@ import type { SafeDeleteBlocker } from '../../../shared/types';
 
 /** Minimal structural views of the bind:this component refs the note-ops touch. */
 interface EditorRef { restorePosition(offset: number, scrollTop: number): void; gotoLineColumn(line: number, col: number): void; }
-interface SidebarRef { getSelectionPaths(): string[]; refreshTags(): void; clearSelection(): void; }
+interface SidebarRef { getSelectionPaths(): string[]; refreshTags(): void; refreshObjects?(): void; clearSelection(): void; }
 interface SafeDeleteState { selectionCount: number; targets: string[]; blockers: SafeDeleteBlocker[]; proceed: () => void | Promise<void>; }
 
 export interface NoteOpsCtx {
@@ -101,6 +101,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       requestAnimationFrame(() => ctx.getEditorComponent()?.restorePosition(offset, 0));
     }
     ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
   }
 
   /**
@@ -132,6 +133,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await api.notebase.writeFile(`${title}.md`, content);
     await notebase.refresh();
     ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
     return title;
   }
 
@@ -250,6 +252,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
 
     await notebase.refresh();
     ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
     ctx.getSidebar()?.clearSelection();
 
     if (failures.length > 0) {

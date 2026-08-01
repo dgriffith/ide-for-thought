@@ -4,6 +4,7 @@
   import TagPanel from './TagPanel.svelte';
   import SourcesPanel from './SourcesPanel.svelte';
   import TablesPanel from './TablesPanel.svelte';
+  import ObjectsPanel from './ObjectsPanel.svelte';
   import BookmarksPanel from './BookmarksPanel.svelte';
   import ProposalsPanel from './ProposalsPanel.svelte';
   import Icon from './Icon.svelte';
@@ -15,15 +16,16 @@
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
   import { tick, untrack } from 'svelte';
 
-  type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'bookmarks' | 'proposals';
+  type PanelType = 'notes' | 'sites' | 'tags' | 'tables' | 'objects' | 'bookmarks' | 'proposals';
 
   /** Hybrid icon-rail definition: the active tab shows the label, the
    *  others are icon-only. Per IMPLEMENTATION.md §5.1. */
-  const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' | 'bookmark' | 'proposals' }> = [
+  const PANELS: ReadonlyArray<{ id: PanelType; label: string; icon: 'notes' | 'sites' | 'tags' | 'tables' | 'objects' | 'bookmark' | 'proposals' }> = [
     { id: 'notes',     label: 'Notes',     icon: 'notes' },
     { id: 'sites',     label: 'Sources',   icon: 'sites' },
     { id: 'tags',      label: 'Tags',      icon: 'tags' },
     { id: 'tables',    label: 'Tables',    icon: 'tables' },
+    { id: 'objects',   label: 'Objects',   icon: 'objects' },
     { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
     { id: 'proposals', label: 'Proposals', icon: 'proposals' },
   ];
@@ -100,6 +102,7 @@
   let tagPanel = $state<TagPanel>();
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
+  let objectsPanel = $state<ObjectsPanel>();
   let contextMenu = $state<{ x: number; y: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
@@ -486,6 +489,10 @@
     tablesPanel?.refresh();
   }
 
+  export function refreshObjects() {
+    void objectsPanel?.refresh();
+  }
+
   /** Switch the active left-sidebar view (e.g. App opens 'proposals' when the
    *  status-bar pending badge is clicked, #1528). */
   export function showPanel(panel: PanelType) {
@@ -650,6 +657,8 @@
       {/if}
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {...(onSourceSelect !== undefined ? { onSourceSelect } : {})} />
+    {:else if activePanel === 'objects'}
+      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} />
     {:else if activePanel === 'tables'}
       {#if onTableClick && onOpenCsv && onOpenNote}
         <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} {onOpenNote} />
