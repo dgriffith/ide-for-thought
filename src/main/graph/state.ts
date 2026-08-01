@@ -17,6 +17,7 @@ import { performance } from 'node:perf_hooks';
 import * as uriHelpers from './uri-helpers';
 import type { LinkType } from '../../shared/link-types';
 import type { NeighborhoodResult } from '../../shared/types';
+import type { TypeCatalog } from '../../shared/objects/type-def';
 import type { ProjectContext } from '../project-context-types';
 import { createProjectStore } from '../project-store';
 
@@ -159,6 +160,7 @@ export const BIBO    = $rdf.Namespace('http://purl.org/ontology/bibo/');
 export const SCHEMA  = $rdf.Namespace('http://schema.org/');
 export const PROV    = $rdf.Namespace('http://www.w3.org/ns/prov#');
 export const THOUGHT = $rdf.Namespace('https://minerva.dev/ontology/thought#');
+export const TYPES   = $rdf.Namespace('https://minerva.dev/ontology/types#');
 
 export const STANDARD_PREFIXES: [string, string][] = [
   ['minerva', 'https://minerva.dev/ontology#'],
@@ -172,6 +174,7 @@ export const STANDARD_PREFIXES: [string, string][] = [
   ['prov', 'http://www.w3.org/ns/prov#'],
   ['bibo', 'http://purl.org/ontology/bibo/'],
   ['schema', 'http://schema.org/'],
+  ['types', 'https://minerva.dev/ontology/types#'],
 ];
 
 // ── Per-project state (#333) ────────────────────────────────────────────────
@@ -200,6 +203,10 @@ export interface GraphState {
   n3Cache: N3.Store | null;
   /** Cached parsed ontology triples; reloaded fresh on init, stripped before persist. */
   ontologyStatements: $rdf.Statement[];
+  /** Per-project typed-objects catalog (#1062): stock + this library's user
+   *  types, loaded by `indexAllNotes` so `indexNote` can resolve a note's
+   *  `type:` frontmatter to a registered class and the api can list it. */
+  typeCatalog: TypeCatalog;
   /** Heading snapshot per note for the rename-detection heuristic. */
   headingsPerNote: Map<string, HeadingSnapshot[]>;
   /**

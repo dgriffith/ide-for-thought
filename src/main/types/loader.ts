@@ -1,0 +1,96 @@
+/**
+ * Type-registry loader (#1062). Stock types ship bundled via a Vite glob
+ * (mirroring skills/loader.ts); user types live in-tree at
+ * `<rootPath>/.minerva/types/*.md` so they travel with the library (decision 1
+ * in docs/vision/objects.md). Unlike skills, the catalog is PER-PROJECT — the
+ * user portion is a property of this thoughtbase's vocabulary, not the machine.
+ *
+ * Loading is additive and stock wins id collisions: a user type can't shadow a
+ * stock type.
+ */
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {
+  type TypeCatalog,
+  type TypeDef,
+  type TypeLoadError,
+} from '../../shared/objects/type-def';
+import { parseType } from './parse';
+
+// Stock types inlined into the main bundle at build time (query:'?raw').
+const STOCK_RAW = import.meta.glob('./stock/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+/** Reserved in-tree home for user-authored types. */
+export function userTypesDir(rootPath: string): string {
+  return path.join(rootPath, '.minerva', 'types');
+}
+
+function loadStock(): { types: TypeDef[]; errors: TypeLoadError[] } {
+  const types: TypeDef[] = [];
+  const errors: TypeLoadError[] = [];
+  for (const [key, content] of Object.entries(STOCK_RAW)) {
+    const r = parseType(content, 'stock', key);
+    if (r.type) types.push(r.type);
+    else for (const message of r.errors) errors.push({ source: 'stock', filePath: key, label: r.label, message });
+  }
+  return { types, errors };
+}
+
+async function loadUser(dir: string): Promise<{ types: TypeDef[]; errors: TypeLoadError[] }> {
+  const types: TypeDef[] = [];
+  const errors: TypeLoadError[] = [];
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return { types, errors };
+    throw e;
+  }
+  for (const ent of entries) {
+    if (ent.name.startsWith('.')) continue;
+    if (!ent.isFile() || !ent.name.toLowerCase().endsWith('.md')) continue;
+    const fp = path.join(dir, ent.name);
+    const r = parseType(await fs.readFile(fp, 'utf-8'), 'user', fp);
+    if (r.type) types.push(r.type);
+    else for (const message of r.errors) errors.push({ source: 'user', filePath: fp, label: r.label, message });
+  }
+  return { types, errors };
+}
+
+/**
+ * Build the per-project type catalog. Stock loads first and wins id collisions;
+ * a user type colliding with stock (or an earlier user type) is rejected with an
+ * error. `rootPath` locates the in-tree user types.
+ */
+export async function loadTypeCatalog(rootPath: string): Promise<TypeCatalog> {
+  const stock = loadStock();
+  const user = await loadUser(userTypesDir(rootPath));
+
+  const byId = new Map<string, TypeDef>();
+  const errors: TypeLoadError[] = [...stock.errors, ...user.errors];
+
+  for (const t of stock.types) {
+    if (byId.has(t.id)) {
+      errors.push({ source: 'stock', filePath: t.filePath, label: t.label, message: `duplicate stock type id "${t.id}"` });
+      continue;
+    }
+    byId.set(t.id, t);
+  }
+  for (const t of user.types) {
+    const existing = byId.get(t.id);
+    if (existing) {
+      const clash = existing.source === 'stock'
+        ? `id "${t.id}" is already a stock type; user types can't override stock`
+        : `duplicate user type id "${t.id}"`;
+      errors.push({ source: 'user', filePath: t.filePath, label: t.label, message: clash });
+      continue;
+    }
+    byId.set(t.id, t);
+  }
+
+  return { types: [...byId.values()], errors };
+}

@@ -5,6 +5,7 @@ import path from 'node:path';
 import * as uriHelpers from './uri-helpers';
 
 import type { ProjectContext } from '../project-context-types';
+import { EMPTY_TYPE_CATALOG } from '../../shared/objects/type-def';
 
 // ── Shared foundation (#671) ─────────────────────────────────────────────────
 // Per-project state, namespaces, the SPARQL/RDF plumbing, and the state-taking
@@ -114,6 +115,7 @@ export async function initGraph(ctx: ProjectContext): Promise<void> {
     store: $rdf.graph(),
     n3Cache: null,
     ontologyStatements: [],
+    typeCatalog: EMPTY_TYPE_CATALOG,
     headingsPerNote: new Map(),
     aliasMap: new Map(),
     aliasesPerNote: new Map(),

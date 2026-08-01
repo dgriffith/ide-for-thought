@@ -36,11 +36,13 @@ import type { ProjectContext } from '../project-context-types';
 import {
   type GraphState, type HeadingSnapshot,
   getState, invalidate, resetN3Mirror, instrumentStoreMirror,
-  MINERVA, DC, RDF, RDFS, XSD, CSVW, OWL, BIBO, SCHEMA, PROV, THOUGHT,
+  MINERVA, DC, RDF, RDFS, XSD, CSVW, OWL, BIBO, SCHEMA, PROV, THOUGHT, TYPES,
   STANDARD_PREFIXES,
   noteUri, tagUri, folderUri, sourceUri, excerptUri, tableUri, projectUri,
   linkPredicate, dateLit,
 } from './state';
+import { loadTypeCatalog } from '../types/loader';
+import { materializeTypeClasses } from '../types/compile';
 
 import { checkLLMWriteGuard } from './write-guard';
 
@@ -566,6 +568,19 @@ export async function indexNote(
     store.add(subject, MINERVA('hasTag'), tagNode, graph);
   }
 
+  // Domain type (#1062): materialize the `type:` frontmatter as an `rdf:type`
+  // edge to the registered class (`types:Book`), so `?x rdf:type types:Book` is
+  // queryable. A typed object is just a Note + this extra type. An unknown type
+  // id is ignored (no class edge) — properties expected, never enforced. `type`
+  // is in the frontmatter skip-list below so it isn't also emitted as a literal.
+  const fmType = parsed.frontmatter.type;
+  if (fmType !== undefined) {
+    for (const typeId of flattenFrontmatterStrings(fmType)) {
+      const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
+      if (def) store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
+    }
+  }
+
   // Frontmatter aliases (#469). Track per-note so the next reindex of
   // this same note can drop stale aliases; rebuild the resolver map
   // so subsequent link resolution sees current state. Aliases that
@@ -600,7 +615,7 @@ export async function indexNote(
     // `title`/`tags` handled above; `publish` is a nested block of static-site
     // publishing directives (#1136) — a publication concern, kept out of the
     // graph (and it's an object, not a materialisable scalar anyway).
-    if (key === 'title' || key === 'tags' || key === 'publish') continue;
+    if (key === 'title' || key === 'tags' || key === 'publish' || key === 'type') continue;
     // A typed wiki-link value (`[[supports::x]]`) overrides keyPredicate with
     // its own type; a nested mapping materialises as a blank node; everything
     // else stays a scalar edge under the key's predicate.
@@ -1419,6 +1434,13 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
 
   ensureProject(state);
   restoreProposalStatements(state.store, preservedProposals, rebase);
+
+  // Typed objects (#1062): load this project's type catalog (stock + in-tree
+  // user types) and materialize the classes into the fresh store, so notes'
+  // `type:` frontmatter can resolve to a registered class below and the graph
+  // knows the classes exist. Reloaded on every full rebuild.
+  state.typeCatalog = await loadTypeCatalog(rootPath);
+  materializeTypeClasses(state.store, state.typeCatalog);
 
   // Two-pass build (#469): the first walk just reads frontmatter
   // aliases so the alias map is fully populated before any link gets
