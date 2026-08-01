@@ -40,6 +40,16 @@ describe('backlinks — frontmatter links (broad)', () => {
     expect(bySrc.get('custom.md')?.linkColor).not.toBe(bySrc.get('body.md')?.linkColor);
   });
 
+  it('shows a link-to-type edge with its ROLE, not a bare mention (#1073)', async () => {
+    // Roadmap (a Project) has `owner: [[Alice]]` — a link-to-type property, so
+    // Alice's backlinks surface the relation labelled by its role.
+    await indexNote(ctx, 'Alice.md', '---\ntitle: Alice\ntype: person\n---\n# Alice\n');
+    await indexNote(ctx, 'Roadmap.md', '---\ntitle: Roadmap\ntype: project\nowner: "[[Alice]]"\n---\n# Roadmap\n');
+    const labels = backlinks(ctx, 'Alice.md').filter((b) => b.source === 'Roadmap.md').map((b) => b.linkLabel);
+    // The relation surfaces WITH its role (via the types:owner edge), humanized.
+    expect(labels).toContain('Owner');
+  });
+
   it('never lists a note as its own backlink (body or frontmatter self-link)', async () => {
     await indexNote(ctx, 'self.md', '---\nrelated: "[[self]]"\n---\n# Self\n\n[[self]]');
     expect(backlinks(ctx, 'self.md').map((b) => b.source)).not.toContain('self.md');
