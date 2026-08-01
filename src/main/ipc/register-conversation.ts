@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Notification } from 'electron';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
@@ -176,6 +177,27 @@ export function registerConversation(): void {
     approval.rejectProposal(projectContext(rootPath), uri)));
   handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
     approval.expireProposals(projectContext(rootPath))));
+
+  // Native OS notification for a proposal that arrived while Minerva was
+  // unfocused (#1541). The renderer owns arrival detection + focus gating and
+  // only calls this when the app isn't foregrounded; clicking the notification
+  // refocuses the window and asks the renderer to open the Proposals panel.
+  handle(Channels.PROPOSALS_NOTIFY_ARRIVAL, (e, arg: { count: number; proposer: string }) => {
+    if (!Notification.isSupported()) return;
+    const count = Math.max(1, arg?.count ?? 1);
+    const from = arg?.proposer ? ` from ${arg.proposer}` : '';
+    const title = count === 1 ? 'New proposal' : `${count} new proposals`;
+    const notice = new Notification({ title, body: `Awaiting your review${from}` });
+    const win = winFromEvent(e);
+    notice.on('click', () => {
+      if (win.isDestroyed()) return;
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+      win.webContents.send(Channels.PROPOSALS_SHOW);
+    });
+    notice.show();
+  });
 
   // Conversations
   handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>

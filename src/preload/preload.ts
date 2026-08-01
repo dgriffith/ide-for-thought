@@ -317,6 +317,15 @@ contextBridge.exposeInMainWorld('api', {
     onChanged: (cb: () => void) => {
       ipcRenderer.on(Channels.PROPOSALS_CHANGED, () => cb());
     },
+    /** Ask main to raise a native OS notification for a proposal that arrived
+     *  while Minerva was unfocused (#1541). */
+    notifyArrival: (arg: { count: number; proposer: string }) =>
+      invoke(Channels.PROPOSALS_NOTIFY_ARRIVAL, arg),
+    /** Main asks the renderer to surface the Proposals panel (native arrival
+     *  notification clicked, #1541). */
+    onShowRequested: (cb: () => void) => {
+      ipcRenderer.on(Channels.PROPOSALS_SHOW, () => cb());
+    },
   },
   bookmarks: {
     load: () => invoke(Channels.BOOKMARKS_LOAD),

@@ -469,6 +469,7 @@ export interface ChannelMap {
   'proposal:approve': (uri: string) => boolean;
   'proposal:reject': (uri: string) => boolean;
   'proposal:expire': () => number;
+  'proposals:notifyArrival': (arg: { count: number; proposer: string }) => void;
 
   // Conversations
   'conversation:create': (contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string; webEnabled?: boolean }) => Conversation;

@@ -102,6 +102,7 @@ export interface IpcWiringCtx {
   openThoughtbase: () => void;
   newThoughtbase: () => void;
   installTutorial: () => void;
+  showProposals: () => void;
   openRecentThoughtbase: (rootPath: string) => void;
   navBack: () => void;
   navForward: () => void;
@@ -249,6 +250,8 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onOpenProject(() => ctx.openThoughtbase());
   api.menu.onNewProject(() => ctx.newThoughtbase());
   api.menu.onInstallTutorial(() => ctx.installTutorial());
+  // Native proposal-arrival notification clicked → surface the Proposals panel (#1541).
+  api.proposals.onShowRequested(() => ctx.showProposals());
   api.menu.onOpenRecentProject((p) => ctx.openRecentThoughtbase(p));
   api.menu.onCloseProject(() => {
     notebase.close();

@@ -83,6 +83,9 @@
   import { getConversationsStore } from './lib/stores/conversations.svelte';
   import { getBookmarksStore, collectBookmarksForPath } from './lib/stores/bookmarks.svelte';
   import { getProposalsStore } from './lib/stores/proposals.svelte';
+  import { getToastStore } from './lib/stores/toasts.svelte';
+  import Toasts from './lib/components/Toasts.svelte';
+  import { describeProposer } from '../shared/provenance';
   import { CONFIRM_KEYS } from './lib/confirm-keys';
   import { sectionAnchorAt } from './lib/markdown/headings';
   import { isMissingApiKeyError } from '../shared/llm-errors';
@@ -113,7 +116,36 @@
   // Pending-proposals count drives the status-bar badge (#1528); the store also
   // powers the left Proposals panel and self-updates on out-of-process changes.
   const proposalsStore = getProposalsStore();
+  const toasts = getToastStore();
   const voice = getVoiceStore();
+
+  /** Open the left Proposals panel — shared by the status-bar badge, the arrival
+   *  toast, and the native-notification click (#1528/#1541). */
+  function openProposals() {
+    sidebarVisible = true;
+    sidebar?.showPanel('proposals');
+  }
+
+  /**
+   * A batch of newly-pending proposals arrived (#1541). When Minerva is focused,
+   * show an in-app toast; when it isn't, ask main to raise a native OS
+   * notification instead — never both for the same arrival. Provenance comes
+   * from `describeProposer`; a single shared proposer is named, a mixed batch
+   * just shows the count.
+   */
+  function handleProposalArrival(arrived: { proposedBy: string }[]) {
+    const count = arrived.length;
+    if (count === 0) return;
+    const proposers = new Set(arrived.map((p) => p.proposedBy));
+    const who = proposers.size === 1 ? describeProposer([...proposers][0]).label : '';
+    const from = who ? ` from ${who}` : '';
+    const message = count === 1 ? `New proposal${from}` : `${count} new proposals${from}`;
+    if (document.hasFocus()) {
+      toasts.push({ message, onClick: openProposals });
+    } else {
+      void api.proposals.notifyArrival({ count, proposer: who });
+    }
+  }
   // Position-bearing bookmarks are resolved per pane at the Editor mount via
   // `collectBookmarksForPath(bookmarkStore.tree, <that pane's file>)` (#813),
   // so each split pane shows its own file's gutter flags (#756).
@@ -840,7 +872,13 @@
       cycleViewMode: () => cycleViewMode(),
       maybeShowOnboarding: () => maybeShowOnboarding(),
       maybeOpenEntrypoints: () => maybeOpenEntrypoints(),
+      showProposals: () => openProposals(),
     } satisfies IpcWiringCtx);
+
+    // Announce newly-arrived proposals (#1541): the store detects the delta and
+    // coalesces bursts; we route to an in-app toast or a native notification
+    // based on focus. Unsubscribe is handled by store lifetime (app session).
+    proposalsStore.onArrival(handleProposalArrival);
   });
 
   /** Count .md notes anywhere in the tree (recursive over folder
@@ -1239,10 +1277,7 @@
               rightSidebarVisible = true;
               rightSidebar?.showPanel('backlinks');
             }}
-            onShowProposals={() => {
-              sidebarVisible = true;
-              sidebar?.showPanel('proposals');
-            }}
+            onShowProposals={openProposals}
             onToggleDictation={() => { void toggleEditorDictation(editorComponent?.getView() ?? null); }}
             dictationActive={voice.surface === 'editor' && voice.busy}
             dictationDisabled={editor.viewMode === 'preview'}
@@ -1437,6 +1472,7 @@
     />
   {/if}
   <DictationIndicator />
+  <Toasts />
   {#if showAbout}
     <AboutDialog onClose={() => { showAbout = false; }} />
   {/if}
