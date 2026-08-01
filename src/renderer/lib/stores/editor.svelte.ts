@@ -84,13 +84,21 @@ export interface UnsupportedTab {
 
 /** Multi-view over all instances of a typed-object type (#1070). */
 export type TypeViewLayout = 'list' | 'table' | 'gallery';
-export interface TypeViewTab {
+/** The view's mutable projection state — layout + sort + visible columns.
+ *  Carried on the tab (persisted across sessions) and captured into a saved
+ *  view (#1072). */
+export interface TypeViewState {
+  layout: TypeViewLayout;
+  /** Sort key: a property name, `__title`, or null for the intrinsic order. */
+  sortColumn: string | null;
+  sortDir: 'asc' | 'desc';
+  /** Visible property names (table); null = every declared column. */
+  columns: string[] | null;
+}
+export interface TypeViewTab extends TypeViewState {
   type: 'type-view';
   /** The type whose instances are shown (e.g. `book`). */
   typeId: string;
-  /** Which projection is showing; the viewer mutates it via `setTypeViewLayout`
-   *  so reopening the tab restores the chosen view. */
-  layout: TypeViewLayout;
 }
 
 export type Tab = NoteTab | QueryTab | SourceTab | PdfTab | GraphTab | TypeViewTab | UnsupportedTab;
@@ -392,23 +400,40 @@ export function getEditorStore() {
   }
 
   /** Open (or refocus) the multi-view over a type's instances (#1070). One tab
-   *  per type; reopening refocuses rather than duplicating. */
-  function openTypeView(typeId: string, opts?: { layout?: TypeViewLayout; groupId?: string }) {
+   *  per type; reopening refocuses rather than duplicating. A saved view (#1072)
+   *  opens through here with its state, re-applying the projection onto the
+   *  existing tab when one is already open. */
+  function openTypeView(typeId: string, opts?: Partial<TypeViewState> & { groupId?: string }) {
+    const state: TypeViewState = {
+      layout: opts?.layout ?? 'table',
+      sortColumn: opts?.sortColumn ?? null,
+      sortDir: opts?.sortDir ?? 'asc',
+      columns: opts?.columns ?? null,
+    };
     const found = locateTab((t) => isTypeView(t) && t.typeId === typeId);
-    if (found) { focusExistingTab(found); return; }
+    if (found) {
+      // Re-apply the incoming projection so opening a saved view re-configures
+      // the already-open tab (only when the caller passed explicit state).
+      if (opts && ('layout' in opts || 'sortColumn' in opts || 'columns' in opts)) {
+        Object.assign(found.group.tabs[found.index] as TypeViewTab, state);
+        schedulePersistTabs();
+      }
+      focusExistingTab(found);
+      return;
+    }
     const grp = resolveGroup(opts?.groupId);
     activeGroupId = grp.id;
-    const tab: TypeViewTab = { type: 'type-view', typeId, layout: opts?.layout ?? 'table' };
+    const tab: TypeViewTab = { type: 'type-view', typeId, ...state };
     grp.tabs.push(tab);
     grp.activeIndex = grp.tabs.length - 1;
     schedulePersistTabs();
   }
 
-  /** Update a type-view tab's projection (the list/table/gallery switch). */
-  function setTypeViewLayout(typeId: string, layout: TypeViewLayout) {
+  /** Update a type-view tab's projection state (layout switch, sort, columns). */
+  function setTypeViewState(typeId: string, patch: Partial<TypeViewState>) {
     const found = locateTab((t) => isTypeView(t) && t.typeId === typeId);
     if (found) {
-      (found.group.tabs[found.index] as TypeViewTab).layout = layout;
+      Object.assign(found.group.tabs[found.index] as TypeViewTab, patch);
       schedulePersistTabs();
     }
   }
@@ -646,7 +671,7 @@ export function getEditorStore() {
     } else if (isGraph(t)) {
       return { type: 'graph', relativePath: t.relativePath, depth: t.depth };
     } else if (isTypeView(t)) {
-      return { type: 'type-view', typeId: t.typeId, layout: t.layout };
+      return { type: 'type-view', typeId: t.typeId, layout: t.layout, sortColumn: t.sortColumn, sortDir: t.sortDir, columns: t.columns };
     } else {
       return {
         type: 'source',
@@ -718,7 +743,14 @@ export function getEditorStore() {
     } else if (saved.type === 'graph') {
       return { type: 'graph', relativePath: saved.relativePath, depth: saved.depth ?? 1 };
     } else if (saved.type === 'type-view') {
-      return { type: 'type-view', typeId: saved.typeId, layout: saved.layout ?? 'table' };
+      return {
+        type: 'type-view',
+        typeId: saved.typeId,
+        layout: saved.layout ?? 'table',
+        sortColumn: saved.sortColumn ?? null,
+        sortDir: saved.sortDir ?? 'asc',
+        columns: saved.columns ?? null,
+      };
     } else {
       return { type: 'source', sourceId: saved.sourceId, highlightExcerptId: saved.highlightExcerptId };
     }
@@ -1092,7 +1124,7 @@ export function getEditorStore() {
     openNeighborhood,
     setGraphDepth,
     openTypeView,
-    setTypeViewLayout,
+    setTypeViewState,
     setPdfPage,
     save,
     isPathDirty,

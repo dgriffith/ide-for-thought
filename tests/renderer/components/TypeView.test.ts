@@ -34,8 +34,11 @@ function props(over: Record<string, unknown> = {}) {
   return {
     typeId: 'book',
     layout: 'list' as const,
+    sortColumn: null,
+    sortDir: 'asc' as const,
+    columns: null,
     revision: 0,
-    onLayoutChange: vi.fn(),
+    onStateChange: vi.fn(),
     onOpenNote: vi.fn(),
     ...over,
   };
@@ -60,20 +63,32 @@ describe('TypeView (#1070)', () => {
     expect(onOpenNote).toHaveBeenCalledWith('Dune.md');
   });
 
-  it('renders a column per declared property and sorts by a column', async () => {
-    const { container } = render(TypeView, props({ layout: 'table' }));
+  it('renders a column per declared property and projects the sort from props', async () => {
+    // Sort is prop-driven (the tab owns it, #1072): the projection follows
+    // sortColumn/sortDir, and clicking a header requests a change via onStateChange.
+    const onStateChange = vi.fn();
+    const { container, rerender } = render(TypeView, props({ layout: 'table', onStateChange }));
     await waitFor(() => expect(screen.getByRole('columnheader', { name: /Author/ })).toBeTruthy());
     expect(screen.getByRole('columnheader', { name: /Rating/ })).toBeTruthy();
 
     const titles = () => [...container.querySelectorAll('tbody .tv-cell-title')].map((e) => e.textContent);
-    expect(titles()).toEqual(['Dune', 'Neuromancer']); // intrinsic order
+    expect(titles()).toEqual(['Dune', 'Neuromancer']); // intrinsic order (sortColumn null)
 
-    // Sort by Rating asc: 4 (Neuromancer) before 5 (Dune).
+    // Clicking a header requests a sort — it doesn't self-sort.
     await fireEvent.click(screen.getByRole('columnheader', { name: /Rating/ }));
+    expect(onStateChange).toHaveBeenCalledWith({ sortColumn: 'rating', sortDir: 'asc' });
+
+    // Applying that sort via props reorders (Rating asc: 4 Neuromancer before 5 Dune).
+    await rerender(props({ layout: 'table', sortColumn: 'rating', sortDir: 'asc' }));
     await waitFor(() => expect(titles()).toEqual(['Neuromancer', 'Dune']));
-    // Toggle to desc.
-    await fireEvent.click(screen.getByRole('columnheader', { name: /Rating/ }));
+    await rerender(props({ layout: 'table', sortColumn: 'rating', sortDir: 'desc' }));
     await waitFor(() => expect(titles()).toEqual(['Dune', 'Neuromancer']));
+  });
+
+  it('hides a column when it is not in the visible set', async () => {
+    render(TypeView, props({ layout: 'table', columns: ['author'] })); // rating hidden
+    await waitFor(() => expect(screen.getByRole('columnheader', { name: /Author/ })).toBeTruthy());
+    expect(screen.queryByRole('columnheader', { name: /Rating/ })).toBeNull();
   });
 
   it('keys the gallery off the cover property, falling back to an icon card', async () => {
@@ -92,11 +107,11 @@ describe('TypeView (#1070)', () => {
   });
 
   it('switches views without re-querying the instance set', async () => {
-    const onLayoutChange = vi.fn();
-    render(TypeView, props({ layout: 'list', onLayoutChange }));
+    const onStateChange = vi.fn();
+    render(TypeView, props({ layout: 'list', onStateChange }));
     await waitFor(() => expect(screen.getByText('Dune')).toBeTruthy());
     await fireEvent.click(screen.getByRole('tab', { name: 'Table' }));
-    expect(onLayoutChange).toHaveBeenCalledWith('table');
+    expect(onStateChange).toHaveBeenCalledWith({ layout: 'table' });
     expect(instancesMock).toHaveBeenCalledTimes(1); // one load, not one per view
   });
 });

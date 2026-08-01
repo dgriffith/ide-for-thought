@@ -6,6 +6,10 @@
    * same data": every projection reads the one `api.types.instances(typeId)`
    * result, so toggling never re-queries the instance set.
    *
+   * Projection state (layout / sort / visible columns) is PROP-DRIVEN: it lives
+   * on the tab (persisted across sessions) and is mutated via `onStateChange`,
+   * so a saved view (#1072) restores it exactly and "Save view" can capture it.
+   *
    * A read-only surface: rows/cards deep-link to the note (the property form
    * #1066 is where values are edited); table cells never mutate the graph.
    */
@@ -13,25 +17,29 @@
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery';
+  interface StatePatch { layout?: Layout; sortColumn?: string | null; sortDir?: 'asc' | 'desc'; columns?: string[] | null }
 
   interface Props {
     typeId: string;
     layout: Layout;
+    /** Sort key (property name, `__title`, or null) + direction — from the tab. */
+    sortColumn: string | null;
+    sortDir: 'asc' | 'desc';
+    /** Visible property names (table); null = every declared column. */
+    columns: string[] | null;
     /** Bumped by the host on write/reindex so the view re-projects (#1070). */
     revision: number;
-    onLayoutChange: (layout: Layout) => void;
+    onStateChange: (patch: StatePatch) => void;
     onOpenNote: (relativePath: string) => void;
+    /** Save the current projection as a named view (#1072); omitted when unavailable. */
+    onSaveView?: () => void;
   }
-  let { typeId, layout, revision, onLayoutChange, onOpenNote }: Props = $props();
+  let { typeId, layout, sortColumn, sortDir, columns, revision, onStateChange, onOpenNote, onSaveView }: Props = $props();
 
   let type = $state<TypeInfo | null>(null);
   let instances = $state<TypeInstanceRow[]>([]);
   let loading = $state(true);
-
-  // Sort state (table view). `null` column = the intrinsic title/path order the
-  // projection already returns.
-  let sortCol = $state<string | null>(null);
-  let sortDir = $state<'asc' | 'desc'>('asc');
+  let columnsMenuOpen = $state(false);
 
   async function load(): Promise<void> {
     loading = true;
@@ -40,14 +48,27 @@
     instances = result.instances;
     loading = false;
   }
-
   // Re-project when the type changes or the graph is rewritten.
   $effect(() => { typeId; revision; void load(); });
 
-  const columns = $derived<PropertyDef[]>(type?.properties ?? []);
+  const allColumns = $derived<PropertyDef[]>(type?.properties ?? []);
+  // Visible columns (table): null on the tab means "all". Order follows the
+  // type's declared order regardless of the saved set.
+  const visibleColumns = $derived<PropertyDef[]>(
+    columns === null ? allColumns : allColumns.filter((c) => columns.includes(c.name)),
+  );
 
-  /** Human-readable cell value: link-to-type IRIs collapse to their tail; other
-   *  types show their lexical string; null → an em dash. */
+  function isVisible(name: string): boolean {
+    return columns === null || columns.includes(name);
+  }
+  function toggleColumn(name: string): void {
+    const all = allColumns.map((c) => c.name);
+    const cur = new Set(columns ?? all);
+    if (cur.has(name)) cur.delete(name); else cur.add(name);
+    const next = all.filter((n) => cur.has(n));
+    onStateChange({ columns: next.length === all.length ? null : next });
+  }
+
   function display(prop: PropertyDef, value: string | null): string {
     if (value === null || value === '') return '—';
     if (prop.type === 'link-to-type') {
@@ -57,9 +78,8 @@
     return value;
   }
 
-  /** First non-empty declared-property value — the list row's summary line. */
   function summary(inst: TypeInstanceRow): string {
-    for (const col of columns) {
+    for (const col of allColumns) {
       const v = inst.values[col.name];
       if (v) return `${col.label ?? col.name}: ${display(col, v)}`;
     }
@@ -67,8 +87,8 @@
   }
 
   function toggleSort(col: string): void {
-    if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    else { sortCol = col; sortDir = 'asc'; }
+    if (sortColumn === col) onStateChange({ sortDir: sortDir === 'asc' ? 'desc' : 'asc' });
+    else onStateChange({ sortColumn: col, sortDir: 'asc' });
   }
 
   function cellFor(inst: TypeInstanceRow, col: string): string | null {
@@ -76,14 +96,13 @@
   }
 
   const sorted = $derived.by<TypeInstanceRow[]>(() => {
-    if (!sortCol) return instances;
-    const col = sortCol;
-    const numeric = col !== '__title' && columns.find((c) => c.name === col)?.type === 'number';
+    if (!sortColumn) return instances;
+    const col = sortColumn;
+    const numeric = col !== '__title' && allColumns.find((c) => c.name === col)?.type === 'number';
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...instances].sort((a, b) => {
       const av = cellFor(a, col);
       const bv = cellFor(b, col);
-      // Empty values always sort last, regardless of direction.
       if (av === null || av === '') return bv === null || bv === '' ? 0 : 1;
       if (bv === null || bv === '') return -1;
       const cmp = numeric
@@ -109,15 +128,36 @@
     <span class="tv-icon" style={type?.color ? `color:${type.color}` : undefined}>{type?.icon ?? '◆'}</span>
     <h1 class="tv-title">{type?.label ?? typeId}</h1>
     <span class="tv-count">{instances.length}</span>
-    <div class="tv-switch" role="tablist" aria-label="View">
-      {#each LAYOUTS as l (l.id)}
-        <button
-          role="tab"
-          aria-selected={layout === l.id}
-          class:active={layout === l.id}
-          onclick={() => onLayoutChange(l.id)}
-        >{l.label}</button>
-      {/each}
+
+    <div class="tv-actions">
+      {#if layout === 'table' && allColumns.length > 0}
+        <div class="tv-columns">
+          <button class="tv-btn" aria-expanded={columnsMenuOpen} onclick={() => (columnsMenuOpen = !columnsMenuOpen)}>Columns ▾</button>
+          {#if columnsMenuOpen}
+            <div class="tv-columns-menu" role="menu">
+              {#each allColumns as col (col.name)}
+                <label>
+                  <input type="checkbox" checked={isVisible(col.name)} onchange={() => toggleColumn(col.name)} />
+                  {col.label ?? col.name}
+                </label>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+      {#if onSaveView}
+        <button class="tv-btn" onclick={() => onSaveView?.()}>Save view</button>
+      {/if}
+      <div class="tv-switch" role="tablist" aria-label="View">
+        {#each LAYOUTS as l (l.id)}
+          <button
+            role="tab"
+            aria-selected={layout === l.id}
+            class:active={layout === l.id}
+            onclick={() => onStateChange({ layout: l.id })}
+          >{l.label}</button>
+        {/each}
+      </div>
     </div>
   </header>
 
@@ -143,17 +183,17 @@
           <tr>
             <th
               class="sortable"
-              class:sorted={sortCol === '__title'}
-              aria-sort={sortCol === '__title' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+              class:sorted={sortColumn === '__title'}
+              aria-sort={sortColumn === '__title' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               onclick={() => toggleSort('__title')}
-            >Title{#if sortCol === '__title'}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
-            {#each columns as col (col.name)}
+            >Title{#if sortColumn === '__title'}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
+            {#each visibleColumns as col (col.name)}
               <th
                 class="sortable"
-                class:sorted={sortCol === col.name}
-                aria-sort={sortCol === col.name ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                class:sorted={sortColumn === col.name}
+                aria-sort={sortColumn === col.name ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 onclick={() => toggleSort(col.name)}
-              >{col.label ?? col.name}{#if sortCol === col.name}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
+              >{col.label ?? col.name}{#if sortColumn === col.name}<span class="arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>{/if}</th>
             {/each}
           </tr>
         </thead>
@@ -161,7 +201,7 @@
           {#each sorted as inst (inst.path)}
             <tr onclick={() => onOpenNote(inst.path)} title={inst.path}>
               <td class="tv-cell-title">{inst.title}</td>
-              {#each columns as col (col.name)}
+              {#each visibleColumns as col (col.name)}
                 <td>{display(col, inst.values[col.name] ?? null)}</td>
               {/each}
             </tr>
@@ -206,7 +246,46 @@
     color: var(--text-faint);
     font-variant-numeric: tabular-nums;
   }
-  .tv-switch { margin-left: auto; display: flex; gap: 2px; }
+  .tv-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .tv-btn {
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-button);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .tv-btn:hover { color: var(--text); border-color: var(--accent); }
+  .tv-columns { position: relative; }
+  .tv-columns-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 150px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-elevated, var(--bg));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  }
+  .tv-columns-menu label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .tv-columns-menu label:hover { background: color-mix(in oklch, var(--text) 5%, transparent); }
+  .tv-switch { display: flex; gap: 0; }
   .tv-switch button {
     padding: 3px 10px;
     border: 1px solid var(--border);

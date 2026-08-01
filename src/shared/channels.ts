@@ -105,6 +105,14 @@ export const Channels = {
   /** Apply a new @order across many queries at once (#315 — drag-reorder). */
   QUERIES_SET_ORDER: 'queries:setOrder',
 
+  // Saved views (typed-object multi-view presets — #1072)
+  VIEWS_LIST: 'views:list',
+  VIEWS_SAVE: 'views:save',
+  VIEWS_DELETE: 'views:delete',
+  VIEWS_RENAME: 'views:rename',
+  /** Apply a new order across many saved views at once (drag-reorder). */
+  VIEWS_SET_ORDER: 'views:setOrder',
+
   // Search
   SEARCH_QUERY: 'search:query',
 

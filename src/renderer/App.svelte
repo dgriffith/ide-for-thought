@@ -19,7 +19,8 @@
   import SourceDetail from './lib/components/SourceDetail.svelte';
   import { onMount } from 'svelte';
   import { getNotebaseStore } from './lib/stores/notebase.svelte';
-  import { getEditorStore } from './lib/stores/editor.svelte';
+  import { getEditorStore, type TypeViewTab } from './lib/stores/editor.svelte';
+  import { savedViewsStore } from './lib/stores/saved-views.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
   import { getClipboardStore } from './lib/stores/clipboard.svelte';
   import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
@@ -41,7 +42,7 @@
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
-  import type { SafeDeleteBlocker, MenuEditorState } from '../shared/types';
+  import type { SafeDeleteBlocker, MenuEditorState, SavedView } from '../shared/types';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry } from './lib/command-palette/registry';
@@ -57,6 +58,7 @@
   import ShortcutsDialog from './lib/components/ShortcutsDialog.svelte';
   import GotoLineDialog from './lib/components/GotoLineDialog.svelte';
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
+  import EditSavedViewsDialog from './lib/components/EditSavedViewsDialog.svelte';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
@@ -386,6 +388,34 @@
   const dialogs = getDialogStore();
   const linkDrag = getLinkDrag();
   const { showPrompt, showConfirm, showComputeConsent } = dialogs;
+
+  let showEditSavedViews = $state(false);
+
+  // Open a saved view (#1072): its exact projection — mode, sort, columns —
+  // re-applied onto (or opening) the type's multi-view tab.
+  function handleOpenSavedView(view: SavedView): void {
+    editor.openTypeView(view.typeId, {
+      layout: view.layout,
+      sortColumn: view.sortColumn,
+      sortDir: view.sortDir,
+      columns: view.columns,
+    });
+  }
+
+  // Save the active type-view's projection as a named view (#1072). Defaults to
+  // project scope so the preset travels with the thoughtbase.
+  async function handleSaveView(tab: TypeViewTab): Promise<void> {
+    const name = await showPrompt('Save view as:');
+    if (!name) return;
+    await savedViewsStore.save('project', {
+      name,
+      typeId: tab.typeId,
+      layout: tab.layout,
+      sortColumn: tab.sortColumn,
+      sortDir: tab.sortDir,
+      columns: tab.columns,
+    });
+  }
   // The format-family group id the Export menu launched with (#: export-menu-redesign).
   let exportDialogGroup = $state<string | null>(null);
   let publishDialogOpen = $state(false);
@@ -940,6 +970,8 @@
           onSourceSelect={(id) => handleOpenSource(id)}
           onOpenExcerpt={handleOpenExcerpt}
           onOpenType={handleOpenTypeView}
+          onOpenView={handleOpenSavedView}
+          onManageViews={() => { showEditSavedViews = true; }}
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
           onShowPrompt={showPrompt}
@@ -1228,9 +1260,13 @@
                   <TypeView
                     typeId={active.typeId}
                     layout={active.layout}
+                    sortColumn={active.sortColumn}
+                    sortDir={active.sortDir}
+                    columns={active.columns}
                     revision={graphRevision}
-                    onLayoutChange={(l) => editor.setTypeViewLayout(active.typeId, l)}
+                    onStateChange={(patch) => editor.setTypeViewState(active.typeId, patch)}
                     onOpenNote={(p) => handleFileSelect(p)}
+                    {...(notebase.meta ? { onSaveView: () => handleSaveView(active) } : {})}
                   />
                 {/key}
               {:else if active?.type === 'unsupported'}
@@ -1402,6 +1438,9 @@
   {/if}
   {#if showEditSavedQueries}
     <EditSavedQueriesDialog projectOpen={!!notebase.meta} onClose={() => { showEditSavedQueries = false; }} />
+  {/if}
+  {#if showEditSavedViews}
+    <EditSavedViewsDialog onClose={() => { showEditSavedViews = false; }} />
   {/if}
   {#if saveQueryRequest}
     <SaveQueryDialog
