@@ -34,6 +34,10 @@
         outputToMarkdownClipboard
     } from '../preview/compute-output-render';
     import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
+    import { hydrateTypedCards, type TypedCardDeps } from '../preview/typed-link-render';
+    import { buildObjectCardHtml } from '../preview/typed-card';
+    import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
+    import type { NoteTypedProperties } from '../../../shared/objects/type-def';
     import { executeQueryBlock, type QueryBlockDeps } from '../preview/query-blocks';
     import {
         type HydrateContext,
@@ -185,6 +189,10 @@
     // Cite/quote metadata caches: id → resolved bundle (survives re-renders)
     const citeMetaCache = new Map<string, CiteMeta>();
     const quoteMetaCache = new Map<string, QuoteMeta>();
+    // Type-keyed card cache (#1071): resolved path → typed properties. Survives
+    // re-renders; cleared on `revision` so a save to a linked note refreshes its
+    // card. Also read by the wiki-link hover to show a typed card tooltip.
+    const typePropsCache = new Map<string, NoteTypedProperties>();
 
     // Rendered-transclusion cache (perf #1114): `${rel}\u0000${embed}` → the
     // md.render output for that embed's sliced body. Each host re-render rebuilds
@@ -364,6 +372,21 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     function queryDeps(): QueryBlockDeps {
         return { notePath, revision, queryCache, queryPrefixes: QUERY_PREFIXES, activeCharts };
     }
+    // Type-keyed card pass (#1071): promote block-level typed links to cards.
+    // resolvePath reuses the same wiki-link resolution as the hover fetcher.
+    function typedCardDeps(): TypedCardDeps {
+        // Build the resolver inputs once (mirrors note-preview.ts): paths → files,
+        // the alias list → a lowercased map.
+        const files = (getNotePaths?.() ?? []).map((relativePath) => ({ relativePath, isDirectory: false }));
+        const aliases = Object.fromEntries((getAliases?.() ?? []).map((a) => [a.alias.toLowerCase(), a.relativePath]));
+        return {
+            previewEl: previewEl ?? null,
+            typePropsCache,
+            quoteMetaCache,
+            queryPrefixes: QUERY_PREFIXES,
+            resolvePath: (t) => resolveWikiLinkTarget(t, files, aliases),
+        };
+    }
 
     // Context for the extracted post-render hydration passes (#1087). Built once
     // — the caches + `md` are stable refs, and everything that changes over the
@@ -392,6 +415,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     $effect(() => {
         revision;
         transclusionRenderCache.clear();
+        typePropsCache.clear(); // a linked note's type/props may have changed (#1071)
     });
 
     // After render, find query-block placeholders and execute queries
@@ -424,6 +448,10 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             // `![[note^block]]` embeds, slicing + re-rendering the target inline.
             void hydrateTransclusions(hydrateCtx);
             void hydrateLocalMedia(hydrateCtx);
+            // Type-keyed cards (#1071) — a block-level `[[TypedNote]]` or
+            // `[[quote::id]]` becomes a card keyed off its type. Lazy + cached;
+            // untyped/inline links are untouched.
+            void hydrateTypedCards(typedCardDeps());
             // Mermaid hydration (#467) — lazy-loads the library on first use,
             // replaces .mermaid-block placeholders with rendered SVG, surfaces
             // parse errors inline.
@@ -882,11 +910,22 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             const linkTarget = wiki.dataset.target;
             if (!linkTarget || !getNotePaths) return;
             const token = ++hoverToken;
-            void notePreviewFetcher(linkTarget).then((preview) => {
+            void notePreviewFetcher(linkTarget).then(async (preview) => {
                 if (token !== hoverToken) return; // superseded by another hover / mouseout
-                tooltipHtml = preview
-                    ? buildNotePreviewTooltip(preview.title, preview.snippet)
-                    : buildNotePreviewMissing(linkTarget);
+                if (!preview) {
+                    tooltipHtml = buildNotePreviewMissing(linkTarget);
+                    tooltipVisible = true;
+                    positionTooltip(wiki);
+                    return;
+                }
+                // A typed note shows its card (#1071); an untyped one keeps the
+                // title+snippet preview. Reuses the card pass's per-path cache.
+                const rb = typePropsCache.get(preview.path) ?? await api.types.noteProperties(preview.path);
+                typePropsCache.set(preview.path, rb);
+                if (token !== hoverToken) return;
+                tooltipHtml = rb.type
+                    ? `<div class="object-card oc-tooltip">${buildObjectCardHtml(rb, { title: preview.title })}</div>`
+                    : buildNotePreviewTooltip(preview.title, preview.snippet);
                 tooltipVisible = true;
                 positionTooltip(wiki);
             }).catch(() => {
@@ -1251,6 +1290,56 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         background: color-mix(in oklch, var(--accent) 18%, transparent);
         text-decoration: none;
     }
+
+    /* Type-keyed cards (#1071) — a block-level `[[TypedNote]]` / `[[quote::id]]`
+       promoted from a chip to a card. Shared by the preview block and the hover
+       tooltip (via .oc-tooltip). */
+    .preview :global(.wiki-link.object-card),
+    .preview :global(.quote-link.excerpt-card),
+    :global(.cite-tooltip .object-card) {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        width: 100%;
+        max-width: 100%;
+        margin: 0.5em 0;
+        padding: 10px 12px;
+        background: color-mix(in oklch, var(--accent) 5%, transparent);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        text-align: left;
+        box-sizing: border-box;
+    }
+    :global(.cite-tooltip .object-card.oc-tooltip) { margin: 0; border: none; background: transparent; padding: 0; }
+    .preview :global(.wiki-link.object-card:hover),
+    .preview :global(.quote-link.excerpt-card:hover) {
+        background: color-mix(in oklch, var(--accent) 9%, transparent);
+        border-color: var(--accent);
+    }
+    :global(.object-card .oc-cover) {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 68px;
+        border-radius: 5px;
+        overflow: hidden;
+        background: color-mix(in oklch, var(--text) 6%, transparent);
+    }
+    :global(.object-card .oc-cover img) { width: 100%; height: 100%; object-fit: cover; }
+    :global(.object-card .oc-cover-icon) { font-size: 26px; opacity: 0.65; }
+    :global(.object-card .oc-main) { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    :global(.object-card .oc-title) { font-weight: 600; font-size: 0.95em; display: flex; align-items: center; gap: 5px; }
+    :global(.object-card .oc-type-icon) { font-size: 0.9em; opacity: 0.8; }
+    :global(.object-card .oc-fields) { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    :global(.object-card .oc-field) { display: inline-flex; gap: 5px; font-size: 0.82em; }
+    :global(.object-card .oc-flabel) { color: var(--text-faint); }
+    :global(.object-card .oc-fval) { color: var(--text-muted); }
+    :global(.quote-link.excerpt-card) { flex-direction: column; gap: 5px; color: var(--text); }
+    :global(.excerpt-card .ec-quote) { font-style: italic; line-height: 1.4; }
+    :global(.excerpt-card .ec-meta) { font-size: 0.82em; color: var(--text-faint); }
 
     /* Transclusion embeds (#906) — a framed, slightly inset block so the
        reader can tell embedded content from the host note's own prose. */
