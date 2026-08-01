@@ -30,6 +30,11 @@ export const ICONS = {
     '<rect x="2.5" y="3" width="11" height="10" rx=".5"/>' +
     '<path d="M2.5 6h11M2.5 9.5h11M6.5 6v7M10 6v7"/>',
 
+  // Typed objects (#1068) — an isometric cube.
+  objects:
+    '<path d="M8 2.5 3 5v6l5 2.5 5-2.5V5Z"/>' +
+    '<path d="M3 5l5 2.5 5-2.5M8 7.5V13.5"/>',
+
   // ── Right sidebar panels ──────────────────────────────────────────
   outline: '<path d="M3 4h2M3 8h2M3 12h2"/><path d="M7 4h6M7 8h5M7 12h4"/>',
   footnotes:

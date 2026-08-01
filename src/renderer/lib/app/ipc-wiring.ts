@@ -55,6 +55,7 @@ interface EditorRef {
 /** Sidebar panels refreshed on watcher / open events. */
 interface SidebarRef {
   refreshTags(): void;
+  refreshObjects?(): void;
   refreshSources(): void;
   refreshTables(): void;
 }
@@ -156,6 +157,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   // Auto-save
   editor.onAutoSaved = () => {
     ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
     ctx.getRightSidebar()?.refresh();
     ctx.bumpGraphRevision();
     ctx.refreshBacklinkCount();
@@ -182,6 +184,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     const result = await originalOpen();
     setTimeout(() => {
       ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
       ctx.getSidebar()?.refreshSources();
       ctx.getSidebar()?.refreshTables();
       void ctx.refreshSourcesCache();
@@ -392,6 +395,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     await bookmarkStore.load();
     await loadFormatSettings();
     ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
     ctx.getSidebar()?.refreshSources();
     ctx.getSidebar()?.refreshTables();
     await ctx.refreshSourcesCache();

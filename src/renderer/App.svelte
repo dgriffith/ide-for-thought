@@ -584,6 +584,7 @@
     }
     editor.flushAutoSave(); // cancel pending auto-save, save immediately
     sidebar?.refreshTags();
+    sidebar?.refreshObjects();
     rightSidebar?.refresh();
     graphRevision++;
     void refreshBacklinkCount();

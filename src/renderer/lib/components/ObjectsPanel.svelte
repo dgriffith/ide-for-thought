@@ -1,0 +1,163 @@
+<script lang="ts">
+  /**
+   * Objects-by-type browser (#1068). Top level = the registry's types (icon +
+   * label + live instance count); expanding one projects `?x rdf:type :Type`
+   * over the graph and lists its instances; clicking opens the note. Zero-
+   * instance types stay visible so "create your first Book" is discoverable.
+   *
+   * A pure projection of the graph the #1062/#1063 indexing already builds — the
+   * host calls `refresh()` on write/reindex (mirroring the Tags panel).
+   */
+  import { api } from '../ipc/client';
+  import type { TypeInfo } from '../../../shared/objects/type-def';
+
+  interface Props {
+    onFileSelect: (relativePath: string) => void;
+  }
+  let { onFileSelect }: Props = $props();
+
+  interface TypeRow { type: TypeInfo; count: number; }
+  interface Instance { title: string; path: string; }
+
+  let rows = $state<TypeRow[]>([]);
+  let expanded = $state<Set<string>>(new Set());
+  let instances = $state<Record<string, Instance[]>>({});
+
+  async function loadCounts(): Promise<Record<string, number>> {
+    const { results } = await api.graph.query(
+      `SELECT ?id (COUNT(?x) AS ?n) WHERE { ?x a ?c . ?c minerva:typeId ?id } GROUP BY ?id`,
+    );
+    const out: Record<string, number> = {};
+    for (const r of results as Array<{ id?: string; n?: string }>) {
+      if (r.id) out[r.id] = Number(r.n ?? 0);
+    }
+    return out;
+  }
+
+  async function loadInstances(typeId: string): Promise<void> {
+    const row = rows.find((r) => r.type.id === typeId);
+    if (!row) return;
+    const { results } = await api.graph.query(
+      `SELECT ?path ?title WHERE {
+         ?n a types:${row.type.classLocalName} ; minerva:relativePath ?path .
+         OPTIONAL { ?n dc:title ?title }
+       } ORDER BY ?title`,
+    );
+    instances[typeId] = (results as Array<{ path?: string; title?: string }>)
+      .filter((r): r is { path: string; title?: string } => !!r.path)
+      .map((r) => ({ path: r.path, title: r.title || basename(r.path) }));
+    instances = { ...instances };
+  }
+
+  function basename(path: string): string {
+    return path.replace(/\.md$/i, '').split('/').pop() || path;
+  }
+
+  /** Reload counts, and re-project any expanded type. Called on mount + by the
+   *  host after a write/reindex. */
+  export async function refresh(): Promise<void> {
+    const [cat, counts] = await Promise.all([api.types.list(), loadCounts()]);
+    rows = cat.types.map((type) => ({ type, count: counts[type.id] ?? 0 }));
+    await Promise.all([...expanded].map((id) => loadInstances(id)));
+  }
+
+  async function toggle(typeId: string): Promise<void> {
+    if (expanded.has(typeId)) expanded.delete(typeId);
+    else { expanded.add(typeId); await loadInstances(typeId); }
+    expanded = new Set(expanded);
+  }
+
+  // Populate whenever the panel is switched into (mount), not only on refresh().
+  $effect(() => { void refresh(); });
+</script>
+
+<div class="objects-panel">
+  {#if rows.length === 0}
+    <p class="empty">No types in this project yet.</p>
+  {:else}
+    {#each rows as row (row.type.id)}
+      {@const open = expanded.has(row.type.id)}
+      <button class="type-row" onclick={() => toggle(row.type.id)} aria-expanded={open}>
+        <span class="chevron" class:open>▸</span>
+        <span class="type-icon" style={row.type.color ? `color:${row.type.color}` : undefined}>{row.type.icon ?? '◆'}</span>
+        <span class="type-label">{row.type.label}</span>
+        <span class="type-count">{row.count}</span>
+      </button>
+      {#if open}
+        {#if (instances[row.type.id] ?? []).length === 0}
+          <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
+        {:else}
+          {#each instances[row.type.id] ?? [] as inst (inst.path)}
+            <button
+              class="instance-row"
+              onclick={() => onFileSelect(inst.path)}
+              ondblclick={() => onFileSelect(inst.path)}
+              title={inst.path}
+            >{inst.title}</button>
+          {/each}
+        {/if}
+      {/if}
+    {/each}
+  {/if}
+</div>
+
+<style>
+  .objects-panel { display: flex; flex-direction: column; padding: 4px; }
+  .empty { font-size: 12px; color: var(--text-faint); padding: 12px 8px; }
+  .type-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .type-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
+  .chevron {
+    font-size: 9px;
+    color: var(--text-faint);
+    transition: transform 0.12s ease;
+    width: 9px;
+    flex-shrink: 0;
+  }
+  .chevron.open { transform: rotate(90deg); }
+  .type-icon { width: 16px; font-size: 13px; line-height: 1; text-align: center; flex-shrink: 0; }
+  .type-label { flex: 1; font-weight: 500; }
+  .type-count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .instance-row {
+    display: block;
+    width: 100%;
+    padding: 4px 8px 4px 30px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .instance-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); color: var(--text); }
+  .no-instances {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    font-style: italic;
+    padding: 4px 8px 4px 30px;
+    margin: 0;
+  }
+</style>
