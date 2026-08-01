@@ -77,6 +77,28 @@ function normalizeProperties(raw: unknown, errors: string[]): PropertyDef[] {
   return out;
 }
 
+/** Normalize the `card:` field — a YAML list or comma-separated string of
+ *  property names. Unknown names are dropped with a soft error (still loads). */
+function normalizeCard(raw: unknown, properties: PropertyDef[], errors: string[]): string[] {
+  if (raw === undefined) return [];
+  let names: string[];
+  if (Array.isArray(raw)) {
+    names = raw.map(asString).filter((s): s is string => !!s);
+  } else if (typeof raw === 'string') {
+    names = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  } else {
+    errors.push('`card` must be a list or comma-separated string');
+    return [];
+  }
+  const declared = new Set(properties.map((p) => p.name));
+  const out: string[] = [];
+  for (const name of names) {
+    if (declared.has(name)) out.push(name);
+    else errors.push(`\`card\` lists "${name}", which is not a declared property`);
+  }
+  return out;
+}
+
 /**
  * Parse one type-definition file. `source` tags provenance; `filePath` is the
  * absolute path (user) or glob key (stock) for error reporting.
@@ -135,6 +157,11 @@ export function parseType(content: string, source: TypeSource, filePath: string)
     }
     type.cover = cover;
   }
+  // `card`: ordered property names shown on the type-keyed render card (#1071).
+  // Accept a YAML list or a comma-separated string; soft-flag names that aren't
+  // declared properties but keep the rest.
+  const card = normalizeCard(fm.card, properties, errors);
+  if (card.length > 0) type.card = card;
 
   return { type, errors, label: bestLabel };
 }

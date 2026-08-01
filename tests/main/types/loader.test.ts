@@ -111,4 +111,24 @@ describe('parseType (#1062)', () => {
     expect(r.type?.cover).toBe('missing'); // house UX: no hand-holding — still loads
     expect(r.errors.some((e) => /not a declared property/.test(e))).toBe(true);
   });
+
+  it('parses a `card:` list of declared property names (#1071)', () => {
+    const r = parseType(
+      `---\nlabel: Book\ncard: [author, rating]\nproperties:\n  - name: author\n    type: text\n  - name: rating\n    type: number\n---\n`,
+      'user',
+      '/x/book.md',
+    );
+    expect(r.type?.card).toEqual(['author', 'rating']);
+    expect(r.errors).toHaveLength(0);
+  });
+
+  it('drops unknown `card:` entries with a soft error but keeps the valid ones (#1071)', () => {
+    const r = parseType(
+      `---\nlabel: Book\ncard: [author, bogus]\nproperties:\n  - name: author\n    type: text\n---\n`,
+      'user',
+      '/x/book.md',
+    );
+    expect(r.type?.card).toEqual(['author']);
+    expect(r.errors.some((e) => /"bogus".*not a declared property/.test(e))).toBe(true);
+  });
 });

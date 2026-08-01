@@ -43,6 +43,10 @@ export interface TypeDef {
   color?: string | undefined;
   /** Property name whose value is the gallery card's cover image (#1070). */
   cover?: string | undefined;
+  /** Ordered property names shown on the type-keyed render card (link cards,
+   *  hovers, preview) — the card "template" (#1071). Empty/absent → a default
+   *  derived from the first few declared properties. */
+  card?: string[] | undefined;
   source: TypeSource;
   /** Absolute path for user types; the glob key for stock types. */
   filePath: string;
@@ -61,6 +65,10 @@ export interface TypeInfo {
   color?: string | undefined;
   /** Property name whose value is the gallery card's cover image (#1070). */
   cover?: string | undefined;
+  /** Ordered property names shown on the type-keyed render card (link cards,
+   *  hovers, preview) — the card "template" (#1071). Empty/absent → a default
+   *  derived from the first few declared properties. */
+  card?: string[] | undefined;
   source: TypeSource;
 }
 
@@ -93,6 +101,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     icon: t.icon,
     color: t.color,
     cover: t.cover,
+    card: t.card,
     source: t.source,
   };
 }
