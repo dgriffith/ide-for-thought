@@ -16,6 +16,7 @@
 import { getConfirmSuppressionStore } from './confirm-suppression.svelte';
 import type { NoteExt, NewNoteResult } from '../components/new-note-dialog-types';
 import type { TemplateInfo } from '../ipc/client';
+import type { TypeInfo } from '../../../shared/objects/type-def';
 
 export interface PromptState {
   message: string;
@@ -66,9 +67,16 @@ export interface AddPropertyState {
   resolve: (value: AddPropertyResult | null) => void;
 }
 
+/** "Treat this note as a…" type picker (#1067). */
+export interface TypePickerState {
+  types: TypeInfo[];
+  resolve: (value: TypeInfo | null) => void;
+}
+
 let prompt = $state<PromptState | null>(null);
 let newNote = $state<NewNoteState | null>(null);
 let snippet = $state<SnippetPickerState | null>(null);
+let typePicker = $state<TypePickerState | null>(null);
 let confirm = $state<ConfirmState | null>(null);
 let computeConsent = $state<ComputeConsentState | null>(null);
 let openTarget = $state<OpenTargetState | null>(null);
@@ -155,6 +163,13 @@ export function getDialogStore() {
   function pickSnippet(t: TemplateInfo) { const r = snippet?.resolve; snippet = null; r?.(t); }
   function cancelSnippet() { const r = snippet?.resolve; snippet = null; r?.(null); }
 
+  /** Show the "Treat this as a…" type picker; resolves to the chosen type (#1067). */
+  function showTypePicker(types: TypeInfo[]): Promise<TypeInfo | null> {
+    return new Promise((resolve) => { typePicker = { types, resolve }; });
+  }
+  function pickType(t: TypeInfo) { const r = typePicker?.resolve; typePicker = null; r?.(t); }
+  function cancelTypePicker() { const r = typePicker?.resolve; typePicker = null; r?.(null); }
+
   function confirmConfirm(dontAskAgain: boolean) {
     if (dontAskAgain && confirm) confirmSuppression.suppress(confirm.key);
     confirm?.resolve(true);
@@ -173,6 +188,7 @@ export function getDialogStore() {
     get prompt() { return prompt; },
     get newNote() { return newNote; },
     get snippet() { return snippet; },
+    get typePicker() { return typePicker; },
     get confirm() { return confirm; },
     get computeConsent() { return computeConsent; },
     get openTarget() { return openTarget; },
@@ -192,6 +208,9 @@ export function getDialogStore() {
     cancelNewNote,
     pickSnippet,
     cancelSnippet,
+    showTypePicker,
+    pickType,
+    cancelTypePicker,
     confirmConfirm,
     cancelConfirm,
     resolveOpenTarget,
@@ -205,6 +224,7 @@ export function __resetDialogsForTests(): void {
   prompt = null;
   newNote = null;
   snippet = null;
+  typePicker = null;
   confirm = null;
   openTarget = null;
   addProperty = null;

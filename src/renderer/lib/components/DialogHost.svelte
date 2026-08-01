@@ -8,6 +8,7 @@
   import PromptDialog from './PromptDialog.svelte';
   import NewNoteDialog from './NewNoteDialog.svelte';
   import SnippetPickerDialog from './SnippetPickerDialog.svelte';
+  import TypePickerDialog from './TypePickerDialog.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import OpenTargetDialog from './OpenTargetDialog.svelte';
   import AddPropertyDialog from './AddPropertyDialog.svelte';
@@ -40,6 +41,14 @@
     templates={dialogs.snippet.templates}
     onPick={(t) => dialogs.pickSnippet(t)}
     onCancel={() => dialogs.cancelSnippet()}
+  />
+{/if}
+
+{#if dialogs.typePicker}
+  <TypePickerDialog
+    types={dialogs.typePicker.types}
+    onPick={(t) => dialogs.pickType(t)}
+    onCancel={() => dialogs.cancelTypePicker()}
   />
 {/if}
 
