@@ -20,9 +20,12 @@
   interface Props {
     onAccept: (answers: OnboardingAnswers, dontAskAgain: boolean) => void;
     onDecline: (dontAskAgain: boolean) => void;
+    /** Second on-ramp (#1064): dismiss onboarding and open the New Note dialog,
+     *  where the user can start *as* a type (Book, Person, Meeting…). */
+    onStartFromType: () => void;
   }
 
-  let { onAccept, onDecline }: Props = $props();
+  let { onAccept, onDecline, onStartFromType }: Props = $props();
 
   let subject = $state('');
   let expertise = $state<OnboardingAnswers['expertise']>('familiar');
@@ -153,6 +156,7 @@
           Draft my thoughtbase
         </button>
         <button class="btn secondary" onclick={handleDecline}>I'll start from scratch</button>
+        <button class="btn secondary" onclick={onStartFromType}>Start from a type…</button>
         <span class="spacer-inline"></span>
         <label class="dont-ask">
           <input type="checkbox" bind:checked={dontAskAgain} />

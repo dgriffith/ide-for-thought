@@ -15,6 +15,7 @@ import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
 import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol } from './text-helpers';
 import { substituteTemplate } from '../../../shared/templates';
+import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';
 
@@ -51,7 +52,22 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     // return cancels: the file isn't written and the flow ends.
     let initialContent = '';
     let caretOffset: number | null = null;
-    if (result.templateFilename) {
+    if (result.type) {
+      // Created *as* a type (#1064): frontmatter `type:` + a scaffold of the
+      // type's declared property keys, then its (substituted) template body.
+      let body = '';
+      if (result.type.template) {
+        const sub = await substituteTemplate(result.type.template, {
+          title: result.name,
+          prompt: (label: string) => showPrompt(`${label}:`),
+        });
+        if (sub.cancelled) return;
+        body = sub.content;
+      }
+      const scaffold = buildTypedNoteScaffold(result.type, body);
+      initialContent = scaffold.content;
+      caretOffset = scaffold.caretOffset;
+    } else if (result.templateFilename) {
       const body = await api.templates.get(result.templateFilename);
       if (body !== null) {
         const sub = await substituteTemplate(body, {

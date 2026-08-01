@@ -6,6 +6,8 @@
  * just for two types is heavier than a sibling file.
  */
 
+import type { TypeInfo } from '../../../shared/objects/type-def';
+
 export type NoteExt = '.md' | '.ttl' | '.csv' | '.py';
 
 export interface NewNoteResult {
@@ -14,4 +16,8 @@ export interface NewNoteResult {
   /** Filename of the chosen template (`.md` types only), or null
    *  for a blank file. */
   templateFilename: string | null;
+  /** The domain type the note was created *as* (#1064), or null for a plain
+   *  note. When set, `ext` is always `.md` and `templateFilename` is null —
+   *  the type's own template + property scaffold apply instead. */
+  type?: TypeInfo | null;
 }
