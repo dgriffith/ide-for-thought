@@ -183,6 +183,7 @@ export const Channels = {
   /** File → "Thoughtbase Properties…" — renderer opens the rename / base-IRI dialog (#1443). */
   MENU_THOUGHTBASE_PROPERTIES: 'menu:thoughtbaseProperties',
   MENU_SAVE_AS_TEMPLATE: 'menu:saveAsTemplate',
+  MENU_SAVE_AS_OBJECT_TYPE: 'menu:saveAsObjectType',
   MENU_INSERT_TEMPLATE: 'menu:insertTemplate',
   MENU_SAVE: 'menu:save',
   MENU_TOGGLE_SIDEBAR: 'menu:toggleSidebar',
@@ -446,6 +447,8 @@ export const Channels = {
   TYPES_NOTE_PROPERTIES: 'types:noteProperties',
   /** Every instance of a type + its property values, for the multi-view (#1070). */
   TYPES_INSTANCES: 'types:instances',
+  /** Save a new user object type derived from a note ("Save Note as Object Type"). */
+  TYPES_SAVE: 'types:save',
 
   // Skills (markdown skill files — #622)
   /** List the loaded skill catalog (metadata + load errors). */

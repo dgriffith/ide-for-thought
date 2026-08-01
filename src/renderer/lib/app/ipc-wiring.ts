@@ -97,6 +97,7 @@ export interface IpcWiringCtx {
   openThoughtbaseProperties: () => void;
   save: () => void;
   saveAsTemplate: () => void;
+  saveNoteAsObjectType: () => void;
   insertTemplate: () => void;
   cycleTheme: () => void;
   selectTheme: (mode: ThemeMode) => void;
@@ -233,6 +234,7 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
   api.menu.onThoughtbaseProperties(() => { ctx.openThoughtbaseProperties(); });
   api.menu.onSave(() => ctx.save());
   api.menu.onSaveAsTemplate(() => { void ctx.saveAsTemplate(); });
+  api.menu.onSaveAsObjectType(() => { void ctx.saveNoteAsObjectType(); });
   api.menu.onInsertTemplate(() => { void ctx.insertTemplate(); });
   api.menu.onCycleTheme(() => ctx.cycleTheme());
   api.menu.onSetTheme((mode) => ctx.selectTheme(mode));

@@ -47,7 +47,7 @@ export {
   indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
   removeNote, indexSource, removeSource, parseSourceIdFromPath,
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
-  indexAllNotes,
+  indexAllNotes, reloadTypeCatalog,
 } from './indexers';
 export type { CsvTableColumn, CsvTableShape, MarkdownTableShape, HeadingRenameCandidate } from './indexers';
 import { addOntologyToStore } from './indexers';

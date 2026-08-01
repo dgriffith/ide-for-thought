@@ -259,6 +259,19 @@ function emitFrontmatterValue(
   if (edge) store.add(subject, edge.predicate, edge.term, graph);
 }
 
+/**
+ * Reload the type catalog into graph state + re-materialize the type classes,
+ * WITHOUT a full note reindex — so a freshly-saved user type ("Save Note as
+ * Object Type") is immediately usable for promotion + indexing. Materialize is
+ * idempotent (store.add dedupes), so re-adding existing classes is harmless.
+ */
+export async function reloadTypeCatalog(ctx: ProjectContext): Promise<void> {
+  const state = getState(ctx);
+  if (!state) return;
+  state.typeCatalog = await loadTypeCatalog(state.rootPath);
+  materializeTypeClasses(state.store, state.typeCatalog);
+}
+
 export function resolveFrontmatterPredicate(key: string) {
   const mapped: FrontmatterPredicate | null = mapFrontmatterKey(key);
   if (!mapped) return MINERVA(`meta-${key}`);
