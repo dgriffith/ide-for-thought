@@ -13,7 +13,12 @@ import type { ProjectContext } from '../project-context-types';
 import { getState } from './state';
 import { noteUriFor, queryGraph } from './queries';
 import { resolveFrontmatterPredicate } from './indexers';
-import { toTypeInfo, type NoteTypedProperties } from '../../shared/objects/type-def';
+import {
+  toTypeInfo,
+  type NoteTypedProperties,
+  type TypeInstancesResult,
+  type TypeInstanceRow,
+} from '../../shared/objects/type-def';
 
 export async function getNoteTypedProperties(
   ctx: ProjectContext,
@@ -50,4 +55,64 @@ export async function getNoteTypedProperties(
   }));
 
   return { type: toTypeInfo(def), properties };
+}
+
+/**
+ * Project every instance of a type with its declared-property values (#1070) —
+ * the data behind the list/table/gallery multi-view. One SPARQL pass: each
+ * declared property becomes an OPTIONAL column bound through the SAME predicate
+ * the indexer wrote it under (`resolveFrontmatterPredicate`), so read-back is
+ * robust to frontmatter-key aliasing, exactly like the single-note read-back.
+ *
+ * First row wins per note (a multi-valued frontmatter key can yield >1 binding);
+ * mirrors `getNoteTypedProperties`' first-match-wins. No approval/write path —
+ * a pure read over the already-indexed graph.
+ */
+export async function getTypeInstances(
+  ctx: ProjectContext,
+  typeId: string,
+): Promise<TypeInstancesResult> {
+  const state = getState(ctx);
+  if (!state) return { type: null, instances: [] };
+  const def = state.typeCatalog.types.find((t) => t.id === typeId);
+  if (!def) return { type: null, instances: [] };
+
+  // A stable column alias per declared property (?c0, ?c1, …) avoids clashes
+  // when two properties happen to resolve to the same predicate IRI.
+  const cols = def.properties.map((pd, i) => ({
+    pd,
+    alias: `c${i}`,
+    predicate: resolveFrontmatterPredicate(pd.name).value,
+  }));
+  const optionals = cols
+    .map((c) => `OPTIONAL { ?n <${c.predicate}> ?${c.alias} }`)
+    .join('\n     ');
+  const selectCols = cols.map((c) => `?${c.alias}`).join(' ');
+
+  const { results } = await queryGraph(
+    ctx,
+    `SELECT ?path ?title ${selectCols} WHERE {
+       ?n a types:${def.classLocalName} ; minerva:relativePath ?path .
+       OPTIONAL { ?n dc:title ?title }
+       ${optionals}
+     } ORDER BY LCASE(?title) ?path`,
+  );
+
+  const seen = new Set<string>();
+  const instances: TypeInstanceRow[] = [];
+  for (const raw of results as Array<Record<string, string | undefined>>) {
+    const path = raw.path;
+    if (!path || seen.has(path)) continue;
+    seen.add(path);
+    const values: Record<string, string | null> = {};
+    for (const c of cols) values[c.pd.name] = raw[c.alias] ?? null;
+    instances.push({
+      path,
+      title: raw.title ?? (path.replace(/\.md$/i, '').split('/').pop() ?? path),
+      values,
+      cover: def.cover ? values[def.cover] ?? null : null,
+    });
+  }
+
+  return { type: toTypeInfo(def), instances };
 }

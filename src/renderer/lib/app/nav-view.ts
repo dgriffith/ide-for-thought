@@ -167,6 +167,11 @@ export function createNavView(ctx: NavViewCtx) {
     handleOpenSource(result.sourceId, excerptId);
   }
 
+  /** Open the list/table/gallery multi-view over a type's instances (#1070). */
+  function handleOpenTypeView(typeId: string) {
+    editor.openTypeView(typeId);
+  }
+
   function recordCurrentPosition() {
     const activeTab = editor.activeTab;
     if (!activeTab) return;
@@ -214,5 +219,6 @@ export function createNavView(ctx: NavViewCtx) {
     recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate,
     handleOpenAtOffset, handleJumpToMatch,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
+    handleOpenTypeView,
   };
 }

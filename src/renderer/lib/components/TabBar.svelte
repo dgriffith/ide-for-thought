@@ -114,9 +114,11 @@
               ? `PDF: ${sourceTabLabel(tab.sourceId)}`
               : tab.type === 'graph'
                 ? `Graph: ${tab.relativePath}`
-                : tab.type === 'unsupported'
-                  ? tab.relativePath
-                  : `Source: ${sourceTabLabel(tab.sourceId)}`}
+                : tab.type === 'type-view'
+                  ? `Type: ${tab.typeId}`
+                  : tab.type === 'unsupported'
+                    ? tab.relativePath
+                    : `Source: ${sourceTabLabel(tab.sourceId)}`}
       >
         <!-- Leading slot: dirty pip OR type icon. The pip wins when the
              note is dirty so the visual cue can't be missed (§7.2). -->
@@ -131,6 +133,8 @@
             <Icon name="source" size={13} color="var(--text-faint)" />
           {:else if tab.type === 'graph'}
             <Icon name="graph" size={13} color="var(--text-faint)" />
+          {:else if tab.type === 'type-view'}
+            <Icon name="objects" size={13} color="var(--text-faint)" />
           {:else}
             <Icon name="notes" size={13} color="var(--text-faint)" />
           {/if}
@@ -140,6 +144,7 @@
           {:else if tab.type === 'query'}{tab.title}
           {:else if tab.type === 'pdf'}{sourceTabLabel(tab.sourceId)} (PDF)
           {:else if tab.type === 'graph'}{(tab.relativePath.split('/').pop() ?? tab.relativePath).replace(/\.md$/, '')} (Graph)
+          {:else if tab.type === 'type-view'}{tab.typeId.charAt(0).toUpperCase() + tab.typeId.slice(1)}
           {:else if tab.type === 'unsupported'}{tab.fileName}
           {:else}{sourceTabLabel(tab.sourceId)}{/if}
         </span>

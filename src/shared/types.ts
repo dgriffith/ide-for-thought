@@ -242,7 +242,15 @@ export interface SavedGraphTab {
   depth?: number;
 }
 
-export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedUnsupportedTab;
+export interface SavedTypeViewTab {
+  type: 'type-view';
+  /** The type whose instances the multi-view shows (#1070). */
+  typeId: string;
+  /** Chosen projection (list/table/gallery); restored on reload. */
+  layout?: 'list' | 'table' | 'gallery';
+}
+
+export type SavedTab = SavedNoteTab | SavedQueryTab | SavedSourceTab | SavedPdfTab | SavedGraphTab | SavedTypeViewTab | SavedUnsupportedTab;
 
 /** Legacy flat session: one group's tabs + active index. Superseded by
  *  {@link LayoutSession} (#816); still read on load and migrated to a single

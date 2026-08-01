@@ -9,7 +9,7 @@ import { Channels } from '../../shared/channels';
 import { loadTypeCatalog } from '../types/loader';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
-import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties } from '../../shared/objects/type-def';
+import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
 import { handle } from './typed-ipc';
 import { withRootPathOr } from './helpers';
 
@@ -29,6 +29,16 @@ export function registerTypes(): void {
     withRootPathOr<[string], NoteTypedProperties | Promise<NoteTypedProperties>>(
       { type: null, properties: [] },
       (rootPath, relativePath: string) => graph.getNoteTypedProperties(projectContext(rootPath), relativePath),
+    ),
+  );
+
+  // Every instance of a type + its declared-property values, for the list/table/
+  // gallery multi-view (#1070). A pure read over the already-indexed graph.
+  handle(
+    Channels.TYPES_INSTANCES,
+    withRootPathOr<[string], TypeInstancesResult | Promise<TypeInstancesResult>>(
+      { type: null, instances: [] },
+      (rootPath, typeId: string) => graph.getTypeInstances(projectContext(rootPath), typeId),
     ),
   );
 }

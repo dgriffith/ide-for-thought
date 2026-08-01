@@ -8,6 +8,7 @@
   import { collectGroupIds } from './lib/editor/layout-tree';
   import QueryPanel from './lib/components/QueryPanel.svelte';
   import NeighborhoodGraph from './lib/components/NeighborhoodGraph.svelte';
+  import TypeView from './lib/components/TypeView.svelte';
   import RightSidebar from './lib/components/RightSidebar.svelte';
   import StatusBar from './lib/components/StatusBar.svelte';
   import BreadcrumbsBar from './lib/components/BreadcrumbsBar.svelte';
@@ -650,6 +651,7 @@
   const {
     recordCurrentPosition, handleNavBack, handleNavForward, handleFileSelect, handleNavigate, handleOpenAtOffset, handleJumpToMatch,
     handleSourceDeleted, handleOpenSource, handleOpenPdf, handleShowMarkdownFromPdf, handleOpenExcerpt,
+    handleOpenTypeView,
   } = createNavView({
     getEditorComponent: () => editorComponent,
     setPendingSearchQuery: (s) => { pendingSearchQuery = s; },
@@ -937,6 +939,7 @@
           onToggleEntrypoint={handleToggleEntrypoint}
           onSourceSelect={(id) => handleOpenSource(id)}
           onOpenExcerpt={handleOpenExcerpt}
+          onOpenType={handleOpenTypeView}
           onSourceDeleted={handleSourceDeleted}
           onShowConfirm={showConfirm}
           onShowPrompt={showPrompt}
@@ -1217,6 +1220,16 @@
                     relativePath={active.relativePath}
                     depth={active.depth}
                     revision={graphRevision}
+                    onOpenNote={(p) => handleFileSelect(p)}
+                  />
+                {/key}
+              {:else if active?.type === 'type-view'}
+                {#key active.typeId}
+                  <TypeView
+                    typeId={active.typeId}
+                    layout={active.layout}
+                    revision={graphRevision}
+                    onLayoutChange={(l) => editor.setTypeViewLayout(active.typeId, l)}
                     onOpenNote={(p) => handleFileSelect(p)}
                   />
                 {/key}

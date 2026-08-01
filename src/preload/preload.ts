@@ -468,6 +468,7 @@ contextBridge.exposeInMainWorld('api', {
   types: {
     list: () => invoke(Channels.TYPES_LIST),
     noteProperties: (relativePath: string) => invoke(Channels.TYPES_NOTE_PROPERTIES, relativePath),
+    instances: (typeId: string) => invoke(Channels.TYPES_INSTANCES, typeId),
   },
   skills: {
     list: () => invoke(Channels.SKILLS_LIST),

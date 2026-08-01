@@ -31,7 +31,7 @@ export {
   getSourceDetail, getReadingQueueSourceIds, sourcesByReadStatus, citationsForNote, getExcerptSource,
 } from './queries';
 export type { AliasEntry, SchemaEntry, GraphSchema, ReadingQueueView } from './queries';
-export { getNoteTypedProperties } from './note-properties';
+export { getNoteTypedProperties, getTypeInstances } from './note-properties';
 export { neighborhood, expandNode } from './neighborhood';
 export type {
   NeighborhoodResult, NeighborhoodNode, NeighborhoodEdge, NeighborhoodOptions, NeighborhoodHop,

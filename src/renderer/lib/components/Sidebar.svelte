@@ -78,6 +78,8 @@
     /** Open an excerpt (source at its anchor) — for the Objects panel's built-in
      *  Excerpts type (#1069). */
     onOpenExcerpt?: (excerptId: string) => void;
+    /** Open a type's instances in the main-pane multi-view (#1070). */
+    onOpenType?: (typeId: string) => void;
     onSourceDeleted?: (sourceId: string) => void;
     onShowConfirm?: (message: string, key: string, label?: string) => Promise<boolean>;
     onShowPrompt?: (message: string, initialOrOptions?: string | { suggestions?: string[]; initial?: string }) => Promise<string | null>;
@@ -89,7 +91,7 @@
     canPaste?: boolean;
   }
 
-  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onOpenExcerpt, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
+  let { files, rootName, activeFilePath, onFileSelect, onNavigate, onOpenAtOffset, onNewNote, onNewFolder, onDelete, onAddTag, onRemoveTag, onAddProperty, onRemoveProperty, onFormat, onRename, onMerge, onCut, onCopy, onPaste, onMove, onBookmark, onToggleEntrypoint, onSourceSelect, onOpenExcerpt, onOpenType, onSourceDeleted, onShowConfirm, onShowPrompt, onMineReferences, onTableClick, onOpenCsv, onOpenNote, onExternalDrop, canPaste = false }: Props = $props();
   let activePanel = $state<PanelType>('notes');
   let rootDropHover = $state(false);
   let rootExpanded = $state(true);
@@ -661,7 +663,7 @@
     {:else if activePanel === 'tags'}
       <TagPanel bind:this={tagPanel} {onFileSelect} {...(onSourceSelect !== undefined ? { onSourceSelect } : {})} />
     {:else if activePanel === 'objects'}
-      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(onOpenExcerpt !== undefined ? { onOpenExcerpt } : {})} />
+      <ObjectsPanel bind:this={objectsPanel} {onFileSelect} {...(onOpenExcerpt !== undefined ? { onOpenExcerpt } : {})} {...(onOpenType !== undefined ? { onOpenType } : {})} />
     {:else if activePanel === 'tables'}
       {#if onTableClick && onOpenCsv && onOpenNote}
         <TablesPanel bind:this={tablesPanel} {onTableClick} {onOpenCsv} {onOpenNote} />
