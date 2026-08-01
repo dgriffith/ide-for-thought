@@ -3,6 +3,7 @@
   import HeadingGraphPanel from './right-sidebar/HeadingGraphPanel.svelte';
   import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
   import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
+  import TypePropertiesPanel from './right-sidebar/TypePropertiesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
   import RelatedPanel from './right-sidebar/RelatedPanel.svelte';
@@ -15,7 +16,7 @@
   import type { IconName } from './icons/registry';
 
   type PanelType =
-    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'fields' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections';
 
   type PanelGroupId = 'note' | 'links' | 'activity';
@@ -45,6 +46,7 @@
         { id: 'outline',    label: 'Outline',    icon: 'outline' },
         { id: 'headingGraph', label: 'Heading Map', icon: 'graph' },
         { id: 'properties', label: 'Properties', icon: 'properties' },
+        { id: 'fields',     label: 'Fields',     icon: 'properties' },
         { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
         // Tags and Tables describe what's *inside* the active note's
         // content, not how it connects to other notes — they sit
@@ -242,6 +244,8 @@
       {:else}
         <div class="panel-disabled">No active note.</div>
       {/if}
+    {:else if activePanel === 'fields'}
+      <TypePropertiesPanel {activeFilePath} {content} {revision} {...(onContentChange !== undefined ? { onContentChange } : {})} />
     {:else if activePanel === 'outgoing'}
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'backlinks'}
