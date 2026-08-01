@@ -15,7 +15,13 @@ import type { RelatedNote, RelatedNotesResult } from '../../../../src/shared/typ
 
 const h = vi.hoisted(() => ({
   getRelatedNotes: vi.fn(),
-  api: { refactor: { applySuggestedLink: vi.fn() } },
+  api: {
+    refactor: { applySuggestedLink: vi.fn() },
+    // Embedded UnlinkedMentions (#1074) self-gates on note type — return untyped
+    // so it renders nothing and doesn't interfere with these RelatedPanel tests.
+    types: { noteProperties: () => Promise.resolve({ type: null, properties: [] }) },
+    embeddings: { unlinkedMentions: () => Promise.resolve({ enabled: true, notes: [] }) },
+  },
 }));
 
 vi.mock('../../../../src/renderer/lib/sidebar-related', () => ({

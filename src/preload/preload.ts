@@ -148,6 +148,8 @@ contextBridge.exposeInMainWorld('api', {
       subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
     related: (relativePath: string, limit?: number) =>
       invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
+    unlinkedMentions: (relativePath: string, limit?: number) =>
+      invoke(Channels.EMBEDDINGS_UNLINKED_MENTIONS, relativePath, limit),
     searchText: (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) =>
       invoke(Channels.EMBEDDINGS_SEARCH_TEXT, query, opts),
   },

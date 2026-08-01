@@ -202,6 +202,7 @@ export interface ChannelMap {
 
   // Embeddings (semantic search)
   'embeddings:related': (relativePath: string, limit?: number) => RelatedNotesResult;
+  'embeddings:unlinkedMentions': (relativePath: string, limit?: number) => RelatedNotesResult;
   'embeddings:searchText': (query: string, opts?: { limit?: number; kinds?: readonly ('note' | 'source' | 'excerpt')[]; excludePath?: string }) => RelatedNotesResult;
 
   // Graph

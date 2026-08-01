@@ -105,6 +105,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "onBackfillProgress",
     "related",
     "searchText",
+    "unlinkedMentions",
   ],
   "export": [
     "csv",

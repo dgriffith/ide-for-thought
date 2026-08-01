@@ -195,6 +195,9 @@ export interface EmbeddingsApi {
   onBackfillProgress(cb: (p: { done: number; total: number; running: boolean }) => void): void;
   /** Notes semantically related to `relativePath`, for the Related panel (#838). */
   related(relativePath: string, limit?: number): Promise<import('../../../shared/types').RelatedNotesResult>;
+  /** Notes that semantically mention an object (by title/aliases) but don't link
+   *  it — unlinked mentions for the typed-object surface (#1074). */
+  unlinkedMentions(relativePath: string, limit?: number): Promise<import('../../../shared/types').RelatedNotesResult>;
   /** Free-text semantic search for the live `:::query-semantic` block (#1128). */
   searchText(
     query: string,

@@ -128,6 +128,9 @@ export const Channels = {
   EMBEDDINGS_BACKFILL_PROGRESS: 'embeddings:backfillProgress',
   /** Notes semantically related to a note, for the Related sidebar panel (#838). */
   EMBEDDINGS_RELATED: 'embeddings:related',
+  /** Notes that semantically mention an object (by title/aliases) but don't link
+   *  it — unlinked mentions for the typed-object surface (#1074). */
+  EMBEDDINGS_UNLINKED_MENTIONS: 'embeddings:unlinkedMentions',
   // Free-text semantic search — embeds arbitrary query text and ranks the
   // corpus (the live `:::query-semantic` block, #1128).
   EMBEDDINGS_SEARCH_TEXT: 'embeddings:searchText',
