@@ -8,9 +8,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { typesMock, queryMock } = vi.hoisted(() => ({ typesMock: vi.fn(), queryMock: vi.fn() }));
+const { typesMock, queryMock, viewsListMock } = vi.hoisted(() => ({ typesMock: vi.fn(), queryMock: vi.fn(), viewsListMock: vi.fn() }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { list: typesMock }, graph: { query: queryMock } },
+  api: { types: { list: typesMock }, graph: { query: queryMock }, views: { list: viewsListMock } },
 }));
 
 import ObjectsPanel from '../../../src/renderer/lib/components/ObjectsPanel.svelte';
@@ -20,6 +20,7 @@ const MEETING = { id: 'meeting', label: 'Meeting', classLocalName: 'Meeting', so
 
 beforeEach(() => {
   typesMock.mockResolvedValue({ types: [BOOK, MEETING], errors: [] });
+  viewsListMock.mockResolvedValue([]); // saved-views store refresh (#1072)
   queryMock.mockImplementation((sparql: string) => {
     if (sparql.includes('thought:Excerpt')) return Promise.resolve({ results: [{ n: '7' }], columns: [] }); // excerpt count
     if (sparql.includes('COUNT')) return Promise.resolve({ results: [{ id: 'book', n: '2' }], columns: [] });
@@ -29,7 +30,7 @@ beforeEach(() => {
     return Promise.resolve({ results: [], columns: [] });
   });
 });
-afterEach(() => { cleanup(); typesMock.mockReset(); queryMock.mockReset(); });
+afterEach(() => { cleanup(); typesMock.mockReset(); queryMock.mockReset(); viewsListMock.mockReset(); });
 
 describe('ObjectsPanel (#1068)', () => {
   it('lists types with instance counts, including a zero-instance type', async () => {

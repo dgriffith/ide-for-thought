@@ -111,6 +111,15 @@ contextBridge.exposeInMainWorld('api', {
     setOrder: (entries: Array<{ filePath: string; order: number | null }>) =>
       invoke(Channels.QUERIES_SET_ORDER, entries),
   },
+  views: {
+    list: () => invoke(Channels.VIEWS_LIST),
+    save: (scope: 'project' | 'global', input: Parameters<ChannelMap['views:save']>[1]) =>
+      invoke(Channels.VIEWS_SAVE, scope, input),
+    delete: (filePath: string) => invoke(Channels.VIEWS_DELETE, filePath),
+    rename: (filePath: string, newName: string) => invoke(Channels.VIEWS_RENAME, filePath, newName),
+    setOrder: (entries: Array<{ filePath: string; order: number | null }>) =>
+      invoke(Channels.VIEWS_SET_ORDER, entries),
+  },
   search: {
     query: (query: string) => invoke(Channels.SEARCH_QUERY, query),
   },

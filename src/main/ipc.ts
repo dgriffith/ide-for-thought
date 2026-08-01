@@ -10,6 +10,7 @@ import { registerSites } from './ipc/register-sites';
 import { registerBibliography } from './ipc/register-bibliography';
 import { registerTools } from './ipc/register-tools';
 import { registerTypes } from './ipc/register-types';
+import { registerViews } from './ipc/register-views';
 import { registerRefactor } from './ipc/register-refactor';
 import { registerSources } from './ipc/register-sources';
 import { registerCompute } from './ipc/register-compute';
@@ -43,6 +44,7 @@ export function registerIpcHandlers(): void {
   registerBibliography();
   registerTools();
   registerTypes();
+  registerViews();
   registerRefactor();
   registerSources();
   registerCompute();

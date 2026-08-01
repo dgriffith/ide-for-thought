@@ -399,6 +399,13 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "getZoomFactor",
     "setZoomFactor",
   ],
+  "views": [
+    "delete",
+    "list",
+    "rename",
+    "save",
+    "setOrder",
+  ],
   "youtube": [
     "thumbnail",
   ],

@@ -1,4 +1,4 @@
-import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
+import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { ThemeMode } from '../../../shared/theme';
@@ -112,6 +112,15 @@ export interface QueriesApi {
   /** Re-tag a query's @group (#315). */
   setGroup(filePath: string, group: string | null): Promise<void>;
   /** Apply a new @order across many queries at once (#315 — drag-reorder). */
+  setOrder(entries: Array<{ filePath: string; order: number | null }>): Promise<void>;
+}
+
+/** Saved views (#1072) — named presets over a type's multi-view. */
+export interface ViewsApi {
+  list(): Promise<SavedView[]>;
+  save(scope: 'project' | 'global', input: SavedViewInput): Promise<SavedView>;
+  delete(filePath: string): Promise<void>;
+  rename(filePath: string, newName: string): Promise<string>;
   setOrder(entries: Array<{ filePath: string; order: number | null }>): Promise<void>;
 }
 
@@ -843,6 +852,7 @@ export interface IdeApi {
   notebase: NotebaseApi;
   links: LinksApi;
   queries: QueriesApi;
+  views: ViewsApi;
   search: SearchApi;
   git: GitApi;
   graph: GraphApi;
