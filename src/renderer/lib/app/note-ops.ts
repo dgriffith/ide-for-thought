@@ -15,7 +15,8 @@ import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
 import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths } from './text-helpers';
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
-import { setFrontmatterProperty } from '../../../shared/frontmatter-edit';
+import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/frontmatter-edit';
+import { deriveTypeProperties } from '../../../shared/objects/derive-type';
 import type { TypeInfo } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
@@ -151,6 +152,25 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     const type = await showTypePicker(cat.types);
     if (!type) return;
     editor.setContent(setFrontmatterProperty(editor.content, 'type', type.id));
+    ctx.openTypeFields?.();
+  }
+
+  /**
+   * Create a NEW object type from the active note ("Save Note as Object Type") —
+   * the inverse of promotion. Derives the type's properties from the note's
+   * frontmatter (schema; the body is the separate "Save as Template" concern),
+   * writes it, then promotes the seeding note to it so it's the first instance.
+   */
+  async function handleSaveNoteAsObjectType() {
+    if (!notebase.meta || !editor.activeFilePath) return;
+    const stem = editor.activeFilePath.replace(/\.md$/i, '').split('/').pop() ?? '';
+    const label = (await showPrompt('Object type name:', { initial: stem }))?.trim();
+    if (!label) return;
+    const properties = deriveTypeProperties(getFrontmatterValues(editor.content));
+    const { id } = await api.types.save({ label, properties });
+    // Promote the seeding note to the new type — its first instance.
+    editor.setContent(setFrontmatterProperty(editor.content, 'type', id));
+    ctx.getSidebar()?.refreshObjects?.();
     ctx.openTypeFields?.();
   }
 
@@ -589,5 +609,5 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  return { handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

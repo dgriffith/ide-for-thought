@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => {
   const MENU_CHANNELS = [
-    'onNewNote', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onInsertTemplate',
+    'onNewNote', 'onEditThoughtbaseDoc', 'onThoughtbaseProperties', 'onSave', 'onSaveAsTemplate', 'onSaveAsObjectType', 'onInsertTemplate',
     'onCycleTheme', 'onSetTheme', 'onFontIncrease', 'onFontDecrease', 'onFontReset',
     'onToggleSidebar', 'onToggleRightSidebar', 'onToggleConversations', 'onNewConversation',
     'onTogglePreview', 'onSplitRight', 'onSplitDown', 'onFocusNextGroup', 'onFocusPrevGroup',
@@ -120,7 +120,7 @@ function makeCtx(): { ctx: IpcWiringCtx; spies: Record<string, ReturnType<typeof
     'setShowGotoLine', 'setShowGotoNote', 'setShowEditSavedQueries', 'setShowAbout',
     'setShowShortcuts', 'setShowSettings', 'setPublishDialogOpen', 'setFindInNotesMode',
     'setExportDialogGroup', 'setEmbeddingProgress', 'refreshSavedQueriesCache', 'refreshBacklinkCount',
-    'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'insertTemplate', 'cycleTheme',
+    'newNote', 'editThoughtbaseGuide', 'openThoughtbaseProperties', 'save', 'saveAsTemplate', 'saveNoteAsObjectType', 'insertTemplate', 'cycleTheme',
     'selectTheme', 'openThoughtbase', 'newThoughtbase', 'installTutorial', 'showProposals', 'openRecentThoughtbase', 'navBack',
     'navForward', 'rename', 'move', 'copy', 'extractSelection', 'splitHere', 'splitByHeading',
     'autoTag', 'autoLink', 'autoLinkInbound', 'decompose', 'format', 'bibliography', 'ingestUrl',
@@ -192,6 +192,7 @@ describe('menu bindings dispatch to the right action (no arg / no guard)', () =>
     ['onThoughtbaseProperties', 'openThoughtbaseProperties'],
     ['onSave', 'save'],
     ['onSaveAsTemplate', 'saveAsTemplate'],
+    ['onSaveAsObjectType', 'saveNoteAsObjectType'],
     ['onInsertTemplate', 'insertTemplate'],
     ['onCycleTheme', 'cycleTheme'],
     ['onNewConversation', 'newConversation'],

@@ -7,11 +7,12 @@
  */
 import { Channels } from '../../shared/channels';
 import { loadTypeCatalog } from '../types/loader';
+import { saveType, type SaveTypeInput } from '../types/write';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
 import { handle } from './typed-ipc';
-import { withRootPathOr } from './helpers';
+import { withRootPath, withRootPathOr } from './helpers';
 
 export function registerTypes(): void {
   handle(
@@ -41,4 +42,13 @@ export function registerTypes(): void {
       (rootPath, typeId: string) => graph.getTypeInstances(projectContext(rootPath), typeId),
     ),
   );
+
+  // Save a new user object type derived from a note ("Save Note as Object Type").
+  // Writes `.minerva/types/<id>.md`, then reloads the graph's type catalog so the
+  // new type is immediately usable for promotion + indexing.
+  handle(Channels.TYPES_SAVE, withRootPath(async (rootPath, input: SaveTypeInput) => {
+    const result = await saveType(rootPath, input);
+    await graph.reloadTypeCatalog(projectContext(rootPath));
+    return result;
+  }));
 }

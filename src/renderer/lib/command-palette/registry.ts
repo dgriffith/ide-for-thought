@@ -73,6 +73,7 @@ export interface CommandDeps {
   splitByHeading(): void;
   autoTagActive(): void;
   promoteToType(): void;
+  saveNoteAsObjectType(): void;
   autoLinkActive(): void;
   autoLinkInboundActive(): void;
   decomposeActive(): void;
@@ -196,6 +197,8 @@ export function buildCommandRegistry(deps: CommandDeps): Command[] {
       keybinding: null, enabled: hasNote, run: () => deps.autoTagActive() },
     { id: 'objects.promoteToType', title: 'Treat This Note as a Type…', category: 'Refactor',
       keybinding: null, enabled: hasActiveNoteTab, run: () => deps.promoteToType() },
+    { id: 'objects.saveAsObjectType', title: 'Save Note as Object Type…', category: 'File',
+      keybinding: null, enabled: hasActiveNoteTab, run: () => deps.saveNoteAsObjectType() },
     { id: 'refactor.autoLink', title: 'Auto-link Outbound', category: 'Refactor',
       keybinding: null, enabled: hasNote, run: () => deps.autoLinkActive() },
     { id: 'refactor.autoLinkInbound', title: 'Auto-link Inbound', category: 'Refactor',

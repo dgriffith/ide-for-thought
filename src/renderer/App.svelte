@@ -573,6 +573,7 @@
     copy: (p) => { void handleCopyWithPrompt(p); },
     autoTag: (p) => { void handleAutoTag(p); },
     promoteToType: () => { void handlePromoteToType(); },
+    saveNoteAsObjectType: () => { void handleSaveNoteAsObjectType(); },
     autoLink: (p) => { void handleAutoLink(p); },
     autoLinkInbound: (p) => { void handleAutoLinkInbound(p); },
     decompose: (p) => { void handleDecompose(p); },
@@ -681,7 +682,7 @@
     openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('fields'); },
   };
   const {
-    handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
@@ -892,6 +893,7 @@
       openThoughtbaseProperties: () => { showThoughtbaseProperties = true; },
       save: () => { void handleSave(); },
       saveAsTemplate: () => { void handleSaveAsTemplate(); },
+      saveNoteAsObjectType: () => { void handleSaveNoteAsObjectType(); },
       insertTemplate: () => { void handleInsertTemplate(); },
       cycleTheme: () => handleCycleTheme(),
       selectTheme: (mode) => handleSelectTheme(mode),

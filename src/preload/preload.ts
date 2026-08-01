@@ -482,6 +482,7 @@ contextBridge.exposeInMainWorld('api', {
     list: () => invoke(Channels.TYPES_LIST),
     noteProperties: (relativePath: string) => invoke(Channels.TYPES_NOTE_PROPERTIES, relativePath),
     instances: (typeId: string) => invoke(Channels.TYPES_INSTANCES, typeId),
+    save: (input: Parameters<ChannelMap['types:save']>[0]) => invoke(Channels.TYPES_SAVE, input),
   },
   skills: {
     list: () => invoke(Channels.SKILLS_LIST),
@@ -531,6 +532,9 @@ contextBridge.exposeInMainWorld('api', {
     },
     onSave: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE, () => cb());
+    },
+    onSaveAsObjectType: (cb: () => void) => {
+      ipcRenderer.on(Channels.MENU_SAVE_AS_OBJECT_TYPE, () => cb());
     },
     onSaveAsTemplate: (cb: () => void) => {
       ipcRenderer.on(Channels.MENU_SAVE_AS_TEMPLATE, () => cb());

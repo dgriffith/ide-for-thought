@@ -250,6 +250,10 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
         label: 'Save as Template…',
         click: () => send(Channels.MENU_SAVE_AS_TEMPLATE),
       }, { note: true }),
+      gate({
+        label: 'Save Note as Object Type…',
+        click: () => send(Channels.MENU_SAVE_AS_OBJECT_TYPE),
+      }, { note: true }),
       { type: 'separator' },
 
       // Ingest / Import — bringing external things in.

@@ -769,6 +769,8 @@ export interface TypesApi {
   noteProperties(relativePath: string): Promise<import('../../../shared/objects/type-def').NoteTypedProperties>;
   /** Every instance of a type + its property values, for the multi-view (#1070). */
   instances(typeId: string): Promise<import('../../../shared/objects/type-def').TypeInstancesResult>;
+  /** Save a new user object type derived from a note ("Save Note as Object Type"). */
+  save(input: { label: string; properties: import('../../../shared/objects/type-def').PropertyDef[]; icon?: string; color?: string }): Promise<{ id: string; filePath: string }>;
 }
 
 export interface SkillsApi {
@@ -790,6 +792,7 @@ export interface MenuApi {
   onThoughtbaseProperties(cb: () => void): void;
   onSave(cb: () => void): void;
   onSaveAsTemplate(cb: () => void): void;
+  onSaveAsObjectType(cb: () => void): void;
   onInsertTemplate(cb: () => void): void;
   onToggleSidebar(cb: () => void): void;
   onTogglePreview(cb: () => void): void;
