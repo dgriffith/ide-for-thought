@@ -449,6 +449,8 @@ export const Channels = {
   TYPES_INSTANCES: 'types:instances',
   /** Save a new user object type derived from a note ("Save Note as Object Type"). */
   TYPES_SAVE: 'types:save',
+  /** Delete a user object type by id (#1584). */
+  TYPES_DELETE: 'types:delete',
 
   // Skills (markdown skill files — #622)
   /** List the loaded skill catalog (metadata + load errors). */

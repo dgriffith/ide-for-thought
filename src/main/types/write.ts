@@ -13,6 +13,11 @@ export interface SaveTypeInput {
   properties: PropertyDef[];
   icon?: string | undefined;
   color?: string | undefined;
+  cover?: string | undefined;
+  card?: string[] | undefined;
+  /** Template body (markdown after the frontmatter) — carried for a faithful
+   *  duplicate; "Save Note as Object Type" leaves it empty. */
+  template?: string | undefined;
 }
 
 function slugify(s: string): string {
@@ -26,6 +31,8 @@ export function serializeTypeFile(id: string, input: SaveTypeInput): string {
   const fm: Record<string, unknown> = { label: input.label, id };
   if (input.icon) fm.icon = input.icon;
   if (input.color) fm.color = input.color;
+  if (input.cover) fm.cover = input.cover;
+  if (input.card && input.card.length > 0) fm.card = input.card;
   fm.properties = input.properties.map((p) => {
     const o: Record<string, unknown> = { name: p.name, type: p.type };
     if (p.label) o.label = p.label;
@@ -33,7 +40,8 @@ export function serializeTypeFile(id: string, input: SaveTypeInput): string {
     if (p.targetType) o.targetType = p.targetType;
     return o;
   });
-  return `---\n${YAML.stringify(fm)}---\n`;
+  const body = input.template?.trim();
+  return `---\n${YAML.stringify(fm)}---\n${body ? `\n${body}\n` : ''}`;
 }
 
 /**
@@ -47,4 +55,12 @@ export async function saveType(rootPath: string, input: SaveTypeInput): Promise<
   const filePath = `.minerva/types/${id}.md`;
   await notebaseFs.writeFile(rootPath, filePath, serializeTypeFile(id, input));
   return { id, filePath };
+}
+
+/** Delete a USER type by id (removes `.minerva/types/<id>.md`). A no-op for a
+ *  stock-only id (stock types live in the bundle, not the thoughtbase). */
+export async function deleteType(rootPath: string, id: string): Promise<void> {
+  const cleaned = slugify(id);
+  if (!cleaned) return;
+  await notebaseFs.deleteFile(rootPath, `.minerva/types/${cleaned}.md`).catch(() => { /* already gone / stock-only */ });
 }

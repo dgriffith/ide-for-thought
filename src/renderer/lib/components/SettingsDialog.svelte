@@ -51,6 +51,7 @@
   import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
+  import ObjectTypesSettings from './ObjectTypesSettings.svelte';
   import BibliographySettings from './BibliographySettings.svelte';
   import AiSettings from './AiSettings.svelte';
   import { DEFAULT_MODEL } from '../../../shared/tools/models';
@@ -82,7 +83,7 @@
 
   let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'objectTypes' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -110,6 +111,7 @@
       items: [
         { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
         { id: 'formatter',    label: 'Formatter',    sub: 'House style · format rules' },
+        { id: 'objectTypes',  label: 'Object Types', sub: 'Create · delete · duplicate types' },
         { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
       ],
     },
@@ -991,6 +993,9 @@
               </p>
             {/if}
           {/if}
+
+        {:else if activeTab === 'objectTypes'}
+          <ObjectTypesSettings />
 
         {:else if activeTab === 'bibliography'}
           <BibliographySettings />
