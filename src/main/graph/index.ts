@@ -43,19 +43,22 @@ export type {
 // `addOntologyToStore` is imported (used by initGraph below) but not re-exported
 // — it's internal-only.
 export {
-  indexNote, indexCsvTable, unindexCsvTable, unindexAllCsvTables,
-  indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
-  removeNote,
+  indexNote, removeNote,
   indexAllNotes, reloadTypeCatalog,
 } from './indexers';
+export type { HeadingRenameCandidate } from './indexers';
 // Per-format indexers extracted from ./indexers (#1624):
+export {
+  indexCsvTable, unindexCsvTable, unindexAllCsvTables,
+  indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
+} from './indexers/tables';
+export type { CsvTableColumn, CsvTableShape, MarkdownTableShape } from './indexers/tables';
 export {
   indexSource, removeSource, parseSourceIdFromPath,
 } from './indexers/source';
 export {
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
 } from './indexers/excerpt';
-export type { CsvTableColumn, CsvTableShape, MarkdownTableShape, HeadingRenameCandidate } from './indexers';
 import { addOntologyToStore } from './indexers';
 
 /** Tear down a project's graph state. Called by ProjectContext on last release. */
