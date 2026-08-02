@@ -261,8 +261,9 @@ export default tseslint.config(
           'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
           'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
           'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
-          // publish / proposals / graph actions
+          // publish / proposals / graph / refactor actions
           'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
+          'applySuggestedLink|attachExcerptEvidence|' +
           // conversations
           'setModel|setEffort|compact|saveUIState|askUserReply|append|archive|send|' +
           'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +
