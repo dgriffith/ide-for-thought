@@ -9,8 +9,8 @@ import * as $rdf from 'rdflib';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import {
-  STANDARD_PREFIXES, RDF, MINERVA,
-  noteUri, sourceUri, excerptUri,
+  STANDARD_PREFIXES, RDF, MINERVA, DC,
+  noteUri, sourceUri, excerptUri, folderUri, projectUri,
   type GraphState,
 } from './state';
 import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
@@ -107,5 +107,26 @@ export function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: s
   if (existing.length === 0) {
     store.add(tagNode, RDF('type'), MINERVA('Tag'));
     store.add(tagNode, MINERVA('tagName'), $rdf.lit(tagName));
+  }
+}
+
+/** Ensure a `minerva:Folder` resource exists (idempotent), nested under its
+ *  parent folder — recursing up the path. Shared by note + file-type indexing. */
+export function ensureFolder(state: GraphState, relativePath: string): void {
+  const { store } = state;
+  const folder = folderUri(state, relativePath);
+  const existing = store.statementsMatching(folder, RDF('type'), MINERVA('Folder'));
+  if (existing.length === 0) {
+    store.add(folder, RDF('type'), MINERVA('Folder'));
+    store.add(folder, MINERVA('relativePath'), $rdf.lit(relativePath));
+    store.add(folder, DC('title'), $rdf.lit(path.basename(relativePath)));
+    store.add(projectUri(state), MINERVA('containsFolder'), folder);
+
+    // Nest under parent folder if applicable
+    const parent = path.dirname(relativePath);
+    if (parent && parent !== '.') {
+      store.add(folder, MINERVA('inFolder'), folderUri(state, parent));
+      ensureFolder(state, parent);
+    }
   }
 }

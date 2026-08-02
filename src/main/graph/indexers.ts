@@ -21,7 +21,6 @@ import { getLinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
-import { parseCsv } from '../../shared/csv-parse';
 import { isIndexable } from '../notebase/indexable-files';
 
 import type { ProjectContext } from '../project-context-types';
@@ -40,11 +39,12 @@ import type { PropertyType } from '../../shared/objects/type-def';
 import { checkLLMWriteGuard } from './write-guard';
 import {
   fileMtimeIso, injectPrefixes,
-  ensureTag, flattenFrontmatterStrings,
+  ensureTag, ensureFolder, flattenFrontmatterStrings,
   buildLinkResolveCtx, resolveLinkTarget, type LinkResolveCtx,
 } from './index-helpers';
 import { walkAndIndexExcerpts } from './indexers/excerpt';
 import { walkAndIndexSources } from './indexers/source';
+import { indexTurtleFile, indexCsvFile, indexPythonFile } from './indexers/note-files';
 
 // `findNotesLinkingToAnchorImpl` is a queries-layer helper; detectHeadingRename
 // (an indexer-only helper below) reuses it.
@@ -1005,135 +1005,6 @@ function removeTableGraphsBy(ctx: ProjectContext, marker: ReturnType<typeof MINE
   }
 }
 
-/**
- * Index a standalone `.py` file. Python helpers in the notebase are
- * importable from ```python cells (the kernel puts the project root on
- * `sys.path`). We emit minimal metadata so the file appears in note
- * listings, sidebar tag queries, and "everything in folder X" graph
- * queries — no AST parsing, no symbol extraction (the kernel itself
- * is the source of truth for what a module exposes).
- *
- * `minerva:PythonModule rdfs:subClassOf minerva:Note`, so existing
- * "list every note" queries pick these up too; a more specific
- * "list every Python module" query can use the subclass directly.
- */
-function indexPythonFile(
-  state: GraphState,
-  relativePath: string,
-  subject: $rdf.NamedNode,
-  graph: $rdf.NamedNode,
-): void {
-  const { store } = state;
-
-  store.add(subject, RDF('type'), MINERVA('Note'), graph);
-  store.add(subject, RDF('type'), MINERVA('PythonModule'), graph);
-  const title = path.basename(relativePath, '.py');
-  store.add(subject, DC('title'), $rdf.lit(title), graph);
-  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-
-  const dir = path.dirname(relativePath);
-  if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
-    ensureFolder(state, dir);
-  }
-  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
-}
-
-function indexTurtleFile(
-  state: GraphState,
-  relativePath: string,
-  content: string,
-  subject: $rdf.NamedNode,
-  graph: $rdf.NamedNode,
-): void {
-  const { store } = state;
-
-  // Basic file metadata
-  store.add(subject, RDF('type'), MINERVA('Note'), graph);
-  const title = path.basename(relativePath, '.ttl');
-  store.add(subject, DC('title'), $rdf.lit(title), graph);
-  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-
-  // Folder membership
-  const dir = path.dirname(relativePath);
-  if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
-    ensureFolder(state, dir);
-  }
-
-  // Project membership
-  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
-
-  // Parse the entire file as Turtle into the note's named graph
-  try {
-    const prefixed = injectPrefixes(state, content, subject.value);
-    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
-  } catch (e) {
-    console.error(`[minerva] Failed to parse turtle file ${relativePath}:`, e instanceof Error ? e.message : e);
-  }
-}
-
-/**
- * Index a standalone `.csv` file (#199). Mirrors indexTurtleFile’s
- * note-metadata setup, then parses the file as CSV and emits CSVW
- * triples. The file’s subject IS the Table (`rdf:type csvw:Table`),
- * with `csvw:inFile <relativePath>` for symmetry with the markdown-
- * table indexer’s `csvw:inNote`.
- */
-function indexCsvFile(
-  state: GraphState,
-  relativePath: string,
-  content: string,
-  subject: $rdf.NamedNode,
-  graph: $rdf.NamedNode,
-): void {
-  const { store } = state;
-
-  // Note-style metadata so the file shows up in listings / tag queries / etc.
-  store.add(subject, RDF('type'), MINERVA('Note'), graph);
-  const title = path.basename(relativePath, '.csv');
-  store.add(subject, DC('title'), $rdf.lit(title), graph);
-  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-
-  const dir = path.dirname(relativePath);
-  if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
-    ensureFolder(state, dir);
-  }
-  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
-
-  // CSVW: the file IS the Table. One file → one table.
-  store.add(subject, RDF('type'), CSVW('Table'), graph);
-  store.add(subject, CSVW('inFile'), $rdf.lit(relativePath), graph);
-
-  const parsed = parseCsv(content);
-  if (parsed.headers.length === 0) return;
-
-  // Columns — the table's schema (header name + zero-based index). One triple-
-  // cluster per header, so the cost is bounded by column count.
-  //
-  // We deliberately do NOT emit per-cell `csvw:Cell` / `csvw:Row` triples (#337).
-  // A 10k-row × 100-col CSV produced ~4M triples in the in-memory store, and
-  // nothing queried cell *values* over the graph — cell-level querying is the
-  // DuckDB / SQL path's job (`indexCsvTable`, joinable back to this file via
-  // `minerva:fromFile`). Keeping just the Table + column schema is enough for
-  // the sidebar / tag / schema queries that touch CSV files through the graph.
-  for (let ci = 0; ci < parsed.headers.length; ci++) {
-    const colName = parsed.headers[ci]!;
-    const colUri = $rdf.sym(`${subject.value}/column/${encodeURIComponent(colName)}`);
-    store.add(colUri, RDF('type'), CSVW('Column'), graph);
-    store.add(colUri, CSVW('name'), $rdf.lit(colName), graph);
-    store.add(colUri, CSVW('columnIndex'), $rdf.lit(String(ci), undefined, XSD('integer')), graph);
-    store.add(subject, CSVW('column'), colUri, graph);
-  }
-}
-
 export function removeNote(ctx: ProjectContext, relativePath: string): void {
   checkLLMWriteGuard('removeNote');
   const state = getState(ctx);
@@ -1155,25 +1026,6 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
   state.headingsPerNote.delete(relativePath);
   if (hadAliases || wasTracked) {
     rebuildAliasMap(state);
-  }
-}
-
-function ensureFolder(state: GraphState, relativePath: string): void {
-  const { store } = state;
-  const folder = folderUri(state, relativePath);
-  const existing = store.statementsMatching(folder, RDF('type'), MINERVA('Folder'));
-  if (existing.length === 0) {
-    store.add(folder, RDF('type'), MINERVA('Folder'));
-    store.add(folder, MINERVA('relativePath'), $rdf.lit(relativePath));
-    store.add(folder, DC('title'), $rdf.lit(path.basename(relativePath)));
-    store.add(projectUri(state), MINERVA('containsFolder'), folder);
-
-    // Nest under parent folder if applicable
-    const parent = path.dirname(relativePath);
-    if (parent && parent !== '.') {
-      store.add(folder, MINERVA('inFolder'), folderUri(state, parent));
-      ensureFolder(state, parent);
-    }
   }
 }
 
