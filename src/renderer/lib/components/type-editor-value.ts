@@ -13,6 +13,8 @@ export interface TypeEditorInitial {
   color?: string;
   cover?: string;
   card?: string[];
+  /** Parent type id (#1587) — the type this one specializes. */
+  parent?: string;
   properties: PropertyDef[];
   template?: string;
 }

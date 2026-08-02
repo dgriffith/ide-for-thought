@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexAllNotes, queryGraph } from '../../../src/main/graph/index';
+import { initGraph, indexAllNotes, queryGraph, getNoteTypedProperties, getTypeInstances } from '../../../src/main/graph/index';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
 let root: string;
@@ -33,15 +33,10 @@ beforeEach(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-subclassof-'));
   ctx = projectContext(root);
   await initGraph(ctx);
-  writeType('reference', `label: Reference`);
-  writeType('monograph', `label: Monograph
-parent: reference`);
-  writeNote('Dune.md', `---
-title: Dune
-type: monograph
----
-`);      // a Book (⊂ Reference)
-  writeNote('Cite.md', `---\ntitle: Cite\ntype: reference\n---\n`); // a direct Reference
+  writeType('reference', `label: Reference\nproperties:\n  - name: citation\n    type: text`);
+  writeType('monograph', `label: Monograph\nparent: reference\nproperties:\n  - name: isbn\n    type: text`);
+  writeNote('Dune.md', `---\ntitle: Dune\ntype: monograph\ncitation: Herbert 1965\nisbn: "9780441172719"\n---\n`); // a Monograph (⊂ Reference)
+  writeNote('Cite.md', `---\ntitle: Cite\ntype: reference\ncitation: Smith 2020\n---\n`); // a direct Reference
   await indexAllNotes(ctx);
 });
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -60,8 +55,29 @@ describe('subclassing (#1586)', () => {
   });
 
   it('a DIRECT type query excludes the subclass (only the path includes it)', async () => {
-    // Dune is typed Book, not directly Reference.
+    // Dune is typed Monograph, not directly Reference.
     expect(await paths(`SELECT ?p WHERE { ?n minerva:relativePath ?p ; a types:Reference }`)).toEqual(['Cite.md']);
     expect(await paths(`SELECT ?p WHERE { ?n minerva:relativePath ?p ; a types:Monograph }`)).toEqual(['Dune.md']);
+  });
+
+  it('the read-back inherits the parent\'s properties (#1587)', async () => {
+    const rb = await getNoteTypedProperties(ctx, 'Dune.md');
+    expect(rb.type?.id).toBe('monograph');
+    // citation is inherited from Reference; isbn is the Monograph's own.
+    const byName = new Map(rb.properties.map((p) => [p.name, p]));
+    expect([...byName.keys()]).toEqual(['citation', 'isbn']); // ancestor-first
+    expect(byName.get('citation')!.value).toBe('Herbert 1965');
+    expect(byName.get('isbn')!.value).toContain('9780441172719');
+  });
+
+  it('the multi-view is subclass-aware and inherits columns (#1587)', async () => {
+    // The parent's view shows the parent's columns and INCLUDES subclass instances.
+    const ref = await getTypeInstances(ctx, 'reference');
+    expect(ref.instances.map((i) => i.path).sort()).toEqual(['Cite.md', 'Dune.md']);
+    // The subclass's view carries inherited + own columns.
+    const mono = await getTypeInstances(ctx, 'monograph');
+    const dune = mono.instances.find((i) => i.path === 'Dune.md')!;
+    expect(Object.keys(dune.values).sort()).toEqual(['citation', 'isbn']);
+    expect(dune.values.citation).toBe('Herbert 1965');
   });
 });

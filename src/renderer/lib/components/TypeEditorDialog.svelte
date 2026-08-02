@@ -37,6 +37,7 @@
   let icon = $state(seed?.icon ?? '');
   let color = $state(seed?.color ?? '');
   let cover = $state(seed?.cover ?? '');
+  let parent = $state(seed?.parent ?? '');
   let rows = $state<Row[]>(
     (seed?.properties ?? []).map((p) => ({
       name: p.name,
@@ -96,6 +97,7 @@
         ...(color.trim() ? { color: color.trim() } : {}),
         ...(cover && propNames.includes(cover) ? { cover } : {}),
         ...(cardNames.length > 0 ? { card: cardNames } : {}),
+        ...(parent && typeIds.includes(parent) ? { parent } : {}),
         ...(initial?.template ? { template: initial.template } : {}),
       });
       onSaved?.(result.id);
@@ -159,12 +161,20 @@
       {/each}
     </ul>
 
-    <label class="field cover"><span>Cover (gallery image)</span>
-      <select bind:value={cover}>
-        <option value="">(none)</option>
-        {#each propNames as n (n)}<option value={n}>{n}</option>{/each}
-      </select>
-    </label>
+    <div class="type-selects">
+      <label class="field cover"><span>Cover (gallery image)</span>
+        <select bind:value={cover}>
+          <option value="">(none)</option>
+          {#each propNames as n (n)}<option value={n}>{n}</option>{/each}
+        </select>
+      </label>
+      <label class="field cover"><span>Parent type (inherits its properties)</span>
+        <select bind:value={parent}>
+          <option value="">(none)</option>
+          {#each typeIds as tid (tid)}<option value={tid}>{tid}</option>{/each}
+        </select>
+      </label>
+    </div>
 
     {#if error}<p class="error">{error}</p>{/if}
 
@@ -208,7 +218,8 @@
   }
   .icon-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
   .icon-btn:disabled { opacity: 0.4; cursor: default; }
-  .field.cover { max-width: 260px; margin-bottom: 12px; }
+  .type-selects { display: flex; gap: 16px; margin-bottom: 12px; }
+  .field.cover { max-width: 260px; }
   .error { color: var(--accent); font-size: 12px; margin: 0 0 10px; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; }
   .btn {

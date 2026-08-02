@@ -10,15 +10,21 @@
  * empty properties come back with `value: null` so the form can show every field.
  */
 import type { ProjectContext } from '../project-context-types';
-import { getState } from './state';
+import { getState, type GraphState } from './state';
 import { noteUriFor, queryGraph } from './queries';
 import { declaredPropertyPredicate } from './indexers';
+import { effectivePropertyDefs, type TypeLike } from '../../shared/objects/inheritance';
 import {
   toTypeInfo,
   type NoteTypedProperties,
   type TypeInstancesResult,
   type TypeInstanceRow,
 } from '../../shared/objects/type-def';
+
+/** The project's types keyed by id — for resolving inheritance chains (#1587). */
+function typeCatalogById(state: GraphState): ReadonlyMap<string, TypeLike> {
+  return new Map(state.typeCatalog.types.map((t) => [t.id, t]));
+}
 
 export async function getNoteTypedProperties(
   ctx: ProjectContext,
@@ -45,7 +51,11 @@ export async function getNoteTypedProperties(
     if (r.p && r.v !== undefined && !byPredicate.has(r.p)) byPredicate.set(r.p, r.v);
   }
 
-  const properties = def.properties.map((pd) => ({
+  // Effective properties include those inherited from parent types (#1587) —
+  // the child overrides an ancestor's by name — so a subclass's form shows the
+  // full set.
+  const effective = effectivePropertyDefs(def.id, typeCatalogById(state));
+  const properties = effective.map((pd) => ({
     name: pd.name,
     type: pd.type,
     label: pd.label,
@@ -77,9 +87,9 @@ export async function getTypeInstances(
   const def = state.typeCatalog.types.find((t) => t.id === typeId);
   if (!def) return { type: null, instances: [] };
 
-  // A stable column alias per declared property (?c0, ?c1, …) avoids clashes
-  // when two properties happen to resolve to the same predicate IRI.
-  const cols = def.properties.map((pd, i) => ({
+  // Columns include inherited properties (#1587); a stable alias per column
+  // (?c0, ?c1, …) avoids clashes when two properties resolve to the same IRI.
+  const cols = effectivePropertyDefs(def.id, typeCatalogById(state)).map((pd, i) => ({
     pd,
     alias: `c${i}`,
     predicate: declaredPropertyPredicate(pd.name, pd.type).value,
@@ -89,10 +99,12 @@ export async function getTypeInstances(
     .join('\n     ');
   const selectCols = cols.map((c) => `?${c.alias}`).join(' ');
 
+  // Subclass-aware (#1587): a parent's view includes its subclasses' instances
+  // via the `rdfs:subClassOf*` path (matches the class itself + descendants).
   const { results } = await queryGraph(
     ctx,
     `SELECT ?path ?title ${selectCols} WHERE {
-       ?n a types:${def.classLocalName} ; minerva:relativePath ?path .
+       ?n a/rdfs:subClassOf* types:${def.classLocalName} ; minerva:relativePath ?path .
        OPTIONAL { ?n dc:title ?title }
        ${optionals}
      } ORDER BY LCASE(?title) ?path`,

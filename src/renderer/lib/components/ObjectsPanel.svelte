@@ -38,8 +38,10 @@
   let excerptsOpen = $state(false);
 
   async function loadCounts(): Promise<Record<string, number>> {
+    // Subclass-aware (#1587): count each instance under its type AND every
+    // ancestor, so a parent's count includes its subclasses' instances.
     const { results } = await api.graph.query(
-      `SELECT ?id (COUNT(?x) AS ?n) WHERE { ?x a ?c . ?c minerva:typeId ?id } GROUP BY ?id`,
+      `SELECT ?id (COUNT(DISTINCT ?x) AS ?n) WHERE { ?x a ?sub . ?sub rdfs:subClassOf* ?c . ?c minerva:typeId ?id } GROUP BY ?id`,
     );
     const out: Record<string, number> = {};
     for (const r of results as Array<{ id?: string; n?: string }>) {
@@ -53,7 +55,7 @@
     if (!row) return;
     const { results } = await api.graph.query(
       `SELECT ?path ?title WHERE {
-         ?n a types:${row.type.classLocalName} ; minerva:relativePath ?path .
+         ?n a/rdfs:subClassOf* types:${row.type.classLocalName} ; minerva:relativePath ?path .
          OPTIONAL { ?n dc:title ?title }
        } ORDER BY ?title`,
     );
