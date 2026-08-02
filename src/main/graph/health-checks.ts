@@ -28,6 +28,14 @@ export function isRunning(): boolean {
   return running;
 }
 
+/** The SPARQL rows every check reads, cast to the string-record shape once
+ *  instead of at each call site. `queryGraph` auto-injects the standard prefixes
+ *  (`injectSparqlPrefixes`), so the checks' SELECT bodies omit the PREFIX
+ *  boilerplate (#1602). */
+function asRows(result: Awaited<ReturnType<typeof queryGraph>>): Record<string, string>[] {
+  return result.results as Record<string, string>[];
+}
+
 // ── Run All Checks ─────────────────────────────────────────────────────────
 
 export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
@@ -59,8 +67,6 @@ export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
 
 async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     SELECT ?claim ?label WHERE {
       ?claim a thought:Claim .
       ?claim thought:label ?label .
@@ -68,7 +74,7 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
     }
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => ({
+  return asRows(results).map((r, i) => ({
     id: `unsupported-${i}`,
     type: 'unsupported_claim',
     severity: 'warning' as const,
@@ -83,8 +89,6 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
   const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
 
   const results = await queryGraph(ctx, `
-    PREFIX dc: <http://purl.org/dc/terms/>
-    PREFIX minerva: <https://minerva.dev/ontology#>
     SELECT ?note ?title ?modified WHERE {
       ?note a minerva:Note .
       ?note dc:title ?title .
@@ -95,7 +99,7 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
     LIMIT 20
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => ({
+  return asRows(results).map((r, i) => ({
     id: `stale-${i}`,
     type: 'stale_note',
     severity: 'info' as const,
@@ -111,7 +115,6 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
 
   // Claims with grounds but no warrant
   const noWarrant = await queryGraph(ctx, `
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?claim ?label WHERE {
       ?claim a thought:Claim .
       ?claim thought:label ?label .
@@ -124,7 +127,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
     }
   `);
 
-  for (const [i, r] of (noWarrant.results as Record<string, string>[]).entries()) {
+  for (const [i, r] of asRows(noWarrant).entries()) {
     inspections.push({
       id: `no-warrant-${i}`,
       type: 'missing_warrant',
@@ -138,7 +141,6 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
 
   // Warrants with no backing
   const noBacking = await queryGraph(ctx, `
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?warrant ?label WHERE {
       ?warrant a thought:Warrant .
       ?warrant thought:label ?label .
@@ -149,7 +151,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
     }
   `);
 
-  for (const [i, r] of (noBacking.results as Record<string, string>[]).entries()) {
+  for (const [i, r] of asRows(noBacking).entries()) {
     inspections.push({
       id: `no-backing-${i}`,
       type: 'missing_backing',
@@ -174,9 +176,6 @@ const VALID_DOI_RE = /^10\.\d{4,9}\/[-._;/:a-zA-Z0-9()]+$/;
 
 async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    PREFIX bibo: <http://purl.org/ontology/bibo/>
-    PREFIX dc: <http://purl.org/dc/terms/>
-    PREFIX minerva: <https://minerva.dev/ontology#>
     SELECT ?source ?sourceId ?title ?doi WHERE {
       ?source minerva:sourceId ?sourceId .
       ?source bibo:doi ?doi .
@@ -184,7 +183,7 @@ async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
     }
   `);
 
-  return (results.results as Record<string, string>[]).flatMap((r, i) => {
+  return asRows(results).flatMap((r, i) => {
     if (!r.doi || VALID_DOI_RE.test(r.doi)) return [];
     const label = r.title || r.sourceId!;
     return [{
@@ -201,7 +200,6 @@ async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
 
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?a ?aLabel ?b ?bLabel WHERE {
       ?a thought:contradicts ?b .
       ?a thought:hasStatus thought:established .
@@ -211,7 +209,7 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
     }
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => ({
+  return asRows(results).map((r, i) => ({
     id: `contradiction-${i}`,
     type: 'contradiction',
     severity: 'concern' as const,
@@ -230,9 +228,6 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
  */
 async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
-    PREFIX dc: <http://purl.org/dc/terms/>
     SELECT ?source ?sourceId ?title (GROUP_CONCAT(?creator; SEPARATOR=", ") AS ?creators) WHERE {
       ?source minerva:sourceId ?sourceId .
       OPTIONAL { ?source dc:title ?title }
@@ -244,7 +239,7 @@ async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspect
     LIMIT 50
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => {
+  return asRows(results).map((r, i) => {
     const label = r.title || r.sourceId!;
     const missing: string[] = [];
     if (!r.title) missing.push('title');
@@ -271,9 +266,6 @@ async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspect
 async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
   const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
   const results = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
-    PREFIX dc: <http://purl.org/dc/terms/>
     SELECT ?source ?sourceId ?title ?modified WHERE {
       ?source minerva:sourceId ?sourceId .
       ?source thought:stubStatus "unresolved" .
@@ -285,7 +277,7 @@ async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: numb
     LIMIT 50
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => {
+  return asRows(results).map((r, i) => {
     const label = r.title || r.sourceId!;
     return {
       id: `stub-aged-${i}`,
@@ -306,9 +298,6 @@ async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: numb
  */
 async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
-    PREFIX dc: <http://purl.org/dc/terms/>
     SELECT ?source ?sourceId ?title (COUNT(DISTINCT ?note) AS ?cites) WHERE {
       ?source minerva:sourceId ?sourceId .
       ?note thought:cites ?source .
@@ -322,7 +311,7 @@ async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[
     LIMIT 25
   `);
 
-  return (results.results as Record<string, string>[]).map((r, i) => {
+  return asRows(results).map((r, i) => {
     const label = r.title || r.sourceId!;
     const count = Number(r.cites ?? 0) || 0;
     return {
@@ -349,9 +338,6 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
 
   // Duplicate DOIs (lowercased).
   const dupDois = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX bibo: <http://purl.org/ontology/bibo/>
-    PREFIX dc: <http://purl.org/dc/terms/>
     SELECT ?keyDoi (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
            (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
       ?source minerva:sourceId ?sourceId .
@@ -362,7 +348,7 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
     HAVING (COUNT(DISTINCT ?source) > 1)
     LIMIT 25
   `);
-  for (const [i, r] of (dupDois.results as Record<string, string>[]).entries()) {
+  for (const [i, r] of asRows(dupDois).entries()) {
     const ids = (r.ids ?? '').split(' || ').filter(Boolean);
     const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
     inspections.push({
@@ -378,8 +364,6 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
 
   // Duplicate URIs (lowercased, trailing slash normalised).
   const dupUris = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX bibo: <http://purl.org/ontology/bibo/>
     SELECT ?keyUri (GROUP_CONCAT(DISTINCT ?source; SEPARATOR=" || ") AS ?sources)
            (GROUP_CONCAT(DISTINCT ?sourceId; SEPARATOR=" || ") AS ?ids) WHERE {
       ?source minerva:sourceId ?sourceId .
@@ -390,7 +374,7 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
     HAVING (COUNT(DISTINCT ?source) > 1)
     LIMIT 25
   `);
-  for (const [i, r] of (dupUris.results as Record<string, string>[]).entries()) {
+  for (const [i, r] of asRows(dupUris).entries()) {
     const ids = (r.ids ?? '').split(' || ').filter(Boolean);
     const firstSource = (r.sources ?? '').split(' || ')[0] ?? '';
     inspections.push({
@@ -439,15 +423,12 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
   // Pre-fetch the valid-target sets so per-row lookups are O(1).
   const [notesRes, sourcesRes, excerptsRes] = await Promise.all([
     queryGraph(ctx, `
-      PREFIX minerva: <https://minerva.dev/ontology#>
       SELECT ?path WHERE { ?n minerva:relativePath ?path . ?n a minerva:Note }
     `),
     queryGraph(ctx, `
-      PREFIX minerva: <https://minerva.dev/ontology#>
       SELECT ?id WHERE { ?s minerva:sourceId ?id }
     `),
     queryGraph(ctx, `
-      PREFIX minerva: <https://minerva.dev/ontology#>
       SELECT ?id WHERE { ?e minerva:excerptId ?id }
     `),
   ]);
@@ -457,8 +438,6 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
 
   // Walk every link triple — across every typed-link predicate.
   const linksRes = await queryGraph(ctx, `
-    PREFIX minerva: <https://minerva.dev/ontology#>
-    PREFIX thought: <https://minerva.dev/ontology/thought#>
     SELECT ?source ?sourcePath ?predicate ?target WHERE {
       ?source minerva:relativePath ?sourcePath .
       ?source ?predicate ?target .
