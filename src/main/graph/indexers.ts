@@ -216,6 +216,10 @@ function isFrontmatterMap(value: FrontmatterValue): value is FrontmatterMap {
  *
  * `depth` caps recursion (matches the parser's own sanitise cap).
  */
+/** Recursion cap for nested frontmatter values — matches the parser's own
+ *  sanitise cap. */
+const MAX_FRONTMATTER_DEPTH = 8;
+
 function emitFrontmatterValue(
   state: GraphState,
   store: $rdf.IndexedFormula,
@@ -231,7 +235,7 @@ function emitFrontmatterValue(
   // xsd:integer, etc. Undefined for untyped notes / undeclared keys (unchanged).
   declaredType?: PropertyType,
 ): void {
-  if (depth > 8) return;
+  if (depth > MAX_FRONTMATTER_DEPTH) return;
   const recovered = recoverYamlEatenWikiLink(value);
   if (recovered === null || recovered === undefined) return;
   if (Array.isArray(recovered)) {

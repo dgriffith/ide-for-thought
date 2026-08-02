@@ -11,6 +11,7 @@
 // existing `import … from './llm/approval'` sites keep working unchanged.
 
 import * as graph from '../graph/index';
+import { DAY_MS } from '../graph/queries';
 import type { ProjectContext } from '../project-context-types';
 import type {
   ApproveResult,
@@ -71,7 +72,7 @@ function assertWiredPayloads(payloads: ProposalPayload[]): void {
 export async function proposeWrite(ctx: ProjectContext, write: ProposedWrite): Promise<Proposal> {
   assertWiredPayloads(write.payloads);
   const now = new Date().toISOString();
-  const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * 86400000).toISOString();
+  const expiryDate = new Date(Date.now() + (write.expiryDays ?? 7) * DAY_MS).toISOString();
 
   const proposal: Proposal = {
     uri: proposalUri(),

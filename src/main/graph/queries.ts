@@ -937,7 +937,7 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
  */
 export type ReadingQueueView = 'unread' | 'reading' | 'dueThisWeek' | 'recentlyFinished';
 
-const DAY_MS = 86_400_000;
+export const DAY_MS = 86_400_000;
 
 /**
  * Source ids matching the given queue view. `now` is injectable for
