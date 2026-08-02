@@ -1,9 +1,10 @@
 #!/bin/sh
 # Pre-push lint gate (#690).
 #
-# Runs the fast `pnpm lint` (tsc + svelte-check + eslint, ~50s) before a push so
-# an obvious type/template/lint failure is caught locally instead of burning a
-# slow macos-latest CI run. Pre-push (not pre-commit) keeps commits frictionless.
+# Runs the fast `pnpm lint` (tsc + svelte-check + eslint, run in parallel, ~40s)
+# before a push so an obvious type/template/lint failure is caught locally
+# instead of burning a slow macos-latest CI run. Pre-push (not pre-commit) keeps
+# commits frictionless.
 #
 # Escape hatches: `git push --no-verify`, or `SKIP_HOOKS=1 git push`.
 # Activated by the `prepare` script (sets core.hooksPath to .githooks on install).
