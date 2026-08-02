@@ -99,6 +99,18 @@ export default defineConfig({
           statements: 74,
           branches: 60,
         },
+        // git publish — the isomorphic-git push engine + gh/HTTPS-token auth
+        // (#254). Was 0% at the stale baseline; live is well-covered by the
+        // publish-git / auth / push suites. Measured ~74% L / 74% F / 73% S /
+        // 78% B; floors ~10pts below so a refactor won't flap but new untested
+        // code fails. Remaining gaps in publish-git.ts are the real-remote push
+        // paths, best left to integration rather than unit tests (#1614).
+        'src/main/git/**': {
+          lines: 64,
+          functions: 62,
+          statements: 62,
+          branches: 66,
+        },
         // IPC registrars — mostly thin channel→module glue that was entirely
         // unfenced (QA C1 / #1612). The layer is deliberately low-covered (the
         // underlying modules carry the real tests), so this is a BACKSTOP, not a
