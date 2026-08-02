@@ -395,9 +395,11 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
   ],
   "types": [
     "delete",
+    "deleteSafely",
     "instances",
     "list",
     "noteProperties",
+    "rename",
     "save",
   ],
   "view": [
