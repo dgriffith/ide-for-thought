@@ -103,8 +103,10 @@ vi.mock('../../../src/main/llm/thoughtbase-doc', () => ({
 }));
 
 import { registerConversation } from '../../../src/main/ipc/register-conversation';
+import { registerConversationDrafts } from '../../../src/main/ipc/register-conversation-drafts';
 
 registerConversation();
+registerConversationDrafts();
 
 const evt = { sender: {} };
 const send = h.handlers.get(Channels.CONVERSATION_SEND)!;
