@@ -60,6 +60,9 @@
   import EditSavedQueriesDialog from './lib/components/EditSavedQueriesDialog.svelte';
   import EditSavedViewsDialog from './lib/components/EditSavedViewsDialog.svelte';
   import AttachEvidenceDialog from './lib/components/AttachEvidenceDialog.svelte';
+  import TypeEditorDialog from './lib/components/TypeEditorDialog.svelte';
+  import type { TypeEditorInitial } from './lib/components/type-editor-value';
+  import { setFrontmatterProperty } from '../shared/frontmatter-edit';
   import SaveQueryDialog from './lib/components/SaveQueryDialog.svelte';
   import FindInNotesDialog from './lib/components/FindInNotesDialog.svelte';
   import GotoNoteDialog from './lib/components/GotoNoteDialog.svelte';
@@ -392,6 +395,18 @@
 
   let showEditSavedViews = $state(false);
 
+  // Type editor (#1585) opened from "Save Note as Object Type" — pre-filled from
+  // the note; on save the note is promoted to the new type (its first instance).
+  let typeEditorState = $state<{ initial: TypeEditorInitial; promoteNotePath: string } | null>(null);
+  function handleTypeEditorSaved(id: string): void {
+    const s = typeEditorState;
+    typeEditorState = null;
+    if (s && editor.activeFilePath === s.promoteNotePath) {
+      editor.setContent(setFrontmatterProperty(editor.content, 'type', id));
+    }
+    sidebar?.refreshObjects();
+  }
+
   // Attach-excerpt-as-evidence (#1073): the excerpt whose evidence dialog is open.
   let attachEvidenceExcerptId = $state<string | null>(null);
   async function handleAttachEvidence(claimPath: string, role: 'grounds' | 'supports' | 'rebuts'): Promise<void> {
@@ -680,6 +695,7 @@
     setSafeDeleteState: (s) => { safeDeleteDialogState = s; },
     setMergePickerSource: (s) => { mergePickerSource = s; },
     openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('fields'); },
+    openTypeEditor: (initial, promoteNotePath) => { typeEditorState = { initial, promoteNotePath }; },
   };
   const {
     handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
@@ -1466,6 +1482,13 @@
       excerptId={attachEvidenceExcerptId}
       onClose={() => { attachEvidenceExcerptId = null; }}
       onAttach={handleAttachEvidence}
+    />
+  {/if}
+  {#if typeEditorState}
+    <TypeEditorDialog
+      initial={typeEditorState.initial}
+      onClose={() => { typeEditorState = null; }}
+      onSaved={handleTypeEditorSaved}
     />
   {/if}
   {#if saveQueryRequest}

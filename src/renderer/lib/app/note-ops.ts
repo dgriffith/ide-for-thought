@@ -17,7 +17,7 @@ import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNote
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
 import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/frontmatter-edit';
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
-import type { TypeInfo } from '../../../shared/objects/type-def';
+import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
 import { substituteTemplate } from '../../../shared/templates';
 import { buildTypedNoteScaffold } from '../../../shared/objects/scaffold';
 import { CONFIRM_KEYS } from '../confirm-keys';
@@ -35,6 +35,9 @@ export interface NoteOpsCtx {
   setMergePickerSource: (s: string | null) => void;
   /** Reveal the right-sidebar "Fields" panel after promoting a note (#1067). */
   openTypeFields?: () => void;
+  /** Open the type editor pre-filled from a note ("Save Note as Object Type",
+   *  #1585); on save the host promotes `promoteNotePath` to the new type. */
+  openTypeEditor?: (initial: { label: string; properties: PropertyDef[] }, promoteNotePath: string) => void;
 }
 
 export function createNoteOps(ctx: NoteOpsCtx) {
@@ -161,17 +164,12 @@ export function createNoteOps(ctx: NoteOpsCtx) {
    * frontmatter (schema; the body is the separate "Save as Template" concern),
    * writes it, then promotes the seeding note to it so it's the first instance.
    */
-  async function handleSaveNoteAsObjectType() {
+  function handleSaveNoteAsObjectType() {
     if (!notebase.meta || !editor.activeFilePath) return;
     const stem = editor.activeFilePath.replace(/\.md$/i, '').split('/').pop() ?? '';
-    const label = (await showPrompt('Object type name:', { initial: stem }))?.trim();
-    if (!label) return;
-    const properties = deriveTypeProperties(getFrontmatterValues(editor.content));
-    const { id } = await api.types.save({ label, properties });
-    // Promote the seeding note to the new type — its first instance.
-    editor.setContent(setFrontmatterProperty(editor.content, 'type', id));
-    ctx.getSidebar()?.refreshObjects?.();
-    ctx.openTypeFields?.();
+    // Open the editor pre-filled with the derived properties so the user can
+    // refine before saving (#1585); the host promotes this note on save.
+    ctx.openTypeEditor?.({ label: stem, properties: deriveTypeProperties(getFrontmatterValues(editor.content)) }, editor.activeFilePath);
   }
 
   async function handleNewFolder(directory: string = '') {

@@ -11,12 +11,28 @@
   import { api } from '../ipc/client';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
+  import TypeEditorDialog from './TypeEditorDialog.svelte';
+  import type { TypeEditorInitial } from './type-editor-value';
   import type { TypeInfo } from '../../../shared/objects/type-def';
 
   const { showConfirm } = getDialogStore();
 
   let counts = $state<Record<string, number>>({});
   let busy = $state(false);
+  // The type editor (#1585): open with a blank value (New) or an existing type (Edit).
+  let editorInitial = $state<TypeEditorInitial | null>(null);
+  let editorOpen = $state(false);
+
+  function openNew(): void { editorInitial = { label: '', properties: [] }; editorOpen = true; }
+  function openEdit(t: TypeInfo): void {
+    editorInitial = {
+      id: t.id, label: t.label, properties: t.properties,
+      ...(t.icon ? { icon: t.icon } : {}), ...(t.color ? { color: t.color } : {}),
+      ...(t.cover ? { cover: t.cover } : {}), ...(t.card ? { card: t.card } : {}),
+      ...(t.template ? { template: t.template } : {}),
+    };
+    editorOpen = true;
+  }
 
   async function loadCounts(): Promise<void> {
     const { results } = await api.graph.query(
@@ -60,10 +76,13 @@
 </script>
 
 <div class="object-types">
-  <p class="hint">
-    Object types let notes act as first-class objects (Book, Person, Meeting…). Create one from any note
-    with <strong>File → Save Note as Object Type</strong>; stock types are read-only.
-  </p>
+  <div class="head">
+    <p class="hint">
+      Object types let notes act as first-class objects (Book, Person, Meeting…). Create one here or from any
+      note with <strong>File → Save Note as Object Type</strong>; stock types are read-only.
+    </p>
+    <button class="new-btn" onclick={openNew}>+ New type</button>
+  </div>
 
   {#if objectTypesStore.errors.length > 0}
     <div class="errors">
@@ -90,6 +109,7 @@
           <span class="type-src" class:user={t.source === 'user'}>{t.source}</span>
           {#if t.source === 'user'}
             <span class="type-actions">
+              <button class="link-btn" disabled={busy} onclick={() => openEdit(t)}>Edit</button>
               <button class="link-btn" disabled={busy} onclick={() => { void duplicate(t); }}>Duplicate</button>
               <button class="link-btn" disabled={busy} onclick={() => { void remove(t); }}>Delete</button>
             </span>
@@ -102,9 +122,24 @@
   {/if}
 </div>
 
+{#if editorOpen}
+  <TypeEditorDialog
+    initial={editorInitial}
+    onClose={() => { editorOpen = false; }}
+    onSaved={() => { editorOpen = false; void refresh(); }}
+  />
+{/if}
+
 <style>
   .object-types { display: flex; flex-direction: column; gap: 10px; }
-  .hint { font-size: 12.5px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+  .head { display: flex; align-items: flex-start; gap: 12px; }
+  .hint { flex: 1; font-size: 12.5px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+  .new-btn {
+    flex-shrink: 0; padding: 5px 12px; border: 1px solid var(--accent); border-radius: 6px;
+    background: color-mix(in oklch, var(--accent) 12%, transparent); color: var(--accent);
+    font-family: inherit; font-size: 12px; cursor: pointer;
+  }
+  .new-btn:hover { background: color-mix(in oklch, var(--accent) 20%, transparent); }
   .empty { font-size: 13px; color: var(--text-faint); }
   .errors { display: flex; flex-direction: column; gap: 2px; }
   .error-row { font-size: 11.5px; color: var(--text-muted); }
