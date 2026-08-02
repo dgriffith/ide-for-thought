@@ -18,6 +18,7 @@ import {
   planCreateFromConversation,
 } from '../refactor/create-from-conversation';
 import { getRefactorSettings } from '../refactor/settings';
+import { todayDateString } from '../refactor/extract';
 import { CONFIRM_KEYS } from '../confirm-keys';
 import type { Conversation, SourceExcerpt } from '../../../shared/types';
 
@@ -66,7 +67,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
       body,
       sourceRelativePath,
       conversationId: args.conversation.id,
-      today: new Date().toISOString().slice(0, 10),
+      today: todayDateString(),
       settings: getRefactorSettings(),
     });
 

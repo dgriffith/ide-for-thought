@@ -1,10 +1,46 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   deriveProposedTitle,
   sanitizeFilename,
   planExtract,
   planSplitHere,
+  todayDateString,
 } from '../../../src/renderer/lib/refactor/extract';
+
+describe('todayDateString', () => {
+  // Both cases pin a zone *and* an instant where the local calendar date
+  // differs from the UTC one, so they fail on a UTC CI runner too if the
+  // helper ever goes back to `toISOString()` (which renders in UTC, not local
+  // time). Without the forced zone this would be green everywhere CI runs and
+  // only break on contributors' machines.
+  const atZone = (tz: string, instant: string, assert: () => void): void => {
+    const prev = process.env.TZ;
+    process.env.TZ = tz;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(instant));
+    try {
+      assert();
+    } finally {
+      vi.useRealTimers();
+      if (prev === undefined) delete process.env.TZ;
+      else process.env.TZ = prev;
+    }
+  };
+
+  it('uses the local date east of UTC, where UTC is still on the previous day', () => {
+    // 22:30Z is already 00:30 on the 2nd in UTC+2.
+    atZone('Europe/Berlin', '2026-08-01T22:30:00Z', () => {
+      expect(todayDateString()).toBe('2026-08-02');
+    });
+  });
+
+  it('uses the local date west of UTC, where UTC has already rolled over', () => {
+    // 00:00Z on the 3rd is still 17:00 on the 2nd in UTC-7.
+    atZone('America/Los_Angeles', '2026-08-03T00:00:00Z', () => {
+      expect(todayDateString()).toBe('2026-08-02');
+    });
+  });
+});
 
 describe('deriveProposedTitle', () => {
   it('uses the first ATX heading when the body starts with one', () => {
