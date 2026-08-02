@@ -312,32 +312,7 @@ async function init(): Promise<void> {
     // an open tab. No parallel "open tabs" persisted list — the status field
     // in `<id>.json` is the source of truth.
     const active = await api.conversations.listActive();
-    tabs = active.map((conv) => ({
-      id: conv.id,
-      title: null,
-      conversation: conv,
-      drafts: [],
-      sourceDrafts: [],
-      sourceDraftResults: {},
-      noteDraftResults: {},
-      propertyDrafts: [],
-      propertyDraftResults: {},
-      sourcePropertyDrafts: [],
-      sourcePropertyDraftResults: {},
-      claimsDrafts: [],
-      claimsDraftResults: {},
-      computeDrafts: [],
-      refactorDrafts: [],
-      reorgDrafts: [],
-      deleteDrafts: [],
-      noteBodyDrafts: [],
-      computeDraftState: {},
-      pendingQuestion: null,
-      composer: '',
-      streaming: false,
-      streamedChunks: '',
-      extraTools: [],
-    }));
+    tabs = active.map((conv) => blankTabRuntime(conv, []));
     // Restore last-active tab id only if it still corresponds to an open
     // tab; if the user closed it from a prior session, fall through.
     if (ui.activeTabId && tabs.some((t) => t.id === ui.activeTabId)) {
@@ -408,32 +383,7 @@ async function openFreeform(originNotePath?: string): Promise<TabRuntime> {
   // active note at creation time.
   const bundle: ContextBundle = originNotePath ? { notePath: originNotePath } : {};
   const conv = await api.conversations.create(bundle);
-  const tab: TabRuntime = {
-    id: conv.id,
-    title: null,
-    conversation: conv,
-    drafts: [],
-    sourceDrafts: [],
-    sourceDraftResults: {},
-    noteDraftResults: {},
-    propertyDrafts: [],
-    propertyDraftResults: {},
-    sourcePropertyDrafts: [],
-    sourcePropertyDraftResults: {},
-    claimsDrafts: [],
-    claimsDraftResults: {},
-    computeDrafts: [],
-    refactorDrafts: [],
-    reorgDrafts: [],
-    deleteDrafts: [],
-    noteBodyDrafts: [],
-    computeDraftState: {},
-    pendingQuestion: null,
-    composer: '',
-    streaming: false,
-    streamedChunks: '',
-    extraTools: [],
-  };
+  const tab = blankTabRuntime(conv, []);
   tabs = [...tabs, tab];
   activeTabId = tab.id;
   show();
@@ -476,32 +426,7 @@ async function openConversationTab(opts: {
     undefined,
     Object.keys(createOpts).length > 0 ? createOpts : undefined,
   );
-  const tab: TabRuntime = {
-    id: conv.id,
-    title: null,
-    conversation: conv,
-    drafts: [],
-    sourceDrafts: [],
-    sourceDraftResults: {},
-    noteDraftResults: {},
-    propertyDrafts: [],
-    propertyDraftResults: {},
-    sourcePropertyDrafts: [],
-    sourcePropertyDraftResults: {},
-    claimsDrafts: [],
-    claimsDraftResults: {},
-    computeDrafts: [],
-    refactorDrafts: [],
-    reorgDrafts: [],
-    deleteDrafts: [],
-    noteBodyDrafts: [],
-    computeDraftState: {},
-    pendingQuestion: null,
-    composer: '',
-    streaming: false,
-    streamedChunks: '',
-    extraTools: opts.extraTools ? [...opts.extraTools] : [],
-  };
+  const tab = blankTabRuntime(conv, opts.extraTools ? [...opts.extraTools] : []);
   tabs = [...tabs, tab];
   activeTabId = tab.id;
   show();
@@ -763,11 +688,24 @@ async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ 
   return { filedPaths: result.filedPaths };
 }
 
-function discardDraft(tabId: string, draftId: string): void {
+/** The TabRuntime draft-array fields a discard removes a card from — every one
+ *  holds items keyed by `draftId`. (`computeDrafts` is handled separately by
+ *  `discardComputeDraft`, which also clears `computeDraftState`.) */
+type DraftArrayKey =
+  | 'drafts' | 'refactorDrafts' | 'reorgDrafts' | 'deleteDrafts' | 'noteBodyDrafts'
+  | 'sourceDrafts' | 'propertyDrafts' | 'sourcePropertyDrafts' | 'claimsDrafts';
+
+/** Remove a draft card by id from one of the tab's draft arrays. The cast
+ *  bridges the heterogeneous element types (a union `key` widens the write side);
+ *  every draft type carries a `draftId`. */
+function discardFrom(tabId: string, key: DraftArrayKey, draftId: string): void {
   const tab = findTab(tabId);
   if (!tab) return;
-  tab.drafts = tab.drafts.filter((d) => d.draftId !== draftId);
+  const remaining = (tab[key] as Array<{ draftId: string }>).filter((d) => d.draftId !== draftId);
+  (tab as Record<DraftArrayKey, Array<{ draftId: string }>>)[key] = remaining;
 }
+
+function discardDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'drafts', draftId); }
 
 async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDraft): Promise<void> {
   const tab = findTab(tabId);
@@ -780,11 +718,7 @@ async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDr
   tab.refactorDrafts = tab.refactorDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
-function discardRefactorDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.refactorDrafts = tab.refactorDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardRefactorDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'refactorDrafts', draftId); }
 
 async function approveReorgDraft(
   tabId: string,
@@ -798,11 +732,7 @@ async function approveReorgDraft(
   tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
-function discardReorgDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardReorgDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'reorgDrafts', draftId); }
 
 async function approveDeleteDraft(
   tabId: string,
@@ -818,11 +748,7 @@ async function approveDeleteDraft(
   tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
-function discardDeleteDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.deleteDrafts = tab.deleteDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardDeleteDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'deleteDrafts', draftId); }
 
 async function approveNoteBodyDraft(tabId: string, draft: ConversationNoteBodyDraft): Promise<void> {
   const tab = findTab(tabId);
@@ -834,11 +760,7 @@ async function approveNoteBodyDraft(tabId: string, draft: ConversationNoteBodyDr
   tab.noteBodyDrafts = tab.noteBodyDrafts.filter((d) => d.draftId !== draft.draftId);
 }
 
-function discardNoteBodyDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.noteBodyDrafts = tab.noteBodyDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardNoteBodyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'noteBodyDrafts', draftId); }
 
 async function approveSourceDraft(
   tabId: string,
@@ -872,11 +794,7 @@ function dismissSourceDraftResult(tabId: string, draftId: string): void {
   tab.sourceDraftResults = next;
 }
 
-function discardSourceDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.sourceDrafts = tab.sourceDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardSourceDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'sourceDrafts', draftId); }
 
 async function approvePropertyDraft(
   tabId: string,
@@ -913,11 +831,7 @@ async function approvePropertyDraft(
   };
 }
 
-function discardPropertyDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardPropertyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'propertyDrafts', draftId); }
 
 async function approveSourcePropertyDraft(
   tabId: string,
@@ -938,11 +852,7 @@ async function approveSourcePropertyDraft(
   };
 }
 
-function discardSourcePropertyDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardSourcePropertyDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'sourcePropertyDrafts', draftId); }
 
 async function approveClaimsDraft(
   tabId: string,
@@ -963,11 +873,7 @@ async function approveClaimsDraft(
   };
 }
 
-function discardClaimsDraft(tabId: string, draftId: string): void {
-  const tab = findTab(tabId);
-  if (!tab) return;
-  tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draftId);
-}
+function discardClaimsDraft(tabId: string, draftId: string): void { discardFrom(tabId, 'claimsDrafts', draftId); }
 
 async function runComputeDraft(
   tabId: string,
