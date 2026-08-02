@@ -11,11 +11,18 @@ import {
 // helpers depend on "today", so those cases use offsets from the current date
 // rather than hard-coded strings.
 
+// Formats the *local* calendar date, deliberately not `toISOString()`: that
+// serializes in UTC, so a local-midnight Date in any zone east of UTC renders
+// as the previous day (in UTC+2, `isoDaysFromNow(0)` yielded yesterday and the
+// "due today" case below asserted the opposite of what it meant to). The
+// helpers under test parse `${iso}T00:00:00` — local midnight — so the offsets
+// have to be local too.
 const isoDaysFromNow = (days: number): string => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 describe('formatCreators', () => {
