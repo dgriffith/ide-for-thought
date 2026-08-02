@@ -7,6 +7,15 @@
  *
  * Loading is additive and stock wins id collisions: a user type can't shadow a
  * stock type.
+ *
+ * Process / test note (#1630): the stock set is a build-time module-global — the
+ * `?raw` glob below, one immutable copy per process. Crucially, unlike the tool
+ * registry's *mutable* module-global `Map` (`shared/tools/registry.ts`, whose
+ * doc explains why tests must reset it), `loadTypeCatalog` returns a FRESH
+ * catalog on every call, held on the per-project `GraphState`
+ * (`state.typeCatalog`) — there is no shared mutable singleton here. So a test
+ * gets isolation just by loading against its own temp `rootPath`; there's no
+ * process-global catalog state to clear between tests.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
