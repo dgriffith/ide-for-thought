@@ -1,6 +1,7 @@
 import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES } from '../../shared/link-types';
+import { DAY_MS } from './queries';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
 }
 
 async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
-  const cutoff = new Date(Date.now() - thresholdDays * 86400000).toISOString();
+  const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
 
   const results = await queryGraph(ctx, `
     PREFIX dc: <http://purl.org/dc/terms/>
@@ -268,7 +269,7 @@ async function checkSourcesMissingMetadata(ctx: ProjectContext): Promise<Inspect
  * (#107) or hand-fix the stub.
  */
 async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: number): Promise<Inspection[]> {
-  const cutoff = new Date(Date.now() - thresholdDays * 86400000).toISOString();
+  const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
   const results = await queryGraph(ctx, `
     PREFIX minerva: <https://minerva.dev/ontology#>
     PREFIX thought: <https://minerva.dev/ontology/thought#>
