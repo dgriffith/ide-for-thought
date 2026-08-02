@@ -20,6 +20,8 @@ import type {
 } from '../../../shared/conversation-property-drafts';
 import type {
   ConversationComputeDraft,
+  RunComputeDraftInput,
+  InsertComputeDraftInput,
 } from '../../../shared/conversation-compute-drafts';
 import type {
   ConversationSourcePropertyDraft,
@@ -35,6 +37,21 @@ import type {
   ConversationToolKey,
 } from '../../../shared/conversation-tools';
 import { isMissingApiKeyError } from '../../../shared/llm-errors';
+
+/**
+ * Plain deep clone for the IPC boundary. Every draft payload sent renderer→main
+ * must be detached from Svelte's reactive `$state` proxies first — Electron's
+ * structured clone rejects them. A JSON round-trip is the one safe snapshot for
+ * all of them: unlike `$state.snapshot`, it strips any lingering Proxy wrapping
+ * unconditionally and survives dynamic-key payloads (the `PropertyUpdate` inner
+ * `Record<string, unknown>` once arrived empty on the main side after
+ * `$state.snapshot` → structured-clone — the "set_properties approved but no
+ * frontmatter landed" bug). Drafts are disk-persisted as JSON, so the round-trip
+ * is lossless. (#1629)
+ */
+function plainSnapshot<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
 /**
  * Multi-tab conversations store backing the bottom-docked tool window.
@@ -675,7 +692,7 @@ async function approveDraft(tabId: string, draft: ConversationDraft): Promise<{ 
   const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
   // Snapshot before crossing IPC — Svelte 5 `$state` Proxies fail
   // structured-clone otherwise (see project memory).
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   const result = await api.conversations.fileDraft(snapshot);
   // Drop the in-flight card and replace it with a persistent "Filed:"
   // summary keyed by the same draftId. `filedPaths` reflects the actual
@@ -711,7 +728,7 @@ async function approveRefactorDraft(tabId: string, draft: ConversationRefactorDr
   const tab = findTab(tabId);
   if (!tab) return;
   // Snapshot before crossing IPC ($state Proxies fail structured-clone).
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   await api.conversations.fileRefactorDraft(snapshot);
   // Drop the card. The move + link rewrites land via the approval engine, and
   // the NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts update any open editors.
@@ -727,7 +744,7 @@ async function approveReorgDraft(
 ): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   await api.conversations.fileReorgDraft(snapshot, selected);
   tab.reorgDrafts = tab.reorgDrafts.filter((d) => d.draftId !== draft.draftId);
 }
@@ -741,7 +758,7 @@ async function approveDeleteDraft(
 ): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   await api.conversations.fileDeleteDraft(snapshot, selected);
   // Drop the card. The deletions land via the approval engine, and the
   // NOTEBASE_FILE_DELETED broadcasts close any open editors + refresh the tree.
@@ -753,7 +770,7 @@ function discardDeleteDraft(tabId: string, draftId: string): void { discardFrom(
 async function approveNoteBodyDraft(tabId: string, draft: ConversationNoteBodyDraft): Promise<void> {
   const tab = findTab(tabId);
   if (!tab) return;
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   await api.conversations.fileNoteBodyDraft(snapshot);
   // Drop the card. The rewrite lands via the approval engine, and the
   // NOTEBASE_REWRITTEN broadcast reloads the note in any open editor.
@@ -775,7 +792,7 @@ async function approveSourceDraft(
   const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
   // Snapshot before crossing IPC — same Svelte 5 $state Proxy issue
   // that bit propose_notes.
-  const snapshot = $state.snapshot(draft);
+  const snapshot = plainSnapshot(draft);
   const result = await api.conversations.fileSourceDraft(snapshot);
   // Drop the in-flight card and stash the per-source outcomes so the
   // panel can replace the card with a brief status summary.
@@ -804,25 +821,10 @@ async function approvePropertyDraft(
   if (!tab) return;
   const anchored = tab.propertyDrafts.find((d) => d.draftId === draft.draftId);
   const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
-  // Snapshot via JSON round-trip rather than `$state.snapshot` here.
-  // The propose_notes/propose_sources path uses `$state.snapshot` and
-  // works fine because its DraftPayload values are all primitives
-  // (relativePath/content/url/identifier strings). PropertyUpdate
-  // contains a nested `Record<string, unknown>` with arbitrary keys,
-  // and a reported bug — "set_properties approved but no frontmatter
-  // landed" — was traced to that inner object arriving on the main
-  // side empty after $state.snapshot → IPC structured-clone. The
-  // JSON round-trip drops any lingering Proxy wrapping unconditionally
-  // and produces a payload IPC can serialize without losing keys.
-  const plain = JSON.parse(JSON.stringify(draft)) as ConversationPropertyDraft;
-  console.log('[conv] approvePropertyDraft sending', {
-    draftId: plain.draftId,
-    updateCount: plain.updates.length,
-    propertyKeySamples: plain.updates.slice(0, 3).map((u) => ({
-      relativePath: u.relativePath,
-      keys: Object.keys(u.properties ?? {}),
-    })),
-  });
+  // PropertyUpdate's nested `Record<string, unknown>` (arbitrary keys) is the
+  // payload that first forced the JSON round-trip now in plainSnapshot — see its
+  // doc for the "set_properties approved but no frontmatter landed" history.
+  const plain = plainSnapshot(draft);
   const result = await api.conversations.filePropertyDraft(plain);
   tab.propertyDrafts = tab.propertyDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.propertyDraftResults = {
@@ -843,7 +845,7 @@ async function approveSourcePropertyDraft(
   const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
   // JSON round-trip to shed any $state Proxy before IPC structured-clone —
   // same defensive snapshot the property-draft path uses (#103).
-  const plain = JSON.parse(JSON.stringify(draft)) as ConversationSourcePropertyDraft;
+  const plain = plainSnapshot(draft);
   const result = await api.conversations.fileSourcePropertyDraft(plain);
   tab.sourcePropertyDrafts = tab.sourcePropertyDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.sourcePropertyDraftResults = {
@@ -864,7 +866,7 @@ async function approveClaimsDraft(
   const afterMessageIndex = anchored?.afterMessageIndex ?? tab.conversation.messages.length;
   // JSON round-trip to shed any $state Proxy before IPC structured-clone —
   // the claims array is nested, so this is the safe snapshot (#104).
-  const plain = JSON.parse(JSON.stringify(draft)) as ConversationClaimsDraft;
+  const plain = plainSnapshot(draft);
   const result = await api.conversations.fileClaimsDraft(plain);
   tab.claimsDrafts = tab.claimsDrafts.filter((d) => d.draftId !== draft.draftId);
   tab.claimsDraftResults = {
@@ -897,13 +899,8 @@ async function runComputeDraft(
       [draft.draftId]: { ...state, running: true },
     };
   }
-  // JSON round-trip to drop any Svelte 5 $state proxy wrapping before
-  // IPC — same defense used by the property-draft path after the
-  // dynamic-key serialization bug.
-  const plain = JSON.parse(JSON.stringify({ draft, editedCode })) as {
-    draft: ConversationComputeDraft;
-    editedCode?: string;
-  };
+  const input: RunComputeDraftInput = editedCode === undefined ? { draft } : { draft, editedCode };
+  const plain = plainSnapshot(input);
   try {
     const { result } = await api.conversations.runComputeDraft(plain);
     tab.computeDraftState = {
@@ -943,11 +940,10 @@ async function insertComputeDraft(
 ): Promise<string | null> {
   const tab = findTab(tabId);
   if (!tab) return null;
-  const plain = JSON.parse(JSON.stringify({ draft, editedCode, destinationPath })) as {
-    draft: ConversationComputeDraft;
-    editedCode?: string;
-    destinationPath?: string;
-  };
+  const input: InsertComputeDraftInput = { draft };
+  if (editedCode !== undefined) input.editedCode = editedCode;
+  if (destinationPath !== undefined) input.destinationPath = destinationPath;
+  const plain = plainSnapshot(input);
   try {
     const { destinationPath: where } = await api.conversations.insertComputeDraft(plain);
     const prior = tab.computeDraftState[draft.draftId];
