@@ -187,6 +187,13 @@ doubt:
 - CI runs `pnpm coverage` and the Playwright e2e suite on every PR; run
   `pnpm lint` and `pnpm test` locally first — the pre-push hook does the lint
   half for you.
+- **The e2e suite runs on macOS only, by design.** The chokidar file-watcher
+  tests exercise macOS `fsevents` semantics, and the Playwright run needs a
+  darwin Electron bundle — a Linux/Windows runner would need different timing
+  tolerances and per-platform package targets. So the end-to-end journeys (app
+  boot, the smoke path) are *not* exercised on Windows/Linux. If Minerva ever
+  ships those platforms (#962 tracks x64/universal packaging), this boundary is
+  where cross-platform e2e coverage would need to be added.
 
 ## Pull requests
 
