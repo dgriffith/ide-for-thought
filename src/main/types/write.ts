@@ -10,6 +10,10 @@ import type { PropertyDef } from '../../shared/objects/type-def';
 
 export interface SaveTypeInput {
   label: string;
+  /** Stable id when EDITING an existing type — keeps the file/class id fixed
+   *  while the display label changes (#1585). Omit for a new type (id is
+   *  derived from the label). */
+  id?: string | undefined;
   properties: PropertyDef[];
   icon?: string | undefined;
   color?: string | undefined;
@@ -50,7 +54,9 @@ export function serializeTypeFile(id: string, input: SaveTypeInput): string {
  * caller reloads the graph's type catalog so the new type is usable at once.
  */
 export async function saveType(rootPath: string, input: SaveTypeInput): Promise<{ id: string; filePath: string }> {
-  const id = slugify(input.label);
+  // Editing keeps the original id (label is free to change); a new type derives
+  // its id from the label.
+  const id = (input.id && slugify(input.id)) || slugify(input.label);
   if (!id) throw new Error('Type name is empty');
   const filePath = `.minerva/types/${id}.md`;
   await notebaseFs.writeFile(rootPath, filePath, serializeTypeFile(id, input));

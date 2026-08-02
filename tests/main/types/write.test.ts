@@ -64,6 +64,19 @@ describe('saveType (#save-as-type)', () => {
     await expect(saveType(root, { label: '   ', properties: [] })).rejects.toThrow(/empty/i);
   });
 
+  it('keeps a stable id when editing, even as the label changes (#1585)', async () => {
+    // A non-stock id so the user file isn't shadowed by a bundled stock type.
+    await saveType(root, { label: 'Widget', properties: [] });
+    // Edit: new label, same id → overwrites the same file (a rename of the label,
+    // not a new type).
+    const { id, filePath } = await saveType(root, { id: 'widget', label: 'Widget (renamed)', properties: PROPS });
+    expect(id).toBe('widget');
+    expect(filePath).toBe('.minerva/types/widget.md');
+    const catalog = await loadTypeCatalog(root);
+    expect(catalog.types.filter((t) => t.id === 'widget')).toHaveLength(1); // not duplicated
+    expect(catalog.types.find((t) => t.id === 'widget')!.label).toBe('Widget (renamed)');
+  });
+
   it('deleteType removes the user type file (#1584)', async () => {
     const { filePath } = await saveType(root, { label: 'Gadget', properties: [] });
     expect(fs.existsSync(path.join(root, filePath))).toBe(true);
