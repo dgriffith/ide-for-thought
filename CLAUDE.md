@@ -189,6 +189,7 @@ When reviewing PRs that touch LLM integration or graph write paths:
 - [ ] Does the code create `thought:Proposal` nodes for operations that require approval?
 - [ ] Is there a SPARQL integrity check that could detect if this write bypassed approval?
 - [ ] Are there tests that verify the approval gate cannot be skipped?
+- [ ] Does every new `register-*` IPC handler ship with a main-process test, and is its module covered by a `vitest.config.mts` threshold? An untested handler is how the `CONVERSATION_SEND` gap slipped in (#1612) — a new handler needs both a test and threshold enrollment so it can't silently regress.
 
 ### Write Guard
 
