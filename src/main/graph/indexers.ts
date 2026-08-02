@@ -256,6 +256,47 @@ export function declaredPropertyPredicate(name: string, type?: PropertyType) {
  *  so type prefixes and anchors are honoured, not swept into the target. */
 const WHOLE_WIKILINK_RE = /^\[\[([^\]\n]+?)\]\]$/;
 
+/** ISO date / datetime / year-month / year shapes used to type frontmatter scalars (#1608). */
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const YEAR_MONTH_RE = /^\d{4}-\d{2}$/;
+const YEAR_RE = /^\d{4}$/;
+
+/** A frontmatter edge's object term — a resolved link node or a literal. */
+type FrontmatterEdgeTerm = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
+
+/**
+ * Resolve a whole-value wiki-link (`[[…]]` spanning the entire frontmatter
+ * value) to its `{ predicate, term }` edge, or null when `value` isn't one.
+ * `[[sources/<id>]]` edges to the source node (#474). With `honorLinkType` (the
+ * shape-guessing path), an explicit `[[type::target]]` switches the predicate to
+ * that link type; the schema `link-to-type` path passes it false so the value
+ * stays an untyped reference under the frontmatter key. (#1608)
+ */
+function resolveWholeWikiLink(
+  value: string,
+  state: GraphState,
+  keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
+  rc: LinkResolveCtx,
+  honorLinkType: boolean,
+) {
+  const inner = state.baseUri ? value.match(WHOLE_WIKILINK_RE) : null;
+  if (!inner) return null;
+  const link = parseWikiInner(inner[1]!);
+  // #474: a bare `[[sources/<id>]]` edges to the actual source node.
+  if (!link.type && link.target.startsWith('sources/')) {
+    const sourceId = link.target.slice('sources/'.length);
+    if (sourceId) return { predicate: keyPredicate, term: sourceUri(state, sourceId) };
+  }
+  // getLinkType falls back to `references` for untyped/unknown types. The
+  // predicate only switches to the link type when one was written explicitly and
+  // the caller honors it; otherwise the frontmatter key stays authoritative.
+  const linkType = getLinkType(honorLinkType ? (link.type ?? 'references') : 'references');
+  const predicate = honorLinkType && link.type ? linkPredicate(linkType) : keyPredicate;
+  const anchor = link.anchor ? link.anchor.slice(1) : undefined; // parseWikiInner keeps the leading '#'
+  return { predicate, term: resolveLinkTarget(state, linkType, link.target, rc, anchor) };
+}
+
 /**
  * Turn a frontmatter scalar into a graph edge — `{ predicate, term }`. The
  * caller supplies `keyPredicate` (derived from the frontmatter key); a value
@@ -283,8 +324,7 @@ function frontmatterValueToEdge(
   rc: LinkResolveCtx,
   declaredType?: PropertyType,
 ) {
-  type Term = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
-  const plain = (term: Term) => ({ predicate: keyPredicate, term });
+  const plain = (term: FrontmatterEdgeTerm) => ({ predicate: keyPredicate, term });
 
   // Schema-driven coercion (#1063): when the type declares this property, the
   // declared type — not a guess from the value's shape — picks the RDF datatype.
@@ -297,33 +337,18 @@ function frontmatterValueToEdge(
     return plain($rdf.lit(String(value), undefined, XSD(datatype)));
   }
 
-  // Whole-value wiki-link → parse with the body grammar for full parity.
-  const inner = state.baseUri ? value.match(WHOLE_WIKILINK_RE) : null;
-  if (inner) {
-    const link = parseWikiInner(inner[1]!);
-    // #474: a bare `[[sources/<id>]]` edges to the actual source node. A typed
-    // `[[cite::<id>]]` reaches a source through resolveLinkTarget's targetKind.
-    if (!link.type && link.target.startsWith('sources/')) {
-      const sourceId = link.target.slice('sources/'.length);
-      if (sourceId) return plain(sourceUri(state, sourceId));
-    }
-    // getLinkType falls back to `references` for untyped/unknown types — same as
-    // the body path — so an untyped link resolves as a note. The predicate,
-    // though, only switches to the link type when one was written explicitly;
-    // otherwise the frontmatter key stays authoritative.
-    const linkType = getLinkType(link.type ?? 'references');
-    const predicate = link.type ? linkPredicate(linkType) : keyPredicate;
-    const anchor = link.anchor ? link.anchor.slice(1) : undefined; // parseWikiInner keeps the leading '#'
-    return { predicate, term: resolveLinkTarget(state, linkType, link.target, rc, anchor) };
-  }
+  // Whole-value wiki-link → parse with the body grammar for full parity; an
+  // explicit `[[type::x]]` here overrides the frontmatter-key predicate.
+  const wikiEdge = resolveWholeWikiLink(value, state, keyPredicate, rc, true);
+  if (wikiEdge) return wikiEdge;
 
   // Bare absolute URI → IRI node (e.g. `supports: https://minerva.dev/c/claim-…`).
   // The tail check excludes whitespace so a longer string that merely starts
   // with a URL isn't mis-classified.
   if (/^https?:\/\/\S+$/.test(value)) return plain($rdf.sym(value));
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return plain($rdf.lit(value, undefined, XSD('date')));
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return plain($rdf.lit(value, undefined, XSD('dateTime')));
-  if (/^\d{4}$/.test(value)) return plain($rdf.lit(value, undefined, XSD('gYear')));
+  if (ISO_DATE_RE.test(value)) return plain($rdf.lit(value, undefined, XSD('date')));
+  if (ISO_DATETIME_RE.test(value)) return plain($rdf.lit(value, undefined, XSD('dateTime')));
+  if (YEAR_RE.test(value)) return plain($rdf.lit(value, undefined, XSD('gYear')));
   return plain($rdf.lit(value));
 }
 
@@ -342,8 +367,7 @@ function coerceDeclared(
   keyPredicate: ReturnType<typeof resolveFrontmatterPredicate>,
   rc: LinkResolveCtx,
 ) {
-  type Term = ReturnType<typeof resolveLinkTarget> | ReturnType<typeof $rdf.lit>;
-  const plain = (term: Term) => ({ predicate: keyPredicate, term });
+  const plain = (term: FrontmatterEdgeTerm) => ({ predicate: keyPredicate, term });
   const str = value instanceof Date ? value.toISOString() : String(value);
   const asString = () => plain($rdf.lit(str));
 
@@ -361,25 +385,16 @@ function coerceDeclared(
     case 'date': {
       if (value instanceof Date) return plain($rdf.lit(str.slice(0, 10), undefined, XSD('date')));
       const s = str.trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('date')));
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) return plain($rdf.lit(s, undefined, XSD('dateTime')));
-      if (/^\d{4}-\d{2}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('gYearMonth')));
-      if (/^\d{4}$/.test(s)) return plain($rdf.lit(s, undefined, XSD('gYear')));
+      if (ISO_DATE_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('date')));
+      if (ISO_DATETIME_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('dateTime')));
+      if (YEAR_MONTH_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('gYearMonth')));
+      if (YEAR_RE.test(s)) return plain($rdf.lit(s, undefined, XSD('gYear')));
       return asString();
     }
-    case 'link-to-type': {
-      const inner = state.baseUri ? str.match(WHOLE_WIKILINK_RE) : null;
-      if (inner) {
-        const link = parseWikiInner(inner[1]!);
-        if (!link.type && link.target.startsWith('sources/')) {
-          const sid = link.target.slice('sources/'.length);
-          if (sid) return plain(sourceUri(state, sid));
-        }
-        const anchor = link.anchor ? link.anchor.slice(1) : undefined;
-        return { predicate: keyPredicate, term: resolveLinkTarget(state, getLinkType('references'), link.target, rc, anchor) };
-      }
-      return asString();
-    }
+    case 'link-to-type':
+      // Whole-value link only (edge-labeling is #1073) — untyped reference under
+      // the frontmatter key, so honorLinkType is false.
+      return resolveWholeWikiLink(str, state, keyPredicate, rc, false) ?? asString();
   }
 }
 
