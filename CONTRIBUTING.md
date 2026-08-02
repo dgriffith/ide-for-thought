@@ -63,6 +63,11 @@ lint gate before each push so obvious failures are caught locally instead of in
 CI. Bypass a single push with `git push --no-verify` (or `SKIP_HOOKS=1 git push`)
 if you need to.
 
+> **Gotcha:** in a `.svelte` file it's `svelte-check` — not `tsc` or `eslint` —
+> that catches script↔template drift (a template referencing a renamed/removed
+> binding, a wrong prop type). If a `.svelte` change looks fine but `pnpm lint`
+> still fails, read the `svelte-check` section of the output.
+
 ## Architecture in one screen
 
 Three processes with strict context isolation:

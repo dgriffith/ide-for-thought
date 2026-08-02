@@ -7,7 +7,7 @@ Minerva is a desktop markdown IDE built with Electron + Svelte 5 + TypeScript. I
 ## Commands
 
 - `pnpm dev` — Start the dev server (electron-forge + Vite HMR)
-- `pnpm lint` — Type check: `tsc --noEmit` for `.ts` files, then `svelte-check --threshold error` for `.svelte` files (script/template drift, undefined references, wrong prop types). Warnings (a11y, state-referenced-locally) are not fatal.
+- `pnpm lint` — Full static-check gate: `tsc --noEmit` (`.ts` type errors), then `svelte-check --threshold error` (`.svelte` script/template drift, undefined references, wrong prop types), then `eslint .` (lint rules, incl. the renderer data-flow rule). Note `svelte-check` — not `tsc` or `eslint` — is what catches script↔template drift in `.svelte` files. Warnings (a11y, state-referenced-locally) are not fatal.
 - `pnpm test` — Run tests once (vitest run). Use `pnpm test:watch` for the file-watcher loop.
 - `pnpm build` — Build distributable (electron-forge make)
 
