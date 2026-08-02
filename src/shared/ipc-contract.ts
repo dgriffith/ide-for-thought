@@ -1,11 +1,25 @@
 /**
- * Typed IPC contract for the notebase domain (#981).
+ * Typed IPC contract — request/response (invoke) channels (#981, #1606).
+ *
+ * Began as the notebase domain; now spans EVERY domain — ~40 of them, incl.
+ * notebase, sources, compute, graph, conversation, publish, skills, types,
+ * collections, refactor, views, tags, … (one `ChannelMap` entry per invoke
+ * channel).
  *
  * ONE source of truth linking channel ↔ handler ↔ preload ↔ client
  * signatures. Keys are the channel string literals (matching the
  * `Channels.*` values in `./channels`); values are the renderer-facing
  * signature `(...args) => ReturnValue`, where `ReturnValue` is the
  * RESOLVED value (Promises are unwrapped — the wrappers re-wrap).
+ *
+ * Coverage is enforced structurally, not by convention: the typed `handle()`
+ * (main) and `invoke()` (preload) wrappers are both `<K extends keyof
+ * ChannelMap>`, and no handler uses raw `ipcMain.handle`. So a new invoke
+ * channel can't ship without a `ChannelMap` entry — it won't compile — and no
+ * handler falls back to `unknown` args.
+ *
+ * Scope: invoke channels only. One-way `send`/event channels (`*:changed`,
+ * `*:progress`, draft pushes) are typed separately (#1633).
  *
  * Pure type module: no runtime, no electron import. The typed
  * `handle`/`invoke` wrappers derive their arg + return types from here,
