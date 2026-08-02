@@ -12,7 +12,7 @@
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import { objectTypesStore } from '../stores/object-types.svelte';
-  import { PROPERTY_TYPES, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
+  import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
   import type { TypeEditorInitial } from './type-editor-value';
 
   interface Props {
@@ -31,6 +31,11 @@
     options: string;   // comma-separated (enum)
     targetType: string; // link-to-type target id
     onCard: boolean;
+    /** A property's explicit human label (#1594). Carried through the edit so a
+     *  hand-authored `label:` survives a dialog round-trip; the form doesn't
+     *  expose it, so only a genuine custom label (≠ the title-cased default) is
+     *  seeded, and defaults are never written back. */
+    label: string;
   }
 
   let label = $state(seed?.label ?? '');
@@ -45,6 +50,9 @@
       options: (p.options ?? []).join(', '),
       targetType: p.targetType ?? '',
       onCard: (seed?.card ?? []).includes(p.name),
+      // Keep only a real custom label; a default (== title-cased name, which the
+      // parser materializes) seeds blank so it isn't re-written on save.
+      label: p.label && p.label !== titleCase(p.name) ? p.label : '',
     })),
   );
   let saving = $state(false);
@@ -60,7 +68,7 @@
   const propNames = $derived(rows.map((r) => r.name.trim()).filter(Boolean));
 
   function addRow(): void {
-    rows = [...rows, { name: '', type: 'text', options: '', targetType: '', onCard: false }];
+    rows = [...rows, { name: '', type: 'text', options: '', targetType: '', onCard: false, label: '' }];
   }
   function removeRow(i: number): void { rows = rows.filter((_, j) => j !== i); }
   function move(i: number, dir: -1 | 1): void {
@@ -76,6 +84,7 @@
       .filter((r) => r.name.trim())
       .map((r) => {
         const p: PropertyDef = { name: r.name.trim(), type: r.type };
+        if (r.label.trim()) p.label = r.label.trim();
         if (r.type === 'enum') p.options = r.options.split(',').map((s) => s.trim()).filter(Boolean);
         if (r.type === 'link-to-type' && r.targetType.trim()) p.targetType = r.targetType.trim();
         return p;

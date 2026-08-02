@@ -167,3 +167,10 @@ export function pascalCase(id: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join('');
 }
+
+/** `first_name` → `First Name`. The default human label for a property whose
+ *  definition omits an explicit `label:` — shared so the parser's default and
+ *  the type editor's "is this label a real custom value?" check can't diverge. */
+export function titleCase(s: string): string {
+  return s.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
