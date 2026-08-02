@@ -42,6 +42,7 @@ import type {
   SourceDetail,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
+import type { Proposal } from './proposals';
 import type { CellResult, CellOutput, ComputeConsentSummary } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
@@ -485,8 +486,8 @@ export interface ChannelMap {
   'collections:smartMembers': (id: string) => SourceMetadata[];
 
   // Proposals (approval engine)
-  'proposal:list': (status?: string) => unknown[];
-  'proposal:detail': (uri: string) => unknown;
+  'proposal:list': (status?: string) => Proposal[];
+  'proposal:detail': (uri: string) => Proposal | null;
   'proposal:approve': (uri: string) => boolean;
   'proposal:reject': (uri: string) => boolean;
   'proposal:expire': () => number;

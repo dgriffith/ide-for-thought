@@ -1,6 +1,7 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
 import type { ClipperState } from '../../../shared/clipper-pairing';
+import type { Proposal } from '../../../shared/proposals';
 import type { ThemeMode } from '../../../shared/theme';
 
 export interface NotebaseApi {
@@ -672,8 +673,8 @@ export interface ConversationsApi {
 }
 
 export interface ProposalsApi {
-  list(status?: string): Promise<unknown[]>;
-  detail(uri: string): Promise<unknown>;
+  list(status?: string): Promise<Proposal[]>;
+  detail(uri: string): Promise<Proposal | null>;
   approve(uri: string): Promise<boolean>;
   reject(uri: string): Promise<boolean>;
   expire(): Promise<number>;
