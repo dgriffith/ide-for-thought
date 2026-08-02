@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Notification } from 'electron';
+import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
@@ -17,18 +17,18 @@ import { buildExcerptTtl } from '../sources/create-excerpt';
 import { slugify } from '../../shared/slug';
 import { applyPropertyUpdates } from '../llm/set-properties';
 import * as approval from '../llm/approval';
-import type { Proposal } from '../llm/approval';
 import { orderRefactors } from '../notebase/reorg';
 import * as conversation from '../llm/conversation';
 import { currentDateContext } from '../llm/date-context';
 import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbase-doc';
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
+import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
 import {
   formatComputeResultAsContext,
   recordComputeProposalRun,
   buildComputeProposalNoteBlock,
 } from './register-compute';
-import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathOr, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
+import { rootPathFromEvent, winFromEvent, withRootPath, withRootPathWin, reindexFile, persistIndexes, hooks } from './helpers';
 import { handle } from './typed-ipc';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
@@ -173,42 +173,116 @@ function conversationProvenance(conversationId: string): { conversationUri: stri
   };
 }
 
-export function registerConversation(): void {
-  // Proposals
-  handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
-    approval.listProposals(projectContext(rootPath), status)));
-  handle(Channels.PROPOSAL_DETAIL, withRootPathOr(null, (rootPath, uri: string) =>
-    approval.getProposal(projectContext(rootPath), uri)));
-  handle(Channels.PROPOSAL_APPROVE, withRootPathOr<[string], boolean | Promise<boolean>>(false, async (rootPath, uri: string) => {
-    const result = await approval.approveProposal(projectContext(rootPath), uri);
-    return result.ok;
-  }));
-  handle(Channels.PROPOSAL_REJECT, withRootPathOr<[string], boolean | Promise<boolean>>(false, (rootPath, uri: string) =>
-    approval.rejectProposal(projectContext(rootPath), uri)));
-  handle(Channels.PROPOSAL_EXPIRE, withRootPathOr<[], number | Promise<number>>(0, (rootPath) =>
-    approval.expireProposals(projectContext(rootPath))));
+type LlmMessage = { role: 'user' | 'assistant'; content: string };
+type PendingAskUser = Map<string, { winId: number; resolve: (answer: string) => void; reject: (err: Error) => void }>;
+type CompleteWithTools = typeof import('../llm/index').completeWithTools;
+type CompletionParams = Parameters<CompleteWithTools>[0];
+type StreamCallbacks = NonNullable<CompletionParams['callbacks']>;
 
-  // Native OS notification for a proposal that arrived while Minerva was
-  // unfocused (#1541). The renderer owns arrival detection + focus gating and
-  // only calls this when the app isn't foregrounded; clicking the notification
-  // refocuses the window and asks the renderer to open the Proposals panel.
-  handle(Channels.PROPOSALS_NOTIFY_ARRIVAL, (e, arg: { count: number; proposer: string }) => {
-    if (!Notification.isSupported()) return;
-    const count = Math.max(1, arg?.count ?? 1);
-    const from = arg?.proposer ? ` from ${arg.proposer}` : '';
-    const title = count === 1 ? 'New proposal' : `${count} new proposals`;
-    const notice = new Notification({ title, body: `Awaiting your review${from}` });
-    const win = winFromEvent(e);
-    notice.on('click', () => {
-      if (win.isDestroyed()) return;
-      if (win.isMinimized()) win.restore();
-      win.show();
-      win.focus();
-      win.webContents.send(Channels.PROPOSALS_SHOW);
-    });
-    notice.show();
+/** The API's "container_id required" 400 marker — matched to trigger the
+ *  strip-and-retry recovery in `runCompletionWithContainerRecovery`. */
+const CONTAINER_REQUIRED_MARKER = 'container_id is required';
+
+/** Drop assistant turns whose persisted text carries our code-execution markers
+ *  (`_🔍 Searching` / `_🌐 Fetching` / `_⚙️ Running code`). Those are the only
+ *  history entries that can make the API demand a container; stripping them
+ *  (lossy) lets a stuck conversation recover. */
+function stripCodeExecutionTurns(msgs: LlmMessage[]): LlmMessage[] {
+  return msgs.filter((m) => {
+    if (m.role !== 'assistant' || typeof m.content !== 'string') return true;
+    return !/_(?:🔍 Searching|🌐 Fetching|⚙️ Running code)/.test(m.content);
   });
+}
 
+/** Build the per-send streaming callbacks: chunk + every draft kind forwarded to
+ *  the window's renderer, plus the `ask_user` round-trip (tracked in
+ *  `pendingAskUser` so aborting the send can reject a pending question). */
+function buildStreamCallbacks(
+  win: BrowserWindow,
+  convId: string,
+  signal: AbortSignal,
+  pendingAskUser: PendingAskUser,
+): StreamCallbacks {
+  const draftEmit =
+    (channel: string) =>
+    (draft: ConversationDraftBase) => {
+      if (!win.isDestroyed()) win.webContents.send(channel, draft);
+    };
+  return {
+    onChunk: (chunk: string) => {
+      if (!win.isDestroyed()) win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+    },
+    onDraft: draftEmit(Channels.CONVERSATION_DRAFT),
+    onSourceDraft: draftEmit(Channels.CONVERSATION_SOURCE_DRAFT),
+    onPropertyDraft: draftEmit(Channels.CONVERSATION_PROPERTY_DRAFT),
+    onSourcePropertyDraft: draftEmit(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT),
+    onClaimsDraft: draftEmit(Channels.CONVERSATION_CLAIMS_DRAFT),
+    onComputeDraft: draftEmit(Channels.CONVERSATION_COMPUTE_DRAFT),
+    onRefactorDraft: draftEmit(Channels.CONVERSATION_REFACTOR_DRAFT),
+    onReorgDraft: draftEmit(Channels.CONVERSATION_REORG_DRAFT),
+    onDeleteDraft: draftEmit(Channels.CONVERSATION_DELETE_DRAFT),
+    onNoteBodyDraft: draftEmit(Channels.CONVERSATION_NOTE_BODY_DRAFT),
+    askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
+      const questionId = randomUUID();
+      return new Promise<string>((resolve, reject) => {
+        pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
+        if (!win.isDestroyed()) {
+          win.webContents.send(Channels.CONVERSATION_ASK_USER, {
+            questionId,
+            conversationId: convId,
+            question,
+            choices,
+          });
+        } else {
+          pendingAskUser.delete(questionId);
+          reject(new Error('window destroyed'));
+        }
+      });
+    },
+    signal,
+  };
+}
+
+/** Run `completeWithTools`, recovering once from the API's `container_id is
+ *  required` 400: drop the cached container id, strip code-execution turns from
+ *  history, and retry without an initial container id. Any other error — or a
+ *  second failure — propagates. */
+async function runCompletionWithContainerRecovery(
+  completeWithTools: CompleteWithTools,
+  convId: string,
+  base: Omit<CompletionParams, 'messages' | 'callbacks' | 'initialContainerId'>,
+  messages: LlmMessage[],
+  initialContainerId: string | undefined,
+  callbacks: StreamCallbacks,
+): Promise<Awaited<ReturnType<CompleteWithTools>>> {
+  try {
+    return await completeWithTools({
+      ...base,
+      messages,
+      // Re-echo any prior turn's code-execution sandbox id — required whenever
+      // history still contains a server_tool_use block.
+      ...(initialContainerId ? { initialContainerId } : {}),
+      callbacks,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes(CONTAINER_REQUIRED_MARKER)) throw err;
+    // The persisted container id is missing/stale while history still
+    // references code_execution. Clear it, strip the offending turns, retry once.
+    console.warn(
+      `[conv] container_id 400 — recovering. conv=${convId} ` +
+      `cachedContainer=${initialContainerId ?? 'none'} stripping code_execution turns`,
+    );
+    await conversation.setContainerId(convId, undefined, undefined);
+    return await completeWithTools({
+      ...base,
+      messages: stripCodeExecutionTurns(messages),
+      callbacks,
+    });
+  }
+}
+
+export function registerConversation(): void {
   // Conversations
   handle(Channels.CONVERSATION_CREATE, (_e, contextBundle: ContextBundle, triggerNodeUri?: string, options?: { systemPrompt?: string; model?: string }) =>
     conversation.create(contextBundle, triggerNodeUri, options));
@@ -280,122 +354,31 @@ export function registerConversation(): void {
         throw new Error('No thoughtbase is open — cannot send conversation message.');
       }
 
-      // Forward a draft to this window's renderer. Every draft kind shares this
-      // send — the divergent per-kind work is in the CONVERSATION_FILE_*_DRAFT
-      // handlers below, not here (#980).
-      const draftEmit =
-        (channel: string) =>
-        (draft: import('../../shared/conversation-draft-base').ConversationDraftBase) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(channel, draft);
-          }
-        };
-      const streamCallbacks = {
-        onChunk: (chunk: string) => {
-          if (!win.isDestroyed()) {
-            win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
-          }
-        },
-        onDraft: draftEmit(Channels.CONVERSATION_DRAFT),
-        onSourceDraft: draftEmit(Channels.CONVERSATION_SOURCE_DRAFT),
-        onPropertyDraft: draftEmit(Channels.CONVERSATION_PROPERTY_DRAFT),
-        onSourcePropertyDraft: draftEmit(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT),
-        onClaimsDraft: draftEmit(Channels.CONVERSATION_CLAIMS_DRAFT),
-        onComputeDraft: draftEmit(Channels.CONVERSATION_COMPUTE_DRAFT),
-        onRefactorDraft: draftEmit(Channels.CONVERSATION_REFACTOR_DRAFT),
-        onReorgDraft: draftEmit(Channels.CONVERSATION_REORG_DRAFT),
-        onDeleteDraft: draftEmit(Channels.CONVERSATION_DELETE_DRAFT),
-        onNoteBodyDraft: draftEmit(Channels.CONVERSATION_NOTE_BODY_DRAFT),
-        askUser: ({ question, choices }: { question: string; choices?: string[] }) => {
-          const questionId = randomUUID();
-          return new Promise<string>((resolve, reject) => {
-            pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
-            if (!win.isDestroyed()) {
-              win.webContents.send(Channels.CONVERSATION_ASK_USER, {
-                questionId,
-                conversationId: convId,
-                question,
-                choices,
-              });
-            } else {
-              pendingAskUser.delete(questionId);
-              reject(new Error('window destroyed'));
-            }
-          });
-        },
-        signal: controller.signal,
-      };
-
-      // Token the API's "container_id required" error to match against
-      // its 400 message. Hoisted so the catch can string-match without
-      // duplicating the phrase.
-      const CONTAINER_REQUIRED_MARKER = 'container_id is required';
-      // Strip assistant turns whose persisted text carries the
-      // code_execution indicator markers we emit (`_🔍 Searching` /
-      // `_🌐 Fetching` / `_⚙️ Running code`). Those messages are the
-      // only ones whose presence in history can make the API demand a
-      // container; once dropped, the API has nothing to "pend" on.
-      // Lossy (the user loses the prior tool-result text in history),
-      // but the alternative is a stuck conversation.
-      const stripCodeExecutionTurns = (msgs: typeof messages) =>
-        msgs.filter((m) => {
-          if (m.role !== 'assistant' || typeof m.content !== 'string') return true;
-          return !/_(?:🔍 Searching|🌐 Fetching|⚙️ Running code)/.test(m.content);
-        });
+      // Every draft kind shares one streaming callback set; the divergent
+      // per-kind work is in the CONVERSATION_FILE_*_DRAFT handlers, not here (#980).
+      const streamCallbacks = buildStreamCallbacks(win, convId, controller.signal, pendingAskUser);
 
       // Per-conversation web override (#1533): when the conversation pins web
-      // on/off (e.g. from a launching skill's `web:` declaration), send it as a
-      // `web` override — completeWithTools merges it over the global setting, so
-      // the user's global allow/block domain lists still apply. Unset ⇒ omit,
-      // and web resolves from the global setting exactly as before.
+      // on/off, send it as a `web` override — completeWithTools merges it over
+      // the global setting, so the user's allow/block domain lists still apply.
       const webOverride =
         conv.webEnabled !== undefined ? { web: { enabled: conv.webEnabled } } : {};
 
-      let result: Awaited<ReturnType<typeof completeWithTools>>;
-      try {
-        result = await completeWithTools({
+      const result = await runCompletionWithContainerRecovery(
+        completeWithTools,
+        convId,
+        {
           system: effectiveSystem,
-          messages,
           toolContext: { rootPath, conversationId: convId },
           model: conv.model,
           effort: conv.effort,
           extraTools,
           ...webOverride,
-          // Re-echo any prior turn's code-execution sandbox id. Required
-          // by the API whenever the persisted message history still
-          // contains a `server_tool_use` block; without it the next
-          // turn rejects with "container_id is required when there are
-          // pending tool uses generated by code execution with tools."
-          ...(conv.containerId ? { initialContainerId: conv.containerId } : {}),
-          callbacks: streamCallbacks,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes(CONTAINER_REQUIRED_MARKER)) throw err;
-        // The API rejected because the persisted container id is
-        // missing or stale and history still references code_execution.
-        // Two common causes: the conversation predates container
-        // persistence, or the container expired server-side. Drop the
-        // cached id, strip the offending assistant turns from history,
-        // and retry once. If it still fails, the original error
-        // surfaces.
-        console.warn(
-          `[conv] container_id 400 — recovering. conv=${convId} ` +
-          `cachedContainer=${conv.containerId ?? 'none'} stripping code_execution turns`,
-        );
-        await conversation.setContainerId(convId, undefined, undefined);
-        const recoveredMessages = stripCodeExecutionTurns(messages);
-        result = await completeWithTools({
-          system: effectiveSystem,
-          messages: recoveredMessages,
-          toolContext: { rootPath, conversationId: convId },
-          model: conv.model,
-          effort: conv.effort,
-          extraTools,
-          ...webOverride,
-          callbacks: streamCallbacks,
-        });
-      }
+        },
+        messages,
+        conv.containerId,
+        streamCallbacks,
+      );
 
       const updated = await conversation.appendMessage(
         convId,

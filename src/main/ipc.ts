@@ -16,6 +16,7 @@ import { registerSources } from './ipc/register-sources';
 import { registerCompute } from './ipc/register-compute';
 import { registerPublish } from './ipc/register-publish';
 import { registerConversation } from './ipc/register-conversation';
+import { registerProposals } from './ipc/register-proposals';
 import { registerBookmarks } from './ipc/register-bookmarks';
 import { registerClipper } from './ipc/register-clipper';
 import { registerApp } from './ipc/register-app';
@@ -49,6 +50,7 @@ export function registerIpcHandlers(): void {
   registerSources();
   registerCompute();
   registerPublish();
+  registerProposals();
   registerConversation();
   registerBookmarks();
   registerClipper();
