@@ -2,11 +2,21 @@
  * Low-level graph-indexing helpers shared across the per-format indexers
  * (note / source / excerpt / tables). Extracted from indexers.ts (#1624) so the
  * per-format modules can import them without depending on the large indexers.ts
- * — keeping the split acyclic. Depends only on `./state` (a leaf).
+ * — keeping the split acyclic. Depends only on leaf modules (state / parser /
+ * shared).
  */
+import * as $rdf from 'rdflib';
 import fsSync from 'node:fs';
 import path from 'node:path';
-import { STANDARD_PREFIXES, type GraphState } from './state';
+import {
+  STANDARD_PREFIXES, RDF, MINERVA,
+  noteUri, sourceUri, excerptUri,
+  type GraphState,
+} from './state';
+import { buildWikiLinkIndex, resolveWikiLinkTargetWithIndex, type WikiLinkIndex } from '../../shared/wiki-link-resolver';
+import type { LinkType } from '../../shared/link-types';
+import type { FrontmatterValue } from './parser';
+import { slugify } from '../../shared/slug';
 
 /** Disk mtime of a note/source/excerpt file as an ISO string; falls back to
  *  `now()` when the file can't be stat'd (#336). */
@@ -42,4 +52,60 @@ export function injectPrefixes(state: GraphState, turtle: string, noteIri: strin
   }
   lines.push('');
   return lines.join('\n') + turtle;
+}
+
+/** The wiki-link resolver index, built once per indexing pass so each
+ *  `resolveLinkTarget` is an O(1) lookup rather than O(N) (#1473). */
+export interface LinkResolveCtx {
+  index: WikiLinkIndex;
+}
+
+export function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
+  const files = [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false }));
+  // aliasMap keys are already lowercased by rebuildAliasMap.
+  return { index: buildWikiLinkIndex(files, Object.fromEntries(state.aliasMap)) };
+}
+
+/** Resolve a wiki-link's target to its graph node — exactly as click-navigation
+ *  does (#1142): exact path, then basename, then frontmatter alias, then
+ *  slug-fuzzy; falling back to the literal target so a link to a not-yet-created
+ *  note still lights up once the file lands. Anchors append as an IRI fragment. */
+export function resolveLinkTarget(
+  state: GraphState,
+  lt: LinkType,
+  target: string,
+  rc: LinkResolveCtx,
+  anchor?: string,
+) {
+  if (lt.targetKind === 'source') return sourceUri(state, target);
+  if (lt.targetKind === 'excerpt') return excerptUri(state, target);
+  const resolvedPath = resolveWikiLinkTargetWithIndex(target, rc.index)
+    ?? (target.endsWith('.md') ? target : `${target}.md`);
+  const base = noteUri(state, resolvedPath);
+  if (!anchor) return base;
+  // Headings become `#slug`; block-ids stay `#^raw-id` (unslugified so ids
+  // survive edits on the referenced block).
+  const frag = anchor.startsWith('^') ? anchor : slugify(anchor);
+  return $rdf.sym(`${base.value}#${frag}`);
+}
+
+/** Flatten a frontmatter value to a list of strings — for multi-valued string
+ *  keys like `tags`. */
+export function flattenFrontmatterStrings(value: FrontmatterValue): string[] {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) return value.flatMap(flattenFrontmatterStrings);
+  if (typeof value === 'string') return [value];
+  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
+  if (value instanceof Date) return [value.toISOString()];
+  return [];
+}
+
+/** Ensure a `minerva:Tag` resource exists (idempotent) with its display name. */
+export function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: string): void {
+  const { store } = state;
+  const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
+  if (existing.length === 0) {
+    store.add(tagNode, RDF('type'), MINERVA('Tag'));
+    store.add(tagNode, MINERVA('tagName'), $rdf.lit(tagName));
+  }
 }

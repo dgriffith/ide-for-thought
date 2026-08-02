@@ -45,10 +45,13 @@ export type {
 export {
   indexNote, indexCsvTable, unindexCsvTable, unindexAllCsvTables,
   indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
-  removeNote, indexSource, removeSource, parseSourceIdFromPath,
+  removeNote,
   indexAllNotes, reloadTypeCatalog,
 } from './indexers';
 // Per-format indexers extracted from ./indexers (#1624):
+export {
+  indexSource, removeSource, parseSourceIdFromPath,
+} from './indexers/source';
 export {
   indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
 } from './indexers/excerpt';
