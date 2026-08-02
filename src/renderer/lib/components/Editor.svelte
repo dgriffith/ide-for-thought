@@ -7,7 +7,7 @@
   import { markdown } from '@codemirror/lang-markdown';
   import { languages } from '@codemirror/language-data';
   import { EditorState, Prec, Compartment } from '@codemirror/state';
-  import { cmTheme, minervaEditorTheme, fontSizeTheme } from '../editor/editor-theme';
+  import { cmTheme, minervaEditorTheme, fontSizeTheme, hiddenLineNumbersTheme } from '../editor/editor-theme';
   import { getEditorSettings, saveEditorSettings, type EditorSettings } from '../editor/settings';
   import { indentUnit, foldEffect, unfoldEffect, foldedRanges, foldService } from '@codemirror/language';
   import { highlightWhitespace } from '@codemirror/view';
@@ -271,32 +271,23 @@
     return parseStoredFontSize(localStorage.getItem('editorFontSize'));
   }
 
-  export function changeFontSize(delta: number) {
-    const current = getFontSize();
-    const next = clampFontSize(current + delta);
-    localStorage.setItem('editorFontSize', String(next));
-    if (view) {
-      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(next)) });
-    }
-  }
-
-  export function resetFontSize() {
-    localStorage.setItem('editorFontSize', String(DEFAULT_FONT));
-    if (view) {
-      view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(DEFAULT_FONT)) });
-    }
-  }
-
-  /** Set the editor font size to an absolute px value (clamped) — the Settings
-   *  panel's numeric control (#...). Persists + reconfigures like the
-   *  increment/decrement commands, just to a specific size. */
-  export function setFontSize(px: number) {
+  /** Clamp, persist, and reconfigure the editor to `px` — the one place font
+   *  size is applied; the exports below are thin wrappers over it. */
+  function applyFontSize(px: number): void {
     const next = clampFontSize(px);
     localStorage.setItem('editorFontSize', String(next));
     if (view) {
       view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeTheme(next)) });
     }
   }
+
+  export function changeFontSize(delta: number) { applyFontSize(getFontSize() + delta); }
+
+  export function resetFontSize() { applyFontSize(DEFAULT_FONT); }
+
+  /** Set the editor font size to an absolute px value (clamped) — the Settings
+   *  panel's numeric control. */
+  export function setFontSize(px: number) { applyFontSize(px); }
 
   export function currentFontSize(): number {
     return getFontSize();
@@ -312,11 +303,7 @@
           indentUnit.of(' '.repeat(settings.tabSize)),
         ]),
         wrapCompartment.reconfigure(settings.wordWrap ? EditorView.lineWrapping : []),
-        lineNumbersCompartment.reconfigure(settings.lineNumbers ? [] : EditorView.theme({
-          // Must win against @codemirror/view's built-in theme which
-          // declares `.cm-gutter { display: flex !important }`.
-          '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
-        })),
+        lineNumbersCompartment.reconfigure(settings.lineNumbers ? [] : hiddenLineNumbersTheme()),
         whitespaceCompartment.reconfigure(settings.showWhitespace ? highlightWhitespace() : []),
       ],
     });
@@ -520,11 +507,7 @@
       indentUnit.of(' '.repeat(initSettings.tabSize)),
     ]),
     wrapCompartment.of(initSettings.wordWrap ? EditorView.lineWrapping : []),
-    lineNumbersCompartment.of(initSettings.lineNumbers ? [] : EditorView.theme({
-      // See applySettings — overriding the default theme's !important
-      // flex rule needs our own !important.
-      '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
-    })),
+    lineNumbersCompartment.of(initSettings.lineNumbers ? [] : hiddenLineNumbersTheme()),
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
     // Markdown-only rendering layers (#1130): wiki-link/URL decorations,
     // bookmark gutter, runnable compute cells, footnote + highlight decorations.
