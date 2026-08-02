@@ -13,7 +13,7 @@
   import { getDialogStore } from '../stores/dialogs.svelte';
   import { getToastStore } from '../stores/toasts.svelte';
   import TypeEditorDialog from './TypeEditorDialog.svelte';
-  import type { TypeEditorInitial } from './type-editor-value';
+  import { optionalTypeFields, type TypeEditorInitial } from './type-editor-value';
   import type { TypeInfo } from '../../../shared/objects/type-def';
 
   const { showConfirm, showPrompt } = getDialogStore();
@@ -29,10 +29,7 @@
   function openEdit(t: TypeInfo): void {
     editorInitial = {
       id: t.id, label: t.label, properties: t.properties,
-      ...(t.icon ? { icon: t.icon } : {}), ...(t.color ? { color: t.color } : {}),
-      ...(t.cover ? { cover: t.cover } : {}), ...(t.card ? { card: t.card } : {}),
-      ...(t.parent ? { parent: t.parent } : {}),
-      ...(t.template ? { template: t.template } : {}),
+      ...optionalTypeFields(t),
     };
     editorOpen = true;
   }
@@ -57,12 +54,7 @@
       await objectTypesStore.save({
         label: `${t.label} copy`,
         properties: t.properties,
-        ...(t.icon ? { icon: t.icon } : {}),
-        ...(t.color ? { color: t.color } : {}),
-        ...(t.cover ? { cover: t.cover } : {}),
-        ...(t.card ? { card: t.card } : {}),
-        ...(t.parent ? { parent: t.parent } : {}),
-        ...(t.template ? { template: t.template } : {}),
+        ...optionalTypeFields(t),
       });
     } finally { busy = false; }
   }

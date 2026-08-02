@@ -3,7 +3,7 @@
  * type (Edit), or a note-derived draft ("Save Note as Object Type"). Kept in a
  * plain module so both the dialog and its hosts can import it as a type.
  */
-import type { PropertyDef } from '../../../shared/objects/type-def';
+import type { PropertyDef, TypeInfo } from '../../../shared/objects/type-def';
 
 export interface TypeEditorInitial {
   /** Set when editing — the id stays fixed while the label may change. */
@@ -17,4 +17,22 @@ export interface TypeEditorInitial {
   parent?: string;
   properties: PropertyDef[];
   template?: string;
+}
+
+/** A type's optional carry-over fields (icon / color / cover / card / parent /
+ *  template), spread only when set. Shared by the Type Manager's Edit and
+ *  Duplicate paths so a newly-added optional type field can't be threaded into
+ *  one and missed by the other — the exact gap `parent` nearly fell into in
+ *  #1587 (#1603). */
+export function optionalTypeFields(
+  t: TypeInfo,
+): { icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string } {
+  return {
+    ...(t.icon ? { icon: t.icon } : {}),
+    ...(t.color ? { color: t.color } : {}),
+    ...(t.cover ? { cover: t.cover } : {}),
+    ...(t.card ? { card: t.card } : {}),
+    ...(t.parent ? { parent: t.parent } : {}),
+    ...(t.template ? { template: t.template } : {}),
+  };
 }
