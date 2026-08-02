@@ -46,9 +46,12 @@ export {
   indexNote, indexCsvTable, unindexCsvTable, unindexAllCsvTables,
   indexMarkdownTable, unindexMarkdownTable, unindexAllNoteTables,
   removeNote, indexSource, removeSource, parseSourceIdFromPath,
-  indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
   indexAllNotes, reloadTypeCatalog,
 } from './indexers';
+// Per-format indexers extracted from ./indexers (#1624):
+export {
+  indexExcerpt, removeExcerpt, excerptIdsForSource, parseExcerptIdFromPath,
+} from './indexers/excerpt';
 export type { CsvTableColumn, CsvTableShape, MarkdownTableShape, HeadingRenameCandidate } from './indexers';
 import { addOntologyToStore } from './indexers';
 

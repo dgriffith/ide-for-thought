@@ -15,7 +15,6 @@
 
 import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
 import path from 'node:path';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue, type FrontmatterMap } from './parser';
 import { getLinkType, type LinkType } from '../../shared/link-types';
@@ -37,7 +36,6 @@ import {
   type GraphState, type HeadingSnapshot,
   getState, invalidate, resetN3Mirror, instrumentStoreMirror,
   MINERVA, DC, RDF, RDFS, XSD, CSVW, OWL, BIBO, SCHEMA, PROV, THOUGHT, TYPES,
-  STANDARD_PREFIXES,
   noteUri, tagUri, folderUri, sourceUri, excerptUri, tableUri, projectUri,
   linkPredicate, dateLit,
 } from './state';
@@ -46,6 +44,8 @@ import { materializeTypeClasses } from '../types/compile';
 import type { PropertyType } from '../../shared/objects/type-def';
 
 import { checkLLMWriteGuard } from './write-guard';
+import { fileMtimeIso, injectPrefixes } from './index-helpers';
+import { walkAndIndexExcerpts } from './indexers/excerpt';
 
 // `findNotesLinkingToAnchorImpl` is a queries-layer helper; detectHeadingRename
 // (an indexer-only helper below) reuses it.
@@ -440,38 +440,6 @@ function coerceDeclared(
  * `now` only when the file is gone (mid-rename race) so the triple is
  * still well-formed.
  */
-function fileMtimeIso(state: GraphState, relativePath: string): string {
-  try {
-    return fsSync.statSync(path.join(state.rootPath, relativePath)).mtime.toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function injectPrefixes(state: GraphState, turtle: string, noteIri: string): string {
-  const lines: string[] = [];
-  for (const [prefix, iri] of STANDARD_PREFIXES) {
-    if (!turtle.includes(`@prefix ${prefix}:`)) {
-      lines.push(`@prefix ${prefix}: <${iri}> .`);
-    }
-  }
-  // Project-scoped shortcuts for referring to other sources/excerpts in
-  // this thoughtbase by bare id: `sources:smith-2023`, `excerpts:p42`.
-  if (state.baseUri) {
-    if (!turtle.includes('@prefix sources:')) {
-      lines.push(`@prefix sources: <${state.baseUri}source/> .`);
-    }
-    if (!turtle.includes('@prefix excerpts:')) {
-      lines.push(`@prefix excerpts: <${state.baseUri}excerpt/> .`);
-    }
-  }
-  if (!turtle.includes('@prefix this:')) {
-    lines.push(`@prefix this: <${noteIri}> .`);
-  }
-  lines.push('');
-  return lines.join('\n') + turtle;
-}
-
 // ── Heading snapshots ──────────────────────────────────────────────────────
 // HeadingSnapshot moved up into per-project state (#333). Snapshots live
 // on `state.headingsPerNote` — used by indexNote to spot the case where
@@ -561,11 +529,6 @@ export interface IndexNoteOptions {
   linkCtx?: LinkResolveCtx;
 }
 
-// indexNote is an async-by-contract public API: callers `await` it across
-// the project (ipc, write-pipeline, watchers, rename), and we want the
-// freedom to add real async work later without rippling out a signature
-// change. The current body happens to be sync.
-// eslint-disable-next-line @typescript-eslint/require-await
 type ParsedNote = ReturnType<typeof parseMarkdown>;
 
 /** Note type + title + filename/path + disk mtime + folder + project membership
@@ -1361,85 +1324,6 @@ export function parseSourceIdFromPath(relativePath: string): string | null {
   return id;
 }
 
-// ── Excerpt indexing ────────────────────────────────────────────────────────
-// An "excerpt" is a verbatim quotation lifted from a Source, stored at
-// .minerva/excerpts/<id>.ttl. The excerpt node's URI is `${baseUri}excerpt/<id>`.
-// Inside the .ttl file, `this:` resolves to that URI, and `sources:` resolves
-// to `${baseUri}source/`, so users can write:
-//   this: a thought:Excerpt ;
-//       thought:fromSource sources:smith-2023 ;
-//       thought:citedText "..." ;
-//       thought:page 42 .
-
-export function indexExcerpt(ctx: ProjectContext, excerptId: string, metaTtl: string): void {
-  checkLLMWriteGuard('indexExcerpt');
-  const state = getState(ctx);
-  if (!state) return;
-  invalidate(state);
-  const { store } = state;
-
-  const subject = excerptUri(state, excerptId);
-  const graph = subject;
-  const relativePath = `${uriHelpers.EXCERPTS_DIR}/${excerptId}.ttl`;
-
-  store.removeMatches(undefined, undefined, undefined, graph);
-  store.removeMatches(subject, undefined, undefined);
-
-  store.add(subject, MINERVA('excerptId'), $rdf.lit(excerptId), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-  store.add(projectUri(state), MINERVA('containsExcerpt'), subject, graph);
-
-  try {
-    const prefixed = injectPrefixes(state, metaTtl, subject.value);
-    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
-  } catch (e) {
-    console.error(`[minerva] Failed to parse excerpt ttl for ${excerptId}:`, e instanceof Error ? e.message : e);
-  }
-}
-
-export function removeExcerpt(ctx: ProjectContext, excerptId: string): void {
-  checkLLMWriteGuard('removeExcerpt');
-  const state = getState(ctx);
-  if (!state) return;
-  invalidate(state);
-  const { store } = state;
-  const subject = excerptUri(state, excerptId);
-  store.removeMatches(undefined, undefined, undefined, subject);
-  store.removeMatches(subject, undefined, undefined);
-}
-
-/**
- * Every excerpt-id with thought:fromSource pointing at the given source.
- * Used by the source-delete path to cascade-remove orphaned excerpts.
- */
-export function excerptIdsForSource(ctx: ProjectContext, sourceId: string): string[] {
-  const state = getState(ctx);
-  if (!state) return [];
-  const { store } = state;
-  const subject = sourceUri(state, sourceId);
-  const stmts = store.statementsMatching(undefined, THOUGHT('fromSource'), subject);
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const st of stmts) {
-    const idStmts = store.statementsMatching(st.subject, MINERVA('excerptId'), undefined);
-    const id = idStmts[0]?.object.value;
-    if (id && !seen.has(id)) { seen.add(id); ids.push(id); }
-  }
-  return ids;
-}
-
-/** Parse `<id>` out of `.minerva/excerpts/<id>.ttl`. Returns null for other paths. */
-export function parseExcerptIdFromPath(relativePath: string): string | null {
-  const normalized = relativePath.replace(/\\/g, '/');
-  const prefix = `${uriHelpers.EXCERPTS_DIR}/`;
-  if (!normalized.startsWith(prefix)) return null;
-  if (!normalized.endsWith('.ttl')) return null;
-  const id = normalized.slice(prefix.length, -'.ttl'.length);
-  if (!id || id.includes('/')) return null;
-  return id;
-}
-
 function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: string): void {
   const { store } = state;
   const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
@@ -1673,26 +1557,3 @@ async function walkAndIndexSources(ctx: ProjectContext, rootPath: string): Promi
   return count;
 }
 
-async function walkAndIndexExcerpts(ctx: ProjectContext, rootPath: string): Promise<number> {
-  const excerptsRoot = path.join(rootPath, uriHelpers.EXCERPTS_DIR);
-  let count = 0;
-  let entries: import('node:fs').Dirent[];
-  try {
-    entries = await fs.readdir(excerptsRoot, { withFileTypes: true });
-  } catch {
-    return 0;
-  }
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.ttl')) continue;
-    const excerptId = entry.name.slice(0, -'.ttl'.length);
-    const filePath = path.join(excerptsRoot, entry.name);
-    try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      indexExcerpt(ctx, excerptId, content);
-      count++;
-    } catch {
-      // Couldn't read — skip
-    }
-  }
-  return count;
-}
