@@ -150,7 +150,7 @@ pnpm install
 # Start dev server
 pnpm dev
 
-# Type check
+# Lint gate: tsc + svelte-check + eslint
 pnpm lint
 
 # Run tests

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Pre-push lint gate (#690).
 #
-# Runs the fast `pnpm lint` (tsc + svelte-check + eslint, ~30s) before a push so
+# Runs the fast `pnpm lint` (tsc + svelte-check + eslint, ~50s) before a push so
 # an obvious type/template/lint failure is caught locally instead of burning a
 # slow macos-latest CI run. Pre-push (not pre-commit) keeps commits frictionless.
 #
