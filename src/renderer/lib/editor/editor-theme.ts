@@ -58,3 +58,13 @@ export function fontSizeTheme(size: number): Extension {
     '.cm-gutters': { fontSize: `${size}px` },
   });
 }
+
+/** Hides the line-number gutter (when the `lineNumbers` setting is off). The
+ *  `!important` is required to beat @codemirror/view's built-in
+ *  `.cm-gutter { display: flex !important }`. Swapped in via the line-numbers
+ *  compartment at init and in applySettings. */
+export function hiddenLineNumbersTheme(): Extension {
+  return EditorView.theme({
+    '.cm-gutter.cm-lineNumbers': { display: 'none !important' },
+  });
+}
