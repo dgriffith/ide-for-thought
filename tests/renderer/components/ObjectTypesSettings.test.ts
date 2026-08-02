@@ -31,8 +31,8 @@ beforeEach(() => {
   listMock.mockResolvedValue({ types: [BOOK, GADGET], errors: [] });
   saveMock.mockResolvedValue({ id: 'gadget-copy', filePath: '.minerva/types/gadget-copy.md' });
   deleteMock.mockResolvedValue(undefined);
-  deleteSafelyMock.mockResolvedValue({ cleared: [] });
-  renameMock.mockResolvedValue({ newId: 'widget', migrated: ['W1.md'] });
+  deleteSafelyMock.mockResolvedValue({ cleared: [], failed: [] });
+  renameMock.mockResolvedValue({ newId: 'widget', migrated: ['W1.md'], failed: [] });
   queryMock.mockResolvedValue({ results: [{ id: 'book', n: '3' }, { id: 'gadget', n: '1' }], columns: [] });
   confirmMock.mockResolvedValue(true);
   promptMock.mockResolvedValue('Widget');

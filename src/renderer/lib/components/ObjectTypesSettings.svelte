@@ -84,9 +84,10 @@
     }
     busy = true;
     try {
-      const { cleared } = await objectTypesStore.removeSafely(t.id, clear);
+      const { cleared, failed } = await objectTypesStore.removeSafely(t.id, clear);
       await loadCounts();
       if (cleared.length > 0) toasts.push({ message: `Deleted “${t.label}” and cleared it from ${cleared.length} note${cleared.length === 1 ? '' : 's'}.` });
+      if (failed.length > 0) toasts.push({ message: `Deleted “${t.label}”, but ${failed.length} note${failed.length === 1 ? '' : 's'} couldn’t be cleared — ${failed.length === 1 ? 'it' : 'they'} still list this type.` });
     } finally { busy = false; }
   }
 
@@ -95,11 +96,15 @@
     if (!newName || newName === t.label) return;
     busy = true;
     try {
-      const { migrated } = await objectTypesStore.rename(t.id, newName);
+      const { migrated, failed } = await objectTypesStore.rename(t.id, newName);
       await loadCounts();
-      toasts.push({ message: migrated.length > 0
-        ? `Renamed to “${newName}” — migrated ${migrated.length} note${migrated.length === 1 ? '' : 's'}.`
-        : `Renamed to “${newName}”.` });
+      if (failed.length > 0) {
+        toasts.push({ message: `Renamed to “${newName}” — migrated ${migrated.length} note${migrated.length === 1 ? '' : 's'}, but ${failed.length} couldn’t be migrated, so the old type was kept to avoid orphaning ${failed.length === 1 ? 'it' : 'them'}.` });
+      } else {
+        toasts.push({ message: migrated.length > 0
+          ? `Renamed to “${newName}” — migrated ${migrated.length} note${migrated.length === 1 ? '' : 's'}.`
+          : `Renamed to “${newName}”.` });
+      }
     } finally { busy = false; }
   }
 </script>
