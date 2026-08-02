@@ -47,6 +47,16 @@ export default defineConfig({
       // shared ~? , llm ~74% lines / 51% branch, notebase ~89% lines. CI runs
       // `pnpm coverage`, so these gate on every PR.
       thresholds: {
+        // Global backstop (#1598): a coarse aggregate net over the whole
+        // `include` set, so a wholesale coverage regression fails CI even in
+        // trees without their own tuned floor below. Deliberately modest — the
+        // per-glob floors are the real per-area gates; this only trips on a
+        // broad drop. Measured aggregate at floor-time: ~65% S / 58% B / 58% F /
+        // 67% L, so these sit well below and won't flap on a small change.
+        statements: 45,
+        branches: 40,
+        functions: 40,
+        lines: 45,
         'src/shared/**': {
           lines: 70,
           functions: 70,
