@@ -462,6 +462,17 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
   }
 
+  /** Show a bulk-op result dialog: the primary summary line, plus a capped
+   *  "Failed (N)" list when any note errored. Shared by the tag + property
+   *  reporters (#1604). */
+  async function reportBulkSummary(primary: string, failures: OperationFailure[], confirmKey: string): Promise<void> {
+    let msg = primary;
+    if (failures.length > 0) {
+      msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
+    }
+    await showConfirm(msg, confirmKey, 'OK');
+  }
+
   async function reportBulkTagSummary(
     op: 'Add' | 'Remove',
     tag: string,
@@ -470,11 +481,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     failures: OperationFailure[],
   ): Promise<void> {
     const verb = op === 'Add' ? 'tagged' : 'untagged';
-    let msg = `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`;
-    if (failures.length > 0) {
-      msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
-    }
-    await showConfirm(msg, CONFIRM_KEYS.bulkTagComplete, 'OK');
+    await reportBulkSummary(
+      `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`,
+      failures, CONFIRM_KEYS.bulkTagComplete,
+    );
   }
 
   /**
@@ -592,11 +602,10 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     failures: OperationFailure[],
   ): Promise<void> {
     const verb = op === 'Add' ? 'set' : 'removed';
-    let msg = `${verb} "${key}" on ${changed} of ${total} note${total === 1 ? '' : 's'}.`;
-    if (failures.length > 0) {
-      msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
-    }
-    await showConfirm(msg, CONFIRM_KEYS.bulkPropertyComplete, 'OK');
+    await reportBulkSummary(
+      `${verb} "${key}" on ${changed} of ${total} note${total === 1 ? '' : 's'}.`,
+      failures, CONFIRM_KEYS.bulkPropertyComplete,
+    );
   }
 
   /**
