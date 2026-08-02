@@ -99,6 +99,19 @@ export default defineConfig({
           statements: 74,
           branches: 60,
         },
+        // IPC registrars — mostly thin channel→module glue that was entirely
+        // unfenced (QA C1 / #1612). The layer is deliberately low-covered (the
+        // underlying modules carry the real tests), so this is a BACKSTOP, not a
+        // target: it locks in the conversation-handler coverage (#1612) and
+        // stops a new registrar shipping at 0%. Measured ~27.6 L / 12.5 F /
+        // 25.3 S / 7.3 B; floors sit a few points below so a small change
+        // won't flap. Ratchet up as more handlers get direct tests.
+        'src/main/ipc/**': {
+          lines: 24,
+          functions: 10,
+          statements: 22,
+          branches: 5,
+        },
         // Neglected top-level main modules — previously unfenced (#1100 / QA
         // H1). These sit at `src/main/*.ts` (no directory of their own), so
         // each gets its own per-file floor set ~10pts below the measured-at-
