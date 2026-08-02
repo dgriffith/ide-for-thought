@@ -396,7 +396,7 @@ export interface ChannelMap {
   'types:list': () => TypeCatalogInfo;
   'types:noteProperties': (relativePath: string) => NoteTypedProperties;
   'types:instances': (typeId: string) => TypeInstancesResult;
-  'types:save': (input: { label: string; id?: string; properties: PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; template?: string }) => { id: string; filePath: string };
+  'types:save': (input: { label: string; id?: string; properties: PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string }) => { id: string; filePath: string };
   'types:delete': (id: string) => void;
 
   // Skills (markdown skill files — #622)

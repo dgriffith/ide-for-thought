@@ -13,6 +13,7 @@ import { MINERVA, RDF, RDFS, TYPES } from '../graph/state';
 import type { TypeCatalog } from '../../shared/objects/type-def';
 
 export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: TypeCatalog): void {
+  const byId = new Map(catalog.types.map((t) => [t.id, t]));
   for (const t of catalog.types) {
     const cls = TYPES(t.classLocalName);
     store.add(cls, RDF('type'), RDFS('Class'));
@@ -23,5 +24,10 @@ export function materializeTypeClasses(store: $rdf.IndexedFormula, catalog: Type
     for (const p of t.properties) {
       store.add(cls, TYPES('expectsProperty'), $rdf.lit(p.name));
     }
+    // Subclassing (#1586): a parent (validated to exist by the loader) becomes
+    // an `rdfs:subClassOf` edge, so `?x a/rdfs:subClassOf* types:Parent` returns
+    // this type's instances too.
+    const parent = t.parent ? byId.get(t.parent) : undefined;
+    if (parent) store.add(cls, RDFS('subClassOf'), TYPES(parent.classLocalName));
   }
 }

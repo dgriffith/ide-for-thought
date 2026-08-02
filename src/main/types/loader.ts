@@ -92,5 +92,20 @@ export async function loadTypeCatalog(rootPath: string): Promise<TypeCatalog> {
     byId.set(t.id, t);
   }
 
+  // Validate parent refs now that every type id is known (#1586). An unknown or
+  // self parent is soft-flagged and cleared so nothing materializes a dangling
+  // `rdfs:subClassOf`. (Cycles are left alone — SPARQL property paths handle
+  // them; single inheritance keeps them rare.)
+  for (const t of byId.values()) {
+    if (!t.parent) continue;
+    if (t.parent === t.id) {
+      errors.push({ source: t.source, filePath: t.filePath, label: t.label, message: `a type can't be its own parent` });
+      t.parent = undefined;
+    } else if (!byId.has(t.parent)) {
+      errors.push({ source: t.source, filePath: t.filePath, label: t.label, message: `parent type "${t.parent}" does not exist` });
+      t.parent = undefined;
+    }
+  }
+
   return { types: [...byId.values()], errors };
 }

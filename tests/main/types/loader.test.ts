@@ -65,6 +65,30 @@ describe('loadTypeCatalog (#1062)', () => {
     const cat = await loadTypeCatalog(root);
     expect(cat.types.length).toBeGreaterThanOrEqual(6);
   });
+
+  // Non-stock ids throughout — a user type sharing a stock id (e.g. `book`) is
+  // shadowed by stock, which carries no parent.
+  it('keeps a parent that resolves to a known type (#1586)', async () => {
+    writeUserType('reference.md', `---\nlabel: Reference\n---\n`);
+    writeUserType('monograph.md', `---\nlabel: Monograph\nparent: reference\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    expect(cat.types.find((t) => t.id === 'monograph')?.parent).toBe('reference');
+    expect(cat.errors.filter((e) => /parent/.test(e.message))).toEqual([]);
+  });
+
+  it('flags + clears a parent that does not exist (#1586)', async () => {
+    writeUserType('monograph.md', `---\nlabel: Monograph\nparent: ghost\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    expect(cat.types.find((t) => t.id === 'monograph')?.parent).toBeUndefined(); // cleared
+    expect(cat.errors.some((e) => /parent type "ghost" does not exist/.test(e.message))).toBe(true);
+  });
+
+  it('flags + clears a self-referential parent (#1586)', async () => {
+    writeUserType('monograph.md', `---\nlabel: Monograph\nparent: monograph\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    expect(cat.types.find((t) => t.id === 'monograph')?.parent).toBeUndefined();
+    expect(cat.errors.some((e) => /can't be its own parent/.test(e.message))).toBe(true);
+  });
 });
 
 describe('parseType (#1062)', () => {
@@ -130,5 +154,11 @@ describe('parseType (#1062)', () => {
     );
     expect(r.type?.card).toEqual(['author']);
     expect(r.errors.some((e) => /"bogus".*not a declared property/.test(e))).toBe(true);
+  });
+
+  it('reads a parent type reference from `parent` or `extends`, slugified (#1586)', () => {
+    expect(parseType(`---\nlabel: Book\nparent: Reference Work\n---\n`, 'user', '/x/b.md').type?.parent).toBe('reference-work');
+    expect(parseType(`---\nlabel: Book\nextends: reference\n---\n`, 'user', '/x/b.md').type?.parent).toBe('reference');
+    expect(parseType(`---\nlabel: Book\n---\n`, 'user', '/x/b.md').type?.parent).toBeUndefined();
   });
 });

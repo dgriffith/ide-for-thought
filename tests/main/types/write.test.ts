@@ -39,6 +39,11 @@ describe('serializeTypeFile (#save-as-type)', () => {
     expect(r.type).toMatchObject({ icon: '📖', color: '#89b4fa', cover: 'author', card: ['rating'] });
     expect(r.type?.template).toContain('## Notes');
   });
+
+  it('carries a parent through the round-trip (#1586)', () => {
+    const content = serializeTypeFile('monograph', { label: 'Monograph', properties: [], parent: 'reference' });
+    expect(parseType(content, 'user', '/x/m.md').type?.parent).toBe('reference');
+  });
 });
 
 describe('saveType (#save-as-type)', () => {
