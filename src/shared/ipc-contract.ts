@@ -398,6 +398,8 @@ export interface ChannelMap {
   'types:instances': (typeId: string) => TypeInstancesResult;
   'types:save': (input: { label: string; id?: string; properties: PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string }) => { id: string; filePath: string };
   'types:delete': (id: string) => void;
+  'types:deleteSafely': (id: string, clearInstances: boolean) => { cleared: string[] };
+  'types:rename': (oldId: string, newLabel: string) => { newId: string; migrated: string[] };
 
   // Skills (markdown skill files — #622)
   'skills:list': () => SkillCatalogInfo;

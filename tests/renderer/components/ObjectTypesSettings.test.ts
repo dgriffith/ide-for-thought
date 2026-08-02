@@ -8,14 +8,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { listMock, saveMock, deleteMock, queryMock, confirmMock } = vi.hoisted(() => ({
-  listMock: vi.fn(), saveMock: vi.fn(), deleteMock: vi.fn(), queryMock: vi.fn(), confirmMock: vi.fn(),
+const { listMock, saveMock, deleteMock, deleteSafelyMock, renameMock, queryMock, confirmMock, promptMock } = vi.hoisted(() => ({
+  listMock: vi.fn(), saveMock: vi.fn(), deleteMock: vi.fn(), deleteSafelyMock: vi.fn(), renameMock: vi.fn(),
+  queryMock: vi.fn(), confirmMock: vi.fn(), promptMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { list: listMock, save: saveMock, delete: deleteMock }, graph: { query: queryMock } },
+  api: { types: { list: listMock, save: saveMock, delete: deleteMock, deleteSafely: deleteSafelyMock, rename: renameMock }, graph: { query: queryMock } },
 }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({
-  getDialogStore: () => ({ showConfirm: confirmMock }),
+  getDialogStore: () => ({ showConfirm: confirmMock, showPrompt: promptMock }),
+}));
+vi.mock('../../../src/renderer/lib/stores/toasts.svelte', () => ({
+  getToastStore: () => ({ push: vi.fn() }),
 }));
 
 import ObjectTypesSettings from '../../../src/renderer/lib/components/ObjectTypesSettings.svelte';
@@ -27,8 +31,11 @@ beforeEach(() => {
   listMock.mockResolvedValue({ types: [BOOK, GADGET], errors: [] });
   saveMock.mockResolvedValue({ id: 'gadget-copy', filePath: '.minerva/types/gadget-copy.md' });
   deleteMock.mockResolvedValue(undefined);
+  deleteSafelyMock.mockResolvedValue({ cleared: [] });
+  renameMock.mockResolvedValue({ newId: 'widget', migrated: ['W1.md'] });
   queryMock.mockResolvedValue({ results: [{ id: 'book', n: '3' }, { id: 'gadget', n: '1' }], columns: [] });
   confirmMock.mockResolvedValue(true);
+  promptMock.mockResolvedValue('Widget');
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -56,21 +63,51 @@ describe('ObjectTypesSettings (#1584)', () => {
     expect(saveMock.mock.calls[0]![0]).toMatchObject({ label: 'Gadget copy', icon: '🔧' });
   });
 
-  it('delete asks for confirmation and removes on confirm', async () => {
+  it('delete warns with the count, then offers to clear the instances (#1588)', async () => {
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
     await fireEvent.click(screen.getByText('Delete'));
-    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
-    expect(confirmMock.mock.calls[0]![0]).toMatch(/1 note still references it/); // instance-count warning
-    expect(deleteMock).toHaveBeenCalledWith('gadget');
+    await waitFor(() => expect(deleteSafelyMock).toHaveBeenCalled());
+    // First confirm = the count warning; second = the clear-from-notes choice.
+    expect(confirmMock.mock.calls[0]![0]).toMatch(/1 note still references it/);
+    expect(confirmMock.mock.calls[1]![0]).toMatch(/remove .type: gadget./i);
+    // Both confirmed → delete AND clear.
+    expect(deleteSafelyMock).toHaveBeenCalledWith('gadget', true);
   });
 
-  it('delete does nothing when the confirm is dismissed', async () => {
+  it('delete does nothing when the first confirm is dismissed', async () => {
     confirmMock.mockResolvedValue(false);
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
     await fireEvent.click(screen.getByText('Delete'));
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
-    expect(deleteMock).not.toHaveBeenCalled();
+    expect(deleteSafelyMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes but leaves the notes when the clear confirm is declined', async () => {
+    confirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false); // delete yes, clear no
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Delete'));
+    await waitFor(() => expect(deleteSafelyMock).toHaveBeenCalled());
+    expect(deleteSafelyMock).toHaveBeenCalledWith('gadget', false);
+  });
+
+  it('rename prompts and migrates instances (#1588)', async () => {
+    promptMock.mockResolvedValue('Doohickey');
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Rename'));
+    await waitFor(() => expect(renameMock).toHaveBeenCalled());
+    expect(renameMock).toHaveBeenCalledWith('gadget', 'Doohickey');
+  });
+
+  it('rename does nothing when the name is unchanged or cancelled', async () => {
+    promptMock.mockResolvedValue('Gadget'); // same label
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Rename'));
+    await waitFor(() => expect(promptMock).toHaveBeenCalled());
+    expect(renameMock).not.toHaveBeenCalled();
   });
 });

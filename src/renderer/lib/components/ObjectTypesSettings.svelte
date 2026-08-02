@@ -11,11 +11,13 @@
   import { api } from '../ipc/client';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { getDialogStore } from '../stores/dialogs.svelte';
+  import { getToastStore } from '../stores/toasts.svelte';
   import TypeEditorDialog from './TypeEditorDialog.svelte';
   import type { TypeEditorInitial } from './type-editor-value';
   import type { TypeInfo } from '../../../shared/objects/type-def';
 
-  const { showConfirm } = getDialogStore();
+  const { showConfirm, showPrompt } = getDialogStore();
+  const toasts = getToastStore();
 
   let counts = $state<Record<string, number>>({});
   let busy = $state(false);
@@ -68,12 +70,37 @@
   async function remove(t: TypeInfo): Promise<void> {
     const n = counts[t.id] ?? 0;
     const msg = n > 0
-      ? `Delete the “${t.label}” type? ${n} note${n === 1 ? '' : 's'} still reference${n === 1 ? 's' : ''} it — they keep their frontmatter but will no longer resolve to a type (reversible: recreate the type or re-type the notes).`
+      ? `Delete the “${t.label}” type? ${n} note${n === 1 ? '' : 's'} still reference${n === 1 ? 's' : ''} it.`
       : `Delete the “${t.label}” type?`;
     if (!(await showConfirm(msg, 'delete-object-type', 'Delete'))) return;
+    // When instances exist, offer to clear their `type:` so they aren't left
+    // pointing at a type that no longer resolves (#1588).
+    let clear = false;
+    if (n > 0) {
+      clear = await showConfirm(
+        `Also remove “type: ${t.id}” from those ${n} note${n === 1 ? '' : 's'}? Otherwise they keep it and it simply won't resolve (reversible either way).`,
+        'clear-type-on-delete', 'Remove from notes',
+      );
+    }
     busy = true;
-    try { await objectTypesStore.remove(t.id); await loadCounts(); }
-    finally { busy = false; }
+    try {
+      const { cleared } = await objectTypesStore.removeSafely(t.id, clear);
+      await loadCounts();
+      if (cleared.length > 0) toasts.push({ message: `Deleted “${t.label}” and cleared it from ${cleared.length} note${cleared.length === 1 ? '' : 's'}.` });
+    } finally { busy = false; }
+  }
+
+  async function rename(t: TypeInfo): Promise<void> {
+    const newName = (await showPrompt('Rename type to:', { initial: t.label }))?.trim();
+    if (!newName || newName === t.label) return;
+    busy = true;
+    try {
+      const { migrated } = await objectTypesStore.rename(t.id, newName);
+      await loadCounts();
+      toasts.push({ message: migrated.length > 0
+        ? `Renamed to “${newName}” — migrated ${migrated.length} note${migrated.length === 1 ? '' : 's'}.`
+        : `Renamed to “${newName}”.` });
+    } finally { busy = false; }
   }
 </script>
 
@@ -112,6 +139,7 @@
           {#if t.source === 'user'}
             <span class="type-actions">
               <button class="link-btn" disabled={busy} onclick={() => openEdit(t)}>Edit</button>
+              <button class="link-btn" disabled={busy} onclick={() => { void rename(t); }}>Rename</button>
               <button class="link-btn" disabled={busy} onclick={() => { void duplicate(t); }}>Duplicate</button>
               <button class="link-btn" disabled={busy} onclick={() => { void remove(t); }}>Delete</button>
             </span>

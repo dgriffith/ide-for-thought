@@ -484,6 +484,8 @@ contextBridge.exposeInMainWorld('api', {
     instances: (typeId: string) => invoke(Channels.TYPES_INSTANCES, typeId),
     save: (input: Parameters<ChannelMap['types:save']>[0]) => invoke(Channels.TYPES_SAVE, input),
     delete: (id: string) => invoke(Channels.TYPES_DELETE, id),
+    deleteSafely: (id: string, clearInstances: boolean) => invoke(Channels.TYPES_DELETE_SAFELY, id, clearInstances),
+    rename: (oldId: string, newLabel: string) => invoke(Channels.TYPES_RENAME, oldId, newLabel),
   },
   skills: {
     list: () => invoke(Channels.SKILLS_LIST),

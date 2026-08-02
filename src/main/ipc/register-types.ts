@@ -8,6 +8,7 @@
 import { Channels } from '../../shared/channels';
 import { loadTypeCatalog } from '../types/loader';
 import { saveType, deleteType, type SaveTypeInput } from '../types/write';
+import { deleteTypeSafely, renameType } from '../types/migrate';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { toTypeInfo, type TypeCatalogInfo, type NoteTypedProperties, type TypeInstancesResult } from '../../shared/objects/type-def';
@@ -56,4 +57,12 @@ export function registerTypes(): void {
     await deleteType(rootPath, id);
     await graph.reloadTypeCatalog(projectContext(rootPath));
   }));
+
+  // Rename/delete safety (#1588) — migrate or clear a type's instances so no note
+  // is left silently pointing at a type that no longer exists.
+  handle(Channels.TYPES_DELETE_SAFELY, withRootPath((rootPath, id: string, clearInstances: boolean) =>
+    deleteTypeSafely(rootPath, id, clearInstances)));
+
+  handle(Channels.TYPES_RENAME, withRootPath((rootPath, oldId: string, newLabel: string) =>
+    renameType(rootPath, oldId, newLabel)));
 }

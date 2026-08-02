@@ -451,6 +451,10 @@ export const Channels = {
   TYPES_SAVE: 'types:save',
   /** Delete a user object type by id (#1584). */
   TYPES_DELETE: 'types:delete',
+  /** Delete a user type, optionally clearing `type:` from its instances (#1588). */
+  TYPES_DELETE_SAFELY: 'types:deleteSafely',
+  /** Rename a user type, migrating its instances' `type:` to the new id (#1588). */
+  TYPES_RENAME: 'types:rename',
 
   // Skills (markdown skill files — #622)
   /** List the loaded skill catalog (metadata + load errors). */

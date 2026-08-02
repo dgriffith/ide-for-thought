@@ -31,6 +31,18 @@ async function remove(id: string): Promise<void> {
   await refresh();
 }
 
+async function removeSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[] }> {
+  const result = await api.types.deleteSafely(id, clearInstances);
+  await refresh();
+  return result;
+}
+
+async function rename(oldId: string, newLabel: string): Promise<{ newId: string; migrated: string[] }> {
+  const result = await api.types.rename(oldId, newLabel);
+  await refresh();
+  return result;
+}
+
 export const objectTypesStore = {
   get types(): TypeInfo[] { return types; },
   get errors(): TypeLoadError[] { return errors; },
@@ -38,4 +50,6 @@ export const objectTypesStore = {
   refresh,
   save,
   remove,
+  removeSafely,
+  rename,
 };
