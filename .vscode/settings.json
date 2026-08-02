@@ -1,0 +1,26 @@
+{
+  // Workspace defaults (#1643).
+
+  // Format-on-save is intentionally OFF: the repo's gate is `pnpm lint`
+  // (tsc + svelte-check + eslint), and there is no Prettier config — a
+  // reformat-on-save would fight the existing style.
+  "editor.formatOnSave": false,
+
+  // Use the workspace TypeScript + Svelte so the editor and `pnpm lint` agree
+  // on versions (this repo is on TS 6 / Svelte 5).
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "svelte.enable-ts-plugin": true,
+
+  // Let ESLint lint .svelte alongside .ts/.js (matches `eslint .`).
+  "eslint.validate": ["javascript", "typescript", "svelte"],
+
+  "files.eol": "\n",
+
+  // Build output and heavy dirs aren't useful in search / file watching.
+  "search.exclude": {
+    "**/.vite": true,
+    "**/out": true,
+    "**/coverage": true,
+    "**/node_modules": true
+  }
+}
