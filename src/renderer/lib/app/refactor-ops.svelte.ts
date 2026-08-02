@@ -16,6 +16,7 @@ import { getEditorStore } from '../stores/editor.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getRefactorFlowStore } from '../stores/refactor-flow.svelte';
+import { formatCappedList, type OperationFailure } from './text-helpers';
 import {
   planExtract,
   planSplitHere,
@@ -338,7 +339,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     if (!tag) return;
 
     const changedPaths: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
+    const failures: OperationFailure[] = [];
     for (const path of targets) {
       try {
         const content = await api.notebase.readFile(path);
@@ -379,7 +380,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     // file contents anyway for the writes that follow, but the
     // prompt has to come first — so do a read pass up-front.
     const tagSet = new Set<string>();
-    const readFailures: Array<{ path: string; error: string }> = [];
+    const readFailures: OperationFailure[] = [];
     const cache = new Map<string, string>();
     for (const path of targets) {
       try {
@@ -408,7 +409,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     if (!tag) return;
 
     const changedPaths: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [...readFailures];
+    const failures: OperationFailure[] = [...readFailures];
     for (const path of targets) {
       // Skip files that already errored on read — we don't have
       // content to operate on and re-reading would just re-fail.
@@ -466,14 +467,12 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     tag: string,
     total: number,
     changed: number,
-    failures: Array<{ path: string; error: string }>,
+    failures: OperationFailure[],
   ): Promise<void> {
     const verb = op === 'Add' ? 'tagged' : 'untagged';
     let msg = `${verb} ${changed} of ${total} note${total === 1 ? '' : 's'} with "${tag}".`;
     if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
+      msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
     }
     await showConfirm(msg, CONFIRM_KEYS.bulkTagComplete, 'OK');
   }
@@ -509,7 +508,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     const value = entered.value;
 
     const changedPaths: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
+    const failures: OperationFailure[] = [];
     for (const path of targets) {
       try {
         const content = await api.notebase.readFile(path);
@@ -541,7 +540,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     }
 
     const keySet = new Set<string>();
-    const readFailures: Array<{ path: string; error: string }> = [];
+    const readFailures: OperationFailure[] = [];
     const cache = new Map<string, string>();
     for (const path of targets) {
       try {
@@ -567,7 +566,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     if (!key) return;
 
     const changedPaths: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [...readFailures];
+    const failures: OperationFailure[] = [...readFailures];
     for (const path of targets) {
       if (!cache.has(path)) continue;
       try {
@@ -590,14 +589,12 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     key: string,
     total: number,
     changed: number,
-    failures: Array<{ path: string; error: string }>,
+    failures: OperationFailure[],
   ): Promise<void> {
     const verb = op === 'Add' ? 'set' : 'removed';
     let msg = `${verb} "${key}" on ${changed} of ${total} note${total === 1 ? '' : 's'}.`;
     if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      msg += `\n\nFailed (${failures.length}):\n${head}${tail}`;
+      msg += `\n\nFailed (${failures.length}):\n${formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`)}`;
     }
     await showConfirm(msg, CONFIRM_KEYS.bulkPropertyComplete, 'OK');
   }

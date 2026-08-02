@@ -13,7 +13,7 @@ import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
-import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths } from './text-helpers';
+import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths, formatCappedList, type OperationFailure } from './text-helpers';
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
 import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/frontmatter-edit';
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
@@ -251,7 +251,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   async function executeDeletes(
     targets: Array<{ relativePath: string; isDirectory: boolean }>,
   ): Promise<void> {
-    const failures: Array<{ path: string; error: string }> = [];
+    const failures: OperationFailure[] = [];
     for (const t of targets) {
       try {
         if (t.isDirectory) {
@@ -274,10 +274,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     ctx.getSidebar()?.clearSelection();
 
     if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
+      const body = formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`);
       await showConfirm(
-        `Failed to delete ${failures.length} of ${targets.length} item${targets.length === 1 ? '' : 's'}:\n${head}${tail}`,
+        `Failed to delete ${failures.length} of ${targets.length} item${targets.length === 1 ? '' : 's'}:\n${body}`,
         CONFIRM_KEYS.deletePartialFailure,
         'OK',
       );
@@ -364,7 +363,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     if (targets.length === 0) return;
 
     const collisions: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
+    const failures: OperationFailure[] = [];
     for (const t of targets) {
       const name = t.relativePath.split('/').pop()!;
       const destPath = destDirectory ? `${destDirectory}/${name}` : name;
@@ -403,7 +402,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     const { items, mode } = entry;
 
     const collisions: string[] = [];
-    const failures: Array<{ path: string; error: string }> = [];
+    const failures: OperationFailure[] = [];
     for (const item of items) {
       const name = item.relativePath.split('/').pop()!;
       const destPath = destDirectory ? `${destDirectory}/${name}` : name;
@@ -439,18 +438,16 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     label: 'Move' | 'Copy',
     total: number,
     collisions: string[],
-    failures: Array<{ path: string; error: string }>,
+    failures: OperationFailure[],
   ): Promise<void> {
     const lines: string[] = [];
     if (collisions.length > 0) {
-      const head = collisions.slice(0, 5).map((p) => `• ${p}`).join('\n');
-      const tail = collisions.length > 5 ? `\n…and ${collisions.length - 5} more` : '';
-      lines.push(`Skipped ${collisions.length} (destination already exists):\n${head}${tail}`);
+      const body = formatCappedList(collisions, (p) => `• ${p}`);
+      lines.push(`Skipped ${collisions.length} (destination already exists):\n${body}`);
     }
     if (failures.length > 0) {
-      const head = failures.slice(0, 5).map((f) => `• ${f.path}: ${f.error}`).join('\n');
-      const tail = failures.length > 5 ? `\n…and ${failures.length - 5} more` : '';
-      lines.push(`Failed (${failures.length}):\n${head}${tail}`);
+      const body = formatCappedList(failures, (f) => `• ${f.path}: ${f.error}`);
+      lines.push(`Failed (${failures.length}):\n${body}`);
     }
     const skipped = collisions.length + failures.length;
     const completed = total - skipped;
