@@ -17,18 +17,12 @@ import * as $rdf from 'rdflib';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseMarkdown, type ParsedTable, type FrontmatterValue, type FrontmatterMap } from './parser';
-import { getLinkType, type LinkType } from '../../shared/link-types';
+import { getLinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
-import {
-  resolveWikiLinkTargetWithIndex,
-  buildWikiLinkIndex,
-  type WikiLinkIndex,
-} from '../../shared/wiki-link-resolver';
 import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
 import { parseCsv } from '../../shared/csv-parse';
 import { isIndexable } from '../notebase/indexable-files';
-import * as uriHelpers from './uri-helpers';
 
 import type { ProjectContext } from '../project-context-types';
 
@@ -36,7 +30,7 @@ import {
   type GraphState, type HeadingSnapshot,
   getState, invalidate, resetN3Mirror, instrumentStoreMirror,
   MINERVA, DC, RDF, RDFS, XSD, CSVW, OWL, BIBO, SCHEMA, PROV, THOUGHT, TYPES,
-  noteUri, tagUri, folderUri, sourceUri, excerptUri, tableUri, projectUri,
+  noteUri, tagUri, folderUri, sourceUri, tableUri, projectUri,
   linkPredicate, dateLit,
 } from './state';
 import { loadTypeCatalog } from '../types/loader';
@@ -44,8 +38,13 @@ import { materializeTypeClasses } from '../types/compile';
 import type { PropertyType } from '../../shared/objects/type-def';
 
 import { checkLLMWriteGuard } from './write-guard';
-import { fileMtimeIso, injectPrefixes } from './index-helpers';
+import {
+  fileMtimeIso, injectPrefixes,
+  ensureTag, flattenFrontmatterStrings,
+  buildLinkResolveCtx, resolveLinkTarget, type LinkResolveCtx,
+} from './index-helpers';
 import { walkAndIndexExcerpts } from './indexers/excerpt';
+import { walkAndIndexSources } from './indexers/source';
 
 // `findNotesLinkingToAnchorImpl` is a queries-layer helper; detectHeadingRename
 // (an indexer-only helper below) reuses it.
@@ -53,49 +52,9 @@ import { findNotesLinkingToAnchorImpl } from './queries';
 
 // ── URI helpers ─────────────────────────────────────────────────────────────
 // The state-taking URI helpers (noteUri, tagUri, folderUri, sourceUri,
-// excerptUri, tableUri, projectUri, linkPredicate) live in ./state and are
-// imported above; the link-resolution helpers that are indexer-only stay here.
-
-/** Precomputed wiki-link resolution index for a note-index pass. Built ONCE
- *  (O(N)) so each `resolveLinkTarget` is an O(1) lookup. Building this per note
- *  and re-scanning per link made `indexAllNotes` O(N²) (#1473); callers that
- *  index many notes/sources build it once and thread it via
- *  `IndexNoteOptions.linkCtx`. */
-interface LinkResolveCtx {
-  index: WikiLinkIndex;
-}
-
-function buildLinkResolveCtx(state: GraphState): LinkResolveCtx {
-  const files = [...state.indexedNotePaths].map((relativePath) => ({ relativePath, isDirectory: false }));
-  // aliasMap keys are already lowercased by rebuildAliasMap.
-  return { index: buildWikiLinkIndex(files, Object.fromEntries(state.aliasMap)) };
-}
-
-function resolveLinkTarget(
-  state: GraphState,
-  lt: LinkType,
-  target: string,
-  rc: LinkResolveCtx,
-  anchor?: string,
-) {
-  if (lt.targetKind === 'source') return sourceUri(state, target);
-  if (lt.targetKind === 'excerpt') return excerptUri(state, target);
-  // Resolve exactly as click-navigation does (#1142): exact path, then
-  // basename, then frontmatter alias, then slug-fuzzy — so a bare `[[Term]]`
-  // that opens `glossary/Term.md` in the editor also forms its graph edge to
-  // that note, not a phantom root `Term.md`. Falls back to the literal target
-  // (as a root-relative path) for a link to a note that doesn't exist yet, so
-  // its backlink still lights up once the file lands at that path.
-  const resolvedPath = resolveWikiLinkTargetWithIndex(target, rc.index)
-    ?? (target.endsWith('.md') ? target : `${target}.md`);
-  const base = noteUri(state, resolvedPath);
-  // Anchors append as an IRI fragment: headings become `#slug`, block-ids
-  // stay as `#^raw-id` (we don't slugify the `^` prefix or its payload so
-  // ids survive edits on the referenced block).
-  if (!anchor) return base;
-  const frag = anchor.startsWith('^') ? anchor : slugify(anchor);
-  return $rdf.sym(`${base.value}#${frag}`);
-}
+// excerptUri, tableUri, projectUri, linkPredicate) live in ./state; the shared
+// link-resolution helpers (LinkResolveCtx / buildLinkResolveCtx /
+// resolveLinkTarget) live in ./index-helpers (#1624). Both are imported above.
 
 /**
  * Aliases that contain wiki-link metacharacters can't be expressed as
@@ -147,16 +106,6 @@ function rebuildAliasMap(state: GraphState): void {
 }
 
 // ── Frontmatter helpers ─────────────────────────────────────────────────────
-
-/** Flatten a frontmatter value to a list of strings — for multi-valued string keys like tags. */
-function flattenFrontmatterStrings(value: FrontmatterValue): string[] {
-  if (value === null || value === undefined) return [];
-  if (Array.isArray(value)) return value.flatMap(flattenFrontmatterStrings);
-  if (typeof value === 'string') return [value];
-  if (typeof value === 'number' || typeof value === 'boolean') return [String(value)];
-  if (value instanceof Date) return [value.toISOString()];
-  return [];
-}
 
 // A non-null leaf scalar — excludes lists AND nested maps (maps materialise as
 // blank nodes in emitFrontmatterValue, never as a single edge).
@@ -1209,130 +1158,6 @@ export function removeNote(ctx: ProjectContext, relativePath: string): void {
   }
 }
 
-// ── Source indexing ─────────────────────────────────────────────────────────
-// A "source" is a citable external work (Article, Book, WebPage, …) whose
-// canonical metadata lives at .minerva/sources/<id>/meta.ttl. The source
-// node's URI is `${baseUri}source/<id>`; inside meta.ttl, `this:` resolves
-// to that URI so users can write `this: a thought:Article ; dc:title ...`.
-
-export function indexSource(ctx: ProjectContext, sourceId: string, metaTtl: string, bodyMd?: string): void {
-  checkLLMWriteGuard('indexSource');
-  const state = getState(ctx);
-  if (!state) return;
-  invalidate(state);
-  const { store } = state;
-
-  const subject = sourceUri(state, sourceId);
-  const graph = subject;
-  const relativePath = `${uriHelpers.SOURCES_DIR}/${sourceId}/meta.ttl`;
-
-  store.removeMatches(undefined, undefined, undefined, graph);
-  store.removeMatches(subject, undefined, undefined);
-
-  store.add(subject, MINERVA('sourceId'), $rdf.lit(sourceId), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-  store.add(projectUri(state), MINERVA('containsSource'), subject, graph);
-
-  try {
-    const prefixed = injectPrefixes(state, metaTtl, subject.value);
-    $rdf.parse(prefixed, store, graph.value, 'text/turtle');
-  } catch (e) {
-    console.error(`[minerva] Failed to parse source meta.ttl for ${sourceId}:`, e instanceof Error ? e.message : e);
-  }
-
-  // Upstream subject tags (#473). Each `minerva:upstreamTag "..."`
-  // literal becomes a real `minerva:hasTag` edge to the
-  // corresponding tag URI, mirroring the body-tag pipeline so a
-  // CrossRef-imported tag and a hand-authored body tag look the
-  // same in the tag panel.
-  for (const st of store.statementsMatching(subject, MINERVA('upstreamTag'), undefined, graph)) {
-    const name = st.object.value;
-    if (!name) continue;
-    const tagNode = tagUri(state, name);
-    ensureTag(state, tagNode, name);
-    store.add(subject, MINERVA('hasTag'), tagNode, graph);
-  }
-
-  // User-added tags (#766). Each `minerva:tag "..."` literal becomes a
-  // hasTag edge too, so a tag added via the source's add/remove affordance
-  // looks identical to an upstream or body tag in the tag panel + smart
-  // collections. Distinct predicate from upstreamTag so "Strip upstream
-  // tags" leaves the user's own tags alone.
-  for (const st of store.statementsMatching(subject, MINERVA('tag'), undefined, graph)) {
-    const name = st.object.value;
-    if (!name) continue;
-    const tagNode = tagUri(state, name);
-    ensureTag(state, tagNode, name);
-    store.add(subject, MINERVA('hasTag'), tagNode, graph);
-  }
-
-  if (bodyMd) indexSourceBody(state, sourceId, bodyMd, subject, graph);
-}
-
-/** Parse body.md for a source — tags and wiki-links attach to the source URI. */
-function indexSourceBody(
-  state: GraphState,
-  _sourceId: string,
-  bodyMd: string,
-  subject: $rdf.NamedNode,
-  graph: $rdf.NamedNode,
-): void {
-  const { store } = state;
-  const parsed = parseMarkdown(bodyMd);
-
-  // Body tags → hasTag edges on the source.
-  const tags = new Set(parsed.tags);
-  const fmTags = parsed.frontmatter.tags;
-  if (fmTags !== undefined) {
-    for (const t of flattenFrontmatterStrings(fmTags)) if (t) tags.add(t);
-  }
-  for (const tag of tags) {
-    const tagNode = tagUri(state, tag);
-    ensureTag(state, tagNode, tag);
-    store.add(subject, MINERVA('hasTag'), tagNode, graph);
-  }
-
-  // Body wiki-links → typed edges on the source (same plumbing as notes).
-  const linkCtx = buildLinkResolveCtx(state);
-  for (const link of parsed.links) {
-    const linkType = getLinkType(link.type);
-    const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(state, linkType, link.target, linkCtx, link.anchor);
-    store.add(subject, predicate, targetNode, graph);
-  }
-}
-
-export function removeSource(ctx: ProjectContext, sourceId: string): void {
-  checkLLMWriteGuard('removeSource');
-  const state = getState(ctx);
-  if (!state) return;
-  invalidate(state);
-  const subject = sourceUri(state, sourceId);
-  state.store.removeMatches(undefined, undefined, undefined, subject);
-  state.store.removeMatches(subject, undefined, undefined);
-}
-
-/** Parse `<id>` out of `.minerva/sources/<id>/meta.ttl`. Returns null for other paths. */
-export function parseSourceIdFromPath(relativePath: string): string | null {
-  const normalized = relativePath.replace(/\\/g, '/');
-  const prefix = `${uriHelpers.SOURCES_DIR}/`;
-  if (!normalized.startsWith(prefix)) return null;
-  if (!normalized.endsWith('/meta.ttl')) return null;
-  const id = normalized.slice(prefix.length, -'/meta.ttl'.length);
-  if (!id || id.includes('/')) return null;
-  return id;
-}
-
-function ensureTag(state: GraphState, tagNode: $rdf.NamedNode, tagName: string): void {
-  const { store } = state;
-  const existing = store.statementsMatching(tagNode, RDF('type'), MINERVA('Tag'));
-  if (existing.length === 0) {
-    store.add(tagNode, RDF('type'), MINERVA('Tag'));
-    store.add(tagNode, MINERVA('tagName'), $rdf.lit(tagName));
-  }
-}
-
 function ensureFolder(state: GraphState, relativePath: string): void {
   const { store } = state;
   const folder = folderUri(state, relativePath);
@@ -1530,30 +1355,4 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
   return count;
 }
 
-async function walkAndIndexSources(ctx: ProjectContext, rootPath: string): Promise<number> {
-  const sourcesRoot = path.join(rootPath, uriHelpers.SOURCES_DIR);
-  let count = 0;
-  let entries: import('node:fs').Dirent[];
-  try {
-    entries = await fs.readdir(sourcesRoot, { withFileTypes: true });
-  } catch {
-    return 0;
-  }
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const sourceId = entry.name;
-    const metaPath = path.join(sourcesRoot, sourceId, 'meta.ttl');
-    const bodyPath = path.join(sourcesRoot, sourceId, 'body.md');
-    try {
-      const metaContent = await fs.readFile(metaPath, 'utf-8');
-      let bodyContent: string | undefined;
-      try { bodyContent = await fs.readFile(bodyPath, 'utf-8'); } catch { /* body optional */ }
-      indexSource(ctx, sourceId, metaContent, bodyContent);
-      count++;
-    } catch {
-      // No meta.ttl in this directory — skip
-    }
-  }
-  return count;
-}
 
