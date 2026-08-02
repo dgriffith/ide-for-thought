@@ -2,6 +2,7 @@ import type { ToolExecutionResult, OutputMode, ToolContext } from '../../../shar
 import { getEditorStore } from '../stores/editor.svelte';
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
+import { todayDateString } from '../refactor/extract';
 
 export async function handleToolOutput(
   result: ToolExecutionResult,
@@ -58,7 +59,7 @@ function buildFrontmatter(
   if (result.suggestedTitle) {
     lines.push(`title: ${yamlQuote(result.suggestedTitle)}`);
   }
-  lines.push(`created: ${todayIso()}`);
+  lines.push(`created: ${todayDateString()}`);
   lines.push(`tool: ${result.toolId}`);
   if (sourcePath) lines.push(`source: ${sourcePath}`);
   lines.push('---', '');
@@ -81,10 +82,6 @@ function buildBody(result: ToolExecutionResult, sourcePath: string | null): stri
 function dirOf(relativePath: string): string {
   const idx = relativePath.lastIndexOf('/');
   return idx < 0 ? '' : relativePath.slice(0, idx);
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function yamlQuote(s: string): string {
