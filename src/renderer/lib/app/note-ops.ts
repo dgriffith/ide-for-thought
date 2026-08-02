@@ -375,14 +375,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       }
       try {
         await api.notebase.rename(t.relativePath, destPath);
-        const tabIdx = editor.tabs.findIndex((tab) => tab.type === 'note' && tab.relativePath === t.relativePath);
-        if (tabIdx !== -1) {
-          const tab = editor.tabs[tabIdx]!;
-          if (tab.type === 'note') {
-            tab.relativePath = destPath;
-            tab.fileName = name;
-          }
-        }
+        // Retarget any open tab through the store so it also fixes an
+        // unsupported-file tab's ext and re-persists the session (#1595).
+        editor.applyRenameTransitions([{ old: t.relativePath, new: destPath }]);
       } catch (err) {
         failures.push({ path: t.relativePath, error: err instanceof Error ? err.message : String(err) });
       }
@@ -420,14 +415,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       try {
         if (mode === 'cut') {
           await api.notebase.rename(item.relativePath, destPath);
-          const tabIdx = editor.tabs.findIndex((t) => t.type === 'note' && t.relativePath === item.relativePath);
-          if (tabIdx !== -1) {
-            const tab = editor.tabs[tabIdx]!;
-            if (tab.type === 'note') {
-              tab.relativePath = destPath;
-              tab.fileName = name;
-            }
-          }
+          // Retarget any open tab through the store so it also fixes an
+          // unsupported-file tab's ext and re-persists the session (#1595).
+          editor.applyRenameTransitions([{ old: item.relativePath, new: destPath }]);
         } else {
           await api.notebase.copy(item.relativePath, destPath);
         }
