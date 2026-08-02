@@ -74,15 +74,24 @@ describe('llm settings — API key at-rest encryption (#1326)', () => {
     expect(await anthropicKey()).toBe('sk-ant-secret');
   });
 
-  it('migrates a legacy plaintext key to the providers map, encrypted, on the next save', async () => {
+  it('migrates a legacy plaintext key to the encrypted providers map on read (#1642)', async () => {
     fs.writeFileSync(settingsFile(), JSON.stringify({ apiKey: 'sk-ant-old', model: 'claude-sonnet-5' }));
     const loaded = await getSettings();
-    expect(loaded.providers.anthropic?.apiKey).toBe('sk-ant-old');
-    await saveSettings(loaded);
+    expect(loaded.providers.anthropic?.apiKey).toBe('sk-ant-old'); // caller still sees the usable key
+    // The read itself heals the on-disk copy — encrypted providers map, legacy
+    // top-level field gone — without waiting for a save.
     const onDisk = fs.readFileSync(settingsFile(), 'utf-8');
     expect(onDisk).not.toContain('sk-ant-old');
     expect(JSON.parse(onDisk).apiKey).toBeUndefined();      // legacy top-level field gone
     expect(onDiskAnthropic()!.startsWith('enc:v1:')).toBe(true);
+  });
+
+  it('does not rewrite settings on read when the stored key is already encrypted (#1642)', async () => {
+    await saveSettings({ ...base, apiKey: 'sk-ant-enc' });
+    const before = fs.readFileSync(settingsFile(), 'utf-8');
+    await getSettings();
+    // Already-encrypted → the read is a no-op, byte-for-byte.
+    expect(fs.readFileSync(settingsFile(), 'utf-8')).toBe(before);
   });
 
   it('falls back to the env var when apiKey is absent, but respects an explicit empty', async () => {

@@ -14,7 +14,7 @@ import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import { encryptSecret, decryptSecret } from '../secret-storage';
+import { encryptSecret, decryptSecret, isEncrypted, secretEncryptionAvailable } from '../secret-storage';
 
 export interface ClipperConfig {
   enabled: boolean;
@@ -39,13 +39,22 @@ export async function getClipperConfig(): Promise<ClipperConfig> {
   try {
     const raw = await fs.readFile(configPath(), 'utf-8');
     const parsed = JSON.parse(raw) as Partial<ClipperConfig>;
-    return {
+    const config: ClipperConfig = {
       enabled: typeof parsed.enabled === 'boolean' ? parsed.enabled : DEFAULT_CLIPPER_CONFIG.enabled,
       // Decrypt the secret at rest (#1326); a legacy plaintext secret passes
-      // through unchanged, so existing pairings keep working and re-encrypt on
-      // the next write.
+      // through unchanged so existing pairings keep working.
       secret: typeof parsed.secret === 'string' ? decryptSecret(parsed.secret) : DEFAULT_CLIPPER_CONFIG.secret,
     };
+    // Lazily upgrade a legacy plaintext secret to encrypted-at-rest the first
+    // time it's read on a machine where encryption is now available (#1642),
+    // rather than waiting for the next enable/regenerate. Self-heals after one
+    // write; a no-op once the stored secret is encrypted or empty.
+    if (config.secret
+      && typeof parsed.secret === 'string' && !isEncrypted(parsed.secret)
+      && secretEncryptionAvailable()) {
+      await saveClipperConfig(config);
+    }
+    return config;
   } catch {
     return { ...DEFAULT_CLIPPER_CONFIG };
   }

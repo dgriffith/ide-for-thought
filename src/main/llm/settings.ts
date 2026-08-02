@@ -174,8 +174,39 @@ function providerViews(stored: Partial<Record<ProviderId, StoredCreds>>): Partia
   return out;
 }
 
+/**
+ * Lazily upgrade any legacy plaintext provider key to encrypted-at-rest the
+ * first time settings are read on a machine where encryption is available
+ * (#1642) — instead of waiting for that specific provider to be edited. Also
+ * folds a pre-BYOM top-level `apiKey` into the `providers` map. Self-heals after
+ * one write; a no-op when secure storage is unavailable or every stored key is
+ * already encrypted.
+ */
+async function reencryptLegacyProviderKeys(parsed: StoredSettings): Promise<void> {
+  if (!secretEncryptionAvailable()) return;
+  const stored = storedProviders(parsed);
+  const providers: Partial<Record<ProviderId, StoredCreds>> = {};
+  let changed = false;
+  for (const id of PROVIDER_IDS) {
+    const c = stored[id];
+    if (!c || Object.keys(c).length === 0) continue;
+    if (typeof c.apiKey === 'string' && c.apiKey.length > 0 && !isEncrypted(c.apiKey)) {
+      providers[id] = { ...c, apiKey: encryptSecret(c.apiKey) };
+      changed = true;
+    } else {
+      providers[id] = c;
+    }
+  }
+  if (!changed) return;
+  // Drop the legacy top-level `apiKey` (now folded into providers) and persist.
+  const { apiKey: _legacyApiKey, ...restParsed } = parsed;
+  const onDisk = { ...restParsed, providers };
+  await fs.writeFile(settingsPath(), JSON.stringify(onDisk, null, 2), 'utf-8');
+}
+
 export async function getSettings(): Promise<LLMSettings> {
   const parsed = await readParsed();
+  await reencryptLegacyProviderKeys(parsed);
   const effort = resolveEffortSetting(parsed.effort);
   const toolModelOverrides = resolveToolModelOverrides(parsed.toolModelOverrides);
   const customModels = resolveCustomModels(parsed.customModels);
