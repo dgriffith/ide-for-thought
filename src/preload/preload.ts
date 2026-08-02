@@ -427,9 +427,7 @@ contextBridge.exposeInMainWorld('api', {
       pageRange?: string | null;
       locationText?: string | null;
     }) => invoke(Channels.SOURCES_CREATE_EXCERPT, params),
-    onExcerptsChanged: (cb: () => void) => {
-      ipcRenderer.on(Channels.EXCERPTS_CHANGED, () => cb());
-    },
+    onExcerptsChanged: (cb: () => void) => subscribeIpc(Channels.EXCERPTS_CHANGED, () => cb()),
   },
   collections: {
     list: () => invoke(Channels.COLLECTIONS_LIST),

@@ -14,6 +14,7 @@
    * whose text was OCR-altered or spans a column break. Adding
    * explicit pdfBoundingBox to excerpts is a future-work refinement.
    */
+  import { onMount } from 'svelte';
   import { api } from '../ipc/client';
   import type { SourceExcerpt } from '../../../shared/types';
   import { getEditorStore } from '../stores/editor.svelte';
@@ -148,11 +149,12 @@
     }
   }
 
-  // Listen for excerpt-changed broadcasts so newly-saved excerpts
-  // appear as highlights immediately.
-  sourceData.onExcerptsChanged(() => {
+  // Listen for excerpt-changed broadcasts so newly-saved excerpts appear as
+  // highlights immediately. Subscribe in onMount and return the unsubscribe so
+  // the listener is torn down on unmount (#1610).
+  onMount(() => sourceData.onExcerptsChanged(() => {
     void refreshExcerpts(sourceId);
-  });
+  }));
 
   // ── Render a page ─────────────────────────────────────────────────────────
 
