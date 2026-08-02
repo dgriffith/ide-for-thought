@@ -62,6 +62,26 @@ describe('TypeEditorDialog (#1585)', () => {
     expect(input.card).toEqual(['author']); // the on-card checkbox stayed set
   });
 
+  it('preserves an explicit per-property label, without materializing defaults (#1594)', async () => {
+    render(TypeEditorDialog, {
+      initial: {
+        id: 'book', label: 'Book',
+        properties: [
+          { name: 'author', type: 'text', label: 'Auteur' },          // real custom label — keep
+          { name: 'page_count', type: 'number', label: 'Page Count' }, // == title-cased default — drop
+        ],
+      },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await waitFor(() => expect(screen.getByDisplayValue('Book')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].properties).toEqual([
+      { name: 'author', type: 'text', label: 'Auteur' },
+      { name: 'page_count', type: 'number' }, // default label not written back
+    ]);
+  });
+
   it('carries the parent type through save (#1587)', async () => {
     render(TypeEditorDialog, {
       initial: { id: 'monograph', label: 'Monograph', parent: 'book', properties: [] },

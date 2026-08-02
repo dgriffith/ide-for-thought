@@ -8,6 +8,7 @@ import YAML from 'yaml';
 import {
   PROPERTY_TYPES,
   pascalCase,
+  titleCase,
   type PropertyDef,
   type PropertyType,
   type TypeDef,
@@ -29,10 +30,6 @@ function slugify(s: string): string {
 
 function asString(v: unknown): string | undefined {
   return typeof v === 'string' ? v.trim() || undefined : undefined;
-}
-
-function titleCase(s: string): string {
-  return s.replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /** Normalize the `properties:` list; skips (with an error) any malformed entry. */
