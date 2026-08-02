@@ -773,10 +773,13 @@ export interface TypesApi {
   save(input: { label: string; id?: string; properties: import('../../../shared/objects/type-def').PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string }): Promise<{ id: string; filePath: string }>;
   /** Delete a user object type by id (#1584). */
   delete(id: string): Promise<void>;
-  /** Delete a user type, optionally clearing `type:` from its instances (#1588). */
-  deleteSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[] }>;
-  /** Rename a user type, migrating its instances' `type:` to the new id (#1588). */
-  rename(oldId: string, newLabel: string): Promise<{ newId: string; migrated: string[] }>;
+  /** Delete a user type, optionally clearing `type:` from its instances (#1588).
+   *  `failed` lists instances that couldn't be cleared (#1611). */
+  deleteSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[]; failed: { path: string; error: string }[] }>;
+  /** Rename a user type, migrating its instances' `type:` to the new id (#1588).
+   *  `failed` lists instances that couldn't be migrated; the old type is kept
+   *  when any fail so nothing is orphaned (#1611). */
+  rename(oldId: string, newLabel: string): Promise<{ newId: string; migrated: string[]; failed: { path: string; error: string }[] }>;
 }
 
 export interface SkillsApi {

@@ -23,21 +23,46 @@ async function directInstancePaths(rootPath: string, classLocalName: string): Pr
   return (results as Array<{ path?: string }>).map((r) => r.path).filter((p): p is string => !!p);
 }
 
+/** A note that couldn't be re-typed (a write/index error), with the reason —
+ *  surfaced so the caller can report a partial result instead of a bare throw. */
+export interface RetypeFailure {
+  /** Project-relative note path. */
+  path: string;
+  error: string;
+}
+
+interface RetypeResult {
+  /** Notes whose `type:` was actually rewritten to disk. */
+  rewritten: string[];
+  failed: RetypeFailure[];
+}
+
 /** Rewrite `type:` on each note to `toTypeId`, or REMOVE the key when null.
- *  Reads current content (edits since aren't clobbered), writes + reindexes. */
-async function retypeNotes(rootPath: string, paths: string[], toTypeId: string | null): Promise<string[]> {
+ *  Reads current content (edits since aren't clobbered), writes + reindexes.
+ *
+ *  A single note's failure must not abort the batch or leave the returned list
+ *  lying about what persisted (#1611): each note is isolated, and only a note
+ *  that actually reached disk is reported as `rewritten` — the rest come back in
+ *  `failed` for the caller to surface. */
+async function retypeNotes(rootPath: string, paths: string[], toTypeId: string | null): Promise<RetypeResult> {
   const ctx = projectContext(rootPath);
   const rewritten: string[] = [];
+  const failed: RetypeFailure[] = [];
   for (const p of paths) {
     let content: string;
+    // A note that vanished between the query and now has nothing to migrate.
     try { content = await notebaseFs.readFile(rootPath, p); } catch { continue; }
     const { content: next, changedKeys } = patchFrontmatterProperties(content, { type: toTypeId });
     if (changedKeys.length === 0) continue;
-    await notebaseFs.writeFile(rootPath, p, next);
-    await graph.indexNote(ctx, p, next);
-    rewritten.push(p);
+    try {
+      await notebaseFs.writeFile(rootPath, p, next);
+      await graph.indexNote(ctx, p, next);
+      rewritten.push(p);
+    } catch (e) {
+      failed.push({ path: p, error: e instanceof Error ? e.message : String(e) });
+    }
   }
-  return rewritten;
+  return { rewritten, failed };
 }
 
 /** Full-fidelity save input for re-writing a type under a (possibly new) id. */
@@ -55,23 +80,30 @@ function inputFromDef(def: TypeDef, label: string, id: string): SaveTypeInput {
   };
 }
 
-export interface DeleteTypeResult { cleared: string[] }
+export interface DeleteTypeResult { cleared: string[]; failed: RetypeFailure[] }
 
 /** Delete a user type; optionally clear `type:` from its instances first so they
- *  aren't left pointing at a type that no longer resolves. */
+ *  aren't left pointing at a type that no longer resolves. The delete is the
+ *  user's explicit intent, so it proceeds even if some instances couldn't be
+ *  cleared — those come back in `failed` (they still carry the old `type:`). */
 export async function deleteTypeSafely(rootPath: string, id: string, clearInstances: boolean): Promise<DeleteTypeResult> {
   const ctx = projectContext(rootPath);
   let cleared: string[] = [];
+  let failed: RetypeFailure[] = [];
   if (clearInstances) {
     const def = (await loadTypeCatalog(rootPath)).types.find((t) => t.id === id);
-    if (def) cleared = await retypeNotes(rootPath, await directInstancePaths(rootPath, def.classLocalName), null);
+    if (def) {
+      const res = await retypeNotes(rootPath, await directInstancePaths(rootPath, def.classLocalName), null);
+      cleared = res.rewritten;
+      failed = res.failed;
+    }
   }
   await deleteType(rootPath, id);
   await graph.reloadTypeCatalog(ctx);
-  return { cleared };
+  return { cleared, failed };
 }
 
-export interface RenameTypeResult { newId: string; migrated: string[] }
+export interface RenameTypeResult { newId: string; migrated: string[]; failed: RetypeFailure[] }
 
 /** Rename a user type. A label-only change (same slug) just re-labels in place;
  *  an id change writes the new type, migrates its instances' `type:` to the new
@@ -86,7 +118,7 @@ export async function renameType(rootPath: string, oldId: string, newLabel: stri
   if (newId === oldId) {
     await saveType(rootPath, inputFromDef(def, newLabel, oldId));
     await graph.reloadTypeCatalog(ctx);
-    return { newId: oldId, migrated: [] };
+    return { newId: oldId, migrated: [], failed: [] };
   }
 
   // Capture instances BEFORE the class changes, write the new type so its class
@@ -94,8 +126,11 @@ export async function renameType(rootPath: string, oldId: string, newLabel: stri
   const paths = await directInstancePaths(rootPath, def.classLocalName);
   await saveType(rootPath, inputFromDef(def, newLabel, newId));
   await graph.reloadTypeCatalog(ctx);
-  const migrated = await retypeNotes(rootPath, paths, newId);
-  await deleteType(rootPath, oldId);
+  const { rewritten: migrated, failed } = await retypeNotes(rootPath, paths, newId);
+  // Only retire the old type once EVERY instance has moved. If any failed, the
+  // old type must stay so those notes still resolve — dropping it now would
+  // orphan them, the exact harm #1588 prevents (#1611).
+  if (failed.length === 0) await deleteType(rootPath, oldId);
   await graph.reloadTypeCatalog(ctx);
-  return { newId, migrated };
+  return { newId, migrated, failed };
 }

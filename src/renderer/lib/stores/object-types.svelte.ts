@@ -31,13 +31,13 @@ async function remove(id: string): Promise<void> {
   await refresh();
 }
 
-async function removeSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[] }> {
+async function removeSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[]; failed: { path: string; error: string }[] }> {
   const result = await api.types.deleteSafely(id, clearInstances);
   await refresh();
   return result;
 }
 
-async function rename(oldId: string, newLabel: string): Promise<{ newId: string; migrated: string[] }> {
+async function rename(oldId: string, newLabel: string): Promise<{ newId: string; migrated: string[]; failed: { path: string; error: string }[] }> {
   const result = await api.types.rename(oldId, newLabel);
   await refresh();
   return result;
