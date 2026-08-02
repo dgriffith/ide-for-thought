@@ -162,6 +162,10 @@ export function parseType(content: string, source: TypeSource, filePath: string)
   // declared properties but keep the rest.
   const card = normalizeCard(fm.card, properties, errors);
   if (card.length > 0) type.card = card;
+  // `parent` (a.k.a. `extends`): the type this one specializes (#1586), stored
+  // as an id ref. Existence is validated later, in the loader (all types known).
+  const parent = asString(fm.parent) ?? asString(fm.extends);
+  if (parent) type.parent = slugify(parent);
 
   return { type, errors, label: bestLabel };
 }

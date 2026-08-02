@@ -47,6 +47,9 @@ export interface TypeDef {
    *  hovers, preview) — the card "template" (#1071). Empty/absent → a default
    *  derived from the first few declared properties. */
   card?: string[] | undefined;
+  /** Parent type id — materialized as `rdfs:subClassOf` so instances of this
+   *  type also count as the parent (#1586). Single inheritance for v1. */
+  parent?: string | undefined;
   source: TypeSource;
   /** Absolute path for user types; the glob key for stock types. */
   filePath: string;
@@ -69,6 +72,9 @@ export interface TypeInfo {
    *  hovers, preview) — the card "template" (#1071). Empty/absent → a default
    *  derived from the first few declared properties. */
   card?: string[] | undefined;
+  /** Parent type id — materialized as `rdfs:subClassOf` so instances of this
+   *  type also count as the parent (#1586). Single inheritance for v1. */
+  parent?: string | undefined;
   source: TypeSource;
 }
 
@@ -102,6 +108,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     color: t.color,
     cover: t.cover,
     card: t.card,
+    parent: t.parent,
     source: t.source,
   };
 }

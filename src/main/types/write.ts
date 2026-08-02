@@ -19,6 +19,8 @@ export interface SaveTypeInput {
   color?: string | undefined;
   cover?: string | undefined;
   card?: string[] | undefined;
+  /** Parent type id — materialized as `rdfs:subClassOf` (#1586). */
+  parent?: string | undefined;
   /** Template body (markdown after the frontmatter) — carried for a faithful
    *  duplicate; "Save Note as Object Type" leaves it empty. */
   template?: string | undefined;
@@ -37,6 +39,7 @@ export function serializeTypeFile(id: string, input: SaveTypeInput): string {
   if (input.color) fm.color = input.color;
   if (input.cover) fm.cover = input.cover;
   if (input.card && input.card.length > 0) fm.card = input.card;
+  if (input.parent) fm.parent = input.parent;
   fm.properties = input.properties.map((p) => {
     const o: Record<string, unknown> = { name: p.name, type: p.type };
     if (p.label) o.label = p.label;
