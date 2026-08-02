@@ -198,6 +198,28 @@ function buildRecentSubmenu(): Electron.MenuItemConstructorOptions[] {
     : [{ label: 'No Recent Thoughtbases', enabled: false }];
 }
 
+/**
+ * Print the focused window's rendered view to a user-chosen PDF (the File →
+ * Print to PDF… action). No-op if no window is focused or the save dialog is
+ * cancelled. Extracted from the menu entry's inline click for readability (#1627).
+ */
+async function printFocusedWindowToPdf(): Promise<void> {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) return;
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Export as PDF',
+    defaultPath: 'note.pdf',
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (result.canceled || !result.filePath) return;
+  const data = await win.webContents.printToPDF({
+    pageSize: 'Letter',
+    printBackground: true,
+  });
+  const fs = await import('node:fs/promises');
+  await fs.writeFile(result.filePath, data);
+}
+
 /** File menu — thoughtbase lifecycle, note actions, ingest/import, print, indexes. */
 function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructorOptions {
   return {
@@ -298,23 +320,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
       }, { note: true }),
       gate({
         label: 'Print to PDF…',
-        click: async () => {
-          const win = BrowserWindow.getFocusedWindow();
-          if (!win) return;
-          const result = await dialog.showSaveDialog(win, {
-            title: 'Export as PDF',
-            defaultPath: 'note.pdf',
-            filters: [{ name: 'PDF', extensions: ['pdf'] }],
-          });
-          if (!result.canceled && result.filePath) {
-            const data = await win.webContents.printToPDF({
-              pageSize: 'Letter',
-              printBackground: true,
-            });
-            const fs = await import('node:fs/promises');
-            await fs.writeFile(result.filePath, data);
-          }
-        },
+        click: printFocusedWindowToPdf,
       }, { note: true }),
       { type: 'separator' },
       {
