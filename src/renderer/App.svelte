@@ -83,6 +83,7 @@
   import {
     flattenNotePaths,
     lineBookmarkName,
+    formatCappedList,
   } from './lib/app/text-helpers';
   import { initAppearance } from './lib/appearance/settings';
   import { applyStoredZoom } from './lib/appearance/zoom';
@@ -1593,12 +1594,9 @@
       onCancel={() => { exportDialogGroup = null; }}
       onExported={async (result) => {
         exportDialogGroup = null;
-        const pathPreview = result.writtenPaths.slice(0, 5).map((p) => `  • ${p}`).join('\n');
-        const more = result.writtenPaths.length > 5
-          ? `\n  …and ${result.writtenPaths.length - 5} more`
-          : '';
+        const pathPreview = formatCappedList(result.writtenPaths, (p: string) => `  • ${p}`, { moreIndent: '  ' });
         await showConfirm(
-          `${result.summary}\n\nFiles written:\n${pathPreview}${more}`,
+          `${result.summary}\n\nFiles written:\n${pathPreview}`,
           CONFIRM_KEYS.exportComplete,
           'OK',
         );

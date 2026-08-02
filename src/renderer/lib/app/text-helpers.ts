@@ -88,6 +88,28 @@ export function countNotes(files: NoteFile[]): number {
   return n;
 }
 
+/** A per-item failure in a batch op (move / paste / delete / bulk tag /
+ *  bulk property): the note path that failed and why. */
+export interface OperationFailure {
+  path: string;
+  error: string;
+}
+
+/** Join up to `cap` items (one per line via `render`), appending
+ *  "…and N more" when the list is longer — the shared shape behind the
+ *  move / paste / delete / bulk-refactor / export summary dialogs. `moreIndent`
+ *  prefixes the overflow line for callers that indent their bullets. */
+export function formatCappedList<T>(
+  items: T[],
+  render: (item: T) => string,
+  opts: { cap?: number; moreIndent?: string } = {},
+): string {
+  const { cap = 5, moreIndent = '' } = opts;
+  const head = items.slice(0, cap).map(render).join('\n');
+  const extra = items.length - cap;
+  return extra > 0 ? `${head}\n${moreIndent}…and ${extra} more` : head;
+}
+
 /** Singular/plural noun for a delete confirmation over a set of targets. */
 export function describeDeleteNoun(targets: Array<{ isDirectory: boolean }>): string {
   if (targets.length === 1) return targets[0]!.isDirectory ? 'folder' : 'note';

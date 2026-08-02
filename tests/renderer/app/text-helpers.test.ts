@@ -12,6 +12,7 @@ import {
   countNotes,
   describeDeleteNoun,
   describeDeleteMessage,
+  formatCappedList,
 } from '../../../src/renderer/lib/app/text-helpers';
 import type { NoteFile } from '../../../src/shared/types';
 
@@ -143,5 +144,33 @@ describe('describeDeleteMessage', () => {
   it('summarizes multiple with a sample and overflow', () => {
     const targets = ['a.md', 'b.md', 'c.md', 'd.md'].map((p) => ({ relativePath: p, isDirectory: false }));
     expect(describeDeleteMessage(targets, 'notes')).toBe('Delete 4 notes (a.md, b.md, c.md, …)?');
+  });
+});
+
+describe('formatCappedList', () => {
+  const fails = (n: number) => Array.from({ length: n }, (_, i) => ({ path: `n${i}.md`, error: 'x' }));
+
+  it('renders every item when at or under the cap, no overflow line', () => {
+    expect(formatCappedList(fails(2), (f) => `• ${f.path}: ${f.error}`))
+      .toBe('• n0.md: x\n• n1.md: x');
+  });
+
+  it('caps at 5 and appends "…and N more"', () => {
+    const out = formatCappedList(fails(7), (f) => `• ${f.path}`);
+    expect(out).toBe('• n0.md\n• n1.md\n• n2.md\n• n3.md\n• n4.md\n…and 2 more');
+  });
+
+  it('honors a custom cap', () => {
+    expect(formatCappedList(['a', 'b', 'c'], (s) => `• ${s}`, { cap: 2 }))
+      .toBe('• a\n• b\n…and 1 more');
+  });
+
+  it('indents the overflow line with moreIndent (App export summary)', () => {
+    const out = formatCappedList(['a', 'b', 'c', 'd', 'e', 'f'], (p) => `  • ${p}`, { moreIndent: '  ' });
+    expect(out.endsWith('\n  …and 1 more')).toBe(true);
+  });
+
+  it('returns an empty string for no items', () => {
+    expect(formatCappedList([], (s: string) => s)).toBe('');
   });
 });
