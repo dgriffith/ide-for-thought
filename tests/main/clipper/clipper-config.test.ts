@@ -105,3 +105,14 @@ it('reads a legacy plaintext secret unchanged, then re-encrypts on next write (#
   const onDisk = fs.readFileSync(path.join(tempDir, 'clipper-config.json'), 'utf-8');
   expect((JSON.parse(onDisk).secret as string).startsWith('enc:v1:')).toBe(true);
 });
+
+it('re-encrypts a legacy plaintext secret on read, before any write (#1642)', async () => {
+  const legacy = 'b'.repeat(64);
+  const file = path.join(tempDir, 'clipper-config.json');
+  fs.writeFileSync(file, JSON.stringify({ enabled: true, secret: legacy }));
+  // The read itself upgrades the on-disk copy to encrypted-at-rest…
+  expect((await getClipperConfig()).secret).toBe(legacy);
+  expect((JSON.parse(fs.readFileSync(file, 'utf-8')).secret as string).startsWith('enc:v1:')).toBe(true);
+  // …and the caller keeps seeing the usable plaintext secret afterwards.
+  expect((await getClipperConfig()).secret).toBe(legacy);
+});
