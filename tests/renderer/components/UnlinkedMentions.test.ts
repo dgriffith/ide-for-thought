@@ -16,6 +16,8 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
   api: {
     types: { noteProperties: notePropsMock },
     embeddings: { unlinkedMentions: mentionsMock },
+    // The link write routes through linkSuggestionsStore, a thin pass-through to
+    // this mocked client (renderer data-flow rule #1086/#1626).
     refactor: { applySuggestedLink: applyLinkMock },
   },
 }));

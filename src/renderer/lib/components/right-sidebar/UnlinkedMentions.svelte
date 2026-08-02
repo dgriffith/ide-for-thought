@@ -13,6 +13,7 @@
   import type { RelatedNote } from '../../../../shared/types';
   import { slugify } from '../../../../shared/slug';
   import { api } from '../../ipc/client';
+  import { linkSuggestionsStore } from '../../stores/link-suggestions.svelte';
   import Icon from '../Icon.svelte';
 
   interface Props {
@@ -78,7 +79,9 @@
     justLinked = new Set(justLinked).add(m.ref); // optimistic
     try {
       // Inverse of RelatedPanel: insert [[thisObject]] INTO the mentioning note.
-      await api.refactor.applySuggestedLink(m.ref, activeFilePath);
+      // Routed via the store — the write is a mutation and belongs there, not in
+      // this component (renderer data-flow rule #1086/#1626).
+      await linkSuggestionsStore.applySuggestedLink(m.ref, activeFilePath);
     } catch {
       const next = new Set(justLinked); next.delete(m.ref); justLinked = next;
     }
