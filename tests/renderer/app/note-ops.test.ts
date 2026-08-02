@@ -22,6 +22,7 @@ const h = vi.hoisted(() => {
   const editor = {
     openFile: vi.fn(), tabs: [] as unknown[], closeTabsForDeletedPath: vi.fn(), flushAutoSave: vi.fn(),
     activeFilePath: 'Note.md' as string | null, content: '', setContent: vi.fn(),
+    applyRenameTransitions: vi.fn(),
   };
   const dialog = {
     showPrompt: vi.fn(), showConfirm: vi.fn(), showNewNoteDialog: vi.fn(), showSnippetPicker: vi.fn(),
@@ -461,12 +462,13 @@ describe('handleCut / handleCopy', () => {
 });
 
 describe('handleMove (drag-move)', () => {
-  it('moves a single dragged file and retargets its open tab', async () => {
+  it('moves a single dragged file and retargets its open tab via the store', async () => {
     h.notebase.files = [file('a.md')];
-    h.editor.tabs = [{ type: 'note', relativePath: 'a.md', fileName: 'a.md' }];
     await ops.handleMove('a.md', 'dest');
     expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
-    expect(h.editor.tabs[0]).toMatchObject({ relativePath: 'dest/a.md', fileName: 'a.md' });
+    // Retarget goes through the store (fixes unsupported-file ext + re-persists
+    // the session), not a direct editor.tabs mutation (#1595).
+    expect(h.editor.applyRenameTransitions).toHaveBeenCalledWith([{ old: 'a.md', new: 'dest/a.md' }]);
     expect(sidebar.clearSelection).toHaveBeenCalled();
   });
 
@@ -521,12 +523,12 @@ describe('handleMove (drag-move)', () => {
 });
 
 describe('handlePaste — collisions, failures, tab retarget', () => {
-  it('cut+paste retargets an open tab for the moved item', async () => {
-    h.editor.tabs = [{ type: 'note', relativePath: 'a.md', fileName: 'a.md' }];
+  it('cut+paste retargets an open tab for the moved item via the store', async () => {
     getClipboardStore().set({ items: [{ relativePath: 'a.md', isDirectory: false }], mode: 'cut' });
     await ops.handlePaste('dest');
     expect(h.api.notebase.rename).toHaveBeenCalledWith('a.md', 'dest/a.md');
-    expect(h.editor.tabs[0]).toMatchObject({ relativePath: 'dest/a.md', fileName: 'a.md' });
+    // Retarget goes through the store, not a direct editor.tabs mutation (#1595).
+    expect(h.editor.applyRenameTransitions).toHaveBeenCalledWith([{ old: 'a.md', new: 'dest/a.md' }]);
   });
 
   it('skips a collision and reports the Copy summary', async () => {
