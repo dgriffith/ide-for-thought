@@ -29,6 +29,7 @@
       id: t.id, label: t.label, properties: t.properties,
       ...(t.icon ? { icon: t.icon } : {}), ...(t.color ? { color: t.color } : {}),
       ...(t.cover ? { cover: t.cover } : {}), ...(t.card ? { card: t.card } : {}),
+      ...(t.parent ? { parent: t.parent } : {}),
       ...(t.template ? { template: t.template } : {}),
     };
     editorOpen = true;
@@ -58,6 +59,7 @@
         ...(t.color ? { color: t.color } : {}),
         ...(t.cover ? { cover: t.cover } : {}),
         ...(t.card ? { card: t.card } : {}),
+        ...(t.parent ? { parent: t.parent } : {}),
         ...(t.template ? { template: t.template } : {}),
       });
     } finally { busy = false; }

@@ -62,6 +62,18 @@ describe('TypeEditorDialog (#1585)', () => {
     expect(input.card).toEqual(['author']); // the on-card checkbox stayed set
   });
 
+  it('carries the parent type through save (#1587)', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'monograph', label: 'Monograph', parent: 'book', properties: [] },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    // Wait for the type list to load (populates the parent dropdown).
+    await waitFor(() => expect(document.querySelector('option[value="book"]')).toBeTruthy());
+    await fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].parent).toBe('book');
+  });
+
   it('reorders properties', async () => {
     render(TypeEditorDialog, {
       initial: { label: 'T', properties: [{ name: 'first', type: 'text' }, { name: 'second', type: 'text' }] },
