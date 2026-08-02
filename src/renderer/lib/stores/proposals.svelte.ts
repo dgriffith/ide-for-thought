@@ -20,16 +20,11 @@
  * the list self-updates after a mutation with no manual refresh.
  */
 import { api } from '../ipc/client';
+import type { Proposal } from '../../../shared/proposals';
 
-export interface Proposal {
-  uri: string;
-  status: string;
-  operationType: string;
-  note: string;
-  proposedBy: string;
-  proposedAt: string;
-  payloads: unknown[];
-}
+// Re-exported so existing importers keep resolving `Proposal` from the store;
+// the wire shape now lives in shared/ so the IPC contract can name it (#1632).
+export type { Proposal };
 
 let proposals = $state<Proposal[]>([]);
 /** True once the first list() has resolved — lets a surface distinguish "no
@@ -74,7 +69,7 @@ function bufferArrivals(arrived: Proposal[]): void {
  * any newly-pending proposals as arrivals.
  */
 async function refresh(opts?: { baseline?: boolean }): Promise<void> {
-  proposals = (await api.proposals.list()) as Proposal[];
+  proposals = await api.proposals.list();
   loaded = true;
   const pending = proposals.filter((p) => p.status === 'pending');
   if (!opts?.baseline) {
