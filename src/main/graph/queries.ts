@@ -869,6 +869,19 @@ function collectSourceReferences(state: GraphState, sourceSubject: $rdf.NamedNod
   return out;
 }
 
+/**
+ * First object value for (subject, pred) in the store, or null — collapses the
+ * `store.statementsMatching(s, p)[0]?.object.value ?? null` idiom that recurs
+ * across these RDF extractors (#1607).
+ */
+function firstObjectValue(
+  store: $rdf.IndexedFormula,
+  subject: $rdf.NamedNode,
+  pred: ReturnType<typeof MINERVA>,
+): string | null {
+  return store.statementsMatching(subject, pred, undefined)[0]?.object.value ?? null;
+}
+
 function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rdf.NamedNode): SourceMetadata {
   const { store } = state;
 
@@ -890,10 +903,7 @@ function collectSourceMetadata(state: GraphState, sourceId: string, subject: $rd
     if (!creators.includes(v)) creators.push(v);
   }
 
-  const first = (pred: ReturnType<typeof MINERVA>): string | null => {
-    const stmts = store.statementsMatching(subject, pred, undefined);
-    return stmts[0]?.object.value ?? null;
-  };
+  const first = (pred: ReturnType<typeof MINERVA>): string | null => firstObjectValue(store, subject, pred);
 
   const issued = first(DC('issued'));
   const rawReadStatus = first(MINERVA('readStatus'));
@@ -1046,10 +1056,7 @@ function collectExcerptsForSource(state: GraphState, sourceSubject: $rdf.NamedNo
     if (!id || seen.has(id)) continue;
     seen.add(id);
 
-    const first = (pred: ReturnType<typeof MINERVA>): string | null => {
-      const s = store.statementsMatching(ex, pred, undefined);
-      return s[0]?.object.value ?? null;
-    };
+    const first = (pred: ReturnType<typeof MINERVA>): string | null => firstObjectValue(store, ex, pred);
 
     excerpts.push({
       excerptId: id,
