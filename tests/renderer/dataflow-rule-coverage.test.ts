@@ -20,10 +20,10 @@
  *   • mutation / event subscription → add it to the eslint denylist AND route
  *     the call through a store or App ops handler.
  *
- * Known limitation, tracked as its own follow-up: this classifies by method
- * NAME, so it does not catch the `window.api.<domain>.<method>` call form, which
- * bypasses the eslint selector (`callee.object.object.name === 'api'`) entirely.
- * EditSavedQueriesDialog.svelte reaches saved-query mutations that way today.
+ * The eslint rule itself now covers both call forms — the typed `api` client
+ * and the raw `window.api` bridge (#1674). This test is the complementary net:
+ * it scans both forms and makes sure every method NAME used in a component is
+ * classified, so a brand-new method can't slip through unnoticed.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -83,19 +83,18 @@ function stripComments(src: string): string {
 /** Mutation/subscription method names the eslint denylist forbids in components. */
 function denylistNames(): Set<string> {
   const cfg = readFileSync(ESLINT_CONFIG, 'utf8');
-  // Anchor on the selector's identity check (`…name='api'`) — a clean position
-  // where the next `'` is an OPENING quote, so quote pairing stays aligned. (An
-  // earlier attempt sliced from mid-string and paired closing↔opening quotes,
-  // capturing the JS *between* fragments instead of the method names.)
-  const start = cfg.indexOf("object.object.name='api'");
-  const end = cfg.indexOf('message:', start);
-  expect(start, 'data-flow denylist selector not found in eslint.config.mjs').toBeGreaterThan(-1);
-  expect(end).toBeGreaterThan(start);
-  const region = cfg.slice(start, end);
+  // The mutation method names live in the DATAFLOW_MUTATION_METHODS const — a
+  // `'a|b|' + 'c|d'` series of single-quoted fragments shared by both selectors.
+  // Slice the assignment (from `=` to the terminating `;`), pull the quoted
+  // contents, and split on `|`; the interleaved `//` section comments carry no
+  // quotes, so they drop out.
+  const decl = cfg.indexOf('const DATAFLOW_MUTATION_METHODS');
+  expect(decl, 'DATAFLOW_MUTATION_METHODS not found in eslint.config.mjs').toBeGreaterThan(-1);
+  const eq = cfg.indexOf('=', decl);
+  const semi = cfg.indexOf(';', eq);
+  expect(semi).toBeGreaterThan(eq);
+  const region = cfg.slice(eq, semi);
   const names = new Set<string>();
-  // The selector is assembled from single-quoted `'a|b|c|'` fragments; pulling
-  // the quoted contents and splitting on `|` skips the interleaved `//` section
-  // comments cleanly.
   for (const m of region.matchAll(/'([^']*)'/g)) {
     for (const n of m[1]!.split('|')) if (/^\w+$/.test(n)) names.add(n);
   }

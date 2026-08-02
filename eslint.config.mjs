@@ -13,6 +13,47 @@ import svelte from 'eslint-plugin-svelte';
 import svelteParser from 'svelte-eslint-parser';
 import globals from 'globals';
 
+// ── Renderer data-flow rule (#1086 / #1674) ─────────────────────────────────
+// Method names that mutate graph/thoughtbase/settings state or subscribe to a
+// main→renderer event. A component calling one directly — as either
+// `api.<domain>.<method>()` or `window.api.<domain>.<method>()` — fails lint;
+// route it through a store (src/renderer/lib/stores/*.svelte.ts) or an App ops
+// handler. When you add a new mutation channel, add its method name here.
+//
+// The #1626 guard test (tests/renderer/dataflow-rule-coverage.test.ts) parses
+// this const, so keep it a plain `'a|b|c'` series of single-quoted fragments.
+const DATAFLOW_MUTATION_METHODS =
+  // notebase writes + file-change subscriptions
+  'writeFile|writeBinary|createFile|deleteFile|createFolder|deleteFolder|copy|' +
+  'replaceInNotes|renameAnchor|renameSource|renameExcerpt|setOnboardingDismissed|' +
+  'onRewritten|onFileChanged|onFileCreated|onFileDeleted|onRenamed|onHeadingRenameSuggested|' +
+  // sources + collections mutations + change subscriptions
+  'ingestUrl|ingestIdentifier|ingestFile|ingestSmart|createExcerpt|finishPdfOcr|' +
+  'setReadStatus|setReadDueBy|setTitle|addTag|removeTag|stripUpstreamTags|mineReferences|' +
+  'createReferenceStubs|resolveStub|applyStubResolution|setIngestSettings|setExcerptNoteFolder|' +
+  'onExcerptsChanged|onChanged|createSmart|renameSmart|removeSmart|updateSmartPredicate|' +
+  'addSource|removeSource|' +
+  // queries / templates / formatter
+  'setGroup|setOrder|saveAs|formatFile|formatFolder|saveSettings|' +
+  // settings: clipper / tools / bibliography / csl / sites / skills / compute
+  'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
+  'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
+  'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
+  // publish / proposals / graph / refactor actions
+  'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
+  'applySuggestedLink|attachExcerptEvidence|' +
+  // conversations
+  'setModel|setEffort|compact|saveUIState|askUserReply|append|archive|send|' +
+  'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +
+  'runComputeDraft|insertComputeDraft|fileRefactorDraft|fileReorgDraft|fileDeleteDraft|fileNoteBodyDraft|' +
+  // generic mutation verbs (mutations only — no read shares these names)
+  'merge|rename|remove|create|add|delete|save|move|import|reload|execute|cancel';
+
+const DATAFLOW_MESSAGE =
+  'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +
+  'Route this through a store (src/renderer/lib/stores/*.svelte.ts) or an App ops handler. ' +
+  'Reads and stateless OS side-effects (shell/export/view/pickers) are allowed.';
+
 export default tseslint.config(
   {
     ignores: [
@@ -230,52 +271,37 @@ export default tseslint.config(
       }],
     },
   },
-  // ── Renderer data-flow rule (#1086) ────────────────────────────────────
+  // ── Renderer data-flow rule (#1086 / #1674) ────────────────────────────
   // Components may call `api.*` only for reads + stateless OS side-effects.
   // A mutation `api.<domain>.<method>(…)` (or an `api.*.on*` event
   // subscription) inside a component fails lint — route it through a store
   // (src/renderer/lib/stores/*.svelte.ts) or an App ops handler instead. The
   // rule is scoped to components/; stores, `lib/app/*-ops`, and App.svelte
-  // (the composition root) are exempt. When you add a new mutation channel,
-  // add its method name to the regex below.
+  // (the composition root) are exempt. The mutation method list lives in the
+  // DATAFLOW_MUTATION_METHODS const above. Two selectors below cover both call
+  // forms — the typed `api` client and the raw `window.api` bridge (#1674).
   {
     files: ['src/renderer/lib/components/**/*.svelte'],
     rules: {
-      'no-restricted-syntax': ['error', {
-        selector:
-          "CallExpression[callee.object.object.name='api']" +
-          '[callee.property.name=/^(' +
-          // notebase writes + file-change subscriptions
-          'writeFile|writeBinary|createFile|deleteFile|createFolder|deleteFolder|copy|' +
-          'replaceInNotes|renameAnchor|renameSource|renameExcerpt|setOnboardingDismissed|' +
-          'onRewritten|onFileChanged|onFileCreated|onFileDeleted|onRenamed|onHeadingRenameSuggested|' +
-          // sources + collections mutations + change subscriptions
-          'ingestUrl|ingestIdentifier|ingestFile|ingestSmart|createExcerpt|finishPdfOcr|' +
-          'setReadStatus|setReadDueBy|setTitle|addTag|removeTag|stripUpstreamTags|mineReferences|' +
-          'createReferenceStubs|resolveStub|applyStubResolution|setIngestSettings|setExcerptNoteFolder|' +
-          'onExcerptsChanged|onChanged|createSmart|renameSmart|removeSmart|updateSmartPredicate|' +
-          'addSource|removeSource|' +
-          // queries / templates / formatter
-          'setGroup|setOrder|saveAs|formatFile|formatFolder|saveSettings|' +
-          // settings: clipper / tools / bibliography / csl / sites / skills / compute
-          'setEnabled|regenerateSecret|setSettings|setStyle|generate|importStyle|importLocale|' +
-          'removeStyle|removeLocale|login|logout|setMenuConfig|setPythonSettings|restartPythonKernel|' +
-          'interruptPythonKernel|saveCellOutput|grantConsent|revokeConsent|' +
-          // publish / proposals / graph / refactor actions
-          'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
-          'applySuggestedLink|attachExcerptEvidence|' +
-          // conversations
-          'setModel|setEffort|compact|saveUIState|askUserReply|append|archive|send|' +
-          'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +
-          'runComputeDraft|insertComputeDraft|fileRefactorDraft|fileReorgDraft|fileDeleteDraft|fileNoteBodyDraft|' +
-          // generic mutation verbs (mutations only — no read shares these names)
-          'merge|rename|remove|create|add|delete|save|move|import|reload|execute|cancel' +
-          ')$/]',
-        message:
-          'Renderer data-flow rule (#1086): components must not call mutating/subscribing `api.*` methods directly. ' +
-          'Route this through a store (src/renderer/lib/stores/*.svelte.ts) or an App ops handler. ' +
-          'Reads and stateless OS side-effects (shell/export/view/pickers) are allowed.',
-      }],
+      'no-restricted-syntax': ['error',
+        // Imported client: api.<domain>.<method>()
+        {
+          selector:
+            "CallExpression[callee.object.object.name='api']" +
+            '[callee.property.name=/^(' + DATAFLOW_MUTATION_METHODS + ')$/]',
+          message: DATAFLOW_MESSAGE,
+        },
+        // Preload bridge: window.api.<domain>.<method>() — here callee.object.object
+        // is the `window.api` MemberExpression, so anchor on window↑ + the `api`
+        // property rather than an `api` identifier (#1674).
+        {
+          selector:
+            "CallExpression[callee.object.object.object.name='window']" +
+            "[callee.object.object.property.name='api']" +
+            '[callee.property.name=/^(' + DATAFLOW_MUTATION_METHODS + ')$/]',
+          message: DATAFLOW_MESSAGE,
+        },
+      ],
     },
   },
 );
