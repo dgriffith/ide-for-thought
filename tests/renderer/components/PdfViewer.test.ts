@@ -149,6 +149,22 @@ describe('PdfViewer (#100)', () => {
     expect(onShowMarkdown).toHaveBeenCalledWith('doi-x');
   });
 
+  it('unsubscribes from excerpt-changed on unmount (no listener leak) (#1610)', async () => {
+    mockDoc(1);
+    readPdfMock.mockResolvedValue(new Uint8Array([0x25]));
+    sourceDetailMock.mockResolvedValue({ excerpts: [] });
+    const unsub = vi.fn();
+    onExcerptsChangedMock.mockReturnValue(unsub);
+
+    const { findByText, unmount } = renderViewer();
+    await findByText('/ 1');
+    expect(onExcerptsChangedMock).toHaveBeenCalledTimes(1);
+    expect(unsub).not.toHaveBeenCalled();
+
+    unmount();
+    expect(unsub).toHaveBeenCalledTimes(1); // teardown ran — the listener is removed
+  });
+
   it('surfaces a load error when the PDF bytes cannot be read', async () => {
     readPdfMock.mockRejectedValue(new Error('source not found'));
     const { findByText } = renderViewer();

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { api } from '../ipc/client';
   import Preview from './Preview.svelte';
   import ExcerptDensityGutter from './ExcerptDensityGutter.svelte';
@@ -305,10 +305,11 @@
 
   // Reload the source detail when the main process tells us an excerpt
   // was added/updated/removed (covers cross-window sync and any direct
-  // filesystem edits the user made to excerpt ttls).
-  sourceData.onExcerptsChanged(() => {
+  // filesystem edits the user made to excerpt ttls). Subscribe in onMount and
+  // return the unsubscribe so the listener is torn down on unmount (#1610).
+  onMount(() => sourceData.onExcerptsChanged(() => {
     if (loadedId === sourceId) void load(sourceId);
-  });
+  }));
 
   async function createNoteFromExcerpt(excerpt: SourceExcerpt): Promise<void> {
     if (!onCreateNoteFromExcerpt) return;

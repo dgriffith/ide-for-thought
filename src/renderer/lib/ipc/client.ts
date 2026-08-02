@@ -1091,8 +1091,9 @@ export interface SourcesApi {
     pageRange?: string | null;
     locationText?: string | null;
   }): Promise<{ excerptId: string; relativePath: string; duplicate: boolean }>;
-  /** Fires when an excerpt is added, updated, or removed. */
-  onExcerptsChanged(cb: () => void): void;
+  /** Fires when an excerpt is added, updated, or removed. Returns an unsubscribe
+   *  — call it on teardown so the listener doesn't leak across remounts (#1610). */
+  onExcerptsChanged(cb: () => void): () => void;
 }
 
 /** Source collections (#470). */
