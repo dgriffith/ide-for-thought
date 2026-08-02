@@ -163,6 +163,16 @@ function ensureDraftItems<T>(draft: unknown, field: string, label: string): T[] 
   return items as T[];
 }
 
+/** Proposal provenance for a conversation-originated draft: the conversation's
+ *  node URI and the `llm:conversation:<id>` proposer tag. Centralised so a
+ *  namespace change is one edit, not six (#1619). Spread into `proposeWrite`. */
+function conversationProvenance(conversationId: string): { conversationUri: string; proposedBy: string } {
+  return {
+    conversationUri: `https://minerva.dev/ontology/thought#conversation/${conversationId}`,
+    proposedBy: `llm:conversation:${conversationId}`,
+  };
+}
+
 export function registerConversation(): void {
   // Proposals
   handle(Channels.PROPOSAL_LIST, withRootPathOr<[string?], Proposal[] | Promise<Proposal[]>>([], (rootPath, status?: string) =>
@@ -439,8 +449,7 @@ export function registerConversation(): void {
         operationType: 'component_creation',
         payloads: draft.payloads,
         note: draft.note,
-        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-        proposedBy: `llm:conversation:${draft.conversationId}`,
+        ...conversationProvenance(draft.conversationId),
       });
       let filedPaths: string[] = [];
       if (proposal) {
@@ -471,8 +480,7 @@ export function registerConversation(): void {
           ? { kind: 'folder-refactor', fromPath: draft.fromPath, toPath: draft.toPath }
           : { kind: 'note-refactor', fromPath: draft.fromPath, toPath: draft.toPath }],
         note: draft.note,
-        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-        proposedBy: `llm:conversation:${draft.conversationId}`,
+        ...conversationProvenance(draft.conversationId),
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
@@ -499,8 +507,7 @@ export function registerConversation(): void {
         operationType: 'note_refactor',
         payloads: ordered.map((i) => ({ kind: 'note-refactor' as const, fromPath: i.fromPath, toPath: i.toPath })),
         note: draft.note,
-        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-        proposedBy: `llm:conversation:${draft.conversationId}`,
+        ...conversationProvenance(draft.conversationId),
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
@@ -531,8 +538,7 @@ export function registerConversation(): void {
           ? [{ kind: 'folder-delete' as const, path: draft.folderPath }]
           : selected.map((path) => ({ kind: 'note-delete' as const, path })),
         note: draft.note,
-        conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-        proposedBy: `llm:conversation:${draft.conversationId}`,
+        ...conversationProvenance(draft.conversationId),
       });
       if (proposal) await approval.approveProposal(ctx, proposal.uri);
       return { proposalUri: proposal?.uri ?? null, applied: true };
@@ -564,8 +570,7 @@ export function registerConversation(): void {
           operationType: 'note_rewrite',
           payloads: [{ kind: 'note-rewrite', path: draft.relativePath, content: draft.afterContent }],
           note: draft.note,
-          conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-          proposedBy: `llm:conversation:${draft.conversationId}`,
+          ...conversationProvenance(draft.conversationId),
         });
         let applied = false;
         if (proposal) {
@@ -635,8 +640,7 @@ export function registerConversation(): void {
           operationType: 'component_creation',
           payloads,
           note: draft.note,
-          conversationUri: `https://minerva.dev/ontology/thought#conversation/${draft.conversationId}`,
-          proposedBy: `llm:conversation:${draft.conversationId}`,
+          ...conversationProvenance(draft.conversationId),
         });
         if (proposal) await approval.approveProposal(ctx, proposal.uri);
 
