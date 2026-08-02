@@ -566,6 +566,112 @@ export interface IndexNoteOptions {
 // freedom to add real async work later without rippling out a signature
 // change. The current body happens to be sync.
 // eslint-disable-next-line @typescript-eslint/require-await
+type ParsedNote = ReturnType<typeof parseMarkdown>;
+
+/** Note type + title + filename/path + disk mtime + folder + project membership
+ *  — the core triples every markdown note gets. */
+function indexNoteCoreTriples(
+  state: GraphState,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+  relativePath: string,
+  title: string,
+): void {
+  const { store } = state;
+  store.add(subject, RDF('type'), MINERVA('Note'), graph);
+  store.add(subject, DC('title'), $rdf.lit(title), graph);
+  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
+  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
+  // dc:modified is the user's last edit from disk mtime, not the indexer's clock (#336).
+  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
+  const dir = path.dirname(relativePath);
+  if (dir && dir !== '.') {
+    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
+    ensureFolder(state, dir);
+  }
+  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
+}
+
+/** Body (`#foo`) + frontmatter (`tags: [...]`) tags as `minerva:hasTag` resources. */
+function indexNoteTags(state: GraphState, subject: $rdf.NamedNode, graph: $rdf.NamedNode, parsed: ParsedNote): void {
+  const { store } = state;
+  const bodyTags = new Set(parsed.tags);
+  const fmTagValue = parsed.frontmatter.tags;
+  if (fmTagValue !== undefined) {
+    for (const t of flattenFrontmatterStrings(fmTagValue)) if (t) bodyTags.add(t);
+  }
+  for (const tag of bodyTags) {
+    const tagNode = tagUri(state, tag);
+    ensureTag(state, tagNode, tag);
+    store.add(subject, MINERVA('hasTag'), tagNode, graph);
+  }
+}
+
+/** Materialize `type:` frontmatter as `rdf:type` edges to registered classes
+ *  (`types:Book`) so `?x rdf:type types:Book` is queryable; return the declared
+ *  property→type map for datatype coercion in the frontmatter loop (#1062/#1063).
+ *  Unknown type ids are ignored (no class edge). */
+function indexNoteDomainType(
+  state: GraphState,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+  parsed: ParsedNote,
+): Map<string, PropertyType> | undefined {
+  const { store } = state;
+  const fmType = parsed.frontmatter.type;
+  if (fmType === undefined) return undefined;
+  let declaredProps: Map<string, PropertyType> | undefined;
+  for (const typeId of flattenFrontmatterStrings(fmType)) {
+    const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
+    if (!def) continue;
+    store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
+    declaredProps ??= new Map();
+    for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p.type);
+  }
+  return declaredProps;
+}
+
+/** Frontmatter aliases (#469): track per-note (so a later reindex drops stale
+ *  ones), rebuild the resolver map, and emit `minerva:hasAlias`. Aliases with
+ *  wiki-link metacharacters are dropped — they couldn't be written as `[[alias]]`. */
+function indexNoteAliases(
+  state: GraphState,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+  relativePath: string,
+  parsed: ParsedNote,
+  skipAliasRebuild: boolean,
+): void {
+  const { store } = state;
+  state.indexedNotePaths.add(relativePath);
+  const validAliases = parsed.aliases.filter(isAliasNameValid);
+  if (validAliases.length > 0) state.aliasesPerNote.set(relativePath, validAliases);
+  else state.aliasesPerNote.delete(relativePath);
+  if (!skipAliasRebuild) rebuildAliasMap(state);
+  for (const alias of validAliases) store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
+}
+
+/** Wiki-links → typed predicate edges, using the (possibly pass-wide) resolver. */
+function indexNoteWikiLinks(
+  state: GraphState,
+  subject: $rdf.NamedNode,
+  graph: $rdf.NamedNode,
+  parsed: ParsedNote,
+  linkCtx: LinkResolveCtx,
+): void {
+  const { store } = state;
+  for (const link of parsed.links) {
+    const predicate = linkPredicate(getLinkType(link.type));
+    const targetNode = resolveLinkTarget(state, getLinkType(link.type), link.target, linkCtx, link.anchor);
+    store.add(subject, predicate, targetNode, graph);
+  }
+}
+
+// The body is synchronous after the #1624 decomposition, but indexNote stays
+// async: it's part of the graph write API and every call site `await`s it
+// alongside genuinely-async index work (making it sync trips await-thenable at
+// ~360 call/await sites). Hence the scoped require-await suppression.
+// eslint-disable-next-line @typescript-eslint/require-await
 export async function indexNote(
   ctx: ProjectContext,
   relativePath: string,
@@ -614,103 +720,26 @@ export async function indexNote(
     : undefined;
   headingsPerNote.set(relativePath, newHeadings);
 
-  // Type
-  store.add(subject, RDF('type'), MINERVA('Note'), graph);
-
   // Parse markdown
   const parsed = parseMarkdown(content);
 
   // Snapshot frontmatter keys for the Properties panel's project-wide
-  // autocomplete (#488). Captured before the per-key indexing loop
-  // below so we record every key the user actually typed, including
-  // `title` and `tags` (skipped by the predicate-mapping path because
-  // they're already wired through other paths).
+  // autocomplete (#488) — every key the user typed, including `title`/`tags`
+  // (which the predicate-mapping loop below skips).
   state.frontmatterKeysPerNote.set(relativePath, Object.keys(parsed.frontmatter));
 
-  // Title
   const title = parsed.title ?? path.basename(relativePath, '.md');
-  store.add(subject, DC('title'), $rdf.lit(title), graph);
+  indexNoteCoreTriples(state, subject, graph, relativePath, title);
+  indexNoteTags(state, subject, graph, parsed);
+  // Declared property name → PropertyType, for schema-driven value coercion in
+  // the frontmatter loop below (#1063).
+  const declaredProps = indexNoteDomainType(state, subject, graph, parsed);
+  indexNoteAliases(state, subject, graph, relativePath, parsed, opts.skipAliasRebuild ?? false);
 
-  // File info
-  store.add(subject, MINERVA('filename'), $rdf.lit(path.basename(relativePath)), graph);
-  store.add(subject, MINERVA('relativePath'), $rdf.lit(relativePath), graph);
-
-  // Timestamps — dc:modified is the user's last edit, sourced from
-  // disk mtime, not the indexer's wall clock (#336).
-  store.add(subject, DC('modified'), dateLit(fileMtimeIso(state, relativePath)), graph);
-
-  // Folder membership
-  const dir = path.dirname(relativePath);
-  if (dir && dir !== '.') {
-    store.add(subject, MINERVA('inFolder'), folderUri(state, dir), graph);
-    ensureFolder(state, dir);
-  }
-
-  // Project membership
-  store.add(projectUri(state), MINERVA('containsNote'), subject, graph);
-
-  // Tags — modeled as resources. Body tags (#foo) are already in parsed.tags;
-  // add frontmatter `tags: [foo, bar]` on top (they're not added to parsed.tags
-  // so a tag that only appears in frontmatter still gets indexed here).
-  const bodyTags = new Set(parsed.tags);
-  const fmTagValue = parsed.frontmatter.tags;
-  if (fmTagValue !== undefined) {
-    for (const t of flattenFrontmatterStrings(fmTagValue)) {
-      if (t) bodyTags.add(t);
-    }
-  }
-  for (const tag of bodyTags) {
-    const tagNode = tagUri(state, tag);
-    ensureTag(state, tagNode, tag);
-    store.add(subject, MINERVA('hasTag'), tagNode, graph);
-  }
-
-  // Domain type (#1062): materialize the `type:` frontmatter as an `rdf:type`
-  // edge to the registered class (`types:Book`), so `?x rdf:type types:Book` is
-  // queryable. A typed object is just a Note + this extra type. An unknown type
-  // id is ignored (no class edge) — properties expected, never enforced. `type`
-  // is in the frontmatter skip-list below so it isn't also emitted as a literal.
-  const fmType = parsed.frontmatter.type;
-  // Declared property name → declared PropertyType, for schema-driven value
-  // coercion in the frontmatter loop below (#1063).
-  let declaredProps: Map<string, PropertyType> | undefined;
-  if (fmType !== undefined) {
-    for (const typeId of flattenFrontmatterStrings(fmType)) {
-      const def = state.typeCatalog.types.find((t) => t.id === typeId.trim().toLowerCase());
-      if (!def) continue;
-      store.add(subject, RDF('type'), TYPES(def.classLocalName), graph);
-      declaredProps ??= new Map();
-      for (const p of def.properties) if (!declaredProps.has(p.name)) declaredProps.set(p.name, p.type);
-    }
-  }
-
-  // Frontmatter aliases (#469). Track per-note so the next reindex of
-  // this same note can drop stale aliases; rebuild the resolver map
-  // so subsequent link resolution sees current state. Aliases that
-  // contain wiki-link metacharacters (`[`, `]`, `|`, `#`, `\n`) are
-  // dropped — they couldn't be expressed as `[[alias]]` anyway.
-  state.indexedNotePaths.add(relativePath);
-  const validAliases = parsed.aliases.filter(isAliasNameValid);
-  if (validAliases.length > 0) {
-    state.aliasesPerNote.set(relativePath, validAliases);
-  } else {
-    state.aliasesPerNote.delete(relativePath);
-  }
-  if (!opts.skipAliasRebuild) rebuildAliasMap(state);
-  for (const alias of validAliases) {
-    store.add(subject, MINERVA('hasAlias'), $rdf.lit(alias), graph);
-  }
-
-  // Wiki-links — typed predicates. Reuse the pass-wide resolver index when the
-  // caller threaded one in (indexAllNotes); otherwise build it for this note
-  // (standalone single-note reindex). See #1473.
+  // Reuse the pass-wide resolver when threaded in (indexAllNotes); otherwise
+  // build one for this standalone single-note reindex (#1473).
   const linkCtx = opts.linkCtx ?? buildLinkResolveCtx(state);
-  for (const link of parsed.links) {
-    const linkType = getLinkType(link.type);
-    const predicate = linkPredicate(linkType);
-    const targetNode = resolveLinkTarget(state, linkType, link.target, linkCtx, link.anchor);
-    store.add(subject, predicate, targetNode, graph);
-  }
+  indexNoteWikiLinks(state, subject, graph, parsed, linkCtx);
 
   // Frontmatter → triples. `title` (already used as the note title) and
   // `tags` (handled above) are skipped here so they don't double-emit.
