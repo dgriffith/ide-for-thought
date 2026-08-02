@@ -1156,6 +1156,61 @@ function collectSourceAboutNotes(state: GraphState, sourceSubject: $rdf.NamedNod
  * "this source is referenced 4 times in this note." The graph drives
  * the source set, the content drives the count.
  */
+/** Occurrence-map key for an inline citation/quote — `cite:<sourceId>` or
+ *  `quote:<excerptId>` (#1609). */
+function citationOccurrenceKey(kind: string, id: string): string {
+  return `${kind.toLowerCase()}:${id}`;
+}
+
+/**
+ * Count inline `[[cite::id]]` / `[[quote::ex]]` occurrences in note content,
+ * keyed by {@link citationOccurrenceKey}. Uses the same typed-link regex as the
+ * editor's decoration rules so anything the user sees as a citation is counted,
+ * and strips bibliography-block content (#113) so its rendered entries don't
+ * re-inflate the count for sources that no longer have inline cites.
+ */
+function countCitationOccurrences(content: string): Map<string, number> {
+  const countable = content.replace(
+    /<!-- minerva:bibliography -->[\s\S]*?<!-- \/minerva:bibliography -->/g,
+    '',
+  );
+  const occurrences = new Map<string, number>();
+  const RE = /\[\[(cite|quote)::([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = RE.exec(countable)) !== null) {
+    const key = citationOccurrenceKey(m[1]!, m[2]!.trim());
+    occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
+  }
+  return occurrences;
+}
+
+/**
+ * The set of source nodes a note references — the union of its `thought:cites`
+ * edges and the owning sources of its `thought:quotes` excerpts. Keyed by URI
+ * string because rdflib hands back fresh NamedNode instances per call, so a JS
+ * Set on the node would treat them as distinct (#1609).
+ */
+function buildCitedSourceSet(
+  store: $rdf.IndexedFormula,
+  noteSubject: $rdf.NamedNode,
+): Map<string, $rdf.NamedNode> {
+  const sourceUris = new Map<string, $rdf.NamedNode>();
+  for (const st of store.statementsMatching(noteSubject, THOUGHT('cites'), undefined)) {
+    const node = st.object as $rdf.NamedNode;
+    sourceUris.set(node.value, node);
+  }
+  // Quote edges → owning source. An excerpt without a fromSource link is
+  // malformed ingest output; skip silently rather than surfacing a half-row.
+  for (const st of store.statementsMatching(noteSubject, THOUGHT('quotes'), undefined)) {
+    const excerptNode = st.object as $rdf.NamedNode;
+    const fromStmts = store.statementsMatching(excerptNode, THOUGHT('fromSource'), undefined);
+    const sourceNode = fromStmts[0]?.object as $rdf.NamedNode | undefined;
+    if (!sourceNode) continue;
+    sourceUris.set(sourceNode.value, sourceNode);
+  }
+  return sourceUris;
+}
+
 export function citationsForNote(
   ctx: ProjectContext,
   relativePath: string,
@@ -1166,44 +1221,8 @@ export function citationsForNote(
   const { store } = state;
   const noteSubject = noteUri(state, relativePath);
 
-  // Source URIs the note cites — keyed by URI string because rdflib
-  // hands back fresh NamedNode instances per call, so a JS Set on the
-  // node would treat them as distinct.
-  const sourceUris = new Map<string, $rdf.NamedNode>();
-  for (const st of store.statementsMatching(noteSubject, THOUGHT('cites'), undefined)) {
-    const node = st.object as $rdf.NamedNode;
-    sourceUris.set(node.value, node);
-  }
-
-  // Quote edges → set of excerpts the note quotes; resolve each to its
-  // owning source. An excerpt without a fromSource link is malformed
-  // ingest output; skip silently rather than surfacing a half-row.
-  for (const st of store.statementsMatching(noteSubject, THOUGHT('quotes'), undefined)) {
-    const excerptNode = st.object as $rdf.NamedNode;
-    const fromStmts = store.statementsMatching(excerptNode, THOUGHT('fromSource'), undefined);
-    const sourceNode = fromStmts[0]?.object as $rdf.NamedNode | undefined;
-    if (!sourceNode) continue;
-    sourceUris.set(sourceNode.value, sourceNode);
-  }
-
-  // Count inline occurrences in the note content. Use the same
-  // typed-link regex as the editor's decoration rules so anything
-  // visible to the user as a citation is counted as one. Strip
-  // bibliography-block content (#113) so its rendered entries don't
-  // re-inflate the count for sources that no longer have inline cites.
-  const countable = content.replace(
-    /<!-- minerva:bibliography -->[\s\S]*?<!-- \/minerva:bibliography -->/g,
-    '',
-  );
-  const occurrences = new Map<string, number>(); // key: `cite:id` or `quote:ex`
-  const RE = /\[\[(cite|quote)::([^\]|]+)(?:\|[^\]]*)?\]\]/g;
-  let m: RegExpExecArray | null;
-  while ((m = RE.exec(countable)) !== null) {
-    const kind = m[1]!.toLowerCase();
-    const id = m[2]!.trim();
-    const key = `${kind}:${id}`;
-    occurrences.set(key, (occurrences.get(key) ?? 0) + 1);
-  }
+  const sourceUris = buildCitedSourceSet(store, noteSubject);
+  const occurrences = countCitationOccurrences(content);
 
   const groups: import('../../shared/types').CitationGroup[] = [];
   for (const sourceNode of sourceUris.values()) {
@@ -1213,7 +1232,7 @@ export function citationsForNote(
     const meta = collectSourceMetadata(state, sourceId, sourceNode);
 
     // Cites: occurrences keyed by the source id directly.
-    const citeCount = occurrences.get(`cite:${sourceId}`) ?? 0;
+    const citeCount = occurrences.get(citationOccurrenceKey('cite', sourceId)) ?? 0;
 
     // Quotes: walk every excerpt whose fromSource is this source AND
     // whose id appears in the note. Per-excerpt count comes from the
@@ -1222,7 +1241,7 @@ export function citationsForNote(
     const noteExcerpts: (import('../../shared/types').SourceExcerpt & { quoteCount: number })[] = [];
     let totalQuoteCount = 0;
     for (const ex of allExcerpts) {
-      const c = occurrences.get(`quote:${ex.excerptId}`) ?? 0;
+      const c = occurrences.get(citationOccurrenceKey('quote', ex.excerptId)) ?? 0;
       if (c === 0) continue;
       noteExcerpts.push({ ...ex, quoteCount: c });
       totalQuoteCount += c;
