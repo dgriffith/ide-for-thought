@@ -1,0 +1,25 @@
+{
+  // Debug configs for Minerva (#1643).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Debug the Electron MAIN process. Uses electron-forge's documented VS Code
+      // integration: `--vscode` makes forge emit a marker VS Code auto-attaches
+      // to, so main-process breakpoints (IPC handlers, graph indexing, menus) hit.
+      // The renderer keeps running with Vite HMR as under `pnpm dev`.
+      "name": "Electron: Main",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron-forge",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron-forge.cmd"
+      },
+      "runtimeArgs": ["start", "--vscode"],
+      "console": "integratedTerminal"
+    }
+  ]
+  // Renderer (Svelte UI) debugging: open the in-window DevTools with
+  // Cmd+Opt+I (macOS) / Ctrl+Shift+I — the renderer is a Chromium context with
+  // source maps, so breakpoints and the console work there directly.
+}

@@ -1,0 +1,9 @@
+{
+  // Recommended extensions for working on Minerva (a Svelte 5 runes + strict-TS
+  // Electron app). VS Code offers to install these on first open (#1643).
+  "recommendations": [
+    "svelte.svelte-vscode",
+    "dbaeumer.vscode-eslint",
+    "editorconfig.editorconfig"
+  ]
+}

@@ -1,0 +1,15 @@
+# EditorConfig — shared formatting baseline so every editor agrees before code
+# reaches `pnpm lint` (#1643). https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Markdown uses two trailing spaces as a hard line break — don't strip them.
+trim_trailing_whitespace = false
