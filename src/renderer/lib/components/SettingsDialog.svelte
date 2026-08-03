@@ -142,29 +142,27 @@
     SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, t] as const)),
   );
 
-  let refactor = $state<RefactorSettings>({ ...getRefactorSettings() });
-  function patchRefactor(patch: Partial<RefactorSettings>): void {
-    refactor = { ...refactor, ...patch };
-    setRefactorSettings(patch);
+  // A "patch" merges a delta into the local $state mirror AND persists it (these
+  // panels save per-change, unlike the Done-batched editor/appearance/web/ai).
+  // The four were byte-identical bar their state var + setter (#1600).
+  function makePatch<T>(read: () => T, write: (v: T) => void, persist: (patch: Partial<T>) => void) {
+    return (patch: Partial<T>): void => {
+      write({ ...read(), ...patch });
+      persist(patch);
+    };
   }
+
+  let refactor = $state<RefactorSettings>({ ...getRefactorSettings() });
+  const patchRefactor = makePatch(() => refactor, (v) => { refactor = v; }, setRefactorSettings);
 
   let sidebar = $state<SidebarSettings>({ ...getSidebarSettings() });
-  function patchSidebar(patch: Partial<SidebarSettings>): void {
-    sidebar = { ...sidebar, ...patch };
-    setSidebarSettings(patch);
-  }
+  const patchSidebar = makePatch(() => sidebar, (v) => { sidebar = v; }, setSidebarSettings);
 
   let breadcrumbs = $state<BreadcrumbsSettings>({ ...getBreadcrumbsSettings() });
-  function patchBreadcrumbs(patch: Partial<BreadcrumbsSettings>): void {
-    breadcrumbs = { ...breadcrumbs, ...patch };
-    setBreadcrumbsSettings(patch);
-  }
+  const patchBreadcrumbs = makePatch(() => breadcrumbs, (v) => { breadcrumbs = v; }, setBreadcrumbsSettings);
 
   let conversations = $state<ConversationsSettings>({ ...getConversationsSettings() });
-  function patchConversations(patch: Partial<ConversationsSettings>): void {
-    conversations = { ...conversations, ...patch };
-    setConversationsSettings(patch);
-  }
+  const patchConversations = makePatch(() => conversations, (v) => { conversations = v; }, setConversationsSettings);
 
   // Formatter settings (#154). Mirror the persisted map into local state so
   // the Done-close reset path can rehydrate without an IPC round-trip.
