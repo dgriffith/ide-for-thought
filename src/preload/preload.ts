@@ -347,7 +347,7 @@ contextBridge.exposeInMainWorld('api', {
     load: () => invoke(Channels.TABS_LOAD),
   },
   refactor: {
-    autoTag: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
+    autoTagSuggest: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
     autoTagApply: (relativePath: string, acceptedTags: string[]) =>
       invoke(Channels.REFACTOR_AUTO_TAG_APPLY, relativePath, acceptedTags),
     autoLinkSuggest: (relativePath: string) =>

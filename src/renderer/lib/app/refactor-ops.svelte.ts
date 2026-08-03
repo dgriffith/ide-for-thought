@@ -725,7 +725,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
       // SUGGEST phase (#940): the LLM proposes tags and writes NOTHING. The user
       // reviews them in the dialog; Apply routes through the approval engine.
       const result = await busy.withBusy('Auto-tagging…', () =>
-        api.refactor.autoTag(relativePath),
+        api.refactor.autoTagSuggest(relativePath),
       );
       if (result.added.length === 0) {
         await showConfirm(
