@@ -4,6 +4,8 @@ import { invoke } from './typed-invoke';
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
+import type { ConversationDraftBase } from '../shared/conversation-draft-base';
+import type { AskUserRequest } from '../shared/conversation-tools';
 
 /**
  * Typed main→renderer event subscription (#1633). The channel + the `cb` payload
@@ -263,46 +265,46 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
     loadUIState: () => invoke(Channels.CONVERSATION_UI_STATE_LOAD),
     saveUIState: (state: Parameters<ChannelMap['conversation:uiStateSave']>[0]) => invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
-    onAskUser: (cb: (req: unknown) => void) => subscribe(Channels.CONVERSATION_ASK_USER, cb),
+    onAskUser: (cb: (req: AskUserRequest) => void) => subscribe(Channels.CONVERSATION_ASK_USER, cb),
     askUserReply: (questionId: string, answer: string) =>
       invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
     onStream: (cb: (chunk: string) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
     cancel: () => invoke(Channels.CONVERSATION_CANCEL),
-    onDraft: (cb: (draft: unknown) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),
+    onDraft: (cb: (draft: ConversationDraftBase) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),
     fileDraft: (draft: Parameters<ChannelMap['conversation:fileDraft']>[0]) => invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
-    onSourceDraft: (cb: (draft: unknown) => void) =>
+    onSourceDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_SOURCE_DRAFT, cb),
     fileSourceDraft: (draft: Parameters<ChannelMap['conversation:fileSourceDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_SOURCE_DRAFT, draft),
-    onPropertyDraft: (cb: (draft: unknown) => void) =>
+    onPropertyDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_PROPERTY_DRAFT, cb),
     filePropertyDraft: (draft: Parameters<ChannelMap['conversation:filePropertyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_PROPERTY_DRAFT, draft),
-    onSourcePropertyDraft: (cb: (draft: unknown) => void) =>
+    onSourcePropertyDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, cb),
     fileSourcePropertyDraft: (draft: Parameters<ChannelMap['conversation:fileSourcePropertyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT, draft),
-    onClaimsDraft: (cb: (draft: unknown) => void) =>
+    onClaimsDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_CLAIMS_DRAFT, cb),
     fileClaimsDraft: (draft: Parameters<ChannelMap['conversation:fileClaimsDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_CLAIMS_DRAFT, draft),
-    onComputeDraft: (cb: (draft: unknown) => void) =>
+    onComputeDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
     runComputeDraft: (input: Parameters<ChannelMap['conversation:runComputeDraft']>[0]) =>
       invoke(Channels.CONVERSATION_RUN_COMPUTE_DRAFT, input),
-    onRefactorDraft: (cb: (draft: unknown) => void) =>
+    onRefactorDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_REFACTOR_DRAFT, cb),
     fileRefactorDraft: (draft: Parameters<ChannelMap['conversation:fileRefactorDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, draft),
-    onReorgDraft: (cb: (draft: unknown) => void) =>
+    onReorgDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_REORG_DRAFT, cb),
     fileReorgDraft: (draft: Parameters<ChannelMap['conversation:fileReorgDraft']>[0], selected: Parameters<ChannelMap['conversation:fileReorgDraft']>[1]) =>
       invoke(Channels.CONVERSATION_FILE_REORG_DRAFT, draft, selected),
-    onDeleteDraft: (cb: (draft: unknown) => void) =>
+    onDeleteDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_DELETE_DRAFT, cb),
     fileDeleteDraft: (draft: Parameters<ChannelMap['conversation:fileDeleteDraft']>[0], selected: Parameters<ChannelMap['conversation:fileDeleteDraft']>[1]) =>
       invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
-    onNoteBodyDraft: (cb: (draft: unknown) => void) =>
+    onNoteBodyDraft: (cb: (draft: ConversationDraftBase) => void) =>
       subscribe(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
     fileNoteBodyDraft: (draft: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
