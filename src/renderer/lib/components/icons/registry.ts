@@ -16,6 +16,9 @@ export const ICONS = {
   back: '<path d="M10 3 4.5 8 10 13"/><path d="M4.5 8H13"/>',
   forward: '<path d="M6 3 11.5 8 6 13"/><path d="M11.5 8H3"/>',
 
+  // Local history — clock face + hand (#1158).
+  history: '<circle cx="8" cy="8" r="5.5"/><path d="M8 4.5V8l2.5 1.5"/>',
+
   // ── Left sidebar panels ───────────────────────────────────────────
   notes:
     '<path d="M3.5 2.5h6L12.5 5.5v8H3.5z"/>' +

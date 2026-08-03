@@ -3,6 +3,7 @@
   import HeadingGraphPanel from './right-sidebar/HeadingGraphPanel.svelte';
   import FootnotesPanel from './right-sidebar/FootnotesPanel.svelte';
   import PropertiesPanel from './right-sidebar/PropertiesPanel.svelte';
+  import HistoryPanel from './right-sidebar/HistoryPanel.svelte';
   import TypePropertiesPanel from './right-sidebar/TypePropertiesPanel.svelte';
   import OutgoingLinksPanel from './right-sidebar/OutgoingLinksPanel.svelte';
   import BacklinksPanel from './right-sidebar/BacklinksPanel.svelte';
@@ -16,7 +17,7 @@
   import type { IconName } from './icons/registry';
 
   type PanelType =
-    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'fields' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
+    | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'fields' | 'history' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
     | 'bookmarks' | 'inspections';
 
   type PanelGroupId = 'note' | 'links' | 'activity';
@@ -48,6 +49,7 @@
         { id: 'properties', label: 'Properties', icon: 'properties' },
         { id: 'fields',     label: 'Fields',     icon: 'properties' },
         { id: 'footnotes',  label: 'Footnotes',  icon: 'footnotes' },
+        { id: 'history',    label: 'History',    icon: 'history' },
         // Tags and Tables describe what's *inside* the active note's
         // content, not how it connects to other notes — they sit
         // alongside Outline / Properties under Note rather than
@@ -105,12 +107,15 @@
     onOpenGraph?: (relativePath: string) => void;
     /** True while the semantic-index backfill is running (#836/#838). */
     indexing?: boolean;
+    /** Restore a note to a history revision (#1158). App owns the confirm +
+     *  the `api.history.restore` mutation. */
+    onRestore?: (relativePath: string, ts: number) => void | Promise<void>;
   }
 
   let {
     activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
     onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
-    onContentChange, onOpenGraph, indexing = false,
+    onContentChange, onOpenGraph, indexing = false, onRestore,
   }: Props = $props();
 
   let activePanel = $state<PanelType>('outline');
@@ -246,6 +251,8 @@
       {/if}
     {:else if activePanel === 'fields'}
       <TypePropertiesPanel {activeFilePath} {content} {revision} {...(onContentChange !== undefined ? { onContentChange } : {})} />
+    {:else if activePanel === 'history'}
+      <HistoryPanel {activeFilePath} {content} {revision} {...(onRestore !== undefined ? { onRestore } : {})} />
     {:else if activePanel === 'outgoing'}
       <OutgoingLinksPanel {activeFilePath} {revision} {onFileSelect} {...(onOpenGraph !== undefined ? { onOpenGraph } : {})} />
     {:else if activePanel === 'backlinks'}

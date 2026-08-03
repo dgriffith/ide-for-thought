@@ -394,6 +394,20 @@
   const linkDrag = getLinkDrag();
   const { showPrompt, showConfirm, showComputeConsent } = dialogs;
 
+  /** Restore a note to a history revision (#1158). Non-destructive (the restore
+   *  is itself a new revision), so the confirm is dismissable. The IPC write
+   *  reloads the open editor via NOTEBASE_REWRITTEN. App owns this mutation per
+   *  the renderer data-flow rule (leaf panels route restore out here). */
+  async function handleHistoryRestore(relativePath: string, ts: number): Promise<void> {
+    const ok = await showConfirm(
+      'Restore this note to the selected version? Your current text is kept in history.',
+      CONFIRM_KEYS.historyRestore,
+      'Restore',
+    );
+    if (!ok) return;
+    await api.history.restore(relativePath, ts);
+  }
+
   let showEditSavedViews = $state(false);
 
   // Type editor (#1585) opened from "Save Note as Object Type" — pre-filled from
@@ -1403,6 +1417,7 @@
           onContentChange={editor.setContent}
           onOpenGraph={(p) => editor.openNeighborhood(p)}
           indexing={embeddingProgress !== null}
+          onRestore={handleHistoryRestore}
         />
       {/if}
     {:else}
