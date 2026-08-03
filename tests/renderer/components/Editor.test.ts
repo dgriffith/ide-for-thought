@@ -90,7 +90,7 @@ describe('Editor (#1600)', () => {
 
   it('opens the right-click context menu and routes a menu action to the host', async () => {
     const onOpenConversation = vi.fn();
-    const { container } = render(Editor, props({ onOpenConversation }));
+    const { container } = render(Editor, props({ menuOps: { openConversation: onOpenConversation } }));
     await waitFor(() => expect(container.querySelector('.cm-content')).toBeTruthy());
 
     const content = container.querySelector('.cm-content')!;

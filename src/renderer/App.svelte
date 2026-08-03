@@ -1166,8 +1166,6 @@
                           onSearchQueryConsumed={() => { pendingSearchQuery = null; }}
                           onEditorStateSave={editor.saveEditorState}
                           onCursorChange={(info) => { cursorInfo = info; }}
-                          onToolInvoke={handleToolInvoke}
-                          onOpenConversation={openConversation}
                           onNavigate={handleNavigate}
                           onOpenSource={handleOpenSource}
                           onOpenExcerpt={handleOpenExcerpt}
@@ -1175,36 +1173,40 @@
                           getSources={() => sourcesCache}
                           getAliases={() => aliasEntries}
                           resolveInlineTypeCreate={handleInlineTypeCreate}
-                          onBookmark={() => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath)}
-                          onBookmarkSection={() => { void handleBookmarkSection(); }}
-                          onBookmarkLine={handleBookmarkLine}
                           bookmarks={collectBookmarksForPath(bookmarkStore.tree, note.relativePath)}
-                          onExtractSelection={handleExtractSelection}
-                          onSplitHere={handleSplitHere}
-                          onSplitByHeading={handleSplitByHeading}
-                          onRename={() => void handleRename(note.relativePath)}
-                          onMove={() => void handleMoveWithPrompt(note.relativePath)}
-                          onCopyFile={() => void handleCopyWithPrompt(note.relativePath)}
-                          onMerge={() => handleMerge(note.relativePath)}
-                          onAutoTag={() => void handleAutoTag(note.relativePath)}
-                          onAutoLink={() => void handleAutoLink(note.relativePath)}
-                          onAutoLinkInbound={() => void handleAutoLinkInbound(note.relativePath)}
-                          onFormatCurrentNote={() => handleFormat()}
-                          onAddTagCurrentNote={() => void handleAddTag(note.relativePath, false, { targetOnly: true })}
-                          onRemoveTagCurrentNote={() => void handleRemoveTag(note.relativePath, false, { targetOnly: true })}
-                          onAddPropertyCurrentNote={() => void handleAddProperty(note.relativePath, false, { targetOnly: true })}
-                          onRemovePropertyCurrentNote={() => void handleRemoveProperty(note.relativePath, false, { targetOnly: true })}
                           onUploadError={(message) => {
                             void showConfirm(message, CONFIRM_KEYS.imageUploadFailed, 'OK');
                           }}
                           onRunCell={(language, code, notePath) =>
                             runCellWithTrust(language, code, notePath, { showConsent: showComputeConsent })
                           }
-                          onInsertQueryList={async () => {
-                            const tag = await showPrompt('Tag name:');
-                            if (!tag) return;
-                            const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
-                            editorComponents[groupId]?.insertText(block);
+                          menuOps={{
+                            invokeTool: handleToolInvoke,
+                            openConversation: openConversation,
+                            bookmark: () => bookmarkStore.add(note.fileName.replace(/\.(md|ttl|csv)$/, ''), note.relativePath),
+                            bookmarkSection: () => { void handleBookmarkSection(); },
+                            bookmarkLine: handleBookmarkLine,
+                            extractSelection: handleExtractSelection,
+                            splitHere: handleSplitHere,
+                            splitByHeading: handleSplitByHeading,
+                            rename: () => void handleRename(note.relativePath),
+                            move: () => void handleMoveWithPrompt(note.relativePath),
+                            copyFile: () => void handleCopyWithPrompt(note.relativePath),
+                            merge: () => handleMerge(note.relativePath),
+                            autoTag: () => void handleAutoTag(note.relativePath),
+                            autoLink: () => void handleAutoLink(note.relativePath),
+                            autoLinkInbound: () => void handleAutoLinkInbound(note.relativePath),
+                            formatCurrentNote: () => handleFormat(),
+                            addTagCurrentNote: () => void handleAddTag(note.relativePath, false, { targetOnly: true }),
+                            removeTagCurrentNote: () => void handleRemoveTag(note.relativePath, false, { targetOnly: true }),
+                            addPropertyCurrentNote: () => void handleAddProperty(note.relativePath, false, { targetOnly: true }),
+                            removePropertyCurrentNote: () => void handleRemoveProperty(note.relativePath, false, { targetOnly: true }),
+                            insertQueryList: async () => {
+                              const tag = await showPrompt('Tag name:');
+                              if (!tag) return;
+                              const block = `\n:::query-list\nSELECT ?title ?path WHERE {\n  ?note minerva:hasTag ?t .\n  ?t minerva:tagName "${tag}" .\n  ?note dc:title ?title .\n  ?note minerva:relativePath ?path .\n} ORDER BY ?title\n:::\n`;
+                              editorComponents[groupId]?.insertText(block);
+                            },
                           }}
                         />
                       {/key}

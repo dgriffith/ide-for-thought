@@ -206,12 +206,25 @@ export default defineConfig({
         // measured-at-floor-time v8 numbers (in parens) so a small refactor won't
         // flap but a real regression fails. Ratchet upward as these gain tests.
         //
-        // Editor.svelte ~38.6 L / 37.1 S / 23.2 F / 21.4 B.
+        // Editor.svelte ~31.2 L / 28.6 S / 27.7 F / 20.8 B. Retuned down from
+        // the original #1613 floor (38.6 L): #1625 extracted the ~225-line
+        // right-click menu into EditorContextMenu.svelte, moving Editor's most
+        // testable interactive surface (now floored separately below) out, so
+        // its own ratio dropped — floors sit ~6pts under the new measured.
         'src/renderer/lib/components/Editor.svelte': {
-          lines: 30,
-          statements: 28,
-          functions: 14,
+          lines: 25,
+          statements: 22,
+          functions: 18,
           branches: 12,
+        },
+        // EditorContextMenu.svelte — the extracted right-click menu (#1625),
+        // exercised end-to-end by the Editor render test. ~56.3 L / 45.2 S /
+        // 20.0 F / 26.5 B; floors ~6-8pts below.
+        'src/renderer/lib/components/EditorContextMenu.svelte': {
+          lines: 48,
+          statements: 38,
+          functions: 12,
+          branches: 18,
         },
         // Preview.svelte ~40.3 L / 38.9 S / 35.0 F / 23.4 B.
         'src/renderer/lib/components/Preview.svelte': {
