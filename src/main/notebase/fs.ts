@@ -4,6 +4,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import type { NoteFile, NotebaseMeta } from '../../shared/types';
 import { resolveDisplayName } from '../project-config';
+import { onNoteWritten, moveHistory } from '../history';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.minerva', '.obsidian']);
 
@@ -166,6 +167,9 @@ export async function writeFile(rootPath: string, relativePath: string, content:
   const fullPath = assertSafePath(rootPath, relativePath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, content, 'utf-8');
+  // Record the saved state in local per-note history (#1158). Best-effort — the
+  // hook swallows its own errors so a history failure can't fail the save.
+  await onNoteWritten(rootPath, relativePath, content);
 }
 
 export async function createFile(rootPath: string, relativePath: string): Promise<void> {
@@ -194,6 +198,9 @@ export async function rename(rootPath: string, oldRelPath: string, newRelPath: s
   const newFull = assertSafePath(rootPath, newRelPath);
   await fs.mkdir(path.dirname(newFull), { recursive: true });
   await fs.rename(oldFull, newFull);
+  // Local history mirrors the note path, so one move relocates a single note's
+  // revisions OR (path-parallel) every note under a renamed folder (#1158).
+  await moveHistory(rootPath, oldRelPath, newRelPath);
 }
 
 export async function copyItem(rootPath: string, srcRelPath: string, destRelPath: string): Promise<void> {

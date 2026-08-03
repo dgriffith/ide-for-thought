@@ -583,6 +583,11 @@ export const Channels = {
   TABS_SAVE: 'tabs:save',
   TABS_LOAD: 'tabs:load',
 
+  // Local per-note history (#1158)
+  HISTORY_LIST: 'history:list',
+  HISTORY_GET_REVISION: 'history:getRevision',
+  HISTORY_RESTORE: 'history:restore',
+
   /** External file drag-drop ingestion (#259). Renderer hands over OS file paths. */
   FILES_DROP_IMPORT: 'files:dropImport',
 

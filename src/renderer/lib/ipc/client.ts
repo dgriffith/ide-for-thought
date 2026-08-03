@@ -3,6 +3,7 @@ import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { ThemeMode } from '../../../shared/theme';
+import type { RevisionMeta } from '../../../shared/history';
 
 export interface NotebaseApi {
   open(): Promise<NotebaseMeta | null>;
@@ -694,6 +695,17 @@ export interface TabsApi {
   load(): Promise<LayoutSession | TabSession | null>;
 }
 
+/** Local per-note history (#1158). Capture is automatic on save — this reads
+ *  and restores. */
+export interface HistoryApi {
+  /** A note's revisions, newest first (metadata only). */
+  list(relativePath: string): Promise<RevisionMeta[]>;
+  /** One revision's full content, or null if it's gone. */
+  getRevision(relativePath: string, ts: number): Promise<string | null>;
+  /** Restore a revision — writes it back as a new save (non-destructive). */
+  restore(relativePath: string, ts: number): Promise<void>;
+}
+
 export interface RefactorApi {
   /** SUGGEST phase (#940): ask the LLM for tags; writes nothing. */
   autoTagSuggest(relativePath: string): Promise<{ added: string[] }>;
@@ -913,6 +925,7 @@ export interface IdeApi {
   conversations: ConversationsApi;
   proposals: ProposalsApi;
   tabs: TabsApi;
+  history: HistoryApi;
   tools: ToolsApi;
   types: TypesApi;
   skills: SkillsApi;
