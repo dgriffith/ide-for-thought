@@ -33,6 +33,35 @@ export type ConfigDecoder<T> = (raw: unknown) => T;
 
 type Phase = 'read' | 'parse' | 'validate';
 
+/** The reserved key that stamps a persisted config's schema version (#1641).
+ *  Absent ⇒ version 0 (a pre-versioning / legacy file). */
+export const CONFIG_VERSION_KEY = 'configVersion';
+
+export interface MigrationOptions {
+  /** The schema version this build writes and expects after decode. */
+  version: number;
+  /**
+   * Bring a raw parsed object from its stored version up to `version`, keyed off
+   * the version field — the explicit replacement for ad-hoc shape-sniffing
+   * (#1641). Receives the raw object + its detected stored version (0 when the
+   * file predates versioning) and returns the migrated raw (still pre-decode).
+   * Only invoked when the stored version is behind `version`. Omit when no
+   * migration is needed yet (a fresh config is born at `version`).
+   */
+  migrate?: (raw: Record<string, unknown>, fromVersion: number) => Record<string, unknown>;
+}
+
+/** Read the stamped schema version off a raw parsed config (0 = legacy). */
+export function detectConfigVersion(raw: unknown): number {
+  return asFiniteNumber(asRecord(raw)[CONFIG_VERSION_KEY], 0);
+}
+
+/** Stamp the current schema version onto a config for persistence (#1641). Call
+ *  in the save path so every write records the version the migration keys off. */
+export function stampConfigVersion<T extends object>(config: T, version: number): T & { configVersion: number } {
+  return { ...config, [CONFIG_VERSION_KEY]: version };
+}
+
 /** Consistent, surfaced config failure. Loud (not the old silent swallow) but
  *  non-fatal — a bad config must not crash startup. Exported so a future PR can
  *  route it to a user-facing toast; today it logs with a recognizable prefix. */
@@ -51,7 +80,7 @@ function clone<T>(v: T): T {
   return v !== null && typeof v === 'object' ? structuredClone(v) : v;
 }
 
-function decodeText<T>(absPath: string, text: string, decode: ConfigDecoder<T>, defaults: T): T {
+function decodeText<T>(absPath: string, text: string, decode: ConfigDecoder<T>, defaults: T, opts?: MigrationOptions): T {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -60,6 +89,10 @@ function decodeText<T>(absPath: string, text: string, decode: ConfigDecoder<T>, 
     return clone(defaults);
   }
   try {
+    if (opts?.migrate) {
+      const from = detectConfigVersion(raw);
+      if (from < opts.version) raw = opts.migrate(asRecord(raw), from);
+    }
     return decode(raw);
   } catch (err) {
     reportConfigError(absPath, 'validate', err);
@@ -69,7 +102,7 @@ function decodeText<T>(absPath: string, text: string, decode: ConfigDecoder<T>, 
 
 /** Load + validate a JSON config file (async). `getPath` returns the absolute
  *  path; see module header for why it's a thunk. */
-export async function loadConfigFile<T>(getPath: () => string, decode: ConfigDecoder<T>, defaults: T): Promise<T> {
+export async function loadConfigFile<T>(getPath: () => string, decode: ConfigDecoder<T>, defaults: T, opts?: MigrationOptions): Promise<T> {
   const absPath = resolvePath(getPath);
   if (absPath === null) return clone(defaults);
   let text: string;
@@ -80,12 +113,12 @@ export async function loadConfigFile<T>(getPath: () => string, decode: ConfigDec
     reportConfigError(absPath, 'read', err);
     return clone(defaults);
   }
-  return decodeText(absPath, text, decode, defaults);
+  return decodeText(absPath, text, decode, defaults, opts);
 }
 
 /** Synchronous variant, for the hot read paths that can't await (e.g.
  *  `readProjectConfig`, consulted during indexing). Same semantics. */
-export function loadConfigFileSync<T>(getPath: () => string, decode: ConfigDecoder<T>, defaults: T): T {
+export function loadConfigFileSync<T>(getPath: () => string, decode: ConfigDecoder<T>, defaults: T, opts?: MigrationOptions): T {
   const absPath = resolvePath(getPath);
   if (absPath === null) return clone(defaults);
   let text: string;
@@ -96,7 +129,7 @@ export function loadConfigFileSync<T>(getPath: () => string, decode: ConfigDecod
     reportConfigError(absPath, 'read', err);
     return clone(defaults);
   }
-  return decodeText(absPath, text, decode, defaults);
+  return decodeText(absPath, text, decode, defaults, opts);
 }
 
 /** Resolve the path thunk; `null` = couldn't even locate the config (e.g.

@@ -8,7 +8,10 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { loadConfigFile, asBool, asRecord } from '../config/config-store';
+import { loadConfigFile, asBool, asRecord, stampConfigVersion } from '../config/config-store';
+
+/** Schema version persisted in `configVersion` (#1641). */
+const INGEST_SETTINGS_VERSION = 1;
 
 export interface IngestSettings {
   /** When true, the identifier-ingest adapters extract upstream
@@ -32,9 +35,13 @@ export async function getIngestSettings(): Promise<IngestSettings> {
     return {
       importUpstreamTags: asBool(o.importUpstreamTags, DEFAULT_INGEST_SETTINGS.importUpstreamTags),
     };
-  }, DEFAULT_INGEST_SETTINGS);
+  }, DEFAULT_INGEST_SETTINGS, { version: INGEST_SETTINGS_VERSION });
 }
 
 export async function saveIngestSettings(settings: IngestSettings): Promise<void> {
-  await fs.writeFile(settingsPath(), JSON.stringify(settings, null, 2), 'utf-8');
+  await fs.writeFile(
+    settingsPath(),
+    JSON.stringify(stampConfigVersion(settings, INGEST_SETTINGS_VERSION), null, 2),
+    'utf-8',
+  );
 }
