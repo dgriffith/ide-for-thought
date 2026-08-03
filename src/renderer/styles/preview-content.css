@@ -1,0 +1,828 @@
+/*
+ * Rendered-note content styles for Preview.svelte (#1601).
+ *
+ * These are the markdown-content rules — headings, code, blockquotes, tables,
+ * wiki-links, transclusions, object cards, typed links — that were formerly the
+ * ~90 `.preview :global(...)` rules inside Preview.svelte's scoped <style>.
+ * Moved verbatim (`.preview :global(X)` → `.preview X`) into this imported,
+ * global stylesheet, like styles/hljs-minerva.css already is. Preview.svelte
+ * keeps only its own component chrome scoped (the .preview container, cite/
+ * wiki-link tooltips, and the compute/note context menus).
+ */
+
+.preview h1 {
+        font-family: var(--font-display);
+        font-size: 30px;
+        line-height: 1.15;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        margin: 8px 0 4px;
+        padding: 0;
+        border: none;
+    }
+
+.preview h2 {
+        font-family: var(--font-display);
+        font-size: 22px;
+        line-height: 1.2;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        margin: 24px 0 12px;
+    }
+
+.preview.numbered h2 {
+        counter-increment: h2;
+    }
+
+.preview.numbered h2::before {
+        content: '§ ' counter(h2, decimal-leading-zero);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--accent);
+        margin-right: 10px;
+        font-weight: 400;
+        letter-spacing: 0;
+    }
+
+.preview h3 {
+        font-family: var(--font-display);
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: -0.005em;
+        margin: 20px 0 8px;
+    }
+
+.preview p {
+        margin: 0 0 12px;
+    }
+
+.preview li.task-list-item {
+        list-style: none;
+        margin-left: -1.2em;
+    }
+
+.preview li.task-list-item > input[type="checkbox"][data-task-line] {
+        margin-right: 6px;
+        cursor: pointer;
+        vertical-align: -1px;
+    }
+
+.preview a {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+.preview a:hover {
+        text-decoration: underline;
+    }
+
+/* Wiki-link as a chip (§8.4) — accent-tinted bg, no underline, small
+       padding. Plain wiki-links only; typed-links keep their existing
+       pill-with-badge shape below. */
+.preview .wiki-link {
+        display: inline-block;
+        padding: 1px 8px;
+        background: color-mix(in oklch, var(--accent) 12%, transparent);
+        color: var(--accent);
+        border-radius: 4px;
+        font-family: var(--font-sans);
+        border: none;
+        cursor: pointer;
+    }
+
+.preview .wiki-link:hover {
+        background: color-mix(in oklch, var(--accent) 18%, transparent);
+        text-decoration: none;
+    }
+
+/* Type-keyed cards (#1071) — a block-level `[[TypedNote]]` / `[[quote::id]]`
+       promoted from a chip to a card. Shared by the preview block and the hover
+       tooltip (via .oc-tooltip). */
+.preview .wiki-link.object-card,
+.preview .quote-link.excerpt-card,
+.cite-tooltip .object-card {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        width: 100%;
+        max-width: 100%;
+        margin: 0.5em 0;
+        padding: 10px 12px;
+        background: color-mix(in oklch, var(--accent) 5%, transparent);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        text-align: left;
+        box-sizing: border-box;
+    }
+
+.preview .wiki-link.object-card:hover,
+.preview .quote-link.excerpt-card:hover {
+        background: color-mix(in oklch, var(--accent) 9%, transparent);
+        border-color: var(--accent);
+    }
+
+/* Transclusion embeds (#906) — a framed, slightly inset block so the
+       reader can tell embedded content from the host note's own prose. */
+.preview .transclusion {
+        margin: 0.75em 0;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: 6px;
+        background: color-mix(in oklch, var(--accent) 4%, transparent);
+        overflow: hidden;
+    }
+
+.preview .transclusion-loading {
+        padding: 8px 12px;
+        color: var(--text-muted);
+        font-family: var(--font-sans);
+        font-size: 0.9em;
+        opacity: 0.7;
+    }
+
+.preview .transclusion-open {
+        display: block;
+        padding: 4px 12px;
+        font-family: var(--font-sans);
+        font-size: 0.8em;
+        color: var(--text-muted);
+        background: color-mix(in oklch, var(--accent) 8%, transparent);
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
+    }
+
+.preview .transclusion-open:hover {
+        color: var(--accent);
+        text-decoration: none;
+    }
+
+.preview .transclusion-body {
+        padding: 2px 14px;
+    }
+
+/* Collapse the embedded body's outer margins so it sits flush in the frame. */
+.preview .transclusion-body > :first-child {
+        margin-top: 0;
+    }
+
+.preview .transclusion-body > :last-child {
+        margin-bottom: 0;
+    }
+
+.preview .transclusion-notice {
+        padding: 8px 12px;
+        font-family: var(--font-sans);
+        font-size: 0.85em;
+        color: var(--text-muted);
+    }
+
+.preview .transclusion-loop {
+        border-left-color: var(--text-muted);
+    }
+
+.preview .typed-link {
+        color: var(--link-color, var(--accent));
+        border-bottom-color: var(--link-color, var(--accent));
+        display: inline-flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+.preview .link-type-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--bg);
+        padding: 1px 5px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        vertical-align: baseline;
+    }
+
+.preview .note-tag {
+        display: inline-block;
+        background: var(--bg-button);
+        color: var(--accent);
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+.preview .note-tag:hover {
+        background: var(--bg-button-hover);
+    }
+
+.preview code {
+        background: var(--bg-inset);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 11.5px;
+        font-family: var(--font-mono);
+        color: var(--text);
+    }
+
+.preview pre {
+        background: var(--bg-inset);
+        border: 1px solid var(--border);
+        padding: 12px 16px;
+        border-radius: 6px;
+        overflow-x: auto;
+        margin: 0 0 16px;
+    }
+
+.preview pre code {
+        background: none;
+        padding: 0;
+        font-size: 12.5px;
+        font-family: var(--font-mono);
+    }
+
+/* Wrapper added by the fence renderer for any languaged code block —
+       surfaces the language as a small uppercase eyebrow pinned to the
+       top-right (§8.5). The bare `pre` inside keeps its borders + padding. */
+.preview .code-block {
+        position: relative;
+    }
+
+.preview .code-block::before {
+        content: attr(data-language);
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-faint);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+.preview blockquote {
+        border-left: 3px solid var(--accent);
+        margin: 0 0 12px;
+        padding: 4px 16px;
+        color: var(--text-muted);
+    }
+
+/* Math (§8.6) — inline math chips against --bg-inset; block math
+       in a bordered card matching the code-block / mermaid look. */
+.preview .katex-inline {
+        padding: 1px 6px;
+        background: var(--bg-inset);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+.preview .math-block {
+        background: var(--bg-inset);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin: 0 0 16px;
+        overflow-x: auto;
+        text-align: center;
+    }
+
+/* Callout styles live in global.css (#465) — Svelte's scoped
+       :global() chain through @html-rendered children proved
+       unreliable in HMR. */
+.preview ul,
+.preview ol {
+        margin: 0 0 12px;
+        padding-left: 24px;
+    }
+
+.preview li {
+        margin: 4px 0;
+    }
+
+.preview table {
+        border-collapse: collapse;
+        margin: 0 0 16px;
+        width: 100%;
+    }
+
+.preview th,
+.preview td {
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        text-align: left;
+    }
+
+.preview th {
+        background: var(--bg-button);
+        font-weight: 600;
+    }
+
+.preview hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 24px 0;
+    }
+
+.preview img {
+        max-width: 100%;
+        border-radius: 4px;
+    }
+
+.preview .query-block {
+        margin: 0 0 16px;
+    }
+
+.preview .query-result-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+.preview .query-result-list li {
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+.preview .query-result-list li:last-child {
+        border-bottom: none;
+    }
+
+.preview .query-loading {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-style: italic;
+    }
+
+/* Live query-block family: backlinks badges + semantic snippets (#1137/#1128). */
+.preview .query-link-badge {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--bg);
+        padding: 1px 4px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        vertical-align: middle;
+    }
+
+.preview .semantic-block li {
+        padding: 6px 0;
+    }
+
+.preview .semantic-section {
+        font-size: 11px;
+        color: var(--text-faint);
+        margin-top: 1px;
+    }
+
+.preview .semantic-snippet {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 2px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+.preview .semantic-nonnote {
+        color: var(--text);
+    }
+
+.preview .query-empty {
+        color: var(--text-muted);
+        font-size: 13px;
+        font-style: italic;
+    }
+
+.preview .query-error {
+        color: var(--text-muted);
+        font-size: 13px;
+        background: var(--bg-button);
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+.preview .query-title {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 8px;
+        color: var(--text);
+    }
+
+.preview .query-result-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 13px;
+    }
+
+.preview .query-result-table th {
+        background: var(--bg-button);
+        font-weight: 600;
+        text-align: left;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+    }
+
+.preview .query-result-table td {
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+    }
+
+.preview .query-chart-wrapper {
+        position: relative;
+        margin: 0 0 16px;
+    }
+
+/* Compute-cell output block styles (#238). Visually mirror the
+       query-directive outputs above so a SPARQL query-panel result and a
+       SPARQL notebook-cell result look the same. */
+.preview .compute-output {
+        margin: 0 0 12px;
+        font-size: 13px;
+    }
+
+.preview .compute-output-table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+.preview .compute-output-table th {
+        background: var(--bg-button);
+        font-weight: 600;
+        text-align: left;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+    }
+
+.preview .compute-output-table td {
+        padding: 5px 12px;
+        border: 1px solid var(--border);
+    }
+
+.preview .compute-output-text,
+.preview .compute-output-json,
+.preview .compute-output-raw {
+        background: var(--bg-button);
+        padding: 8px 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+.preview .compute-output-error {
+        color: var(--text);
+        background: var(--bg-button);
+        border-left: 3px solid var(--accent);
+        padding: 8px 12px;
+        border-radius: 0 4px 4px 0;
+        font-family: var(--font-mono, ui-monospace, monospace);
+        white-space: pre-wrap;
+    }
+
+/* Rich-output additions (#243). DataFrame tables get a max-height
+       so a 1000-row dump doesn't push the rest of the note off-screen;
+       overflow auto so the user can scroll inside the box. The footer
+       sits below the scroll viewport so the row counts stay anchored
+       while the user scrubs the rows. */
+.preview .compute-output-table-wrap {
+        margin: 0 0 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+.preview .compute-output-table-wrap .compute-output-table {
+        max-height: 420px;
+        display: block;
+        overflow: auto;
+    }
+
+.preview .compute-output-table-wrap .compute-output-table thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+.preview .compute-output-truncation {
+        margin: 0;
+        padding: 6px 12px;
+        background: var(--bg-button);
+        border-top: 1px solid var(--border);
+        font-size: 11px;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+.preview .compute-output-image {
+        max-width: 100%;
+        height: auto;
+        border-radius: 4px;
+        background: #fff; /* Many matplotlib figures save with transparent bg */
+        cursor: zoom-in;
+    }
+
+/* Local images from `![](path)` references (#244). Pre-hydration
+       they're empty `<img>` placeholders; sized with a min-height so
+       the page doesn't reflow when the data URL lands. The .broken
+       state surfaces unresolvable paths so the user can spot the typo. */
+.preview img.local-image {
+        max-width: 100%;
+        height: auto;
+        min-height: 1em;
+    }
+
+.preview img.local-image-broken {
+        outline: 1px dashed var(--accent);
+        background: var(--bg-button);
+        min-height: 80px;
+    }
+
+.preview img.local-image-broken::after {
+        content: 'image not found';
+        color: var(--text-muted);
+        font-size: 11px;
+        font-style: italic;
+    }
+
+/* Local audio/video players (#908). */
+.preview video.local-media {
+        max-width: 100%;
+        max-height: 70vh;
+        border-radius: 6px;
+        display: block;
+        margin: 8px 0;
+        background: #000;
+    }
+
+.preview audio.local-media {
+        width: 100%;
+        margin: 8px 0;
+    }
+
+.preview .local-media-broken {
+        display: inline-block;
+        outline: 1px dashed var(--accent);
+        background: var(--bg-button);
+        padding: 8px 12px;
+        border-radius: 6px;
+        color: var(--text-muted);
+        font-size: 11px;
+        font-style: italic;
+    }
+
+.preview .local-media-broken::after {
+        content: 'media not found';
+    }
+
+.preview .compute-output-image.zoomed {
+        cursor: zoom-out;
+        max-width: none;
+        max-height: 90vh;
+    }
+
+.preview .compute-output-svg {
+        background: #fff;
+        padding: 8px;
+        border-radius: 4px;
+    }
+
+.preview .compute-output-svg svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+.preview .compute-output-html {
+        /* Sanitised _repr_html_ output. Scope styling so the output's own
+           inline styles don't bleed into the rest of the note: a CSS
+           containment boundary keeps fonts / margins from escaping. */
+        contain: content;
+        background: var(--bg);
+        padding: 8px 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+
+.preview .compute-output-html table {
+        border-collapse: collapse;
+    }
+
+.preview .compute-output-html th,
+.preview .compute-output-html td {
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+    }
+
+/* Output overflow-menu button — sits in the top-right corner of each
+       saveable compute output, shows ⋯ on hover of the wrapper. */
+.preview .compute-output-wrap {
+        position: relative;
+    }
+
+.preview .compute-output-menu-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: var(--bg-button);
+        color: var(--text-muted);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0 6px;
+        font-size: 12px;
+        line-height: 16px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.1s;
+    }
+
+.preview .compute-output-wrap:hover .compute-output-menu-btn,
+.preview .compute-output-menu-btn:focus {
+        opacity: 1;
+    }
+
+.preview .compute-output-menu-btn:hover {
+        color: var(--text);
+    }
+
+/* Turtle (.ttl) source view. Replaces the markdown render for any
+       file whose path ends in `.ttl` — running Turtle through markdown
+       produces stray HTML from `@prefix` lines and IRI angle brackets
+       that read as broken tags. Three lightweight token classes are
+       enough to make structure scannable without resembling a full IDE
+       syntax highlighter. */
+.preview .ttl-source {
+        font-family: var(--font-mono, monospace);
+        font-size: 13px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        background: var(--bg);
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
+        overflow-x: auto;
+    }
+
+.preview .ttl-comment {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+.preview .ttl-directive {
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+.preview .ttl-iri {
+        color: var(--accent);
+    }
+
+/* Runnable / collapsible fence wrappers. The fence renderer above
+       wraps python / sparql / sql / mermaid bodies inside
+       `.fence-block > .fence-toolbar + .fence-body`. The
+       toolbar carries a tiny ▶ run button (runnable langs only, gated
+       on the host wiring `onRunCell` + `onApplyCellOutputEdit`) and a
+       ▾/▸ collapse toggle. The body shrinks to a single-line "code
+       hidden" affordance when collapsed; the toolbar stays visible so
+       the user can re-expand. */
+.preview .fence-block {
+        margin: 0.6em 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+        background: var(--bg);
+    }
+
+.preview .fence-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        background: var(--bg-titlebar, var(--bg-sidebar));
+        border-bottom: 1px solid var(--border);
+        font-size: 11px;
+    }
+
+.preview .fence-lang {
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-family: var(--font-mono, monospace);
+        margin-right: auto;
+    }
+
+.preview .fence-run-btn,
+.preview .fence-refresh-btn,
+.preview .fence-collapse-btn {
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-muted);
+        padding: 0 6px;
+        height: 20px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+        font-family: var(--font-mono, monospace);
+    }
+
+.preview .fence-run-btn:hover:not([disabled]),
+.preview .fence-refresh-btn:hover,
+.preview .fence-collapse-btn:hover {
+        background: var(--bg-button);
+        color: var(--text);
+        border-color: var(--border);
+    }
+
+.preview .fence-run-btn[disabled] {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+.preview .fence-body {
+        overflow: hidden;
+    }
+
+.preview .fence-body > pre {
+        margin: 0;
+        border-radius: 0;
+        border: none;
+    }
+
+.preview .fence-collapsed .fence-body {
+        display: none;
+    }
+
+/* vega-embed renders in place by adding its own `.vega-embed` class to our
+       `.vega-block` container, and its bundled CSS makes `.vega-embed`
+       `display: inline-block` — which shrinks the container to the chart's
+       default width, so `width: "container"` has nothing to fit to and the
+       chart lays out narrow (#1395). Force the container to fill the note
+       column; vega-embed's inner `.chart-wrapper.fit-x` then measures the full
+       width and the chart sizes to it. Higher specificity than the bundled
+       `.vega-embed` rule, so it wins. */
+.preview .vega-block {
+        display: block;
+        width: 100%;
+    }
+
+/* markdown-it-footnote output. The plugin emits a back-of-note
+       `<section class="footnotes">` with an ordered list of footnote
+       bodies, plus inline `<sup class="footnote-ref">` markers in the
+       body text and `<a class="footnote-backref">` arrows on each
+       footnote body item. Both directions of click are intercepted in
+       `handleClick` above for smooth scroll + transient highlight. */
+.preview .footnotes {
+        margin-top: 2em;
+        padding-top: 1em;
+        border-top: 1px solid var(--border);
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+.preview .footnotes-list {
+        padding-left: 1.4em;
+        margin: 0;
+    }
+
+.preview .footnote-item {
+        margin: 0.4em 0;
+    }
+
+.preview .footnote-item p {
+        margin: 0;
+        display: inline;
+    }
+
+.preview .footnote-ref a {
+        text-decoration: none;
+        color: var(--accent);
+        padding: 0 2px;
+    }
+
+.preview .footnote-ref a:hover {
+        text-decoration: underline;
+    }
+
+.preview .footnote-backref {
+        text-decoration: none;
+        color: var(--accent);
+        margin-left: 4px;
+    }
+
+.preview .footnote-backref:hover {
+        text-decoration: underline;
+    }
+
+/* Anchor-landing flash — set on the target element for ~1.2s
+       after a smooth-scroll jump. Pulses the background so the user's
+       eye locks onto the destination even if the scroll was short. */
+.preview .anchor-landing {
+        animation: anchor-landing-pulse 1.2s ease-out;
+    }
