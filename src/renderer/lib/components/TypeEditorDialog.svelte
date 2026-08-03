@@ -9,7 +9,7 @@
    * Opened blank (New), pre-filled from an existing type (Edit), or pre-filled
    * from a note ("Save Note as Object Type"). Editing keeps the original id.
    */
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { api } from '../ipc/client';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
@@ -22,8 +22,8 @@
   }
   let { initial, onClose, onSaved }: Props = $props();
   // The editor seeds its form from `initial` ONCE (it's a draft to edit, not a
-  // live binding); capture it so the one-time reads below aren't flagged.
-  const seed = initial;
+  // live binding); untrack the read so it isn't flagged as reactive.
+  const seed = untrack(() => initial);
 
   interface Row {
     name: string;

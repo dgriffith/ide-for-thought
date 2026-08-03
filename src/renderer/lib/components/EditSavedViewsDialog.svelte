@@ -82,7 +82,14 @@
                   onkeydown={(e) => { if (e.key === 'Enter') void commitRename(); else if (e.key === 'Escape') renamingPath = null; }}
                 />
               {:else}
-                <span class="name" ondblclick={() => startRename(v)}>{v.name}</span>
+                <span
+                  class="name"
+                  role="button"
+                  tabindex="0"
+                  title="Double-click or press Enter to rename"
+                  ondblclick={() => startRename(v)}
+                  onkeydown={(e) => { if (e.key === 'Enter' || e.key === 'F2') startRename(v); }}
+                >{v.name}</span>
               {/if}
               <span class="type-badge">{v.typeId}</span>
               <span class="mode-badge">{v.layout}</span>

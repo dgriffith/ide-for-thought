@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import EditorContextMenu from './EditorContextMenu.svelte';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { EditorView, keymap } from '@codemirror/view';
@@ -423,17 +423,21 @@
 
   const initSettings = getEditorSettings();
 
+  // `plainText` is fixed for an Editor instance (a tab remounts on a md↔plain
+  // switch), so the extensions below read it once at build time. `untrack`
+  // expresses that intent and silences the `state_referenced_locally` warning.
+  const plainTextOnce = untrack(() => plainText);
   const extensions = [
     basicSetup,
     // Give the `role="textbox"` content DOM an accessible name (#1005 a11y) —
     // CodeMirror's editable div is otherwise unlabeled (axe aria-input-field-name).
-    EditorView.contentAttributes.of({ 'aria-label': plainText ? 'Text editor' : 'Note editor' }),
+    EditorView.contentAttributes.of({ 'aria-label': plainTextOnce ? 'Text editor' : 'Note editor' }),
     // Mark plain-text editors so the drag-to-add-link machinery skips them —
     // a [[wiki-link]] doesn't resolve in a non-markdown file (#1129 / #1130).
-    EditorView.editorAttributes.of(plainText ? { 'data-plaintext': 'true' } : {}),
+    EditorView.editorAttributes.of(plainTextOnce ? { 'data-plaintext': 'true' } : {}),
     // Markdown language + frontmatter fold are markdown-only (#1130). A
     // plain-text file gets a plain editable buffer with no md syntax layer.
-    ...(plainText ? [] : [
+    ...(plainTextOnce ? [] : [
       markdown({ codeLanguages: languages }),
       // Pin the frontmatter fold's gutter arrow to line 1 by claiming the
       // foldable range there ourselves. Without this, the markdown
@@ -463,7 +467,7 @@
     whitespaceCompartment.of(initSettings.showWhitespace ? highlightWhitespace() : []),
     // Markdown-only rendering layers (#1130): wiki-link/URL decorations,
     // bookmark gutter, runnable compute cells, footnote + highlight decorations.
-    ...(plainText ? [] : [
+    ...(plainTextOnce ? [] : [
       linkDecorations({
         onOpenNote: (target: string) => {
           if (onNavigate) onNavigate(target);
