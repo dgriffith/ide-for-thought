@@ -16,24 +16,15 @@
   import { getSettingsStore } from '../stores/settings.svelte';
   import { makePatch } from '../make-patch';
   import BehaviorsSettings from './BehaviorsSettings.svelte';
+  import FormatterSettings from './FormatterSettings.svelte';
+  import ClipperSettings from './ClipperSettings.svelte';
+  import SourcesSettings from './SourcesSettings.svelte';
   import {
     getRefactorSettings,
     setRefactorSettings,
     type DestinationMode,
     type RefactorSettings,
   } from '../refactor/settings';
-  import {
-    getFormatSettings,
-    setFormatSettings,
-    resetFormatToHouseStyle,
-  } from '../formatter/settings';
-  import {
-    listRulesByCategory,
-    CATEGORY_ORDER,
-  } from '../../../shared/formatter/registry';
-  import '../../../shared/formatter/rules/index';
-  import { isRuleEnabled, type FormatSettings } from '../../../shared/formatter/engine';
-  import SitesSettings from './SitesSettings.svelte';
   import ComputeSettings from './ComputeSettings.svelte';
   import SkillsSettings from './SkillsSettings.svelte';
   import ObjectTypesSettings from './ObjectTypesSettings.svelte';
@@ -134,47 +125,6 @@
   // sidebar / breadcrumbs / conversations toggles + the confirm-suppression list
   // now live in BehaviorsSettings.svelte (self-contained, per-change).
 
-  // Formatter settings (#154). Mirror the persisted map into local state so
-  // the Done-close reset path can rehydrate without an IPC round-trip.
-  let formatter = $state<FormatSettings>({
-    enabled: { ...getFormatSettings().enabled },
-    configs: { ...getFormatSettings().configs },
-  });
-  function toggleFormatterRule(id: string, on: boolean): void {
-    formatter = {
-      enabled: { ...formatter.enabled, [id]: on },
-      configs: formatter.configs,
-    };
-    setFormatSettings({ enabled: { [id]: on } });
-  }
-  // True when nothing overrides the shipped defaults — no enable/disable
-  // toggles and no per-rule config tuning. Both must be clear, or "Restore
-  // house style" would stay disabled while a tuned config still lingered.
-  let atHouseStyle = $derived(
-    Object.keys(formatter.enabled).length === 0 &&
-    Object.keys(formatter.configs).length === 0,
-  );
-  function restoreHouseStyle(): void {
-    const next = resetFormatToHouseStyle();
-    formatter = {
-      enabled: { ...next.enabled },
-      configs: { ...next.configs },
-    };
-  }
-  const FORMATTER_CATEGORY_LABELS: Record<string, string> = {
-    yaml: 'YAML frontmatter',
-    heading: 'Headings',
-    content: 'Content',
-    footnote: 'Footnotes',
-    spacing: 'Spacing',
-    minerva: 'Minerva-specific',
-  };
-  const formatterSections = CATEGORY_ORDER.map((cat) => ({
-    category: cat,
-    label: FORMATTER_CATEGORY_LABELS[cat] ?? cat,
-    rules: listRulesByCategory(cat),
-  }));
-  const hasAnyFormatterRules = formatterSections.some((s) => s.rules.length > 0);
   const DESTINATION_OPTIONS: { value: DestinationMode; label: string }[] = [
     { value: 'same-folder', label: 'Same folder as source note' },
     { value: 'root', label: 'Thoughtbase root' },
@@ -253,12 +203,6 @@
   let blockedDomainsText = $state('');
   // Ingest settings — per-machine, used by identifier ingest paths (#473).
   let importUpstreamTags = $state(true);
-  // Browser-clipper state — per-machine enable + pairing (#791). Applied
-  // immediately on toggle (not deferred to Done) since it starts/stops a
-  // loopback server.
-  let clipper = $state<import('../../../shared/clipper-pairing').ClipperState | null>(null);
-  let clipperRevealed = $state(false);
-  let clipperCopied = $state(false);
   let model = $state(DEFAULT_MODEL);
   let effort = $state<import('../../../shared/tools/effort').Effort | undefined>(undefined);
   // Per-provider credential inputs + loaded status (BYOM #1498).
@@ -306,42 +250,8 @@
     } catch (e) {
       console.error('[settings] failed to load ingest settings:', e);
     }
-    try {
-      clipper = await api.clipper.getState();
-    } catch (e) {
-      console.error('[settings] failed to load clipper state:', e);
-    }
   });
 
-  async function toggleClipper(enabled: boolean) {
-    try {
-      clipper = await settings.setClipperEnabled(enabled);
-      clipperRevealed = false;
-      clipperCopied = false;
-    } catch (e) {
-      console.error('[settings] failed to toggle clipper:', e);
-    }
-  }
-
-  async function regenerateClipperSecret() {
-    try {
-      clipper = await settings.regenerateClipperSecret();
-      clipperCopied = false;
-    } catch (e) {
-      console.error('[settings] failed to regenerate clipper secret:', e);
-    }
-  }
-
-  async function copyPairingCode() {
-    if (!clipper?.pairingCode) return;
-    try {
-      await navigator.clipboard.writeText(clipper.pairingCode);
-      clipperCopied = true;
-      setTimeout(() => { clipperCopied = false; }, 1500);
-    } catch (e) {
-      console.error('[settings] failed to copy pairing code:', e);
-    }
-  }
 
 
   function parseDomains(text: string): string[] {
@@ -708,51 +618,7 @@
           </div>
 
         {:else if activeTab === 'formatter'}
-          <p class="section-intro">
-            Deterministic normalizations applied by the <strong>Refactor ▸ Format</strong> commands.
-            A curated <em>house style</em> — safe whitespace, frontmatter, and link
-            tidying — is on by default; everything else is opt-in. Toggle any rule to
-            override. Choices are stored in
-            <code>.minerva/formatter.json</code> so they travel with the thoughtbase.
-          </p>
-
-          {#if !hasAnyFormatterRules}
-            <div class="empty-state">
-              No formatter rules are registered yet. Rule sets land per category
-              in follow-up tickets (#155–#161); once any of those merge, rules
-              appear here as rows you can enable.
-            </div>
-          {:else}
-            <div class="fm-actions">
-              <button
-                class="btn secondary"
-                disabled={atHouseStyle}
-                onclick={restoreHouseStyle}
-              >Restore house style</button>
-              <span class="hint">Clears every override — rule toggles and per-rule tuning alike — back to the default curated set.</span>
-            </div>
-          {/if}
-
-          {#each formatterSections as section}
-            {#if section.rules.length > 0}
-              <h3 class="fm-category">{section.label}</h3>
-              <div class="fm-rules">
-                {#each section.rules as rule (rule.id)}
-                  <div class="field checkbox">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={isRuleEnabled(formatter, rule.id)}
-                        onchange={(e) => toggleFormatterRule(rule.id, e.currentTarget.checked)}
-                      />
-                      {rule.title}
-                    </label>
-                    <p class="hint">{rule.description}</p>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          {/each}
+          <FormatterSettings />
 
         {:else if activeTab === 'web'}
           <div class="field checkbox">
@@ -793,80 +659,10 @@
           </div>
 
         {:else if activeTab === 'sources'}
-          <h3 class="settings-subsection">Ingest</h3>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={importUpstreamTags} />
-              Import upstream subject tags on source ingest
-            </label>
-            <p class="hint">
-              When on, identifier ingest (DOI / arXiv id / PMID) applies the
-              subject taxonomy each API surfaces as namespaced tags on the
-              source: <code>crossref/sociology</code>,
-              <code>arxiv/cs-lg</code>, <code>mesh/genetics</code>. Use the
-              source's right-click "Strip upstream tags" to remove them
-              after the fact.
-            </p>
-          </div>
-
-          <h3 class="settings-subsection">Privileged sites</h3>
-          <SitesSettings />
+          <SourcesSettings bind:importUpstreamTags />
 
         {:else if activeTab === 'clipper'}
-          <div class="field checkbox">
-            <label>
-              <input
-                type="checkbox"
-                checked={clipper?.enabled ?? false}
-                onchange={(e) => toggleClipper(e.currentTarget.checked)}
-              />
-              Enable browser clipper
-            </label>
-            <p class="hint">
-              Runs a small server on <code>127.0.0.1</code> that the Minerva
-              browser extension sends clipped pages to — the page you're reading
-              becomes a Source (and your selection a linked excerpt) without a
-              copy-paste. Off by default; the endpoint only listens while this is
-              on and a thoughtbase is open.
-            </p>
-          </div>
-
-          {#if clipper?.enabled}
-            {#if clipper.running && clipper.pairingCode}
-              <div class="field">
-                <label for="clipper-pairing">Pairing code</label>
-                <div class="clipper-pair-row">
-                  <input
-                    id="clipper-pairing"
-                    class="clipper-pair-code"
-                    type={clipperRevealed ? 'text' : 'password'}
-                    readonly
-                    value={clipper.pairingCode}
-                  />
-                  <button class="btn secondary" onclick={() => (clipperRevealed = !clipperRevealed)}>
-                    {clipperRevealed ? 'Hide' : 'Reveal'}
-                  </button>
-                  <button class="btn secondary" onclick={copyPairingCode}>
-                    {clipperCopied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p class="hint">
-                  Paste this into the browser extension once to pair it. Listening
-                  on port <code>{clipper.port}</code>. Keep it private — anyone
-                  with the code can send pages to this thoughtbase.
-                </p>
-              </div>
-
-              <div class="field">
-                <button class="btn secondary" onclick={regenerateClipperSecret}>Regenerate code</button>
-                <p class="hint">Invalidates the old code; you'll need to re-pair the extension.</p>
-              </div>
-            {:else}
-              <p class="hint">
-                Open a thoughtbase to start the clipper and reveal its pairing code.
-              </p>
-            {/if}
-          {/if}
+          <ClipperSettings />
 
         {:else if activeTab === 'objectTypes'}
           <ObjectTypesSettings />
