@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const h = vi.hoisted(() => {
   const api = {
     refactor: {
-      autoTag: vi.fn(),
+      autoTagSuggest: vi.fn(),
       autoTagApply: vi.fn(),
       autoLinkSuggest: vi.fn(),
       autoLinkInboundSuggest: vi.fn(),
@@ -87,9 +87,9 @@ beforeEach(() => {
 
 describe('handleAutoTag (SUGGEST phase, #940)', () => {
   it('opens the review dialog with the suggested tags and writes nothing', async () => {
-    h.api.refactor.autoTag.mockResolvedValue({ added: ['x', 'y'] });
+    h.api.refactor.autoTagSuggest.mockResolvedValue({ added: ['x', 'y'] });
     await ops.handleAutoTag('note.md');
-    expect(h.api.refactor.autoTag).toHaveBeenCalledWith('note.md');
+    expect(h.api.refactor.autoTagSuggest).toHaveBeenCalledWith('note.md');
     // Review state is set — apply hasn't run, so nothing was written.
     expect(flow.autoTagReview?.relativePath).toBe('note.md');
     expect(flow.autoTagReview?.tags).toEqual(['x', 'y']);
@@ -99,14 +99,14 @@ describe('handleAutoTag (SUGGEST phase, #940)', () => {
   });
 
   it('shows a notice and leaves review null when nothing was suggested', async () => {
-    h.api.refactor.autoTag.mockResolvedValue({ added: [] });
+    h.api.refactor.autoTagSuggest.mockResolvedValue({ added: [] });
     await ops.handleAutoTag('note.md');
     expect(h.dialog.showConfirm).toHaveBeenCalled();
     expect(flow.autoTagReview).toBeNull();
   });
 
   it('skips the failure dialog when the error is a missing API key', async () => {
-    h.api.refactor.autoTag.mockRejectedValue(new Error('no key'));
+    h.api.refactor.autoTagSuggest.mockRejectedValue(new Error('no key'));
     maybeMissing.mockResolvedValue(true);
     await ops.handleAutoTag('note.md');
     expect(maybeMissing).toHaveBeenCalled();
@@ -431,7 +431,7 @@ describe('handleAutoLink (error branch)', () => {
 
 describe('handleAutoTag (failure branch)', () => {
   it('shows the failure dialog on a non-key error', async () => {
-    h.api.refactor.autoTag.mockRejectedValue(new Error('rate limit'));
+    h.api.refactor.autoTagSuggest.mockRejectedValue(new Error('rate limit'));
     await ops.handleAutoTag('note.md');
     const msg = h.dialog.showConfirm.mock.calls.at(-1)?.[0] as string;
     expect(msg).toContain('Auto-tag failed');

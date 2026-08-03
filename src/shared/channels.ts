@@ -1,3 +1,19 @@
+/**
+ * IPC channel constants. Naming convention (#1634):
+ *
+ * - **Shape:** `domain:verbNoun` in camelCase (`notebase:readFile`,
+ *   `sources:setReadStatus`). Reads use `get*`/`list*`; the destructive verb is
+ *   `delete` (collection-membership removal may use `remove*`, e.g.
+ *   `collections:removeSource`). A *suggest → apply* pair keeps a consistent
+ *   suffix on both halves: `refactor:autoTagSuggest` / `refactor:autoTagApply`,
+ *   `refactor:autoLinkSuggest` / `refactor:autoLinkApply`.
+ * - **Namespace invariant:** a channel's `domain` prefix must match the
+ *   `window.api.<namespace>` it's exposed under — either exactly, or as its
+ *   plural (`conversation:` → `api.conversations`). A few cross-domain groupings
+ *   are intentional (`excerpt:` / `ingest:` → `api.sources`, `inspections:` →
+ *   `api.graph`, …); those are enumerated + rationalised in
+ *   `tests/shared/ipc-naming.test.ts`, which fails CI if a new channel drifts.
+ */
 export const Channels = {
   // Notebase
   NOTEBASE_OPEN: 'notebase:open',

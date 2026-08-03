@@ -299,8 +299,8 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "autoLinkInboundApply",
     "autoLinkInboundSuggest",
     "autoLinkSuggest",
-    "autoTag",
     "autoTagApply",
+    "autoTagSuggest",
   ],
   "search": [
     "query",

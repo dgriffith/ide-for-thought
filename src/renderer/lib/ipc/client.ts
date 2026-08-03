@@ -696,7 +696,7 @@ export interface TabsApi {
 
 export interface RefactorApi {
   /** SUGGEST phase (#940): ask the LLM for tags; writes nothing. */
-  autoTag(relativePath: string): Promise<{ added: string[] }>;
+  autoTagSuggest(relativePath: string): Promise<{ added: string[] }>;
   /** APPLY phase (#940): file the accepted tags through the note_rewrite approval payload. */
   autoTagApply(relativePath: string, acceptedTags: string[]): Promise<{ applied: string[] }>;
   autoLinkSuggest(relativePath: string): Promise<{
