@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { encryptSecret, decryptSecret } from './secret-storage';
+import { loadConfigFileSync, asRecord } from './config/config-store';
 
 export interface ProjectConfigShape {
   baseUri?: string;
@@ -122,14 +123,14 @@ function configPath(rootPath: string): string {
 }
 
 export function readProjectConfig(rootPath: string): ProjectConfigShape {
-  try {
-    const raw = fs.readFileSync(configPath(rootPath), 'utf-8');
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') return parsed;
-    return {};
-  } catch {
-    return {};
-  }
+  // A corrupt config.json now surfaces (reportConfigError) instead of silently
+  // reading back as an empty config (#1640); a missing one is still just {}.
+  // Field-level shape stays lenient — consumers read individual keys defensively.
+  return loadConfigFileSync<ProjectConfigShape>(
+    () => configPath(rootPath),
+    (raw) => asRecord(raw),
+    {},
+  );
 }
 
 /**

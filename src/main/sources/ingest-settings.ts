@@ -8,6 +8,7 @@
 import { app } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { loadConfigFile, asBool, asRecord } from '../config/config-store';
 
 export interface IngestSettings {
   /** When true, the identifier-ingest adapters extract upstream
@@ -26,18 +27,12 @@ function settingsPath(): string {
 }
 
 export async function getIngestSettings(): Promise<IngestSettings> {
-  try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<IngestSettings>;
+  return loadConfigFile(settingsPath, (raw) => {
+    const o = asRecord(raw);
     return {
-      importUpstreamTags:
-        typeof parsed.importUpstreamTags === 'boolean'
-          ? parsed.importUpstreamTags
-          : DEFAULT_INGEST_SETTINGS.importUpstreamTags,
+      importUpstreamTags: asBool(o.importUpstreamTags, DEFAULT_INGEST_SETTINGS.importUpstreamTags),
     };
-  } catch {
-    return { ...DEFAULT_INGEST_SETTINGS };
-  }
+  }, DEFAULT_INGEST_SETTINGS);
 }
 
 export async function saveIngestSettings(settings: IngestSettings): Promise<void> {

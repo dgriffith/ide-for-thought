@@ -18,6 +18,7 @@ import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { loadConfigFile, asString, asRecord } from '../config/config-store';
 
 export interface PythonSettings {
   /**
@@ -53,18 +54,15 @@ function settingsPath(): string {
 }
 
 export async function getPythonSettings(): Promise<PythonSettings> {
-  try {
-    const raw = await fs.readFile(settingsPath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<PythonSettings>;
+  return loadConfigFile(settingsPath, (raw) => {
+    const o = asRecord(raw);
     return {
-      pythonPath: typeof parsed.pythonPath === 'string' ? parsed.pythonPath : '',
+      pythonPath: asString(o.pythonPath, DEFAULT_SETTINGS.pythonPath),
       // Default off — only a literal `true` enables network, so a corrupt or
       // truthy-non-bool value fails closed (matches the consent gate's posture).
-      allowNetwork: parsed.allowNetwork === true,
+      allowNetwork: o.allowNetwork === true,
     };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
+  }, DEFAULT_SETTINGS);
 }
 
 export async function setPythonSettings(settings: PythonSettings): Promise<void> {

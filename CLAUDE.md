@@ -152,6 +152,18 @@ thrown error already propagates cleanly. Build on that:
   (→ `readJsonFileOr`), `RUN_COMPUTE_DRAFT` (log-only append / audit-record).
 - vestigial: `GIT_COMMIT.success` (hardcoded `true` — any failure throws).
 
+### Config files (#1640)
+- Load JSON config through the shared helper in `src/main/config/config-store.ts`
+  (`loadConfigFile` / `loadConfigFileSync`), NOT a hand-rolled `try { readFile;
+  JSON.parse } catch { return defaults }`. It gives one consistent behavior: a
+  missing file → defaults (silent, expected); a corrupt/unreadable file → surfaced
+  via `reportConfigError` (loud, not swallowed) then defaults; per-field coercion
+  through the shared `as*` decoders (`asString`/`asBool`/`asFiniteNumber`/`asEnum`/
+  `asRecord`/`asStringArray`), so each config's `decode(raw)` reads as its schema.
+- Migrated so far: `ingest-settings`, `python-settings`, `project-config`. Still
+  hand-rolled (migrate when you touch them): `clipper-config` (decrypt + lazy
+  secret upgrade), `llm/settings` (nested providers/models), `menu-config-store`.
+
 ### File System
 - All paths are relative to the project root
 - `assertSafePath()` in `fs.ts` prevents path traversal — always use it//
