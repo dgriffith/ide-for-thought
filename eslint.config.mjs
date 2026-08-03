@@ -42,6 +42,8 @@ const DATAFLOW_MUTATION_METHODS =
   // publish / proposals / graph / refactor actions
   'runExport|toGit|upsertTarget|removeTarget|approve|reject|expire|runInspections|' +
   'applySuggestedLink|attachExcerptEvidence|' +
+  // local per-note history (#1158): restore is a mutation (list/getRevision are reads)
+  'restore|' +
   // conversations
   'setModel|setEffort|compact|saveUIState|askUserReply|append|archive|send|' +
   'fileDraft|fileSourceDraft|filePropertyDraft|fileSourcePropertyDraft|fileClaimsDraft|' +

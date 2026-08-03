@@ -10,6 +10,9 @@
 
 export const CONFIRM_KEYS = {
   delete: 'confirm-delete',
+  /** Restoring a note to a history revision — non-destructive (the restore is
+   *  itself a new revision), so the confirm is dismissable. (#1158) */
+  historyRestore: 'history-restore',
   deletePartialFailure: 'delete-partial-failure',
   deleteSource: 'delete-source',
   /** Closing a conversation archives it, and there's no reopen UI — so it's
@@ -107,6 +110,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Delete file or folder',
     description:
       'Prompt before removing a note, folder, or source from the thoughtbase.',
+  },
+  {
+    key: CONFIRM_KEYS.historyRestore,
+    title: 'Restore note from history',
+    description:
+      'Prompt before restoring a note to an earlier version from its local history. Non-destructive — the current text is kept as a new revision — so this is easy to turn off.',
   },
   {
     key: CONFIRM_KEYS.deletePartialFailure,

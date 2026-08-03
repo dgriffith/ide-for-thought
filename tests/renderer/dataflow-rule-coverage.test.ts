@@ -60,6 +60,8 @@ const READ_ALLOWLIST = new Set<string>([
   'checkGitHub', 'checkS3', 'listExporters', 'listTargets', 'resolvePlan',
   // embeddings + tools reads
   'unlinkedMentions', 'checkConnection',
+  // local per-note history reads (#1158); `restore` is denylisted (a mutation)
+  'getRevision',
 ]);
 
 function walk(dir: string): string[] {
