@@ -32,6 +32,12 @@
     scalarToText,
     type ScalarType,
   } from '../../../../shared/refactor/property-shape';
+  import {
+    parseFrontmatter,
+    keyToString,
+    applyFrontmatterMutation,
+    type Row,
+  } from '../../../../shared/refactor/frontmatter-rows';
 
   /** Type-icon mapping per §13.1. The icon signals the value shape at
    *  a glance so a row reads as "number" or "list" without parsing
@@ -69,44 +75,6 @@
 
   const notebase = getNotebaseStore();
 
-  type ValueShape =
-    | { kind: 'string'; value: string }
-    | { kind: 'number'; value: number }
-    | { kind: 'boolean'; value: boolean }
-    | { kind: 'date'; value: string }
-    | { kind: 'string-list'; value: string[] }
-    | { kind: 'wiki-link'; target: string; display: string | null; raw: string }
-    | { kind: 'yaml'; raw: string };
-
-  interface Row {
-    key: string;
-    shape: ValueShape;
-  }
-
-  interface ParseResult {
-    ok: true;
-    rows: Row[];
-    /** Raw frontmatter block (between `---` fences, exclusive). */
-    body: string;
-    /** Index in `content` where the frontmatter block begins (`---\n`). */
-    blockStart: number;
-    /** Index in `content` where the frontmatter block ends (after the closing `---\n`). */
-    blockEnd: number;
-  }
-
-  interface ParseError {
-    ok: false;
-    error: string;
-  }
-
-  interface NoFrontmatter {
-    ok: true;
-    rows: [];
-    body: '';
-    blockStart: 0;
-    blockEnd: 0;
-    none: true;
-  }
 
   const parsed = $derived(parseFrontmatter(content));
 
@@ -121,133 +89,15 @@
   let drafts = $state<Record<string, string>>({});
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function parseFrontmatter(text: string): ParseResult | ParseError | NoFrontmatter {
-    const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/);
-    if (!m) {
-      return { ok: true, rows: [], body: '', blockStart: 0, blockEnd: 0, none: true };
-    }
-    const body = m[1]!;
-    const blockEnd = m[0].length;
-    let doc: YAML.Document.Parsed;
-    try {
-      doc = YAML.parseDocument(body);
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
-    }
-    if (doc.errors.length > 0) {
-      return { ok: false, error: doc.errors[0]!.message };
-    }
-    if (!YAML.isMap(doc.contents)) {
-      return { ok: false, error: 'Frontmatter is not a key/value map.' };
-    }
-    const out: Row[] = [];
-    for (const pair of doc.contents.items) {
-      const key = keyToString(pair.key);
-      if (key === null) continue;
-      const value = pair.value;
-      out.push({ key, shape: detectShape(value) });
-    }
-    return { ok: true, rows: out, body, blockStart: 0, blockEnd };
-  }
-
-  function keyToString(k: unknown): string | null {
-    if (YAML.isScalar(k)) return String(k.value);
-    if (typeof k === 'string') return k;
-    return null;
-  }
-
-  /** Matches a single `[[target]]` or `[[target|display]]` (un-typed)
-   *  with no surrounding whitespace. Typed wiki-links (`type::target`)
-   *  fall through to the plain-string editor — the picker only knows
-   *  how to pick note paths. */
-  const WIKI_LINK_RE = /^\[\[([^|\]\n[]+)(?:\|([^\]\n]+))?\]\]$/;
-
-  function detectShape(value: unknown): ValueShape {
-    if (YAML.isScalar(value)) {
-      const v = value.value;
-      if (typeof v === 'boolean') return { kind: 'boolean', value: v };
-      if (typeof v === 'number') return { kind: 'number', value: v };
-      if (v instanceof Date) {
-        return { kind: 'date', value: v.toISOString().slice(0, 10) };
-      }
-      if (typeof v === 'string') {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return { kind: 'date', value: v };
-        const wl = v.match(WIKI_LINK_RE);
-        if (wl) {
-          return {
-            kind: 'wiki-link',
-            target: wl[1]!.trim(),
-            display: wl[2]?.trim() ?? null,
-            raw: v,
-          };
-        }
-        return { kind: 'string', value: v };
-      }
-      // null, undefined, or an oddball scalar shape — treat as empty
-      // string so the row is still editable. Bare `String(obj)` would
-      // surface "[object Object]" so we go through JSON.
-      if (v == null) return { kind: 'string', value: '' };
-      return { kind: 'string', value: JSON.stringify(v) };
-    }
-    if (YAML.isSeq(value)) {
-      const items = value.items;
-      const stringValues: string[] = [];
-      let allStrings = true;
-      for (const it of items) {
-        if (YAML.isScalar(it) && typeof it.value === 'string') {
-          stringValues.push(it.value);
-        } else {
-          allStrings = false;
-          break;
-        }
-      }
-      if (allStrings) {
-        return { kind: 'string-list', value: stringValues };
-      }
-      return { kind: 'yaml', raw: YAML.stringify(value).trimEnd() };
-    }
-    if (YAML.isMap(value)) {
-      return { kind: 'yaml', raw: YAML.stringify(value).trimEnd() };
-    }
-    return { kind: 'yaml', raw: YAML.stringify(value).trimEnd() };
-  }
-
   /**
-   * Apply a mutation to the YAML document and flush back to the
-   * editor buffer. Mutator runs inside a successfully-parsed doc;
-   * if parsing fails we no-op rather than overwrite the user's WIP.
+   * Apply a mutation to the frontmatter and flush the result back to the editor
+   * buffer. The parse → mutate → reserialize → splice engine lives in
+   * frontmatter-rows.ts (#1596); a null result means "unparseable — don't
+   * clobber the user's WIP", so we no-op.
    */
   function mutate(fn: (doc: YAML.Document) => void): void {
-    if (!parsed.ok) return;
-    if ('none' in parsed) {
-      // No frontmatter yet — caller is creating one. Build a fresh doc.
-      const doc = new YAML.Document({});
-      fn(doc);
-      const yaml = doc.toString().trimEnd();
-      const next = `---\n${yaml}\n---\n${content}`;
-      onContentChange(next);
-      return;
-    }
-    let doc: YAML.Document.Parsed;
-    try {
-      doc = YAML.parseDocument(parsed.body);
-      if (doc.errors.length > 0) return;
-    } catch {
-      return;
-    }
-    fn(doc);
-    let serialised = doc.toString();
-    if (serialised.endsWith('\n')) serialised = serialised.slice(0, -1);
-    // If the deletion left the map empty, drop the entire block —
-    // an empty `---\n\n---` block reads as malformed YAML to readers.
-    if (YAML.isMap(doc.contents) && doc.contents.items.length === 0) {
-      onContentChange(content.slice(parsed.blockEnd));
-      return;
-    }
-    const next = content.slice(0, parsed.blockStart) +
-      `---\n${serialised}\n---\n` +
-      content.slice(parsed.blockEnd);
-    onContentChange(next);
+    const next = applyFrontmatterMutation(content, fn);
+    if (next !== null) onContentChange(next);
   }
 
   function setKeyValue(key: string, value: unknown): void {
