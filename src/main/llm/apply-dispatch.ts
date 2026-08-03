@@ -13,6 +13,7 @@ import * as search from '../search/index';
 import * as vectors from '../embeddings/vector-store';
 import { markPathHandled } from '../notebase/path-dedup';
 import { planRename, planFolderRename, renameWithLinkRewrites, listAllFiles } from '../notebase/rename';
+import type { PathTransition } from '../notebase/rename';
 import { isIndexable } from '../notebase/indexable-files';
 import { setSourceProperties, readMeta, sourceMetaPath, restoreSourceMeta } from '../sources/source-meta-write';
 import type { ProjectContext } from '../project-context-types';
@@ -26,12 +27,15 @@ import { applyTurtle } from './proposal-persistence';
  * routing table — the per-kind divergence that used to live in two `switch`
  * statements now lives in one object per kind.
  */
-interface PayloadHandler<K extends ProposalPayload['kind']> {
+interface PayloadHandler<K extends ProposalPayload['kind'], RollbackData = unknown> {
   kind: K;
-  /** Apply the side-effect; return the rollback data `rollback` consumes. */
-  apply(ctx: ProjectContext, payload: PayloadOf<K>): Promise<unknown>;
+  /** Apply the side-effect; return the rollback data `rollback` consumes.
+   *  The return type is the handler's `RollbackData` param — inferred from
+   *  this annotation and threaded into `rollback` below, so an apply/rollback
+   *  shape mismatch is a compile error instead of an invisible `as` cast. */
+  apply(ctx: ProjectContext, payload: PayloadOf<K>): Promise<RollbackData>;
   /** Undo a previously-applied payload using the data `apply` returned. */
-  rollback(ctx: ProjectContext, rollbackData: unknown): Promise<void>;
+  rollback(ctx: ProjectContext, rollbackData: RollbackData): Promise<void>;
   /** URIs this payload introduces/affects, aggregated onto the proposal's
    *  `thought:affectsNode` triples so the trust-integrity query can pin
    *  LLM-attributed components to their approval. Omitted for kinds that
@@ -41,7 +45,12 @@ interface PayloadHandler<K extends ProposalPayload['kind']> {
 
 const HANDLERS = new Map<ProposalPayload['kind'], PayloadHandler<ProposalPayload['kind']>>();
 
-function register<K extends ProposalPayload['kind']>(handler: PayloadHandler<K>): void {
+// K and RollbackData are BOTH inferred from the handler literal (K from `kind`,
+// RollbackData from `apply`'s return) — so call sites pass no explicit type
+// args and `rollback` sees the exact shape `apply` returned.
+function register<K extends ProposalPayload['kind'], RollbackData>(
+  handler: PayloadHandler<K, RollbackData>,
+): void {
   // The cast is safe: the map is keyed by kind and only ever read back through
   // the matching payload's kind, so the payload a handler receives is exactly
   // its PayloadOf<K>.
@@ -115,9 +124,19 @@ export async function applyBundle(ctx: ProjectContext, payloads: ProposalPayload
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-register<'graph-triples'>({
+/** Rollback data shared by the rename-based handlers (note & folder refactor):
+ *  the move endpoints plus verbatim pre-images to restore. */
+interface RenameRollback {
+  fromPath: string;
+  toPath: string;
+  preImages: Record<string, string>;
+  transitions: PathTransition[];
+  rewrittenPaths: string[];
+}
+
+register({
   kind: 'graph-triples',
-  apply: async (ctx, p) => { await applyTurtle(ctx, p.turtle); return null; },
+  apply: async (ctx, p): Promise<null> => { await applyTurtle(ctx, p.turtle); return null; },
   // Triples ran last by construction — nothing after them to undo. Triples
   // rollback would require an rdflib snapshot; skipped per #418's
   // "triples-last" convention.
@@ -125,7 +144,7 @@ register<'graph-triples'>({
   affectsNodes: (_ctx, p) => p.affectsNodeUris,
 });
 
-register<'note'>({
+register({
   kind: 'note',
   apply: async (ctx, p): Promise<{ resolvedPath: string }> => {
     const finalPath = await resolveCollidingPath(ctx.rootPath, p.relativePath);
@@ -143,10 +162,8 @@ register<'note'>({
     }
     return { resolvedPath: finalPath };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as { resolvedPath: string };
-    try { await notebaseFs.deleteFile(ctx.rootPath, data.resolvedPath); }
-    catch { /* file may already be gone */ }
+  rollback: async (ctx, data) => {
+    await safeDeleteFile(ctx, data.resolvedPath);
     graph.removeNote(ctx, data.resolvedPath);
   },
   affectsNodes: (ctx, p) => {
@@ -155,7 +172,7 @@ register<'note'>({
   },
 });
 
-register<'excerpt'>({
+register({
   kind: 'excerpt',
   apply: async (ctx, p): Promise<{ excerptPath: string }> => {
     // #104: file a thought:Excerpt node so claim-extraction can anchor its
@@ -168,16 +185,14 @@ register<'excerpt'>({
     graph.indexExcerpt(ctx, p.excerptId, p.excerptTtl);
     return { excerptPath: relativePath };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as { excerptPath: string };
-    try { await notebaseFs.deleteFile(ctx.rootPath, data.excerptPath); }
-    catch { /* file may already be gone */ }
+  rollback: async (ctx, data) => {
+    await safeDeleteFile(ctx, data.excerptPath);
     // No graph.removeExcerpt today; rollback is best-effort and a reindex
     // reconciles any drift (same posture as the triples-last convention).
   },
 });
 
-register<'excerpt-evidence'>({
+register({
   kind: 'excerpt-evidence',
   apply: async (ctx, p): Promise<{ excerptId: string; excerptPath: string; before: string }> => {
     // Append the evidence edge to the excerpt's meta.ttl (durable + reference-
@@ -195,8 +210,7 @@ register<'excerpt-evidence'>({
     }
     return { excerptId: p.excerptId, excerptPath, before };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as { excerptId: string; excerptPath: string; before: string };
+  rollback: async (ctx, data) => {
     try {
       await notebaseFs.writeFile(ctx.rootPath, data.excerptPath, data.before);
       graph.indexExcerpt(ctx, data.excerptId, data.before);
@@ -205,9 +219,9 @@ register<'excerpt-evidence'>({
   affectsNodes: (_ctx, p) => p.affectsNodeUris,
 });
 
-register<'note-refactor'>({
+register({
   kind: 'note-refactor',
-  apply: async (ctx, p): Promise<unknown> => {
+  apply: async (ctx, p): Promise<RenameRollback> => {
     // Capture pre-images of every file the refactor will touch BEFORE applying,
     // so rollback can restore them verbatim (a reverse rename can mis-rewrite a
     // note that already linked to the destination). planRename also runs the
@@ -235,13 +249,12 @@ register<'note-refactor'>({
     });
     return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as { fromPath: string; toPath: string; preImages: Record<string, string> };
+  rollback: async (ctx, data) => {
     // Move the note back: drop the destination, then restore every captured
     // pre-image (the moved file at its original path + each rewritten note's
     // verbatim original content). Reindex each across graph/search/vectors.
     markPathHandled(data.toPath);
-    try { await notebaseFs.deleteFile(ctx.rootPath, data.toPath); } catch { /* already gone */ }
+    await safeDeleteFile(ctx, data.toPath);
     graph.removeNote(ctx, data.toPath);
     search.removeNote(ctx, data.toPath);
     void vectors.removeNote(ctx, data.toPath);
@@ -259,7 +272,7 @@ register<'note-refactor'>({
   },
 });
 
-register<'note-delete'>({
+register({
   kind: 'note-delete',
   apply: async (ctx, p): Promise<{ path: string; content: string }> => {
     // Capture the file content before deleting so rollback can recreate it
@@ -275,9 +288,8 @@ register<'note-delete'>({
     void vectors.removeNote(ctx, p.path);
     return { path: p.path, content };
   },
-  rollback: async (ctx, rollbackData) => {
+  rollback: async (ctx, data) => {
     // Recreate the deleted note from its captured pre-image and reindex.
-    const data = rollbackData as { path: string; content: string };
     try {
       markPathHandled(data.path);
       await notebaseFs.createFile(ctx.rootPath, data.path);
@@ -291,9 +303,9 @@ register<'note-delete'>({
   },
 });
 
-register<'folder-refactor'>({
+register({
   kind: 'folder-refactor',
-  apply: async (ctx, p): Promise<unknown> => {
+  apply: async (ctx, p): Promise<RenameRollback> => {
     // Capture pre-images of every note the folder move touches (relocated notes
     // + inbound-rewritten referrers) BEFORE applying. planFolderRename also runs
     // the guardrails (collision / into-self / not-a-folder) — it throws on
@@ -312,12 +324,7 @@ register<'folder-refactor'>({
     });
     return { fromPath: p.fromPath, toPath: p.toPath, preImages, transitions, rewrittenPaths };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as {
-      fromPath: string; toPath: string;
-      preImages: Record<string, string>;
-      transitions: { old: string; new: string }[];
-    };
+  rollback: async (ctx, data) => {
     // De-index the relocated notes at their new paths, move the whole folder
     // back with a pure fs rename (no link rewrite — the pre-images below undo
     // the link edits), then restore every captured pre-image verbatim.
@@ -345,9 +352,9 @@ register<'folder-refactor'>({
   },
 });
 
-register<'folder-delete'>({
+register({
   kind: 'folder-delete',
-  apply: async (ctx, p): Promise<unknown> => {
+  apply: async (ctx, p): Promise<{ path: string; files: { path: string; bytes: Uint8Array }[] }> => {
     // Capture every file under the folder as bytes (round-trips notes AND
     // binary assets), de-index its notes, then remove the folder recursively.
     // The bytes let rollback recreate the whole tree verbatim.
@@ -362,8 +369,7 @@ register<'folder-delete'>({
     await notebaseFs.deleteFolder(ctx.rootPath, p.path);
     return { path: p.path, files: captured };
   },
-  rollback: async (ctx, rollbackData) => {
-    const data = rollbackData as { path: string; files: { path: string; bytes: Uint8Array }[] };
+  rollback: async (ctx, data) => {
     // Recreate each captured file (writeBinaryFile makes parent dirs), then
     // reindex the notes across graph/search/vectors.
     for (const f of data.files) {
@@ -383,7 +389,7 @@ register<'folder-delete'>({
   },
 });
 
-register<'note-rewrite'>({
+register({
   kind: 'note-rewrite',
   apply: async (ctx, p): Promise<{ path: string; before: string }> => {
     // Overwrite an existing note in place (#936). Guardrails: must be a .md
@@ -406,11 +412,10 @@ register<'note-rewrite'>({
     void vectors.indexNote(ctx, p.path, p.content);
     return { path: p.path, before };
   },
-  rollback: async (ctx, rollbackData) => {
+  rollback: async (ctx, data) => {
     // Restore the note's captured pre-image and reindex (#936). Same posture
     // as note-delete rollback: best-effort, markPathHandled dedups the
     // watcher, reindex across graph/search/vectors.
-    const data = rollbackData as { path: string; before: string };
     try {
       markPathHandled(data.path);
       await notebaseFs.writeFile(ctx.rootPath, data.path, data.before);
@@ -431,7 +436,7 @@ register<'note-rewrite'>({
   },
 });
 
-register<'source-meta'>({
+register({
   kind: 'source-meta',
   apply: async (ctx, p): Promise<{ sourceId: string; before: string }> => {
     // Upsert the proposed predicates into the source's meta.ttl (#943).
@@ -442,9 +447,8 @@ register<'source-meta'>({
     await setSourceProperties(ctx.rootPath, p.sourceId, p.updates);
     return { sourceId: p.sourceId, before };
   },
-  rollback: async (ctx, rollbackData) => {
+  rollback: async (ctx, data) => {
     // Restore the source's captured pre-image meta.ttl and reindex (#943).
-    const data = rollbackData as { sourceId: string; before: string };
     try {
       await restoreSourceMeta(ctx.rootPath, data.sourceId, data.before);
     } catch (err) {
@@ -454,6 +458,15 @@ register<'source-meta'>({
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Delete a file during rollback, swallowing a missing-file error. Rollback is
+ *  best-effort and the target may already be gone (a later payload never landed,
+ *  or the watcher/user removed it); a failed reverse-delete must not mask the
+ *  original apply error. Shared by the note / excerpt / note-refactor rollbacks. */
+async function safeDeleteFile(ctx: ProjectContext, relativePath: string): Promise<void> {
+  try { await notebaseFs.deleteFile(ctx.rootPath, relativePath); }
+  catch { /* file may already be gone */ }
+}
 
 /** Apply-time path dedup. Mirrors `resolveDropName` in drop-import. */
 async function resolveCollidingPath(rootPath: string, relativePath: string): Promise<string> {
