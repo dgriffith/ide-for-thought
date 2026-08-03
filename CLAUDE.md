@@ -93,6 +93,65 @@ To add a new main-process operation:
 4. Expose it in `src/preload/preload.ts`
 5. Add the type to the API interface in `src/renderer/lib/ipc/client.ts`
 
+### IPC error handling (#1631)
+
+One convention so every caller reasons about failure the same way. Electron's
+`ipcRenderer.invoke` **rejects the renderer promise when a handler throws**, and
+the typed `invoke` wrapper (`src/preload/typed-invoke.ts`) surfaces it — so a
+thrown error already propagates cleanly. Build on that:
+
+1. **Default: throw.** A handler that cannot complete throws; the caller uses
+   `try/catch` / `.catch`. Do **not** invent an `{ ok: false }` object or a
+   `null` for a *generic* failure — throwing is the failure channel.
+2. **"No project open" throws.** Use `withRootPath` / `withRootPathWin`
+   (`ipc/helpers.ts`). `withRootPathOr(fallback, …)` is only for handlers whose
+   project-less answer is a *legitimate value* (an empty list `[]` a UI renders
+   as "nothing yet"), **not** a way to signal failure — and that fallback must
+   mean the same thing as a genuinely-empty result, never "error".
+3. **Discriminated `{ ok, … }` union — only when the caller must branch on an
+   EXPECTED, non-exceptional outcome.** A user's malformed SQL/SPARQL, a failed
+   network/auth check, or user code that errors are normal inputs the UI renders
+   inline, not bugs. These legitimately return a union: tables/graph query
+   results, `ConnectionCheckResult` (S3 / GitHub / model key), `PUBLISH_TO_GIT`,
+   compute `CellResult` / `PythonProbeResult` / `InterruptResult`. Give the
+   *failure* arm a real discriminant (`{ ok: false; error }`), and document on
+   the type that the call itself does not reject.
+4. **Per-item outcome catalogs are fine.** A call that succeeds while reporting
+   per-item problems (`SKILLS_LIST` / `TYPES_LIST` `errors[]`, the draft-filing
+   `outcomes[].error`) is not a failure channel — the call worked; the array
+   describes each item. Keep these.
+5. **`null` marks exactly ONE expected absence, documented on the client type.**
+   Either "user cancelled a native picker" **or** "not found" — never both, and
+   never "error". A corrupt store, an IO failure, or "no project" must not fold
+   into the same `null`.
+
+**Anti-patterns (do not add; migrate when you touch one):**
+
+- **Overloaded `null`/sentinel** — one `null` meaning several of {cancelled,
+  not-found, no-project, corrupt, error}. Split them: real errors throw, and the
+  sentinel keeps one meaning. Use `readJsonFileOr(absPath, fallback)`
+  (`ipc/helpers.ts`) for JSON stores — it returns `fallback` on ENOENT but
+  **rethrows a parse/IO error** instead of masquerading corruption as "empty".
+- **Swallowing** — `catch { return null | [] | fallback }` that discards a real
+  error. Only catch a *specific expected* condition (e.g. ENOENT → sentinel) and
+  let the rest throw.
+- **In-band `error?` on an otherwise-normal payload** — prefer the discriminated
+  union of rule 3 over baking an optional `error` onto the success shape.
+
+**Migration backlog** (audited outliers, fix incrementally per the rules above):
+
+- `null` no-project↔not-found: `GRAPH_SOURCE_DETAIL`, `GRAPH_EXCERPT_SOURCE`,
+  `PROPOSAL_DETAIL` (→ `withRootPath` so `null` means only "not found");
+  `TEMPLATES_GET`, `CONVERSATION_LOAD` (corrupt → throw).
+- boolean overloads: `NOTEBASE_FILE_EXISTS`, proposals `APPROVE` / `REJECT`
+  (`false` = no-project ↔ failed).
+- in-band `error?` → union: `GRAPH_QUERY` (`{ results, columns, error? }` should
+  match the `TABLES_QUERY` `{ ok:false; error }` shape).
+- swallows: `LINKS_CITATIONS_FOR_NOTE` (`.catch(()=>'')`), `CSL_REMOVE_STYLE` /
+  `CSL_REMOVE_LOCALE` (unlink swallows non-ENOENT), `FORMATTER_LOAD_SETTINGS`
+  (→ `readJsonFileOr`), `RUN_COMPUTE_DRAFT` (log-only append / audit-record).
+- vestigial: `GIT_COMMIT.success` (hardcoded `true` — any failure throws).
+
 ### File System
 - All paths are relative to the project root
 - `assertSafePath()` in `fs.ts` prevents path traversal — always use it//

@@ -95,6 +95,11 @@ export function registerGraph(): void {
         FILTER(CONTAINS(LCASE(?label), LCASE("${escaped}")))
       } LIMIT 5
     `);
+    // queryGraph reports an engine failure via an in-band `error` field rather
+    // than throwing (its query-panel callers render it inline). This handler has
+    // no such surface, so a dropped `error` would read as "no matches" — throw it
+    // instead so the failure reaches the caller as a rejection (#1631).
+    if (results.error) throw new Error(`grounding query failed: ${results.error}`);
     // The SELECT projects exactly ?node ?label ?type — narrow the generic
     // row shape to the typed contract the renderer consumes.
     return results.results as { node: string; label: string; type: string }[];
