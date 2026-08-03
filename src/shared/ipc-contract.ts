@@ -87,7 +87,9 @@ import type {
 import type { ParsedReference } from './mine-references';
 import type { ResolveCandidate } from './resolve-stub';
 import type { Conversation, ConversationMessage, ContextBundle, ConversationsUIState, CompactResult } from './types';
-import type { ConversationToolKey } from './conversation-tools';
+import type { ConversationToolKey, AskUserRequest } from './conversation-tools';
+import type { ConversationDraftBase } from './conversation-draft-base';
+import type { ThemeMode } from './theme';
 import type { Effort } from './tools/effort';
 import type { ConversationDraft, FileDraftResult } from './conversation-drafts';
 import type { ConversationSourceDraft, FileSourceDraftResult } from './conversation-source-drafts';
@@ -570,6 +572,92 @@ export interface EventMap {
   'tables:nameCollision': (collision: CsvTableCollision) => void;
   'proposals:changed': () => void;
   'proposals:show': () => void;
+  // Conversation-draft cards — all carry ConversationDraftBase on the wire
+  // (draftEmit); the renderer refines to the specific draft type.
+  'conversation:draft': (draft: ConversationDraftBase) => void;
+  'conversation:sourceDraft': (draft: ConversationDraftBase) => void;
+  'conversation:propertyDraft': (draft: ConversationDraftBase) => void;
+  'conversation:sourcePropertyDraft': (draft: ConversationDraftBase) => void;
+  'conversation:claimsDraft': (draft: ConversationDraftBase) => void;
+  'conversation:computeDraft': (draft: ConversationDraftBase) => void;
+  'conversation:refactorDraft': (draft: ConversationDraftBase) => void;
+  'conversation:reorgDraft': (draft: ConversationDraftBase) => void;
+  'conversation:deleteDraft': (draft: ConversationDraftBase) => void;
+  'conversation:noteBodyDraft': (draft: ConversationDraftBase) => void;
+  // Conversation + tool streaming / prompts
+  'conversation:stream': (chunk: string) => void;
+  'conversation:askUser': (req: AskUserRequest) => void;
+  'tool:stream': (chunk: string) => void;
+  'tool:invoke': (toolId: string) => void;
+  'shell:revealFile': () => void; // fired by the native menu as a command event
+  // Native-menu command channels (#1633) — payloaded first, then void.
+  'menu:setTheme': (mode: ThemeMode) => void;
+  'menu:openStockQuery': (payload: { query: string; language: 'sparql' | 'sql' }) => void;
+  'menu:export': (exporterId: string) => void;
+  'menu:openRecentProject': (path: string) => void;
+  'menu:about': () => void;
+  'menu:bibliography': () => void;
+  'menu:clearRecent': () => void;
+  'menu:closeGroup': () => void;
+  'menu:closeProject': () => void;
+  'menu:cycleTheme': () => void;
+  'menu:editSavedQueries': () => void;
+  'menu:editThoughtbaseDoc': () => void;
+  'menu:find': () => void;
+  'menu:findInNotes': () => void;
+  'menu:findReplace': () => void;
+  'menu:focusNextGroup': () => void;
+  'menu:focusPrevGroup': () => void;
+  'menu:fontDecrease': () => void;
+  'menu:fontIncrease': () => void;
+  'menu:fontReset': () => void;
+  'menu:format': () => void;
+  'menu:gotoLine': () => void;
+  'menu:importBibtex': () => void;
+  'menu:importZoteroRdf': () => void;
+  'menu:ingestFile': () => void;
+  'menu:ingestIdentifier': () => void;
+  'menu:ingestUrl': () => void;
+  'menu:insertTemplate': () => void;
+  'menu:installTutorial': () => void;
+  'menu:navBack': () => void;
+  'menu:navForward': () => void;
+  'menu:newConversation': () => void;
+  'menu:newNote': () => void;
+  'menu:newProject': () => void;
+  'menu:newQuery': () => void;
+  'menu:openInDefault': () => void;
+  'menu:openInTerminal': () => void;
+  'menu:openProject': () => void;
+  'menu:openSettings': () => void;
+  'menu:print': () => void;
+  'menu:publish': () => void;
+  'menu:quickOpen': () => void;
+  'menu:refactor:autolink': () => void;
+  'menu:refactor:autolinkInbound': () => void;
+  'menu:refactor:autotag': () => void;
+  'menu:refactor:copy': () => void;
+  'menu:refactor:decompose': () => void;
+  'menu:refactor:extract': () => void;
+  'menu:refactor:move': () => void;
+  'menu:refactor:rename': () => void;
+  'menu:refactor:splitByHeading': () => void;
+  'menu:refactor:splitHere': () => void;
+  'menu:replaceInNotes': () => void;
+  'menu:reportEditorState': () => void;
+  'menu:reportTheme': () => void;
+  'menu:save': () => void;
+  'menu:saveAsObjectType': () => void;
+  'menu:saveAsTemplate': () => void;
+  'menu:shortcuts': () => void;
+  'menu:sortLines': () => void;
+  'menu:splitDown': () => void;
+  'menu:splitRight': () => void;
+  'menu:thoughtbaseProperties': () => void;
+  'menu:toggleConversations': () => void;
+  'menu:togglePreview': () => void;
+  'menu:toggleRightSidebar': () => void;
+  'menu:toggleSidebar': () => void;
 }
 
 /** A configured publish destination (#254; multi-transport #1444). Mirror of the

@@ -6,26 +6,10 @@ import type { ThemeMode } from '../shared/theme';
 import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 
 /**
- * Subscribe to an IPC channel and forward the typed payload to `cb`.
- * Centralises the unavoidable cast at the IPC boundary — the main
- * process owns the wire shape, so each subscriber names what it expects.
- *
- * Legacy path: prefer {@link subscribe} for any channel in EventMap (#1633),
- * which derives the payload types from the shared contract instead of casting
- * `unknown`. This remains for channels not yet migrated (conversation drafts,
- * streaming, `menu:*` commands).
- */
-function subscribeIpc<T>(channel: string, cb: (payload: T) => void): () => void {
-  // Wrapper captured by reference so `off` removes the exact handler.
-  const handler = (_e: unknown, payload: unknown) => cb(payload as T);
-  ipcRenderer.on(channel, handler);
-  return () => { ipcRenderer.off(channel, handler); };
-}
-
-/**
  * Typed main→renderer event subscription (#1633). The channel + the `cb` payload
  * types are checked against {@link EventMap}, so a subscriber that disagrees with
- * the sender fails `tsc` — no more `unknown` cast at this boundary.
+ * the sender fails `tsc` — no more `unknown` cast at this boundary. Every
+ * main→renderer channel now flows through here.
  */
 function subscribe<K extends keyof EventMap>(channel: K, cb: EventMap[K]): () => void {
   const handler = (_e: unknown, ...args: unknown[]) => (cb as (...a: unknown[]) => void)(...args);
@@ -279,47 +263,47 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.CONVERSATION_SEND, convId, userMessage, systemPrompt, currentNotePath, extraTools),
     loadUIState: () => invoke(Channels.CONVERSATION_UI_STATE_LOAD),
     saveUIState: (state: Parameters<ChannelMap['conversation:uiStateSave']>[0]) => invoke(Channels.CONVERSATION_UI_STATE_SAVE, state),
-    onAskUser: (cb: (req: unknown) => void) => subscribeIpc(Channels.CONVERSATION_ASK_USER, cb),
+    onAskUser: (cb: (req: unknown) => void) => subscribe(Channels.CONVERSATION_ASK_USER, cb),
     askUserReply: (questionId: string, answer: string) =>
       invoke(Channels.CONVERSATION_ASK_USER_REPLY, questionId, answer),
-    onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.CONVERSATION_STREAM, cb),
+    onStream: (cb: (chunk: string) => void) => subscribe(Channels.CONVERSATION_STREAM, cb),
     cancel: () => invoke(Channels.CONVERSATION_CANCEL),
-    onDraft: (cb: (draft: unknown) => void) => subscribeIpc(Channels.CONVERSATION_DRAFT, cb),
+    onDraft: (cb: (draft: unknown) => void) => subscribe(Channels.CONVERSATION_DRAFT, cb),
     fileDraft: (draft: Parameters<ChannelMap['conversation:fileDraft']>[0]) => invoke(Channels.CONVERSATION_FILE_DRAFT, draft),
     onSourceDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_SOURCE_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_SOURCE_DRAFT, cb),
     fileSourceDraft: (draft: Parameters<ChannelMap['conversation:fileSourceDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_SOURCE_DRAFT, draft),
     onPropertyDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_PROPERTY_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_PROPERTY_DRAFT, cb),
     filePropertyDraft: (draft: Parameters<ChannelMap['conversation:filePropertyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_PROPERTY_DRAFT, draft),
     onSourcePropertyDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_SOURCE_PROPERTY_DRAFT, cb),
     fileSourcePropertyDraft: (draft: Parameters<ChannelMap['conversation:fileSourcePropertyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_SOURCE_PROPERTY_DRAFT, draft),
     onClaimsDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_CLAIMS_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_CLAIMS_DRAFT, cb),
     fileClaimsDraft: (draft: Parameters<ChannelMap['conversation:fileClaimsDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_CLAIMS_DRAFT, draft),
     onComputeDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_COMPUTE_DRAFT, cb),
     runComputeDraft: (input: Parameters<ChannelMap['conversation:runComputeDraft']>[0]) =>
       invoke(Channels.CONVERSATION_RUN_COMPUTE_DRAFT, input),
     onRefactorDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_REFACTOR_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_REFACTOR_DRAFT, cb),
     fileRefactorDraft: (draft: Parameters<ChannelMap['conversation:fileRefactorDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_REFACTOR_DRAFT, draft),
     onReorgDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_REORG_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_REORG_DRAFT, cb),
     fileReorgDraft: (draft: Parameters<ChannelMap['conversation:fileReorgDraft']>[0], selected: Parameters<ChannelMap['conversation:fileReorgDraft']>[1]) =>
       invoke(Channels.CONVERSATION_FILE_REORG_DRAFT, draft, selected),
     onDeleteDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_DELETE_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_DELETE_DRAFT, cb),
     fileDeleteDraft: (draft: Parameters<ChannelMap['conversation:fileDeleteDraft']>[0], selected: Parameters<ChannelMap['conversation:fileDeleteDraft']>[1]) =>
       invoke(Channels.CONVERSATION_FILE_DELETE_DRAFT, draft, selected),
     onNoteBodyDraft: (cb: (draft: unknown) => void) =>
-      subscribeIpc(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
+      subscribe(Channels.CONVERSATION_NOTE_BODY_DRAFT, cb),
     fileNoteBodyDraft: (draft: Parameters<ChannelMap['conversation:fileNoteBodyDraft']>[0]) =>
       invoke(Channels.CONVERSATION_FILE_NOTE_BODY_DRAFT, draft),
     insertComputeDraft: (input: Parameters<ChannelMap['conversation:insertComputeDraft']>[0]) =>
@@ -473,13 +457,13 @@ contextBridge.exposeInMainWorld('api', {
     execute: (request: Parameters<ChannelMap['tool:execute']>[0]) => invoke(Channels.TOOL_EXECUTE, request),
     prepareConversation: (request: Parameters<ChannelMap['tool:prepareConversation']>[0]) => invoke(Channels.TOOL_PREPARE_CONVERSATION, request),
     cancel: () => invoke(Channels.TOOL_CANCEL),
-    onStream: (cb: (chunk: string) => void) => subscribeIpc(Channels.TOOL_STREAM, cb),
+    onStream: (cb: (chunk: string) => void) => subscribe(Channels.TOOL_STREAM, cb),
     getSettings: () => invoke(Channels.TOOL_GET_SETTINGS),
     setSettings: (settings: Parameters<ChannelMap['tool:setSettings']>[0]) => invoke(Channels.TOOL_SET_SETTINGS, settings),
     getKeyStorage: () => invoke(Channels.TOOL_GET_KEY_STORAGE),
     checkConnection: (providerId: Parameters<ChannelMap['tool:checkConnection']>[0], candidateKey?: string, baseURL?: string) =>
       invoke(Channels.TOOL_CHECK_CONNECTION, providerId, candidateKey, baseURL),
-    onInvoke: (cb: (toolId: string) => void) => subscribeIpc(Channels.TOOL_INVOKE, cb),
+    onInvoke: (cb: (toolId: string) => void) => subscribe(Channels.TOOL_INVOKE, cb),
   },
   types: {
     list: () => invoke(Channels.TYPES_LIST),
@@ -527,196 +511,74 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.CITATION_RENDER_INLINE, refs),
   },
   menu: {
-    onNewNote: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NEW_NOTE, () => cb());
-    },
-    onEditThoughtbaseDoc: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_EDIT_THOUGHTBASE_DOC, () => cb());
-    },
-    onThoughtbaseProperties: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_THOUGHTBASE_PROPERTIES, () => cb());
-    },
-    onSave: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SAVE, () => cb());
-    },
-    onSaveAsObjectType: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SAVE_AS_OBJECT_TYPE, () => cb());
-    },
-    onSaveAsTemplate: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SAVE_AS_TEMPLATE, () => cb());
-    },
-    onInsertTemplate: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INSERT_TEMPLATE, () => cb());
-    },
-    onToggleSidebar: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_TOGGLE_SIDEBAR, () => cb());
-    },
-    onTogglePreview: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_TOGGLE_PREVIEW, () => cb());
-    },
-    onQuickOpen: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_QUICK_OPEN, () => cb());
-    },
-    onCycleTheme: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_CYCLE_THEME, () => cb());
-    },
-    onSetTheme: (cb: (mode: ThemeMode) => void) => {
-      ipcRenderer.on(Channels.MENU_SET_THEME, (_e, mode: ThemeMode) => cb(mode));
-    },
+    onNewNote: (cb: () => void) => subscribe(Channels.MENU_NEW_NOTE, cb),
+    onEditThoughtbaseDoc: (cb: () => void) => subscribe(Channels.MENU_EDIT_THOUGHTBASE_DOC, cb),
+    onThoughtbaseProperties: (cb: () => void) => subscribe(Channels.MENU_THOUGHTBASE_PROPERTIES, cb),
+    onSave: (cb: () => void) => subscribe(Channels.MENU_SAVE, cb),
+    onSaveAsObjectType: (cb: () => void) => subscribe(Channels.MENU_SAVE_AS_OBJECT_TYPE, cb),
+    onSaveAsTemplate: (cb: () => void) => subscribe(Channels.MENU_SAVE_AS_TEMPLATE, cb),
+    onInsertTemplate: (cb: () => void) => subscribe(Channels.MENU_INSERT_TEMPLATE, cb),
+    onToggleSidebar: (cb: () => void) => subscribe(Channels.MENU_TOGGLE_SIDEBAR, cb),
+    onTogglePreview: (cb: () => void) => subscribe(Channels.MENU_TOGGLE_PREVIEW, cb),
+    onQuickOpen: (cb: () => void) => subscribe(Channels.MENU_QUICK_OPEN, cb),
+    onCycleTheme: (cb: () => void) => subscribe(Channels.MENU_CYCLE_THEME, cb),
+    onSetTheme: (cb: (mode: ThemeMode) => void) => subscribe(Channels.MENU_SET_THEME, cb),
     reportTheme: (mode: ThemeMode) => ipcRenderer.send(Channels.MENU_REPORT_THEME, mode),
     reportEditorState: (state: MenuEditorState) => ipcRenderer.send(Channels.MENU_REPORT_EDITOR_STATE, state),
-    onSplitRight: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SPLIT_RIGHT, () => cb());
-    },
-    onSplitDown: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SPLIT_DOWN, () => cb());
-    },
-    onFocusNextGroup: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FOCUS_NEXT_GROUP, () => cb());
-    },
-    onFocusPrevGroup: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FOCUS_PREV_GROUP, () => cb());
-    },
-    onCloseGroup: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_CLOSE_GROUP, () => cb());
-    },
-    onFontIncrease: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FONT_INCREASE, () => cb());
-    },
-    onFontDecrease: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FONT_DECREASE, () => cb());
-    },
-    onFontReset: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FONT_RESET, () => cb());
-    },
-    onToggleRightSidebar: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_TOGGLE_RIGHT_SIDEBAR, () => cb());
-    },
-    onToggleConversations: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_TOGGLE_CONVERSATIONS, () => cb());
-    },
-    onNewConversation: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NEW_CONVERSATION, () => cb());
-    },
-    onNavBack: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NAV_BACK, () => cb());
-    },
-    onNavForward: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NAV_FORWARD, () => cb());
-    },
-    onGotoLine: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_GOTO_LINE, () => cb());
-    },
-    onFind: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FIND, () => cb());
-    },
-    onFindReplace: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FIND_REPLACE, () => cb());
-    },
-    onFindInNotes: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FIND_IN_NOTES, () => cb());
-    },
-    onReplaceInNotes: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REPLACE_IN_NOTES, () => cb());
-    },
-    onNewQuery: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NEW_QUERY, () => cb());
-    },
+    onSplitRight: (cb: () => void) => subscribe(Channels.MENU_SPLIT_RIGHT, cb),
+    onSplitDown: (cb: () => void) => subscribe(Channels.MENU_SPLIT_DOWN, cb),
+    onFocusNextGroup: (cb: () => void) => subscribe(Channels.MENU_FOCUS_NEXT_GROUP, cb),
+    onFocusPrevGroup: (cb: () => void) => subscribe(Channels.MENU_FOCUS_PREV_GROUP, cb),
+    onCloseGroup: (cb: () => void) => subscribe(Channels.MENU_CLOSE_GROUP, cb),
+    onFontIncrease: (cb: () => void) => subscribe(Channels.MENU_FONT_INCREASE, cb),
+    onFontDecrease: (cb: () => void) => subscribe(Channels.MENU_FONT_DECREASE, cb),
+    onFontReset: (cb: () => void) => subscribe(Channels.MENU_FONT_RESET, cb),
+    onToggleRightSidebar: (cb: () => void) => subscribe(Channels.MENU_TOGGLE_RIGHT_SIDEBAR, cb),
+    onToggleConversations: (cb: () => void) => subscribe(Channels.MENU_TOGGLE_CONVERSATIONS, cb),
+    onNewConversation: (cb: () => void) => subscribe(Channels.MENU_NEW_CONVERSATION, cb),
+    onNavBack: (cb: () => void) => subscribe(Channels.MENU_NAV_BACK, cb),
+    onNavForward: (cb: () => void) => subscribe(Channels.MENU_NAV_FORWARD, cb),
+    onGotoLine: (cb: () => void) => subscribe(Channels.MENU_GOTO_LINE, cb),
+    onFind: (cb: () => void) => subscribe(Channels.MENU_FIND, cb),
+    onFindReplace: (cb: () => void) => subscribe(Channels.MENU_FIND_REPLACE, cb),
+    onFindInNotes: (cb: () => void) => subscribe(Channels.MENU_FIND_IN_NOTES, cb),
+    onReplaceInNotes: (cb: () => void) => subscribe(Channels.MENU_REPLACE_IN_NOTES, cb),
+    onNewQuery: (cb: () => void) => subscribe(Channels.MENU_NEW_QUERY, cb),
     onOpenStockQuery: (cb: (payload: { query: string; language: 'sparql' | 'sql' }) => void) =>
-      subscribeIpc(Channels.MENU_OPEN_STOCK_QUERY, cb),
-    onEditSavedQueries: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_EDIT_SAVED_QUERIES, () => cb());
-    },
-    onSortLines: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SORT_LINES, () => cb());
-    },
-    onOpenSettings: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_SETTINGS, () => cb());
-    },
-    onOpenProject: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_PROJECT, () => cb());
-    },
-    onNewProject: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_NEW_PROJECT, () => cb());
-    },
-    onInstallTutorial: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INSTALL_TUTORIAL, () => cb());
-    },
-    onOpenRecentProject: (cb: (path: string) => void) => subscribeIpc('menu:openRecentProject', cb),
-    onCloseProject: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_CLOSE_PROJECT, () => cb());
-    },
-    onClearRecent: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_CLEAR_RECENT, () => cb());
-    },
-    onPrint: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_PRINT, () => cb());
-    },
-    onAbout: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_ABOUT, () => cb());
-    },
-    onShortcuts: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_SHORTCUTS, () => cb());
-    },
-    onOpenInDefault: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_IN_DEFAULT, () => cb());
-    },
-    onOpenInTerminal: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_OPEN_IN_TERMINAL, () => cb());
-    },
-    onRefactorRename: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_RENAME, () => cb());
-    },
-    onRefactorMove: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_MOVE, () => cb());
-    },
-    onRefactorCopy: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_COPY, () => cb());
-    },
-    onRefactorExtract: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_EXTRACT, () => cb());
-    },
-    onRefactorSplitHere: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_SPLIT_HERE, () => cb());
-    },
-    onRefactorSplitByHeading: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_SPLIT_BY_HEADING, () => cb());
-    },
-    onRefactorAutoTag: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_AUTOTAG, () => cb());
-    },
-    onRefactorAutoLink: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_AUTOLINK, () => cb());
-    },
-    onRefactorAutoLinkInbound: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_AUTOLINK_INBOUND, () => cb());
-    },
-    onRefactorDecompose: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_REFACTOR_DECOMPOSE, () => cb());
-    },
-    onFormat: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_FORMAT, () => cb());
-    },
-    onBibliography: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_BIBLIOGRAPHY, () => cb());
-    },
-    onIngestUrl: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INGEST_URL, () => cb());
-    },
-    onIngestIdentifier: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INGEST_IDENTIFIER, () => cb());
-    },
-    onIngestFile: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_INGEST_FILE, () => cb());
-    },
-    onExport: (cb: (exporterId: string) => void) => subscribeIpc(Channels.MENU_EXPORT, cb),
-    onPublish: (cb: () => void) => subscribeIpc(Channels.MENU_PUBLISH, cb),
-    onImportBibtex: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_IMPORT_BIBTEX, () => cb());
-    },
-    onImportZoteroRdf: (cb: () => void) => {
-      ipcRenderer.on(Channels.MENU_IMPORT_ZOTERO_RDF, () => cb());
-    },
+      subscribe(Channels.MENU_OPEN_STOCK_QUERY, cb),
+    onEditSavedQueries: (cb: () => void) => subscribe(Channels.MENU_EDIT_SAVED_QUERIES, cb),
+    onSortLines: (cb: () => void) => subscribe(Channels.MENU_SORT_LINES, cb),
+    onOpenSettings: (cb: () => void) => subscribe(Channels.MENU_OPEN_SETTINGS, cb),
+    onOpenProject: (cb: () => void) => subscribe(Channels.MENU_OPEN_PROJECT, cb),
+    onNewProject: (cb: () => void) => subscribe(Channels.MENU_NEW_PROJECT, cb),
+    onInstallTutorial: (cb: () => void) => subscribe(Channels.MENU_INSTALL_TUTORIAL, cb),
+    onOpenRecentProject: (cb: (path: string) => void) => subscribe('menu:openRecentProject', cb),
+    onCloseProject: (cb: () => void) => subscribe(Channels.MENU_CLOSE_PROJECT, cb),
+    onClearRecent: (cb: () => void) => subscribe(Channels.MENU_CLEAR_RECENT, cb),
+    onPrint: (cb: () => void) => subscribe(Channels.MENU_PRINT, cb),
+    onAbout: (cb: () => void) => subscribe(Channels.MENU_ABOUT, cb),
+    onShortcuts: (cb: () => void) => subscribe(Channels.MENU_SHORTCUTS, cb),
+    onOpenInDefault: (cb: () => void) => subscribe(Channels.MENU_OPEN_IN_DEFAULT, cb),
+    onOpenInTerminal: (cb: () => void) => subscribe(Channels.MENU_OPEN_IN_TERMINAL, cb),
+    onRefactorRename: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_RENAME, cb),
+    onRefactorMove: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_MOVE, cb),
+    onRefactorCopy: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_COPY, cb),
+    onRefactorExtract: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_EXTRACT, cb),
+    onRefactorSplitHere: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_SPLIT_HERE, cb),
+    onRefactorSplitByHeading: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_SPLIT_BY_HEADING, cb),
+    onRefactorAutoTag: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_AUTOTAG, cb),
+    onRefactorAutoLink: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_AUTOLINK, cb),
+    onRefactorAutoLinkInbound: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_AUTOLINK_INBOUND, cb),
+    onRefactorDecompose: (cb: () => void) => subscribe(Channels.MENU_REFACTOR_DECOMPOSE, cb),
+    onFormat: (cb: () => void) => subscribe(Channels.MENU_FORMAT, cb),
+    onBibliography: (cb: () => void) => subscribe(Channels.MENU_BIBLIOGRAPHY, cb),
+    onIngestUrl: (cb: () => void) => subscribe(Channels.MENU_INGEST_URL, cb),
+    onIngestIdentifier: (cb: () => void) => subscribe(Channels.MENU_INGEST_IDENTIFIER, cb),
+    onIngestFile: (cb: () => void) => subscribe(Channels.MENU_INGEST_FILE, cb),
+    onExport: (cb: (exporterId: string) => void) => subscribe(Channels.MENU_EXPORT, cb),
+    onPublish: (cb: () => void) => subscribe(Channels.MENU_PUBLISH, cb),
+    onImportBibtex: (cb: () => void) => subscribe(Channels.MENU_IMPORT_BIBTEX, cb),
+    onImportZoteroRdf: (cb: () => void) => subscribe(Channels.MENU_IMPORT_ZOTERO_RDF, cb),
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
       subscribe(Channels.PROJECT_OPENED, cb),
   },
