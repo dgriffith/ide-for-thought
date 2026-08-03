@@ -126,10 +126,11 @@ self-contained demo machine.
 ## Files involved
 
 - `forge.config.ts` — packager + maker configuration.
-- `vite.main.config.ts` / `vite.preload.config.ts` /
+- `vite.main.config.mts` / `vite.preload.config.mts` /
   `vite.renderer.config.mts` — per-process bundle configs that the
-  VitePlugin invokes during package.
-- `vite.cli.config.ts` — self-contained build of the headless `minerva`
+  VitePlugin invokes during package. `.mts` so Vite's `configLoader: 'native'`
+  loads them as ESM (they use `import` syntax) without a CJS-interop warning.
+- `vite.cli.config.mts` — self-contained build of the headless `minerva`
   CLI (#1437). `forge.config.ts`'s `afterPrune` (`copyCliBundle`) builds it
   and stages `.vite/build/cli.js` into the app beside `main.js`, so it
   resolves the same shipped `node_modules`. At runtime it's launched via the
