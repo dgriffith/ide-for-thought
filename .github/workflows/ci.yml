@@ -33,7 +33,7 @@ jobs:
 
       - name: Set up pnpm
         # Version comes from the `packageManager` field in package.json.
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -111,7 +111,7 @@ jobs:
 
       - name: Set up pnpm
         # Version comes from the `packageManager` field in package.json.
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
 
       - name: Set up Node
         uses: actions/setup-node@v7
@@ -141,7 +141,7 @@ jobs:
 
       - name: Set up pnpm
         # Version comes from the `packageManager` field in package.json.
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@v6.0.9
 
       - name: Set up Node
         uses: actions/setup-node@v7
