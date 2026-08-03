@@ -20,6 +20,22 @@ const metadata: SourceMetadata = {
 };
 const detail: SourceDetailData = { metadata, excerpts: [], backlinks: [], aboutNotes: [], references: [] };
 
+// A source with all three navigable lists populated, to exercise the extracted
+// NavList / SourceLinkRow rows and their click-to-navigate wiring (#1628).
+const withLists: SourceDetailData = {
+  metadata,
+  excerpts: [],
+  aboutNotes: [{ relativePath: 'notes/about-paxos.md', title: 'About Paxos' }],
+  references: [
+    { sourceId: 'lamport-clocks', title: 'Time, Clocks', stubStatus: null },
+    { sourceId: 'ghost-ref', title: 'Unresolved Ref', stubStatus: 'unresolved' },
+  ],
+  backlinks: [
+    { relativePath: 'notes/cites-paxos.md', title: 'Cites Paxos', kind: 'cite' },
+    { relativePath: 'notes/quotes-paxos.md', title: 'Quotes Paxos', kind: 'quote', viaExcerptId: 'exc-1' },
+  ],
+};
+
 const h = vi.hoisted(() => ({
   api: {
     graph: { sourceDetail: vi.fn() },
@@ -119,5 +135,43 @@ describe('SourceDetail (#1597)', () => {
     render(SourceDetail, props({ onInvokeTool: vi.fn() }));
     await waitFor(() => expect(screen.getByText('The Part-Time Parliament')).toBeTruthy());
     expect(screen.getByRole('button', { name: /Tools/ })).toBeTruthy();
+  });
+
+  describe('navigable lists (NavList / SourceLinkRow, #1628)', () => {
+    it('renders the notes / references / backlinks rows and routes each click to navigate', async () => {
+      h.api.graph.sourceDetail.mockResolvedValue(withLists);
+      const p = props({ onOpenReference: vi.fn() });
+      render(SourceDetail, p);
+
+      // An "about" note routes through onNavigate with its path.
+      await waitFor(() => expect(screen.getByText('About Paxos')).toBeTruthy());
+      await fireEvent.click(screen.getByText('About Paxos'));
+      expect(p.onNavigate).toHaveBeenCalledWith('notes/about-paxos.md');
+
+      // A reference routes through onOpenReference with its sourceId.
+      await fireEvent.click(screen.getByText('Time, Clocks'));
+      expect(p.onOpenReference).toHaveBeenCalledWith('lamport-clocks');
+
+      // A backlink routes through onNavigate with its path.
+      await fireEvent.click(screen.getByText('Quotes Paxos'));
+      expect(p.onNavigate).toHaveBeenCalledWith('notes/quotes-paxos.md');
+    });
+
+    it('marks an unresolved reference with a stub badge', async () => {
+      h.api.graph.sourceDetail.mockResolvedValue(withLists);
+      render(SourceDetail, props({ onOpenReference: vi.fn() }));
+      await waitFor(() => expect(screen.getByText('Unresolved Ref')).toBeTruthy());
+      expect(screen.getByText('stub')).toBeTruthy();
+    });
+
+    it('shows the backlink kind label and via-excerpt id', async () => {
+      h.api.graph.sourceDetail.mockResolvedValue(withLists);
+      render(SourceDetail, props({ onOpenReference: vi.fn() }));
+      await waitFor(() => expect(screen.getByText('Cites Paxos')).toBeTruthy());
+      // kind → 'cites' / 'quotes', plus the excerpt id on the quote backlink.
+      expect(screen.getByText('cites')).toBeTruthy();
+      expect(screen.getByText('quotes')).toBeTruthy();
+      expect(screen.getByText('exc-1')).toBeTruthy();
+    });
   });
 });
