@@ -1,6 +1,7 @@
 import { dialog } from 'electron';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
+import { broadcast } from './broadcast';
 import { handle } from './typed-ipc';
 import * as graph from '../graph/index';
 import * as search from '../search/index';
@@ -40,7 +41,7 @@ export function registerGraph(): void {
     ]);
     await tables.registerAllCsvs(ctx);
     await tables.registerAllNoteTables(ctx);
-    if (win && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+    if (win && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
     return { ok: true as const };
   }));
 

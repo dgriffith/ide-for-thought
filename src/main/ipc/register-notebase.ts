@@ -2,6 +2,7 @@ import { app, dialog } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
+import { broadcast } from './broadcast';
 import * as notebaseFs from '../notebase/fs';
 import { renameWithLinkRewrites } from '../notebase/rename';
 import { mergeNotes, previewMergeNotes } from '../notebase/merge';
@@ -106,7 +107,7 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+      broadcast(freshWin, Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
@@ -134,7 +135,7 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+      broadcast(freshWin, Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
@@ -151,7 +152,7 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+      broadcast(freshWin, Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
@@ -160,7 +161,7 @@ export function registerNotebase(): void {
     const freshWin = createWindow();
     freshWin.webContents.once('did-finish-load', async () => {
       await openProjectInWindow(freshWin, rootPath);
-      freshWin.webContents.send(Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
+      broadcast(freshWin, Channels.PROJECT_OPENED, { rootPath, name: resolveDisplayName(rootPath) });
     });
     return { rootPath, name: resolveDisplayName(rootPath) };
   });
@@ -266,10 +267,10 @@ export function registerNotebase(): void {
     // refresh paths and content instead of silently overwriting on next save.
     for (const targetWin of windowsForProject(rootPath)) {
       if (transitions.length > 0) {
-        targetWin.webContents.send(Channels.NOTEBASE_RENAMED, transitions);
+        broadcast(targetWin, Channels.NOTEBASE_RENAMED, transitions);
       }
       if (rewrittenPaths.length > 0) {
-        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
+        broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
       }
     }
 
@@ -300,16 +301,16 @@ export function registerNotebase(): void {
     // editor tabs to drop / reroute) plus the rewritten set so other
     // windows reload affected files.
     for (const targetWin of windowsForProject(rootPath)) {
-      targetWin.webContents.send(Channels.NOTEBASE_RENAMED, [
+      broadcast(targetWin, Channels.NOTEBASE_RENAMED, [
         { old: sourceRelPath, new: '' /* sentinel: deletion */ },
       ]);
       if (result.rewrittenPaths.length > 0) {
-        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, [
+        broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, [
           ...result.rewrittenPaths,
           targetRelPath,
         ]);
       } else {
-        targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, [targetRelPath]);
+        broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, [targetRelPath]);
       }
     }
     await persistIndexes(rootPath);
@@ -357,7 +358,7 @@ export function registerNotebase(): void {
       // refresh in place so the next auto-save doesn't undo the anchor rewrite.
       if (rewrittenPaths.length > 0) {
         for (const targetWin of windowsForProject(rootPath)) {
-          targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
+          broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, rewrittenPaths);
         }
       }
 

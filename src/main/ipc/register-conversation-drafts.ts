@@ -12,6 +12,7 @@
  * moved here with it.
  */
 import { Channels } from '../../shared/channels';
+import { broadcast } from './broadcast';
 import * as notebaseFs from '../notebase/fs';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
@@ -394,7 +395,7 @@ export function registerConversationDrafts(): void {
       if (anyIngested) {
         await persistIndexes(rootPath);
         if (!win.isDestroyed()) {
-          win.webContents.send(Channels.SOURCES_CHANGED);
+          broadcast(win, Channels.SOURCES_CHANGED);
         }
       }
       return { outcomes };

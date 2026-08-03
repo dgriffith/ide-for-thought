@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { BrowserWindow } from 'electron';
 import { Channels } from '../../shared/channels';
+import { broadcast } from '../ipc/broadcast';
 
 import { INDEXABLE_EXTS } from './indexable-files';
 import { wasHandled } from './path-dedup';
@@ -165,12 +166,12 @@ export function startWatching(
     clearTimeout(pending.timer);
     pendingUnlinks.delete(absPath);
     if (win.isDestroyed()) return;
-    win.webContents.send(Channels.NOTEBASE_FILE_DELETED, pending.relative);
+    broadcast(win, Channels.NOTEBASE_FILE_DELETED, pending.relative);
     indexDeleted(pending.relative);
   };
 
   const emitCreate = (relative: string) => {
-    win.webContents.send(Channels.NOTEBASE_FILE_CREATED, relative);
+    broadcast(win, Channels.NOTEBASE_FILE_CREATED, relative);
     indexCreated(relative);
   };
 
@@ -179,7 +180,7 @@ export function startWatching(
     const ino = inodeOf(stats);
     if (ino !== undefined) inodeByPath.set(filePath, ino);
     const relative = filePath.slice(rootPath.length + 1);
-    win.webContents.send(Channels.NOTEBASE_FILE_CHANGED, relative);
+    broadcast(win, Channels.NOTEBASE_FILE_CHANGED, relative);
     indexChanged(relative);
   });
 
@@ -201,7 +202,7 @@ export function startWatching(
       // Tab follows the file (renderer); the index drops the old path and
       // picks up the new one. Crucially we do NOT emit FILE_DELETED for the
       // old path — that broadcast is what would close the tab.
-      win.webContents.send(Channels.NOTEBASE_RENAMED, [{ old: pending.relative, new: relative }]);
+      broadcast(win, Channels.NOTEBASE_RENAMED, [{ old: pending.relative, new: relative }]);
       indexDeleted(pending.relative);
       emitCreate(relative);
       return;
@@ -230,7 +231,7 @@ export function startWatching(
     // In-app renames already moved the tab via NOTEBASE_RENAMED; emit the
     // delete immediately (unchanged behavior) rather than debouncing it.
     if (wasHandled(relative)) {
-      win.webContents.send(Channels.NOTEBASE_FILE_DELETED, relative);
+      broadcast(win, Channels.NOTEBASE_FILE_DELETED, relative);
       indexDeleted(relative);
       return;
     }
@@ -244,7 +245,7 @@ export function startWatching(
       const added = recentAdds.get(movedTo)!;
       clearTimeout(added.timer);
       recentAdds.delete(movedTo);
-      win.webContents.send(Channels.NOTEBASE_RENAMED, [{ old: relative, new: added.relative }]);
+      broadcast(win, Channels.NOTEBASE_RENAMED, [{ old: relative, new: added.relative }]);
       indexDeleted(relative);
       return;
     }

@@ -7,6 +7,7 @@
  */
 import { Notification } from 'electron';
 import { Channels } from '../../shared/channels';
+import { broadcast } from './broadcast';
 import * as approval from '../llm/approval';
 import type { Proposal } from '../llm/approval';
 import { projectContext } from '../project-context-types';
@@ -43,7 +44,7 @@ export function registerProposals(): void {
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();
-      win.webContents.send(Channels.PROPOSALS_SHOW);
+      broadcast(win, Channels.PROPOSALS_SHOW);
     });
     notice.show();
   });

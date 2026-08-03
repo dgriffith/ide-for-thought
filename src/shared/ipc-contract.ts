@@ -54,6 +54,7 @@ import type {
   NeighborhoodHop,
   RelatedNotesResult,
   SourceDetail,
+  CsvTableCollision,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
@@ -535,6 +536,40 @@ export interface ChannelMap {
   'conversation:fileReorgDraft': (draft: ConversationReorgDraft, selected: Array<{ fromPath: string; toPath: string }>) => { proposalUri: string | null; applied: boolean };
   'conversation:fileDeleteDraft': (draft: ConversationDeleteDraft, selected: string[]) => { proposalUri: string | null; applied: boolean };
   'conversation:fileNoteBodyDraft': (draft: ConversationNoteBodyDraft) => FileNoteBodyDraftResult;
+}
+
+/**
+ * One-way (main → renderer) event channels (#1633). The invoke contract above
+ * is request/response; these are `webContents.send` broadcasts (file/graph change
+ * notifications, ingest progress). Each key is the channel string literal; each
+ * value is the *payload* signature `(...args) => void`. The typed `broadcast`
+ * (main) and `subscribe` (preload) wrappers derive their arg types from here, so
+ * a sender and a subscriber that disagree fail `tsc` instead of the payload
+ * arriving as `unknown` — the drift this closes for the payloaded event channels
+ * the API review flagged (`*:changed` / `*:progress` / file + rename events).
+ *
+ * Rollout is staged: this first batch covers the data-broadcast events. The
+ * conversation-draft, streaming, and `menu:*` command channels still use the
+ * legacy `subscribeIpc` forwarder and will move here next.
+ */
+export interface EventMap {
+  'project:opened': (meta: { rootPath: string; name: string }) => void;
+  'notebase:fileChanged': (path: string) => void;
+  'notebase:fileCreated': (path: string) => void;
+  'notebase:fileDeleted': (path: string) => void;
+  'notebase:renamed': (transitions: Array<{ old: string; new: string }>) => void;
+  'notebase:rewritten': (paths: string[]) => void;
+  'notebase:headingRenameSuggested': (candidate: HeadingRenameCandidate) => void;
+  'embeddings:backfillProgress': (p: { done: number; total: number; running: boolean }) => void;
+  'sources:changed': () => void;
+  'sources:importBibtexProgress': (progress: { done: number; total: number; currentTitle: string }) => void;
+  'sources:importZoteroRdfProgress': (progress: { done: number; total: number; currentTitle: string }) => void;
+  'excerpts:changed': () => void;
+  'collections:changed': () => void;
+  'tables:changed': () => void;
+  'tables:nameCollision': (collision: CsvTableCollision) => void;
+  'proposals:changed': () => void;
+  'proposals:show': () => void;
 }
 
 /** A configured publish destination (#254; multi-transport #1444). Mirror of the

@@ -1,6 +1,7 @@
 import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
+import { broadcast } from './ipc/broadcast';
 import { THEME_MODES, type ThemeMode } from '../shared/theme';
 import { getRecentProjects } from './recent-projects';
 import { resolveDisplayName } from './project-config';
@@ -184,7 +185,7 @@ function buildRecentSubmenu(): Electron.MenuItemConstructorOptions[] {
               const win = createWindow();
               win.webContents.once('did-finish-load', async () => {
                 await openProjectInWindow(win, projectPath);
-                win.webContents.send(Channels.PROJECT_OPENED, { rootPath: projectPath, name: resolveDisplayName(projectPath) });
+                broadcast(win, Channels.PROJECT_OPENED, { rootPath: projectPath, name: resolveDisplayName(projectPath) });
               });
             }
           },
@@ -361,7 +362,7 @@ function buildFileMenu(gate: Gate, isMac: boolean): Electron.MenuItemConstructor
           await tables.registerAllCsvs(ctx);
           // Note tables after CSVs — CSV wins on a shared name (#1358).
           await tables.registerAllNoteTables(ctx);
-          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         },
       }),
       gate({

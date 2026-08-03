@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
+import { broadcast } from './ipc/broadcast';
 import { appIconPath } from './app-icon';
 import { resolveDisplayName } from './project-config';
 import { startWatching, stopWatching } from './notebase/watcher';
@@ -118,7 +119,7 @@ export function createWindow(opts?: { x?: number; y?: number; width?: number; he
   win.webContents.on('did-finish-load', () => {
     const ctx = contexts.get(win.id);
     if (ctx?.rootPath && !win.isDestroyed()) {
-      win.webContents.send(Channels.PROJECT_OPENED, {
+      broadcast(win, Channels.PROJECT_OPENED, {
         rootPath: ctx.rootPath,
         name: resolveDisplayName(ctx.rootPath),
       });
@@ -190,7 +191,7 @@ export function broadcastBackfillProgress(
   progress: { done: number; total: number; running: boolean },
 ): void {
   for (const win of windowsForProject(rootPath)) {
-    if (!win.isDestroyed()) win.webContents.send(Channels.EMBEDDINGS_BACKFILL_PROGRESS, progress);
+    if (!win.isDestroyed()) broadcast(win, Channels.EMBEDDINGS_BACKFILL_PROGRESS, progress);
   }
 }
 
@@ -256,7 +257,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // toast pointing at `table_name:` as the fix. Unsub on window
   // close to avoid leaking listeners across project reopens.
   const unsubCollision = tables.onCsvTableCollision(rootPath, (collision) => {
-    if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_NAME_COLLISION, collision);
+    if (!win.isDestroyed()) broadcast(win, Channels.TABLES_NAME_COLLISION, collision);
   });
   win.once('closed', () => { unsubCollision(); });
 
@@ -348,7 +349,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
     if (!csvPath) return;
     try {
       await tables.registerCsv(projectCtx, csvPath);
-      if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+      if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
       // Collisions broadcast via the per-project listener attached
       // before acquireProject — no extra wiring here.
     } catch (err) {
@@ -366,7 +367,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
           await tables.registerCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       } else {
         await reregisterSibling(relativePath);
@@ -389,7 +390,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         // Captioned markdown tables in the note re-register in DuckDB (#1358).
         if (relativePath.toLowerCase().endsWith('.md')) {
           const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
-          if (r.changed && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (r.changed && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         }
         debouncedPersist();
       } catch (err) {
@@ -403,7 +404,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
           await tables.registerCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] registerCsv failed for ${relativePath}:`, err); }
       } else {
         await reregisterSibling(relativePath);
@@ -421,7 +422,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         search.indexNote(projectCtx, relativePath, content);
         if (relativePath.toLowerCase().endsWith('.md')) {
           const r = await tables.reregisterNoteTables(projectCtx, relativePath, content);
-          if (r.changed && !win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (r.changed && !win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         }
         debouncedPersist();
       } catch (err) {
@@ -433,7 +434,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
       if (relativePath.toLowerCase().endsWith('.csv')) {
         try {
           await tables.unregisterCsv(projectCtx, relativePath);
-          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         } catch (err) { console.warn(`[tables] unregisterCsv failed for ${relativePath}:`, err); }
       } else {
         // Schema sidecar deleted → CSV reverts to read_csv_auto. Same
@@ -449,7 +450,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         // surfaces as delete+create, so the create half re-registers them.
         if (relativePath.toLowerCase().endsWith('.md')) {
           await tables.unregisterNoteTables(projectCtx, relativePath);
-          if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+          if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
         }
       } catch (err) {
         console.warn(`[watcher] removeNote failed for ${relativePath}:`, err);
@@ -466,14 +467,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         graph.indexSource(projectCtx, sourceId, metaContent, bodyContent);
         void vectors.indexSource(projectCtx, sourceId, bodyContent ?? ''); // #839
         debouncedPersist();
-        if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+        if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
       } catch { /* meta.ttl may have been deleted between events */ }
     },
     onSourceMetaDeleted: (sourceId) => {
       graph.removeSource(projectCtx, sourceId);
       void vectors.removeSource(projectCtx, sourceId); // #839
       debouncedPersist();
-      if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+      if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
     },
     onExcerptChanged: async (excerptId) => {
       try {
@@ -482,14 +483,14 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
         graph.indexExcerpt(projectCtx, excerptId, content);
         void vectors.indexExcerpt(projectCtx, excerptId, citedTextFromTtl(content) ?? ''); // #839
         debouncedPersist();
-        if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
+        if (!win.isDestroyed()) broadcast(win, Channels.EXCERPTS_CHANGED);
       } catch { /* file may have been deleted between events */ }
     },
     onExcerptDeleted: (excerptId) => {
       graph.removeExcerpt(projectCtx, excerptId);
       void vectors.removeExcerpt(projectCtx, excerptId); // #839
       debouncedPersist();
-      if (!win.isDestroyed()) win.webContents.send(Channels.EXCERPTS_CHANGED);
+      if (!win.isDestroyed()) broadcast(win, Channels.EXCERPTS_CHANGED);
     },
   });
   watchers.set(win.id, rootPath);
@@ -498,7 +499,7 @@ export async function openProjectInWindow(win: BrowserWindow, rootPath: string):
   // scan so this window's sidebar populates without the renderer having to
   // poll. (For the second+ window on a project, the data is already
   // registered, but the renderer still needs a kick to load it.)
-  if (!win.isDestroyed()) win.webContents.send(Channels.TABLES_CHANGED);
+  if (!win.isDestroyed()) broadcast(win, Channels.TABLES_CHANGED);
   persistSession();
   void syncClipperLifecycle();
 }

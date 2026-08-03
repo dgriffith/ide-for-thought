@@ -3,16 +3,32 @@ import { Channels } from '../shared/channels';
 import { invoke } from './typed-invoke';
 import type { SearchInNotesOptions, ReplaceInNotesOptions, MenuEditorState, BookmarkNode, LayoutSession, NeighborhoodOptions } from '../shared/types';
 import type { ThemeMode } from '../shared/theme';
-import type { ChannelMap } from '../shared/ipc-contract';
+import type { ChannelMap, EventMap } from '../shared/ipc-contract';
 
 /**
  * Subscribe to an IPC channel and forward the typed payload to `cb`.
  * Centralises the unavoidable cast at the IPC boundary — the main
  * process owns the wire shape, so each subscriber names what it expects.
+ *
+ * Legacy path: prefer {@link subscribe} for any channel in EventMap (#1633),
+ * which derives the payload types from the shared contract instead of casting
+ * `unknown`. This remains for channels not yet migrated (conversation drafts,
+ * streaming, `menu:*` commands).
  */
 function subscribeIpc<T>(channel: string, cb: (payload: T) => void): () => void {
   // Wrapper captured by reference so `off` removes the exact handler.
   const handler = (_e: unknown, payload: unknown) => cb(payload as T);
+  ipcRenderer.on(channel, handler);
+  return () => { ipcRenderer.off(channel, handler); };
+}
+
+/**
+ * Typed main→renderer event subscription (#1633). The channel + the `cb` payload
+ * types are checked against {@link EventMap}, so a subscriber that disagrees with
+ * the sender fails `tsc` — no more `unknown` cast at this boundary.
+ */
+function subscribe<K extends keyof EventMap>(channel: K, cb: EventMap[K]): () => void {
+  const handler = (_e: unknown, ...args: unknown[]) => (cb as (...a: unknown[]) => void)(...args);
   ipcRenderer.on(channel, handler);
   return () => { ipcRenderer.off(channel, handler); };
 }
@@ -58,12 +74,12 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.NOTEBASE_COPY, srcRelPath, destRelPath),
     searchInNotes: (opts: SearchInNotesOptions) => invoke(Channels.NOTEBASE_SEARCH_IN_NOTES, opts),
     replaceInNotes: (opts: ReplaceInNotesOptions) => invoke(Channels.NOTEBASE_REPLACE_IN_NOTES, opts),
-    onFileChanged: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CHANGED, cb),
-    onFileCreated: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_CREATED, cb),
-    onFileDeleted: (cb: (path: string) => void) => subscribeIpc(Channels.NOTEBASE_FILE_DELETED, cb),
+    onFileChanged: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_CHANGED, cb),
+    onFileCreated: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_CREATED, cb),
+    onFileDeleted: (cb: (path: string) => void) => subscribe(Channels.NOTEBASE_FILE_DELETED, cb),
     onRenamed: (cb: (transitions: Array<{ old: string; new: string }>) => void) =>
-      subscribeIpc(Channels.NOTEBASE_RENAMED, cb),
-    onRewritten: (cb: (paths: string[]) => void) => subscribeIpc(Channels.NOTEBASE_REWRITTEN, cb),
+      subscribe(Channels.NOTEBASE_RENAMED, cb),
+    onRewritten: (cb: (paths: string[]) => void) => subscribe(Channels.NOTEBASE_REWRITTEN, cb),
     onHeadingRenameSuggested: (cb: (candidate: {
       relativePath: string;
       oldSlug: string;
@@ -71,7 +87,7 @@ contextBridge.exposeInMainWorld('api', {
       newSlug: string;
       newText: string;
       incomingLinkCount: number;
-    }) => void) => subscribeIpc(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, cb),
+    }) => void) => subscribe(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, cb),
     renameAnchor: (targetRelativePath: string, oldSlug: string, newSlug: string) =>
       invoke(Channels.NOTEBASE_RENAME_ANCHOR, targetRelativePath, oldSlug, newSlug),
     renameSource: (oldId: string, newId: string) =>
@@ -145,7 +161,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   embeddings: {
     onBackfillProgress: (cb: (p: { done: number; total: number; running: boolean }) => void) =>
-      subscribeIpc(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
+      subscribe(Channels.EMBEDDINGS_BACKFILL_PROGRESS, cb),
     related: (relativePath: string, limit?: number) =>
       invoke(Channels.EMBEDDINGS_RELATED, relativePath, limit),
     unlinkedMentions: (relativePath: string, limit?: number) =>
@@ -156,12 +172,9 @@ contextBridge.exposeInMainWorld('api', {
   tables: {
     query: (sql: string) => invoke(Channels.TABLES_QUERY, sql),
     list: () => invoke(Channels.TABLES_LIST),
-    onChanged: (cb: () => void) => {
-      ipcRenderer.on(Channels.TABLES_CHANGED, () => cb());
-    },
-    onNameCollision: (cb: (collision: import('../shared/types').CsvTableCollision) => void) => {
-      ipcRenderer.on(Channels.TABLES_NAME_COLLISION, (_e, collision) => cb(collision as import('../shared/types').CsvTableCollision));
-    },
+    onChanged: (cb: () => void) => subscribe(Channels.TABLES_CHANGED, cb),
+    onNameCollision: (cb: (collision: import('../shared/types').CsvTableCollision) => void) =>
+      subscribe(Channels.TABLES_NAME_COLLISION, cb),
   },
   tags: {
     list: () => invoke(Channels.TAGS_LIST),
@@ -327,18 +340,14 @@ contextBridge.exposeInMainWorld('api', {
     /** The pending-proposal set changed — filed in-app, filed out-of-process
      *  and routed through the substrate server, approved, rejected, or expired
      *  (#1524). The proposals store re-fetches on this. */
-    onChanged: (cb: () => void) => {
-      ipcRenderer.on(Channels.PROPOSALS_CHANGED, () => cb());
-    },
+    onChanged: (cb: () => void) => subscribe(Channels.PROPOSALS_CHANGED, cb),
     /** Ask main to raise a native OS notification for a proposal that arrived
      *  while Minerva was unfocused (#1541). */
     notifyArrival: (arg: { count: number; proposer: string }) =>
       invoke(Channels.PROPOSALS_NOTIFY_ARRIVAL, arg),
     /** Main asks the renderer to surface the Proposals panel (native arrival
      *  notification clicked, #1541). */
-    onShowRequested: (cb: () => void) => {
-      ipcRenderer.on(Channels.PROPOSALS_SHOW, () => cb());
-    },
+    onShowRequested: (cb: () => void) => subscribe(Channels.PROPOSALS_SHOW, cb),
   },
   bookmarks: {
     load: () => invoke(Channels.BOOKMARKS_LOAD),
@@ -382,10 +391,10 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.SOURCES_FINISH_PDF_OCR, sourceId, pages),
     importBibtex: () => invoke(Channels.SOURCES_IMPORT_BIBTEX),
     onImportBibtexProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
-      subscribeIpc(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, cb),
+      subscribe(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, cb),
     importZoteroRdf: () => invoke(Channels.SOURCES_IMPORT_ZOTERO_RDF),
     onImportZoteroRdfProgress: (cb: (progress: { done: number; total: number; currentTitle: string }) => void) =>
-      subscribeIpc(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, cb),
+      subscribe(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, cb),
     listAll: () => invoke(Channels.SOURCES_LIST_ALL),
     delete: (sourceId: string) => invoke(Channels.SOURCES_DELETE, sourceId),
     merge: (srcId: string, destId: string) =>
@@ -417,9 +426,7 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.SOURCES_RESOLVE_STUB, sourceId),
     applyStubResolution: (sourceId: string, doi: string) =>
       invoke(Channels.SOURCES_APPLY_STUB_RESOLUTION, { sourceId, doi }),
-    onChanged: (cb: () => void) => {
-      ipcRenderer.on(Channels.SOURCES_CHANGED, () => cb());
-    },
+    onChanged: (cb: () => void) => subscribe(Channels.SOURCES_CHANGED, cb),
     createExcerpt: (params: {
       sourceId: string;
       citedText: string;
@@ -427,7 +434,7 @@ contextBridge.exposeInMainWorld('api', {
       pageRange?: string | null;
       locationText?: string | null;
     }) => invoke(Channels.SOURCES_CREATE_EXCERPT, params),
-    onExcerptsChanged: (cb: () => void) => subscribeIpc(Channels.EXCERPTS_CHANGED, () => cb()),
+    onExcerptsChanged: (cb: () => void) => subscribe(Channels.EXCERPTS_CHANGED, () => cb()),
   },
   collections: {
     list: () => invoke(Channels.COLLECTIONS_LIST),
@@ -449,9 +456,7 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.COLLECTIONS_UPDATE_SMART_PREDICATE, { id, predicate }),
     smartMembers: (id: string) =>
       invoke(Channels.COLLECTIONS_SMART_MEMBERS, id),
-    onChanged: (cb: () => void) => {
-      ipcRenderer.on(Channels.COLLECTIONS_CHANGED, () => cb());
-    },
+    onChanged: (cb: () => void) => subscribe(Channels.COLLECTIONS_CHANGED, cb),
   },
   formatter: {
     formatContent: (content: string, settings: Parameters<ChannelMap['formatter:formatContent']>[1], relativePath?: string) =>
@@ -713,7 +718,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(Channels.MENU_IMPORT_ZOTERO_RDF, () => cb());
     },
     onProjectOpened: (cb: (meta: { rootPath: string; name: string }) => void) =>
-      subscribeIpc(Channels.PROJECT_OPENED, cb),
+      subscribe(Channels.PROJECT_OPENED, cb),
   },
 });
 
