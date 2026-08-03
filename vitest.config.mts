@@ -192,6 +192,63 @@ export default defineConfig({
           statements: 42,
           branches: 34,
         },
+        // Per-file floors on the 1000+-line renderer components (#1613). The
+        // `src/renderer/**` aggregate above is met by the many small, well-
+        // tested files, so a large component sitting near 0% — or silently
+        // rotting from a real number back toward it — never trips the aggregate
+        // net. These per-file gates catch that: each is a genuine defect surface
+        // (the editor, the markdown preview, the source browser, the settings
+        // shell, the frontmatter editor) whose own coverage can't regress
+        // unnoticed. Files matching a specific path here are still counted in the
+        // `src/renderer/**` aggregate — this only adds a stricter per-file check.
+        // Baselines established by the render/smoke tests added in #1613 (the
+        // #1597 SourceDetail test is the template); floors sit ~8-10pts below the
+        // measured-at-floor-time v8 numbers (in parens) so a small refactor won't
+        // flap but a real regression fails. Ratchet upward as these gain tests.
+        //
+        // Editor.svelte ~38.6 L / 37.1 S / 23.2 F / 21.4 B.
+        'src/renderer/lib/components/Editor.svelte': {
+          lines: 30,
+          statements: 28,
+          functions: 14,
+          branches: 12,
+        },
+        // Preview.svelte ~40.3 L / 38.9 S / 35.0 F / 23.4 B.
+        'src/renderer/lib/components/Preview.svelte': {
+          lines: 30,
+          statements: 30,
+          functions: 25,
+          branches: 14,
+        },
+        // SourceDetail.svelte ~40.2 L / 33.7 S / 27.0 F / 25.8 B (#1597).
+        'src/renderer/lib/components/SourceDetail.svelte': {
+          lines: 30,
+          statements: 24,
+          functions: 18,
+          branches: 16,
+        },
+        // SourcesPanel.svelte ~43.4 L / 41.9 S / 35.3 F / 30.0 B.
+        'src/renderer/lib/components/SourcesPanel.svelte': {
+          lines: 34,
+          statements: 32,
+          functions: 26,
+          branches: 20,
+        },
+        // SettingsDialog.svelte ~77.1 L / 80.8 S / 58.1 F / 47.8 B (the shell;
+        // extracted panels carry their own tests + the #999/#1094 aggregate).
+        'src/renderer/lib/components/SettingsDialog.svelte': {
+          lines: 68,
+          statements: 70,
+          functions: 48,
+          branches: 38,
+        },
+        // PropertiesPanel.svelte ~89.9 L / 86.2 S / 88.8 F / 59.5 B.
+        'src/renderer/lib/components/right-sidebar/PropertiesPanel.svelte': {
+          lines: 80,
+          statements: 76,
+          functions: 78,
+          branches: 50,
+        },
       },
     },
   },
