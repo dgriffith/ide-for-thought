@@ -18,7 +18,11 @@ import { app } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { loadConfigFile, asString, asRecord } from '../config/config-store';
+import { loadConfigFile, asString, asRecord, stampConfigVersion } from '../config/config-store';
+
+/** Schema version persisted in `configVersion` (#1641). Bump + add a `migrate`
+ *  step in `getPythonSettings` when the on-disk shape changes. */
+const PYTHON_SETTINGS_VERSION = 1;
 
 export interface PythonSettings {
   /**
@@ -62,13 +66,17 @@ export async function getPythonSettings(): Promise<PythonSettings> {
       // truthy-non-bool value fails closed (matches the consent gate's posture).
       allowNetwork: o.allowNetwork === true,
     };
-  }, DEFAULT_SETTINGS);
+  }, DEFAULT_SETTINGS, { version: PYTHON_SETTINGS_VERSION });
 }
 
 export async function setPythonSettings(settings: PythonSettings): Promise<void> {
   await fs.writeFile(
     settingsPath(),
-    JSON.stringify({ pythonPath: settings.pythonPath, allowNetwork: settings.allowNetwork === true }, null, 2),
+    JSON.stringify(
+      stampConfigVersion({ pythonPath: settings.pythonPath, allowNetwork: settings.allowNetwork === true }, PYTHON_SETTINGS_VERSION),
+      null,
+      2,
+    ),
     'utf-8',
   );
 }

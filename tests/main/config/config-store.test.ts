@@ -18,6 +18,9 @@ import {
   asEnum,
   asRecord,
   asStringArray,
+  stampConfigVersion,
+  detectConfigVersion,
+  CONFIG_VERSION_KEY,
 } from '../../../src/main/config/config-store';
 
 interface Cfg { name: string; count: number; on: boolean }
@@ -134,5 +137,39 @@ describe('loadConfigFile (#1640)', () => {
   it('reportConfigError formats a recognizable, prefixed message', () => {
     reportConfigError('/tmp/x.json', 'read', new Error('EACCES'));
     expect(String(errSpy.mock.calls.at(-1)![0])).toMatch(/^\[config\] failed to read "\/tmp\/x\.json": EACCES/);
+  });
+
+  // ── Versioning + migration (#1641) ──────────────────────────────────────────
+
+  it('stampConfigVersion / detectConfigVersion round-trip; absent ⇒ 0', () => {
+    const stamped = stampConfigVersion({ a: 1 }, 3);
+    expect(stamped).toEqual({ a: 1, [CONFIG_VERSION_KEY]: 3 });
+    expect(detectConfigVersion(stamped)).toBe(3);
+    expect(detectConfigVersion({ a: 1 })).toBe(0); // legacy, unversioned
+    expect(detectConfigVersion('nonsense')).toBe(0);
+  });
+
+  it('migrates a legacy (v0) config via a version-keyed migration — the shape-sniffing replacement', async () => {
+    // A pre-versioning file with the OLD field name. v1 renames `label` → `name`.
+    await fs.writeFile(p('legacy.json'), JSON.stringify({ label: 'hello', count: 9 }), 'utf-8');
+    const migrate = (raw: Record<string, unknown>, from: number): Record<string, unknown> =>
+      from < 1 ? { name: raw.label, count: raw.count, [CONFIG_VERSION_KEY]: 1 } : raw;
+
+    const out = await loadConfigFile(() => p('legacy.json'), decode, DEFAULTS, { version: 1, migrate });
+    expect(out).toEqual({ name: 'hello', count: 9, on: false });
+    expect(errSpy).not.toHaveBeenCalled();
+  });
+
+  it('does NOT run the migration when the stored version is already current', async () => {
+    await fs.writeFile(p('current.json'), JSON.stringify({ name: 'x', count: 1, on: true, [CONFIG_VERSION_KEY]: 1 }), 'utf-8');
+    const migrate = vi.fn((raw: Record<string, unknown>) => raw);
+    const out = await loadConfigFile(() => p('current.json'), decode, DEFAULTS, { version: 1, migrate });
+    expect(out).toEqual({ name: 'x', count: 1, on: true });
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
+  it('a stamped config round-trips through save → load', async () => {
+    await fs.writeFile(p('rt.json'), JSON.stringify(stampConfigVersion({ name: 'z', count: 4, on: true }, 1)), 'utf-8');
+    await expect(loadConfigFile(() => p('rt.json'), decode, DEFAULTS, { version: 1 })).resolves.toEqual({ name: 'z', count: 4, on: true });
   });
 });

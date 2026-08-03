@@ -163,6 +163,17 @@ thrown error already propagates cleanly. Build on that:
 - Migrated so far: `ingest-settings`, `python-settings`, `project-config`. Still
   hand-rolled (migrate when you touch them): `clipper-config` (decrypt + lazy
   secret upgrade), `llm/settings` (nested providers/models), `menu-config-store`.
+- **Versioning + migration (#1641):** persist a `configVersion` via
+  `stampConfigVersion(config, VERSION)` in the save path, and pass
+  `{ version, migrate }` to `loadConfigFile`. `migrate(raw, fromVersion)` brings
+  an older on-disk shape up to the current version — the explicit, testable
+  replacement for shape-sniffing (`detectConfigVersion` reads the field; absent
+  ⇒ 0 = legacy). Bump `VERSION` + add a `migrate` step when a config's shape
+  changes, instead of sniffing shapes at each read. `ingest-settings` /
+  `python-settings` are versioned (v1); the existing shape-sniffs to convert as
+  they adopt this: `menu-config-store`'s `normalizeMenuConfig`, `clipper-config`'s
+  legacy-plaintext-secret upgrade, the renderer's legacy `tabs.json` session
+  migration, and `project-config` (its `config.json` travels with the thoughtbase).
 
 ### File System
 - All paths are relative to the project root
