@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Privacy</title>
+<meta name="description" content="Minerva is local-first. Your notes are plain files on your disk. No account, no telemetry, no cloud. Here's exactly what that means." />
+<link rel="stylesheet" href="minerva.css" />
+<style>
+  header.page { padding: 72px 0 20px; }
+  header.page h1 { font-size: clamp(2.1rem, 4.4vw, 3rem); margin: 0 0 14px; letter-spacing: -0.02em; }
+  header.page p { color: var(--text-muted); font-size: 1.15rem; max-width: 62ch; }
+  .ledger { margin-top: 10px; display:grid; gap: 14px; }
+  .row { display:grid; grid-template-columns: 30px 1fr; gap: 14px; align-items:start; background: var(--bg-elev); border:1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
+  .row .m { font-size: 1.1rem; }
+  .row.yes { border-left: 3px solid var(--accent); }
+  .row.no  { border-left: 3px solid var(--border-strong); }
+  .row h3 { margin: 0 0 4px; font-size: 1.05rem; }
+  .row p { margin: 0; color: var(--text-muted); font-size: 0.96rem; }
+  .prose p { color: var(--text-muted); max-width: 68ch; }
+  .prose h2 { margin-top: 34px; }
+  .prose b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </div>
+    <div class="links">
+      <a href="features.html" class="hide-sm">Features</a>
+      <a href="getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="about.html" class="hide-sm">About</a>
+      <a href="privacy.html" class="active hide-sm">Privacy</a>
+      <a href="getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="wrap">
+    <h1>Privacy</h1>
+    <p>Minerva is local-first, and that isn't a marketing word here — it's the architecture. Your thinking lives on your machine, in files you own. Here's exactly what that means, in plain terms.</p>
+  </div>
+</header>
+
+<section style="border-top:none; padding-top: 16px;">
+  <div class="wrap">
+    <div class="ledger">
+      <div class="row yes"><div class="m">📂</div><div><h3>Your notes are plain files on your disk</h3><p>Every note is a Markdown file in a folder you choose. You can open, back up, sync, edit, or move them with any tool you like. Minerva reads and writes that folder; it doesn't hold your data hostage in a database only it understands.</p></div></div>
+      <div class="row yes"><div class="m">💻</div><div><h3>Search, embeddings, and voice run on your device</h3><p>Full-text search, semantic search, and voice dictation are computed locally. Your notes aren't shipped off to a server to be indexed.</p></div></div>
+      <div class="row no"><div class="m">🚫</div><div><h3>No account, no sign-up</h3><p>There's nothing to register. Minerva doesn't have a user database because it doesn't have users on a server — it has a copy running on your computer.</p></div></div>
+      <div class="row no"><div class="m">🚫</div><div><h3>No telemetry, no analytics, no tracking</h3><p>Minerva doesn't phone home to count what you do or watch how you use it. Your usage is your business.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap prose">
+    <h2>The one time data leaves your machine</h2>
+    <p>Minerva's AI features work by sending the relevant part of your request to an AI provider (such as Anthropic) to generate a response — the same way any AI assistant does. That means <b>when you use an AI feature, the text needed for that request is sent to that provider</b>, under their terms and privacy policy. This only happens when you invoke an AI action; simply writing, linking, searching, and reading your notes involves no network calls of that kind.</p>
+    <p>You stay in control of what gets sent: AI actions are things you invoke deliberately, not background processes running over your whole library. And because the AI's output arrives as a <b>proposal you review</b>, nothing it returns is silently written into your notes.</p>
+
+    <h2>Web capture and sources</h2>
+    <p>The Minerva Clipper saves pages you choose to clip into your local thoughtbase. Imported sources — PDFs, web pages, references — are stored locally alongside your notes, as your files.</p>
+
+    <h2>Because it's local, some things are up to you</h2>
+    <p>Local-first cuts both ways, honestly: there's no cloud backup you get for free. Your notes are as safe as the folder they live in, so back it up the way you back up anything else you care about — Time Machine, a synced folder, a git repository. The upside is total: no one can lose, mine, or lock up your thinking but you.</p>
+
+    <h2>Open source</h2>
+    <p>You don't have to take any of this on faith. Minerva is open source — the code that reads and writes your files, and the code that makes network calls, is there to inspect.</p>
+
+    <div class="fill" style="margin-top:30px;">
+      <b>Author check before launch</b>
+      This page describes the intended privacy posture from the architecture. Before go-live, verify each claim against the shipping build — especially "no telemetry / no analytics" (confirm there is genuinely no analytics SDK), the exact AI provider(s) and what payload is sent, and whether any crash reporting exists. Every sentence here must be literally true on launch day, because this is the page a skeptical reader will check hardest.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="features.html">Features</a><a href="getting-started.html">Getting Started</a><a href="getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="#">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

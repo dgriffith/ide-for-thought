@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Download &amp; Getting Started</title>
+<meta name="description" content="Download Minerva for macOS and build your first thoughtbase in about a minute." />
+<link rel="stylesheet" href="minerva.css" />
+<style>
+  header.page { padding: 72px 0 20px; }
+  header.page h1 { font-size: clamp(2.1rem, 4.4vw, 3rem); margin: 0 0 14px; letter-spacing: -0.02em; }
+  header.page p { color: var(--text-muted); font-size: 1.15rem; max-width: 62ch; }
+
+  .download-row { display:flex; gap: 18px; flex-wrap: wrap; align-items: stretch; margin-top: 30px; }
+  .dlcard { flex: 1 1 280px; background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 14px; padding: 26px; }
+  .dlcard h3 { margin: 0 0 6px; font-size: 1.15rem; display:flex; align-items:center; gap:10px; }
+  .dlcard .meta { color: var(--text-faint); font-size: 0.85rem; margin: 4px 0 18px; }
+  .dlcard .btn { width: 100%; text-align: center; }
+  .dlcard.soon { opacity: 0.7; }
+  .dlcard.soon .btn { background: var(--bg-elev-2); color: var(--text-faint); border:1px solid var(--border); cursor: default; }
+
+  .trust-note { display:flex; gap:12px; align-items:flex-start; background: var(--bg-inset); border:1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-top: 22px; color: var(--text-muted); font-size: 0.95rem; }
+  .trust-note .ic { color: var(--accent); font-size: 1.2rem; line-height: 1.3; }
+
+  .steps { counter-reset: step; margin-top: 34px; display:grid; gap: 16px; }
+  .step { display:grid; grid-template-columns: 46px 1fr; gap: 18px; align-items:start; background: var(--bg-elev); border:1px solid var(--border); border-radius: 14px; padding: 22px 24px; }
+  .step .n { counter-increment: step; width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 750; font-size: 1.1rem; display:flex; align-items:center; justify-content:center; }
+  .step .n::before { content: counter(step); }
+  .step h3 { margin: 4px 0 6px; font-size: 1.12rem; }
+  .step p { margin: 0; color: var(--text-muted); }
+  .step code { background: var(--bg-inset); border:1px solid var(--border); border-radius: 5px; padding: 1px 6px; font-size: 0.9em; color: var(--text); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </div>
+    <div class="links">
+      <a href="features.html" class="hide-sm">Features</a>
+      <a href="getting-started.html" class="active hide-sm">Getting Started</a>
+      <a href="about.html" class="hide-sm">About</a>
+      <a href="privacy.html" class="hide-sm">Privacy</a>
+      <a href="#download" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page">
+  <div class="wrap">
+    <h1>Download Minerva</h1>
+    <p>Free, open source, and local-first. Install it, point it at a folder, and you have your first thoughtbase in about a minute.</p>
+  </div>
+</header>
+
+<section id="download" style="border-top:none; padding-top: 20px;">
+  <div class="wrap">
+    <div class="download-row">
+      <div class="dlcard">
+        <h3>🍎 macOS</h3>
+        <div class="meta">Apple silicon &amp; Intel · macOS 12+ · Universal</div>
+        <a class="btn btn-primary" href="#">Download .dmg <span style="opacity:.7">· v0.1.0</span></a>
+      </div>
+      <div class="dlcard soon">
+        <h3>🪟 Windows</h3>
+        <div class="meta">Planned</div>
+        <a class="btn">Coming soon</a>
+      </div>
+      <div class="dlcard soon">
+        <h3>🐧 Linux</h3>
+        <div class="meta">Planned</div>
+        <a class="btn">Coming soon</a>
+      </div>
+    </div>
+
+    <div class="trust-note">
+      <div class="ic">🔏</div>
+      <div><b style="color:var(--text);">Signed and notarized by Apple.</b> Minerva is distributed with a Developer ID certificate and notarized by Apple, so it opens without security warnings and you can verify it came from a known developer — not an anonymous binary off the internet.</div>
+    </div>
+    <p style="color:var(--text-faint); font-size:0.9rem; margin-top:16px;">Prefer to build from source? Minerva is open source — clone the repository and <code>pnpm install &amp;&amp; pnpm start</code>. <a href="#">See the repo →</a></p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Your first minute</p>
+    <h2>From download to a living thoughtbase</h2>
+    <p class="lede">Minerva doesn't drop you in front of a blank page. Tell it what you want to think about, and it builds you a starting structure to grow from.</p>
+
+    <div class="steps">
+      <div class="step"><div class="n"></div><div><h3>Install and open</h3><p>Drag Minerva to Applications and launch it. No account, no sign-up, no cloud — it runs entirely on your machine.</p></div></div>
+      <div class="step"><div class="n"></div><div><h3>Tell it what you're exploring</h3><p>The opening wizard asks what you want to build a thoughtbase <em>of</em>, who it's for, and how deep to go. A research topic, a book you're studying, a decision you're working through — anything.</p></div></div>
+      <div class="step"><div class="n"></div><div><h3>Get a starting map, not a blank page</h3><p>Minerva generates an overview set of linked notes to orient you — the antidote to the blank canvas. Every note is yours to keep, rewrite, or delete.</p></div></div>
+      <div class="step"><div class="n"></div><div><h3>Think, and let it hold the structure</h3><p>Write, ask, link, cite. When the AI suggests a claim or a source, you review and approve it. Your thoughtbase grows into a real map of what you know — and it's plain files on your disk the whole time.</p></div></div>
+    </div>
+
+    <div class="shot wide" style="margin-top:30px;">
+      <div class="icon">🧭</div>
+      <div class="k">Screenshot / screencast — Onboarding wizard</div>
+      <div class="d">The wizard flow, then the generated overview notes appearing. If one thing on this page becomes a short screen capture, make it this — it's the answer to "what do I even do first."</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Where to go next</p>
+    <h2>Once you're in</h2>
+    <div class="grid">
+      <div class="card"><span class="em">📖</span><h3>Read the docs</h3><p>Keyboard shortcuts, skills, query syntax, import and export. <a href="#">Open the documentation →</a></p></div>
+      <div class="card"><span class="em">🧰</span><h3>Explore the features</h3><p>The editor, the knowledge graph, sources, and the full skills library. <a href="features.html">See features →</a></p></div>
+      <div class="card"><span class="em">✍️</span><h3>Follow along</h3><p>Notes on building Minerva and thinking with AI, on the Dancing with Robots Substack. <a href="#">Read the blog →</a></p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="features.html">Features</a><a href="getting-started.html">Getting Started</a><a href="#download">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="about.html">About</a><a href="privacy.html">Privacy</a><a href="#">Docs</a></div>
+      <div class="col"><h4>Source</h4><a href="#">GitHub</a><a href="#">Releases</a><a href="#">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
