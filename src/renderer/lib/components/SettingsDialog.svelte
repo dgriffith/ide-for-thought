@@ -13,30 +13,15 @@
   import { setZoom, getStoredZoom, MIN_ZOOM, MAX_ZOOM } from '../appearance/zoom';
   import { api } from '../ipc/client';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
-  import { getConfirmSuppressionStore } from '../stores/confirm-suppression.svelte';
   import { getSettingsStore } from '../stores/settings.svelte';
-  import { CONFIRM_REGISTRY, confirmRegistryEntry } from '../confirm-keys';
+  import { makePatch } from '../make-patch';
+  import BehaviorsSettings from './BehaviorsSettings.svelte';
   import {
     getRefactorSettings,
     setRefactorSettings,
     type DestinationMode,
     type RefactorSettings,
   } from '../refactor/settings';
-  import {
-    getSidebarSettings,
-    setSidebarSettings,
-    type SidebarSettings,
-  } from '../sidebar/settings';
-  import {
-    getBreadcrumbsSettings,
-    setBreadcrumbsSettings,
-    type BreadcrumbsSettings,
-  } from '../breadcrumbs/settings';
-  import {
-    getConversationsSettings,
-    setConversationsSettings,
-    type ConversationsSettings,
-  } from '../conversations/settings';
   import {
     getFormatSettings,
     setFormatSettings,
@@ -142,27 +127,12 @@
     SETTINGS_GROUPS.flatMap((g) => g.items.map((t) => [t.id, t] as const)),
   );
 
-  // A "patch" merges a delta into the local $state mirror AND persists it (these
-  // panels save per-change, unlike the Done-batched editor/appearance/web/ai).
-  // The four were byte-identical bar their state var + setter (#1600).
-  function makePatch<T>(read: () => T, write: (v: T) => void, persist: (patch: Partial<T>) => void) {
-    return (patch: Partial<T>): void => {
-      write({ ...read(), ...patch });
-      persist(patch);
-    };
-  }
-
+  // A "patch" merges a delta into the local $state mirror AND persists it
+  // per-change (unlike the Done-batched editor/appearance/web/ai). #1600.
   let refactor = $state<RefactorSettings>({ ...getRefactorSettings() });
   const patchRefactor = makePatch(() => refactor, (v) => { refactor = v; }, setRefactorSettings);
-
-  let sidebar = $state<SidebarSettings>({ ...getSidebarSettings() });
-  const patchSidebar = makePatch(() => sidebar, (v) => { sidebar = v; }, setSidebarSettings);
-
-  let breadcrumbs = $state<BreadcrumbsSettings>({ ...getBreadcrumbsSettings() });
-  const patchBreadcrumbs = makePatch(() => breadcrumbs, (v) => { breadcrumbs = v; }, setBreadcrumbsSettings);
-
-  let conversations = $state<ConversationsSettings>({ ...getConversationsSettings() });
-  const patchConversations = makePatch(() => conversations, (v) => { conversations = v; }, setConversationsSettings);
+  // sidebar / breadcrumbs / conversations toggles + the confirm-suppression list
+  // now live in BehaviorsSettings.svelte (self-contained, per-change).
 
   // Formatter settings (#154). Mirror the persisted map into local state so
   // the Done-close reset path can rehydrate without an IPC round-trip.
@@ -211,21 +181,7 @@
     { value: 'custom', label: 'Custom folder (template)' },
   ];
 
-  const confirmSuppression = getConfirmSuppressionStore();
   const settings = getSettingsStore();
-  // Derived view: every registered confirm, paired with its current suppressed flag.
-  // Binds to the store's $state so toggling re-enables updates the row live.
-  let confirmRows = $derived(
-    CONFIRM_REGISTRY.map((entry) => ({
-      entry,
-      suppressed: confirmSuppression.suppressed.has(entry.key),
-    }))
-  );
-  // Surface any unknown keys that got into localStorage from older builds so
-  // users can still re-enable them — without pretending they belong here.
-  let orphanSuppressedKeys = $derived(
-    [...confirmSuppression.suppressed].filter((k) => !confirmRegistryEntry(k))
-  );
   // Intentional one-time seed from `initialTab`; dialog is short-lived and keyed.
   // svelte-ignore state_referenced_locally
   let activeTab = $state<TabId>(initialTab ?? 'editor');
@@ -620,87 +576,7 @@
           </div>
 
         {:else if activeTab === 'behaviors'}
-          <div class="field checkbox">
-            <label>
-              <input
-                type="checkbox"
-                checked={sidebar.autoReveal}
-                onchange={(e) => patchSidebar({ autoReveal: e.currentTarget.checked })}
-              />
-              Auto-reveal active file in sidebar
-            </label>
-            <p class="hint">
-              When the active editor changes, scroll the matching row into view in the
-              Notes panel and expand its parent folders. Never collapses anything you've
-              already opened.
-            </p>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input
-                type="checkbox"
-                checked={breadcrumbs.showHeadingChain}
-                onchange={(e) => patchBreadcrumbs({ showHeadingChain: e.currentTarget.checked })}
-              />
-              Show heading chain in breadcrumbs
-            </label>
-            <p class="hint">
-              Append the current section's heading chain to the breadcrumbs bar above
-              the editor when the cursor sits inside a section. Updates as the cursor
-              moves between sections.
-            </p>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input
-                type="checkbox"
-                checked={conversations.openOnLoad}
-                onchange={(e) => patchConversations({ openOnLoad: e.currentTarget.checked })}
-              />
-              Open Conversations on project load
-            </label>
-            <p class="hint">
-              Show the Conversations panel automatically each time a thoughtbase opens.
-              Off by default — the panel launches hidden and you toggle it with
-              ⌘/Ctrl+Shift+K.
-            </p>
-          </div>
-          <div class="field">
-            <span class="field-label">Confirmation dialogs</span>
-            <p class="hint">
-              Uncheck a dialog to stop it asking — the same as ticking "Don't ask
-              again" when it appears. Re-check it to see the prompt next time.
-            </p>
-          </div>
-          {#each confirmRows as row}
-            <div class="field checkbox">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={!row.suppressed}
-                  onchange={(e) =>
-                    e.currentTarget.checked
-                      ? confirmSuppression.unsuppress(row.entry.key)
-                      : confirmSuppression.suppress(row.entry.key)}
-                />
-                {row.entry.title}
-              </label>
-              <p class="hint">{row.entry.description}</p>
-            </div>
-          {/each}
-          {#each orphanSuppressedKeys as key}
-            <div class="field checkbox">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={false}
-                  onchange={() => confirmSuppression.unsuppress(key)}
-                />
-                Unknown confirmation
-              </label>
-              <p class="hint mono">{key}</p>
-            </div>
-          {/each}
+          <BehaviorsSettings />
 
         {:else if activeTab === 'notes'}
           <h3 class="settings-subsection">Refactoring</h3>
