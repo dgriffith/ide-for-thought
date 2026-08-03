@@ -178,12 +178,12 @@ const config: ForgeConfig = {
       build: [
         {
           entry: 'src/main/main.ts',
-          config: 'vite.main.config.ts',
+          config: 'vite.main.config.mts',
           target: 'main',
         },
         {
           entry: 'src/preload/preload.ts',
-          config: 'vite.preload.config.ts',
+          config: 'vite.preload.config.mts',
           target: 'preload',
         },
         {
@@ -191,7 +191,7 @@ const config: ForgeConfig = {
           // `main.js` so it shares the externalized node_modules; spawned by
           // embedder-service.ts via `new Worker(__dirname/embed-worker.js)`.
           entry: 'src/main/embeddings/embed-worker.ts',
-          config: 'vite.main.config.ts',
+          config: 'vite.main.config.mts',
           target: 'main',
         },
       ],

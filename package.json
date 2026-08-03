@@ -19,7 +19,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "dev": "electron-forge start",
-    "cli:build": "vite build --config vite.cli.config.ts && chmod +x .vite/build/cli.js",
+    "cli:build": "vite build --config vite.cli.config.mts && chmod +x .vite/build/cli.js",
     "cli": "pnpm cli:build && node .vite/build/cli.js",
     "build": "electron-forge make",
     "package": "electron-forge package",
