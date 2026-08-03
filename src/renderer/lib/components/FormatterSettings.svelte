@@ -172,12 +172,6 @@
     font-size: 11px;
     line-height: 1.45;
   }
-  .hint code {
-    background: var(--bg-button);
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-size: 10px;
-  }
   .btn {
     padding: 5px 14px;
     border: 1px solid var(--border);

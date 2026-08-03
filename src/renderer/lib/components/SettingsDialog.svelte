@@ -661,11 +661,6 @@
     font-size: 12px;
   }
 
-  .field.disabled label,
-  .field.disabled .hint {
-    opacity: 0.5;
-  }
-
   .field label {
     color: var(--text);
   }
@@ -675,39 +670,6 @@
     align-items: center;
     gap: 6px;
     cursor: pointer;
-  }
-
-  .field input[type="number"] {
-    width: 80px;
-    padding: 4px 6px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
-  }
-
-  /* A number input paired with a unit label and a small Reset button. */
-  .inline-num {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .inline-num .unit {
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-  .btn-inline {
-    padding: 4px 10px;
-    background: var(--bg-button, var(--bg));
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 11px;
-    cursor: pointer;
-  }
-  .btn-inline:hover {
-    border-color: var(--accent);
   }
 
   .field input[type="text"],
@@ -738,39 +700,11 @@
     cursor: pointer;
   }
 
-  .clipper-pair-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .clipper-pair-code {
-    flex: 1;
-    min-width: 0;
-    padding: 5px 8px;
-    background: var(--bg);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: var(--font-mono);
-  }
-  .clipper-pair-code:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
   .hint {
     margin: 2px 0 0 0;
     color: var(--text-muted);
     font-size: 11px;
     line-height: 1.45;
-  }
-
-  /* Soft "font not installed" advisory — the sanctioned signal color (--rust),
-     not danger-red, and non-blocking. */
-  .hint.font-missing {
-    color: var(--rust);
-    margin-top: 4px;
   }
 
   .hint code {
@@ -780,47 +714,11 @@
     font-size: 10px;
   }
 
-  kbd {
-    background: var(--bg-button);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 0 4px;
-    font-size: 10px;
-    font-family: ui-monospace, monospace;
-  }
-
-  .hint.mono {
-    font-family: ui-monospace, monospace;
-  }
-
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .section-intro {
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.5;
-    margin: 0 0 16px 0;
-  }
-
-
-  .section-intro code {
-    font-size: 11px;
-    color: var(--text);
-  }
-
-  .empty-state {
-    padding: 12px;
-    border: 1px dashed var(--border);
-    border-radius: 6px;
-    font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.5;
-  }
-
-  .fm-category,
   .settings-subsection {
     margin: 18px 0 8px 0;
     font-size: 11px;
@@ -832,23 +730,6 @@
 
   .settings-subsection:first-child {
     margin-top: 0;
-  }
-
-  .fm-rules {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .fm-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 4px;
-  }
-
-  .fm-actions .hint {
-    margin: 0;
   }
 
   footer {

@@ -52,6 +52,9 @@
     <span>{checked ? 'true' : 'false'}</span>
   </label>
 {:else if type === 'number'}
+  <!-- svelte-ignore a11y_autofocus -->
+  <!-- Edit-in-place: this input replaces the value on a user click, so focusing
+       it is the expected behavior, not a surprise focus-steal. -->
   <input
     class="pve-input"
     type="number"
@@ -62,6 +65,7 @@
     onkeydown={onKeydown}
   />
 {:else if type === 'date'}
+  <!-- svelte-ignore a11y_autofocus -->
   <input
     class="pve-input"
     type="date"
@@ -70,6 +74,7 @@
     onchange={(e) => onCommit?.(e.currentTarget.value)}
   />
 {:else}
+  <!-- svelte-ignore a11y_autofocus -->
   <input
     class="pve-input"
     type="text"

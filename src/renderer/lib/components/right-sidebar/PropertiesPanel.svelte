@@ -706,29 +706,8 @@
   .row .value {
     min-width: 0;
   }
-  .row .value > input[type="text"],
-  .row .value > input[type="number"],
-  .row .value > input[type="date"] {
-    width: 100%;
-    background: none;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    padding: 3px 6px;
-    color: var(--text);
-    font-size: 12px;
-    font-family: inherit;
-  }
-  .row .value > input[type="text"]:hover,
-  .row .value > input[type="number"]:hover,
-  .row .value > input[type="date"]:hover {
-    border-color: var(--border);
-  }
-  .row .value > input[type="text"]:focus,
-  .row .value > input[type="number"]:focus,
-  .row .value > input[type="date"]:focus {
-    border-color: var(--accent);
-    outline: none;
-  }
+  /* The value inputs render inside <PropertyValueEditor>, so their styling lives
+     there — scoped `.row .value > input` rules here never matched (#1600). */
 
   .chips {
     display: flex;

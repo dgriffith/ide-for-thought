@@ -223,7 +223,7 @@
 </div>
 
 <div class="field trust-field">
-  <label id="trust-heading">Trusted thoughtbases</label>
+  <div class="field-heading" id="trust-heading">Trusted thoughtbases</div>
   <p class="hint">
     Compute cells run with real access to your machine, so each cell is
     reviewed before its first run and the choice is remembered
@@ -259,7 +259,7 @@
 </div>
 
 <div class="field audit-field">
-  <label id="audit-heading">Execution audit log</label>
+  <div class="field-heading" id="audit-heading">Execution audit log</div>
   <p class="hint">
     Every compute cell that runs is recorded to a local log — when it ran,
     which thoughtbase and note, whether it came from the editor or a
@@ -281,7 +281,8 @@
     color: var(--text);
     font-size: 12px;
   }
-  .field label { color: var(--text); }
+  .field label,
+  .field .field-heading { color: var(--text); }
   .field input[type="text"] {
     padding: 5px 8px;
     background: var(--bg);
