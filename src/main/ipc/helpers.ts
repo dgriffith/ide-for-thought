@@ -53,6 +53,11 @@ export function withRootPathOr<A extends unknown[], R>(
   };
 }
 
+// Re-exported so callers (and CLAUDE.md's IPC section) can reach it via the
+// helpers barrel; the implementation is a leaf module with no electron coupling
+// so it stays unit-testable in isolation.
+export { readJsonFileOr } from './read-json';
+
 /**
  * Like {@link withRootPath}, but also hands the handler its {@link BrowserWindow}.
  * The many handlers that resolve a project and then broadcast a change back to
