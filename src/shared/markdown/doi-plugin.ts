@@ -15,9 +15,9 @@
  * works unchanged.
  */
 
-import type MarkdownIt from 'markdown-it';
-import type Token from 'markdown-it/lib/token.mjs';
-import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs';
+import type { MarkdownIt } from 'markdown-it';
+import type { Token } from 'markdown-it';
+import type { StateCore } from 'markdown-it';
 
 /**
  * DOI form per Crossref: `10.NNNN/...` where NNNN is a 4–9 digit

@@ -24,9 +24,9 @@
  * for free; non-collapsibles render as plain <div>s.
  */
 
-import type MarkdownIt from 'markdown-it';
-import type StateCore from 'markdown-it/lib/rules_core/state_core.mjs';
-import type Token from 'markdown-it/lib/token.mjs';
+import type { MarkdownIt } from 'markdown-it';
+import type { StateCore } from 'markdown-it';
+import type { Token } from 'markdown-it';
 import { TRAILING_ID_RE } from '../../../shared/flashcards/cards';
 
 /**
@@ -63,13 +63,13 @@ export function installCallouts(md: MarkdownIt): void {
 
   md.renderer.rules.blockquote_open = (tokens, idx, opts, env, self) => {
     const tok = tokens[idx]!;
-    const type = tok.attrGet('data-callout');
+    const type = tok.attrGet('data-callout') as string | null;
     if (type === null) {
       return defaultBlockquoteOpen
         ? defaultBlockquoteOpen(tokens, idx, opts, env, self)
         : self.renderToken(tokens, idx, opts);
     }
-    const title = tok.attrGet('data-callout-title') ?? '';
+    const title = (tok.attrGet('data-callout-title') as string | null) ?? '';
     const fold = tok.attrGet('data-callout-fold');
     const collapsible = fold === 'open' || fold === 'closed';
     const isOpen = fold !== 'closed';

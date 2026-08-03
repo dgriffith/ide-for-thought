@@ -24,8 +24,8 @@
  *     from accidentally highlighting)
  */
 
-import type MarkdownIt from 'markdown-it';
-import type StateInline from 'markdown-it/lib/rules_inline/state_inline.mjs';
+import type { MarkdownIt } from 'markdown-it';
+import type { StateInline } from 'markdown-it';
 
 export const HIGHLIGHT_PALETTE = ['yellow', 'green', 'blue', 'pink', 'orange'] as const;
 export type HighlightColor = typeof HIGHLIGHT_PALETTE[number];

@@ -7,7 +7,7 @@
  * `renderComputeOutput` uses the browser `btoa`/`unescape`/
  * `encodeURIComponent` globals, which are available in the renderer.
  */
-import type Token from 'markdown-it/lib/token.mjs';
+import type { Token } from 'markdown-it';
 import { escapeHtml, escapeAttr } from './text';
 import { sanitizeComputeOutputHtml } from '../compute-output-sanitize';
 import type { CellOutput } from '../../../shared/compute/types';

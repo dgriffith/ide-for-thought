@@ -12,6 +12,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
+// markdown-it 15 ships its own types: the default export is a callable value, so
+// the instance type is imported as the named `MarkdownIt` type (aliased here to
+// avoid clashing with the value import).
+import type { MarkdownIt as MarkdownItInstance } from 'markdown-it';
 import footnote from 'markdown-it-footnote';
 import hljs from 'highlight.js';
 import { buildLinkResolverContext } from '../../link-resolver';
@@ -54,7 +58,7 @@ export async function renderNoteBody(
   return md.render(bodyMarkdown);
 }
 
-function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: string): MarkdownIt {
+function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: string): MarkdownItInstance {
   const md = new MarkdownIt({
     html: false,        // drop raw HTML in notes — export is for trust-limited readers
     linkify: true,
@@ -94,7 +98,7 @@ function buildMd(plan: ExportPlan, renderer?: CitationRenderer, fromPath?: strin
  * linkPolicy. `[[cite::…]]` and `[[quote::…]]` are left to the cite
  * stub rule (below).
  */
-function installWikiLinkRule(md: MarkdownIt, plan: ExportPlan, fromPath?: string): void {
+function installWikiLinkRule(md: MarkdownItInstance, plan: ExportPlan, fromPath?: string): void {
   const ctx = buildLinkResolverContext(plan);
   // Directory of the note being rendered. `follow-to-file` hrefs are made
   // relative to it so a link resolves correctly from a nested page — a
@@ -174,7 +178,7 @@ function relativeHref(fromDir: string | null, targetHtml: string): string {
  * Implemented as a cheap post-processing pass rather than a new rule so
  * we don't duplicate the Preview's tag grammar.
  */
-function installTagRule(_md: MarkdownIt): void {
+function installTagRule(_md: MarkdownItInstance): void {
   // The existing Preview wraps `#tag` in a .note-tag span. For exports
   // we let markdown-it emit the raw `#tag` text — readers see it as
   // unstyled prose, which is the correct rendering outside the app.
@@ -196,7 +200,7 @@ function installTagRule(_md: MarkdownIt): void {
  * marker stays visible in its original position.
  */
 function installCiteStubRule(
-  md: MarkdownIt,
+  md: MarkdownItInstance,
   plan: ExportPlan,
   explicitRenderer?: CitationRenderer,
 ): void {

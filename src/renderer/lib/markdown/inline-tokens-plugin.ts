@@ -9,8 +9,8 @@
  * post-render passes use to resolve cite/quote labels and wire click handling.
  */
 
-import type MarkdownIt from 'markdown-it';
-import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
+import type { MarkdownIt } from 'markdown-it';
+import type { StateBlock } from 'markdown-it';
 import { getLinkType } from '../../../shared/link-types';
 import { escapeHtml, escapeAttr } from '../preview/text';
 

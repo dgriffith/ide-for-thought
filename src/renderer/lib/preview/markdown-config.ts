@@ -15,8 +15,8 @@ import MarkdownIt from 'markdown-it';
 // `inlineTok.constructor` (#347), so no runtime import is needed. These type
 // paths don't resolve through `@types/markdown-it`'s `export = X` shape under
 // isolatedModules, but type-only imports don't ship to the bundler.
-import type Token from 'markdown-it/lib/token.mjs';
-import type StateBlock from 'markdown-it/lib/rules_block/state_block.mjs';
+import type { Token, MarkdownIt as MarkdownItInstance } from 'markdown-it';
+import type { StateBlock } from 'markdown-it';
 import mdFootnote from 'markdown-it-footnote';
 import { installMath } from '../../../shared/markdown/math-plugin';
 import { installDoiAutolink } from '../../../shared/markdown/doi-plugin';
@@ -66,7 +66,7 @@ interface FenceRenderArgs {
     renderDefault: () => string;
 }
 
-export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownIt {
+export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownItInstance {
     const md = new MarkdownIt({
         html: true,
         linkify: true,
@@ -216,7 +216,7 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownIt {
         const tok = tokens[idx]!;
         const srcIdx = tok.attrIndex('src');
         if (srcIdx < 0) return self.renderToken(tokens, idx, options);
-        const src = tok.attrs![srcIdx]![1];
+        const src = tok.attrs![srcIdx]![1] as string;
         if (/^(?:data:|file:|blob:|mailto:)/i.test(src)) {
             // Inline / already-local — render unchanged.
             return self.renderToken(tokens, idx, options);
@@ -228,16 +228,16 @@ export function createPreviewMarkdown(deps: PreviewMarkdownDeps): MarkdownIt {
             // viewed (#...).
             const url = src.startsWith('//') ? `https:${src}` : src;
             const altIdx = tok.attrIndex('alt');
-            const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
+            const alt = altIdx >= 0 ? (tok.attrs![altIdx]![1] as string) : (tok.content ?? '');
             const titleIdx = tok.attrIndex('title');
-            const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
+            const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1] as string)}"` : '';
             return `<img class="remote-image" data-remote-src="${escapeAttr(url)}" src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${title} loading="lazy" />`;
         }
         const rel = resolveRelativeImagePath(src, deps.getRenderPathOverride() ?? deps.getNotePath());
         const altIdx = tok.attrIndex('alt');
-        const alt = altIdx >= 0 ? tok.attrs![altIdx]![1] : (tok.content ?? '');
+        const alt = altIdx >= 0 ? (tok.attrs![altIdx]![1] as string) : (tok.content ?? '');
         const titleIdx = tok.attrIndex('title');
-        const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1])}"` : '';
+        const title = titleIdx >= 0 ? ` title="${escapeAttr(tok.attrs![titleIdx]![1] as string)}"` : '';
         // Local audio/video (#908): emit a player placeholder hydrated to a blob URL
         // by the post-render pass (videos are too large to base64-inline like images).
         const kind = mediaKind(rel);
