@@ -12,6 +12,17 @@
  * follow. Channels returning `void` have no guard (nothing to check). Array
  * checks are intentionally SHALLOW — a main-side shape bug is uniform across
  * elements, so checking the first catches it without an O(n) walk on every call.
+ *
+ * SCOPE DECISION (#1635): coverage is *targeted*, not exhaustive. The ChannelMap
+ * already pins every channel's shape at compile time on both the handler and
+ * preload sides, so a runtime guard is only worth its cost on payloads where a
+ * silent main-side shape bug would corrupt durable/renderer state hard to trace
+ * back. Add a guard when a channel (a) returns a structured object/array the
+ * renderer trusts into state, AND (b) rides a path where a wrong shape wouldn't
+ * fail loudly on its own. Skip `void`, primitives already covered by TS at the
+ * boundary, and low-blast-radius reads. Started notebase-only (#983); now also
+ * covers the trust path (proposals) and the SPARQL result surface (graph:query),
+ * the two highest-value structured returns beyond notebase.
  */
 import type { ChannelMap } from './ipc-contract';
 import type {
@@ -20,6 +31,7 @@ import type {
   SearchInNotesFileResult,
   ReplaceInNotesResult,
 } from './types';
+import type { Proposal } from './proposals';
 
 type ResultOf<K extends keyof ChannelMap> = Awaited<ReturnType<ChannelMap[K]>>;
 
@@ -53,6 +65,18 @@ function isSearchFileResult(v: unknown): v is SearchInNotesFileResult {
 function isReplaceResult(v: unknown): v is ReplaceInNotesResult {
   return isObj(v) && isStringArray(v.changedPaths) && isNumber(v.replacedCount);
 }
+// Trust path (#1635): a Proposal the renderer files into the review UI. Shallow
+// — uri + status discriminate a corrupt/empty payload from a real proposal.
+function isProposal(v: unknown): v is Proposal {
+  return isObj(v) && isString(v.uri) && isString(v.status);
+}
+const isProposalOrNull = (v: unknown): v is Proposal | null => v === null || isProposal(v);
+// SPARQL result surface (#1635): the query panel renders `results`/`columns`;
+// `error` is an optional in-band field, so only the two required arrays are
+// checked.
+function isQueryResult(v: unknown): v is { results: unknown[]; columns: string[]; error?: string } {
+  return isObj(v) && Array.isArray(v.results) && isStringArray(v.columns);
+}
 
 export const CHANNEL_VALIDATORS: {
   [K in keyof ChannelMap]?: (v: unknown) => v is ResultOf<K>;
@@ -84,6 +108,14 @@ export const CHANNEL_VALIDATORS: {
   'notebase:renameSource': isRewrittenPaths,
   'notebase:renameExcerpt': isRewrittenPaths,
   'notebase:getOnboardingDismissed': isBool,
+
+  // Trust path (#1635): proposals the renderer files into the review UI.
+  'proposal:list': shallowArrayOf(isProposal),
+  'proposal:detail': isProposalOrNull,
+
+  // Graph SPARQL result surface (#1635).
+  'graph:query': isQueryResult,
+
   // Channels returning `void` (recent:clear, write*, create*, delete*, rename,
   // copy, setOnboardingDismissed) have nothing to validate.
 };
