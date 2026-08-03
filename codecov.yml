@@ -1,0 +1,57 @@
+# Codecov configuration (#1096 / QA H4).
+#
+# Purpose: TREND + per-PR coverage-delta VISIBILITY, not gating. The hard gate
+# stays the per-area floors in `vitest.config.mts` (enforced by `pnpm coverage`
+# in ci.yml, which fails the build on a floor breach). Codecov never blocks a
+# PR here — it surfaces erosion that happens *within the headroom above* the
+# floors, which the pass/fail floors can't see.
+#
+# Requires the `CODECOV_TOKEN` repo secret (set once by a maintainer after
+# enrolling the repo at app.codecov.io). The ci.yml upload step already passes
+# `token: ${{ secrets.CODECOV_TOKEN }}` with `fail_ci_if_error: false`, so until
+# the secret is set the upload is a silent no-op; it activates automatically once
+# the token exists. This file changes nothing until uploads start landing.
+
+codecov:
+  # Only ingest coverage from a green CI run, so a failed build doesn't publish
+  # a misleading number.
+  require_ci_to_pass: true
+  notify:
+    # Wait for the single coverage upload before notifying/commenting.
+    after_n_builds: 1
+
+coverage:
+  # Report to 2 decimals so sub-percent drift within the floor headroom shows.
+  precision: 2
+  round: down
+  status:
+    # INFORMATIONAL: Codecov posts a project/patch status with the delta, but it
+    # never fails the PR (the vitest floors are the gate). Keeps H4 visibility
+    # without a second, competing hard gate.
+    project:
+      default:
+        informational: true
+        target: auto        # compare against the base commit → shows the delta
+        threshold: 0%       # any drop is reported (informational only)
+    patch:
+      default:
+        informational: true
+
+# The per-PR coverage-delta comment — the visible H4 signal. Posts on every PR
+# (even at 0 delta) so trend/erosion is always in view, updating one comment in
+# place rather than spamming.
+comment:
+  layout: "condensed_header, diff, flags, components, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+
+# Exclusions mirror the spirit of vitest.config's coverage.exclude — generated
+# shells, test files, and non-source data shouldn't count toward the trend.
+ignore:
+  - "**/*.test.ts"
+  - "**/*.d.ts"
+  - "tests/**"
+  - "src/main/publish/csl/bundled/**"
+  - "**/*.ttl"

@@ -68,9 +68,11 @@ jobs:
       - name: Test + coverage
         run: pnpm coverage
 
-      # Trend-tracking only — the floors above are the gate. Non-fatal so CI
-      # isn't blocked before the repo is enrolled on Codecov / CODECOV_TOKEN is
-      # set; activates automatically once it is.
+      # Trend + per-PR coverage-delta visibility (#1096 / QA H4); tuned by
+      # `codecov.yml`. The floors above (pnpm coverage) remain the hard gate —
+      # Codecov is informational and never blocks a PR (fail_ci_if_error: false).
+      # Non-fatal so CI isn't blocked before the repo is enrolled / CODECOV_TOKEN
+      # is set; the upload + PR comment activate automatically once it is.
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
