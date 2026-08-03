@@ -2,6 +2,7 @@ import { dialog, BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Channels } from '../../shared/channels';
+import { broadcast } from './broadcast';
 import * as graph from '../graph/index';
 import { projectContext } from '../project-context-types';
 import { privilegedFetch } from '../privileged-sites';
@@ -74,7 +75,7 @@ export function registerSources(): void {
   handle(Channels.SOURCES_CREATE_REFERENCE_STUBS, withRootPathWin(async (rootPath, win, params: { sourceId: string; refs: ParsedReference[] }) => {
     const result = await createReferenceStubs(rootPath, params.sourceId, params.refs);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
     return result;
   }));
 
@@ -85,7 +86,7 @@ export function registerSources(): void {
   handle(Channels.SOURCES_APPLY_STUB_RESOLUTION, withRootPathWin(async (rootPath, win, params: { sourceId: string; doi: string }) => {
     const ok = await applyStubResolution(rootPath, params.sourceId, params.doi, { fetchImpl: privilegedFetch });
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
     return { ok };
   }));
 
@@ -105,7 +106,7 @@ export function registerSources(): void {
     return await importBibtex(rootPath, result.filePaths[0]!, {
       onProgress: (progress) => {
         if (!win.isDestroyed()) {
-          win.webContents.send(Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
+          broadcast(win, Channels.SOURCES_IMPORT_BIBTEX_PROGRESS, progress);
         }
       },
     });
@@ -122,7 +123,7 @@ export function registerSources(): void {
     return await importZoteroRdf(rootPath, result.filePaths[0]!, {
       onProgress: (progress) => {
         if (!win.isDestroyed()) {
-          win.webContents.send(Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, progress);
+          broadcast(win, Channels.SOURCES_IMPORT_ZOTERO_RDF_PROGRESS, progress);
         }
       },
     });
@@ -175,7 +176,7 @@ export function registerSources(): void {
     await finishPdfOcrIngest(rootPath, sourceId, pages);
     await reindexFile(rootPath, `.minerva/sources/${sourceId}/meta.ttl`);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_LIST_ALL, withRootPathOr([], (rootPath) =>
@@ -185,8 +186,8 @@ export function registerSources(): void {
     const result = await deleteSource(rootPath, sourceId);
     await persistIndexes(rootPath);
     if (!win.isDestroyed()) {
-      win.webContents.send(Channels.SOURCES_CHANGED);
-      win.webContents.send(Channels.EXCERPTS_CHANGED);
+      broadcast(win, Channels.SOURCES_CHANGED);
+      broadcast(win, Channels.EXCERPTS_CHANGED);
     }
     return result;
   }));
@@ -196,8 +197,8 @@ export function registerSources(): void {
       const result = await mergeSources(rootPath, params.srcId, params.destId);
       await persistIndexes(rootPath);
       if (!win.isDestroyed()) {
-        win.webContents.send(Channels.SOURCES_CHANGED);
-        win.webContents.send(Channels.EXCERPTS_CHANGED);
+        broadcast(win, Channels.SOURCES_CHANGED);
+        broadcast(win, Channels.EXCERPTS_CHANGED);
       }
       return result;
     } catch (err) {
@@ -216,37 +217,37 @@ export function registerSources(): void {
   handle(Channels.SOURCES_SET_READ_STATUS, withRootPathWin(async (rootPath, win, params: { sourceId: string; status: ReadStatus | null }) => {
     await setSourceReadStatus(rootPath, params.sourceId, params.status);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_SET_TITLE, withRootPathWin(async (rootPath, win, params: { sourceId: string; title: string }) => {
     await setSourceTitle(rootPath, params.sourceId, params.title);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_ADD_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
     await addSourceTag(rootPath, params.sourceId, params.tag);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_REMOVE_TAG, withRootPathWin(async (rootPath, win, params: { sourceId: string; tag: string }) => {
     await removeSourceTag(rootPath, params.sourceId, params.tag);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_SET_READ_DUE_BY, withRootPathWin(async (rootPath, win, params: { sourceId: string; dueBy: string | null }) => {
     await setSourceReadDueBy(rootPath, params.sourceId, params.dueBy);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
   }));
 
   handle(Channels.SOURCES_STRIP_UPSTREAM_TAGS, withRootPathWin(async (rootPath, win, sourceId: string) => {
     const result = await stripUpstreamTags(rootPath, sourceId);
     await persistIndexes(rootPath);
-    if (!win.isDestroyed()) win.webContents.send(Channels.SOURCES_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.SOURCES_CHANGED);
     return result;
   }));
 
@@ -259,7 +260,7 @@ export function registerSources(): void {
 
   // ── Collections (#470) ────────────────────────────────────────────────────
   const broadcastCollectionsChanged = (win: BrowserWindow) => {
-    if (!win.isDestroyed()) win.webContents.send(Channels.COLLECTIONS_CHANGED);
+    if (!win.isDestroyed()) broadcast(win, Channels.COLLECTIONS_CHANGED);
   };
 
   handle(Channels.COLLECTIONS_LIST, withRootPathOr<[], { collections: never[] } | Promise<CollectionsFile>>({ collections: [] }, async (rootPath) => {

@@ -10,6 +10,7 @@ import * as vectors from '../embeddings/vector-store';
 import { projectContext } from '../project-context-types';
 import { getRootPath, markPathHandled, windowsForProject } from '../window-manager';
 import type { WritePipelineHooks } from '../notebase/write-pipeline';
+import { broadcast } from './broadcast';
 
 export function winFromEvent(e: Electron.IpcMainInvokeEvent): BrowserWindow {
   return BrowserWindow.fromWebContents(e.sender)!;
@@ -119,13 +120,13 @@ export async function persistIndexes(rootPath: string): Promise<void> {
 export function broadcastRewritten(rootPath: string, paths: string[]): void {
   if (paths.length === 0) return;
   for (const targetWin of windowsForProject(rootPath)) {
-    targetWin.webContents.send(Channels.NOTEBASE_REWRITTEN, paths);
+    broadcast(targetWin, Channels.NOTEBASE_REWRITTEN, paths);
   }
 }
 
 export function broadcastHeadingRename(rootPath: string, candidate: graph.HeadingRenameCandidate): void {
   for (const targetWin of windowsForProject(rootPath)) {
-    targetWin.webContents.send(Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, candidate);
+    broadcast(targetWin, Channels.NOTEBASE_HEADING_RENAME_SUGGESTED, candidate);
   }
 }
 
@@ -137,7 +138,7 @@ export function broadcastHeadingRename(rootPath: string, candidate: graph.Headin
  */
 export function broadcastProposalsChanged(rootPath: string): void {
   for (const targetWin of windowsForProject(rootPath)) {
-    targetWin.webContents.send(Channels.PROPOSALS_CHANGED);
+    broadcast(targetWin, Channels.PROPOSALS_CHANGED);
   }
 }
 

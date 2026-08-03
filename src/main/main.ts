@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
+import { broadcast } from './ipc/broadcast';
 import { registerIpcHandlers } from './ipc';
 import { resolveDisplayName } from './project-config';
 import { buildMenu, rebuildMenu, clearMenuEditorState } from './menu';
@@ -87,7 +88,7 @@ void app.whenReady().then(async () => {
         boot(`renderer loaded — opening project ${path.basename(state.rootPath)}`);
         await openProjectInWindow(win, state.rootPath);
         boot(`project indexed ${path.basename(state.rootPath)}`);
-        win.webContents.send(Channels.PROJECT_OPENED, {
+        broadcast(win, Channels.PROJECT_OPENED, {
           rootPath: state.rootPath,
           name: resolveDisplayName(state.rootPath),
         });
