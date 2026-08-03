@@ -867,6 +867,26 @@ export interface MenuApi {
   onImportZoteroRdf(cb: () => void): void;
 }
 
+/**
+ * The renderer-facing `window.api` surface.
+ *
+ * DUPLICATION DECISION (#1635): this interface hand-restates signatures the
+ * `ChannelMap` (`src/shared/ipc-contract.ts`) already pins, so it's effectively
+ * a 6th wiring site. Deriving it from `ChannelMap` was explored and deferred —
+ * it isn't a clean mechanical transform:
+ *   1. `IdeApi` is NAMESPACED (`api.notebase.readFile`) while `ChannelMap` is
+ *      flat (`'notebase:readFile'`), and method names don't map 1:1 to channel
+ *      suffixes, so a template-literal remap would misalign on the exceptions.
+ *   2. Each `*Api` interface also carries event-subscription methods
+ *      (`onFileChanged`, `onRewritten`, …) that live in the `EventMap`
+ *      (#1633), NOT `ChannelMap`, plus intermixed shared type/DTO definitions.
+ * A safe incremental path (not yet done, tracked here): add a compile-time
+ * assertion that every invoke method's resolved return type equals its
+ * `ChannelMap` entry, catching drift without a rewrite — the preload-bridge
+ * snapshot test (`tests/preload/preload-bridge.test.ts`) already pins the method
+ * SET, so only per-method SIGNATURE drift is currently unguarded. Until then,
+ * keep this interface in sync by hand when you touch a channel.
+ */
 export interface IdeApi {
   notebase: NotebaseApi;
   links: LinksApi;

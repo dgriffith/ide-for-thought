@@ -63,4 +63,30 @@ describe('CHANNEL_VALIDATORS (#983)', () => {
     expect(CHANNEL_VALIDATORS[Channels.NOTEBASE_WRITE_FILE]).toBeUndefined();
     expect(CHANNEL_VALIDATORS[Channels.RECENT_CLEAR]).toBeUndefined();
   });
+
+  // #1635 — validators extended to the trust path (proposals) + SPARQL results.
+  const proposal = { uri: 'urn:p1', status: 'pending', operationType: 'note_rewrite', note: 'n', proposedBy: 'llm' };
+
+  it('proposal:list shallow-checks Proposal[]', () => {
+    const v = CHANNEL_VALIDATORS[Channels.PROPOSAL_LIST]!;
+    expect(v([])).toBe(true);
+    expect(v([proposal])).toBe(true);
+    expect(v([{ uri: 'x' }])).toBe(false); // missing status
+    expect(v('nope')).toBe(false);
+  });
+
+  it('proposal:detail accepts a Proposal or null, rejects junk', () => {
+    const v = CHANNEL_VALIDATORS[Channels.PROPOSAL_DETAIL]!;
+    expect(v(proposal)).toBe(true);
+    expect(v(null)).toBe(true);
+    expect(v({ uri: 1 })).toBe(false);
+  });
+
+  it('graph:query requires results[] + columns[] (error is optional)', () => {
+    const v = CHANNEL_VALIDATORS[Channels.GRAPH_QUERY]!;
+    expect(v({ results: [], columns: [] })).toBe(true);
+    expect(v({ results: [{}], columns: ['a'], error: 'boom' })).toBe(true);
+    expect(v({ results: [], columns: [1] })).toBe(false); // columns not strings
+    expect(v({ results: 'x', columns: [] })).toBe(false); // results not an array
+  });
 });
