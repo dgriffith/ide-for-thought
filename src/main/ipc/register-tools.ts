@@ -13,6 +13,7 @@ import { checkConnection } from '../llm/validate';
 import type { ToolExecutionRequest, LLMSettingsUpdate } from '../../shared/tools/types';
 import type { ProviderId } from '../../shared/tools/providers';
 import { winFromEvent } from './helpers';
+import { broadcast } from './broadcast';
 
 export function registerTools(): void {
   // Tools for Thought
@@ -28,7 +29,7 @@ export function registerTools(): void {
         request,
         (chunk: string) => {
           if (!win.isDestroyed()) {
-            win.webContents.send(Channels.TOOL_STREAM, chunk);
+            broadcast(win, Channels.TOOL_STREAM, chunk);
           }
         },
         controller.signal,

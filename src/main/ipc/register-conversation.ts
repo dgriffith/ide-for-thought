@@ -8,7 +8,9 @@ import { readThoughtbaseDoc, thoughtbaseDocPromptBlock } from '../llm/thoughtbas
 import type { ContextBundle, ConversationMessage } from '../../shared/types';
 import type { ConversationDraftBase } from '../../shared/conversation-draft-base';
 import { rootPathFromEvent, winFromEvent } from './helpers';
+import { broadcast } from './broadcast';
 import { handle } from './typed-ipc';
+import type { EventMap } from '../../shared/ipc-contract';
 
 const DEFAULT_CONVERSATION_SYSTEM_PROMPT = [
   'You are an assistant embedded in Minerva, a markdown-based thinking tool.',
@@ -120,14 +122,18 @@ function buildStreamCallbacks(
   signal: AbortSignal,
   pendingAskUser: PendingAskUser,
 ): StreamCallbacks {
+  // All draft channels carry ConversationDraftBase; the channel is typed against
+  // EventMap but the send stays raw — TS can't verify a single-arg spread against
+  // a generic `Parameters<EventMap[K]>` tuple, and every subscriber is typed via
+  // `subscribe`, so the payload is checked on the receiving side (#1633).
   const draftEmit =
-    (channel: string) =>
+    (channel: keyof EventMap) =>
     (draft: ConversationDraftBase) => {
       if (!win.isDestroyed()) win.webContents.send(channel, draft);
     };
   return {
     onChunk: (chunk: string) => {
-      if (!win.isDestroyed()) win.webContents.send(Channels.CONVERSATION_STREAM, chunk);
+      if (!win.isDestroyed()) broadcast(win, Channels.CONVERSATION_STREAM, chunk);
     },
     onDraft: draftEmit(Channels.CONVERSATION_DRAFT),
     onSourceDraft: draftEmit(Channels.CONVERSATION_SOURCE_DRAFT),
@@ -144,11 +150,12 @@ function buildStreamCallbacks(
       return new Promise<string>((resolve, reject) => {
         pendingAskUser.set(questionId, { winId: win.id, resolve, reject });
         if (!win.isDestroyed()) {
-          win.webContents.send(Channels.CONVERSATION_ASK_USER, {
+          broadcast(win, Channels.CONVERSATION_ASK_USER, {
             questionId,
             conversationId: convId,
             question,
-            choices,
+            // `choices` is optional (exactOptionalPropertyTypes) — omit when absent.
+            ...(choices ? { choices } : {}),
           });
         } else {
           pendingAskUser.delete(questionId);

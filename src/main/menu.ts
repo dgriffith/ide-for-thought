@@ -2,6 +2,7 @@ import { Menu, shell, dialog, BrowserWindow } from 'electron';
 import path from 'node:path';
 import { Channels } from '../shared/channels';
 import { broadcast } from './ipc/broadcast';
+import type { EventMap } from '../shared/ipc-contract';
 import { THEME_MODES, type ThemeMode } from '../shared/theme';
 import { getRecentProjects } from './recent-projects';
 import { resolveDisplayName } from './project-config';
@@ -27,9 +28,9 @@ import {
   getUpdateState,
 } from './auto-update';
 
-function send(channel: string, ...args: unknown[]) {
+function send<K extends keyof EventMap>(channel: K, ...args: Parameters<EventMap[K]>) {
   const win = BrowserWindow.getFocusedWindow();
-  if (win) win.webContents.send(channel, ...args);
+  if (win) broadcast(win, channel, ...args);
 }
 
 // Current theme, mirrored from the renderer (which owns it in localStorage) so
