@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Icon from './Icon.svelte';
+  import EditorContextMenu from './EditorContextMenu.svelte';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { EditorView, keymap } from '@codemirror/view';
   import { basicSetup } from 'codemirror';
@@ -23,17 +23,8 @@
     type UploadResult,
   } from '../editor/image-upload';
   import { sortLines, selectionTracker } from '../editor/commands';
-  import {
-    toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
-    toggleH1, toggleH2, toggleH3, toggleQuote, toggleBulletList, toggleNumberedList,
-    insertTable, insertHorizontalRule, insertFootnote, insertLink, insertImage,
-    insertWikiLink, insertTypedLinks, insertCallouts, insertCardCallout,
-    insertSparqlQuery, insertSqlQuery, insertPythonScript, insertMermaidDiagram,
-    insertYouTubeEmbed, vegaLiteInserts,
-  } from '../editor/formatting';
   import { resolveKeyBindings } from '../editor/command-registry';
   import { toggleEditorDictation } from '../editor/dictation';
-  import { voiceSettings } from '../voice/voice-settings.svelte';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { highlightDecorations } from '../editor/highlight-decorations';
   import { computeCellsExtension, type RunAllRef } from '../editor/compute-cells';
@@ -60,6 +51,7 @@
   import { findFrontmatterFoldRange } from '../editor/frontmatter';
   import { clampMenuToViewport, clampSubmenu } from '../utils/menuClamp';
   import { extractClaimUri } from '../../../shared/refactor/find-arguments';
+  import type { EditorContextMenuState, EditorMenuOps } from '../editor/context-menu-ops';
 
   export interface CursorInfo {
     line: number;
@@ -69,7 +61,7 @@
   }
 
   import { getToolInfosByCategory } from '../tools/tool-registry';
-  import { isSourceScoped, toolRequiresSelection, type ThinkingToolInfo } from '../../../shared/tools/types';
+  import { isSourceScoped } from '../../../shared/tools/types';
   import { groupToolsByGroup } from '../../../shared/tools/grouping';
 
   interface Props {
@@ -101,41 +93,21 @@
      */
     initialHistory?: unknown;
     onCursorChange?: (info: CursorInfo) => void;
-    onToolInvoke?: (toolId: string) => void;
-    onOpenConversation?: () => void;
-    onBookmark?: () => void;
-    /** Bookmark the section (nearest heading at/above the cursor). The
-     *  handler reads the cursor via `getOffset()` and resolves the slug. */
-    onBookmarkSection?: () => void;
-    /** Bookmark the current line — stores the cursor offset so opening
-     *  jumps back to it (#756). */
-    onBookmarkLine?: () => void;
     /** Position-bearing bookmarks for the current file. The editor renders
      *  a filled-ribbon flag in the gutter on each resolved line (#756). */
     bookmarks?: readonly BookmarkRef[];
-    onInsertQueryList?: () => void;
     onNavigate?: (target: string) => void;
     /** Click on a `[[cite::source-id]]` in the editor → open the source tab. */
     onOpenSource?: (sourceId: string) => void;
     /** Click on a `[[quote::excerpt-id]]` in the editor → open the source tab with excerpt highlighted. */
     onOpenExcerpt?: (excerptId: string) => void;
-    onExtractSelection?: () => void;
-    onSplitHere?: () => void;
-    onSplitByHeading?: () => void;
-    onRename?: () => void;
-    onMove?: () => void;
-    onCopyFile?: () => void;
-    onMerge?: () => void;
-    onAutoTag?: () => void;
-    onAutoLink?: () => void;
-    onAutoLinkInbound?: () => void;
-    onFormatCurrentNote?: () => void;
-    /** Frontmatter metadata actions on the note being edited (mirrors the
-     *  sidebar's tag menu). */
-    onAddTagCurrentNote?: () => void;
-    onRemoveTagCurrentNote?: () => void;
-    onAddPropertyCurrentNote?: () => void;
-    onRemovePropertyCurrentNote?: () => void;
+    /**
+     * The host actions the right-click context menu fans out to, grouped into
+     * one object (#1625). Replaces the ~20 one-shot `on*` forwarder props the
+     * menu used to take. Every entry is optional — the menu shows an item only
+     * when its op is supplied. Forwarded straight to `EditorContextMenu`.
+     */
+    menuOps?: EditorMenuOps;
     /** Live list of note paths for wiki-link autocomplete. */
     getNotePaths?: () => string[];
     /** Live list of Sources for `[[cite::…]]` autocomplete. */
@@ -187,31 +159,11 @@
     onSearchQueryConsumed,
     onEditorStateSave,
     onCursorChange,
-    onToolInvoke,
-    onOpenConversation,
-    onBookmark,
-    onBookmarkSection,
-    onBookmarkLine,
     bookmarks,
-    onInsertQueryList,
     onNavigate,
     onOpenSource,
     onOpenExcerpt,
-    onExtractSelection,
-    onSplitHere,
-    onSplitByHeading,
-    onRename,
-    onMove,
-    onCopyFile,
-    onMerge,
-    onAutoTag,
-    onAutoLink,
-    onAutoLinkInbound,
-    onFormatCurrentNote,
-    onAddTagCurrentNote,
-    onRemoveTagCurrentNote,
-    onAddPropertyCurrentNote,
-    onRemovePropertyCurrentNote,
+    menuOps = {},
     getNotePaths,
     getSources,
     getAliases,
@@ -242,7 +194,7 @@
   // Populated by computeCellsExtension; lets the host trigger Run-all.
   const runAllRef: RunAllRef = { run: null };
   let ignoreNextUpdate = false;
-  let contextMenu = $state<{ x: number; y: number; link: LinkRange | null; hasSelection: boolean; docPos: number | null; claimUri: string | null } | null>(null);
+  let contextMenu = $state<EditorContextMenuState | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
   // Separate from the main context menu: right-click anywhere in the
   // gutter opens a tiny toggle for line-number visibility. Keeps the
@@ -1057,244 +1009,23 @@
   </div>
 {/if}
 
-{#snippet toolButton(tool: ThinkingToolInfo)}
-  {@const needsSelection = toolRequiresSelection(tool) && !contextMenu?.hasSelection}
-  {@const needsClaim = (tool.context?.includes('claimUnderCursor') ?? false) && !contextMenu?.claimUri}
-  <button
-    onclick={() => handleMenuAction(() => onToolInvoke?.(tool.id))}
-    disabled={needsSelection || needsClaim}
-    title={needsClaim
-      ? 'Right-click on a line containing a claim URI'
-      : needsSelection
-        ? 'Select text first'
-        : tool.description}
-  >{tool.name}</button>
-{/snippet}
-
 {#if contextMenu}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="context-menu"
-    bind:this={contextMenuEl}
-    style:left="{contextMenu.x}px"
-    style:top="{contextMenu.y}px"
-    onmousedown={(e) => e.preventDefault()}
-  >
-    {#if contextMenu.link}
-      <button onclick={() => openLink(contextMenu!.link!)}>Open Link</button>
-      <button onclick={() => editLink(contextMenu!.link!)}>Edit Link</button>
-      <div class="separator"></div>
-    {/if}
-    <button onclick={() => execCommand('cut')}>Cut</button>
-    <button onclick={() => execCommand('copy')}>Copy</button>
-    <button onclick={() => execCommand('paste')}>Paste</button>
-    {#if filePath}
-      <button onclick={() => copyBlockLink()}>Copy Block Link</button>
-    {/if}
-    <div class="separator"></div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Highlight<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => runCmd(toggleHighlight)}>Colored Highlight</button>
-        <button onclick={() => runCmd(toggleBold)}>Bold</button>
-        <button onclick={() => runCmd(toggleItalic)}>Italic</button>
-        <button onclick={() => runCmd(toggleCode)}>Code</button>
-        <button onclick={() => runCmd(toggleStrikethrough)}>Strikethrough</button>
-      </div>
-    </div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Link<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => runCmd(insertWikiLink)}>Wiki Link</button>
-        <button onclick={() => runCmd(insertLink)}>URL Link</button>
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Typed Link...<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            {#each insertTypedLinks as { linkType, command }}
-              <button onclick={() => runCmd(command)}>
-                <span class="typed-link-dot" style:background={linkType.color}></span>
-                {linkType.label} Link
-              </button>
-            {/each}
-          </div>
-        </div>
-        <div class="submenu-separator"></div>
-        <button onclick={() => runCmd(insertFootnote)}>Footnote</button>
-      </div>
-    </div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Paragraph<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => runCmd(toggleH1)}>Heading 1</button>
-        <button onclick={() => runCmd(toggleH2)}>Heading 2</button>
-        <button onclick={() => runCmd(toggleH3)}>Heading 3</button>
-        <div class="submenu-separator"></div>
-        <button onclick={() => runCmd(toggleQuote)}>Quote</button>
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Callout...<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            {#each insertCallouts as { label, command }}
-              <button onclick={() => runCmd(command)}>{label}</button>
-            {/each}
-          </div>
-        </div>
-        <button onclick={() => runCmd(insertHorizontalRule)}>Horizontal Rule</button>
-      </div>
-    </div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Elements<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => runCmd(insertTable)}>Table</button>
-        <button onclick={() => runCmd(insertImage)}>Image</button>
-        <button onclick={() => runCmd(toggleBulletList)}>Bulleted List</button>
-        <button onclick={() => runCmd(toggleNumberedList)}>Numbered List</button>
-        <div class="submenu-separator"></div>
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Query...<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            <button onclick={() => runCmd(insertSqlQuery)}>SQL</button>
-            <button onclick={() => runCmd(insertSparqlQuery)}>SPARQL</button>
-          </div>
-        </div>
-        <button onclick={() => runCmd(insertPythonScript)}>Python Script</button>
-        <button onclick={() => runCmd(insertMermaidDiagram)}>Mermaid Diagram</button>
-        <button onclick={() => runCmd(insertYouTubeEmbed)}>YouTube Video</button>
-        <button onclick={() => runCmd(insertCardCallout)}>Flashcard</button>
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">Chart...<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            {#each vegaLiteInserts as t (t.label)}
-              <button onclick={() => runCmd(t.command)}>{t.label}</button>
-            {/each}
-          </div>
-        </div>
-        <div class="submenu-separator"></div>
-        <button onclick={() => handleMenuAction(() => onInsertQueryList?.())}>Link List for Tag...</button>
-      </div>
-    </div>
-    {#if onToolInvoke && toolMenus.length > 0}
-      <div class="separator"></div>
-      {#each toolMenus as menu (menu.id)}
-        <div class="submenu-item" onmouseenter={adjustSubmenu}>
-          <span class="submenu-trigger">{menu.label}<Icon name="chevronRight" size={10} /></span>
-          <div class="submenu">
-            <!-- Named groups nest into submenus; ungrouped skills stay inline
-                 (like the Source tools menu) rather than being swept into a
-                 "General" bucket, so adding a group to one skill is a local
-                 change, not a menu-wide restructure. -->
-            {#each menu.groups as group (group.label ?? ' ungrouped')}
-              {#if group.label}
-                <div class="submenu-item" onmouseenter={adjustSubmenu}>
-                  <span class="submenu-trigger">{group.label}<Icon name="chevronRight" size={10} /></span>
-                  <div class="submenu">
-                    {#each group.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
-                  </div>
-                </div>
-              {:else}
-                {#each group.tools as tool (tool.id)}{@render toolButton(tool)}{/each}
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {/each}
-    {/if}
-    {#if onAddTagCurrentNote || onRemoveTagCurrentNote || onAddPropertyCurrentNote || onRemovePropertyCurrentNote}
-      <div class="separator"></div>
-      <div class="submenu-item" onmouseenter={adjustSubmenu}>
-        <span class="submenu-trigger">Metadata<Icon name="chevronRight" size={10} /></span>
-        <div class="submenu">
-          {#if onAddTagCurrentNote}
-            <button onclick={() => handleMenuAction(() => onAddTagCurrentNote?.())}>Add Tag&hellip;</button>
-          {/if}
-          {#if onRemoveTagCurrentNote}
-            <button onclick={() => handleMenuAction(() => onRemoveTagCurrentNote?.())}>Remove Tag&hellip;</button>
-          {/if}
-          {#if onAddPropertyCurrentNote}
-            <button onclick={() => handleMenuAction(() => onAddPropertyCurrentNote?.())}>Add Property&hellip;</button>
-          {/if}
-          {#if onRemovePropertyCurrentNote}
-            <button onclick={() => handleMenuAction(() => onRemovePropertyCurrentNote?.())}>Remove Property&hellip;</button>
-          {/if}
-        </div>
-      </div>
-    {/if}
-    <div class="separator"></div>
-    {#if onExtractSelection || onSplitHere || onSplitByHeading || onRename || onMove || onCopyFile || onMerge || onAutoTag || onAutoLink || onAutoLinkInbound}
-      <div class="submenu-item" onmouseenter={adjustSubmenu}>
-        <span class="submenu-trigger">Refactor<Icon name="chevronRight" size={10} /></span>
-        <div class="submenu">
-          {#if onRename}
-            <button onclick={() => handleMenuAction(() => onRename?.())}>Rename&hellip;</button>
-          {/if}
-          {#if onMove}
-            <button onclick={() => handleMenuAction(() => onMove?.())}>Move&hellip;</button>
-          {/if}
-          {#if onCopyFile}
-            <button onclick={() => handleMenuAction(() => onCopyFile?.())}>Copy&hellip;</button>
-          {/if}
-          {#if onMerge}
-            <button onclick={() => handleMenuAction(() => onMerge?.())}>Merge into&hellip;</button>
-          {/if}
-          {#if onRename || onMove || onCopyFile || onMerge}
-            <div class="separator"></div>
-          {/if}
-          {#if onExtractSelection}
-            <button
-              onclick={() => handleMenuAction(() => onExtractSelection?.())}
-              disabled={!contextMenu.hasSelection}
-            >Extract Selection to New Note</button>
-          {/if}
-          {#if onSplitHere}
-            <button onclick={() => handleMenuAction(() => onSplitHere?.())}>Split Note Here</button>
-          {/if}
-          {#if onSplitByHeading}
-            <button onclick={() => handleMenuAction(() => onSplitByHeading?.())}>Split by Heading&hellip;</button>
-          {/if}
-          {#if onAutoTag || onAutoLink || onAutoLinkInbound}
-            {#if onExtractSelection || onSplitHere || onSplitByHeading}
-              <div class="separator"></div>
-            {/if}
-            {#if onAutoTag}
-              <button onclick={() => handleMenuAction(() => onAutoTag?.())}>Auto-tag</button>
-            {/if}
-            {#if onAutoLink}
-              <button onclick={() => handleMenuAction(() => onAutoLink?.())}>Auto-link outbound&hellip;</button>
-            {/if}
-            {#if onAutoLinkInbound}
-              <button onclick={() => handleMenuAction(() => onAutoLinkInbound?.())}>Auto-link inbound&hellip;</button>
-            {/if}
-          {/if}
-          {#if onFormatCurrentNote}
-            <div class="separator"></div>
-            <button onclick={() => handleMenuAction(() => onFormatCurrentNote?.())}>Format Note</button>
-          {/if}
-        </div>
-      </div>
-      <div class="separator"></div>
-    {/if}
-    <button onclick={() => handleMenuAction(() => onOpenConversation?.())}>Ask About This...</button>
-    {#if voiceSettings.enabled}
-      <button onclick={() => handleMenuAction(() => void toggleEditorDictation(view))}>Dictate…</button>
-    {/if}
-    <button onclick={() => handleMenuAction(() => onBookmark?.())}>Bookmark This Note</button>
-    {#if onBookmarkSection}
-      <button onclick={() => handleMenuAction(() => onBookmarkSection?.())}>Bookmark Section</button>
-    {/if}
-    {#if onBookmarkLine}
-      <button onclick={() => handleMenuAction(() => onBookmarkLine?.())}>Bookmark Line</button>
-    {/if}
-    <div class="separator"></div>
-    <div class="submenu-item" onmouseenter={adjustSubmenu}>
-      <span class="submenu-trigger">Open In<Icon name="chevronRight" size={10} /></span>
-      <div class="submenu">
-        <button onclick={() => { void api.shell.revealFile(filePath); closeMenu(); }}>Reveal in Finder</button>
-        <button onclick={() => { void api.shell.openInDefault(filePath); closeMenu(); }}>Open in Default App</button>
-        <button onclick={() => { void api.shell.openInTerminal(filePath); closeMenu(); }}>Open in Terminal</button>
-      </div>
-    </div>
-    <div class="separator"></div>
-    <button onclick={() => execCommand('selectAll')}>Select All</button>
-  </div>
+  <EditorContextMenu
+    menu={contextMenu}
+    bind:menuEl={contextMenuEl}
+    {filePath}
+    {toolMenus}
+    ops={menuOps}
+    onExec={execCommand}
+    onRunCmd={runCmd}
+    onCopyBlockLink={copyBlockLink}
+    onOpenLink={openLink}
+    onEditLink={editLink}
+    onAdjustSubmenu={adjustSubmenu}
+    onMenuAction={handleMenuAction}
+    onClose={closeMenu}
+    onDictate={() => void toggleEditorDictation(view)}
+  />
 {/if}
 
 <style>
@@ -1395,64 +1126,11 @@
     background: var(--bg-button);
   }
 
+  /* The gutter menu (right-click in the line-number gutter) reuses the
+     `.context-menu` base above; its own tweaks stay here. The submenu /
+     separator / typed-link-dot styles moved to EditorContextMenu.svelte
+     along with the menu markup (#1625). */
   .gutter-menu { min-width: 180px; }
   .gutter-menu button { display: flex; align-items: center; gap: 8px; }
   .gutter-menu .check { width: 12px; text-align: center; color: var(--accent); }
-
-  .submenu-item {
-    position: relative;
-  }
-
-  .submenu-trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--text);
-    cursor: default;
-  }
-
-  .submenu-item:hover > .submenu-trigger {
-    background: var(--bg-button);
-  }
-
-  .submenu {
-    display: none;
-    position: absolute;
-    left: 100%;
-    top: -4px;
-    background: var(--bg-sidebar);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 4px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    min-width: 150px;
-  }
-
-  .submenu-item:hover > .submenu {
-    display: block;
-  }
-
-  .submenu-separator {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 0;
-  }
-
-  .typed-link-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-right: 4px;
-    vertical-align: middle;
-  }
-
-  .separator {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 0;
-  }
 </style>
