@@ -6,6 +6,8 @@
   import Icon from './Icon.svelte';
   import Eyebrow from './ui/Eyebrow.svelte';
   import Chip from './ui/Chip.svelte';
+  import NavList from './NavList.svelte';
+  import SourceLinkRow from './SourceLinkRow.svelte';
   import { renderInlineWithMath } from '../markdown/inline-math';
   import type { SourceDetail, SourceExcerpt, SourceBacklink, ReadStatus } from '../../../shared/types';
   import type { ThinkingToolInfo } from '../../../shared/tools/types';
@@ -691,34 +693,36 @@
       {#if detail.aboutNotes.length === 0}
         <p class="muted">No notes about this source yet.</p>
       {:else}
-        <ul class="about-list">
+        <NavList>
           {#each detail.aboutNotes as note (note.relativePath)}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <li onclick={() => onNavigate(note.relativePath)}>
-              <span class="about-title">{note.title}</span>
-              <span class="about-path mono">{note.relativePath}</span>
-            </li>
+            <SourceLinkRow title={note.title} onClick={() => onNavigate(note.relativePath)}>
+              {#snippet meta()}
+                <span class="about-path mono">{note.relativePath}</span>
+              {/snippet}
+            </SourceLinkRow>
           {/each}
-        </ul>
+        </NavList>
       {/if}
     </section>
 
     {#if detail.references.length > 0}
       <section>
         <div class="sect-head"><Eyebrow>References <span class="ct">{detail.references.length}</span></Eyebrow></div>
-        <ul class="about-list">
+        <NavList>
           {#each detail.references as ref (ref.sourceId)}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <li onclick={() => onOpenReference?.(ref.sourceId)} class:stub-row={ref.stubStatus === 'unresolved'}>
-              <span class="about-title">{ref.title}</span>
-              {#if ref.stubStatus === 'unresolved'}
-                <span class="stub-badge">stub</span>
-              {/if}
-            </li>
+            <SourceLinkRow
+              title={ref.title}
+              onClick={() => onOpenReference?.(ref.sourceId)}
+              stub={ref.stubStatus === 'unresolved'}
+            >
+              {#snippet meta()}
+                {#if ref.stubStatus === 'unresolved'}
+                  <span class="stub-badge">stub</span>
+                {/if}
+              {/snippet}
+            </SourceLinkRow>
           {/each}
-        </ul>
+        </NavList>
       </section>
     {/if}
 
@@ -727,22 +731,21 @@
       {#if detail.backlinks.length === 0}
         <p class="muted">No notes reference this source.</p>
       {:else}
-        <ul class="backlink-list">
+        <NavList>
           {#each detail.backlinks as b}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <li onclick={() => onNavigate(b.relativePath)}>
-              <span class="backlink-title">{b.title}</span>
-              <span class="backlink-meta">
-                <span class="backlink-kind">{backlinkLabel(b)}</span>
-                {#if b.viaExcerptId}
-                  <span class="sep">·</span>
-                  <span class="mono">{b.viaExcerptId}</span>
-                {/if}
-              </span>
-            </li>
+            <SourceLinkRow title={b.title} onClick={() => onNavigate(b.relativePath)}>
+              {#snippet meta()}
+                <span class="backlink-meta">
+                  <span class="backlink-kind">{backlinkLabel(b)}</span>
+                  {#if b.viaExcerptId}
+                    <span class="sep">·</span>
+                    <span class="mono">{b.viaExcerptId}</span>
+                  {/if}
+                </span>
+              {/snippet}
+            </SourceLinkRow>
           {/each}
-        </ul>
+        </NavList>
       {/if}
     </section>
   {/if}
@@ -1176,7 +1179,7 @@
     font-style: italic;
   }
 
-  .excerpt-list, .backlink-list {
+  .excerpt-list {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -1236,22 +1239,6 @@
     cursor: default;
   }
 
-  .backlink-list li {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-  .backlink-list li:hover { background: var(--bg-button); }
-  .backlink-list li:last-child { border-bottom: none; }
-
-  .backlink-title {
-    color: var(--accent);
-  }
-
   .backlink-meta {
     font-size: 12px;
     color: var(--text-muted);
@@ -1289,35 +1276,11 @@
   }
   .section-action:disabled { cursor: default; opacity: 0.5; }
 
-  .about-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .about-list li {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-  .about-list li:hover { background: var(--bg-button); }
-  .about-list li:last-child { border-bottom: none; }
-  .about-title { color: var(--accent); }
   .about-path {
     font-size: 11px;
     color: var(--text-faint);
   }
 
-  /* Stub source from reference mining (#106): italic title, dimmed
-     for visual distinction from fully-ingested sources. */
-  .about-list li.stub-row .about-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    color: color-mix(in oklch, var(--accent) 60%, var(--text-muted));
-  }
   .stub-badge {
     font-family: var(--font-mono);
     font-size: 9.5px;
