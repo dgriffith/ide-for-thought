@@ -1,21 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getEditorSettings, type EditorSettings } from '../editor/settings';
-  import {
-    getFontFamily,
-    setFontFamily,
-    FONT_FAMILY_PRESETS,
-    type FontFamilyPreset,
-  } from '../appearance/settings';
-  import { isFontInstalled } from '../appearance/font-detect';
-  import { getThemeMode, setThemeMode, THEME_MODES, type ThemeMode } from '../theme';
-  import { clampFontSize, parseStoredFontSize, MIN_FONT, MAX_FONT, DEFAULT_FONT } from '../editor/font-size';
-  import { setZoom, getStoredZoom, MIN_ZOOM, MAX_ZOOM } from '../appearance/zoom';
   import { api } from '../ipc/client';
   import type { LLMSettingsUpdate } from '../../../shared/tools/types';
   import { getSettingsStore } from '../stores/settings.svelte';
   import { makePatch } from '../make-patch';
   import BehaviorsSettings from './BehaviorsSettings.svelte';
+  import EditorSettingsPanel from './EditorSettings.svelte';
+  import AppearanceSettings from './AppearanceSettings.svelte';
+  import WebSettings from './WebSettings.svelte';
   import FormatterSettings from './FormatterSettings.svelte';
   import ClipperSettings from './ClipperSettings.svelte';
   import SourcesSettings from './SourcesSettings.svelte';
@@ -139,38 +132,6 @@
   // Editor settings
   let editor = $state<EditorSettings>(getEditorSettings());
 
-  // Appearance settings
-  let theme = $state<ThemeMode>(getThemeMode());
-  let fontFamily = $state<FontFamilyPreset>(getFontFamily());
-  // Editor font size (px) + whole-window zoom (%). Font size seeds from the
-  // stored value; zoom reads the *live* frame factor in onMount so the field
-  // reflects whatever the View-menu zoom shortcuts left on screen.
-  let editorFontSize = $state(clampFontSize(parseStoredFontSize(localStorage.getItem('editorFontSize'))));
-  let zoomPercent = $state(Math.round(getStoredZoom() * 100));
-
-  function applyEditorFontSize(px: number): void {
-    if (!Number.isFinite(px)) return; // ignore an empty / mid-edit field
-    editorFontSize = clampFontSize(px);
-    onApplyFontSize(editorFontSize);
-  }
-
-  function applyZoomPercent(percent: number): void {
-    if (!Number.isFinite(percent)) return;
-    const applied = setZoom(percent / 100);
-    zoomPercent = Math.round(applied * 100);
-  }
-
-  // Font presets as an array for the select
-  const fontPresets = Object.entries(FONT_FAMILY_PRESETS).map(([id, def]) => ({
-    id: id as FontFamilyPreset,
-    label: def.label,
-  }));
-
-  // Soft "font not installed" hint (#...): only the named-face presets carry a
-  // `probe`; the check is a heuristic, so this never blocks the choice — it just
-  // makes the silent fallback visible. Re-evaluated when the selection changes.
-  const fontProbe = $derived(FONT_FAMILY_PRESETS[fontFamily].probe);
-  const fontMissing = $derived(fontProbe !== undefined && !isFontInstalled(fontProbe));
 
   // Privileged sites now live in SitesSettings.svelte (self-contained panel).
 
@@ -217,9 +178,6 @@
   // ComputeSettings.svelte (self-contained).
 
   onMount(async () => {
-    // Reflect the live window zoom (the View-menu shortcuts may have changed it
-    // since it was last persisted).
-    zoomPercent = Math.round(api.view.getZoomFactor() * 100);
     try {
       const s = await api.tools.getSettings();
       model = s.model;
@@ -269,11 +227,6 @@
     // Editor — localStorage via Editor component
     onApplyEditor(editor);
 
-    // Appearance — already applied live (theme + font) but persist just in case.
-    setThemeMode(theme);
-    setFontFamily(fontFamily);
-    onThemeChanged();
-
     // Web + AI — build the settings update and save. Per-provider keys are
     // tri-state (BYOM #1498): clear → '', a typed value → that key, otherwise
     // OMIT so main preserves the stored key without decrypting; base URLs send
@@ -317,16 +270,6 @@
     onClose();
   }
 
-  // Live-apply theme and font changes as the user picks them, so they can
-  // preview without committing — mirrors how the status-bar cycle already
-  // applies immediately.
-  $effect(() => {
-    setThemeMode(theme);
-    onThemeChanged();
-  });
-  $effect(() => {
-    setFontFamily(fontFamily);
-  });
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -367,123 +310,10 @@
           </div>
         {/if}
         {#if activeTab === 'editor'}
-          <div class="field">
-            <label for="tab-size">Tab size</label>
-            <input
-              id="tab-size"
-              type="number"
-              min="1"
-              max="8"
-              bind:value={editor.tabSize}
-            />
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={editor.wordWrap} />
-              Word wrap
-            </label>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={editor.lineNumbers} />
-              Show line numbers
-            </label>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={editor.showWhitespace} />
-              Show whitespace
-            </label>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={editor.alwaysCollapseFrontmatter} />
-              Always collapse frontmatter
-            </label>
-            <p class="hint">
-              Automatically folds the YAML frontmatter block at the top of a note when it's opened.
-            </p>
-          </div>
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={editor.numberedHeadings} />
-              Numbered section headings
-            </label>
-            <p class="hint">
-              Prefixes each H2 in the preview with a "§ 01" section numeral. Best for long-form
-              essays; leave off for journals and lists.
-            </p>
-          </div>
+          <EditorSettingsPanel bind:editor />
 
         {:else if activeTab === 'appearance'}
-          <div class="field">
-            <label for="theme">Theme</label>
-            <select id="theme" bind:value={theme}>
-              {#each THEME_MODES as opt}
-                <option value={opt.value}>{opt.label}</option>
-              {/each}
-            </select>
-            <p class="hint">
-              You can also cycle themes from the status bar or with <kbd>⌘⇧T</kbd>.
-            </p>
-          </div>
-          <div class="field">
-            <label for="font-family">Content font</label>
-            <select id="font-family" bind:value={fontFamily}>
-              {#each fontPresets as p}
-                <option value={p.id}>{p.label}</option>
-              {/each}
-            </select>
-            <p class="hint">
-              Applies to the markdown editor and preview. App chrome always uses the system font.
-            </p>
-            {#if fontMissing && fontProbe}
-              <p class="hint font-missing">
-                “{fontProbe}” doesn’t appear to be installed — the editor will use a fallback font.
-                Install {fontProbe}, or pick another option.
-              </p>
-            {/if}
-          </div>
-          <div class="field">
-            <label for="editor-font-size">Editor font size</label>
-            <div class="inline-num">
-              <input
-                id="editor-font-size"
-                type="number"
-                min={MIN_FONT}
-                max={MAX_FONT}
-                step="1"
-                value={editorFontSize}
-                onchange={(e) => applyEditorFontSize(parseInt(e.currentTarget.value, 10))}
-              />
-              <span class="unit">px</span>
-              <button class="btn-inline" onclick={() => applyEditorFontSize(DEFAULT_FONT)}>Reset</button>
-            </div>
-            <p class="hint">
-              Size of the text in the source editor only ({MIN_FONT}–{MAX_FONT}px). Also
-              adjustable with <kbd>⌘⇧=</kbd> / <kbd>⌘⇧-</kbd>.
-            </p>
-          </div>
-          <div class="field">
-            <label for="window-zoom">Window zoom</label>
-            <div class="inline-num">
-              <input
-                id="window-zoom"
-                type="number"
-                min={Math.round(MIN_ZOOM * 100)}
-                max={Math.round(MAX_ZOOM * 100)}
-                step="10"
-                value={zoomPercent}
-                onchange={(e) => applyZoomPercent(parseInt(e.currentTarget.value, 10))}
-              />
-              <span class="unit">%</span>
-              <button class="btn-inline" onclick={() => applyZoomPercent(100)}>Reset</button>
-            </div>
-            <p class="hint">
-              Scales the whole window — sidebar, toolbar, dialogs, and the editor together.
-              Also adjustable with <kbd>⌘+</kbd> / <kbd>⌘-</kbd> / <kbd>⌘0</kbd>.
-            </p>
-          </div>
+          <AppearanceSettings {onApplyFontSize} {onThemeChanged} />
 
         {:else if activeTab === 'behaviors'}
           <BehaviorsSettings />
@@ -621,42 +451,7 @@
           <FormatterSettings />
 
         {:else if activeTab === 'web'}
-          <div class="field checkbox">
-            <label>
-              <input type="checkbox" bind:checked={webEnabled} />
-              Enable web access for conversations
-            </label>
-            <p class="hint">
-              When off, the assistant cannot call <code>web_search</code> or <code>web_fetch</code>.
-            </p>
-          </div>
-          <div class="field" class:disabled={!webEnabled}>
-            <label for="allowed-domains">Allowed domains</label>
-            <textarea
-              id="allowed-domains"
-              rows="3"
-              bind:value={allowedDomainsText}
-              disabled={!webEnabled}
-              placeholder="One domain per line (e.g. arxiv.org)"
-            ></textarea>
-            <p class="hint">
-              If any domains are listed, web searches are restricted to them.
-              Leave blank to search the whole web.
-            </p>
-          </div>
-          <div class="field" class:disabled={!webEnabled}>
-            <label for="blocked-domains">Blocked domains</label>
-            <textarea
-              id="blocked-domains"
-              rows="3"
-              bind:value={blockedDomainsText}
-              disabled={!webEnabled}
-              placeholder="One domain per line"
-            ></textarea>
-            <p class="hint">
-              Ignored when an allowlist is set. The API accepts one or the other.
-            </p>
-          </div>
+          <WebSettings bind:webEnabled bind:allowedDomainsText bind:blockedDomainsText />
 
         {:else if activeTab === 'sources'}
           <SourcesSettings bind:importUpstreamTags />
