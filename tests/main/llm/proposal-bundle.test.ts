@@ -141,6 +141,35 @@ describe('ProposalBundle apply + rollback (#418)', () => {
     expect(fs.existsSync(path.join(root, 'notes/should-be-rolled-back.md'))).toBe(false);
   });
 
+  it('rolls back multiple FS payloads in REVERSE order (two rewrites of one file → original restored)', async () => {
+    // Two note-rewrite payloads target the SAME file, then a broken triples
+    // payload fails the bundle. Apply order: rewrite→"V2" (captures pre-image
+    // "V1"), rewrite→"V3" (captures pre-image "V2"). Only a REVERSE-order
+    // rollback — undo the second rewrite back to "V2", THEN the first back to
+    // "V1" — restores the original; a forward walk would restore "V1" then
+    // "V2" and leave "V2" on disk. Pins applyBundle's reverse rollback walk.
+    await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
+    await fsp.writeFile(path.join(root, 'notes/rev.md'), 'V1\n', 'utf-8');
+
+    const proposal = await proposeWrite(ctx, {
+      operationType: 'note_rewrite',
+      payloads: [
+        { kind: 'note-rewrite', path: 'notes/rev.md', content: 'V2\n' },
+        { kind: 'note-rewrite', path: 'notes/rev.md', content: 'V3\n' },
+        {
+          kind: 'graph-triples',
+          turtle: '<https://ex/x> ;;;; .',
+          affectsNodeUris: ['https://ex/x'],
+        },
+      ],
+      note: 'reverse-order rollback',
+      proposedBy: 'unit-test',
+    });
+    await expect(approveProposal(ctx, proposal.uri)).rejects.toThrow();
+
+    expect(await fsp.readFile(path.join(root, 'notes/rev.md'), 'utf-8')).toBe('V1\n');
+  });
+
   it('apply-time path collision suffixes -2/-3 instead of overwriting', async () => {
     // Plant a file that occupies the proposed path.
     await fsp.mkdir(path.join(root, 'notes'), { recursive: true });
