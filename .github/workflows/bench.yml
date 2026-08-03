@@ -61,7 +61,7 @@ jobs:
 
       - name: Upload refreshed baseline
         if: ${{ inputs.update_baseline == true }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-baseline
           path: tests/main/bench-baseline.json
