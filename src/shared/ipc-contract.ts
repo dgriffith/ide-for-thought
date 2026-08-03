@@ -58,6 +58,7 @@ import type {
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
+import type { RevisionMeta } from './history';
 import type { CellResult, CellOutput, ComputeConsentSummary } from './compute/types';
 import type { AutoLinkSuggestion } from './refactor/auto-link';
 import type { AutoLinkInboundSuggestion } from './refactor/auto-link-inbound';
@@ -189,6 +190,11 @@ export interface ChannelMap {
   // Tab session
   'tabs:save': (session: LayoutSession) => void;
   'tabs:load': () => LayoutSession | TabSession | null;
+
+  // Local per-note history (#1158)
+  'history:list': (relativePath: string) => RevisionMeta[];
+  'history:getRevision': (relativePath: string, ts: number) => string | null;
+  'history:restore': (relativePath: string, ts: number) => void;
 
   // Saved queries
   'queries:list': () => SavedQuery[];

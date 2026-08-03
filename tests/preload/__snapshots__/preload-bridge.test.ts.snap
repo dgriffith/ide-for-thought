@@ -140,6 +140,11 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "setBaseUri",
     "sourceDetail",
   ],
+  "history": [
+    "getRevision",
+    "list",
+    "restore",
+  ],
   "images": [
     "cacheExternal",
   ],

@@ -348,6 +348,11 @@ contextBridge.exposeInMainWorld('api', {
     save: (session: LayoutSession) => invoke(Channels.TABS_SAVE, session),
     load: () => invoke(Channels.TABS_LOAD),
   },
+  history: {
+    list: (relativePath: string) => invoke(Channels.HISTORY_LIST, relativePath),
+    getRevision: (relativePath: string, ts: number) => invoke(Channels.HISTORY_GET_REVISION, relativePath, ts),
+    restore: (relativePath: string, ts: number) => invoke(Channels.HISTORY_RESTORE, relativePath, ts),
+  },
   refactor: {
     autoTagSuggest: (relativePath: string) => invoke(Channels.REFACTOR_AUTO_TAG_SUGGEST, relativePath),
     autoTagApply: (relativePath: string, acceptedTags: string[]) =>

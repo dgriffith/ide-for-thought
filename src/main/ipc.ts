@@ -19,6 +19,7 @@ import { registerConversation } from './ipc/register-conversation';
 import { registerConversationDrafts } from './ipc/register-conversation-drafts';
 import { registerProposals } from './ipc/register-proposals';
 import { registerBookmarks } from './ipc/register-bookmarks';
+import { registerHistory } from './ipc/register-history';
 import { registerClipper } from './ipc/register-clipper';
 import { registerApp } from './ipc/register-app';
 import { onProposalsChanged } from './llm/proposal-events';
@@ -55,6 +56,7 @@ export function registerIpcHandlers(): void {
   registerConversation();
   registerConversationDrafts();
   registerBookmarks();
+  registerHistory();
   registerClipper();
   registerApp();
 }
