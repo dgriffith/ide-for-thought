@@ -55,7 +55,14 @@ describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473
     { relativePath: 'deep/nested/journey/consensus.md', isDirectory: false },
     { relativePath: 'a/b/c/x.md', isDirectory: false },
     { relativePath: 'x.md', isDirectory: false },
-    { relativePath: 'assets/pic.png', isDirectory: false }, // non-md, ignored
+    // Non-md notes (#1446). The csv is listed BEFORE its same-stem md twin so
+    // the equivalence check also proves md-first precedence is enforced INSIDE
+    // the resolvers, not by caller order.
+    { relativePath: 'reports/budget.csv', isDirectory: false },
+    { relativePath: 'reports/budget.md', isDirectory: false }, // same stem → md wins for bare [[budget]]
+    { relativePath: 'data/records.ttl', isDirectory: false },
+    { relativePath: 'scripts/run.py', isDirectory: false },
+    { relativePath: 'assets/pic.png', isDirectory: false }, // non-note ext, ignored
     { relativePath: 'notes', isDirectory: true },           // dir, ignored
   ];
   const aliases = { 'rowing boat': 'notes/topic/raft.md', consensus: 'journal/raft.md' };
@@ -66,6 +73,9 @@ describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473
     'ideas & plans', 'consensus', 'journey/consensus', 'nested/journey/consensus',
     'rowing boat', 'ROWING BOAT', 'x', 'c/x', 'b/c/x', 'nonexistent',
     '', 'raft.md', 'RAFT', 'topic/raft', 'deep/nested/journey/consensus',
+    // non-md + explicit-ext + precedence targets (#1446)
+    'budget', 'reports/budget', 'budget.csv', 'reports/budget.csv', 'budget.md',
+    'records', 'data/records', 'records.ttl', 'run', 'scripts/run', 'run.py',
   ];
 
   const index = buildWikiLinkIndex(files, aliases);
@@ -81,5 +91,42 @@ describe('buildWikiLinkIndex / resolveWikiLinkTargetWithIndex equivalence (#1473
     for (const t of targets) {
       expect(resolveWikiLinkTargetWithIndex(t, idx)).toBe(resolveWikiLinkTarget(t, files));
     }
+  });
+});
+
+// ── Non-markdown note resolution (#1446) ─────────────────────────────────────
+describe('resolveWikiLinkTarget — non-markdown notes (#1446)', () => {
+  it('resolves a bare link to a .csv / .ttl / .py note', () => {
+    const f = [{ relativePath: 'reports/budget.csv', isDirectory: false }];
+    expect(resolveWikiLinkTarget('budget', f)).toBe('reports/budget.csv');
+    expect(resolveWikiLinkTarget('reports/budget', f)).toBe('reports/budget.csv');
+
+    const t = [{ relativePath: 'data/records.ttl', isDirectory: false }];
+    expect(resolveWikiLinkTarget('records', t)).toBe('data/records.ttl');
+
+    const p = [{ relativePath: 'scripts/run.py', isDirectory: false }];
+    expect(resolveWikiLinkTarget('run', p)).toBe('scripts/run.py');
+  });
+
+  it('prefers .md when a bare link collides across extensions (md-first)', () => {
+    // csv listed first — precedence must come from noteExtRank, not order.
+    const f = [
+      { relativePath: 'reports/budget.csv', isDirectory: false },
+      { relativePath: 'reports/budget.md', isDirectory: false },
+    ];
+    expect(resolveWikiLinkTarget('budget', f)).toBe('reports/budget.md');
+  });
+
+  it('honors an explicit extension over precedence (regression guard)', () => {
+    const f = [
+      { relativePath: 'reports/budget.csv', isDirectory: false },
+      { relativePath: 'reports/budget.md', isDirectory: false },
+    ];
+    // [[budget.csv]] must reach the CSV even though budget.md exists.
+    expect(resolveWikiLinkTarget('budget.csv', f)).toBe('reports/budget.csv');
+    expect(resolveWikiLinkTarget('reports/budget.csv', f)).toBe('reports/budget.csv');
+    // …and the index fast-path agrees.
+    const idx = buildWikiLinkIndex(f);
+    expect(resolveWikiLinkTargetWithIndex('budget.csv', idx)).toBe('reports/budget.csv');
   });
 });
