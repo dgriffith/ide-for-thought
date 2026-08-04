@@ -85,6 +85,7 @@
     lineBookmarkName,
     formatCappedList,
   } from './lib/app/text-helpers';
+  import { noteTargetPathBeside } from '../shared/wiki-link-resolver';
   import { initAppearance } from './lib/appearance/settings';
   import { applyStoredZoom } from './lib/appearance/zoom';
   import { clampFontSize } from './lib/editor/font-size';
@@ -1194,6 +1195,7 @@
                           getNotePaths={() => flattenNotePaths(notebase.files)}
                           getSources={() => sourcesCache}
                           getAliases={() => aliasEntries}
+                          onCreateNoteFromReference={(target) => void createNoteFromReference(noteTargetPathBeside(note.relativePath, target))}
                           resolveInlineTypeCreate={handleInlineTypeCreate}
                           bookmarks={collectBookmarksForPath(bookmarkStore.tree, note.relativePath)}
                           onUploadError={(message) => {

@@ -4,6 +4,7 @@ import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from './queries';
 import type { InspectionFix } from '../../shared/types';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
+import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -539,18 +540,6 @@ function decodeSegmented(s: string): string {
   return s.split('/').map(decode).join('/');
 }
 
-/**
- * Where "Create Note From Reference" (#1446) puts the new note: beside the
- * referencing note. The basename is the link target's own basename (any
- * directory part of the target is dropped — wiki-links are basename-scoped);
- * the directory is the referencing note's folder.
- */
-function createNoteTargetPath(referencingPath: string, targetStem: string): string {
-  const base = targetStem.split('/').pop() ?? targetStem;
-  const slashIdx = referencingPath.lastIndexOf('/');
-  const dir = slashIdx >= 0 ? referencingPath.slice(0, slashIdx) : '';
-  return dir ? `${dir}/${base}.md` : `${base}.md`;
-}
 
 function inspectionForBrokenLink(
   ctx: ProjectContext,
@@ -611,7 +600,7 @@ function inspectionForBrokenLink(
         fix: {
           kind: 'create-note',
           label: 'Create Note',
-          targetPath: createNoteTargetPath(row.sourcePath, stem),
+          targetPath: noteTargetPathBeside(row.sourcePath, stem),
         },
       };
     }

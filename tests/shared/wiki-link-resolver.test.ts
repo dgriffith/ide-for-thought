@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalizeWikiLinkTarget } from '../../src/shared/wiki-link-resolver';
+import { canonicalizeWikiLinkTarget, noteTargetPathBeside } from '../../src/shared/wiki-link-resolver';
+
+describe('noteTargetPathBeside (#1446 create-note path)', () => {
+  it('creates beside a root note', () => {
+    expect(noteTargetPathBeside('a.md', 'budget')).toBe('budget.md');
+  });
+  it('creates in the referencing note\'s folder', () => {
+    expect(noteTargetPathBeside('topic/deep/a.md', 'Concept X')).toBe('topic/deep/Concept X.md');
+  });
+  it('drops any path + note extension from the target, keeps the basename', () => {
+    expect(noteTargetPathBeside('topic/a.md', 'sub/budget.csv')).toBe('topic/budget.md');
+  });
+  it('strips an #anchor from the target', () => {
+    expect(noteTargetPathBeside('topic/a.md', 'budget#totals')).toBe('topic/budget.md');
+  });
+});
 
 const files = [
   { relativePath: 'notes/topic/raft.md', isDirectory: false },
