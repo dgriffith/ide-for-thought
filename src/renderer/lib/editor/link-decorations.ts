@@ -75,7 +75,10 @@ function trimUrlTail(url: string): string {
   return url.replace(/[.,;:!?)\]}'"]+$/, '');
 }
 
-function scanLinks(text: string, offset: number): LinkRange[] {
+/** Parse every link (wiki / markdown / bare URL) in `text`, whose ranges are
+ *  offset by `offset` (the slice's start in the doc). Exported so the
+ *  broken-link decoration layer (#1446) reuses one wiki-link parser. */
+export function scanLinks(text: string, offset: number): LinkRange[] {
   const ranges: LinkRange[] = [];
 
   // Markdown links first — they need to shadow any bare URL that lives inside.

@@ -248,3 +248,19 @@ export function canonicalizeWikiLinkTarget(
   }
   return stem;
 }
+
+/**
+ * The canonical path for "Create Note From Reference" (#1446): the new `.md`
+ * note lands **beside the referencing note**. The basename is the link target's
+ * own basename (any directory part is dropped — wiki-links are basename-scoped;
+ * any `#anchor` and note extension are stripped); the directory is the
+ * referencing note's folder. Shared by the inspection quick-fix (main) and the
+ * in-editor Alt-Enter quick-fix (renderer) so both create at the same place.
+ */
+export function noteTargetPathBeside(referencingPath: string, target: string): string {
+  const noAnchor = target.split('#')[0] ?? target;
+  const base = stripNoteExt(noAnchor.split('/').pop() ?? noAnchor);
+  const slashIdx = referencingPath.lastIndexOf('/');
+  const dir = slashIdx >= 0 ? referencingPath.slice(0, slashIdx) : '';
+  return dir ? `${dir}/${base}.md` : `${base}.md`;
+}

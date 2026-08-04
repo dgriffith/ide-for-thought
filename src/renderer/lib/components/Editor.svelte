@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import EditorContextMenu from './EditorContextMenu.svelte';
+  import QuickFixMenu, { type QuickFix } from './QuickFixMenu.svelte';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { EditorView, keymap } from '@codemirror/view';
   import { basicSetup } from 'codemirror';
@@ -27,6 +28,7 @@
   import { toggleEditorDictation } from '../editor/dictation';
   import { linkDecorations, findLinkAt, type LinkRange } from '../editor/link-decorations';
   import { highlightDecorations } from '../editor/highlight-decorations';
+  import { brokenLinkDecorations, brokenNoteLinkAt } from '../editor/broken-link-decorations';
   import { computeCellsExtension, type RunAllRef } from '../editor/compute-cells';
   import {
     bookmarkGutterExtension,
@@ -115,6 +117,10 @@
     /** Live list of frontmatter alias entries so wiki-link autocomplete
      *  can suggest aliases alongside note paths (#492). */
     getAliases?: () => readonly { alias: string; relativePath: string }[];
+    /** Alt-Enter quick-fix "Create Note From Reference" (#1446 Phase 2): the
+     *  raw wiki-link target under the cursor. The host creates the note beside
+     *  this one (via note-ops) and opens it. */
+    onCreateNoteFromReference?: (target: string) => void;
     /** Inline `/book` typed-creation (#1065): given the picked type, prompt for
      *  a title, create (or link an existing) typed note, and return the
      *  wiki-link target — or null if cancelled. Wired by the host to note-ops. */
@@ -167,6 +173,7 @@
     getNotePaths,
     getSources,
     getAliases,
+    onCreateNoteFromReference,
     resolveInlineTypeCreate,
     initialHistory,
     onUploadError,
@@ -196,6 +203,8 @@
   let ignoreNextUpdate = false;
   let contextMenu = $state<EditorContextMenuState | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
+  // Alt-Enter quick-fix popup (#1446 Phase 2): position + the fixes to offer.
+  let quickFix = $state<{ x: number; y: number; fixes: QuickFix[] } | null>(null);
   // Separate from the main context menu: right-click anywhere in the
   // gutter opens a tiny toggle for line-number visibility. Keeps the
   // content-area menu from growing a gutter-only option that'd only
@@ -496,6 +505,10 @@
         getNotePaths: () => getNotePaths?.() ?? [],
         getAliases: () => getAliases?.() ?? [],
         readNote: (p) => api.notebase.readFile(p),
+      }),
+      brokenLinkDecorations({
+        getNotePaths: () => getNotePaths?.() ?? [],
+        getAliases: () => getAliases?.() ?? [],
       }),
       footnoteDecorations(),
       highlightDecorations(),
@@ -810,10 +823,37 @@
     view.focus();
   }
 
+  /** Alt-Enter quick-fix (#1446 Phase 2). When the cursor sits on a broken note
+   *  wiki-link and the host wired a create-note handler, open the quick-fix menu
+   *  at the cursor with "Create Note From Reference". Returns false otherwise so
+   *  Alt-Enter falls through. */
+  function openQuickFix(v: EditorView): boolean {
+    if (!onCreateNoteFromReference) return false;
+    const pos = v.state.selection.main.head;
+    const link = brokenNoteLinkAt(v.state, pos, {
+      getNotePaths: () => getNotePaths?.() ?? [],
+      getAliases: () => getAliases?.() ?? [],
+    });
+    if (!link) return false;
+    const coords = v.coordsAtPos(pos);
+    if (!coords) return false;
+    const target = link.href;
+    quickFix = {
+      x: coords.left,
+      y: coords.bottom + 2,
+      fixes: [{
+        label: 'Create Note From Reference',
+        apply: () => onCreateNoteFromReference?.(target),
+      }],
+    };
+    return true;
+  }
+
   onMount(() => {
     const resolved = resolveKeyBindings();
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
+      { key: 'Alt-Enter', run: openQuickFix },
       // Tab accepts the active completion; acceptCompletion returns false
       // when no completion panel is open, so Tab-for-indent still works
       // everywhere else.
@@ -1029,6 +1069,15 @@
     onMenuAction={handleMenuAction}
     onClose={closeMenu}
     onDictate={() => void toggleEditorDictation(view)}
+  />
+{/if}
+
+{#if quickFix}
+  <QuickFixMenu
+    x={quickFix.x}
+    y={quickFix.y}
+    fixes={quickFix.fixes}
+    onClose={() => { quickFix = null; view?.focus(); }}
   />
 {/if}
 
