@@ -1,11 +1,18 @@
 /**
- * Resolve a wiki-link target string to an actual project-relative `.md`
- * path, and canonicalise a target to a chosen path style. Pure — only needs
- * the note list (+ optional frontmatter alias map) — so both the renderer
- * (navigation) and the main-side formatter orchestrator (#778) use it.
+ * Resolve a wiki-link target string to an actual project-relative note path,
+ * and canonicalise a target to a chosen path style. Pure — only needs the note
+ * list (+ optional frontmatter alias map) — so both the renderer (navigation)
+ * and the main-side formatter orchestrator (#778) use it.
+ *
+ * Targets resolve to any note extension (`.md`/`.ttl`/`.csv`/`.py`), not just
+ * markdown (#1446). A bare `[[budget]]` prefers `.md` when several stems
+ * collide (see `noteExtRank`); an explicit `[[budget.csv]]` bypasses that via an
+ * exact-path match (step 0 below).
  *
  * Resolution priority:
- *   1. Exact relativePath match (with or without .md)
+ *   0. Explicit extension — exact relativePath match (so `[[budget.csv]]` reaches
+ *      the CSV even when `budget.md` exists)
+ *   1. Exact relativePath match (with or without a note extension)
  *   2. Basename match — case-sensitive
  *   3. Frontmatter alias (case-insensitive), if a map is provided (#469)
  *   4. Slugified basename match (case-insensitive, punctuation-fuzzy)
@@ -14,6 +21,7 @@
  */
 
 import type { NoteFile } from './types';
+import { isNotePath, stripNoteExt, noteExtRank } from './note-extensions';
 
 export function flattenNoteFiles(tree: NoteFile[]): NoteFile[] {
   const out: NoteFile[] = [];
@@ -30,16 +38,25 @@ export function flattenNoteFiles(tree: NoteFile[]): NoteFile[] {
   return out;
 }
 
-const stripMd = (s: string) => s.replace(/\.md$/i, '');
 const slug = (s: string): string =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 type NoteFileLike = Pick<NoteFile, 'relativePath' | 'isDirectory'>;
 
+/** Note files only, sorted so a lower `noteExtRank` (`.md` = 0) comes first.
+ *  `Array.prototype.sort` is stable, so files of the same extension keep their
+ *  input order — this makes bare-link precedence (`budget.md` over `budget.csv`)
+ *  deterministic regardless of the order the caller passes files in. */
+function orderedNoteFiles(files: NoteFileLike[]): NoteFileLike[] {
+  return files
+    .filter((f) => !f.isDirectory && isNotePath(f.relativePath))
+    .sort((a, b) => noteExtRank(a.relativePath) - noteExtRank(b.relativePath));
+}
+
 /**
- * Returns the project-relative path of the matched note (with .md), or
- * null when nothing matches. Targets ending in `.md` are tried as-is
- * first, otherwise treated as a stem.
+ * Returns the project-relative path of the matched note (with its real
+ * extension), or null when nothing matches. A target carrying an explicit note
+ * extension is honored first (step 0); otherwise it's treated as a stem.
  *
  * `aliases` is a frontmatter alias → relativePath map (#469). Title /
  * filename matches always win over aliases — the indexer's
@@ -52,19 +69,34 @@ export function resolveWikiLinkTarget(
   files: NoteFileLike[],
   aliases?: Record<string, string>,
 ): string | null {
-  const targetStem = stripMd(target);
-  const targetSlug = slug(targetStem);
+  const noteFiles = orderedNoteFiles(files);
 
-  const noteFiles = files.filter((f) => !f.isDirectory && f.relativePath.endsWith('.md'));
+  // 0. Explicit extension: a deliberately-typed `[[budget.csv]]` honors the
+  //    extension, reaching the CSV even when a same-stem `.md` exists (which
+  //    step 1's md-first precedence would otherwise pick). A slashed target is a
+  //    full path (exact match only); a bare one matches by basename-with-ext.
+  if (isNotePath(target)) {
+    for (const f of noteFiles) {
+      if (f.relativePath === target) return f.relativePath;
+    }
+    if (!target.includes('/')) {
+      for (const f of noteFiles) {
+        if ((f.relativePath.split('/').pop() ?? '') === target) return f.relativePath;
+      }
+    }
+  }
+
+  const targetStem = stripNoteExt(target);
+  const targetSlug = slug(targetStem);
 
   // 1. Exact relativePath
   for (const f of noteFiles) {
-    if (stripMd(f.relativePath) === targetStem) return f.relativePath;
+    if (stripNoteExt(f.relativePath) === targetStem) return f.relativePath;
   }
 
   // 2. Basename exact (case-sensitive)
   for (const f of noteFiles) {
-    const base = stripMd(f.relativePath.split('/').pop() ?? '');
+    const base = stripNoteExt(f.relativePath.split('/').pop() ?? '');
     if (base === targetStem) return f.relativePath;
   }
 
@@ -76,14 +108,14 @@ export function resolveWikiLinkTarget(
 
   // 4. Basename slug match
   for (const f of noteFiles) {
-    const base = stripMd(f.relativePath.split('/').pop() ?? '');
+    const base = stripNoteExt(f.relativePath.split('/').pop() ?? '');
     if (slug(base) === targetSlug) return f.relativePath;
   }
 
   // 5. Full-stem slug match (target like "notes/topic/raft" against the
   //    file's full stem slug)
   for (const f of noteFiles) {
-    if (slug(stripMd(f.relativePath)) === targetSlug) return f.relativePath;
+    if (slug(stripNoteExt(f.relativePath)) === targetSlug) return f.relativePath;
   }
 
   // 6. Path-suffix slug match — target slug ends a file's full-stem slug at
@@ -92,7 +124,7 @@ export function resolveWikiLinkTarget(
   //    caught by step 4). Useful for "[[journey/raft]]"-style tail links.
   if (targetSlug.length > 0) {
     for (const f of noteFiles) {
-      const fullSlug = slug(stripMd(f.relativePath));
+      const fullSlug = slug(stripNoteExt(f.relativePath));
       if (fullSlug === targetSlug) continue; // already covered by step 5
       if (fullSlug.endsWith(`-${targetSlug}`) || fullSlug.endsWith(`/${targetSlug}`)) {
         return f.relativePath;
@@ -112,6 +144,10 @@ export function resolveWikiLinkTarget(
  * in `files` order for a given key, matching the loops' first-match-wins.
  */
 export interface WikiLinkIndex {
+  /** Exact relativePath identity map (step 0) — an explicit `[[reports/budget.csv]]`. */
+  byRelPath: Map<string, string>;
+  /** Basename-with-extension → relativePath (step 0) — a bare `[[budget.csv]]`. */
+  byBasenameExt: Map<string, string>;
   byStem: Map<string, string>;
   byBasename: Map<string, string>;
   bySlugBase: Map<string, string>;
@@ -122,18 +158,23 @@ export interface WikiLinkIndex {
 }
 
 export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string, string> = {}): WikiLinkIndex {
+  const byRelPath = new Map<string, string>();
+  const byBasenameExt = new Map<string, string>();
   const byStem = new Map<string, string>();
   const byBasename = new Map<string, string>();
   const bySlugBase = new Map<string, string>();
   const bySlugStem = new Map<string, string>();
   const bySuffixSlug = new Map<string, string>();
   const set = (m: Map<string, string>, k: string, v: string) => { if (k && !m.has(k)) m.set(k, v); };
-  for (const f of files) {
-    if (f.isDirectory || !f.relativePath.endsWith('.md')) continue;
+  // md-first order so first-writer-wins yields `.md` precedence, matching the
+  // loop resolver's `orderedNoteFiles` scan (verified equivalent in tests).
+  for (const f of orderedNoteFiles(files)) {
     const rel = f.relativePath;
-    const stem = stripMd(rel);
+    const stem = stripNoteExt(rel);
     const base = stem.split('/').pop() ?? '';
     const sStem = slug(stem);
+    set(byRelPath, rel, rel);
+    set(byBasenameExt, rel.split('/').pop() ?? '', rel);
     set(byStem, stem, rel);
     set(byBasename, base, rel);
     set(bySlugBase, slug(base), rel);
@@ -145,13 +186,20 @@ export function buildWikiLinkIndex(files: NoteFileLike[], aliases: Record<string
       for (let k = 1; k < parts.length; k++) set(bySuffixSlug, parts.slice(parts.length - k).join('-'), rel);
     }
   }
-  return { byStem, byBasename, bySlugBase, bySlugStem, bySuffixSlug, aliases };
+  return { byRelPath, byBasenameExt, byStem, byBasename, bySlugBase, bySlugStem, bySuffixSlug, aliases };
 }
 
 /** O(1) equivalent of `resolveWikiLinkTarget` using a prebuilt `WikiLinkIndex`.
  *  Verified to match the loop-based resolver in wiki-link-resolver.test.ts. */
 export function resolveWikiLinkTargetWithIndex(target: string, index: WikiLinkIndex): string | null {
-  const stem = stripMd(target);
+  // Step 0: explicit extension → exact path, or basename-with-ext for a bare
+  //         target (mirrors the loop resolver).
+  if (isNotePath(target)) {
+    const hit = index.byRelPath.get(target)
+      ?? (target.includes('/') ? undefined : index.byBasenameExt.get(target));
+    if (hit) return hit;
+  }
+  const stem = stripNoteExt(target);
   const s = slug(stem);
   return index.byStem.get(stem)
     ?? index.byBasename.get(stem)
@@ -183,12 +231,12 @@ export function canonicalizeWikiLinkTarget(
 ): string | null {
   const full = resolveWikiLinkTarget(target, files, aliases);
   if (!full) return null;
-  const stem = stripMd(full);
+  const stem = stripNoteExt(full);
   if (style === 'absolute') return stem;
 
   const noteStems = files
-    .filter((f) => !f.isDirectory && f.relativePath.endsWith('.md'))
-    .map((f) => stripMd(f.relativePath));
+    .filter((f) => !f.isDirectory && isNotePath(f.relativePath))
+    .map((f) => stripNoteExt(f.relativePath));
   const suffix = (s: string, t: number) => s.split('/').slice(-t).join('/');
   const segs = stem.split('/');
   for (let t = 1; t <= segs.length; t++) {

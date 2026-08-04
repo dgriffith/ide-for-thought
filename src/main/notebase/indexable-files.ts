@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { THOUGHTBASE_DOC_FILENAME } from '../../shared/thoughtbase';
+import { NOTE_EXTENSIONS } from '../../shared/note-extensions';
 
 /**
  * Canonical set of file extensions that Minerva indexes + lists as
@@ -7,11 +8,12 @@ import { THOUGHTBASE_DOC_FILENAME } from '../../shared/thoughtbase';
  * watcher only re-indexes changes to these, and `graph.indexNote`
  * dispatches on the extension within it.
  *
- * Adding a new extension here is the single change needed to wire it
- * through sidebar listing, watcher reindex, rename/link-rewrites, and
- * the bulk index-all-notes walker.
+ * Derived from the shared `NOTE_EXTENSIONS` (the single source of truth shared
+ * with the renderer + the pure wiki-link resolver). Adding a new extension there
+ * wires it through sidebar listing, watcher reindex, rename/link-rewrites, the
+ * bulk index-all-notes walker, and wiki-link resolution in one place.
  */
-export const INDEXABLE_EXTS: ReadonlySet<string> = new Set(['.md', '.ttl', '.csv', '.py']);
+export const INDEXABLE_EXTS: ReadonlySet<string> = new Set(NOTE_EXTENSIONS);
 
 export function isIndexable(relativePath: string): boolean {
   // The thoughtbase guide (thoughtbase.md) is meta, not knowledge — it feeds the
