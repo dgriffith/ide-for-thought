@@ -16,10 +16,14 @@
     message: string;
     suggestedAction?: string;
     fix?: InspectionFix;
+    notePath?: string;
   }
 
   interface Props {
     revision: number;
+    /** The active note's relative path. The panel scopes to inspections anchored
+     *  to this note (#1446) — this is a note-context sidebar, not a project view. */
+    activeFilePath: string | null;
     onOpenConversation?: (message: string) => void;
     /** Apply an inspection's deterministic quick-fix (#1446). When present on a
      *  row, it's the primary action — conversation is only the fallback for
@@ -27,7 +31,7 @@
     onApplyFix?: (fix: InspectionFix) => void;
   }
 
-  let { revision, onOpenConversation, onApplyFix }: Props = $props();
+  let { revision, activeFilePath, onOpenConversation, onApplyFix }: Props = $props();
 
   let inspections = $state<Inspection[]>([]);
   let loading = $state(false);
@@ -50,10 +54,18 @@
 
   $effect(() => { revision; void refresh(); });
 
+  // Scope to the active note (#1446): the panel lives in the note-context right
+  // sidebar, so it shows only inspections anchored to the open note, not the
+  // whole project. Inspections without a notePath (source dupes/metadata,
+  // standalone claim components) aren't "on" a note and are excluded.
+  const noteScoped = $derived(
+    activeFilePath ? inspections.filter(i => i.notePath === activeFilePath) : [],
+  );
+
   const filtered = $derived(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return inspections;
-    return inspections.filter(i =>
+    if (!q) return noteScoped;
+    return noteScoped.filter(i =>
       i.nodeLabel.toLowerCase().includes(q) ||
       i.message.toLowerCase().includes(q) ||
       i.type.toLowerCase().includes(q)
@@ -130,7 +142,7 @@
   {/snippet}
 
   {#if filtered().length === 0}
-    <p class="empty">{loading ? 'Checking...' : (inspections.length === 0 ? 'No inspections' : 'No matches')}</p>
+    <p class="empty">{loading ? 'Checking...' : (noteScoped.length === 0 ? 'No inspections for this note' : 'No matches')}</p>
   {:else if sortId === 'type'}
     <div class="inspection-list">
       {#each byType() as [typeName, items]}

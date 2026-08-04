@@ -66,6 +66,13 @@ describe('broken-link inspection (#140)', () => {
     expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(true);
   });
 
+  it('anchors the inspection to the referencing note via notePath (#1446)', async () => {
+    // Used by the right-sidebar panel to scope inspections to the open note.
+    await indexNote(ctx, 'topic/a.md', 'Links [[missing-note]].\n');
+    const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_note_link');
+    expect(broken.notePath).toBe('topic/a.md');
+  });
+
   // ─── deterministic create-note fix (#1446) ──────────────────────────────
 
   it('carries a create-note fix targeting a path beside the referencing note', async () => {

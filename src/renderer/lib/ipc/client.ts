@@ -140,8 +140,8 @@ export interface GraphApi {
   /** Rebase to a new base IRI + rebuild indexes (#1443 Part B). */
   setBaseUri(uri: string): Promise<{ ok: true } | { ok: false; error: string }>;
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
-  inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix }[]>;
-  runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix }[]>;
+  inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
+  runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
   export(): Promise<void>;
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;

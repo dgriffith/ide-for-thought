@@ -20,6 +20,12 @@ export interface Inspection {
   /** Optional deterministic quick-fix the panel can apply directly instead of
    *  opening a conversation (#1446). Absent when the only remedy is prose. */
   fix?: InspectionFix;
+  /** The note this inspection is anchored to, as a project-relative path, when
+   *  it belongs to one — the referencing note for a broken link, the stale note
+   *  itself, a claim's own note. Lets the right-sidebar panel scope to the
+   *  active note (#1446). Absent for source-scoped inspections (dupes, metadata)
+   *  and standalone claim components, which aren't "on" a note. */
+  notePath?: string;
 }
 
 const lastResultsByProject = new Map<string, Inspection[]>();
@@ -72,9 +78,10 @@ export async function runAllChecks(ctx: ProjectContext): Promise<Inspection[]> {
 
 async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    SELECT ?claim ?label WHERE {
+    SELECT ?claim ?label ?notePath WHERE {
       ?claim a thought:Claim .
       ?claim thought:label ?label .
+      OPTIONAL { ?claim minerva:relativePath ?notePath }
       FILTER NOT EXISTS { ?other thought:supports ?claim }
     }
   `);
@@ -87,6 +94,7 @@ async function checkUnsupportedClaims(ctx: ProjectContext): Promise<Inspection[]
     nodeLabel: r.label!,
     message: `Claim "${r.label}" has no supporting evidence`,
     suggestedAction: 'Add grounds or evidence that supports this claim',
+    ...(r.notePath ? { notePath: r.notePath } : {}),
   }));
 }
 
@@ -94,8 +102,9 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
   const cutoff = new Date(Date.now() - thresholdDays * DAY_MS).toISOString();
 
   const results = await queryGraph(ctx, `
-    SELECT ?note ?title ?modified WHERE {
+    SELECT ?note ?path ?title ?modified WHERE {
       ?note a minerva:Note .
+      ?note minerva:relativePath ?path .
       ?note dc:title ?title .
       ?note dc:modified ?modified .
       FILTER(?modified < "${cutoff}"^^<http://www.w3.org/2001/XMLSchema#dateTime>)
@@ -112,6 +121,7 @@ async function checkStaleness(ctx: ProjectContext, thresholdDays: number): Promi
     nodeLabel: r.title!,
     message: `"${r.title}" hasn't been modified since ${r.modified!.split('T')[0]}`,
     suggestedAction: 'Review whether this note is still current',
+    ...(r.path ? { notePath: r.path } : {}),
   }));
 }
 
@@ -120,11 +130,12 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
 
   // Claims with grounds but no warrant
   const noWarrant = await queryGraph(ctx, `
-    SELECT ?claim ?label WHERE {
+    SELECT ?claim ?label ?notePath WHERE {
       ?claim a thought:Claim .
       ?claim thought:label ?label .
       ?grounds thought:supports ?claim .
       ?grounds a thought:Grounds .
+      OPTIONAL { ?claim minerva:relativePath ?notePath }
       FILTER NOT EXISTS {
         ?warrant thought:supports ?claim .
         ?warrant a thought:Warrant .
@@ -141,14 +152,16 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
       nodeLabel: r.label!,
       message: `Claim "${r.label}" has grounds but no warrant connecting them`,
       suggestedAction: 'Add a warrant explaining why the grounds support this claim',
+      ...(r.notePath ? { notePath: r.notePath } : {}),
     });
   }
 
   // Warrants with no backing
   const noBacking = await queryGraph(ctx, `
-    SELECT ?warrant ?label WHERE {
+    SELECT ?warrant ?label ?notePath WHERE {
       ?warrant a thought:Warrant .
       ?warrant thought:label ?label .
+      OPTIONAL { ?warrant minerva:relativePath ?notePath }
       FILTER NOT EXISTS {
         ?backing thought:supports ?warrant .
         ?backing a thought:Backing .
@@ -165,6 +178,7 @@ async function checkEvidenceGaps(ctx: ProjectContext): Promise<Inspection[]> {
       nodeLabel: r.label!,
       message: `Warrant "${r.label}" has no backing — why should we accept this reasoning principle?`,
       suggestedAction: 'Add backing that supports this warrant',
+      ...(r.notePath ? { notePath: r.notePath } : {}),
     });
   }
 
@@ -205,12 +219,13 @@ async function checkInvalidDois(ctx: ProjectContext): Promise<Inspection[]> {
 
 async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
   const results = await queryGraph(ctx, `
-    SELECT ?a ?aLabel ?b ?bLabel WHERE {
+    SELECT ?a ?aLabel ?b ?bLabel ?notePath WHERE {
       ?a thought:contradicts ?b .
       ?a thought:hasStatus thought:established .
       ?b thought:hasStatus thought:established .
       ?a thought:label ?aLabel .
       ?b thought:label ?bLabel .
+      OPTIONAL { ?a minerva:relativePath ?notePath }
     }
   `);
 
@@ -222,6 +237,7 @@ async function checkContradictions(ctx: ProjectContext): Promise<Inspection[]> {
     nodeLabel: r.aLabel!,
     message: `Established claim "${r.aLabel}" contradicts established claim "${r.bLabel}"`,
     suggestedAction: 'Review both claims — at least one needs to be revised or its status changed',
+    ...(r.notePath ? { notePath: r.notePath } : {}),
   }));
 }
 
@@ -553,6 +569,7 @@ function inspectionForBrokenLink(
       severity: 'warning',
       nodeUri: row.source,
       nodeLabel: row.sourcePath,
+      notePath: row.sourcePath,
       message: `Note "${row.sourcePath}" cites an unknown source: ${classified.id}`,
       suggestedAction: 'Ingest the source via Ingest Identifier… or fix the `[[cite::id]]` target.',
     };
@@ -565,6 +582,7 @@ function inspectionForBrokenLink(
       severity: 'warning',
       nodeUri: row.source,
       nodeLabel: row.sourcePath,
+      notePath: row.sourcePath,
       message: `Note "${row.sourcePath}" quotes an unknown excerpt: ${classified.id}`,
       suggestedAction: 'Create the excerpt from the source viewer, or fix the `[[quote::id]]` target.',
     };
@@ -583,6 +601,7 @@ function inspectionForBrokenLink(
         severity: 'warning',
         nodeUri: row.source,
         nodeLabel: row.sourcePath,
+        notePath: row.sourcePath,
         message: `Note "${row.sourcePath}" links to a missing note: [[${linkText}]]`,
         suggestedAction: 'Create the target note, fix the spelling, or remove the link.',
         // Deterministic quick-fix (#1446): create the missing note beside the
@@ -612,6 +631,7 @@ function inspectionForBrokenLink(
           severity: 'warning',
           nodeUri: row.source,
           nodeLabel: row.sourcePath,
+          notePath: row.sourcePath,
           message: `Note "${row.sourcePath}" links to a missing heading: [[${stem}#${classified.anchor}]]`,
           suggestedAction: 'Add the heading to the target note, fix the anchor slug, or remove the `#…` part.',
         };
