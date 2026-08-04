@@ -277,7 +277,7 @@
     {:else if activePanel === 'bookmarks'}
       <BookmarksPanel {activeFilePath} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} />
     {:else if activePanel === 'inspections'}
-      <InspectionsPanel {revision} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} {...(onApplyInspectionFix !== undefined ? { onApplyFix: onApplyInspectionFix } : {})} />
+      <InspectionsPanel {revision} {activeFilePath} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} {...(onApplyInspectionFix !== undefined ? { onApplyFix: onApplyInspectionFix } : {})} />
     {/if}
   </div>
 </aside>
