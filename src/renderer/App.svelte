@@ -170,8 +170,9 @@
   /** Thoughtbase Properties dialog visibility (#1443), opened from File → Thoughtbase Properties…. */
   let showThoughtbaseProperties = $state(false);
 
-  // Inspections hidden for v1.0 — kept at 0 (no polling), so the status-bar
-  // badge never shows. See the disabled polling in the project-open handler.
+  // The Inspections panel is re-enabled (#1446), but the status-bar count
+  // badge is still un-polled — inspectionCount stays 0 so the badge stays
+  // hidden. See the deferred polling note in the project-open handler.
   let inspectionCount = $state(0);
   let backlinkCount = $state(0);
   /** Semantic-index backfill progress, or null when idle (#836). */
