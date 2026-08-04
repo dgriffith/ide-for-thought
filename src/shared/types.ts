@@ -1,3 +1,16 @@
+/**
+ * A deterministic quick-fix an inspection can carry so the Inspections panel
+ * can apply it directly instead of routing to an LLM conversation (#1446).
+ * Discriminated on `kind`; `label` is the button text the panel shows.
+ *
+ * - `create-note` — the referenced target note doesn't exist; create it at
+ *   `targetPath` (a project-relative `.md` path the check already resolved,
+ *   e.g. beside the referencing note). Applied via `note-ops`
+ *   `createNoteFromReference`.
+ */
+export type InspectionFix =
+  | { kind: 'create-note'; label: string; targetPath: string };
+
 export interface NoteFile {
   name: string;
   relativePath: string;

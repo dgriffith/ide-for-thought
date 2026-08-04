@@ -3,6 +3,7 @@
   import { getReviewStore } from '../../stores/review.svelte';
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
+  import type { InspectionFix } from '../../../../shared/types';
 
   const review = getReviewStore();
 
@@ -14,14 +15,19 @@
     nodeLabel: string;
     message: string;
     suggestedAction?: string;
+    fix?: InspectionFix;
   }
 
   interface Props {
     revision: number;
     onOpenConversation?: (message: string) => void;
+    /** Apply an inspection's deterministic quick-fix (#1446). When present on a
+     *  row, it's the primary action — conversation is only the fallback for
+     *  inspections that carry no fix. */
+    onApplyFix?: (fix: InspectionFix) => void;
   }
 
-  let { revision, onOpenConversation }: Props = $props();
+  let { revision, onOpenConversation, onApplyFix }: Props = $props();
 
   let inspections = $state<Inspection[]>([]);
   let loading = $state(false);
@@ -75,6 +81,12 @@
   }
 
   function handleClick(inspection: Inspection) {
+    // Deterministic-first (#1446): a fixable inspection applies its fix; only
+    // inspections with no fix fall back to opening a conversation.
+    if (inspection.fix) {
+      onApplyFix?.(inspection.fix);
+      return;
+    }
     if (onOpenConversation) {
       onOpenConversation(`I'd like to discuss this inspection: "${inspection.message}". ${inspection.suggestedAction ?? ''}`);
     }
@@ -102,6 +114,21 @@
     </button>
   </div>
 
+  <!-- One row per inspection. A fixable inspection (#1446) shows its fix label
+       as a trailing pill and the whole row applies the fix; others keep the
+       conversation fallback. The row is a single button, so the pill is a
+       non-interactive span (no nested interactive element). -->
+  {#snippet row(insp: Inspection)}
+    <button class="inspection-item {insp.severity}" onclick={() => handleClick(insp)} title={insp.fix ? insp.fix.label : (insp.suggestedAction ?? '')}>
+      <span class="insp-icon">{severityIcon(insp.severity)}</span>
+      <div class="insp-body">
+        <span class="insp-label">{insp.nodeLabel}</span>
+        <span class="insp-message">{insp.message}</span>
+      </div>
+      {#if insp.fix}<span class="fix-hint">{insp.fix.label}</span>{/if}
+    </button>
+  {/snippet}
+
   {#if filtered().length === 0}
     <p class="empty">{loading ? 'Checking...' : (inspections.length === 0 ? 'No inspections' : 'No matches')}</p>
   {:else if sortId === 'type'}
@@ -110,13 +137,7 @@
         <div class="severity-group">
           <span class="group-label">{typeName.replace(/_/g, ' ')} ({items.length})</span>
           {#each items as insp}
-            <button class="inspection-item {insp.severity}" onclick={() => handleClick(insp)} title={insp.suggestedAction ?? ''}>
-              <span class="insp-icon">{severityIcon(insp.severity)}</span>
-              <div class="insp-body">
-                <span class="insp-label">{insp.nodeLabel}</span>
-                <span class="insp-message">{insp.message}</span>
-              </div>
-            </button>
+            {@render row(insp)}
           {/each}
         </div>
       {/each}
@@ -127,13 +148,7 @@
         <div class="severity-group">
           <span class="group-label concern">Concerns ({concerns.length})</span>
           {#each concerns as insp}
-            <button class="inspection-item concern" onclick={() => handleClick(insp)} title={insp.suggestedAction ?? ''}>
-              <span class="insp-icon">{severityIcon('concern')}</span>
-              <div class="insp-body">
-                <span class="insp-label">{insp.nodeLabel}</span>
-                <span class="insp-message">{insp.message}</span>
-              </div>
-            </button>
+            {@render row(insp)}
           {/each}
         </div>
       {/if}
@@ -141,13 +156,7 @@
         <div class="severity-group">
           <span class="group-label warning">Warnings ({warnings.length})</span>
           {#each warnings as insp}
-            <button class="inspection-item warning" onclick={() => handleClick(insp)} title={insp.suggestedAction ?? ''}>
-              <span class="insp-icon">{severityIcon('warning')}</span>
-              <div class="insp-body">
-                <span class="insp-label">{insp.nodeLabel}</span>
-                <span class="insp-message">{insp.message}</span>
-              </div>
-            </button>
+            {@render row(insp)}
           {/each}
         </div>
       {/if}
@@ -155,13 +164,7 @@
         <div class="severity-group">
           <span class="group-label info">Info ({infos.length})</span>
           {#each infos as insp}
-            <button class="inspection-item info" onclick={() => handleClick(insp)} title={insp.suggestedAction ?? ''}>
-              <span class="insp-icon">{severityIcon('info')}</span>
-              <div class="insp-body">
-                <span class="insp-label">{insp.nodeLabel}</span>
-                <span class="insp-message">{insp.message}</span>
-              </div>
-            </button>
+            {@render row(insp)}
           {/each}
         </div>
       {/if}
@@ -282,5 +285,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Deterministic-fix affordance (#1446): a compact pill naming the action the
+     row applies (e.g. "Create Note"). Non-interactive — the row button owns the
+     click; it brightens with the row on hover to read as the action label. */
+  .fix-hint {
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: auto;
+    padding: 1px 6px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .inspection-item:hover .fix-hint {
+    color: var(--text);
+    border-color: var(--accent);
   }
 </style>
