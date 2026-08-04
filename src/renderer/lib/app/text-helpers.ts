@@ -4,6 +4,7 @@
  * trivially unit-testable and don't belong inline in the root component.
  */
 import { slugify } from '../../../shared/slug';
+import { isNotePath } from '../../../shared/note-extensions';
 import type { NoteFile } from '../../../shared/types';
 
 /** Cheap slug for path placeholders (e.g. onboarding system-prompt paths).
@@ -65,13 +66,16 @@ export function lineBookmarkName(text: string, offset: number): string {
   return `Line ${offsetToLineCol(text, clamped).line}`;
 }
 
-/** Flatten a NoteFile tree to the relative paths of indexable leaf files. */
+/** Flatten a NoteFile tree to the relative paths of indexable leaf files. Uses
+ *  the shared note-extension set so the renderer's note list (hover-preview,
+ *  wiki-link autocomplete) agrees with the main-side resolver on every format,
+ *  including `.py` (#1446). */
 export function flattenNotePaths(files: NoteFile[]): string[] {
   const out: string[] = [];
   const walk = (xs: NoteFile[]) => {
     for (const f of xs) {
       if (f.isDirectory) walk(f.children ?? []);
-      else if (/\.(md|ttl|csv)$/.test(f.relativePath)) out.push(f.relativePath);
+      else if (isNotePath(f.relativePath)) out.push(f.relativePath);
     }
   };
   walk(files);

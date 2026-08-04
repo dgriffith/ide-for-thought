@@ -3,6 +3,7 @@ import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from './queries';
 import type { InspectionFix } from '../../shared/types';
+import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -436,7 +437,18 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
       SELECT ?id WHERE { ?e minerva:excerptId ?id }
     `),
   ]);
-  const validNotes = new Set((notesRes.results as { path: string }[]).map((r) => r.path));
+  // Note validity is keyed by STEM, not full path (#1446): a link `[[budget]]`
+  // resolves to `budget.csv`/`.ttl`/`.py`, not just `budget.md`. Map stem →
+  // real relativePath, keeping the highest-precedence extension (`.md` first)
+  // when several notes share a stem — mirrors the wiki-link resolver.
+  const validNoteStems = new Map<string, string>();
+  for (const r of notesRes.results as { path: string }[]) {
+    const stem = stripNoteExt(r.path);
+    const existing = validNoteStems.get(stem);
+    if (existing === undefined || noteExtRank(r.path) < noteExtRank(existing)) {
+      validNoteStems.set(stem, r.path);
+    }
+  }
   const validSources = new Set((sourcesRes.results as { id: string }[]).map((r) => r.id));
   const validExcerpts = new Set((excerptsRes.results as { id: string }[]).map((r) => r.id));
 
@@ -455,7 +467,7 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
   for (const row of linksRes.results as { source: string; sourcePath: string; predicate: string; target: string }[]) {
     const classified = classifyTarget(row.target);
     if (!classified) continue;
-    const ins = inspectionForBrokenLink(ctx, row, classified, validNotes, validSources, validExcerpts, counter);
+    const ins = inspectionForBrokenLink(ctx, row, classified, validNoteStems, validSources, validExcerpts, counter);
     if (ins) {
       inspections.push(ins);
       counter++;
@@ -468,8 +480,9 @@ async function checkBrokenLinks(ctx: ProjectContext): Promise<Inspection[]> {
 /** A wiki-link target IRI parsed into kind + base + optional fragment. */
 interface ClassifiedTarget {
   kind: 'note' | 'source' | 'excerpt' | null;
-  /** The identifier portion — relativePath for notes (with `.md`),
-   *  sourceId / excerptId for the others. URL-decoded. */
+  /** The identifier portion — for notes, the extension-less STEM (so it matches
+   *  a note of any extension, #1446); sourceId / excerptId for the others.
+   *  URL-decoded. */
   id: string;
   /** Fragment after `#`, decoded; null when none. */
   anchor: string | null;
@@ -485,9 +498,9 @@ function classifyTarget(iri: string): ClassifiedTarget | null {
   const noteIdx = base.lastIndexOf('/note/');
   if (noteIdx >= 0) {
     const id = decodeSegmented(base.slice(noteIdx + '/note/'.length));
-    // Note URIs in the indexer carry a `.md` suffix on the path
-    // string (e.g. `path/foo.md`); add it for matching.
-    return { kind: 'note', id: id.endsWith('.md') ? id : `${id}.md`, anchor };
+    // Note URIs strip `.md`/`.ttl` but keep `.csv`/`.py` (uri-helpers noteUri),
+    // so normalise to a bare stem and match a note of ANY extension (#1446).
+    return { kind: 'note', id: stripNoteExt(id), anchor };
   }
   const sourceIdx = base.lastIndexOf('/source/');
   if (sourceIdx >= 0) {
@@ -527,7 +540,7 @@ function inspectionForBrokenLink(
   ctx: ProjectContext,
   row: { source: string; sourcePath: string; predicate: string; target: string },
   classified: ClassifiedTarget,
-  validNotes: Set<string>,
+  validNoteStems: Map<string, string>,
   validSources: Set<string>,
   validExcerpts: Set<string>,
   index: number,
@@ -557,8 +570,12 @@ function inspectionForBrokenLink(
     };
   }
   if (classified.kind === 'note') {
-    if (!validNotes.has(classified.id)) {
-      const stem = classified.id.replace(/\.md$/, '');
+    // `classified.id` is an extension-less stem; look it up against the
+    // stem→realPath map so a link to a `.csv`/`.ttl`/`.py` note counts as
+    // resolved, not broken (#1446).
+    const realPath = validNoteStems.get(classified.id);
+    if (realPath === undefined) {
+      const stem = classified.id;
       const linkText = classified.anchor ? `${stem}#${classified.anchor}` : stem;
       return {
         id: `broken-note-${index}`,
@@ -579,14 +596,16 @@ function inspectionForBrokenLink(
         },
       };
     }
-    // Note exists. Check anchor when one was specified.
-    // Block-id anchors (`#^id`) intentionally skipped — they're
+    // Note exists. Check anchor when one was specified — but only for markdown
+    // targets: `headingsFor` is populated only for `.md` notes, so a non-md
+    // target has no headings to check against and an anchor would always
+    // false-flag. Block-id anchors (`#^id`) are also skipped — they're
     // scattered through the note body, not stored as triples.
-    if (classified.anchor && !classified.anchor.startsWith('^')) {
-      const headings = headingsFor(ctx, classified.id);
+    if (classified.anchor && !classified.anchor.startsWith('^') && realPath.endsWith('.md')) {
+      const headings = headingsFor(ctx, realPath);
       const found = headings.some((h) => h.slug === classified.anchor);
       if (!found) {
-        const stem = classified.id.replace(/\.md$/, '');
+        const stem = classified.id;
         return {
           id: `broken-anchor-${index}`,
           type: 'broken_anchor_link',

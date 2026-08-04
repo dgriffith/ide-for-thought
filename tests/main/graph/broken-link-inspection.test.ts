@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import { initGraph, indexNote, indexSource, indexExcerpt } from '../../../src/main/graph/index';
+import { initGraph, indexNote, indexSource, indexExcerpt, findNotesLinkingTo } from '../../../src/main/graph/index';
 import { runAllChecks } from '../../../src/main/graph/health-checks';
 import { projectContext, type ProjectContext } from '../../../src/main/project-context-types';
 
@@ -146,5 +146,67 @@ describe('broken-link inspection (#140)', () => {
     await indexNote(ctx, 'a.md', '[[quote::p42-graphs]]\n');
     const inspections = await runAllChecks(ctx);
     expect(inspections.some((i) => i.type === 'broken_cite_quote')).toBe(false);
+  });
+});
+
+// ─── links to non-markdown notes (#1446) ────────────────────────────────────
+describe('broken-link inspection — non-markdown note targets (#1446)', () => {
+  let root: string;
+  let ctx: ProjectContext;
+
+  beforeEach(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-nonmd-links-'));
+    ctx = projectContext(root);
+    await initGraph(ctx);
+  });
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true });
+  });
+
+  it('does not flag [[budget]] when a budget.csv note exists', async () => {
+    await indexNote(ctx, 'budget.csv', 'month,spend\njan,10\n');
+    await indexNote(ctx, 'a.md', 'See [[budget]] for the numbers.\n');
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(false);
+  });
+
+  it('does not flag links to .ttl or .py notes', async () => {
+    await indexNote(ctx, 'data.ttl', '@prefix ex: <https://ex/> .\n');
+    await indexNote(ctx, 'script.py', 'print("hi")\n');
+    await indexNote(ctx, 'a.md', 'Links [[data]] and [[script]].\n');
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(false);
+  });
+
+  it('still flags a genuinely-missing note with a create-note fix to <stem>.md', async () => {
+    await indexNote(ctx, 'budget.csv', 'month,spend\njan,10\n');
+    await indexNote(ctx, 'a.md', '[[budget]] and [[ghost]]\n');
+    const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_note_link');
+    expect(broken.message).toContain('ghost');
+    expect(broken.fix).toEqual({ kind: 'create-note', label: 'Create Note', targetPath: 'ghost.md' });
+  });
+
+  it('does not flag an anchor link to a non-md note (no markdown headings to check)', async () => {
+    await indexNote(ctx, 'budget.csv', 'month,spend\njan,10\n');
+    await indexNote(ctx, 'a.md', 'See [[budget#totals]]\n');
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'broken_anchor_link')).toBe(false);
+    expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(false);
+  });
+
+  it('records a backlink edge from a note that links a .csv note', async () => {
+    await indexNote(ctx, 'budget.csv', 'month,spend\njan,10\n');
+    await indexNote(ctx, 'a.md', 'See [[budget]].\n');
+    expect(findNotesLinkingTo(ctx, 'budget.csv')).toContain('a.md');
+  });
+
+  it('resolves a non-md target indexed incrementally (no full rebuild)', async () => {
+    // budget.csv is indexed on its own; a later single-note index of a.md must
+    // still resolve [[budget]] against it (exercises the indexedNotePaths hoist).
+    await indexNote(ctx, 'budget.csv', 'month,spend\njan,10\n');
+    await indexNote(ctx, 'a.md', 'See [[budget]].\n');
+    const inspections = await runAllChecks(ctx);
+    expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(false);
+    expect(findNotesLinkingTo(ctx, 'budget.csv')).toContain('a.md');
   });
 });
