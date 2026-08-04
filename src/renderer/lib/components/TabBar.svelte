@@ -59,6 +59,19 @@
   let contextMenu = $state<{ x: number; y: number; index: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
+  /** Per-tab element refs, indexed by tab position. Used to scroll the active
+   *  tab into view when it lands off-screen (too many tabs open). */
+  let tabEls = $state<(HTMLElement | undefined)[]>([]);
+
+  /** Keep the active tab visible: opening or switching to a tab that has
+   *  scrolled off either edge of the strip scrolls it just into view. Uses
+   *  `inline: 'nearest'`, so a tab that's already visible doesn't move, and
+   *  `block: 'nearest'` so this never nudges the page vertically. */
+  $effect(() => {
+    const el = tabEls[activeIndex];
+    if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+
   $effect(() => {
     if (!contextMenu || !contextMenuEl) return;
     const next = clampMenuToViewport(contextMenu.x, contextMenu.y, contextMenuEl);
@@ -94,6 +107,7 @@
       class="tab"
       class:active={i === activeIndex}
       class:dirty
+      bind:this={tabEls[i]}
       onpointerdown={(e) => { if (e.button === 0) onTabPointerDown?.(i, e); }}
       onauxclick={(e) => handleMiddleClick(e, i)}
       oncontextmenu={(e) => handleContextMenu(e, i)}
