@@ -55,6 +55,7 @@ import type {
   RelatedNotesResult,
   SourceDetail,
   CsvTableCollision,
+  InspectionFix,
 } from './types';
 import type { ClipperState } from './clipper-pairing';
 import type { Proposal } from './proposals';
@@ -247,8 +248,8 @@ export interface ChannelMap {
   'graph:frontmatterKeys': () => string[];
 
   // Inspections (graph health checks)
-  'inspections:list': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[];
-  'inspections:run': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string }[];
+  'inspections:list': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix }[];
+  'inspections:run': () => { id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix }[];
 
   // Tables (DuckDB)
   'tables:query': (sql: string) =>

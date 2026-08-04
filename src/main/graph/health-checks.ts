@@ -2,6 +2,7 @@ import { queryGraph, headingsFor } from './index';
 import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES } from '../../shared/link-types';
 import { DAY_MS } from './queries';
+import type { InspectionFix } from '../../shared/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,9 @@ export interface Inspection {
   nodeLabel: string;
   message: string;
   suggestedAction?: string;
+  /** Optional deterministic quick-fix the panel can apply directly instead of
+   *  opening a conversation (#1446). Absent when the only remedy is prose. */
+  fix?: InspectionFix;
 }
 
 const lastResultsByProject = new Map<string, Inspection[]>();
@@ -506,6 +510,19 @@ function decodeSegmented(s: string): string {
   return s.split('/').map(decode).join('/');
 }
 
+/**
+ * Where "Create Note From Reference" (#1446) puts the new note: beside the
+ * referencing note. The basename is the link target's own basename (any
+ * directory part of the target is dropped — wiki-links are basename-scoped);
+ * the directory is the referencing note's folder.
+ */
+function createNoteTargetPath(referencingPath: string, targetStem: string): string {
+  const base = targetStem.split('/').pop() ?? targetStem;
+  const slashIdx = referencingPath.lastIndexOf('/');
+  const dir = slashIdx >= 0 ? referencingPath.slice(0, slashIdx) : '';
+  return dir ? `${dir}/${base}.md` : `${base}.md`;
+}
+
 function inspectionForBrokenLink(
   ctx: ProjectContext,
   row: { source: string; sourcePath: string; predicate: string; target: string },
@@ -541,9 +558,8 @@ function inspectionForBrokenLink(
   }
   if (classified.kind === 'note') {
     if (!validNotes.has(classified.id)) {
-      const linkText = classified.anchor
-        ? `${classified.id.replace(/\.md$/, '')}#${classified.anchor}`
-        : classified.id.replace(/\.md$/, '');
+      const stem = classified.id.replace(/\.md$/, '');
+      const linkText = classified.anchor ? `${stem}#${classified.anchor}` : stem;
       return {
         id: `broken-note-${index}`,
         type: 'broken_note_link',
@@ -552,6 +568,15 @@ function inspectionForBrokenLink(
         nodeLabel: row.sourcePath,
         message: `Note "${row.sourcePath}" links to a missing note: [[${linkText}]]`,
         suggestedAction: 'Create the target note, fix the spelling, or remove the link.',
+        // Deterministic quick-fix (#1446): create the missing note beside the
+        // note that references it. The basename comes from the link target;
+        // the directory from the referencing note's path (an anchor, if any,
+        // is dropped — we create the note, not the heading).
+        fix: {
+          kind: 'create-note',
+          label: 'Create Note',
+          targetPath: createNoteTargetPath(row.sourcePath, stem),
+        },
       };
     }
     // Note exists. Check anchor when one was specified.

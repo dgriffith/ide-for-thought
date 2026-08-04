@@ -109,6 +109,24 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   }
 
   /**
+   * Deterministic "Create Note From Reference" (#1446) — the quick-fix behind a
+   * `broken_note_link` inspection. No dialog: main already resolved the canonical
+   * `relativePath` (beside the referencing note), so we just create the empty
+   * note, refresh the tree, and open it. The originating link resolves once the
+   * file exists. Idempotent-ish: if the note now exists we still open it.
+   */
+  async function createNoteFromReference(relativePath: string) {
+    if (!notebase.meta) return;
+    if (!pathExistsInTree(relativePath, notebase.files)) {
+      await api.notebase.createFile(relativePath);
+      await notebase.refresh();
+    }
+    await editor.openFile(relativePath);
+    ctx.getSidebar()?.refreshTags();
+    ctx.getSidebar()?.refreshObjects?.();
+  }
+
+  /**
    * Inline `/book` typed creation (#1065). Prompts for a title, then EITHER
    * links an existing note that already resolves for it (link-don't-duplicate)
    * OR creates a fresh typed note (`type:` + scaffold + template, the #1064
@@ -594,5 +612,5 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  return { handleNewNote, createNoteFromReference, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

@@ -15,6 +15,7 @@
   import CitationsPanel from './right-sidebar/CitationsPanel.svelte';
   import Icon from './Icon.svelte';
   import type { IconName } from './icons/registry';
+  import type { InspectionFix } from '../../../shared/types';
 
   type PanelType =
     | 'outline' | 'headingGraph' | 'footnotes' | 'properties' | 'fields' | 'history' | 'outgoing' | 'backlinks' | 'related' | 'tags' | 'tables' | 'citations'
@@ -104,6 +105,9 @@
     onOpenAtOffset?: (relativePath: string, offset: number) => void | Promise<void>;
     onScrollToLine: (line: number) => void;
     onOpenConversation?: (message: string) => void;
+    /** Apply an inspection's deterministic quick-fix (#1446). Routed to the
+     *  Inspections panel; App owns the note-ops mutation it triggers. */
+    onApplyInspectionFix?: (fix: InspectionFix) => void;
     onOpenQuery: (sql: string) => void;
     onOpenSource: (sourceId: string) => void;
     onOpenExcerpt: (excerptId: string) => void;
@@ -119,7 +123,7 @@
 
   let {
     activeFilePath, content, onFileSelect, onNavigate, onOpenAtOffset, onScrollToLine,
-    onOpenConversation, onOpenQuery, onOpenSource, onOpenExcerpt,
+    onOpenConversation, onApplyInspectionFix, onOpenQuery, onOpenSource, onOpenExcerpt,
     onContentChange, onOpenGraph, indexing = false, onRestore,
   }: Props = $props();
 
@@ -273,7 +277,7 @@
     {:else if activePanel === 'bookmarks'}
       <BookmarksPanel {activeFilePath} {onFileSelect} {...(onNavigate !== undefined ? { onNavigate } : {})} {...(onOpenAtOffset !== undefined ? { onOpenAtOffset } : {})} />
     {:else if activePanel === 'inspections'}
-      <InspectionsPanel {revision} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} />
+      <InspectionsPanel {revision} {...(onOpenConversation !== undefined ? { onOpenConversation } : {})} {...(onApplyInspectionFix !== undefined ? { onApplyFix: onApplyInspectionFix } : {})} />
     {/if}
   </div>
 </aside>

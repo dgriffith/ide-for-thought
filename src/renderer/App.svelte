@@ -42,7 +42,7 @@
   import MineReferencesDialog from './lib/components/MineReferencesDialog.svelte';
   import ResolveStubDialog from './lib/components/ResolveStubDialog.svelte';
   import SafeDeleteBlockerDialog from './lib/components/SafeDeleteBlockerDialog.svelte';
-  import type { SafeDeleteBlocker, MenuEditorState, SavedView } from '../shared/types';
+  import type { SafeDeleteBlocker, MenuEditorState, SavedView, InspectionFix } from '../shared/types';
   import CommandPaletteDialog from './lib/components/CommandPaletteDialog.svelte';
   import type { Command } from './lib/command-palette/types';
   import { buildCommandRegistry } from './lib/command-palette/registry';
@@ -714,10 +714,17 @@
     openTypeEditor: (initial, promoteNotePath) => { typeEditorState = { initial, promoteNotePath }; },
   };
   const {
-    handleNewNote, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, createNoteFromReference, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
+
+  /** Apply an inspection's deterministic quick-fix (#1446). Maps the fix kind
+   *  to its note-ops handler; conversation is only the panel's fallback for
+   *  inspections that carry no fix. */
+  function applyInspectionFix(fix: InspectionFix) {
+    if (fix.kind === 'create-note') void createNoteFromReference(fix.targetPath);
+  }
 
   // Nav-ops + source-view-ops handler cluster (#670): position history
   // (back/forward), file / wiki-link navigation, and the source *view* handlers
@@ -1412,6 +1419,7 @@
           onOpenAtOffset={handleOpenAtOffset}
           onScrollToLine={(line) => editorComponent?.gotoLineColumn(line, 1)}
           onOpenConversation={(msg) => { void openConversationWithMessage(msg); }}
+          onApplyInspectionFix={applyInspectionFix}
           onOpenQuery={(sql) => editor.openQuery(sql, 'sql')}
           onOpenSource={handleOpenSource}
           onOpenExcerpt={handleOpenExcerpt}

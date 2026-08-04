@@ -66,6 +66,28 @@ describe('broken-link inspection (#140)', () => {
     expect(inspections.some((i) => i.type === 'broken_note_link')).toBe(true);
   });
 
+  // ─── deterministic create-note fix (#1446) ──────────────────────────────
+
+  it('carries a create-note fix targeting a path beside the referencing note', async () => {
+    await indexNote(ctx, 'a.md', '# A\n\nLinks to [[missing-note]].\n');
+    const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_note_link');
+    expect(broken.fix).toEqual({ kind: 'create-note', label: 'Create Note', targetPath: 'missing-note.md' });
+  });
+
+  it('puts the create-note target in the referencing note\'s folder', async () => {
+    await indexNote(ctx, 'topic/deep/a.md', '# A\n\n[[Concept X]]\n');
+    const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_note_link');
+    expect(broken.fix?.kind).toBe('create-note');
+    expect(broken.fix && 'targetPath' in broken.fix ? broken.fix.targetPath : null).toBe('topic/deep/Concept X.md');
+  });
+
+  it('offers no create-note fix on a broken anchor link (the note exists)', async () => {
+    await indexNote(ctx, 'target.md', '# Real heading\n\nbody\n');
+    await indexNote(ctx, 'source.md', 'See [[target#missing-heading]]\n');
+    const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_anchor_link');
+    expect(broken.fix).toBeUndefined();
+  });
+
   // ─── broken anchor link ─────────────────────────────────────────────────
 
   it('flags a [[note#missing-heading]] when the note exists but the heading does not', async () => {
