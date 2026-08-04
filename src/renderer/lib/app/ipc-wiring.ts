@@ -402,9 +402,11 @@ export function registerAppIpc(ctx: IpcWiringCtx): void {
     ctx.getSidebar()?.refreshTables();
     await ctx.refreshSourcesCache();
     await ctx.refreshAliasMap();
-    // Inspections hidden for v1.0: count polling disabled so the status-bar
-    // badge stays hidden (inspectionCount stays 0). Restore the
-    // setTimeout/setInterval(refreshInspectionCount) to re-enable.
+    // The Inspections panel is re-enabled (#1446), but the status-bar count
+    // badge stays un-polled for now (inspectionCount stays 0): the panel loads
+    // its own results on demand, and periodic count polling is deferred with
+    // the deterministic-fix work. Restore setInterval(refreshInspectionCount)
+    // to re-light the badge.
     // Restore cursor/scroll for every pane's active note tab after the
     // split layout has rendered and each pane's Editor has mounted (#816 —
     // restore is now multi-group, not just the focused pane).

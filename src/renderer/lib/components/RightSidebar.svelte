@@ -69,11 +69,16 @@
         { id: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
       ],
     },
-    // Activity group retired (#1527): proposals moved to the always-available
-    // left sidebar (#1523), and Inspections is hidden for v1.0. The
-    // InspectionsPanel component, its 'inspections' PanelType, and its render
-    // branch below are kept dormant — to re-enable, restore an Activity group
-    // here with a `{ id: 'inspections', … }` tab entry.
+    // Activity group (#1527 retired it; #1446 restores it): proposals live in
+    // the always-available left sidebar (#1523), so Inspections is the sole
+    // member for now.
+    {
+      id: 'activity',
+      label: 'Activity',
+      items: [
+        { id: 'inspections', label: 'Inspections', icon: 'inspections' },
+      ],
+    },
   ];
 
   /** Reverse lookup: panel → its parent group. Built once at module
