@@ -21,6 +21,7 @@ import { getLinkType } from '../../shared/link-types';
 import { mapFrontmatterKey, type FrontmatterPredicate } from './frontmatter-predicates';
 import { parseWikiInner } from '../../shared/wiki-link';
 import { slugify } from '../../shared/slug';
+import { stripNoteExt } from '../../shared/note-extensions';
 import { isIndexable } from '../notebase/indexable-files';
 
 import type { ProjectContext } from '../project-context-types';
@@ -98,7 +99,7 @@ function rebuildAliasMap(state: GraphState): void {
   // indexed note, not just those with aliases — a real file at
   // `JFK.md` should beat any other note's "JFK" alias.
   for (const path of state.indexedNotePaths) {
-    const stem = path.replace(/\.md$/i, '').toLowerCase();
+    const stem = stripNoteExt(path).toLowerCase();
     next.delete(stem);
     const basename = stem.split('/').pop() ?? '';
     if (basename) next.delete(basename);
@@ -571,7 +572,8 @@ function indexNoteAliases(
   skipAliasRebuild: boolean,
 ): void {
   const { store } = state;
-  state.indexedNotePaths.add(relativePath);
+  // (Path registration hoisted to the top of indexNote so non-md notes register
+  // too; #1446.)
   const validAliases = parsed.aliases.filter(isAliasNameValid);
   if (validAliases.length > 0) state.aliasesPerNote.set(relativePath, validAliases);
   else state.aliasesPerNote.delete(relativePath);
@@ -617,6 +619,13 @@ export async function indexNote(
 
   const subject = noteUri(state, relativePath);
   const graph = subject; // named graph = note URI, for clean removal on re-index
+
+  // Register the note path up front — for ALL note extensions (#1446), before the
+  // `.ttl`/`.csv`/`.py` early-returns below. This feeds the wiki-link resolver
+  // index (buildLinkResolveCtx) + alias canonical-name set, so a bare `[[budget]]`
+  // resolves to a `budget.csv` even on the incremental (single-note) path, not
+  // just a full rebuild. Idempotent (`indexedNotePaths` is a Set).
+  state.indexedNotePaths.add(relativePath);
 
   // Remove ALL triples from this note's graph (handles arbitrary turtle subjects)
   store.removeMatches(undefined, undefined, undefined, graph);
@@ -924,8 +933,9 @@ export async function indexAllNotes(ctx: ProjectContext, opts?: IndexAllNotesOpt
         // Register every note path up front so the main pass resolves bare
         // `[[basename]]` links against the COMPLETE file set — otherwise a note
         // indexed early couldn't resolve a link to one indexed later (#1142).
-        // Mirrors the alias pre-pass rationale (#469).
-        if (relativePath.endsWith('.md')) state!.indexedNotePaths.add(relativePath);
+        // Mirrors the alias pre-pass rationale (#469). All note extensions, so
+        // `[[budget]]` resolves to a `budget.csv`/`.ttl`/`.py` too (#1446).
+        state!.indexedNotePaths.add(relativePath);
         try {
           const content = await fs.readFile(fullPath, 'utf-8');
           const parsed = parseMarkdown(content);

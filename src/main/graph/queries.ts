@@ -13,6 +13,7 @@
 import * as $rdf from 'rdflib';
 import type { ProjectContext } from '../project-context-types';
 import { LINK_TYPES, type LinkType } from '../../shared/link-types';
+import { stripNoteExt } from '../../shared/note-extensions';
 import type {
   TagInfo, TaggedNote, TaggedSource,
   OutgoingLink, Backlink, SafeDeleteBlocker,
@@ -73,7 +74,7 @@ export function getAliasEntries(ctx: ProjectContext): AliasEntry[] {
   // canonical name — matches rebuildAliasMap's second pass.
   const canonicals = new Set<string>();
   for (const path of state.indexedNotePaths) {
-    const stem = path.replace(/\.md$/i, '').toLowerCase();
+    const stem = stripNoteExt(path).toLowerCase();
     canonicals.add(stem);
     const basename = stem.split('/').pop() ?? '';
     if (basename) canonicals.add(basename);
