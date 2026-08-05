@@ -37,6 +37,7 @@ vi.mock('../../../src/renderer/lib/stores/editor.svelte', () => ({ getEditorStor
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({ getDialogStore: () => h.dialog }));
 
 import { createNoteOps, type NoteOpsCtx } from '../../../src/renderer/lib/app/note-ops';
+import { getNavigationStore } from '../../../src/renderer/lib/stores/navigation.svelte';
 import { getClipboardStore } from '../../../src/renderer/lib/stores/clipboard.svelte';
 import { CONFIRM_KEYS } from '../../../src/renderer/lib/confirm-keys';
 
@@ -124,6 +125,25 @@ describe('handleNewNote', () => {
     h.dialog.showNewNoteDialog.mockResolvedValue(null);
     await ops.handleNewNote();
     expect(h.api.notebase.createFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('createNoteFromReference — nav history (#1446)', () => {
+  it('records the referencing note so Back returns to it after opening the new note', async () => {
+    const nav = getNavigationStore();
+    nav.clear();
+    nav.doneNavigating();
+    h.editor.activeFilePath = 'topic/Referrer.md';
+    (h.editor as unknown as { activeTab: { type: string } }).activeTab = { type: 'note' };
+    h.notebase.files = []; // target doesn't exist yet → gets created
+
+    await ops.createNoteFromReference('topic/New.md');
+
+    expect(h.api.notebase.createFile).toHaveBeenCalledWith('topic/New.md');
+    expect(h.editor.openFile).toHaveBeenCalledWith('topic/New.md');
+    // The referencing note is on the back stack, so Back returns to it — the
+    // bug was that createNoteFromReference bypassed nav recording entirely.
+    expect(nav.goBack()).toEqual({ type: 'note', relativePath: 'topic/Referrer.md', offset: 0 });
   });
 });
 
