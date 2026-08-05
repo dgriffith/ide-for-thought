@@ -87,6 +87,8 @@ export const CONFIRM_KEYS = {
   mergeNote: 'merge-note',
   /** Surfaced when the merge IPC throws after the user confirmed (rare). */
   mergeFailed: 'merge-failed',
+  /** Surfaced when a duplicate-source merge (inspection quick-fix) fails (#1446). */
+  mergeSourcesFailed: 'merge-sources-failed',
   bibliographyResult: 'bibliography-result',
   bibliographyFailed: 'bibliography-failed',
   /** Shown when an LLM-backed action runs without an Anthropic API key
@@ -398,6 +400,12 @@ export const CONFIRM_REGISTRY: ConfirmRegistryEntry[] = [
     title: 'Merge note failed',
     description:
       'Shown when "Merge note into…" errors out after the user confirmed — read failure, write failure mid-rewrite, etc. Recovery is `git reset --hard HEAD`.',
+  },
+  {
+    key: CONFIRM_KEYS.mergeSourcesFailed,
+    title: 'Merge sources failed',
+    description:
+      'Shown when the duplicate-source merge quick-fix (Inspections panel, #1446) fails to merge one of the duplicates into the kept source.',
   },
   {
     key: CONFIRM_KEYS.bibliographyResult,

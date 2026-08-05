@@ -17,6 +17,7 @@ import { getConfirmSuppressionStore } from './confirm-suppression.svelte';
 import type { NoteExt, NewNoteResult } from '../components/new-note-dialog-types';
 import type { TemplateInfo } from '../ipc/client';
 import type { TypeInfo } from '../../../shared/objects/type-def';
+import type { SourceMetadata } from '../../../shared/types';
 
 export interface PromptState {
   message: string;
@@ -73,10 +74,18 @@ export interface TypePickerState {
   resolve: (value: TypeInfo | null) => void;
 }
 
+/** Duplicate-source merge picker (#1446): choose which of the duplicates to
+ *  keep; resolves to its sourceId, or null on cancel. */
+export interface MergeSourcesState {
+  sources: SourceMetadata[];
+  resolve: (keepId: string | null) => void;
+}
+
 let prompt = $state<PromptState | null>(null);
 let newNote = $state<NewNoteState | null>(null);
 let snippet = $state<SnippetPickerState | null>(null);
 let typePicker = $state<TypePickerState | null>(null);
+let mergeSources = $state<MergeSourcesState | null>(null);
 let confirm = $state<ConfirmState | null>(null);
 let computeConsent = $state<ComputeConsentState | null>(null);
 let openTarget = $state<OpenTargetState | null>(null);
@@ -170,6 +179,13 @@ export function getDialogStore() {
   function pickType(t: TypeInfo) { const r = typePicker?.resolve; typePicker = null; r?.(t); }
   function cancelTypePicker() { const r = typePicker?.resolve; typePicker = null; r?.(null); }
 
+  /** Show the duplicate-source merge picker; resolves to the kept sourceId (#1446). */
+  function showMergeSourcesPicker(sources: SourceMetadata[]): Promise<string | null> {
+    return new Promise((resolve) => { mergeSources = { sources, resolve }; });
+  }
+  function pickMergeSource(keepId: string) { const r = mergeSources?.resolve; mergeSources = null; r?.(keepId); }
+  function cancelMergeSources() { const r = mergeSources?.resolve; mergeSources = null; r?.(null); }
+
   function confirmConfirm(dontAskAgain: boolean) {
     if (dontAskAgain && confirm) confirmSuppression.suppress(confirm.key);
     confirm?.resolve(true);
@@ -189,6 +205,7 @@ export function getDialogStore() {
     get newNote() { return newNote; },
     get snippet() { return snippet; },
     get typePicker() { return typePicker; },
+    get mergeSources() { return mergeSources; },
     get confirm() { return confirm; },
     get computeConsent() { return computeConsent; },
     get openTarget() { return openTarget; },
@@ -211,6 +228,9 @@ export function getDialogStore() {
     showTypePicker,
     pickType,
     cancelTypePicker,
+    showMergeSourcesPicker,
+    pickMergeSource,
+    cancelMergeSources,
     confirmConfirm,
     cancelConfirm,
     resolveOpenTarget,
@@ -225,6 +245,7 @@ export function __resetDialogsForTests(): void {
   newNote = null;
   snippet = null;
   typePicker = null;
+  mergeSources = null;
   confirm = null;
   openTarget = null;
   addProperty = null;

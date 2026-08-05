@@ -737,6 +737,28 @@
       case 'resolve-source-stub':
         await handleResolveStub(fix.sourceId);
         break;
+      case 'merge-sources': {
+        // Pick which duplicate to keep, then merge the rest into it. Not a
+        // silent fix — the canonical source is the user's choice.
+        const dupes = sourcesCache.filter((s) => fix.sourceIds.includes(s.sourceId));
+        if (dupes.length < 2) break;
+        const keepId = await dialogs.showMergeSourcesPicker(dupes);
+        if (!keepId) break;
+        const sd = getSourceDataStore();
+        for (const other of fix.sourceIds) {
+          if (other === keepId) continue;
+          try {
+            await sd.merge(other, keepId);
+          } catch (err) {
+            await showConfirm(
+              `Couldn't merge "${other}": ${err instanceof Error ? err.message : String(err)}`,
+              CONFIRM_KEYS.mergeSourcesFailed,
+              'OK',
+            );
+          }
+        }
+        break;
+      }
     }
   }
 
