@@ -27,8 +27,9 @@
     onOpenConversation?: (message: string) => void;
     /** Apply an inspection's deterministic quick-fix (#1446). When present on a
      *  row, it's the primary action — conversation is only the fallback for
-     *  inspections that carry no fix. */
-    onApplyFix?: (fix: InspectionFix) => void;
+     *  inspections that carry no fix. Returns a promise so the panel can re-run
+     *  the checks once the fix has applied and clear the fixed row. */
+    onApplyFix?: (fix: InspectionFix) => void | Promise<void>;
   }
 
   let { revision, activeFilePath, onOpenConversation, onApplyFix }: Props = $props();
@@ -37,6 +38,10 @@
   let loading = $state(false);
   let search = $state('');
   let sortId = $state<'severity' | 'type'>('severity');
+  // Scope (#1446): 'note' (default) keeps the note-context filter; 'project'
+  // shows every inspection — the only way source-scoped inspections (unread
+  // sources, aged stubs, dupes) surface, since they aren't anchored to a note.
+  let scope = $state<'note' | 'project'>('note');
 
   async function refresh() {
     loading = true;
@@ -54,18 +59,20 @@
 
   $effect(() => { revision; void refresh(); });
 
-  // Scope to the active note (#1446): the panel lives in the note-context right
-  // sidebar, so it shows only inspections anchored to the open note, not the
-  // whole project. Inspections without a notePath (source dupes/metadata,
-  // standalone claim components) aren't "on" a note and are excluded.
-  const noteScoped = $derived(
-    activeFilePath ? inspections.filter(i => i.notePath === activeFilePath) : [],
+  // Scope to the active note (#1446): in 'note' scope the panel lives in the
+  // note-context right sidebar, so it shows only inspections anchored to the
+  // open note (those without a notePath — source dupes/metadata, standalone
+  // claim components — aren't "on" a note). 'project' scope shows everything.
+  const scoped = $derived(
+    scope === 'project'
+      ? inspections
+      : (activeFilePath ? inspections.filter(i => i.notePath === activeFilePath) : []),
   );
 
   const filtered = $derived(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return noteScoped;
-    return noteScoped.filter(i =>
+    if (!q) return scoped;
+    return scoped.filter(i =>
       i.nodeLabel.toLowerCase().includes(q) ||
       i.message.toLowerCase().includes(q) ||
       i.type.toLowerCase().includes(q)
@@ -92,11 +99,14 @@
     return '\u00B7'; // ·
   }
 
-  function handleClick(inspection: Inspection) {
+  async function handleClick(inspection: Inspection) {
     // Deterministic-first (#1446): a fixable inspection applies its fix; only
     // inspections with no fix fall back to opening a conversation.
     if (inspection.fix) {
-      onApplyFix?.(inspection.fix);
+      // Re-run the checks after the fix applies so the fixed row clears — the
+      // main-side results are cached and aren't recomputed on a graph write.
+      await onApplyFix?.(inspection.fix);
+      void runNow();
       return;
     }
     if (onOpenConversation) {
@@ -118,9 +128,10 @@
     onSort={(id: string) => { sortId = id as 'severity' | 'type'; }}
   />
   <div class="panel-header">
-    <span class="count">
-      {filtered().length} inspection{filtered().length !== 1 ? 's' : ''}
-    </span>
+    <div class="scope-toggle" role="group" aria-label="Inspection scope">
+      <button class:active={scope === 'note'} onclick={() => { scope = 'note'; }} title="Inspections on the current note">This note</button>
+      <button class:active={scope === 'project'} onclick={() => { scope = 'project'; }} title="Every inspection in the thoughtbase, including source-level ones">Project</button>
+    </div>
     <button class="refresh-btn" onclick={runNow} disabled={loading} title="Re-run health checks">
       {loading ? '...' : 'Run'}
     </button>
@@ -131,7 +142,7 @@
        conversation fallback. The row is a single button, so the pill is a
        non-interactive span (no nested interactive element). -->
   {#snippet row(insp: Inspection)}
-    <button class="inspection-item {insp.severity}" onclick={() => handleClick(insp)} title={insp.fix ? insp.fix.label : (insp.suggestedAction ?? '')}>
+    <button class="inspection-item {insp.severity}" onclick={() => void handleClick(insp)} title={insp.fix ? insp.fix.label : (insp.suggestedAction ?? '')}>
       <span class="insp-icon">{severityIcon(insp.severity)}</span>
       <div class="insp-body">
         <span class="insp-label">{insp.nodeLabel}</span>
@@ -142,7 +153,7 @@
   {/snippet}
 
   {#if filtered().length === 0}
-    <p class="empty">{loading ? 'Checking...' : (noteScoped.length === 0 ? 'No inspections for this note' : 'No matches')}</p>
+    <p class="empty">{loading ? 'Checking...' : (scoped.length === 0 ? (scope === 'project' ? 'No inspections' : 'No inspections for this note') : 'No matches')}</p>
   {:else if sortId === 'type'}
     <div class="inspection-list">
       {#each byType() as [typeName, items]}
@@ -201,9 +212,26 @@
     flex-shrink: 0;
   }
 
-  .count {
-    font-size: 11px;
+  /* Segmented This note / Project scope switch (#1446). */
+  .scope-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .scope-toggle button {
+    padding: 2px 8px;
+    border: none;
+    background: none;
     color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .scope-toggle button:first-child { border-right: 1px solid var(--border); }
+  .scope-toggle button:hover { color: var(--text); }
+  .scope-toggle button.active {
+    background: var(--bg-button);
+    color: var(--text);
   }
 
   .refresh-btn {

@@ -309,6 +309,8 @@ async function checkLongUnresolvedStubs(ctx: ProjectContext, thresholdDays: numb
       nodeLabel: label,
       message: `Stub "${label}" has been unresolved since ${r.modified!.split('T')[0]}.`,
       suggestedAction: 'Right-click the source and run "Resolve to full source", or hand-edit meta.ttl.',
+      // Deterministic quick-fix (#1446): resolve the stub against CrossRef.
+      fix: { kind: 'resolve-source-stub', label: 'Resolve source', sourceId: r.sourceId! },
     };
   });
 }
@@ -344,6 +346,8 @@ async function checkCitedUnreadSources(ctx: ProjectContext): Promise<Inspection[
       nodeLabel: label,
       message: `"${label}" is cited ${count === 1 ? 'once' : `${count} times`} but you haven't marked it Reading or Read.`,
       suggestedAction: 'Open the source and set its reading status, or right-click → Mark reading.',
+      // Deterministic quick-fix (#1446): mark the cited source read.
+      fix: { kind: 'set-read-status', label: 'Mark read', sourceId: r.sourceId!, status: 'read' },
     };
   });
 }
