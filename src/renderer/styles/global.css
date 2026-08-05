@@ -609,3 +609,22 @@ mark.hl-orange { background: color-mix(in oklch, var(--hl-orange) 30%, transpare
   font-style: italic;
   font-size: 11px;
 }
+/* Broken-link hover quick-fix (#1446): a lightbulb "Create Note" action under
+   the "not found" message. Non-italic so it reads as an action, not prose. */
+.cm-link-preview.missing .missing-msg { margin-bottom: 6px; }
+.cm-link-fix {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-button);
+  color: var(--text);
+  font-style: normal;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+.cm-link-fix:hover { border-color: var(--rust); color: var(--text); }
+.cm-link-fix svg { color: var(--rust); flex-shrink: 0; }
