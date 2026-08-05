@@ -15,7 +15,7 @@
   import { search, openSearchPanel, setSearchQuery, SearchQuery } from '@codemirror/search';
   import { autocompletion, acceptCompletion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
   import { acceptCompletionEatTail, completionKeymapNoEnter } from '../editor/accept-completion-eat-tail';
-  import { historyField } from '@codemirror/commands';
+  import { historyField, indentWithTab } from '@codemirror/commands';
   import { api } from '../ipc/client';
   import {
     uploadImage,
@@ -854,10 +854,13 @@
     const appKeymap = Prec.highest(keymap.of([
       { key: 'Mod-s', run: () => { onSave(); return true; } },
       { key: 'Alt-Enter', run: openQuickFix },
-      // Tab accepts the active completion; acceptCompletion returns false
-      // when no completion panel is open, so Tab-for-indent still works
-      // everywhere else.
+      // Tab accepts the active completion, else indents (Shift-Tab outdents).
+      // acceptCompletion returns false with no popup open, and same-key bindings
+      // run in array order, so the fall-through lands on indentWithTab. Both
+      // no-op while tab-focus mode is on (editor.toggleTabFocusMode, Ctrl-m),
+      // which is what still lets keyboard users move focus out of the editor.
       { key: 'Tab', run: acceptCompletion },
+      indentWithTab,
       // Enter accepts the active completion and eats the half-typed word tail
       // (#206) — only word chars, so `[[No|te]]` → `[[Notebook]]` keeps its
       // brackets. Returns false with no popup open, so Enter stays a newline /
