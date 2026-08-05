@@ -61,6 +61,9 @@
          */
         notePath?: string | null;
         onNavigate: (target: string) => void;
+        /** Broken-link hover quick-fix (#1446): create the missing note the
+         *  hovered `[[link]]` points at. Mirrors the editor's hover lightbulb. */
+        onCreateNoteFromReference?: (target: string) => void;
         onTagSelect?: (tag: string) => void;
         onOpenSource?: (sourceId: string) => void;
         onOpenExcerpt?: (excerptId: string) => void;
@@ -140,6 +143,7 @@
         content,
         notePath = null,
         onNavigate,
+        onCreateNoteFromReference,
         onTagSelect,
         onOpenSource,
         onOpenExcerpt,
@@ -884,6 +888,18 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
     let tooltipVisible = $state(false);
     let tooltipHtml = $state('');
     let tooltipStyle = $state('');
+    // When the hovered link is broken (and a create handler is wired), the raw
+    // target to offer "Create Note From Reference" for (#1446). Non-null turns
+    // the tooltip interactive (see `.has-fix`).
+    let tooltipFixTarget = $state<string | null>(null);
+    let tooltipEl = $state<HTMLDivElement>();
+    // Grace timer for the interactive (broken-link) tooltip: leaving the link
+    // schedules a dismiss that entering the tooltip cancels, so the cursor can
+    // cross the gap to click Create-Note. Plain tooltips dismiss immediately.
+    let tooltipDismissTimer: ReturnType<typeof setTimeout> | null = null;
+    function cancelScheduledDismiss() {
+        if (tooltipDismissTimer !== null) { clearTimeout(tooltipDismissTimer); tooltipDismissTimer = null; }
+    }
 
     function handleMouseOver(e: MouseEvent) {
         const target = e.target as HTMLElement | null;
@@ -902,6 +918,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             const body = previewEl?.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
             if (body) {
                 tooltipHtml = buildFootnoteTooltip(body);
+                tooltipFixTarget = null;
                 tooltipVisible = true;
                 positionTooltip(footnoteRef);
             }
@@ -920,6 +937,9 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                 if (token !== hoverToken) return; // superseded by another hover / mouseout
                 if (!preview) {
                     tooltipHtml = buildNotePreviewMissing(linkTarget);
+                    // Offer the create-note fix on a broken link (#1446). The
+                    // anchor is dropped — the fix creates the note, not a heading.
+                    tooltipFixTarget = onCreateNoteFromReference ? linkTarget : null;
                     tooltipVisible = true;
                     positionTooltip(wiki);
                     return;
@@ -932,6 +952,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
                 tooltipHtml = rb.type
                     ? `<div class="object-card oc-tooltip">${buildObjectCardHtml(rb, { title: preview.title })}</div>`
                     : buildNotePreviewTooltip(preview.title, preview.snippet);
+                tooltipFixTarget = null;
                 tooltipVisible = true;
                 positionTooltip(wiki);
             }).catch(() => {
@@ -950,6 +971,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         } catch {
             return;
         }
+        tooltipFixTarget = null;
         tooltipVisible = true;
         positionTooltip(el);
     }
@@ -961,14 +983,33 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         // relatedTarget can be null when cursor leaves the window — dismiss anyway
         const to = e.relatedTarget as Node | null;
         if (to && leaving.contains(to)) return;
+        // Moving onto an interactive (broken-link) tooltip keeps it open so its
+        // Create-Note button is clickable; the tooltip's own mouseleave dismisses.
+        if (to && tooltipEl?.contains(to)) return;
+        // For that interactive tooltip, delay the dismiss so the cursor can cross
+        // the gap between the link and the tooltip (mouseenter cancels it).
+        if (tooltipFixTarget !== null) {
+            cancelScheduledDismiss();
+            tooltipDismissTimer = setTimeout(() => { tooltipDismissTimer = null; dismissTooltip(); }, 180);
+            return;
+        }
         dismissTooltip();
+    }
+
+    /** Apply the broken-link hover fix — create the missing note, then dismiss. */
+    function applyTooltipFix() {
+        const t = tooltipFixTarget;
+        dismissTooltip();
+        if (t) onCreateNoteFromReference?.(t);
     }
 
     /** Hide the hover tooltip and cancel any in-flight wiki-link fetch (#1132)
      *  so a late-resolving read can't re-show it. */
     function dismissTooltip() {
+        cancelScheduledDismiss();
         hoverToken++;
         tooltipVisible = false;
+        tooltipFixTarget = null;
     }
 
     function positionTooltip(anchor: HTMLElement) {
@@ -1007,13 +1048,24 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
             {/each}
         </aside>
     {/if}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
             class="cite-tooltip"
             class:visible={tooltipVisible}
+            class:has-fix={tooltipFixTarget !== null}
             style={tooltipStyle}
             aria-hidden="true"
+            bind:this={tooltipEl}
+            onmouseenter={cancelScheduledDismiss}
+            onmouseleave={dismissTooltip}
     >
         {@html sanitizeNoteHtml(tooltipHtml)}
+        {#if tooltipFixTarget !== null}
+            <button class="tooltip-fix" onclick={applyTooltipFix}>
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13h4M6.5 15h3"/><path d="M8 1a5 5 0 0 0-3 9c.5.4.8 1 .8 1.6h4.4c0-.6.3-1.2.8-1.6A5 5 0 0 0 8 1z"/></svg>
+                <span>Create Note From Reference</span>
+            </button>
+        {/if}
     </div>
 </div>
 
@@ -1133,6 +1185,28 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         opacity: 1;
         visibility: visible;
     }
+
+    /* Broken-link tooltip is interactive so its Create-Note button is clickable
+       (the plain preview tooltip stays pointer-events:none). (#1446) */
+    .cite-tooltip.has-fix {
+        pointer-events: auto;
+    }
+    .tooltip-fix {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 8px;
+        padding: 3px 8px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg-elev);
+        color: var(--text);
+        font-size: 11px;
+        font-family: var(--font-sans);
+        cursor: pointer;
+    }
+    .tooltip-fix:hover { border-color: var(--rust); }
+    .tooltip-fix svg { color: var(--rust); flex-shrink: 0; }
 
     .cite-tooltip :global(.tt-title) {
         font-weight: 600;
