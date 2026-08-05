@@ -505,6 +505,9 @@
         getNotePaths: () => getNotePaths?.() ?? [],
         getAliases: () => getAliases?.() ?? [],
         readNote: (p) => api.notebase.readFile(p),
+        // Broken-link hover lightbulb (#1446). Wrapped in a closure (not a bare
+        // prop reference) so it stays current in the once-built extension list.
+        onCreateNoteFromReference: (target: string) => onCreateNoteFromReference?.(target),
       }),
       brokenLinkDecorations({
         getNotePaths: () => getNotePaths?.() ?? [],

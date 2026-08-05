@@ -16,6 +16,8 @@ import {
   type ViewUpdate,
   Decoration,
   type DecorationSet,
+  gutter,
+  GutterMarker,
 } from '@codemirror/view';
 import { RangeSetBuilder, StateEffect, type EditorState } from '@codemirror/state';
 import { scanLinks, findLinkAt, type LinkRange } from './link-decorations';
@@ -123,7 +125,32 @@ const brokenLinkTheme = EditorView.theme({
     textDecorationSkipInk: 'none',
     textUnderlineOffset: '2px',
   },
+  // Gutter stripe column — no fixed width, so it disappears on clean notes.
+  '.cm-broken-gutter': { minWidth: '0' },
+  '.cm-broken-gutter .cm-gutterElement': { display: 'flex', justifyContent: 'center' },
+  '.cm-broken-line-bar': {
+    width: '3px',
+    alignSelf: 'stretch',
+    background: 'var(--rust)',
+    borderRadius: '1px',
+  },
 });
+
+/** IntelliJ-style gutter stripe: a thin `--rust` bar in its own column on any
+ *  line that carries a broken link. Rendered as a GutterMarker (see the theme
+ *  block for the bar styling). */
+class BrokenLineMarker extends GutterMarker {
+  override toDOM(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'cm-broken-line-bar';
+    el.title = 'Broken link on this line';
+    return el;
+  }
+  override eq(other: GutterMarker): boolean {
+    return other instanceof BrokenLineMarker;
+  }
+}
+const brokenLineMarker = new BrokenLineMarker();
 
 export function brokenLinkDecorations(deps: BrokenLinkDeps) {
   const plugin = ViewPlugin.fromClass(
@@ -152,5 +179,26 @@ export function brokenLinkDecorations(deps: BrokenLinkDeps) {
     },
     { decorations: (v) => v.decorations },
   );
-  return [plugin, brokenLinkTheme];
+
+  // Gutter reads the plugin's live broken-link decorations — no separate scan.
+  // The column collapses to nothing when a note has no broken links (no spacer).
+  const brokenGutter = gutter({
+    class: 'cm-broken-gutter',
+    lineMarker(view, line) {
+      const inst = view.plugin(plugin);
+      if (!inst || inst.decorations.size === 0) return null;
+      let has = false;
+      inst.decorations.between(line.from, line.to, () => { has = true; return false; });
+      return has ? brokenLineMarker : null;
+    },
+    lineMarkerChange(update) {
+      const forced = update.transactions.some((tr) =>
+        tr.effects.some((e) => e.is(refreshBrokenLinks)),
+      );
+      return forced || update.docChanged || update.viewportChanged ||
+        (update.focusChanged && update.view.hasFocus);
+    },
+  });
+
+  return [plugin, brokenLinkTheme, brokenGutter];
 }
