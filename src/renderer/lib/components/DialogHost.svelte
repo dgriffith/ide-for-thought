@@ -9,6 +9,7 @@
   import NewNoteDialog from './NewNoteDialog.svelte';
   import SnippetPickerDialog from './SnippetPickerDialog.svelte';
   import TypePickerDialog from './TypePickerDialog.svelte';
+  import MergeSourcesDialog from './MergeSourcesDialog.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import OpenTargetDialog from './OpenTargetDialog.svelte';
   import AddPropertyDialog from './AddPropertyDialog.svelte';
@@ -49,6 +50,14 @@
     types={dialogs.typePicker.types}
     onPick={(t) => dialogs.pickType(t)}
     onCancel={() => dialogs.cancelTypePicker()}
+  />
+{/if}
+
+{#if dialogs.mergeSources}
+  <MergeSourcesDialog
+    sources={dialogs.mergeSources.sources}
+    onPick={(keepId) => dialogs.pickMergeSource(keepId)}
+    onCancel={() => dialogs.cancelMergeSources()}
   />
 {/if}
 

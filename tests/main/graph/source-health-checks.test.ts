@@ -150,6 +150,9 @@ describe('source health checks (#119)', () => {
     expect(dup).toHaveLength(1);
     expect(dup[0].message).toContain('dup-a');
     expect(dup[0].message).toContain('dup-b');
+    // Merge quick-fix carries every duplicate id so the picker can offer them (#1446).
+    expect(dup[0].fix?.kind).toBe('merge-sources');
+    expect(dup[0].fix && 'sourceIds' in dup[0].fix ? [...dup[0].fix.sourceIds].sort() : []).toEqual(['dup-a', 'dup-b']);
   });
 
   it('flags two sources sharing the same URL (trailing-slash normalised)', async () => {

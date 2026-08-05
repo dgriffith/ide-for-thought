@@ -12,11 +12,15 @@
  * - `resolve-source-stub` — resolve an aged unresolved source stub against
  *   CrossRef. Applied via `source-ops` `handleResolveStub` (auto-applies a
  *   confident match, else opens the picker).
+ * - `merge-sources` — several sources share a DOI/URL; `sourceIds` are the
+ *   duplicates. Opens a picker to choose which to keep, then merges the rest
+ *   into it (not deterministic-silent — the canonical is the user's choice).
  */
 export type InspectionFix =
   | { kind: 'create-note'; label: string; targetPath: string }
   | { kind: 'set-read-status'; label: string; sourceId: string; status: ReadStatus }
-  | { kind: 'resolve-source-stub'; label: string; sourceId: string };
+  | { kind: 'resolve-source-stub'; label: string; sourceId: string }
+  | { kind: 'merge-sources'; label: string; sourceIds: string[] };
 
 export interface NoteFile {
   name: string;

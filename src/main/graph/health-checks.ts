@@ -385,6 +385,8 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
       nodeLabel: ids[0] ?? r.keyDoi!,
       message: `Duplicate DOI ${r.keyDoi}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
+      // Quick-fix (#1446): pick which duplicate to keep, merge the rest into it.
+      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
     });
   }
 
@@ -411,6 +413,8 @@ async function checkDuplicateSources(ctx: ProjectContext): Promise<Inspection[]>
       nodeLabel: ids[0] ?? r.keyUri!,
       message: `Duplicate URL ${r.keyUri}: ${ids.length} sources (${ids.join(', ')}).`,
       suggestedAction: 'Right-click one and choose "Merge into…" to consolidate.',
+      // Quick-fix (#1446): pick which duplicate to keep, merge the rest into it.
+      fix: { kind: 'merge-sources', label: 'Merge…', sourceIds: ids },
     });
   }
 
