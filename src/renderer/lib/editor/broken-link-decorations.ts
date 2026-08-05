@@ -19,7 +19,7 @@ import {
   gutter,
   GutterMarker,
 } from '@codemirror/view';
-import { RangeSetBuilder, StateEffect, type EditorState } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect, Prec, type EditorState } from '@codemirror/state';
 import { scanLinks, findLinkAt, type LinkRange } from './link-decorations';
 import {
   buildWikiLinkIndex,
@@ -125,9 +125,12 @@ const brokenLinkTheme = EditorView.theme({
     textDecorationSkipInk: 'none',
     textUnderlineOffset: '2px',
   },
-  // Gutter stripe column — no fixed width, so it disappears on clean notes.
+  // Gutter stripe column, kept snug against the line-number gutter (it's given
+  // high precedence below so it renders as the leftmost gutter). No fixed width
+  // + tight padding so it's a thin rail, not a floating bar, and it collapses to
+  // nothing on clean notes.
   '.cm-broken-gutter': { minWidth: '0' },
-  '.cm-broken-gutter .cm-gutterElement': { display: 'flex', justifyContent: 'center' },
+  '.cm-broken-gutter .cm-gutterElement': { display: 'flex', justifyContent: 'center', padding: '0 1px' },
   '.cm-broken-line-bar': {
     width: '3px',
     alignSelf: 'stretch',
@@ -200,5 +203,7 @@ export function brokenLinkDecorations(deps: BrokenLinkDeps) {
     },
   });
 
-  return [plugin, brokenLinkTheme, brokenGutter];
+  // High precedence so this gutter sorts ahead of the fold / bookmark gutters
+  // and sits right next to the line-number gutter, rather than out by the text.
+  return [plugin, brokenLinkTheme, Prec.high(brokenGutter)];
 }
