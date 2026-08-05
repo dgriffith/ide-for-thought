@@ -16,6 +16,7 @@ import { getClipboardStore } from '../stores/clipboard.svelte';
 import { resolveSelectionTargets, expandSelectionToNoteFiles, pathExistsInTree } from '../sidebar-tree-utils';
 import { describeDeleteNoun, describeDeleteMessage, offsetToLineCol, flattenNotePaths, formatCappedList, type OperationFailure } from './text-helpers';
 import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
+import { removeBrokenAnchorLinks } from '../../../shared/refactor/remove-broken-anchor';
 import { setFrontmatterProperty, getFrontmatterValues } from '../../../shared/frontmatter-edit';
 import { deriveTypeProperties } from '../../../shared/objects/derive-type';
 import type { TypeInfo, PropertyDef } from '../../../shared/objects/type-def';
@@ -130,6 +131,28 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await openNoteRecordingHistory(relativePath, getOffset);
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
+  }
+
+  /**
+   * broken_anchor_link quick-fix (#1446): strip the missing `#heading` from
+   * links in `notePath` that resolve to `targetPath`. Edits the live editor
+   * buffer when the referencing note is open (auto-saves + re-indexes), else
+   * writes to disk. `anchor` is the slugified missing heading.
+   */
+  async function removeBrokenAnchor(notePath: string, targetPath: string, anchor: string) {
+    if (!notebase.meta) return;
+    const files = flattenNotePaths(notebase.files).map((relativePath) => ({ relativePath, isDirectory: false }));
+    if (notePath === editor.activeFilePath) {
+      const next = removeBrokenAnchorLinks(editor.content, files, undefined, targetPath, anchor);
+      if (next !== editor.content) editor.setContent(next);
+      return;
+    }
+    const content = await api.notebase.readFile(notePath);
+    const next = removeBrokenAnchorLinks(content, files, undefined, targetPath, anchor);
+    if (next !== content) {
+      await api.notebase.writeFile(notePath, next);
+      await notebase.refresh();
+    }
   }
 
   /**
@@ -620,5 +643,5 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     await handleMove(relativePath, destDir);
   }
 
-  return { handleNewNote, createNoteFromReference, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
+  return { handleNewNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, executeDeletes, openFirstReferenceFromSafeDelete, handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge, handleRename, handleCopyWithPrompt, handleMoveWithPrompt };
 }

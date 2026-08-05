@@ -41,7 +41,7 @@ export function flattenNoteFiles(tree: NoteFile[]): NoteFile[] {
 const slug = (s: string): string =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
-type NoteFileLike = Pick<NoteFile, 'relativePath' | 'isDirectory'>;
+export type NoteFileLike = Pick<NoteFile, 'relativePath' | 'isDirectory'>;
 
 /** Note files only, sorted so a lower `noteExtRank` (`.md` = 0) comes first.
  *  `Array.prototype.sort` is stable, so files of the same extension keep their

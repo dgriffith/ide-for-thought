@@ -88,11 +88,17 @@ describe('broken-link inspection (#140)', () => {
     expect(broken.fix && 'targetPath' in broken.fix ? broken.fix.targetPath : null).toBe('topic/deep/Concept X.md');
   });
 
-  it('offers no create-note fix on a broken anchor link (the note exists)', async () => {
+  it('offers a remove-anchor fix on a broken anchor link (#1446)', async () => {
     await indexNote(ctx, 'target.md', '# Real heading\n\nbody\n');
     await indexNote(ctx, 'source.md', 'See [[target#missing-heading]]\n');
     const [broken] = (await runAllChecks(ctx)).filter((i) => i.type === 'broken_anchor_link');
-    expect(broken.fix).toBeUndefined();
+    expect(broken.fix).toEqual({
+      kind: 'remove-anchor',
+      label: 'Remove anchor',
+      notePath: 'source.md',
+      targetPath: 'target.md',
+      anchor: 'missing-heading',
+    });
   });
 
   // ─── broken anchor link ─────────────────────────────────────────────────
