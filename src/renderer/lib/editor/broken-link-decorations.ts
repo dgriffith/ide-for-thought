@@ -19,7 +19,7 @@ import {
   gutter,
   GutterMarker,
 } from '@codemirror/view';
-import { RangeSetBuilder, StateEffect, Prec, type EditorState } from '@codemirror/state';
+import { RangeSetBuilder, StateEffect, type EditorState } from '@codemirror/state';
 import { scanLinks, findLinkAt, type LinkRange } from './link-decorations';
 import {
   buildWikiLinkIndex,
@@ -203,7 +203,10 @@ export function brokenLinkDecorations(deps: BrokenLinkDeps) {
     },
   });
 
-  // High precedence so this gutter sorts ahead of the fold / bookmark gutters
-  // and sits right next to the line-number gutter, rather than out by the text.
-  return [plugin, brokenLinkTheme, Prec.high(brokenGutter)];
+  // NOTE: don't wrap `brokenGutter` in a Prec — CM's `gutter()` bundles the
+  // shared gutter renderer, and re-precedencing the whole thing stops it
+  // rendering at all. Column order is set by registration order instead: this
+  // is registered ahead of the bookmark gutter in Editor.svelte so it sits in
+  // the left gutter group, not out by the text.
+  return [plugin, brokenLinkTheme, brokenGutter];
 }
