@@ -15,12 +15,17 @@
  * - `merge-sources` — several sources share a DOI/URL; `sourceIds` are the
  *   duplicates. Opens a picker to choose which to keep, then merges the rest
  *   into it (not deterministic-silent — the canonical is the user's choice).
+ * - `remove-anchor` — a `[[note#heading]]` whose heading is missing; strip the
+ *   `#heading` in `notePath` (the referencing note) from links that resolve to
+ *   `targetPath` and whose anchor slug is `anchor`, so the link points at the
+ *   note itself. Applied via `note-ops`.
  */
 export type InspectionFix =
   | { kind: 'create-note'; label: string; targetPath: string }
   | { kind: 'set-read-status'; label: string; sourceId: string; status: ReadStatus }
   | { kind: 'resolve-source-stub'; label: string; sourceId: string }
-  | { kind: 'merge-sources'; label: string; sourceIds: string[] };
+  | { kind: 'merge-sources'; label: string; sourceIds: string[] }
+  | { kind: 'remove-anchor'; label: string; notePath: string; targetPath: string; anchor: string };
 
 export interface NoteFile {
   name: string;

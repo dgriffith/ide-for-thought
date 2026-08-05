@@ -631,6 +631,16 @@ function inspectionForBrokenLink(
           notePath: row.sourcePath,
           message: `Note "${row.sourcePath}" links to a missing heading: [[${stem}#${classified.anchor}]]`,
           suggestedAction: 'Add the heading to the target note, fix the anchor slug, or remove the `#…` part.',
+          // Deterministic quick-fix (#1446): drop the broken `#heading` so the
+          // link points at the note itself. targetPath is the resolved note;
+          // classified.anchor is the (slugified) missing heading.
+          fix: {
+            kind: 'remove-anchor',
+            label: 'Remove anchor',
+            notePath: row.sourcePath,
+            targetPath: realPath,
+            anchor: classified.anchor,
+          },
         };
       }
     }

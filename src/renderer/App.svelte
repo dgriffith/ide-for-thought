@@ -716,7 +716,7 @@
     openTypeEditor: (initial, promoteNotePath) => { typeEditorState = { initial, promoteNotePath }; },
   };
   const {
-    handleNewNote, createNoteFromReference, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
+    handleNewNote, createNoteFromReference, removeBrokenAnchor, handleInlineTypeCreate, handlePromoteToType, handleSaveNoteAsObjectType, handleNewFolder, handleDelete, openFirstReferenceFromSafeDelete,
     handleCut, handleCopy, handleMove, handlePaste, handleMerge, performMerge,
     handleRename, handleCopyWithPrompt, handleMoveWithPrompt,
   } = createNoteOps(noteOpsCtx);
@@ -736,6 +736,9 @@
         break;
       case 'resolve-source-stub':
         await handleResolveStub(fix.sourceId);
+        break;
+      case 'remove-anchor':
+        await removeBrokenAnchor(fix.notePath, fix.targetPath, fix.anchor);
         break;
       case 'merge-sources': {
         // Pick which duplicate to keep, then merge the rest into it. Not a
