@@ -17,6 +17,7 @@ import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getRefactorFlowStore } from '../stores/refactor-flow.svelte';
 import { formatCappedList, type OperationFailure } from './text-helpers';
+import { openNoteRecordingHistory } from './nav-record';
 import {
   planExtract,
   planSplitHere,
@@ -61,6 +62,9 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
   const editor = getEditorStore();
   const dialogs = getDialogStore();
   const busy = getBusyStore();
+
+  /** The active editor caret, for recording a note from-position in nav history. */
+  const getOffset = () => ctx.getEditorComponent()?.getOffset();
   const flow = getRefactorFlowStore();
   const { showPrompt, showConfirm, showAddPropertyDialog } = dialogs;
 
@@ -119,7 +123,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     // doesn't overwrite our rewrite.
     await editor.reloadTabFromDisk(tab.relativePath);
     await notebase.refresh();
-    await editor.openFile(plan.newNotePath);
+    await openNoteRecordingHistory(plan.newNotePath, getOffset);
     ctx.getSidebar()?.refreshTags();
   }
 
@@ -178,7 +182,7 @@ export function createRefactorOps(ctx: RefactorOpsCtx) {
     await api.notebase.writeFile(tab.relativePath, plan.updatedSourceContent);
     await editor.reloadTabFromDisk(tab.relativePath);
     await notebase.refresh();
-    await editor.openFile(plan.newNotePath);
+    await openNoteRecordingHistory(plan.newNotePath, getOffset);
     ctx.getSidebar()?.refreshTags();
   }
 
