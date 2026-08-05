@@ -7,9 +7,16 @@
  *   `targetPath` (a project-relative `.md` path the check already resolved,
  *   e.g. beside the referencing note). Applied via `note-ops`
  *   `createNoteFromReference`.
+ * - `set-read-status` — set a source's `minerva:readStatus` (e.g. mark a cited
+ *   but unread source as read). Applied via the source-data store.
+ * - `resolve-source-stub` — resolve an aged unresolved source stub against
+ *   CrossRef. Applied via `source-ops` `handleResolveStub` (auto-applies a
+ *   confident match, else opens the picker).
  */
 export type InspectionFix =
-  | { kind: 'create-note'; label: string; targetPath: string };
+  | { kind: 'create-note'; label: string; targetPath: string }
+  | { kind: 'set-read-status'; label: string; sourceId: string; status: ReadStatus }
+  | { kind: 'resolve-source-stub'; label: string; sourceId: string };
 
 export interface NoteFile {
   name: string;

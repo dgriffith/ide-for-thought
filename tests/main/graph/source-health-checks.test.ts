@@ -91,6 +91,8 @@ describe('source health checks (#119)', () => {
     const aged = inspections.filter((i) => i.type === 'stub_aged');
     expect(aged).toHaveLength(1);
     expect(aged[0].message).toContain('Aged stub');
+    // Deterministic quick-fix: resolve the stub against CrossRef (#1446).
+    expect(aged[0].fix).toEqual({ kind: 'resolve-source-stub', label: 'Resolve source', sourceId: 'aged-stub' });
   });
 
   it('does not flag freshly-created stubs', async () => {
@@ -112,6 +114,8 @@ describe('source health checks (#119)', () => {
     const flagged = inspections.filter((i) => i.type === 'source_cited_unread');
     expect(flagged).toHaveLength(1);
     expect(flagged[0].nodeLabel).toBe('Cited paper');
+    // Deterministic quick-fix: mark the cited source read (#1446).
+    expect(flagged[0].fix).toEqual({ kind: 'set-read-status', label: 'Mark read', sourceId: 'cited-paper', status: 'read' });
   });
 
   it('does not flag a cited source that\'s marked reading', async () => {

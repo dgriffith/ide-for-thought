@@ -23,6 +23,7 @@
   import { savedViewsStore } from './lib/stores/saved-views.svelte';
   import { getBusyStore } from './lib/stores/busy.svelte';
   import { getClipboardStore } from './lib/stores/clipboard.svelte';
+  import { getSourceDataStore } from './lib/stores/source-data.svelte';
   import { getSourceFlowStore } from './lib/stores/source-flow.svelte';
   import { getRefactorFlowStore } from './lib/stores/refactor-flow.svelte';
   import { createNoteOps, type NoteOpsCtx } from './lib/app/note-ops';
@@ -721,10 +722,22 @@
   } = createNoteOps(noteOpsCtx);
 
   /** Apply an inspection's deterministic quick-fix (#1446). Maps the fix kind
-   *  to its note-ops handler; conversation is only the panel's fallback for
-   *  inspections that carry no fix. */
-  function applyInspectionFix(fix: InspectionFix) {
-    if (fix.kind === 'create-note') void createNoteFromReference(fix.targetPath);
+   *  to its store / ops handler (the mutation never lives in the panel);
+   *  conversation is only the panel's fallback for inspections with no fix. The
+   *  returned promise lets the panel re-run the checks once the fix has applied.
+   */
+  async function applyInspectionFix(fix: InspectionFix): Promise<void> {
+    switch (fix.kind) {
+      case 'create-note':
+        await createNoteFromReference(fix.targetPath);
+        break;
+      case 'set-read-status':
+        await getSourceDataStore().setReadStatus(fix.sourceId, fix.status);
+        break;
+      case 'resolve-source-stub':
+        await handleResolveStub(fix.sourceId);
+        break;
+    }
   }
 
   // Nav-ops + source-view-ops handler cluster (#670): position history

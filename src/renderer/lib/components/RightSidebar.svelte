@@ -106,8 +106,9 @@
     onScrollToLine: (line: number) => void;
     onOpenConversation?: (message: string) => void;
     /** Apply an inspection's deterministic quick-fix (#1446). Routed to the
-     *  Inspections panel; App owns the note-ops mutation it triggers. */
-    onApplyInspectionFix?: (fix: InspectionFix) => void;
+     *  Inspections panel; App owns the store/ops mutation it triggers. Returns a
+     *  promise so the panel can re-run the checks once the fix has applied. */
+    onApplyInspectionFix?: (fix: InspectionFix) => void | Promise<void>;
     onOpenQuery: (sql: string) => void;
     onOpenSource: (sourceId: string) => void;
     onOpenExcerpt: (excerptId: string) => void;
