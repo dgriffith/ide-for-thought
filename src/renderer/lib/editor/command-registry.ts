@@ -1,4 +1,5 @@
 import type { Command } from '@codemirror/view';
+import { toggleTabFocusMode } from '@codemirror/commands';
 import { toggleCase, joinLines, duplicateLine, sortLines, extendSelection, shrinkSelection } from './commands';
 import {
   toggleBold, toggleItalic, toggleCode, toggleStrikethrough, toggleHighlight,
@@ -32,6 +33,18 @@ export const COMMAND_REGISTRY: CommandEntry[] = [
   // Selection
   { id: 'editor.extendSelection', label: 'Extend Selection', defaultKey: 'Alt-ArrowUp', command: extendSelection },
   { id: 'editor.shrinkSelection', label: 'Shrink Selection', defaultKey: 'Alt-ArrowDown', command: shrinkSelection },
+
+  // Accessibility — releases Tab so keyboard users can move focus out of the
+  // editor now that Tab indents. CodeMirror's default is `Ctrl-m`, but its
+  // `mac: 'Shift-Alt-m'` override can never fire: Option composes characters on
+  // macOS, so the browser reports "Â" rather than "m". `Ctrl-m` everywhere is a
+  // no-op off macOS (defaultKeymap already binds it) and fixes it on macOS.
+  {
+    id: 'editor.toggleTabFocusMode',
+    label: 'Toggle Tab Moves Focus',
+    defaultKey: 'Ctrl-m',
+    command: toggleTabFocusMode,
+  },
 
   // Inline formatting
   { id: 'editor.toggleBold', label: 'Bold', defaultKey: 'Mod-b', command: toggleBold },
