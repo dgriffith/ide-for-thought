@@ -9,6 +9,7 @@
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getEditorStore } from '../stores/editor.svelte';
+import { getNavigationStore } from '../stores/navigation.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getClipboardStore } from '../stores/clipboard.svelte';
@@ -24,7 +25,7 @@ import { CONFIRM_KEYS } from '../confirm-keys';
 import type { SafeDeleteBlocker } from '../../../shared/types';
 
 /** Minimal structural views of the bind:this component refs the note-ops touch. */
-interface EditorRef { restorePosition(offset: number, scrollTop: number): void; gotoLineColumn(line: number, col: number): void; }
+interface EditorRef { restorePosition(offset: number, scrollTop: number): void; gotoLineColumn(line: number, col: number): void; getOffset(): number; }
 interface SidebarRef { getSelectionPaths(): string[]; refreshTags(): void; refreshObjects?(): void; clearSelection(): void; }
 interface SafeDeleteState { selectionCount: number; targets: string[]; blockers: SafeDeleteBlocker[]; proceed: () => void | Promise<void>; }
 
@@ -121,7 +122,16 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       await api.notebase.createFile(relativePath);
       await notebase.refresh();
     }
+    // Record nav history like the other navigation entry points (nav-view): push
+    // the current (referencing) note so Back returns to it, then record the new
+    // note as the destination. Opening directly via editor.openFile bypassed
+    // this, so Back was dead after a Create-Note-From-Reference jump (#1446).
+    const nav = getNavigationStore();
+    if (editor.activeTab?.type === 'note' && editor.activeFilePath) {
+      nav.record({ type: 'note', relativePath: editor.activeFilePath, offset: ctx.getEditorComponent()?.getOffset() ?? 0 });
+    }
     await editor.openFile(relativePath);
+    nav.record({ type: 'note', relativePath, offset: 0 });
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
   }
