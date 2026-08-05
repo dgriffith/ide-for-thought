@@ -36,6 +36,7 @@
     } from '../preview/compute-output-render';
     import { applyCslMarkers, resolveCiteQuoteLabels, type CitationRenderDeps } from '../preview/citation-render';
     import { hydrateTypedCards, type TypedCardDeps } from '../preview/typed-link-render';
+    import { markBrokenWikiLinks } from '../preview/broken-links';
     import { buildObjectCardHtml } from '../preview/typed-card';
     import { resolveWikiLinkTarget } from '../../../shared/wiki-link-resolver';
     import type { NoteTypedProperties } from '../../../shared/objects/type-def';
@@ -431,6 +432,10 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         requestAnimationFrame(() => {
             // Syntax-highlight fences off the critical render path (#1114).
             highlightCodeBlocks(hydrateCtx);
+            // Broken-link squiggle (#1446): mark unresolved note links so the
+            // Preview mirrors the editor. Synchronous DOM pass; runs before the
+            // async typed-card hydration (which only ever touches resolved links).
+            markBrokenWikiLinks(previewEl ?? null, typedCardDeps().resolvePath);
             const blocks = previewEl?.querySelectorAll('.query-block');
             blocks?.forEach((el) => executeQueryBlock(queryDeps(), el as HTMLElement));
             void resolveCiteQuoteLabels(citeDeps());
