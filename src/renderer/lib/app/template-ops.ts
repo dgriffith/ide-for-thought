@@ -20,11 +20,13 @@ import {
 import { getRefactorSettings } from '../refactor/settings';
 import { todayDateString } from '../refactor/extract';
 import { CONFIRM_KEYS } from '../confirm-keys';
+import { openNoteRecordingHistory } from './nav-record';
 import type { Conversation, SourceExcerpt } from '../../../shared/types';
 
 interface EditorRef {
   getSelectedText: () => string;
   insertText: (s: string, offset?: number | null) => void;
+  getOffset: () => number;
 }
 interface SidebarRef {
   refreshTags: () => void;
@@ -41,6 +43,9 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
   const editor = getEditorStore();
   const dialogs = getDialogStore();
   const { showPrompt, showConfirm, showSnippetPicker } = dialogs;
+
+  /** The active editor caret, for recording a note from-position in nav history. */
+  const getOffset = () => ctx.getEditorComponent()?.getOffset();
 
   async function handleCreateNoteFromConversation(args: {
     conversation: Conversation;
@@ -86,7 +91,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
       }
       await api.notebase.writeFile(path, plan.newNoteContent);
       await notebase.refresh();
-      await editor.openFile(path);
+      await openNoteRecordingHistory(path, getOffset);
       ctx.getSidebar()?.refreshTags();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -155,7 +160,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     const initialContent = `---\nabout: [[sources/${sourceId}]]\n---\n\n# ${titleStem}\n\n`;
     await api.notebase.writeFile(relativePath, initialContent);
     await notebase.refresh();
-    await editor.openFile(relativePath);
+    await openNoteRecordingHistory(relativePath, getOffset);
     ctx.getSidebar()?.refreshTags();
     return relativePath;
   }
@@ -192,7 +197,7 @@ export function createTemplateOps(ctx: TemplateOpsCtx) {
     }).content;
     await api.notebase.writeFile(relativePath, finalContent);
     await notebase.refresh();
-    await editor.openFile(relativePath);
+    await openNoteRecordingHistory(relativePath, getOffset);
     ctx.getSidebar()?.refreshTags();
     return relativePath;
   }

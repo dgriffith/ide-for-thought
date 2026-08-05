@@ -9,7 +9,7 @@
 import { api } from '../ipc/client';
 import { getNotebaseStore } from '../stores/notebase.svelte';
 import { getEditorStore } from '../stores/editor.svelte';
-import { getNavigationStore } from '../stores/navigation.svelte';
+import { openNoteRecordingHistory } from './nav-record';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { getBusyStore } from '../stores/busy.svelte';
 import { getClipboardStore } from '../stores/clipboard.svelte';
@@ -48,6 +48,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   const busy = getBusyStore();
   const clipboard = getClipboardStore();
   const { showPrompt, showConfirm, showNewNoteDialog, showTypePicker } = dialogs;
+
+  /** The active editor caret, for recording a note from-position in nav history. */
+  const getOffset = () => ctx.getEditorComponent()?.getOffset();
 
   async function handleNewNote(directory: string = '') {
     if (!notebase.meta) return;
@@ -96,7 +99,9 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       await api.notebase.createFile(relativePath);
     }
     await notebase.refresh();
-    await editor.openFile(relativePath);
+    // Record nav history so Back returns to the note you were on before
+    // creating this one (#1446 — creation paths were dead for Back).
+    await openNoteRecordingHistory(relativePath, getOffset);
     if (caretOffset !== null) {
       // Wait one frame so the editor has mounted the file before we
       // restore the position — restorePosition is a no-op against an
@@ -107,26 +112,6 @@ export function createNoteOps(ctx: NoteOpsCtx) {
     }
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
-  }
-
-  /**
-   * Open `relativePath` and record nav history so Back returns to the current
-   * position — mirroring the two-step record every nav-view handler does
-   * (record where you are, open, record the destination). Programmatic openers
-   * (create-note, safe-delete open-reference, merge) opened via `editor.openFile`
-   * directly and so left Back dead (#1446).
-   *
-   * `excludeCurrent` skips recording the from-position when the caller is about
-   * to delete that note (merge's source), so Back never targets a dead note.
-   */
-  async function openNoteRecordingHistory(relativePath: string, opts?: { excludeCurrent?: string }) {
-    const nav = getNavigationStore();
-    const from = editor.activeFilePath;
-    if (editor.activeTab?.type === 'note' && from && from !== relativePath && from !== opts?.excludeCurrent) {
-      nav.record({ type: 'note', relativePath: from, offset: ctx.getEditorComponent()?.getOffset() ?? 0 });
-    }
-    await editor.openFile(relativePath);
-    nav.record({ type: 'note', relativePath, offset: 0 });
   }
 
   /**
@@ -142,7 +127,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       await api.notebase.createFile(relativePath);
       await notebase.refresh();
     }
-    await openNoteRecordingHistory(relativePath);
+    await openNoteRecordingHistory(relativePath, getOffset);
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
   }
@@ -332,7 +317,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
    */
   async function openFirstReferenceFromSafeDelete(source: string, target: string): Promise<void> {
     ctx.setSafeDeleteState(null);
-    await openNoteRecordingHistory(source);
+    await openNoteRecordingHistory(source, getOffset);
     try {
       const content = await api.notebase.readFile(source);
       const basename = target.replace(/\.md$/, '').split('/').pop() ?? '';
@@ -535,7 +520,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       // cleanup for the source and any open referrers. Record nav history so
       // Back returns to where the user was — but never to the just-deleted
       // source note (excludeCurrent).
-      await openNoteRecordingHistory(result.targetPath, { excludeCurrent: sourceRelPath });
+      await openNoteRecordingHistory(result.targetPath, getOffset, { excludeCurrent: sourceRelPath });
       requestAnimationFrame(() => {
         ctx.getEditorComponent()?.gotoLineColumn(result.mergeLine, 1);
       });
