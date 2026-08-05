@@ -491,6 +491,13 @@
           void api.shell.openExternal(url);
         },
       }),
+      // Registered before the bookmark gutter so the broken-link gutter stripe
+      // sits in the left gutter group (near the line numbers), not out by the
+      // text (#1446). Gutter columns render in registration order.
+      brokenLinkDecorations({
+        getNotePaths: () => getNotePaths?.() ?? [],
+        getAliases: () => getAliases?.() ?? [],
+      }),
       bookmarkGutterExtension(),
       computeCellsExtension({
         runCell: (language, code) => (
@@ -508,10 +515,6 @@
         // Broken-link hover lightbulb (#1446). Wrapped in a closure (not a bare
         // prop reference) so it stays current in the once-built extension list.
         onCreateNoteFromReference: (target: string) => onCreateNoteFromReference?.(target),
-      }),
-      brokenLinkDecorations({
-        getNotePaths: () => getNotePaths?.() ?? [],
-        getAliases: () => getAliases?.() ?? [],
       }),
       footnoteDecorations(),
       highlightDecorations(),
