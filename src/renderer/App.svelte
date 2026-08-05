@@ -1285,6 +1285,7 @@
                         getAliases={() => aliasEntries}
                         revision={graphRevision}
                         onNavigate={handleNavigate}
+                        onCreateNoteFromReference={(target) => void createNoteFromReference(noteTargetPathBeside(note.relativePath, target))}
                         onTagSelect={handleTagSelect}
                         onOpenSource={handleOpenSource}
                         onOpenExcerpt={handleOpenExcerpt}
