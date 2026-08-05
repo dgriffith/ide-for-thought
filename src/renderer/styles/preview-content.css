@@ -95,6 +95,21 @@
         text-decoration: none;
     }
 
+/* Broken link (#1446) — mirrors the editor squiggle: a --rust wavy underline,
+   with the chip tinted rust instead of accent so an unresolved link reads as a
+   diagnostic (not alarm-red, per the UI philosophy). */
+.preview .wiki-link.wiki-link-broken {
+        background: color-mix(in oklch, var(--rust) 12%, transparent);
+        color: var(--rust);
+        text-decoration: underline wavy var(--rust);
+        text-decoration-skip-ink: none;
+        text-underline-offset: 2px;
+    }
+.preview .wiki-link.wiki-link-broken:hover {
+        background: color-mix(in oklch, var(--rust) 18%, transparent);
+        text-decoration: underline wavy var(--rust);
+    }
+
 /* Type-keyed cards (#1071) — a block-level `[[TypedNote]]` / `[[quote::id]]`
        promoted from a chip to a card. Shared by the preview block and the hover
        tooltip (via .oc-tooltip). */
