@@ -21,7 +21,8 @@ const h = vi.hoisted(() => {
   const notebase = { meta: { rootPath: '/p', name: 'p' } as unknown, files: [] as NoteFile[], refresh: vi.fn() };
   const editor = {
     openFile: vi.fn(), tabs: [] as unknown[], closeTabsForDeletedPath: vi.fn(), flushAutoSave: vi.fn(),
-    activeFilePath: 'Note.md' as string | null, content: '', setContent: vi.fn(),
+    activeFilePath: 'Note.md' as string | null, activeTab: { type: 'note' } as { type: string } | null,
+    content: '', setContent: vi.fn(),
     applyRenameTransitions: vi.fn(),
   };
   const dialog = {
@@ -49,7 +50,7 @@ function file(relativePath: string): NoteFile {
 }
 
 const sidebar = { getSelectionPaths: vi.fn(() => [] as string[]), refreshTags: vi.fn(), clearSelection: vi.fn() };
-const editorComp = { restorePosition: vi.fn(), gotoLineColumn: vi.fn() };
+const editorComp = { restorePosition: vi.fn(), gotoLineColumn: vi.fn(), getOffset: vi.fn(() => 0) };
 let editorCompRef: typeof editorComp | undefined;
 let ctx: NoteOpsCtx;
 let ops: ReturnType<typeof createNoteOps>;
@@ -66,6 +67,8 @@ beforeEach(() => {
   h.notebase.meta = { rootPath: '/p', name: 'p' };
   h.notebase.files = [];
   h.editor.tabs = [];
+  h.editor.activeFilePath = 'Note.md';
+  h.editor.activeTab = { type: 'note' };
   sidebar.getSelectionPaths.mockReturnValue([]);
   editorCompRef = undefined;
   getClipboardStore().clear();
@@ -453,6 +456,15 @@ describe('openFirstReferenceFromSafeDelete', () => {
     expect(h.editor.openFile).toHaveBeenCalledWith('notes/y.md');
     expect(editorComp.gotoLineColumn).not.toHaveBeenCalled();
   });
+
+  it('records nav history so Back returns to where the user was (#1446)', async () => {
+    const nav = getNavigationStore();
+    nav.clear(); nav.doneNavigating();
+    h.editor.activeFilePath = 'notes/current.md';
+    h.api.notebase.readFile.mockResolvedValue('see [[x]]');
+    await ops.openFirstReferenceFromSafeDelete('notes/y.md', 'notes/x.md');
+    expect(nav.goBack()).toEqual({ type: 'note', relativePath: 'notes/current.md', offset: 0 });
+  });
 });
 
 describe('handleCut / handleCopy', () => {
@@ -611,6 +623,26 @@ describe('handleMerge / performMerge', () => {
     expect(h.editor.openFile).toHaveBeenCalledWith('notes/target.md');
     expect(editorComp.gotoLineColumn).toHaveBeenCalledWith(12, 1);
     expect(h.notebase.refresh).toHaveBeenCalled();
+  });
+
+  it('performMerge records nav history, but never Back to the deleted source (#1446)', async () => {
+    const nav = getNavigationStore();
+    h.api.notebase.mergePreview.mockResolvedValue({ linkOccurrences: 0, affectedFiles: 0 });
+    h.dialog.showConfirm.mockResolvedValue(true);
+    h.api.notebase.merge.mockResolvedValue({ targetPath: 'notes/target.md', mergeLine: 1 });
+
+    // From an unrelated note → Back returns to it.
+    nav.clear(); nav.doneNavigating();
+    h.editor.activeFilePath = 'notes/elsewhere.md';
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(nav.goBack()).toEqual({ type: 'note', relativePath: 'notes/elsewhere.md', offset: 0 });
+
+    // From the source being merged (deleted) → its from-position is NOT recorded,
+    // so Back has no dead-note entry to land on.
+    nav.clear(); nav.doneNavigating();
+    h.editor.activeFilePath = 'notes/src.md';
+    await ops.performMerge('notes/src.md', 'notes/target.md');
+    expect(nav.canGoBack).toBe(false);
   });
 
   it('performMerge handles the no-incoming-links preview branch', async () => {

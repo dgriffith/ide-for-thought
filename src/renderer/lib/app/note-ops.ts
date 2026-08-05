@@ -110,6 +110,26 @@ export function createNoteOps(ctx: NoteOpsCtx) {
   }
 
   /**
+   * Open `relativePath` and record nav history so Back returns to the current
+   * position — mirroring the two-step record every nav-view handler does
+   * (record where you are, open, record the destination). Programmatic openers
+   * (create-note, safe-delete open-reference, merge) opened via `editor.openFile`
+   * directly and so left Back dead (#1446).
+   *
+   * `excludeCurrent` skips recording the from-position when the caller is about
+   * to delete that note (merge's source), so Back never targets a dead note.
+   */
+  async function openNoteRecordingHistory(relativePath: string, opts?: { excludeCurrent?: string }) {
+    const nav = getNavigationStore();
+    const from = editor.activeFilePath;
+    if (editor.activeTab?.type === 'note' && from && from !== relativePath && from !== opts?.excludeCurrent) {
+      nav.record({ type: 'note', relativePath: from, offset: ctx.getEditorComponent()?.getOffset() ?? 0 });
+    }
+    await editor.openFile(relativePath);
+    nav.record({ type: 'note', relativePath, offset: 0 });
+  }
+
+  /**
    * Deterministic "Create Note From Reference" (#1446) — the quick-fix behind a
    * `broken_note_link` inspection. No dialog: main already resolved the canonical
    * `relativePath` (beside the referencing note), so we just create the empty
@@ -122,16 +142,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       await api.notebase.createFile(relativePath);
       await notebase.refresh();
     }
-    // Record nav history like the other navigation entry points (nav-view): push
-    // the current (referencing) note so Back returns to it, then record the new
-    // note as the destination. Opening directly via editor.openFile bypassed
-    // this, so Back was dead after a Create-Note-From-Reference jump (#1446).
-    const nav = getNavigationStore();
-    if (editor.activeTab?.type === 'note' && editor.activeFilePath) {
-      nav.record({ type: 'note', relativePath: editor.activeFilePath, offset: ctx.getEditorComponent()?.getOffset() ?? 0 });
-    }
-    await editor.openFile(relativePath);
-    nav.record({ type: 'note', relativePath, offset: 0 });
+    await openNoteRecordingHistory(relativePath);
     ctx.getSidebar()?.refreshTags();
     ctx.getSidebar()?.refreshObjects?.();
   }
@@ -321,7 +332,7 @@ export function createNoteOps(ctx: NoteOpsCtx) {
    */
   async function openFirstReferenceFromSafeDelete(source: string, target: string): Promise<void> {
     ctx.setSafeDeleteState(null);
-    await editor.openFile(source);
+    await openNoteRecordingHistory(source);
     try {
       const content = await api.notebase.readFile(source);
       const basename = target.replace(/\.md$/, '').split('/').pop() ?? '';
@@ -521,8 +532,10 @@ export function createNoteOps(ctx: NoteOpsCtx) {
       );
       // Open the target and scroll to the merge point. The
       // NOTEBASE_RENAMED / NOTEBASE_REWRITTEN broadcasts handle tab
-      // cleanup for the source and any open referrers.
-      await editor.openFile(result.targetPath);
+      // cleanup for the source and any open referrers. Record nav history so
+      // Back returns to where the user was — but never to the just-deleted
+      // source note (excludeCurrent).
+      await openNoteRecordingHistory(result.targetPath, { excludeCurrent: sourceRelPath });
       requestAnimationFrame(() => {
         ctx.getEditorComponent()?.gotoLineColumn(result.mergeLine, 1);
       });
