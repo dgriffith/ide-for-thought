@@ -712,7 +712,7 @@
     getEditorComponent: () => editorComponent,
     setSafeDeleteState: (s) => { safeDeleteDialogState = s; },
     setMergePickerSource: (s) => { mergePickerSource = s; },
-    openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('fields'); },
+    openTypeFields: () => { rightSidebarVisible = true; rightSidebar?.showPanel('properties'); },
     openTypeEditor: (initial, promoteNotePath) => { typeEditorState = { initial, promoteNotePath }; },
   };
   const {
