@@ -22,6 +22,7 @@ vi.mock('../../../src/renderer/lib/ipc/client', () => ({
 vi.mock('../../../src/renderer/lib/utils/platform', () => ({ get IS_MAC() { return platform.IS_MAC; } }));
 
 import TypeEditorDialog from '../../../src/renderer/lib/components/TypeEditorDialog.svelte';
+import { COLOR_SWATCHES } from '../../../src/shared/color-swatches';
 
 beforeEach(() => {
   platform.IS_MAC = true;
@@ -161,6 +162,20 @@ describe('TypeEditorDialog — icon picker', () => {
 });
 
 describe('TypeEditorDialog — color picker', () => {
+  it('keeps the presets on the same row as the well and hex field', async () => {
+    // They used to be a full-width row of their own beneath Name/Icon/Color:
+    // the swatches started at the left margin while the control they drive sat
+    // at the far right, reading as though they belonged to Name. Structural,
+    // because the whole point is the visual adjacency.
+    const { container } = render(TypeEditorDialog, { initial: { label: 'Book', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    const row = container.querySelector('.color-row')!;
+    expect(row).toBeTruthy();
+    expect(row.querySelector('input[type="color"]')).toBeTruthy();
+    expect(row.querySelector('input[placeholder="#89b4fa"]')).toBeTruthy();
+    expect(row.querySelector('.swatches')).toBeTruthy();
+    expect(row.querySelectorAll('.swatch')).toHaveLength(COLOR_SWATCHES.length);
+  });
+
   it('sets the color from a preset swatch and saves it', async () => {
     render(TypeEditorDialog, { initial: { label: 'Book', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
     await fireEvent.click(screen.getByLabelText('Green'));
