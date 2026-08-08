@@ -24,6 +24,11 @@ const h = vi.hoisted(() => ({
     notebase: {
       listFiles: vi.fn(),
     },
+    // The panel resolves the active note's declared type schema (absorbed
+    // from the old Fields panel) when given an activeFilePath.
+    types: {
+      noteProperties: vi.fn(),
+    },
   },
   notebase: {
     onRewritten: vi.fn(() => () => {}),
@@ -66,6 +71,7 @@ beforeEach(() => {
   h.api.graph.frontmatterKeys.mockResolvedValue([]);
   h.api.graph.aliasMap.mockResolvedValue({});
   h.api.notebase.listFiles.mockResolvedValue([]);
+  h.api.types.noteProperties.mockResolvedValue({ type: null, properties: [] });
   h.notebase.onRewritten.mockReturnValue(() => {});
   h.notebase.onFileCreated.mockReturnValue(() => {});
   h.notebase.onFileDeleted.mockReturnValue(() => {});
@@ -245,5 +251,143 @@ describe('PropertiesPanel (#471 / #1596)', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     // Editing is disabled — no key/value inputs render in the error state.
     expect(screen.queryByDisplayValue('title')).toBeNull();
+  });
+});
+
+// ── Declared type fields (merged in from the retired Fields panel) ──────────
+//
+// The Fields panel duplicated this panel: same frontmatter keys, same buffer,
+// same YAML patch path. It's folded in here as a schema-driven form above the
+// raw keys, so the two can't drift apart or disagree about a value.
+
+const BOOK_SCHEMA = {
+  type: { id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock', icon: '📖', properties: [] },
+  properties: [
+    { name: 'author', type: 'text', label: 'Author', value: null },
+    { name: 'rating', type: 'number', label: 'Rating', value: null },
+    { name: 'status', type: 'enum', label: 'Status', options: ['to-read', 'reading', 'read'], value: null },
+    { name: 'published', type: 'date', label: 'Published', value: null },
+  ],
+};
+
+const TYPED_CONTENT = [
+  '---',
+  'type: book',
+  'author: Frank Herbert',
+  'rating: 5',
+  'tags:',
+  '  - scifi',
+  '---',
+  '# Dune',
+  '',
+].join('\n');
+
+function typedProps(over: Record<string, unknown> = {}) {
+  return {
+    content: TYPED_CONTENT,
+    onContentChange: vi.fn(),
+    onNavigate: vi.fn(),
+    activeFilePath: 'Dune.md',
+    revision: 0,
+    ...over,
+  };
+}
+
+describe('PropertiesPanel — declared type fields', () => {
+  beforeEach(() => {
+    h.api.types.noteProperties.mockResolvedValue(BOOK_SCHEMA);
+  });
+
+  it('heads the panel with the type and renders its declared fields', async () => {
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    expect(screen.getByDisplayValue('Frank Herbert')).toBeTruthy();
+    expect((screen.getByDisplayValue('5')).type).toBe('number');
+  });
+
+  it('shows a declared property that the note has not set yet', async () => {
+    // The point of a schema: the form answers "what does a Book need?", not
+    // just "what has this note got?". `published` is absent from the content.
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Published')).toBeTruthy());
+    const field = screen.getByText('Published').parentElement!;
+    expect(field.classList.contains('unset')).toBe(true);
+    expect(field.querySelector('input')!.value).toBe('');
+  });
+
+  it('constrains an enum to its declared options', async () => {
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Status')).toBeTruthy());
+    const select = screen.getByText('Status').parentElement!.querySelector('select')!;
+    expect([...select.options].map((o) => o.value)).toEqual(['', 'to-read', 'reading', 'read']);
+  });
+
+  it('renders a declared key as a label, never an editable input', async () => {
+    // Renaming a declared key on one note would detach it from the schema with
+    // nothing to show for it; the type editor is where a rename belongs.
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Author')).toBeTruthy());
+    expect(screen.queryByDisplayValue('author')).toBeNull();
+    expect(screen.getByText('Author').tagName).toBe('SPAN');
+  });
+
+  it('does not repeat a declared key in the Other list', async () => {
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    // `type` and `tags` are the note's own keys; author/rating are declared.
+    expect(screen.getByDisplayValue('type')).toBeTruthy();
+    expect(screen.getByDisplayValue('tags')).toBeTruthy();
+    expect(screen.queryByDisplayValue('rating')).toBeNull();
+    expect(screen.getByText('Other')).toBeTruthy();
+  });
+
+  it('writes a declared field edit back to the frontmatter, preserving the body', async () => {
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ onContentChange }));
+    // Wait for the schema: until it lands, `author` renders in the Other list
+    // whose editor commits on blur, so we'd be driving the wrong control.
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    const author = screen.getByDisplayValue('Frank Herbert');
+    await fireEvent.change(author, { target: { value: 'F. Herbert' } });
+
+    const next = lastRewrite(onContentChange);
+    expect(next).toContain('author: F. Herbert');
+    expect(next).toContain('# Dune');
+    expect(next).toContain('type: book');
+  });
+
+  it('clearing a declared field drops the key rather than leaving it blank', async () => {
+    const onContentChange = vi.fn();
+    render(PropertiesPanel, typedProps({ onContentChange }));
+    // Wait for the schema: until it lands, `author` renders in the Other list
+    // whose editor commits on blur, so we'd be driving the wrong control.
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    const author = screen.getByDisplayValue('Frank Herbert');
+    await fireEvent.change(author, { target: { value: '' } });
+
+    const next = lastRewrite(onContentChange);
+    expect(next).not.toContain('author:');
+    expect(next).toContain('# Dune');
+  });
+
+  it('keeps the rich editor for a declared property holding a list', async () => {
+    // A declared `text` property whose actual value is a YAML list must not be
+    // flattened into a single-line input on the next commit.
+    h.api.types.noteProperties.mockResolvedValue({
+      ...BOOK_SCHEMA,
+      properties: [{ name: 'tags', type: 'text', label: 'Tags', value: null }],
+    });
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByText('Tags')).toBeTruthy());
+    // Chip UI, not a plain text input seeded with "[object Object]" etc.
+    expect(screen.getByText('scifi')).toBeTruthy();
+  });
+
+  it('stays the plain frontmatter editor for an untyped note', async () => {
+    h.api.types.noteProperties.mockResolvedValue({ type: null, properties: [] });
+    render(PropertiesPanel, typedProps());
+    await waitFor(() => expect(screen.getByDisplayValue('author')).toBeTruthy());
+    expect(screen.queryByText('Book')).toBeNull();
+    expect(screen.queryByText('Other')).toBeNull();
   });
 });

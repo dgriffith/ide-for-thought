@@ -25,6 +25,8 @@
   import type { IconName } from '../icons/registry';
   import { CANONICAL_FRONTMATTER_KEYS } from '../../../../shared/frontmatter-canonical-keys';
   import PropertyValueEditor from '../PropertyValueEditor.svelte';
+  import TypeIcon from '../TypeIcon.svelte';
+  import type { NoteTypedProperties, PropertyDef } from '../../../../shared/objects/type-def';
   import {
     SCALAR_TYPES,
     isScalarType,
@@ -69,12 +71,29 @@
      *  `[[…]]` clicks (handles basenames, aliases, slug-fuzzy matches).
      *  Optional — when absent the chip renders disabled. */
     onNavigate?: (target: string) => void | Promise<void>;
+    /** The active note, for resolving its declared type schema. Absent →
+     *  the panel is purely the raw-frontmatter editor it always was. */
+    activeFilePath?: string | null;
+    /** Bumped on reindex; re-fetches the schema so a hand-edited `type:` shows. */
+    revision?: number;
   }
 
-  let { content, onContentChange, onNavigate }: Props = $props();
+  let { content, onContentChange, onNavigate, activeFilePath = null, revision = 0 }: Props = $props();
 
   const notebase = getNotebaseStore();
 
+  // ── Declared type schema (absorbed from the old Fields panel) ─────
+  // A pure read, so it may live in the component (renderer data-flow rule).
+  let schema = $state<NoteTypedProperties>({ type: null, properties: [] });
+
+  $effect(() => {
+    const path = activeFilePath;
+    void revision; // re-fetch on reindex (catches a hand-changed `type:`)
+    if (!path) { schema = { type: null, properties: [] }; return; }
+    let cancelled = false;
+    void api.types.noteProperties(path).then((r) => { if (!cancelled) schema = r; });
+    return () => { cancelled = true; };
+  });
 
   const parsed = $derived(parseFrontmatter(content));
 
@@ -82,6 +101,53 @@
   const hasError = $derived(!parsed.ok);
   const errorMessage = $derived(parsed.ok ? '' : parsed.error);
   const hasFrontmatter = $derived(parsed.ok && !('none' in parsed));
+
+  // The type's declared properties render as a form above the raw keys; every
+  // remaining frontmatter key falls through to the "Other" list. A declared
+  // property with no key yet still gets a field — that's the whole point of a
+  // schema, and it's what the Fields panel was for.
+  const declaredDefs = $derived(schema.properties);
+  const declaredNames = $derived(new Set(declaredDefs.map((d) => d.name)));
+  const rowByKey = $derived(new Map(rows.map((r) => [r.key, r])));
+  const otherRows = $derived(rows.filter((r) => !declaredNames.has(r.key)));
+
+  /** Current text for a declared field, drawn from the parsed frontmatter so
+   *  there's one parse and one write path for the whole panel. */
+  function declaredText(pd: PropertyDef): string {
+    const row = rowByKey.get(pd.name);
+    if (!row) return '';
+    const s = row.shape;
+    if (s.kind === 'string') return drafts[row.key] ?? s.value;
+    if (s.kind === 'number') return drafts[row.key] ?? String(s.value);
+    if (s.kind === 'date') return s.value;
+    if (s.kind === 'boolean') return String(s.value);
+    return '';
+  }
+
+  /**
+   * A declared field whose actual value is richer than a scalar — a list, a
+   * wiki-link, nested YAML — keeps the full row editor. Dropping such a value
+   * into the declared `<input>` would flatten it on the next commit. It's also
+   * the right editor for `link-to-type`, whose values ARE wiki-links.
+   */
+  function usesRowEditor(pd: PropertyDef): boolean {
+    const kind = rowByKey.get(pd.name)?.shape.kind;
+    return kind === 'string-list' || kind === 'wiki-link' || kind === 'yaml';
+  }
+
+  /** Commit a declared field. Empty clears the key outright rather than
+   *  leaving `key:` with a blank value — the field still renders, because the
+   *  type declares it. */
+  function commitDeclared(pd: PropertyDef, raw: string): void {
+    if (raw.trim() === '') { removeKey(pd.name); return; }
+    if (pd.type === 'number') {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return;
+      setKeyValue(pd.name, n);
+      return;
+    }
+    setKeyValue(pd.name, raw);
+  }
 
   // Editing a value too eagerly fights the user mid-keystroke. Mirror
   // each row into a local `draft` keyed by row index; flush to the
@@ -392,6 +458,88 @@
   }
 </script>
 
+{#snippet valueEditor(row: Row)}
+        {#if isScalarType(row.shape.kind)}
+          <PropertyValueEditor
+            type={row.shape.kind}
+            text={scalarText(row)}
+            checked={row.shape.kind === 'boolean' ? row.shape.value : false}
+            onInput={(raw) => onScalarInput(row, raw)}
+            onCommit={(raw) => onScalarCommit(row, raw)}
+            onToggle={(c) => commitBoolean(row.key, c)}
+          />
+        {:else if row.shape.kind === 'string-list'}
+          <div class="chips">
+            {#each row.shape.value as chip, i (chip + ':' + i)}
+              <span class="chip">
+                {chip}
+                <button
+                  class="chip-x"
+                  title="Remove"
+                  aria-label="Remove {chip}"
+                  onclick={() => removeChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value, i)}
+                >×</button>
+              </span>
+            {/each}
+            <input
+              type="text"
+              class="chip-input"
+              placeholder="Add…"
+              value={newChip[row.key] ?? ''}
+              oninput={(e) => { newChip[row.key] = e.currentTarget.value; }}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ',') {
+                  e.preventDefault();
+                  addChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value);
+                }
+              }}
+            />
+          </div>
+        {:else if row.shape.kind === 'wiki-link'}
+          {#if editingLinkKey === row.key}
+            <AutocompleteDropdown
+              value={editingLinkDraft}
+              options={noteBasenames}
+              placeholder="Note name…"
+              autofocus
+              onInput={(v) => { editingLinkDraft = v; }}
+              onCommit={commitEditLink}
+              onCancel={cancelEditLink}
+            />
+          {:else}
+            {@const ws = row.shape}
+            {@const resolves = wikiLinkResolves(ws.target)}
+            <div class="wiki-chip-row">
+              <button
+                type="button"
+                class="wiki-chip"
+                class:broken={!resolves}
+                title={resolves ? `Open ${ws.target}` : `No note matches "${ws.target}"`}
+                onclick={() => openWikiLink(ws.target)}
+                disabled={!onNavigate}
+              >
+                {#if resolves}
+                  <span class="wiki-chip-icon"><Icon name="link" size={11} /></span>
+                {:else}
+                  <span class="wiki-chip-icon"><Icon name="warn" size={11} color="var(--rust)" /></span>
+                {/if}
+                <span class="wiki-chip-label">{ws.display ?? ws.target}</span>
+              </button>
+              <button
+                type="button"
+                class="wiki-edit-btn"
+                title="Edit link target"
+                aria-label="Edit link target"
+                onclick={() => startEditLink(row.key, ws.target, ws.display)}
+              >✎</button>
+            </div>
+          {/if}
+        {:else if row.shape.kind === 'yaml'}
+          <pre class="yaml">{row.shape.raw}</pre>
+          <span class="hint-inline">Edit in source — structured editor doesn't cover this shape.</span>
+        {/if}
+{/snippet}
+
 <div class="properties-panel">
   {#if hasError}
     <div class="error" role="alert">
@@ -413,8 +561,60 @@
       <button class="add-btn" onclick={createEmptyFrontmatter}>+ Add property</button>
     </div>
   {:else}
+    <!-- Declared form and raw rows share ONE scroll area: a type with a dozen
+         properties would otherwise squeeze `.rows` (the old scroll owner) to
+         nothing. The add-row stays outside it, pinned to the bottom. -->
+    <div class="scroll">
+    <!-- Declared fields (absorbed from the Fields panel). The type's schema
+         drives the editor — an enum gets its options, a date gets a date
+         picker — and a declared property with no key yet still gets a field,
+         so the form answers "what does a Book need?" not just "what has this
+         note got?". Keys are labels, not inputs: renaming one here would
+         detach this note from the schema with nothing to show for it. Rename
+         in the type editor instead. -->
+    {#if schema.type}
+      <div class="type-head">
+        <TypeIcon type={schema.type} size={14} />
+        <span class="type-head-label">{schema.type.label}</span>
+      </div>
+      {#if declaredDefs.length === 0}
+        <p class="section-note">This type declares no properties.</p>
+      {:else}
+        <div class="declared">
+          {#each declaredDefs as pd (pd.name)}
+            {@const row = rowByKey.get(pd.name)}
+            <div class="dfield" class:unset={!row}>
+              <span class="dfield-label">{pd.label ?? pd.name}</span>
+              {#if row && usesRowEditor(pd)}
+                <div class="value">{@render valueEditor(row)}</div>
+              {:else if pd.type === 'enum'}
+                <select value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)}>
+                  <option value=""></option>
+                  {#each pd.options ?? [] as opt (opt)}<option value={opt}>{opt}</option>{/each}
+                </select>
+              {:else if pd.type === 'number'}
+                <input type="number" value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)} />
+              {:else if pd.type === 'date'}
+                <input type="date" value={declaredText(pd)} onchange={(e) => commitDeclared(pd, e.currentTarget.value)} />
+              {:else}
+                <input
+                  type="text"
+                  value={declaredText(pd)}
+                  placeholder={pd.type === 'link-to-type' ? '[[Note]]' : ''}
+                  onchange={(e) => commitDeclared(pd, e.currentTarget.value)}
+                />
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#if otherRows.length > 0}
+        <div class="section-rule"><span>Other</span></div>
+      {/if}
+    {/if}
+
     <div class="rows">
-      {#each rows as row (row.key)}
+      {#each otherRows as row (row.key)}
         {@const canonical = isCanonical(row.key)}
         <div class="row" class:canonical data-row-key={row.key}>
           {#if isScalarType(row.shape.kind)}
@@ -466,87 +666,7 @@
             onchange={(e) => renameKey(row.key, e.currentTarget.value.trim())}
             spellcheck="false"
           />
-          <div class="value">
-            {#if isScalarType(row.shape.kind)}
-              <PropertyValueEditor
-                type={row.shape.kind}
-                text={scalarText(row)}
-                checked={row.shape.kind === 'boolean' ? row.shape.value : false}
-                onInput={(raw) => onScalarInput(row, raw)}
-                onCommit={(raw) => onScalarCommit(row, raw)}
-                onToggle={(c) => commitBoolean(row.key, c)}
-              />
-            {:else if row.shape.kind === 'string-list'}
-              <div class="chips">
-                {#each row.shape.value as chip, i (chip + ':' + i)}
-                  <span class="chip">
-                    {chip}
-                    <button
-                      class="chip-x"
-                      title="Remove"
-                      aria-label="Remove {chip}"
-                      onclick={() => removeChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value, i)}
-                    >×</button>
-                  </span>
-                {/each}
-                <input
-                  type="text"
-                  class="chip-input"
-                  placeholder="Add…"
-                  value={newChip[row.key] ?? ''}
-                  oninput={(e) => { newChip[row.key] = e.currentTarget.value; }}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault();
-                      addChip(row.key, (row.shape as { kind: 'string-list'; value: string[] }).value);
-                    }
-                  }}
-                />
-              </div>
-            {:else if row.shape.kind === 'wiki-link'}
-              {#if editingLinkKey === row.key}
-                <AutocompleteDropdown
-                  value={editingLinkDraft}
-                  options={noteBasenames}
-                  placeholder="Note name…"
-                  autofocus
-                  onInput={(v) => { editingLinkDraft = v; }}
-                  onCommit={commitEditLink}
-                  onCancel={cancelEditLink}
-                />
-              {:else}
-                {@const ws = row.shape}
-                {@const resolves = wikiLinkResolves(ws.target)}
-                <div class="wiki-chip-row">
-                  <button
-                    type="button"
-                    class="wiki-chip"
-                    class:broken={!resolves}
-                    title={resolves ? `Open ${ws.target}` : `No note matches "${ws.target}"`}
-                    onclick={() => openWikiLink(ws.target)}
-                    disabled={!onNavigate}
-                  >
-                    {#if resolves}
-                      <span class="wiki-chip-icon"><Icon name="link" size={11} /></span>
-                    {:else}
-                      <span class="wiki-chip-icon"><Icon name="warn" size={11} color="var(--rust)" /></span>
-                    {/if}
-                    <span class="wiki-chip-label">{ws.display ?? ws.target}</span>
-                  </button>
-                  <button
-                    type="button"
-                    class="wiki-edit-btn"
-                    title="Edit link target"
-                    aria-label="Edit link target"
-                    onclick={() => startEditLink(row.key, ws.target, ws.display)}
-                  >✎</button>
-                </div>
-              {/if}
-            {:else if row.shape.kind === 'yaml'}
-              <pre class="yaml">{row.shape.raw}</pre>
-              <span class="hint-inline">Edit in source — structured editor doesn't cover this shape.</span>
-            {/if}
-          </div>
+          <div class="value">{@render valueEditor(row)}</div>
           <button class="row-x" title="Remove property" aria-label="Remove {row.key}" onclick={() => removeKey(row.key)}>
             <Icon name="close" size={10} />
           </button>
@@ -554,8 +674,12 @@
       {/each}
     </div>
 
+    </div>
+
     {#if hasFrontmatter || rows.length > 0}
       {@const presentKeys = new Set(rows.map((r) => r.key))}
+      <!-- Suggestions still consider every key present, declared or not — a
+           declared key already rendered above isn't a useful thing to offer. -->
       {@const canonicalSuggestions = CANONICAL_FRONTMATTER_KEYS.filter((k) => !presentKeys.has(k)).slice(0, 5)}
       <div class="add-row">
         <span class="add-icon"><Icon name="plus" size={12} color="var(--text-faint)" /></span>
@@ -591,10 +715,86 @@
     overflow: hidden;
   }
 
-  .rows {
+  /* Single scroll region over the declared form + the raw rows. */
+  .scroll {
     flex: 1;
     overflow-y: auto;
+  }
+
+  .rows {
     padding: 6px 0;
+  }
+
+  /* ── Declared (type schema) section ──────────────────────────────── */
+  .type-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 12px 6px;
+  }
+  .type-head-label { font-size: 13px; font-weight: 600; color: var(--text); }
+
+  .declared {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 2px 12px 10px;
+  }
+  .dfield { display: flex; flex-direction: column; gap: 3px; }
+  .dfield-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  /* A declared-but-empty field is a prompt, not an error — dim the frame
+     slightly so filled fields read first, and no danger styling. */
+  .dfield.unset input,
+  .dfield.unset select {
+    border-style: dashed;
+  }
+  .dfield input,
+  .dfield select {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg-inset);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    box-sizing: border-box;
+  }
+  .dfield input:focus,
+  .dfield select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Divider between the schema form and this note's own keys. */
+  .section-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 0;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .section-rule::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .section-note {
+    font-size: 12px;
+    color: var(--text-faint);
+    padding: 0 12px 8px;
+    margin: 0;
   }
 
   /* Row layout (§13.1) — [type-icon, key, value, ×]. Type icon column
