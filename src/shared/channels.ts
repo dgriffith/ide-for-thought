@@ -666,6 +666,9 @@ export const Channels = {
   SHELL_OPEN_IN_DEFAULT: 'shell:openInDefault',
   SHELL_OPEN_IN_TERMINAL: 'shell:openInTerminal',
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
+  /** Open the OS emoji picker over the focused text field. macOS-only; a
+   *  no-op elsewhere (Electron exposes no equivalent). */
+  SHELL_SHOW_EMOJI_PANEL: 'shell:showEmojiPanel',
   GRAPH_EXPORT: 'graph:export',
 
   // Privileged sites (per-machine domains the user has logged in to so

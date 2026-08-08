@@ -315,6 +315,7 @@ exports[`preload contextBridge contract (#676) > matches the full method surface
     "openInDefault",
     "openInTerminal",
     "revealFile",
+    "showEmojiPanel",
   ],
   "sites": [
     "add",

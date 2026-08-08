@@ -20,14 +20,16 @@ import path from 'node:path';
 const ROOT = '/minerva-shell-guard-root-8f3a';
 
 type Handler = (event: unknown, ...args: unknown[]) => unknown;
-const { handlers, shellCalls, spawnCalls } = vi.hoisted(() => ({
+const { handlers, shellCalls, spawnCalls, emojiPanelCalls } = vi.hoisted(() => ({
   handlers: new Map<string, Handler>(),
   shellCalls: { reveal: [] as string[], openPath: [] as string[] },
   spawnCalls: [] as unknown[][],
+  emojiPanelCalls: { n: 0 },
 }));
 
 vi.mock('electron', () => ({
   ipcMain: { handle: (channel: string, fn: Handler) => { handlers.set(channel, fn); } },
+  app: { showEmojiPanel: () => { emojiPanelCalls.n += 1; } },
   shell: {
     showItemInFolder: (p: string) => { shellCalls.reveal.push(p); },
     openPath: (p: string) => { shellCalls.openPath.push(p); return Promise.resolve(''); },
@@ -61,7 +63,16 @@ beforeEach(() => {
   shellCalls.reveal = [];
   shellCalls.openPath = [];
   spawnCalls.length = 0;
+  emojiPanelCalls.n = 0;
 });
+
+/** Run `fn` with `process.platform` forced — it's a plain value property, so
+ *  `vi.spyOn(…, 'get')` can't stub it. */
+function withPlatform(value: string, fn: () => void): void {
+  const original = Object.getOwnPropertyDescriptor(process, 'platform')!;
+  Object.defineProperty(process, 'platform', { ...original, value });
+  try { fn(); } finally { Object.defineProperty(process, 'platform', original); }
+}
 
 const TRAVERSAL = '../../../../etc/passwd';
 
@@ -97,5 +108,23 @@ describe('shell handlers — path-traversal guard (#1328)', () => {
     const h = handlers.get(Channels.SHELL_REVEAL_FILE)!;
     h({});
     expect(shellCalls.reveal).toEqual([ROOT]);
+  });
+});
+
+describe('SHELL_SHOW_EMOJI_PANEL', () => {
+  it('raises the native panel on macOS', () => {
+    const h = handlers.get(Channels.SHELL_SHOW_EMOJI_PANEL)!;
+    withPlatform('darwin', () => { h({}); });
+    expect(emojiPanelCalls.n).toBe(1);
+  });
+
+  it('is a silent no-op off macOS — no throw, so a stray call cannot reject', () => {
+    // Electron only defines showEmojiPanel on darwin, and there's no
+    // cross-platform equivalent; the renderer hides the button elsewhere.
+    const h = handlers.get(Channels.SHELL_SHOW_EMOJI_PANEL)!;
+    for (const p of ['win32', 'linux']) {
+      withPlatform(p, () => { expect(() => h({})).not.toThrow(); });
+    }
+    expect(emojiPanelCalls.n).toBe(0);
   });
 });

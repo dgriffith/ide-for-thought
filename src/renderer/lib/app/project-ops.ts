@@ -18,6 +18,7 @@ import { getEditorStore } from '../stores/editor.svelte';
 import { getConversationsStore } from '../stores/conversations.svelte';
 import { getDialogStore } from '../stores/dialogs.svelte';
 import { slugifyForPath, countNotes } from './text-helpers';
+import { IS_MAC } from '../utils/platform';
 import { ENTRYPOINT_TAG } from '../../../shared/entrypoint';
 import { WELCOME_NOTE_PATH, welcomeNoteContent } from '../../../shared/welcome-note';
 import { THOUGHTBASE_DOC_FILENAME, THOUGHTBASE_DOC_TEMPLATE } from '../../../shared/thoughtbase';
@@ -107,9 +108,8 @@ export function createProjectOps(ctx: ProjectOpsCtx) {
   async function maybeSeedWelcomeNote(): Promise<void> {
     if (!notebase.meta) return;
     if (countNotes(notebase.files) > 0) return;
-    const isMac = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
     try {
-      await api.notebase.writeFile(WELCOME_NOTE_PATH, welcomeNoteContent(isMac));
+      await api.notebase.writeFile(WELCOME_NOTE_PATH, welcomeNoteContent(IS_MAC));
       await notebase.refresh();
       await editor.openFile(WELCOME_NOTE_PATH);
     } catch (e) {

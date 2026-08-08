@@ -8,17 +8,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { saveMock, listMock } = vi.hoisted(() => ({ saveMock: vi.fn(), listMock: vi.fn() }));
+const { saveMock, listMock, emojiPanelMock, platform } = vi.hoisted(() => ({
+  saveMock: vi.fn(), listMock: vi.fn(), emojiPanelMock: vi.fn(),
+  // Mutable so a test can render both the macOS and the non-macOS form.
+  platform: { IS_MAC: true },
+}));
 vi.mock('../../../src/renderer/lib/stores/object-types.svelte', () => ({
   objectTypesStore: { save: saveMock },
 }));
-vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: { types: { list: listMock } } }));
+vi.mock('../../../src/renderer/lib/ipc/client', () => ({
+  api: { types: { list: listMock }, shell: { showEmojiPanel: emojiPanelMock } },
+}));
+vi.mock('../../../src/renderer/lib/utils/platform', () => ({ get IS_MAC() { return platform.IS_MAC; } }));
 
 import TypeEditorDialog from '../../../src/renderer/lib/components/TypeEditorDialog.svelte';
 
 beforeEach(() => {
+  platform.IS_MAC = true;
   saveMock.mockResolvedValue({ id: 'book', filePath: '.minerva/types/book.md' });
   listMock.mockResolvedValue({ types: [{ id: 'person' }, { id: 'book' }], errors: [] });
+  emojiPanelMock.mockResolvedValue(undefined);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -111,5 +120,84 @@ describe('TypeEditorDialog (#1585)', () => {
     // The Create button is disabled with an empty name.
     expect(screen.getByText('Create').hasAttribute('disabled')).toBe(true);
     expect(saveMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('TypeEditorDialog — icon picker', () => {
+  it('focuses and selects the icon field before raising the OS panel, so a pick replaces', async () => {
+    // The native panel types into whatever field has focus. Without the
+    // select(), picking would append a second glyph after the existing one.
+    render(TypeEditorDialog, { initial: { label: 'Book', icon: '📖', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    const field = screen.getByDisplayValue('📖');
+    const selectSpy = vi.spyOn(field, 'select');
+
+    await fireEvent.click(screen.getByLabelText('Choose an emoji'));
+
+    expect(document.activeElement).toBe(field);
+    expect(selectSpy).toHaveBeenCalled();
+    expect(emojiPanelMock).toHaveBeenCalled();
+  });
+
+  it('hides the picker button off macOS, leaving the field typable', async () => {
+    // No cross-platform equivalent exists, so the plain text field is the
+    // fallback rather than a button that would do nothing.
+    platform.IS_MAC = false;
+    render(TypeEditorDialog, { initial: { label: 'Book', icon: '📖', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+
+    expect(screen.queryByLabelText('Choose an emoji')).toBeNull();
+    expect(screen.getByDisplayValue('📖')).toBeTruthy();
+  });
+
+  it('accepts a multi-codepoint ZWJ emoji without truncating it', async () => {
+    // 👨‍👩‍👧‍👦 is 11 UTF-16 units — the old maxlength of 4 cut it into mojibake.
+    const family = '👨‍👩‍👧‍👦';
+    render(TypeEditorDialog, { initial: { label: 'Family', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    await fireEvent.input(screen.getByPlaceholderText('📖'), { target: { value: family } });
+    await fireEvent.click(screen.getByText('Create'));
+
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].icon).toBe(family);
+  });
+});
+
+describe('TypeEditorDialog — color picker', () => {
+  it('sets the color from a preset swatch and saves it', async () => {
+    render(TypeEditorDialog, { initial: { label: 'Book', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    await fireEvent.click(screen.getByLabelText('Green'));
+
+    expect((screen.getByPlaceholderText('#89b4fa')).value).toBe('#a6e3a1');
+    await fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].color).toBe('#a6e3a1');
+  });
+
+  it('marks the swatch matching the current color, matching case-insensitively', async () => {
+    render(TypeEditorDialog, { initial: { label: 'Book', color: '#A6E3A1', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    expect(screen.getByLabelText('Green').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByLabelText('Blue').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('drives the native color well, and holds its last good value while a hex is half-typed', async () => {
+    const { container } = render(TypeEditorDialog, { initial: { label: 'Book', color: '#a6e3a1', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    const well = container.querySelector('input[type="color"]') as HTMLInputElement;
+    expect(well.value).toBe('#a6e3a1');
+
+    await fireEvent.input(screen.getByPlaceholderText('#89b4fa'), { target: { value: '#89b4f' } });
+    expect(well.value).toBe('#89b4fa'); // the default, not a blank
+  });
+
+  it('clears the color, and omits it from the saved type', async () => {
+    render(TypeEditorDialog, { initial: { label: 'Book', color: '#a6e3a1', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    await fireEvent.click(screen.getByLabelText('Clear color'));
+
+    expect((screen.getByPlaceholderText('#89b4fa')).value).toBe('');
+    await fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0].color).toBeUndefined();
+  });
+
+  it('has no clear button when no color is set', async () => {
+    render(TypeEditorDialog, { initial: { label: 'Book', properties: [] }, onSaved: vi.fn(), onClose: vi.fn() });
+    expect(screen.queryByLabelText('Clear color')).toBeNull();
   });
 });

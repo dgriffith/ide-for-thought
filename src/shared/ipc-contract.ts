@@ -183,6 +183,7 @@ export interface ChannelMap {
   'shell:openInDefault': (relativePath: string) => void;
   'shell:openInTerminal': (relativePath?: string) => void;
   'shell:openExternal': (url: string) => void;
+  'shell:showEmojiPanel': () => void;
 
   // Bookmarks
   'bookmarks:load': () => BookmarkNode[];
