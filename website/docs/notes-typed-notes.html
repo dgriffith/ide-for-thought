@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Notes: Typed notes</title>
+<meta name="description" content="Give a note a type and Minerva knows what fields to expect, what icon to show it with, and how to gather it with its own kind." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../privacy.html" class="hide-sm">Privacy</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="notes-links.html" class="sub">Links</a>
+    <a href="notes-frontmatter.html" class="sub">Properties</a>
+    <a href="notes-typed-notes.html" class="sub active">Typed notes</a>
+    <a href="notes-highlights.html" class="sub">Highlights</a>
+    <a href="notes-tasks.html" class="sub">Task lists</a>
+    <a href="notes-callouts.html" class="sub">Callouts</a>
+    <a href="notes-images.html" class="sub">Images</a>
+    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
+    <a href="notes-footnotes.html" class="sub">Footnotes</a>
+    <a href="notes-flashcards.html" class="sub">Flashcards</a>
+    <a href="notes-media.html" class="sub">Media</a>
+    <a href="notes-math.html" class="sub">Math</a>
+    <a href="notes-diagrams.html" class="sub">Diagrams</a>
+    <a href="notes-charts.html" class="sub">Charts</a>
+    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
+    <a href="notes-query.html" class="sub">Query cells</a>
+    <a href="notes-search.html" class="sub">Search cells</a>
+    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="settings.html">Settings</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="data.html">Data</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="maintenance.html">Maintenance</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Typed notes</p>
+
+    <h1>Typed notes</h1>
+    <p class="lede">Most notes are just notes. But some are clearly a <em>kind</em> of thing — a book you're reading, a person you keep meeting, a project with a deadline. Give a note a type and Minerva knows what to expect from it: the fields it should have, the icon it wears in every list, and how it looks when you gather all of its kind together. It's still an ordinary markdown note underneath, and you can take the type off again at any time.</p>
+
+    <h2 id="making">Making a note typed</h2>
+    <p>A note is typed when its <a href="notes-frontmatter.html">properties</a> include a <code>type:</code> line naming one of your object types — <code>type: book</code>. You rarely write that by hand. There are three ways to get there:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">When you create it</div>
+        <div class="v">The New Note dialog offers your types alongside the blank note. Pick one and the note starts out with its <code>type:</code> already set, plus any starter text the type provides.</div>
+      </div>
+      <div class="row">
+        <div class="k">While you're writing</div>
+        <div class="v">Type <code>/</code> at the start of a line in an empty note and your types appear in the autocomplete — <code>/Book</code>, <code>/Person</code>. Choosing one sets the type without leaving the keyboard.</div>
+      </div>
+      <div class="row">
+        <div class="k">To a note you already have</div>
+        <div class="v">Use <strong>Treat this as…</strong> to give an existing note a type. Its text and existing properties are left exactly as they are — only <code>type:</code> is added — and the Properties panel opens so you can fill in the gaps.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Nothing is invented for you</span>
+      <p>Typing an existing note never writes values you didn't provide. If the note already has an <code>author</code> property and the type declares one, they simply line up. Everything else starts empty and stays that way until you fill it in.</p>
+    </div>
+
+    <h2 id="what-you-get">What the type gives the note</h2>
+    <p>The type is a small description of what notes of its kind look like. Each part of it shows up somewhere:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Fields</div>
+        <div class="v">The properties this kind of note is expected to have — a Book's author and rating, a Meeting's date and attendees. They appear as a form at the top of the <a href="right-sidebar-properties.html">Properties panel</a>, including the ones you haven't filled in yet.</div>
+      </div>
+      <div class="row">
+        <div class="k">Icon and colour</div>
+        <div class="v">A single character — 📖, 👤 — that marks every note of this type wherever notes are listed, tinted with the type's colour.</div>
+      </div>
+      <div class="row">
+        <div class="k">Card fields</div>
+        <div class="v">The handful of fields worth showing when the note appears as a card rather than a row, such as in a link preview.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cover</div>
+        <div class="v">Which field holds a picture, so a gallery of these notes can show it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Parent type</div>
+        <div class="v">A more general type this one is a kind of. A Novel with Book as its parent inherits Book's fields, and shows up whenever you ask for Books.</div>
+      </div>
+    </div>
+
+    <p>All of that is defined once, per type, in <a href="settings-object-types.html">Settings → Object Types</a> — not per note.</p>
+
+    <h2 id="filling-in">Filling in the fields</h2>
+    <p>Open the <a href="right-sidebar-properties.html">Properties panel</a> on a typed note and its fields are laid out as a form above its other properties. Each field gets the control that suits it: a list of choices for a field with fixed options, a date picker for a date, a number box for a number. Fields the note hasn't filled in yet are still shown, so the form answers "what does a Book need?" rather than only "what has this note got?"</p>
+
+    <p>Nothing is required. Leaving a field empty is perfectly fine — it just means you don't know that yet, or it doesn't apply.</p>
+
+    <h2 id="where">Where typed notes show up</h2>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">In every list of notes</div>
+        <div class="v">The type's icon replaces the usual page icon in the <a href="left-sidebar-notes-tree.html">Notes tree</a>, on tabs, in <a href="navigation-quick-switch.html">Quick switch</a>, in backlinks, and in bookmarks — so a folder of mixed notes is readable at a glance.</div>
+      </div>
+      <div class="row">
+        <div class="k">In the Objects panel</div>
+        <div class="v">The <a href="left-sidebar-objects.html">Objects panel</a> groups your notes by type, so you can see every Book you have without having put them in a folder together.</div>
+      </div>
+      <div class="row">
+        <div class="k">As a collection</div>
+        <div class="v">Opening a type gives you every note of that kind as a list, a table of their fields, or a gallery of cover images.</div>
+      </div>
+      <div class="row">
+        <div class="k">In queries</div>
+        <div class="v">Types become part of your project's <a href="notes-rdf.html">graph</a>, so you can ask for them directly — every Book published before 1970, say.</div>
+      </div>
+    </div>
+
+    <h2 id="still-a-note">It's still an ordinary note</h2>
+    <p>Typing a note doesn't move it, lock it, or change how you write in it. The file stays plain markdown in the same folder, with one extra line in its properties. Delete that <code>type:</code> line and it's an untyped note again — the fields you filled in stay behind as ordinary properties, because that's all they ever were.</p>
+
+    <div class="box">
+      <span class="label">Renaming a type keeps your notes</span>
+      <p>If you rename a type in Settings, the notes using it are updated to match. Their values aren't touched — only the name of the kind of thing they are.</p>
+    </div>
+
+    <div class="pager">
+      <a class="prev" href="notes-frontmatter.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">&larr; Properties</span>
+      </a>
+      <a class="next" href="notes-highlights.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Highlights &rarr;</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a><a href="https://davegriffith.substack.com/">Dancing with Robots</a></div>
+      <div class="col"><h4>Source</h4><a href="https://github.com/dgriffith/ide-for-thought">GitHub</a><a href="https://github.com/dgriffith/ide-for-thought/releases">Releases</a><a href="https://github.com/dgriffith/ide-for-thought/blob/main/LICENSE">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

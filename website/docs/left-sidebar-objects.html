@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Minerva — Docs — Search Cells</title>
-<meta name="description" content="Drop a live list of related notes into a note — found by meaning or by keyword — that keeps itself up to date as you write." />
+<title>Minerva — Docs — Left sidebar: Objects</title>
+<meta name="description" content="The Objects panel — your project browsed by kind rather than by folder, with list, table, and gallery views." />
 <link rel="stylesheet" href="../minerva.css" />
 <link rel="stylesheet" href="docs.css" />
 </head>
@@ -54,30 +54,18 @@
 
     <h4>Using Minerva</h4>
     <a href="notes.html">Notes</a>
-    <a href="notes-links.html" class="sub">Links</a>
-    <a href="notes-frontmatter.html" class="sub">Properties</a>
-    <a href="notes-typed-notes.html" class="sub">Typed notes</a>
-    <a href="notes-highlights.html" class="sub">Highlights</a>
-    <a href="notes-tasks.html" class="sub">Task lists</a>
-    <a href="notes-callouts.html" class="sub">Callouts</a>
-    <a href="notes-images.html" class="sub">Images</a>
-    <a href="notes-tables.html" class="sub">Tables &amp; CSV</a>
-    <a href="notes-footnotes.html" class="sub">Footnotes</a>
-    <a href="notes-flashcards.html" class="sub">Flashcards</a>
-    <a href="notes-media.html" class="sub">Media</a>
-    <a href="notes-math.html" class="sub">Math</a>
-    <a href="notes-diagrams.html" class="sub">Diagrams</a>
-    <a href="notes-charts.html" class="sub">Charts</a>
-    <a href="notes-code.html" class="sub">Code &amp; compute cells</a>
-    <a href="notes-query.html" class="sub">Query cells</a>
-    <a href="notes-search.html" class="sub active">Search cells</a>
-    <a href="notes-rdf.html" class="sub">Turtle / RDF</a>
     <a href="navigation.html">Navigation</a>
     <a href="viewing-options.html">Viewing options</a>
     <a href="editor.html">Editor</a>
 
     <h4>The workspace</h4>
     <a href="left-sidebar.html">Left sidebar</a>
+    <a href="left-sidebar-notes-tree.html" class="sub">Notes tree</a>
+    <a href="left-sidebar-sources.html" class="sub">Sources</a>
+    <a href="left-sidebar-tags.html" class="sub">Tags</a>
+    <a href="left-sidebar-tables.html" class="sub">Tables</a>
+    <a href="left-sidebar-objects.html" class="sub active">Objects</a>
+    <a href="left-sidebar-bookmarks.html" class="sub">Bookmarks</a>
     <a href="right-sidebar.html">Right sidebar</a>
     <a href="conversations.html">Conversations</a>
     <a href="settings.html">Settings</a>
@@ -94,65 +82,58 @@
 
   <!-- ===== Content ===== -->
   <main class="docs-content">
-    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="notes.html">Notes</a><span class="sep">/</span>Search cells</p>
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="left-sidebar.html">Left sidebar</a><span class="sep">/</span>Objects</p>
 
-    <h1>Search cells</h1>
-    <p class="lede">A search cell drops a live list of related notes right into your writing — a ready-made "See also", or a running roundup of everything you've touched on a topic. You can find notes two ways: by <b>meaning</b>, which catches notes that are about the same thing even when they use different words, or by <b>keyword</b>, which finds the exact words you name. Like query cells, a search cell only reads, and refreshes on its own as your notes grow.</p>
+    <h1>Objects</h1>
+    <p class="lede">The Objects panel is your project seen by kind rather than by folder. Every <a href="notes-typed-notes.html">object type</a> you have — Book, Person, Meeting — appears with a count of how many notes are of that kind, and expanding one lists them. It's a way to find things by what they <em>are</em>, without having filed them together in the first place.</p>
 
-    <h2 id="by-meaning">Search by meaning</h2>
-    <p>Open a cell with <code>:::query-semantic</code>, write a sentence or a few words describing what you're after, and close it with <code>:::</code>. Minerva lists the notes closest in meaning, each with a short snippet and a link. Leave the cell empty and it instead lists notes related to the one you're currently in.</p>
+    <h2 id="list">The list of types</h2>
+    <p>Each row is one type: its icon, its name, and how many notes carry it. Types with no notes yet are still listed, so creating your first Book is something you can find rather than something you have to remember exists.</p>
 
-<pre><code>:::query-semantic
-how attention shapes what we remember
-:::</code></pre>
+    <p>Click a type to expand it and see its notes; click again to collapse. Clicking a note opens it in the editor. Each note carries its own icon, which matters when a type has more specific kinds beneath it — a Book that's really a Novel shows the Novel icon while still being counted as a Book.</p>
 
-    <h2 id="by-keyword">Search by keyword</h2>
-    <p>Open a cell with <code>:::query-search</code> and put your words inside. Minerva lists the notes that contain them, best matches first — the same kind of search as the app's find box, embedded in your note and always current.</p>
-
-<pre><code>:::query-search
-working memory
-:::</code></pre>
-
-    <h2 id="options">Adding options</h2>
-    <p>As with query cells, put a few settings at the top, one per line, then a line of three dashes — <code>---</code> — before the text you're searching for.</p>
+    <h2 id="views">Opening a type as a collection</h2>
+    <p>The ⤢ button on a type row opens all of its notes in the main area, where they're more than a list. Three ways to look at the same set:</p>
 
     <div class="deflist">
       <div class="row">
-        <div class="k">title</div>
-        <div class="v">A heading shown above the results.</div>
+        <div class="k">List</div>
+        <div class="v">A readable stack of titles, each with a line of detail drawn from its first filled-in field.</div>
       </div>
       <div class="row">
-        <div class="k">limit</div>
-        <div class="v">The most results to show.</div>
+        <div class="k">Table</div>
+        <div class="v">One row per note and one column per field, sortable by any column. Use the Columns button to hide the ones you don't need.</div>
       </div>
       <div class="row">
-        <div class="k">snippet: false</div>
-        <div class="v">Hide the little preview under each result. Or use <code>compact: true</code> for a bare list of links.</div>
-      </div>
-      <div class="row">
-        <div class="k">kind</div>
-        <div class="v">For search by meaning: what to look through — <code>note</code>, <code>source</code>, <code>excerpt</code> (your saved quotations), or <code>all</code>. Notes alone is the default.</div>
+        <div class="k">Gallery</div>
+        <div class="v">Cards with cover images, for types whose notes have a picture worth seeing — book jackets, people, places.</div>
       </div>
     </div>
 
-    <figure class="shot-img">
-      <img src="img/notes-search.png" alt="A note with a search cell titled &quot;See also&quot;: below it, a short list of related notes, each showing its title as a link above a muted one-line snippet of the matching text." loading="lazy" />
-      <figcaption>A search cell in a note</figcaption>
-    </figure>
+    <p>Switching between the three doesn't re-fetch anything; it's the same set of notes shown three ways. Clicking any row or card opens that note.</p>
 
     <div class="box">
-      <span class="label">Meaning vs. keyword</span>
-      <p>Reach for <b>meaning</b> when you want notes on the same idea however they're worded, and <b>keyword</b> when you know the exact term you're hunting for. Search by meaning draws on the same understanding of your notes that powers <a href="right-sidebar-related.html">Related notes</a> in the sidebar; if that isn't ready yet, a meaning cell simply comes up empty.</p>
+      <span class="label">A more general type includes the specific ones</span>
+      <p>If a type has a parent — Novel's parent being Book — then asking for Books gives you the Novels too. The count on the Book row includes them, and so does its table.</p>
     </div>
 
+    <h2 id="saved-views">Saved views</h2>
+    <p>Once you've arranged a type's table the way you like it — sorted by rating, with three columns showing — you can save that arrangement with a name. Saved views appear as their own rows under the type they belong to, and opening one restores the whole arrangement exactly. Use the manage action to rename, reorder, or remove them.</p>
+
+    <h2 id="excerpts">Excerpts</h2>
+    <p>Below your types sits Excerpts — the passages you've saved from <a href="left-sidebar-sources.html">sources</a>. It isn't an object type you defined, but it belongs here for the same reason: it's a kind of thing you accumulate, and you often want to browse all of it at once.</p>
+
+    <h2 id="related">Where types come from</h2>
+    <p>The types listed here are defined in <a href="settings-object-types.html">Settings → Object Types</a>, where you can add fields, change an icon, or create your own. A note becomes one of them by carrying a <code>type:</code> property — see <a href="notes-typed-notes.html">Typed notes</a>.</p>
+
     <div class="pager">
-      <a class="prev" href="notes-query.html">
+      <a class="prev" href="left-sidebar-tables.html">
         <span class="dir">Previous</span>
-        <span class="ttl">← Query cells</span>
+        <span class="ttl">&larr; Tables</span>
       </a>
-      <a class="next" href="notes-rdf.html">
+      <a class="next" href="left-sidebar-bookmarks.html">
         <span class="dir">Next</span>
-        <span class="ttl">Turtle / RDF →</span>
+        <span class="ttl">Bookmarks &rarr;</span>
       </a>
     </div>
   </main>
