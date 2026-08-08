@@ -48,6 +48,14 @@
   }
   onMount(refresh);
 
+  /** Report a failed mutation. These calls used to be `try/finally` with no
+   *  `catch`, so a rejection became an unhandled promise rejection and the
+   *  button simply appeared inert — which is how Duplicate's broken IPC went
+   *  unnoticed. Anything that can fail says so. */
+  function reportFailure(action: string, t: TypeInfo, e: unknown): void {
+    toasts.push({ message: `Couldn’t ${action} “${t.label}” — ${e instanceof Error ? e.message : String(e)}` });
+  }
+
   async function duplicate(t: TypeInfo): Promise<void> {
     busy = true;
     try {
@@ -56,6 +64,8 @@
         properties: t.properties,
         ...optionalTypeFields(t),
       });
+    } catch (e) {
+      reportFailure('duplicate', t, e);
     } finally { busy = false; }
   }
 
@@ -80,6 +90,8 @@
       await loadCounts();
       if (cleared.length > 0) toasts.push({ message: `Deleted “${t.label}” and cleared it from ${cleared.length} note${cleared.length === 1 ? '' : 's'}.` });
       if (failed.length > 0) toasts.push({ message: `Deleted “${t.label}”, but ${failed.length} note${failed.length === 1 ? '' : 's'} couldn’t be cleared — ${failed.length === 1 ? 'it' : 'they'} still list this type.` });
+    } catch (e) {
+      reportFailure('delete', t, e);
     } finally { busy = false; }
   }
 
@@ -97,6 +109,8 @@
           ? `Renamed to “${newName}” — migrated ${migrated.length} note${migrated.length === 1 ? '' : 's'}.`
           : `Renamed to “${newName}”.` });
       }
+    } catch (e) {
+      reportFailure('rename', t, e);
     } finally { busy = false; }
   }
 </script>

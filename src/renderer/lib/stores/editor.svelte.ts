@@ -683,9 +683,15 @@ export function getEditorStore() {
 
   function persistTabs() {
     // Persist the whole split arrangement (#816): every group's tabs +
-    // active tab + view mode, the focused group, and the layout tree. The
-    // layout is reactive ($state) — snapshot it to a plain object so the
-    // structured-clone IPC boundary doesn't choke on the Svelte proxy.
+    // active tab + view mode, the focused group, and the layout tree.
+    //
+    // Snapshot the whole session rather than just `layout` (which was already
+    // snapshotted for the reason below). Defence in depth, not a known break:
+    // `toSavedTab` copies some fields off `$state` tabs by reference — a
+    // type-view tab's `columns`, for one — and whether such a value comes back
+    // as a Svelte Proxy is subtle enough that it isn't worth betting session
+    // restore on. The structured-clone IPC boundary rejects a Proxy outright,
+    // and one slipping through would silently lose the whole save.
     const session: LayoutSession = {
       version: 2,
       activeGroupId,
@@ -695,9 +701,12 @@ export function getEditorStore() {
         viewMode: g.viewMode,
         tabs: g.tabs.map(toSavedTab),
       })),
-      layout: $state.snapshot(layout),
+      layout,
     };
-    void api.tabs.save(session);
+    // Surfacing beats a silent `void`: a rejected save means the session won't
+    // come back next launch, and losing that quietly is how this went unseen.
+    void api.tabs.save($state.snapshot(session))
+      .catch((e: unknown) => { console.error('[tabs] failed to persist session:', e); });
   }
 
   /** Reconstruct a live tab from its persisted form. Notes read their file

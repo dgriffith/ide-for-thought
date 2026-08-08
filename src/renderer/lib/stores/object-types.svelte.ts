@@ -43,7 +43,13 @@ function typeForNote(relativePath: string | null | undefined): TypeInfo | null {
 }
 
 async function save(input: SaveInput): Promise<{ id: string; filePath: string }> {
-  const result = await api.types.save(input);
+  // Snapshot at the IPC boundary. Callers legitimately build the input from
+  // values read out of `types` — which is deeply-reactive `$state`, so nested
+  // arrays/objects come back as Svelte Proxies, and Electron's structured
+  // clone refuses to serialize a Proxy ("could not be cloned"). The Type
+  // Manager's Duplicate did exactly that and failed before reaching main.
+  // Doing it here rather than per-caller means the next caller can't reopen it.
+  const result = await api.types.save($state.snapshot(input));
   await refresh();
   return result;
 }

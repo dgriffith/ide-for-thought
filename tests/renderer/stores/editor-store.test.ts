@@ -676,3 +676,34 @@ describe('persist + restore across every tab kind', () => {
     expect(editor.tabs).toHaveLength(0);
   });
 });
+
+// ── Tab persistence must survive the structured-clone IPC boundary ──────────
+
+describe('persistTabs — structured-clone safety', () => {
+  it('sends a payload Electron can actually clone when a type-view tab has columns', async () => {
+    // `toSavedTab` copies a type-view tab's `columns` off `$state` by
+    // reference. It currently comes back as a plain array (verified — this
+    // test passes without the snapshot), but a Svelte Proxy would be rejected
+    // by the structured-clone IPC boundary and lose the whole session save
+    // silently. Pins the invariant so a future change to how tabs are stored
+    // can't quietly break session restore.
+    editor.openTypeView('book', { layout: 'table', columns: ['author', 'rating'] });
+    editor.persistTabs();
+
+    expect(h.tabsSave).toHaveBeenCalled();
+    const session = h.tabsSave.mock.calls[0]![0] as LayoutSession;
+    expect(() => structuredClone(session)).not.toThrow();
+  });
+
+  it('round-trips the type-view projection through the persisted session', async () => {
+    editor.openTypeView('book', { layout: 'gallery', sortColumn: 'rating', sortDir: 'desc', columns: ['author'] });
+    editor.persistTabs();
+
+    const session = h.tabsSave.mock.calls[0]![0] as LayoutSession;
+    const saved = session.groups.flatMap((g) => g.tabs).find((t) => t.type === 'type-view');
+    expect(saved).toMatchObject({
+      type: 'type-view', typeId: 'book', layout: 'gallery',
+      sortColumn: 'rating', sortDir: 'desc', columns: ['author'],
+    });
+  });
+});
