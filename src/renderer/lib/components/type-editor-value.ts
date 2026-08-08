@@ -17,6 +17,10 @@ export interface TypeEditorInitial {
   parent?: string;
   properties: PropertyDef[];
   template?: string;
+  /** Editing a STOCK type that has no local copy yet. Saving will create one
+   *  in `.minerva/types/`, shadowing the bundled definition — the dialog says
+   *  so, since "Edit" otherwise reads as editing the bundle itself. */
+  forksStock?: boolean;
 }
 
 /** A type's optional carry-over fields (icon / color / cover / card / parent /

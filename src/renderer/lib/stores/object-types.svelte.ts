@@ -59,6 +59,19 @@ async function remove(id: string): Promise<void> {
   await refresh();
 }
 
+/**
+ * Drop a locally-customized stock type's in-tree file so the bundled
+ * definition takes over again. Mechanically the same call as `remove` — the
+ * override IS the file — but named for the intent, because the outcome is
+ * opposite: the type survives, it just stops being customized. Never use
+ * `removeSafely` here; clearing `type:` off instances would be wrong when the
+ * type is about to still exist.
+ */
+async function revertToStock(id: string): Promise<void> {
+  await api.types.delete(id);
+  await refresh();
+}
+
 async function removeSafely(id: string, clearInstances: boolean): Promise<{ cleared: string[]; failed: { path: string; error: string }[] }> {
   const result = await api.types.deleteSafely(id, clearInstances);
   await refresh();
@@ -79,6 +92,7 @@ export const objectTypesStore = {
   refresh,
   save,
   remove,
+  revertToStock,
   removeSafely,
   rename,
 };

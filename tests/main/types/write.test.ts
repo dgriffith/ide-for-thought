@@ -91,3 +91,66 @@ describe('saveType (#save-as-type)', () => {
     await expect(deleteType(root, 'nonexistent')).resolves.toBeUndefined();
   });
 });
+
+// ── Customizing a stock type ────────────────────────────────────────────────
+//
+// "Add a field to Book" — Edit a stock type and the save writes an in-tree copy
+// that shadows the bundled one. Revert is nothing more than deleting that file.
+
+describe('customizing a stock type', () => {
+  let root: string;
+  beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'minerva-stockedit-')); });
+  afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  /** The Type Manager's Edit path: the stock definition, plus a change. */
+  async function customizeBook(): Promise<void> {
+    const stockBook = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    await saveType(root, {
+      id: stockBook.id,
+      label: stockBook.label,
+      properties: [...stockBook.properties, { name: 'shelf', type: 'text' }],
+      ...(stockBook.icon ? { icon: stockBook.icon } : {}),
+    });
+  }
+
+  it('writes the override next to the user types, keyed by the stock id', async () => {
+    await customizeBook();
+    expect(fs.existsSync(path.join(root, '.minerva', 'types', 'book.md'))).toBe(true);
+  });
+
+  it('the added field is live on the next catalog load', async () => {
+    await customizeBook();
+    const book = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    expect(book.properties.map((p) => p.name)).toContain('shelf');
+    expect(book.properties.map((p) => p.name)).toContain('author'); // stock fields kept
+    expect(book.overridesStock).toBe(true);
+  });
+
+  it('does not disturb the other stock types', async () => {
+    await customizeBook();
+    const cat = await loadTypeCatalog(root);
+    for (const id of ['person', 'meeting', 'project', 'idea', 'article']) {
+      expect(cat.types.find((t) => t.id === id)!.source).toBe('stock');
+    }
+    expect(cat.errors).toEqual([]);
+  });
+
+  it('deleteType reverts it — the bundled definition comes back intact', async () => {
+    await customizeBook();
+    await deleteType(root, 'book');
+
+    const book = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    expect(book.source).toBe('stock');
+    expect(book.overridesStock).toBeUndefined();
+    expect(book.properties.map((p) => p.name)).not.toContain('shelf');
+  });
+
+  it('an edited label leaves the class name alone, so instances survive', async () => {
+    const stockBook = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    await saveType(root, { id: 'book', label: 'Tome', properties: stockBook.properties });
+
+    const book = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    expect(book.label).toBe('Tome');
+    expect(book.classLocalName).toBe('Book'); // `types:Book` — unchanged
+  });
+});

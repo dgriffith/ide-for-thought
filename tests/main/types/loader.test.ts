@@ -1,6 +1,7 @@
 /**
  * Type-registry loader + parser (#1062). Stock loads; in-tree user types load
- * additively; user can't shadow stock; malformed defs fail soft.
+ * additively; an in-tree file of a stock id OVERRIDES it (local
+ * customization, revertible by deleting the file); malformed defs fail soft.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
@@ -45,13 +46,55 @@ describe('loadTypeCatalog (#1062)', () => {
     expect(recipe?.properties[0]).toMatchObject({ name: 'servings', type: 'number' });
   });
 
-  it("rejects a user type that shadows a stock id (stock wins)", async () => {
-    writeUserType('book.md', `---\nlabel: Book\n---\n`);
+  it('lets an in-tree file override a stock type, marked as customized', async () => {
+    // Local customization of a stock type: the thoughtbase's copy wins, and is
+    // flagged so the UI can offer "revert to stock".
+    writeUserType('book.md', `---\nlabel: Book\nid: book\nicon: 📕\nproperties:\n  - name: author\n    type: text\n  - name: shelf\n    type: text\n---\n`);
     const cat = await loadTypeCatalog(root);
+
     const books = cat.types.filter((t) => t.id === 'book');
-    expect(books).toHaveLength(1);
-    expect(books[0]!.source).toBe('stock'); // stock kept
-    expect(cat.errors.some((e) => /already a stock type/.test(e.message))).toBe(true);
+    expect(books).toHaveLength(1); // one effective type, not two
+    const book = books[0]!;
+    expect(book.icon).toBe('📕');
+    expect(book.properties.map((p) => p.name)).toContain('shelf'); // the added field
+    expect(book.overridesStock).toBe(true);
+    expect(cat.errors).toEqual([]); // an override is not an error
+  });
+
+  it('keeps the class name of an overridden stock type, so instances stay valid', async () => {
+    // classLocalName derives from the id, not the label — renaming the label of
+    // a customized Book must not move it off `types:Book`.
+    writeUserType('book.md', `---\nlabel: Tome\nid: book\nproperties: []\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    const book = cat.types.find((t) => t.id === 'book')!;
+    expect(book.label).toBe('Tome');
+    expect(book.classLocalName).toBe('Book');
+  });
+
+  it('restores the stock definition when the override file is removed', async () => {
+    // This is what "revert to stock" does — nothing more than deleting the file.
+    writeUserType('book.md', `---\nlabel: My Book\nid: book\nproperties: []\n---\n`);
+    expect((await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!.label).toBe('My Book');
+
+    fs.rmSync(path.join(root, '.minerva', 'types', 'book.md'));
+    const after = (await loadTypeCatalog(root)).types.find((t) => t.id === 'book')!;
+    expect(after.label).toBe('Book');
+    expect(after.source).toBe('stock');
+    expect(after.overridesStock).toBeUndefined();
+  });
+
+  it('still errors on two USER files claiming one id — there is no stock underneath', async () => {
+    writeUserType('recipe.md', `---\nlabel: Recipe\nid: recipe\nproperties: []\n---\n`);
+    writeUserType('recipe-two.md', `---\nlabel: Recipe Again\nid: recipe\nproperties: []\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    expect(cat.types.filter((t) => t.id === 'recipe')).toHaveLength(1);
+    expect(cat.errors.some((e) => /duplicate user type id/.test(e.message))).toBe(true);
+  });
+
+  it('a plain user type is not marked as overriding stock', async () => {
+    writeUserType('gadget.md', `---\nlabel: Gadget\nproperties: []\n---\n`);
+    const cat = await loadTypeCatalog(root);
+    expect(cat.types.find((t) => t.id === 'gadget')!.overridesStock).toBeUndefined();
   });
 
   it('fails soft on a malformed user type (logged, skipped, stock intact)', async () => {
