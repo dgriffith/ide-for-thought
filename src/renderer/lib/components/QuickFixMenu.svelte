@@ -80,7 +80,7 @@
 <style>
   .quick-fix-menu {
     position: fixed;
-    z-index: 1000;
+    z-index: var(--z-popover);
     background: var(--bg-sidebar);
     border: 1px solid var(--border);
     border-radius: 6px;

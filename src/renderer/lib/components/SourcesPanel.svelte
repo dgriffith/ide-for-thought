@@ -914,7 +914,7 @@
 <style>
   .context-menu {
     position: fixed;
-    z-index: 1000;
+    z-index: var(--z-popover);
     background: var(--bg-sidebar);
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -1192,7 +1192,7 @@
     padding: 4px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 150px;
-    z-index: 1001;
+    z-index: calc(var(--z-popover) + 1);
   }
   .submenu-item:hover > .submenu {
     display: block;
@@ -1205,7 +1205,7 @@
   .due-overlay {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: var(--z-modal);
     background: rgba(20, 14, 6, 0.5);
     backdrop-filter: blur(2px);
     display: flex;

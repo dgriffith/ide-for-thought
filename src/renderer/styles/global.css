@@ -46,6 +46,25 @@
   --font-display: 'IBM Plex Serif', Georgia, serif;
   --font-sans:    'IBM Plex Sans Variable', 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
   --font-mono:    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── Stacking order ───────────────────────────────────────────────
+     One scale for everything that escapes normal flow. The ordering rule
+     that matters: a layer must outrank anything that can OPEN it. The
+     generic prompt/confirm dialogs are raised from inside other modals
+     (Settings → Object Types → Rename), so they sit above `--z-modal`;
+     equal z-index would leave it to DOM order, and DialogHost happens to
+     render before SettingsDialog — which is exactly how the rename prompt
+     ended up behind the Settings panel.
+
+     Toasts outrank every dialog: they report the outcome of the action the
+     dialog just took, so they're useless if the dialog covers them. */
+  --z-popover:  1000;  /* context menus, tooltips, autocomplete — in-page */
+  --z-viewer:   1500;  /* full-pane viewers (PDF) */
+  --z-modal:    2000;  /* modal dialogs */
+  --z-spawned:  2500;  /* generic dialogs any modal can raise (prompt/confirm/…) */
+  --z-toast:    2800;  /* transient feedback — must clear every dialog */
+  --z-drag:     2900;  /* pointer-following drag ghost/caret — it IS the cursor */
+  --z-blocking: 3000;  /* busy overlay — blocks the whole app */
 }
 
 [data-theme="light"] {
