@@ -32,8 +32,10 @@
     editorInitial = {
       id: t.id, label: t.label, properties: t.properties,
       ...optionalTypeFields(t),
-      // Stock with no local copy yet → saving forks it into this thoughtbase.
-      ...(t.source === 'stock' ? { forksStock: true } : {}),
+      // Stock-derived either way: 'stock' forks on save, 'customized' already
+      // has its local copy. Both keep the stock name.
+      ...(t.overridesStock ? { stockOrigin: 'customized' as const }
+        : t.source === 'stock' ? { stockOrigin: 'stock' as const } : {}),
     };
     editorOpen = true;
   }
@@ -186,8 +188,10 @@
             {:else if t.source === 'user'}
               <!-- Rename changes the id (and migrates instances). Meaningless
                    for a stock id: the bundled type would just reappear under
-                   the old id alongside the renamed copy. Edit still changes a
-                   stock type's label — the id is what stays fixed. -->
+                   the old id alongside the renamed copy. The Edit dialog locks
+                   a stock type's Name to match — offering one rename and
+                   refusing the other read as a contradiction. Duplicate is the
+                   way to get one under your own name. -->
               <button class="link-btn" disabled={busy} onclick={() => { void rename(t); }}>Rename</button>
               <button class="link-btn" disabled={busy} onclick={() => { void remove(t); }}>Delete</button>
             {/if}
