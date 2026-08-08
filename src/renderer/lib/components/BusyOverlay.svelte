@@ -39,7 +39,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    z-index: 3000;
+    z-index: var(--z-blocking);
     background: rgba(20, 14, 6, 0.35);
     backdrop-filter: blur(2px);
     display: flex;

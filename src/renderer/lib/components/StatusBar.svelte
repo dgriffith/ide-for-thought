@@ -278,7 +278,7 @@
     position: absolute;
     bottom: calc(100% + 6px);
     right: 0;
-    z-index: 1000;
+    z-index: var(--z-popover);
     background: var(--bg-sidebar);
     border: 1px solid var(--border);
     border-radius: 6px;

@@ -87,7 +87,7 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); }
   .dialog { width: 460px; max-width: 90vw; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
   .title { margin: 0 0 4px; font-size: 15px; color: var(--text); }
   .sub { margin: 0 0 14px; font-size: 12px; color: var(--text-faint); }

@@ -159,7 +159,7 @@
     font-size: 12px;
     line-height: 1.4;
     pointer-events: none;
-    z-index: 1000;
+    z-index: var(--z-popover);
     font-family: var(--font-sans);
   }
 </style>

@@ -1312,7 +1312,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
 
     .compute-output-menu {
         position: fixed;
-        z-index: 1000;
+        z-index: var(--z-popover);
         background: var(--bg-sidebar);
         border: 1px solid var(--border);
         border-radius: 6px;
@@ -1383,7 +1383,7 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
        two never collide if both panes are open in split view. */
     .note-context-menu {
         position: fixed;
-        z-index: 1000;
+        z-index: var(--z-popover);
         background: var(--bg-sidebar);
         border: 1px solid var(--border);
         border-radius: 6px;

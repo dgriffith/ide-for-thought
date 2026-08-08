@@ -1834,7 +1834,7 @@
   /* The chip that follows the pointer while dragging a note/source in. */
   .link-drag-ghost {
     position: fixed;
-    z-index: 3000;
+    z-index: var(--z-drag);
     pointer-events: none;
     max-width: 260px;
     padding: 3px 8px;
@@ -1852,7 +1852,7 @@
   /* The live insertion caret shown in the editor at the drop position. */
   .link-drop-caret {
     position: fixed;
-    z-index: 3000;
+    z-index: var(--z-drag);
     pointer-events: none;
     width: 2px;
     background: var(--accent);

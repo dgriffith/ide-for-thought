@@ -176,7 +176,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    z-index: 2000;
+    z-index: var(--z-modal);
     display: flex;
     justify-content: center;
     align-items: flex-start;

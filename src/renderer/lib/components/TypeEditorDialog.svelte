@@ -256,7 +256,7 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1100; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: var(--z-modal); }
   .dialog {
     width: 640px; max-width: 92vw; max-height: 85vh; overflow-y: auto;
     background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px;

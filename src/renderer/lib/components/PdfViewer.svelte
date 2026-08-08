@@ -480,7 +480,7 @@
 
   .context-menu {
     position: fixed;
-    z-index: 1500;
+    z-index: var(--z-viewer);
     background: var(--bg-sidebar);
     border: 1px solid var(--border);
     border-radius: 6px;
