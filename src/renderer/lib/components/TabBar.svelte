@@ -6,6 +6,8 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import Icon from './Icon.svelte';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
 
   interface Props {
     tabs: Tab[];
@@ -97,6 +99,7 @@
 <div class="tab-bar">
   {#each tabs as tab, i}
     {@const dirty = tab.type === 'note' && tab.content !== tab.savedContent}
+    {@const noteType = tab.type === 'note' ? objectTypesStore.typeForNote(tab.relativePath) : null}
     <!-- Presentational wrapper: carries the drag / middle-click / context-menu
          gestures for the whole tab. The switch and close controls live inside
          as siblings so no interactive element nests another (a11y #1005). The
@@ -149,6 +152,8 @@
             <Icon name="graph" size={13} color="var(--text-faint)" />
           {:else if tab.type === 'type-view'}
             <Icon name="objects" size={13} color="var(--text-faint)" />
+          {:else if noteType}
+            <TypeIcon type={noteType} size={13} />
           {:else}
             <Icon name="notes" size={13} color="var(--text-faint)" />
           {/if}

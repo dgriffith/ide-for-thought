@@ -9,6 +9,8 @@
    * host calls `refresh()` on write/reindex (mirroring the Tags panel).
    */
   import { api } from '../ipc/client';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import ExcerptsBrowser from './ExcerptsBrowser.svelte';
   import { savedViewsStore } from '../stores/saved-views.svelte';
   import type { TypeInfo } from '../../../shared/objects/type-def';
@@ -127,12 +129,18 @@
         <p class="no-instances">No {row.type.label.toLowerCase()} yet</p>
       {:else}
         {#each instances[row.type.id] ?? [] as inst (inst.path)}
+          <!-- The group is subclass-aware (#1587) — a Book group lists Novels
+               too — so a row carries its OWN type's icon, not the group's. -->
+          {@const instType = objectTypesStore.typeForNote(inst.path) ?? row.type}
           <button
             class="instance-row"
             onclick={() => onFileSelect(inst.path)}
             ondblclick={() => onFileSelect(inst.path)}
             title={inst.path}
-          >{inst.title}</button>
+          >
+            <TypeIcon type={instType} size={12} />
+            <span class="instance-name">{inst.title}</span>
+          </button>
         {/each}
       {/if}
     {/if}
@@ -221,7 +229,9 @@
     flex-shrink: 0;
   }
   .instance-row {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 7px;
     width: 100%;
     padding: 4px 8px 4px 30px;
     border: none;
@@ -232,6 +242,10 @@
     font-size: 12.5px;
     cursor: pointer;
     text-align: left;
+  }
+  /* Ellipsis moves to the label now that the row is a flex container. */
+  .instance-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

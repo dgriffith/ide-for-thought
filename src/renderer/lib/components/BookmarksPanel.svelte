@@ -4,6 +4,8 @@
   import { DRAG_MIME_NOTE } from '../editor/drag-link';
   import Ribbon from './right-sidebar/Ribbon.svelte';
   import Icon from './Icon.svelte';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
 
@@ -193,6 +195,9 @@
       {/each}
     {/if}
   {:else}
+    <!-- An anchor bookmark points into a section, not the note as a whole, so
+         it keeps the generic glyph rather than claiming to be the object. -->
+    {@const noteType = node.anchor ? null : objectTypesStore.typeForNote(node.relativePath)}
     <div
       class="bm-item bookmark"
       style:padding-left="{8 + depth * 14}px"
@@ -205,7 +210,11 @@
       ondragstart={(e) => handleDragStart(e, node)}
     >
       <span class="chev"></span>
-      <Icon name={bmIcon(node)} size={13} color="var(--text-faint)" />
+      {#if noteType}
+        <TypeIcon type={noteType} size={13} />
+      {:else}
+        <Icon name={bmIcon(node)} size={13} color="var(--text-faint)" />
+      {/if}
       <span class="bm-body">
         <span class="bm-name">{node.name}</span>
         <span class="bm-path">{node.anchor ? `${node.relativePath} › §` : node.relativePath}</span>

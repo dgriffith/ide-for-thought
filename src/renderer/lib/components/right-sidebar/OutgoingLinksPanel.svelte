@@ -4,6 +4,8 @@
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
+  import TypeIcon from '../TypeIcon.svelte';
+  import { objectTypesStore } from '../../stores/object-types.svelte';
 
   interface Props {
     activeFilePath: string | null;
@@ -106,6 +108,7 @@
           {/if}
           {#if type === '' || !collapsed}
             {#each typeLinks as link}
+              {@const noteType = objectTypesStore.typeForNote(link.target)}
               <button
                 class="link-item"
                 class:dead={!link.exists}
@@ -114,6 +117,8 @@
               >
                 {#if !link.exists}
                   <Icon name="warn" size={12} color="var(--rust)" />
+                {:else if noteType}
+                  <TypeIcon type={noteType} size={12} />
                 {:else}
                   <Icon name="notes" size={12} color="var(--text-faint)" />
                 {/if}

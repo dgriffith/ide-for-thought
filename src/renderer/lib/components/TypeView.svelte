@@ -14,6 +14,8 @@
    * #1066 is where values are edited); table cells never mutate the graph.
    */
   import { api } from '../ipc/client';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import type { PropertyDef, TypeInfo, TypeInstanceRow } from '../../../shared/objects/type-def';
 
   type Layout = 'list' | 'table' | 'gallery';
@@ -116,6 +118,16 @@
     return !!v && /^https?:\/\//i.test(v);
   }
 
+  /**
+   * The icon for one row. This view is subclass-aware (#1587) — a Book view
+   * lists Novels too — so a row shows its OWN type's icon, not the view's.
+   * That makes the per-row icon informative rather than merely repeating the
+   * header. Falls back to the view's type if the map hasn't loaded yet.
+   */
+  function rowType(inst: TypeInstanceRow): TypeInfo | null {
+    return objectTypesStore.typeForNote(inst.path) ?? type;
+  }
+
   const LAYOUTS: { id: Layout; label: string }[] = [
     { id: 'list', label: 'List' },
     { id: 'table', label: 'Table' },
@@ -170,9 +182,13 @@
   {:else if layout === 'list'}
     <div class="tv-list">
       {#each instances as inst (inst.path)}
+        {@const rt = rowType(inst)}
         <button class="tv-list-row" onclick={() => onOpenNote(inst.path)} title={inst.path}>
-          <span class="tv-list-title">{inst.title}</span>
-          {#if summary(inst)}<span class="tv-list-summary">{summary(inst)}</span>{/if}
+          {#if rt}<span class="tv-list-icon"><TypeIcon type={rt} size={14} /></span>{/if}
+          <span class="tv-list-body">
+            <span class="tv-list-title">{inst.title}</span>
+            {#if summary(inst)}<span class="tv-list-summary">{summary(inst)}</span>{/if}
+          </span>
         </button>
       {/each}
     </div>
@@ -199,8 +215,14 @@
         </thead>
         <tbody>
           {#each sorted as inst (inst.path)}
+            {@const rt = rowType(inst)}
             <tr onclick={() => onOpenNote(inst.path)} title={inst.path}>
-              <td class="tv-cell-title">{inst.title}</td>
+              <td class="tv-cell-title">
+                <span class="tv-cell-title-inner">
+                  {#if rt}<TypeIcon type={rt} size={13} />{/if}
+                  <span>{inst.title}</span>
+                </span>
+              </td>
               {#each visibleColumns as col (col.name)}
                 <td>{display(col, inst.values[col.name] ?? null)}</td>
               {/each}
@@ -212,12 +234,13 @@
   {:else}
     <div class="tv-gallery">
       {#each instances as inst (inst.path)}
+        {@const rt = rowType(inst)}
         <button class="tv-card" onclick={() => onOpenNote(inst.path)} title={inst.path}>
           <div class="tv-card-cover">
             {#if isImageUrl(inst.cover)}
               <img src={inst.cover} alt="" loading="lazy" />
             {:else}
-              <span class="tv-card-icon" style={type.color ? `color:${type.color}` : undefined}>{type.icon ?? '◆'}</span>
+              <span class="tv-card-icon" style={rt?.color ? `color:${rt.color}` : undefined}>{rt?.icon ?? '◆'}</span>
             {/if}
           </div>
           <span class="tv-card-title">{inst.title}</span>
@@ -303,10 +326,13 @@
 
   /* List */
   .tv-list { overflow-y: auto; padding: 6px; }
+  /* Icon in a left gutter, title/summary stacked beside it. `align-items:
+     start` keeps the icon on the title's line rather than centred against a
+     two-line row. */
   .tv-list-row {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 8px;
     width: 100%;
     padding: 8px 10px;
     border: none;
@@ -318,6 +344,9 @@
     text-align: left;
   }
   .tv-list-row:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
+  /* Match the title's line box so the icon centres on the first line. */
+  .tv-list-icon { display: flex; align-items: center; height: 19px; flex-shrink: 0; }
+  .tv-list-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
   .tv-list-title { font-size: 13.5px; font-weight: 500; }
   .tv-list-summary { font-size: 11.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -345,6 +374,7 @@
   .tv-table tbody tr { cursor: pointer; }
   .tv-table tbody tr:hover { background: color-mix(in oklch, var(--text) 4%, transparent); }
   .tv-cell-title { font-weight: 500; color: var(--text); }
+  .tv-cell-title-inner { display: flex; align-items: center; gap: 7px; }
 
   /* Gallery */
   .tv-gallery {

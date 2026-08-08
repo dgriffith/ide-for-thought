@@ -4,6 +4,8 @@
   import LinkBadge from './LinkBadge.svelte';
   import Ribbon from './Ribbon.svelte';
   import Icon from '../Icon.svelte';
+  import TypeIcon from '../TypeIcon.svelte';
+  import { objectTypesStore } from '../../stores/object-types.svelte';
   import { getLinkDrag } from '../../stores/link-drag.svelte';
 
   const linkDrag = getLinkDrag();
@@ -106,13 +108,18 @@
           {/if}
           {#if type === '' || !collapsed}
             {#each typeLinks as link}
+              {@const noteType = objectTypesStore.typeForNote(link.source)}
               <button
                 class="link-item"
                 onclick={() => onFileSelect(link.source)}
                 onpointerdown={(e) => linkDrag.start({ kind: 'note', path: link.source, label: link.sourceTitle }, e)}
                 title={link.source}
               >
-                <Icon name="notes" size={12} color="var(--text-faint)" />
+                {#if noteType}
+                  <TypeIcon type={noteType} size={12} />
+                {:else}
+                  <Icon name="notes" size={12} color="var(--text-faint)" />
+                {/if}
                 <span class="link-title">{link.sourceTitle}</span>
                 {#if type === ''}
                   <LinkBadge label={link.linkLabel} color={link.linkColor} />

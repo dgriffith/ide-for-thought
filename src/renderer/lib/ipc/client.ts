@@ -782,6 +782,9 @@ export interface TypesApi {
   noteProperties(relativePath: string): Promise<import('../../../shared/objects/type-def').NoteTypedProperties>;
   /** Every instance of a type + its property values, for the multi-view (#1070). */
   instances(typeId: string): Promise<import('../../../shared/objects/type-def').TypeInstancesResult>;
+  /** Bulk `relativePath → typeId` map for the type icons on note rows. Empty
+   *  when no project is open — "nothing typed yet", never an error. */
+  noteTypeMap(): Promise<Record<string, string>>;
   /** Save a user object type — "Save Note as Object Type" + the Type Manager. */
   save(input: { label: string; id?: string; properties: import('../../../shared/objects/type-def').PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string }): Promise<{ id: string; filePath: string }>;
   /** Delete a user object type by id (#1584). */

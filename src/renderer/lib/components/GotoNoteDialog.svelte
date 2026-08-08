@@ -2,6 +2,8 @@
   import type { NoteFile, SourceMetadata, SavedQuery } from '../../../shared/types';
   import { displaySourceTitle } from '../../../shared/source-display';
   import Icon from './Icon.svelte';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import type { IconName } from './icons/registry';
   import { formatRelativeTime } from '../utils/format-relative-time';
 
@@ -277,6 +279,7 @@
           {@const folder = result.kind === 'note' && result.relativePath.includes('/')
             ? result.relativePath.slice(0, result.relativePath.lastIndexOf('/'))
             : ''}
+          {@const noteType = result.kind === 'note' ? objectTypesStore.typeForNote(result.relativePath) : null}
           <li>
             <button
               class="result-item"
@@ -284,7 +287,11 @@
               onclick={() => selectItem(result)}
               onmouseenter={() => { selectedIndex = i; }}
             >
-              <Icon name={kindIconName(result.kind)} size={13} color={i === selectedIndex ? 'var(--accent)' : 'var(--text-faint)'} />
+              {#if noteType}
+                <TypeIcon type={noteType} size={13} />
+              {:else}
+                <Icon name={kindIconName(result.kind)} size={13} color={i === selectedIndex ? 'var(--accent)' : 'var(--text-faint)'} />
+              {/if}
               <span class="result-body">
                 <span class="result-name">{result.name}</span>
                 {#if result.kind === 'note'}
