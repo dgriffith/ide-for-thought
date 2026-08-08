@@ -3,6 +3,12 @@
  * catalog list, so the Type Manager panel never calls them directly (renderer
  * data-flow rule #1086). Every mutation re-lists, and re-lists refresh the
  * reactive view the panel + pickers read.
+ *
+ * It also caches the bulk `relativePath → typeId` map behind `typeForNote()`,
+ * so every note list (sidebar tree, tabs, quick-open, backlinks) can badge a row
+ * with its type icon off one projection instead of an N-call fan-out. Catalog
+ * and map are fetched together, so a type whose icon is edited in the Type
+ * Manager repaints every row on the same `refresh()`.
  */
 import { api } from '../ipc/client';
 import type { TypeInfo, TypeLoadError } from '../../../shared/objects/type-def';
@@ -12,12 +18,28 @@ type SaveInput = Parameters<typeof api.types.save>[0];
 let types = $state<TypeInfo[]>([]);
 let errors = $state<TypeLoadError[]>([]);
 let loaded = $state(false);
+/** relativePath → TypeInfo, for O(1) per-row lookup while rendering a list. */
+let noteTypes = $state<Record<string, TypeInfo>>({});
 
 async function refresh(): Promise<void> {
-  const catalog = await api.types.list();
+  const [catalog, map] = await Promise.all([api.types.list(), api.types.noteTypeMap()]);
   types = catalog.types;
   errors = catalog.errors;
+  const byId = new Map(catalog.types.map((t) => [t.id, t]));
+  const next: Record<string, TypeInfo> = {};
+  for (const [path, typeId] of Object.entries(map)) {
+    // A stale `type:` pointing at a deleted type simply goes un-badged.
+    const def = byId.get(typeId);
+    if (def) next[path] = def;
+  }
+  noteTypes = next;
   loaded = true;
+}
+
+/** The type of the note at `relativePath`, or null if it isn't typed. */
+function typeForNote(relativePath: string | null | undefined): TypeInfo | null {
+  if (!relativePath) return null;
+  return noteTypes[relativePath] ?? null;
 }
 
 async function save(input: SaveInput): Promise<{ id: string; filePath: string }> {
@@ -47,6 +69,7 @@ export const objectTypesStore = {
   get types(): TypeInfo[] { return types; },
   get errors(): TypeLoadError[] { return errors; },
   get loaded(): boolean { return loaded; },
+  typeForNote,
   refresh,
   save,
   remove,

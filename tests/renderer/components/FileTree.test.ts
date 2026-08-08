@@ -29,13 +29,33 @@ const h = vi.hoisted(() => ({
       openInDefault: vi.fn(),
       openInTerminal: vi.fn(),
     },
+    // A typed note's row shows its type's icon instead of the by-extension
+    // glyph; the store joins these two reads.
+    types: {
+      list: vi.fn().mockResolvedValue({ types: [], errors: [] }),
+      noteTypeMap: vi.fn().mockResolvedValue({}),
+    },
   },
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({ api: h.api }));
 
 import FileTree from '../../../src/renderer/lib/components/FileTree.svelte';
+import { objectTypesStore } from '../../../src/renderer/lib/stores/object-types.svelte';
 
-afterEach(cleanup);
+const BOOK = { id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock', icon: '📖', properties: [] };
+
+/** Seed the module-singleton store, then reset it so tests stay independent. */
+async function seedTypes(map: Record<string, string>, types: unknown[] = [BOOK]) {
+  h.api.types.list.mockResolvedValue({ types, errors: [] });
+  h.api.types.noteTypeMap.mockResolvedValue(map);
+  await objectTypesStore.refresh();
+}
+
+afterEach(async () => {
+  cleanup();
+  // The store is a module singleton — empty it so a seeded map can't leak.
+  await seedTypes({}, []);
+});
 
 /** notes/ (dir) → alpha.md, beta.md ; plus a root-level readme.md. */
 function tree(): NoteFile[] {
@@ -98,6 +118,40 @@ describe('FileTree (#1002)', () => {
     expect(row(container, 'notes')).toBeTruthy();
     expect(row(container, 'notes/alpha.md')).toBeTruthy();
     expect(row(container, 'readme.md')).toBeTruthy();
+  });
+
+  it('shows a typed note’s type icon, and leaves untyped rows on the file glyph', async () => {
+    await seedTypes({ 'notes/alpha.md': 'book' });
+    const { container } = render(FileTree, props({ expanded: { notes: true } }));
+
+    const typed = row(container, 'notes/alpha.md')!;
+    expect(typed.querySelector('.type-icon')?.textContent).toBe('📖');
+    expect(typed.querySelector('.type-icon')?.getAttribute('aria-label')).toBe('Book');
+    // The generic svg glyph is replaced, not doubled up.
+    expect(typed.querySelectorAll('svg')).toHaveLength(0);
+
+    const untyped = row(container, 'notes/beta.md')!;
+    expect(untyped.querySelector('.type-icon')).toBeNull();
+    expect(untyped.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  it('falls back to the file glyph when a note’s type is no longer in the catalog', async () => {
+    // A `type:` left pointing at a deleted type must not render a blank slot.
+    await seedTypes({ 'readme.md': 'ghost-type' });
+    const { container } = render(FileTree, props());
+
+    const r = row(container, 'readme.md')!;
+    expect(r.querySelector('.type-icon')).toBeNull();
+    expect(r.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  it('repaints rows when the type catalog changes (an icon edit)', async () => {
+    await seedTypes({ 'readme.md': 'book' });
+    const { container } = render(FileTree, props());
+    expect(row(container, 'readme.md')!.querySelector('.type-icon')?.textContent).toBe('📖');
+
+    await seedTypes({ 'readme.md': 'book' }, [{ ...BOOK, icon: '📕' }]);
+    expect(row(container, 'readme.md')!.querySelector('.type-icon')?.textContent).toBe('📕');
   });
 
   it('marks the active file and moves the highlight when activeFilePath changes', async () => {

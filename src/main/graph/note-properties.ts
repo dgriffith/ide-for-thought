@@ -68,6 +68,33 @@ export async function getNoteTypedProperties(
 }
 
 /**
+ * Which notes are typed, and as what — the whole thoughtbase in one projection.
+ *
+ * Every note list in the renderer (sidebar tree, tabs, quick-open, backlinks)
+ * wants a type icon per row, and `getNoteTypedProperties` is one-note-per-call:
+ * a tree of 2000 notes would mean 2000 round-trips. This is the bulk read
+ * instead — a `relativePath → typeId` map the renderer joins against the type
+ * catalog it already holds. Mirrors `graph:aliasMap`, the other bulk map the
+ * renderer caches and refreshes on reindex.
+ *
+ * Direct class only (no `rdfs:subClassOf*`): a row should show the note's OWN
+ * type's icon, not an ancestor's. First match wins for a multi-valued `type:`,
+ * matching `getNoteTypedProperties`.
+ */
+export async function getNoteTypeMap(ctx: ProjectContext): Promise<Record<string, string>> {
+  if (!getState(ctx)) return {};
+  const { results } = await queryGraph(
+    ctx,
+    `SELECT ?path ?id WHERE { ?n minerva:relativePath ?path ; a ?c . ?c minerva:typeId ?id }`,
+  );
+  const out: Record<string, string> = {};
+  for (const r of results as Array<{ path?: string; id?: string }>) {
+    if (r.path && r.id && !(r.path in out)) out[r.path] = r.id;
+  }
+  return out;
+}
+
+/**
  * Project every instance of a type with its declared-property values (#1070) —
  * the data behind the list/table/gallery multi-view. One SPARQL pass: each
  * declared property becomes an OPTIONAL column bound through the SAME predicate

@@ -2,6 +2,8 @@
   import type { NoteFile } from '../../../shared/types';
   import FileTree from './FileTree.svelte';
   import Icon from './Icon.svelte';
+  import TypeIcon from './TypeIcon.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import { formatRelativeTime } from '../utils/format-relative-time';
   import { api } from '../ipc/client';
   import { clampMenuToViewport } from '../utils/menuClamp';
@@ -265,6 +267,7 @@
           />
         {/if}
       {:else}
+        {@const noteType = objectTypesStore.typeForNote(file.relativePath)}
         <button
           class="tree-item file"
           class:active={activeFilePath === file.relativePath}
@@ -278,11 +281,17 @@
           ondragstart={(e) => handleDragStart(e, file.relativePath, false)}
         >
           <span class="chev"></span>
-          <Icon
-            name={iconForFile(file.name)}
-            size={13}
-            color={activeFilePath === file.relativePath ? 'var(--accent)' : 'var(--text-faint)'}
-          />
+          {#if noteType}
+            <!-- A typed note shows its type's icon instead of the generic
+                 by-extension glyph: the type is the more specific fact. -->
+            <TypeIcon type={noteType} size={13} />
+          {:else}
+            <Icon
+              name={iconForFile(file.name)}
+              size={13}
+              color={activeFilePath === file.relativePath ? 'var(--accent)' : 'var(--text-faint)'}
+            />
+          {/if}
           <span class="row-label">{file.name.replace(/\.(md|ttl|csv|py)$/, '')}</span>
           {#if file.mtimeMs !== undefined}
             <span class="mtime">{formatRelativeTime(file.mtimeMs)}</span>

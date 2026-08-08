@@ -421,6 +421,7 @@ export interface ChannelMap {
   'types:list': () => TypeCatalogInfo;
   'types:noteProperties': (relativePath: string) => NoteTypedProperties;
   'types:instances': (typeId: string) => TypeInstancesResult;
+  'types:noteTypeMap': () => Record<string, string>;
   'types:save': (input: { label: string; id?: string; properties: PropertyDef[]; icon?: string; color?: string; cover?: string; card?: string[]; parent?: string; template?: string }) => { id: string; filePath: string };
   'types:delete': (id: string) => void;
   'types:deleteSafely': (id: string, clearInstances: boolean) => { cleared: string[]; failed: { path: string; error: string }[] };

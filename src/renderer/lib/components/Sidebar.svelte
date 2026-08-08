@@ -11,6 +11,7 @@
   import { clampMenuToViewport } from '../utils/menuClamp';
   import { installDismissOnClickOutside } from '../dismiss-menu';
   import { getSidebarSelectionStore } from '../stores/sidebar-selection.svelte';
+  import { objectTypesStore } from '../stores/object-types.svelte';
   import { getProposalsStore } from '../stores/proposals.svelte';
   import { flattenVisible } from '../sidebar-tree-utils';
   import { getSidebarSettings, setSidebarSettings } from '../sidebar/settings';
@@ -111,6 +112,10 @@
   let sourcesPanel = $state<SourcesPanel>();
   let tablesPanel = $state<TablesPanel>();
   let objectsPanel = $state<ObjectsPanel>();
+  // Seed the note→type map once on mount so Notes-tree rows carry their type
+  // icons from the first paint. A project restored at startup doesn't go
+  // through the menu-open path that calls refreshObjects().
+  $effect(() => { void objectTypesStore.refresh(); });
   let contextMenu = $state<{ x: number; y: number } | null>(null);
   let contextMenuEl = $state<HTMLDivElement | undefined>();
 
@@ -498,6 +503,10 @@
   }
 
   export function refreshObjects() {
+    // Unconditional: the note→type map drives the type icons on Notes-tree
+    // rows, so it has to stay fresh whether or not the Objects panel is the
+    // mounted one. The panel's own refresh is still a no-op when it isn't.
+    void objectTypesStore.refresh();
     void objectsPanel?.refresh();
   }
 

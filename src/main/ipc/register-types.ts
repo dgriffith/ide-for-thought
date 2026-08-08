@@ -44,6 +44,16 @@ export function registerTypes(): void {
     ),
   );
 
+  // Which notes are typed, for the type icons on note rows. `{}` on no project
+  // is a legitimate "nothing is typed yet" answer, not a failure signal.
+  handle(
+    Channels.TYPES_NOTE_TYPE_MAP,
+    withRootPathOr<[], Record<string, string> | Promise<Record<string, string>>>(
+      {},
+      (rootPath) => graph.getNoteTypeMap(projectContext(rootPath)),
+    ),
+  );
+
   // Save a new user object type derived from a note ("Save Note as Object Type").
   // Writes `.minerva/types/<id>.md`, then reloads the graph's type catalog so the
   // new type is immediately usable for promotion + indexing.

@@ -463,6 +463,9 @@ export const Channels = {
   TYPES_NOTE_PROPERTIES: 'types:noteProperties',
   /** Every instance of a type + its property values, for the multi-view (#1070). */
   TYPES_INSTANCES: 'types:instances',
+  /** Bulk `relativePath → typeId` map, so note lists can show a type icon per
+   *  row without an N-call `types:noteProperties` fan-out. */
+  TYPES_NOTE_TYPE_MAP: 'types:noteTypeMap',
   /** Save a new user object type derived from a note ("Save Note as Object Type"). */
   TYPES_SAVE: 'types:save',
   /** Delete a user object type by id (#1584). */

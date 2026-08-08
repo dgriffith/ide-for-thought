@@ -8,12 +8,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
 
-const { listMock, saveMock, deleteMock, deleteSafelyMock, renameMock, queryMock, confirmMock, promptMock } = vi.hoisted(() => ({
+const { listMock, saveMock, deleteMock, deleteSafelyMock, renameMock, noteTypeMapMock, queryMock, confirmMock, promptMock } = vi.hoisted(() => ({
   listMock: vi.fn(), saveMock: vi.fn(), deleteMock: vi.fn(), deleteSafelyMock: vi.fn(), renameMock: vi.fn(),
+  // The store fetches the catalog and the note→type map together, so every
+  // `refresh()` here hits both.
+  noteTypeMapMock: vi.fn(),
   queryMock: vi.fn(), confirmMock: vi.fn(), promptMock: vi.fn(),
 }));
 vi.mock('../../../src/renderer/lib/ipc/client', () => ({
-  api: { types: { list: listMock, save: saveMock, delete: deleteMock, deleteSafely: deleteSafelyMock, rename: renameMock }, graph: { query: queryMock } },
+  api: { types: { list: listMock, save: saveMock, delete: deleteMock, deleteSafely: deleteSafelyMock, rename: renameMock, noteTypeMap: noteTypeMapMock }, graph: { query: queryMock } },
 }));
 vi.mock('../../../src/renderer/lib/stores/dialogs.svelte', () => ({
   getDialogStore: () => ({ showConfirm: confirmMock, showPrompt: promptMock }),
@@ -29,6 +32,7 @@ const GADGET = { id: 'gadget', label: 'Gadget', classLocalName: 'Gadget', source
 
 beforeEach(() => {
   listMock.mockResolvedValue({ types: [BOOK, GADGET], errors: [] });
+  noteTypeMapMock.mockResolvedValue({});
   saveMock.mockResolvedValue({ id: 'gadget-copy', filePath: '.minerva/types/gadget-copy.md' });
   deleteMock.mockResolvedValue(undefined);
   deleteSafelyMock.mockResolvedValue({ cleared: [], failed: [] });
