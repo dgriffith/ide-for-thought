@@ -179,6 +179,7 @@ exports[`IPC registration contract (#997) > matches the known set of registered 
   "shell:openInDefault",
   "shell:openInTerminal",
   "shell:revealFile",
+  "shell:showEmojiPanel",
   "sites:add",
   "sites:list",
   "sites:login",

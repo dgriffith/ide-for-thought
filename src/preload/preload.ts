@@ -251,6 +251,7 @@ contextBridge.exposeInMainWorld('api', {
       invoke(Channels.SHELL_OPEN_IN_TERMINAL, relativePath),
     openExternal: (url: string) =>
       invoke(Channels.SHELL_OPEN_EXTERNAL, url),
+    showEmojiPanel: () => invoke(Channels.SHELL_SHOW_EMOJI_PANEL),
   },
   conversations: {
     create: (contextBundle: Parameters<ChannelMap['conversation:create']>[0], triggerNodeUri?: string, options?: Parameters<ChannelMap['conversation:create']>[2]) =>

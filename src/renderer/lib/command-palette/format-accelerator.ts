@@ -5,11 +5,7 @@
  * keybindings next to each command. (#463)
  */
 
-/** Whether to use macOS glyphs (⌘ / ⌥ / ⇧ / ⌃). Determined once at
- *  module load; tests can override by passing `isMac` directly. */
-const IS_MAC = typeof navigator !== 'undefined'
-  ? /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '')
-  : process.platform === 'darwin';
+import { IS_MAC } from '../utils/platform';
 
 /** Map of token (lowercased) → its display form on macOS. */
 const MAC_GLYPHS: Record<string, string> = {

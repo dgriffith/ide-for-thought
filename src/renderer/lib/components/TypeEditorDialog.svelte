@@ -13,6 +13,8 @@
   import { api } from '../ipc/client';
   import { objectTypesStore } from '../stores/object-types.svelte';
   import { PROPERTY_TYPES, titleCase, type PropertyDef, type PropertyType } from '../../../shared/objects/type-def';
+  import { COLOR_SWATCHES, DEFAULT_SWATCH, toHex6 } from '../../../shared/color-swatches';
+  import { IS_MAC } from '../utils/platform';
   import type { TypeEditorInitial } from './type-editor-value';
 
   interface Props {
@@ -118,6 +120,25 @@
   }
 
   function overlayKey(e: KeyboardEvent): void { if (e.key === 'Escape') onClose(); }
+
+  // ── Icon + colour pickers ──────────────────────────────────────────────
+  let iconInput = $state<HTMLInputElement | undefined>();
+
+  /**
+   * Raise the OS emoji picker (macOS). It types into whatever field has focus,
+   * so focus + SELECT the icon input first: picking then replaces the current
+   * icon rather than appending a second glyph after it.
+   */
+  function pickEmoji(): void {
+    iconInput?.focus();
+    iconInput?.select();
+    void api.shell.showEmojiPanel();
+  }
+
+  /** `<input type="color">` only accepts `#rrggbb`; show the default until the
+   *  field holds something it can parse, so a half-typed hex doesn't blank it. */
+  const colorWell = $derived(toHex6(color) ?? DEFAULT_SWATCH);
+  const selectedSwatch = $derived(toHex6(color));
 </script>
 
 <div class="overlay" onkeydown={overlayKey} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
@@ -128,12 +149,52 @@
       <label class="field grow"><span>Name</span>
         <input bind:value={label} placeholder="Book" />
       </label>
-      <label class="field narrow"><span>Icon</span>
-        <input bind:value={icon} placeholder="📖" maxlength="4" />
-      </label>
-      <label class="field narrow"><span>Color</span>
-        <input bind:value={color} placeholder="#89b4fa" />
-      </label>
+
+      <div class="field icon-field">
+        <label for="te-icon">Icon</label>
+        <div class="combo">
+          <!-- maxlength fits a full ZWJ sequence (👨‍👩‍👧‍👦 is 11 UTF-16 units);
+               the old cap of 4 truncated those mid-sequence into mojibake. -->
+          <input id="te-icon" bind:this={iconInput} bind:value={icon} placeholder="📖" maxlength="16" />
+          {#if IS_MAC}
+            <button class="adorn" title="Choose an emoji…" aria-label="Choose an emoji" onclick={pickEmoji}>☺</button>
+          {/if}
+        </div>
+      </div>
+
+      <div class="field color-field">
+        <label for="te-color">Color</label>
+        <div class="combo">
+          <input
+            class="well"
+            type="color"
+            value={colorWell}
+            aria-label="Pick a color"
+            oninput={(e) => { color = e.currentTarget.value; }}
+          />
+          <input id="te-color" bind:value={color} placeholder="#89b4fa" spellcheck="false" />
+          {#if color.trim()}
+            <button class="adorn" title="Clear color" aria-label="Clear color" onclick={() => { color = ''; }}>×</button>
+          {/if}
+        </div>
+      </div>
+    </div>
+
+    <!-- The app's own accent vocabulary (same family as the link-type
+         palette), so a hand-typed hex is never the only way to get a colour
+         that fits. Typing one still works — this just seeds the field. -->
+    <div class="swatches" role="group" aria-label="Color presets">
+      {#each COLOR_SWATCHES as sw (sw.hex)}
+        <button
+          class="swatch"
+          class:on={selectedSwatch === sw.hex}
+          style:background={sw.hex}
+          title={sw.name}
+          aria-label={sw.name}
+          aria-pressed={selectedSwatch === sw.hex}
+          onclick={() => { color = sw.hex; }}
+        ></button>
+      {/each}
     </div>
 
     <div class="props-head">
@@ -202,15 +263,56 @@
     box-shadow: 0 12px 48px rgba(0,0,0,0.45);
   }
   .title { margin: 0 0 14px; font-size: 15px; color: var(--text); }
-  .meta { display: flex; gap: 10px; margin-bottom: 16px; }
+  .meta { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-end; }
   .field { display: flex; flex-direction: column; gap: 4px; }
-  .field span { font-size: 11px; color: var(--text-muted); }
+  .field span, .field label { font-size: 11px; color: var(--text-muted); }
   .field.grow { flex: 1; }
-  .field.narrow { width: 90px; }
+  .field.icon-field { width: 92px; }
+  .field.color-field { width: 168px; }
   .field input, .field select, .prop-row input, .prop-row select {
     padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
     background: var(--bg-inset); color: var(--text); font-family: inherit; font-size: 13px;
   }
+
+  /* Text field + its adornments share one bordered box, so the picker reads as
+     part of the field rather than a button parked beside it. */
+  .combo {
+    display: flex; align-items: stretch; gap: 0;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: var(--bg-inset); overflow: hidden;
+  }
+  .combo:focus-within { border-color: var(--accent); }
+  .combo input { border: none; border-radius: 0; background: transparent; min-width: 0; flex: 1; }
+  .combo input:focus { outline: none; }
+  .adorn {
+    flex-shrink: 0; width: 26px; border: none; border-left: 1px solid var(--border);
+    background: var(--bg-button); color: var(--text-muted);
+    font-size: 13px; line-height: 1; cursor: pointer;
+  }
+  .adorn:hover { color: var(--text); background: var(--bg-button-hover); }
+
+  /* Native colour well, stripped of its chrome so it reads as a swatch. */
+  .well {
+    flex: 0 0 auto; width: 28px; padding: 0; border: none; border-radius: 0;
+    background: transparent; cursor: pointer; align-self: stretch;
+  }
+  .well::-webkit-color-swatch-wrapper { padding: 3px; }
+  .well::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 3px; }
+
+  .swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; }
+  .swatch {
+    width: 17px; height: 17px; padding: 0; border-radius: 50%;
+    border: 1px solid color-mix(in oklch, var(--text) 25%, transparent);
+    cursor: pointer;
+  }
+  .swatch:hover { transform: scale(1.15); }
+  /* Selected reads as a ring rather than a colour change — the swatch IS its
+     colour, so it can't recolour to signal state. */
+  .swatch.on {
+    border-color: var(--text);
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--accent);
+  }
+  .swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .props-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
   .props-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
   .muted { font-size: 12px; color: var(--text-faint); margin: 2px 0 8px; }

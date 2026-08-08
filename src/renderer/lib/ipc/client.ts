@@ -497,6 +497,12 @@ export interface ShellApi {
   openInDefault(relativePath: string): Promise<void>;
   openInTerminal(relativePath?: string): Promise<void>;
   openExternal(url: string): Promise<void>;
+  /** Open the OS emoji picker over the focused text field; it types the chosen
+   *  emoji into that field as if the user had. macOS-only — resolves without
+   *  doing anything elsewhere, so gate the UI on `IS_MAC` rather than relying
+   *  on this to report failure. A stateless OS side-effect: callable from a
+   *  component directly. */
+  showEmojiPanel(): Promise<void>;
 }
 
 /** App + build metadata for the About dialog (#803). */
