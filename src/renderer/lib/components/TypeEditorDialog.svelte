@@ -170,8 +170,16 @@
         </div>
       </div>
 
-      <div class="field color-field">
-        <label for="te-color">Color</label>
+    </div>
+
+    <!-- Colour gets its own row so the presets sit ON the same line as the well
+         and hex field. Parked at the end of the Name/Icon row, the swatches
+         wrapped to a full-width line of their own starting at the left margin —
+         a lap away from the control they drive, and visually adjacent to Name
+         instead. -->
+    <div class="field color-field">
+      <label for="te-color">Color</label>
+      <div class="color-row">
         <div class="combo">
           <input
             class="well"
@@ -185,24 +193,23 @@
             <button class="adorn" title="Clear color" aria-label="Clear color" onclick={() => { color = ''; }}>×</button>
           {/if}
         </div>
+        <!-- The app's own accent vocabulary (same family as the link-type
+             palette), so a hand-typed hex is never the only way to get a colour
+             that fits. Typing one still works — this just seeds the field. -->
+        <div class="swatches" role="group" aria-label="Color presets">
+          {#each COLOR_SWATCHES as sw (sw.hex)}
+            <button
+              class="swatch"
+              class:on={selectedSwatch === sw.hex}
+              style:background={sw.hex}
+              title={sw.name}
+              aria-label={sw.name}
+              aria-pressed={selectedSwatch === sw.hex}
+              onclick={() => { color = sw.hex; }}
+            ></button>
+          {/each}
+        </div>
       </div>
-    </div>
-
-    <!-- The app's own accent vocabulary (same family as the link-type
-         palette), so a hand-typed hex is never the only way to get a colour
-         that fits. Typing one still works — this just seeds the field. -->
-    <div class="swatches" role="group" aria-label="Color presets">
-      {#each COLOR_SWATCHES as sw (sw.hex)}
-        <button
-          class="swatch"
-          class:on={selectedSwatch === sw.hex}
-          style:background={sw.hex}
-          title={sw.name}
-          aria-label={sw.name}
-          aria-pressed={selectedSwatch === sw.hex}
-          onclick={() => { color = sw.hex; }}
-        ></button>
-      {/each}
     </div>
 
     <div class="props-head">
@@ -278,12 +285,15 @@
     color: var(--text-muted);
   }
   .fork-note strong { color: var(--text); font-weight: 600; }
-  .meta { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-end; }
+  .meta { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field span, .field label { font-size: 11px; color: var(--text-muted); }
   .field.grow { flex: 1; }
   .field.icon-field { width: 92px; }
-  .field.color-field { width: 168px; }
+  /* Full-width row now, so the presets share the line with the well + hex. */
+  .field.color-field { width: 100%; margin-bottom: 16px; }
+  .color-row { display: flex; align-items: center; gap: 10px; }
+  .color-row .combo { flex: 0 0 168px; }
   .field input, .field select, .prop-row input, .prop-row select {
     padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px;
     background: var(--bg-inset); color: var(--text); font-family: inherit; font-size: 13px;
@@ -314,7 +324,9 @@
   .well::-webkit-color-swatch-wrapper { padding: 3px; }
   .well::-webkit-color-swatch { border: 1px solid var(--border); border-radius: 3px; }
 
-  .swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 16px; }
+  /* Sits beside the colour control rather than under it. Wraps within the
+     remaining width if the dialog is narrowed. */
+  .swatches { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 0; }
   .swatch {
     width: 17px; height: 17px; padding: 0; border-radius: 50%;
     border: 1px solid color-mix(in oklch, var(--text) 25%, transparent);
