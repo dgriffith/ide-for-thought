@@ -96,6 +96,10 @@ extra `rdf:type`" — is already precedented in the tree.
   every existing instance stays valid. Two ids colliding within the SAME source
   is still an error — those are mistakes, not overrides.
 
+  A stock-derived type's **name and id are both fixed**: you customize its
+  properties, icon and colour, not its identity. Duplicate gives you an
+  independently-named type of your own.
+
   This deliberately diverges from the skills catalog, which stays additive-only
   (`docs/authoring-skills.md`): a skill is a prompt you can disable and replace
   wholesale, whereas a type is a schema that existing notes are already

@@ -27,6 +27,12 @@
   // live binding); untrack the read so it isn't flagged as reactive.
   const seed = untrack(() => initial);
 
+  /** A stock type's name is fixed, exactly as its id is. The Type Manager
+   *  offers no Rename for one, so an editable Name here just contradicted it —
+   *  and the two meant different things anyway (id vs. label). Customize the
+   *  fields, icon and colour; Duplicate if you want one under your own name. */
+  const nameLocked = seed?.stockOrigin !== undefined;
+
   interface Row {
     name: string;
     type: PropertyType;
@@ -144,18 +150,27 @@
 <div class="overlay" onkeydown={overlayKey} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
   <div class="dialog" role="dialog" aria-modal="true" aria-label="Edit object type">
     <h3 class="title">{initial?.id ? 'Edit' : 'New'} object type</h3>
-    {#if seed?.forksStock}
+    {#if seed?.stockOrigin === 'stock'}
       <!-- "Edit" on a stock type reads as editing the bundle; say what it
            actually does before the user commits to it. -->
       <p class="fork-note">
         <strong>{seed.label}</strong> is a stock type. Saving keeps a customized copy in this
-        thoughtbase — the stock definition stays available to revert to.
+        thoughtbase — the stock definition stays available to revert to. Its name is fixed;
+        duplicate it instead to make one of your own.
       </p>
     {/if}
 
     <div class="meta">
       <label class="field grow"><span>Name</span>
-        <input bind:value={label} placeholder="Book" />
+        <!-- readonly, not disabled: the value still reads at full contrast and
+             stays selectable, and the field keeps its place in the row. -->
+        <input
+          bind:value={label}
+          placeholder="Book"
+          readonly={nameLocked}
+          class:locked={nameLocked}
+          title={nameLocked ? 'A stock type keeps its name — duplicate it to make one of your own' : undefined}
+        />
       </label>
 
       <div class="field icon-field">
@@ -285,6 +300,14 @@
     color: var(--text-muted);
   }
   .fork-note strong { color: var(--text); font-weight: 600; }
+  /* Reads as "fixed", not "broken": same text contrast, a flatter well and a
+     default cursor so it doesn't invite a click. No danger styling. */
+  .field input.locked {
+    background: color-mix(in oklch, var(--text) 5%, transparent);
+    border-color: transparent;
+    cursor: default;
+  }
+  .field input.locked:focus { outline: none; border-color: var(--border); }
   .meta { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-end; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field span, .field label { font-size: 11px; color: var(--text-muted); }

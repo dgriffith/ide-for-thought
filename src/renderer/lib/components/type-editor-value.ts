@@ -17,10 +17,18 @@ export interface TypeEditorInitial {
   parent?: string;
   properties: PropertyDef[];
   template?: string;
-  /** Editing a STOCK type that has no local copy yet. Saving will create one
-   *  in `.minerva/types/`, shadowing the bundled definition — the dialog says
-   *  so, since "Edit" otherwise reads as editing the bundle itself. */
-  forksStock?: boolean;
+  /**
+   * Set when editing a stock-derived type — `'stock'` for one with no local
+   * copy yet, `'customized'` for one already overridden in this thoughtbase.
+   * Absent for a wholly user-authored type.
+   *
+   * Two effects: `'stock'` warns that saving forks a local copy (otherwise
+   * "Edit" reads as editing the bundle itself), and BOTH lock the Name. A
+   * stock type's name is fixed the same way its id is — the Type Manager
+   * refuses to rename one, so letting the dialog change its label anyway just
+   * contradicted itself.
+   */
+  stockOrigin?: 'stock' | 'customized';
 }
 
 /** A type's optional carry-over fields (icon / color / cover / card / parent /

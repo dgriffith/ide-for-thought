@@ -124,6 +124,57 @@ describe('TypeEditorDialog (#1585)', () => {
   });
 });
 
+describe('TypeEditorDialog — stock types keep their name', () => {
+  // The Type Manager offers no Rename for a stock type, so an editable Name in
+  // the dialog contradicted it. (They also meant different things: Rename
+  // changes the id, the Name field changes the label.)
+
+  it('locks the Name when editing a stock type, and says why', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'book', label: 'Book', properties: [], stockOrigin: 'stock' },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    const name = screen.getByDisplayValue('Book');
+    expect(name.readOnly).toBe(true);
+    expect(screen.getByText(/is a stock type/)).toBeTruthy();
+    expect(screen.getByText(/name is fixed/)).toBeTruthy();
+  });
+
+  it('locks the Name on an already-customized stock type too', async () => {
+    // It's still stock-derived — the local copy doesn't make the name yours.
+    render(TypeEditorDialog, {
+      initial: { id: 'book', label: 'Book', properties: [], stockOrigin: 'customized' },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    expect((screen.getByDisplayValue('Book')).readOnly).toBe(true);
+    // Already forked, so the "saving forks a copy" note is not repeated.
+    expect(screen.queryByText(/is a stock type/)).toBeNull();
+  });
+
+  it('leaves the Name editable on a user type', async () => {
+    render(TypeEditorDialog, {
+      initial: { id: 'gadget', label: 'Gadget', properties: [] },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    expect((screen.getByDisplayValue('Gadget')).readOnly).toBe(false);
+    expect(screen.queryByText(/is a stock type/)).toBeNull();
+  });
+
+  it('still saves the stock name through unchanged, alongside the real edits', async () => {
+    // Locking the field must not drop the label from the payload — the local
+    // copy needs it, since the override is a full definition.
+    render(TypeEditorDialog, {
+      initial: { id: 'book', label: 'Book', icon: '📖', properties: [{ name: 'author', type: 'text' }], stockOrigin: 'stock' },
+      onSaved: vi.fn(), onClose: vi.fn(),
+    });
+    await fireEvent.click(screen.getByLabelText('Green'));
+    await fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(saveMock).toHaveBeenCalled());
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({ id: 'book', label: 'Book', color: '#a6e3a1' });
+  });
+});
+
 describe('TypeEditorDialog — icon picker', () => {
   it('focuses and selects the icon field before raising the OS panel, so a pick replaces', async () => {
     // The native panel types into whatever field has focus. Without the
