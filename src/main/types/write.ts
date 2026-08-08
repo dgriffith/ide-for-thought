@@ -67,7 +67,12 @@ export async function saveType(rootPath: string, input: SaveTypeInput): Promise<
 }
 
 /** Delete a USER type by id (removes `.minerva/types/<id>.md`). A no-op for a
- *  stock-only id (stock types live in the bundle, not the thoughtbase). */
+ *  stock-only id (stock types live in the bundle, not the thoughtbase).
+ *
+ *  This is also "revert to stock": when the file being removed was a local
+ *  customization of a stock type, the bundled definition is still loaded
+ *  underneath and simply reappears on the next catalog load. Nothing else has
+ *  to happen — the id and class name are unchanged, so instances never notice. */
 export async function deleteType(rootPath: string, id: string): Promise<void> {
   const cleaned = slugify(id);
   if (!cleaned) return;

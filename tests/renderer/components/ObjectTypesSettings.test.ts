@@ -1,12 +1,12 @@
 /**
  * @vitest-environment happy-dom
  *
- * Object Types settings panel (#1584): lists stock (read-only) + user types with
+ * Object Types settings panel (#1584): lists stock + user types with
  * property + instance counts; user types can be duplicated and deleted (with a
  * confirm), routed through the object-types store. Stock types show no actions.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, fireEvent, cleanup, waitFor, screen } from '@testing-library/svelte';
+import { render, fireEvent, cleanup, waitFor, screen, within } from '@testing-library/svelte';
 
 const { listMock, saveMock, deleteMock, deleteSafelyMock, renameMock, noteTypeMapMock, queryMock, confirmMock, promptMock } = vi.hoisted(() => ({
   listMock: vi.fn(), saveMock: vi.fn(), deleteMock: vi.fn(), deleteSafelyMock: vi.fn(), renameMock: vi.fn(),
@@ -30,6 +30,17 @@ import ObjectTypesSettings from '../../../src/renderer/lib/components/ObjectType
 const BOOK = { id: 'book', label: 'Book', classLocalName: 'Book', source: 'stock', icon: '📖', properties: [{ name: 'author', type: 'text' }] };
 const GADGET = { id: 'gadget', label: 'Gadget', classLocalName: 'Gadget', source: 'user', icon: '🔧', properties: [{ name: 'maker', type: 'text' }, { name: 'model', type: 'text' }] };
 
+/** The type list only — the panel's intro copy names the same words the action
+ *  buttons use ("Revert", "stock"), so an unscoped query matches the prose. */
+function list(): HTMLElement {
+  return document.querySelector('.type-list') as HTMLElement;
+}
+/** Actions for one type's row, so "Duplicate" is unambiguous now that stock
+ *  types have their own action buttons too. */
+function row(label: string): HTMLElement {
+  return screen.getByText(label).closest('.type-row') as HTMLElement;
+}
+
 beforeEach(() => {
   listMock.mockResolvedValue({ types: [BOOK, GADGET], errors: [] });
   noteTypeMapMock.mockResolvedValue({});
@@ -52,17 +63,58 @@ describe('ObjectTypesSettings (#1584)', () => {
     expect(screen.getByText(/2 properties · 1 instance/)).toBeTruthy();  // Gadget
   });
 
-  it('shows actions only on user types (stock is read-only)', async () => {
+  it('offers Edit + Duplicate on a stock type, but not Rename or Delete', async () => {
+    // A stock type is customizable now — editing it forks a local copy — but
+    // Delete/Rename are meaningless against the bundle: there is no in-tree
+    // file to remove, and a renamed id would just resurrect the stock type
+    // alongside the copy.
     render(ObjectTypesSettings);
-    await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    expect(screen.getAllByText('Delete')).toHaveLength(1); // only the user type
-    expect(screen.getByText('read-only')).toBeTruthy();    // the stock type
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    expect(within(list()).getAllByText('Edit')).toHaveLength(2);      // both types
+    expect(within(list()).getAllByText('Duplicate')).toHaveLength(2);
+    expect(within(list()).getAllByText('Delete')).toHaveLength(1);    // the user type only
+    expect(within(list()).getAllByText('Rename')).toHaveLength(1);
+    expect(within(row('Book')).getByText('stock')).toBeTruthy();
+    expect(within(list()).queryByText('Revert')).toBeNull();          // nothing customized yet
+  });
+
+  it('marks a customized stock type and offers Revert instead of Delete', async () => {
+    listMock.mockResolvedValue({ types: [{ ...BOOK, source: 'user', overridesStock: true }], errors: [] });
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(screen.getByText('Book')).toBeTruthy());
+    expect(within(list()).getByText('customized')).toBeTruthy();
+    expect(within(list()).getByText('Revert')).toBeTruthy();
+    expect(within(list()).queryByText('Delete')).toBeNull();
+    expect(within(list()).queryByText('Rename')).toBeNull();
+  });
+
+  it('revert drops the local copy without touching the instances', async () => {
+    // Crucially `delete`, not `deleteSafely`: the type still exists after a
+    // revert, so clearing `type:` off its notes would be wrong.
+    listMock.mockResolvedValue({ types: [{ ...BOOK, source: 'user', overridesStock: true }], errors: [] });
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(within(list()).getByText('Revert')).toBeTruthy());
+
+    await fireEvent.click(within(list()).getByText('Revert'));
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith('book'));
+    expect(deleteSafelyMock).not.toHaveBeenCalled();
+  });
+
+  it('revert does nothing when the confirm is dismissed', async () => {
+    confirmMock.mockResolvedValue(false);
+    listMock.mockResolvedValue({ types: [{ ...BOOK, source: 'user', overridesStock: true }], errors: [] });
+    render(ObjectTypesSettings);
+    await waitFor(() => expect(within(list()).getByText('Revert')).toBeTruthy());
+
+    await fireEvent.click(within(list()).getByText('Revert'));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 
   it('duplicate saves a copy of the user type', async () => {
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Duplicate'));
+    await fireEvent.click(within(row('Gadget')).getByText('Duplicate'));
     await waitFor(() => expect(saveMock).toHaveBeenCalled());
     expect(saveMock.mock.calls[0]![0]).toMatchObject({ label: 'Gadget copy', icon: '🔧' });
   });
@@ -70,7 +122,7 @@ describe('ObjectTypesSettings (#1584)', () => {
   it('delete warns with the count, then offers to clear the instances (#1588)', async () => {
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Delete'));
+    await fireEvent.click(within(row('Gadget')).getByText('Delete'));
     await waitFor(() => expect(deleteSafelyMock).toHaveBeenCalled());
     // First confirm = the count warning; second = the clear-from-notes choice.
     expect(confirmMock.mock.calls[0]![0]).toMatch(/1 note still references it/);
@@ -83,7 +135,7 @@ describe('ObjectTypesSettings (#1584)', () => {
     confirmMock.mockResolvedValue(false);
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Delete'));
+    await fireEvent.click(within(row('Gadget')).getByText('Delete'));
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     expect(deleteSafelyMock).not.toHaveBeenCalled();
   });
@@ -92,7 +144,7 @@ describe('ObjectTypesSettings (#1584)', () => {
     confirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false); // delete yes, clear no
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Delete'));
+    await fireEvent.click(within(row('Gadget')).getByText('Delete'));
     await waitFor(() => expect(deleteSafelyMock).toHaveBeenCalled());
     expect(deleteSafelyMock).toHaveBeenCalledWith('gadget', false);
   });
@@ -101,7 +153,7 @@ describe('ObjectTypesSettings (#1584)', () => {
     promptMock.mockResolvedValue('Doohickey');
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Rename'));
+    await fireEvent.click(within(row('Gadget')).getByText('Rename'));
     await waitFor(() => expect(renameMock).toHaveBeenCalled());
     expect(renameMock).toHaveBeenCalledWith('gadget', 'Doohickey');
   });
@@ -110,7 +162,7 @@ describe('ObjectTypesSettings (#1584)', () => {
     promptMock.mockResolvedValue('Gadget'); // same label
     render(ObjectTypesSettings);
     await waitFor(() => expect(screen.getByText('Gadget')).toBeTruthy());
-    await fireEvent.click(screen.getByText('Rename'));
+    await fireEvent.click(within(row('Gadget')).getByText('Rename'));
     await waitFor(() => expect(promptMock).toHaveBeenCalled());
     expect(renameMock).not.toHaveBeenCalled();
   });

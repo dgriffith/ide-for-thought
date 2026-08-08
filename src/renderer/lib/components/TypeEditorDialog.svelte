@@ -144,6 +144,14 @@
 <div class="overlay" onkeydown={overlayKey} onmousedown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
   <div class="dialog" role="dialog" aria-modal="true" aria-label="Edit object type">
     <h3 class="title">{initial?.id ? 'Edit' : 'New'} object type</h3>
+    {#if seed?.forksStock}
+      <!-- "Edit" on a stock type reads as editing the bundle; say what it
+           actually does before the user commits to it. -->
+      <p class="fork-note">
+        <strong>{seed.label}</strong> is a stock type. Saving keeps a customized copy in this
+        thoughtbase — the stock definition stays available to revert to.
+      </p>
+    {/if}
 
     <div class="meta">
       <label class="field grow"><span>Name</span>
@@ -263,6 +271,13 @@
     box-shadow: 0 12px 48px rgba(0,0,0,0.45);
   }
   .title { margin: 0 0 14px; font-size: 15px; color: var(--text); }
+  .fork-note {
+    margin: -8px 0 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .fork-note strong { color: var(--text); font-weight: 600; }
   .meta { display: flex; gap: 10px; margin-bottom: 8px; align-items: flex-end; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field span, .field label { font-size: 11px; color: var(--text-muted); }

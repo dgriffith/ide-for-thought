@@ -2,10 +2,12 @@
   /**
    * Object Types settings panel (#1584) — an in-app home to see and manage
    * object types, so a user no longer hand-authors `.minerva/types/*.md`. Lists
-   * stock (read-only) + user types with their icon, property count, and live
-   * instance count; user types can be duplicated or deleted. Mutations route
-   * through the object-types store (renderer data-flow rule); editing a type's
-   * fields lands with the type editor (#1585).
+   * stock + user types with their icon, property count, and live instance
+   * count. Every type is editable: editing a stock one writes a local copy into
+   * `.minerva/types/` that shadows the bundled definition, and Revert deletes
+   * that copy to get the stock one back. Mutations route through the
+   * object-types store (renderer data-flow rule); editing a type's fields lands
+   * with the type editor (#1585).
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
@@ -30,6 +32,8 @@
     editorInitial = {
       id: t.id, label: t.label, properties: t.properties,
       ...optionalTypeFields(t),
+      // Stock with no local copy yet → saving forks it into this thoughtbase.
+      ...(t.source === 'stock' ? { forksStock: true } : {}),
     };
     editorOpen = true;
   }
@@ -95,6 +99,26 @@
     } finally { busy = false; }
   }
 
+  /**
+   * Drop a customized stock type's local copy so the bundled definition takes
+   * over again. Genuine data loss (the customization is gone), so it confirms —
+   * with the usual "don't ask again" key. Deliberately NOT `removeSafely`: the
+   * type continues to exist, so clearing `type:` off its instances would be
+   * exactly wrong.
+   */
+  async function revert(t: TypeInfo): Promise<void> {
+    const msg = `Revert “${t.label}” to the stock definition? Your local changes to it are discarded; notes using it are unaffected.`;
+    if (!(await showConfirm(msg, 'revert-object-type', 'Revert'))) return;
+    busy = true;
+    try {
+      await objectTypesStore.revertToStock(t.id);
+      await loadCounts();
+      toasts.push({ message: `“${t.label}” reverted to the stock definition.` });
+    } catch (e) {
+      reportFailure('revert', t, e);
+    } finally { busy = false; }
+  }
+
   async function rename(t: TypeInfo): Promise<void> {
     const newName = (await showPrompt('Rename type to:', { initial: t.label }))?.trim();
     if (!newName || newName === t.label) return;
@@ -119,7 +143,8 @@
   <div class="head">
     <p class="hint">
       Object types let notes act as first-class objects (Book, Person, Meeting…). Create one here or from any
-      note with <strong>File → Save Note as Object Type</strong>; stock types are read-only.
+      note with <strong>File → Save Note as Object Type</strong>. Editing a stock type keeps a customized copy
+      in this thoughtbase; <strong>Revert</strong> restores the stock definition.
     </p>
     <button class="new-btn" onclick={openNew}>+ New type</button>
   </div>
@@ -146,17 +171,27 @@
               · {counts[t.id] ?? 0} instance{(counts[t.id] ?? 0) === 1 ? '' : 's'}
             </span>
           </span>
-          <span class="type-src" class:user={t.source === 'user'}>{t.source}</span>
-          {#if t.source === 'user'}
-            <span class="type-actions">
-              <button class="link-btn" disabled={busy} onclick={() => openEdit(t)}>Edit</button>
+          <!-- Three states, not two: stock, a stock type this thoughtbase has
+               customized, and a wholly user-authored type. Editing a stock type
+               writes a local copy that shadows the bundle; Revert deletes that
+               copy and the bundled definition takes over again. -->
+          <span class="type-src" class:user={t.source === 'user' && !t.overridesStock} class:custom={t.overridesStock}>
+            {t.overridesStock ? 'customized' : t.source}
+          </span>
+          <span class="type-actions">
+            <button class="link-btn" disabled={busy} onclick={() => openEdit(t)}>Edit</button>
+            <button class="link-btn" disabled={busy} onclick={() => { void duplicate(t); }}>Duplicate</button>
+            {#if t.overridesStock}
+              <button class="link-btn" disabled={busy} onclick={() => { void revert(t); }}>Revert</button>
+            {:else if t.source === 'user'}
+              <!-- Rename changes the id (and migrates instances). Meaningless
+                   for a stock id: the bundled type would just reappear under
+                   the old id alongside the renamed copy. Edit still changes a
+                   stock type's label — the id is what stays fixed. -->
               <button class="link-btn" disabled={busy} onclick={() => { void rename(t); }}>Rename</button>
-              <button class="link-btn" disabled={busy} onclick={() => { void duplicate(t); }}>Duplicate</button>
               <button class="link-btn" disabled={busy} onclick={() => { void remove(t); }}>Delete</button>
-            </span>
-          {:else}
-            <span class="type-actions muted">read-only</span>
-          {/if}
+            {/if}
+          </span>
         </li>
       {/each}
     </ul>
@@ -198,8 +233,11 @@
     background: color-mix(in oklch, var(--text) 6%, transparent);
   }
   .type-src.user { color: var(--accent); background: color-mix(in oklch, var(--accent) 12%, transparent); }
+  /* Customized stock reads as its own state — neither the neutral "stock" chip
+     nor the accent "user" one. Sage, not a warning colour: customizing is a
+     normal thing to do, not a problem. */
+  .type-src.custom { color: var(--sage); background: color-mix(in oklch, var(--sage) 14%, transparent); }
   .type-actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .type-actions.muted { color: var(--text-faint); font-size: 11px; }
   .link-btn {
     border: none; background: none; color: var(--accent); font-family: inherit; font-size: 12px; cursor: pointer; padding: 0;
   }

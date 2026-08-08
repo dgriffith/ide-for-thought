@@ -5,8 +5,17 @@
  * in docs/vision/objects.md). Unlike skills, the catalog is PER-PROJECT — the
  * user portion is a property of this thoughtbase's vocabulary, not the machine.
  *
- * Loading is additive and stock wins id collisions: a user type can't shadow a
- * stock type.
+ * Loading is additive, and an in-tree file of the same id OVERRIDES the stock
+ * type it shadows — that's how a thoughtbase customizes Book or Meeting
+ * (add a property, change the icon) without forking the bundle. The override is
+ * a full local copy, marked `overridesStock` so the UI can offer "revert to
+ * stock": deleting the in-tree file restores the bundled definition, because
+ * the stock set is still loaded underneath. The id is what carries the override,
+ * and `classLocalName` derives from the id, so a customized Book keeps its
+ * `types:Book` class and every existing instance stays valid.
+ *
+ * Two ids colliding within the SAME source is still an error (a duplicate stock
+ * id, or two user files claiming one id) — those are mistakes, not overrides.
  *
  * Process / test note (#1630): the stock set is a build-time module-global — the
  * `?raw` glob below, one immutable copy per process. Crucially, unlike the tool
@@ -91,11 +100,16 @@ export async function loadTypeCatalog(rootPath: string): Promise<TypeCatalog> {
   }
   for (const t of user.types) {
     const existing = byId.get(t.id);
+    if (existing && existing.source === 'stock') {
+      // A local customization of a stock type — the in-tree file wins, and the
+      // stock definition stays available underneath to revert to.
+      byId.set(t.id, { ...t, overridesStock: true });
+      continue;
+    }
     if (existing) {
-      const clash = existing.source === 'stock'
-        ? `id "${t.id}" is already a stock type; user types can't override stock`
-        : `duplicate user type id "${t.id}"`;
-      errors.push({ source: 'user', filePath: t.filePath, label: t.label, message: clash });
+      // Two user files claiming the same id is a genuine mistake: there's no
+      // "underneath" to fall back to, so first-loaded wins and we say so.
+      errors.push({ source: 'user', filePath: t.filePath, label: t.label, message: `duplicate user type id "${t.id}"` });
       continue;
     }
     byId.set(t.id, t);

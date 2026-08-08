@@ -87,8 +87,19 @@ extra `rdf:type`" — is already precedented in the tree.
   (`.minerva` is filtered from file views). This differs deliberately from
   skills (`~/.minerva/skills/`, per-machine): a type is part of _this library's_
   vocabulary, not a machine setting.
-- **Loading is additive; stock wins id collisions** (a user type can't shadow a
-  stock type), exactly as the skills catalog does.
+- **Loading is additive; an in-tree file of a stock id overrides it.** This is
+  how a thoughtbase customizes Book or Meeting — add a property, change the
+  icon — without forking the bundle. The override is a full local copy, marked
+  `overridesStock`, and deleting it reverts to the bundled definition (which is
+  still loaded underneath). The id carries the override and `classLocalName`
+  derives from the id, so a customized Book keeps its `types:Book` class and
+  every existing instance stays valid. Two ids colliding within the SAME source
+  is still an error — those are mistakes, not overrides.
+
+  This deliberately diverges from the skills catalog, which stays additive-only
+  (`docs/authoring-skills.md`): a skill is a prompt you can disable and replace
+  wholesale, whereas a type is a schema that existing notes are already
+  instances of, so editing in place has to preserve identity.
 - **Format**: a type definition is a `.md` file — YAML frontmatter (`label`,
   `properties[]`, optional `icon` / `color`) plus an optional template body,
   matching the skills authoring model.

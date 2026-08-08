@@ -51,6 +51,11 @@ export interface TypeDef {
    *  type also count as the parent (#1586). Single inheritance for v1. */
   parent?: string | undefined;
   source: TypeSource;
+  /** True when this is a stock type the thoughtbase has locally customized —
+   *  `source` is `'user'` (the in-tree file is what loaded), but a stock
+   *  definition of the same id exists to revert to. Drives the "customized"
+   *  badge and the Revert action; a plain user type has no stock fallback. */
+  overridesStock?: boolean | undefined;
   /** Absolute path for user types; the glob key for stock types. */
   filePath: string;
 }
@@ -76,6 +81,8 @@ export interface TypeInfo {
    *  type also count as the parent (#1586). Single inheritance for v1. */
   parent?: string | undefined;
   source: TypeSource;
+  /** See `TypeDef.overridesStock` — a locally customized stock type. */
+  overridesStock?: boolean | undefined;
 }
 
 export interface TypeLoadError {
@@ -110,6 +117,7 @@ export function toTypeInfo(t: TypeDef): TypeInfo {
     card: t.card,
     parent: t.parent,
     source: t.source,
+    overridesStock: t.overridesStock,
   };
 }
 
