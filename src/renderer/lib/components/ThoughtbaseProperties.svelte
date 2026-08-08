@@ -2,11 +2,16 @@
   /**
    * Thoughtbase Properties dialog (#1443). Rename (safe, instant) plus an
    * Advanced breakout to set the knowledge-graph base IRI — which rewrites every
-   * graph identifier via a full re-index, so it's tucked away, warned, and
-   * disabled while the review queue is non-empty (pending proposals hold
-   * absolute IRIs that a rebuild can't re-derive). Reads its values directly
-   * (reads are allowed in components); mutations route through the notebase
-   * store via the `onSave` callback.
+   * graph identifier via a full re-index, so it's tucked away and warned about.
+   *
+   * It is NOT gated on an empty review queue: that was the original design (a
+   * pending proposal holds absolute IRIs a rebuild can't re-derive), but
+   * `indexAllNotes`' `rebaseFrom` now rewrites proposal IRIs old→new during the
+   * rebuild, so the guard was dropped. `checkRebase` is the only refusal left —
+   * an absolute http(s) URL ending in '/'.
+   *
+   * Reads its values directly (reads are allowed in components); mutations
+   * route through the notebase store via the `onSave` callback.
    */
   import { onMount } from 'svelte';
   import { api } from '../ipc/client';
