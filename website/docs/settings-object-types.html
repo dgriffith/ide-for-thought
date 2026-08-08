@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minerva — Docs — Settings: Object Types</title>
+<meta name="description" content="The Object Types tab in Settings — define what kinds of notes your project has, and adjust the built-in ones." />
+<link rel="stylesheet" href="../minerva.css" />
+<link rel="stylesheet" href="docs.css" />
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="../index.html" class="brand">
+      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="Minerva">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1b2452"/><stop offset="45%" stop-color="#232a5e"/><stop offset="100%" stop-color="#3a2d6b"/></linearGradient>
+          <linearGradient id="plum" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e9b96a"/><stop offset="55%" stop-color="#cf9646"/><stop offset="100%" stop-color="#a9742f"/></linearGradient>
+          <linearGradient id="fc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f6e2b8"/><stop offset="100%" stop-color="#e3c489"/></linearGradient>
+          <radialGradient id="eg" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7e6"/><stop offset="60%" stop-color="#ffd97a"/><stop offset="100%" stop-color="#d99a3a"/></radialGradient>
+        </defs>
+        <rect width="1024" height="1024" rx="220" fill="url(#sky)"/>
+        <path d="M512 880 C 360 880, 300 760, 300 620 C 300 470, 380 380, 512 380 C 644 380, 724 470, 724 620 C 724 760, 664 880, 512 880 Z" fill="url(#plum)"/>
+        <ellipse cx="512" cy="455" rx="232" ry="200" fill="url(#plum)"/>
+        <path d="M512 290 C 408 290, 350 360, 350 460 C 350 560, 420 630, 512 630 C 604 630, 674 560, 674 460 C 674 360, 616 290, 512 290 Z" fill="url(#fc)"/>
+        <circle cx="438" cy="450" r="92" fill="#3a2a18"/><circle cx="586" cy="450" r="92" fill="#3a2a18"/>
+        <circle cx="438" cy="450" r="74" fill="url(#eg)"/><circle cx="586" cy="450" r="74" fill="url(#eg)"/>
+        <circle cx="438" cy="450" r="34" fill="#241608"/><circle cx="586" cy="450" r="34" fill="#241608"/>
+        <circle cx="452" cy="436" r="12" fill="#fffdf5"/><circle cx="600" cy="436" r="12" fill="#fffdf5"/>
+        <path d="M512 470 L490 540 C 490 562, 534 562, 534 540 Z" fill="#caa24a"/>
+      </svg>
+      <span>Minerva</span>
+    </a>
+    <div class="links">
+      <a href="../features.html" class="hide-sm">Features</a>
+      <a href="../getting-started.html" class="hide-sm">Getting Started</a>
+      <a href="index.html" class="active hide-sm">Docs</a>
+      <a href="../about.html" class="hide-sm">About</a>
+      <a href="../privacy.html" class="hide-sm">Privacy</a>
+      <a href="../getting-started.html" class="navcta">Download</a>
+    </div>
+  </div>
+</nav>
+
+<div class="docs">
+
+  <!-- ===== Left navigation (shared across all docs pages) ===== -->
+  <aside class="docs-nav">
+    <h4>Introduction</h4>
+    <a href="index.html">Overview</a>
+    <a href="thoughtbase.html">What is a thoughtbase?</a>
+    <a href="../getting-started.html">Getting started</a>
+
+    <h4>Using Minerva</h4>
+    <a href="notes.html">Notes</a>
+    <a href="navigation.html">Navigation</a>
+    <a href="viewing-options.html">Viewing options</a>
+    <a href="editor.html">Editor</a>
+
+    <h4>The workspace</h4>
+    <a href="left-sidebar.html">Left sidebar</a>
+    <a href="right-sidebar.html">Right sidebar</a>
+    <a href="conversations.html">Conversations</a>
+    <a href="settings.html">Settings</a>
+    <a href="settings-editor.html" class="sub">Editor</a>
+    <a href="settings-appearance.html" class="sub">Appearance</a>
+    <a href="settings-behaviors.html" class="sub">Behaviors</a>
+    <a href="settings-notes.html" class="sub">Notes</a>
+    <a href="settings-formatter.html" class="sub">Formatter</a>
+    <a href="settings-object-types.html" class="sub active">Object Types</a>
+    <a href="settings-bibliography.html" class="sub">Bibliography</a>
+    <a href="settings-web.html" class="sub">Web</a>
+    <a href="settings-sources.html" class="sub">Sources</a>
+    <a href="settings-clipper.html" class="sub">Clipper</a>
+    <a href="settings-compute.html" class="sub">Compute</a>
+    <a href="settings-ai.html" class="sub">AI</a>
+    <a href="settings-skills.html" class="sub">Skills</a>
+
+    <h4>Data &amp; workflows</h4>
+    <a href="refactoring.html">Refactoring</a>
+    <a href="thinking-tools.html">Thinking tools</a>
+    <a href="data.html">Data</a>
+    <a href="ingest.html">Ingest</a>
+    <a href="export.html">Export</a>
+    <a href="connecting.html">Connecting to Minerva</a>
+    <a href="maintenance.html">Maintenance</a>
+  </aside>
+
+  <!-- ===== Content ===== -->
+  <main class="docs-content">
+    <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>Object Types</p>
+
+    <h1>Object Types</h1>
+    <p class="lede">An object type describes a kind of note — what fields it has, what icon it wears, how it looks in a gallery. This is where you see the types your project has and change them. Minerva ships a handful to start with, you can add your own, and you can adjust the built-in ones to suit how you actually work.</p>
+
+    <h2 id="list">What you'll see</h2>
+    <p>Every type in your project, one per row: its icon, its name, how many fields it declares, and how many notes are currently of that kind. A label on each row tells you where it came from:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">stock</div>
+        <div class="v">One of the types Minerva ships with — Book, Person, Meeting, Project, Idea, Article — exactly as it comes.</div>
+      </div>
+      <div class="row">
+        <div class="k">customized</div>
+        <div class="v">A stock type you've changed. Your version lives in this project and is what's actually used; the original is kept so you can go back to it.</div>
+      </div>
+      <div class="row">
+        <div class="k">user</div>
+        <div class="v">A type you created yourself, either here or from a note.</div>
+      </div>
+    </div>
+
+    <h2 id="editing">Changing a type</h2>
+    <p><strong>Edit</strong> opens the type's definition. Everything about it is here in one dialog:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Name</div>
+        <div class="v">What this kind of thing is called, wherever it's shown.</div>
+      </div>
+      <div class="row">
+        <div class="k">Icon</div>
+        <div class="v">The character that marks notes of this type in every list. On macOS the ☺ button opens the system emoji picker; you can also paste or type one.</div>
+      </div>
+      <div class="row">
+        <div class="k">Colour</div>
+        <div class="v">Tints the icon. Pick from the swatches beside the field, use the colour well for anything else, or type a hex value. The × clears it.</div>
+      </div>
+      <div class="row">
+        <div class="k">Fields</div>
+        <div class="v">The properties notes of this type are expected to have. Each one has a name and a kind — text, number, date, a fixed list of choices, or a link to a note of another type. Add, remove, and reorder them; the order is the order they appear in on a note.</div>
+      </div>
+      <div class="row">
+        <div class="k">Card</div>
+        <div class="v">Tick a field to include it when the note is shown as a card rather than a row.</div>
+      </div>
+      <div class="row">
+        <div class="k">Cover</div>
+        <div class="v">Which field holds an image, for the gallery view.</div>
+      </div>
+      <div class="row">
+        <div class="k">Parent type</div>
+        <div class="v">A more general type this one is a kind of. It inherits the parent's fields, and counts as one of the parent wherever they're gathered.</div>
+      </div>
+    </div>
+
+    <h2 id="customizing-stock">Adjusting a built-in type</h2>
+    <p>The stock types are a starting point, not a fixed set. If Book should track which shelf it's on, edit Book and add the field — no need to build your own near-copy.</p>
+
+    <p>Saving keeps a customized copy of that type in this project, which then shadows the built-in one. Your existing notes are unaffected: they're still Books, still found by everything that looks for Books. Only the definition changed.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Revert</div>
+        <div class="v">Appears on a customized type and puts the built-in definition back, discarding your changes to it. The notes using the type are left alone — the type still exists, it's just standard again.</div>
+      </div>
+      <div class="row">
+        <div class="k">The name stays fixed</div>
+        <div class="v">A built-in type keeps its name, even once customized. If you want a differently-named kind of thing, duplicate it — that gives you a type of your own that you can name freely.</div>
+      </div>
+    </div>
+
+    <h2 id="creating">Adding your own</h2>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">New type</div>
+        <div class="v">Starts an empty definition. A name is all it needs; fields, icon, and the rest are optional and can be added later.</div>
+      </div>
+      <div class="row">
+        <div class="k">Duplicate</div>
+        <div class="v">Copies any type, built-in or not, as a new one of your own named "… copy". A quick way to start from something close to what you want.</div>
+      </div>
+      <div class="row">
+        <div class="k">From a note</div>
+        <div class="v"><strong>File → Save Note as Object Type</strong> builds a type out of a note you've already written, taking its properties as the fields.</div>
+      </div>
+    </div>
+
+    <h2 id="renaming-deleting">Renaming and deleting</h2>
+    <p>Your own types can also be renamed and deleted. Both take care of the notes that use them:</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Rename</div>
+        <div class="v">Updates every note of that type to match, so nothing is left pointing at a name that no longer exists. If some notes can't be updated, the old type is kept rather than leaving them orphaned, and you're told.</div>
+      </div>
+      <div class="row">
+        <div class="k">Delete</div>
+        <div class="v">Tells you how many notes still use the type, then offers to remove the <code>type:</code> line from them as well. Decline and they keep it — it simply won't resolve to anything, which is easy to undo either way.</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <span class="label">Types travel with the project</span>
+      <p>Your types and your customizations are stored inside the project itself, not on your machine. Open the same project elsewhere and they come with it; a different project has its own vocabulary.</p>
+    </div>
+
+    <h2 id="related">Using them</h2>
+    <p>A note takes on a type through its properties — see <a href="notes-typed-notes.html">Typed notes</a>. To browse your project by type, use the <a href="left-sidebar-objects.html">Objects panel</a>. To fill in a typed note's fields, use the <a href="right-sidebar-properties.html">Properties panel</a>.</p>
+
+    <div class="pager">
+      <a class="prev" href="settings-formatter.html">
+        <span class="dir">Previous</span>
+        <span class="ttl">&larr; Formatter</span>
+      </a>
+      <a class="next" href="settings-bibliography.html">
+        <span class="dir">Next</span>
+        <span class="ttl">Bibliography &rarr;</span>
+      </a>
+    </div>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="brand" style="display:flex;align-items:center;gap:10px;font-weight:650;color:var(--text);margin-bottom:10px;"><span>Minerva</span></div>
+      <div class="note">A local-first desktop workspace for thinking with AI.</div>
+    </div>
+    <div class="cols">
+      <div class="col"><h4>Product</h4><a href="../features.html">Features</a><a href="../getting-started.html">Getting Started</a><a href="../getting-started.html">Download</a></div>
+      <div class="col"><h4>Learn</h4><a href="../about.html">About</a><a href="../privacy.html">Privacy</a><a href="index.html">Docs</a><a href="https://davegriffith.substack.com/">Dancing with Robots</a></div>
+      <div class="col"><h4>Source</h4><a href="https://github.com/dgriffith/ide-for-thought">GitHub</a><a href="https://github.com/dgriffith/ide-for-thought/releases">Releases</a><a href="https://github.com/dgriffith/ide-for-thought/blob/main/LICENSE">License</a></div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
