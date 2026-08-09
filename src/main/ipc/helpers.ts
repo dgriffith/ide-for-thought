@@ -147,6 +147,14 @@ export function broadcastProposalsChanged(rootPath: string): void {
   }
 }
 
+/** Broadcast that `rootPath`'s inspection results changed (#1795) — checks now
+ *  re-run on their own, so the panel can't assume it caused every change. */
+export function broadcastInspectionsChanged(rootPath: string): void {
+  for (const targetWin of windowsForProject(rootPath)) {
+    broadcast(targetWin, Channels.INSPECTIONS_CHANGED);
+  }
+}
+
 export const hooks: WritePipelineHooks = {
   markPathHandled,
   broadcastRewritten,

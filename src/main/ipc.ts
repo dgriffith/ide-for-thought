@@ -23,7 +23,8 @@ import { registerHistory } from './ipc/register-history';
 import { registerClipper } from './ipc/register-clipper';
 import { registerApp } from './ipc/register-app';
 import { onProposalsChanged } from './llm/proposal-events';
-import { broadcastProposalsChanged } from './ipc/helpers';
+import { onInspectionsChanged } from './graph/inspection-events';
+import { broadcastProposalsChanged, broadcastInspectionsChanged } from './ipc/helpers';
 import { updateDockBadge } from './project-context';
 
 export function registerIpcHandlers(): void {
@@ -33,6 +34,12 @@ export function registerIpcHandlers(): void {
   onProposalsChanged((rootPath) => {
     broadcastProposalsChanged(rootPath);
     void updateDockBadge();
+  });
+
+  // Same shape for inspections (#1795): the checks re-run a beat after any
+  // graph write, so the panel is told rather than left on a stale list.
+  onInspectionsChanged((rootPath) => {
+    broadcastInspectionsChanged(rootPath);
   });
 
   registerNotebase();

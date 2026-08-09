@@ -148,6 +148,9 @@ export interface GraphApi {
   /** Resolves to the settings as SAVED — out-of-range days are clamped and
    *  unknown check ids dropped, so the panel re-renders from the truth. */
   setInspectionSettings(settings: InspectionSettings): Promise<InspectionSettings>;
+  /** Fires when a health-check run finishes — including the automatic ones, so
+   *  a panel showing results can refresh instead of going stale (#1795). */
+  onInspectionsChanged(cb: () => void): () => void;
   export(): Promise<void>;
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;

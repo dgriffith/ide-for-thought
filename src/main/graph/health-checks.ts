@@ -5,6 +5,8 @@ import { DAY_MS } from './queries';
 import type { InspectionFix } from '../../shared/types';
 import { stripNoteExt, noteExtRank } from '../../shared/note-extensions';
 import { noteTargetPathBeside } from '../../shared/wiki-link-resolver';
+import { onGraphChanged } from './graph-events';
+import { emitInspectionsChanged } from './inspection-events';
 import {
   catalogTypeFor,
   isInspectionEnabled,
@@ -98,6 +100,9 @@ export async function runAllChecks(
     // the user switched off.
     const flat = results.flat().filter((i) => isInspectionEnabled(catalogTypeFor(i.type), settings));
     lastResultsByProject.set(ctx.rootPath, flat);
+    // Tell anyone showing the results that they moved (#1795) — runs are no
+    // longer only user-initiated, so the panel can't assume it caused them.
+    emitInspectionsChanged(ctx.rootPath);
     return flat;
   } finally {
     running = false;
@@ -677,13 +682,89 @@ function inspectionForBrokenLink(
   return null;
 }
 
+// ── Automatic runs ─────────────────────────────────────────────────────────
+
+/**
+ * Re-run the checks shortly after the graph changes (#1795).
+ *
+ * Saving a note is when you most want to know you've just broken a link, and
+ * waiting up to five minutes for the next timer tick made the panel feel
+ * broken. Every graph write emits `graphChanged`; this debounces the burst
+ * (a bulk index at project open emits once per note) and runs once things
+ * settle.
+ *
+ * The debounce is a floor, not a promise: a run already in flight is left to
+ * finish and the next change schedules another.
+ */
+interface AutoState {
+  timer: ReturnType<typeof setTimeout> | null;
+  loadSettings: () => Promise<InspectionSettings>;
+  debounceMs: number;
+  unsubscribe: () => void;
+}
+
+const autoByProject = new Map<string, AutoState>();
+
+export const DEFAULT_CHECK_DEBOUNCE_MS = 2000;
+
+export function armAutoChecks(
+  ctx: ProjectContext,
+  opts: { loadSettings: () => Promise<InspectionSettings>; debounceMs?: number },
+): void {
+  disarmAutoChecks(ctx);
+  const state: AutoState = {
+    timer: null,
+    loadSettings: opts.loadSettings,
+    debounceMs: opts.debounceMs ?? DEFAULT_CHECK_DEBOUNCE_MS,
+    unsubscribe: () => {},
+  };
+  state.unsubscribe = onGraphChanged((rootPath) => {
+    // One armed project per root; ignore writes to other open thoughtbases.
+    if (rootPath !== ctx.rootPath) return;
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(() => {
+      state.timer = null;
+      void (async () => {
+        await runAllChecks(ctx, await state.loadSettings());
+      })();
+    }, state.debounceMs);
+  });
+  autoByProject.set(ctx.rootPath, state);
+}
+
+export function disarmAutoChecks(ctx: ProjectContext): void {
+  const state = autoByProject.get(ctx.rootPath);
+  if (!state) return;
+  if (state.timer) clearTimeout(state.timer);
+  state.unsubscribe();
+  autoByProject.delete(ctx.rootPath);
+}
+
 // ── Timer ──────────────────────────────────────────────────────────────────
 
 const timersByProject = new Map<string, ReturnType<typeof setInterval>>();
 
-export function startPeriodicChecks(ctx: ProjectContext, intervalMs: number = 5 * 60 * 1000): void {
+/**
+ * Re-run the checks every `intervalMs`.
+ *
+ * `loadSettings` is injected rather than imported because the settings loader
+ * reaches `electron`, and this module is imported all over the test suite —
+ * see the module header of `shared/inspections.ts`. Omitting it runs at the
+ * built-in defaults, which is only right for a caller that has no user
+ * settings to honour.
+ */
+export function startPeriodicChecks(
+  ctx: ProjectContext,
+  opts: { loadSettings?: () => Promise<InspectionSettings>; intervalMs?: number } = {},
+): void {
   stopPeriodicChecks(ctx);
-  const timer = setInterval(() => { void runAllChecks(ctx); }, intervalMs);
+  const intervalMs = opts.intervalMs ?? 5 * 60 * 1000;
+  const timer = setInterval(() => {
+    void (async () => {
+      const settings = opts.loadSettings ? await opts.loadSettings() : DEFAULT_INSPECTION_SETTINGS;
+      await runAllChecks(ctx, settings);
+    })();
+  }, intervalMs);
   timersByProject.set(ctx.rootPath, timer);
 }
 

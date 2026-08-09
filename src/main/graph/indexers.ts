@@ -447,6 +447,7 @@ export interface HeadingRenameCandidate {
 
 import ONTOLOGY_TTL from '../../shared/ontology.ttl?raw';
 import THOUGHT_ONTOLOGY_TTL from '../../shared/ontology-thought.ttl?raw';
+import { emitGraphChanged } from './graph-events';
 
 // Ontology triples are loaded fresh on every startup and are not persisted
 // to .minerva/graph.ttl. Holding the parsed statements lets us (1) self-heal
@@ -597,12 +598,27 @@ function indexNoteWikiLinks(
   }
 }
 
+export async function indexNote(
+  ctx: ProjectContext,
+  relativePath: string,
+  content: string,
+  opts: IndexNoteOptions = {},
+): Promise<{ headingRenameCandidate?: HeadingRenameCandidate }> {
+  try {
+    return await indexNoteImpl(ctx, relativePath, content, opts);
+  } finally {
+    // Signals "the graph may have changed" (#1795), including the early-return
+    // paths — a .ttl or .csv note still writes triples. Debounced downstream.
+    emitGraphChanged(ctx.rootPath);
+  }
+}
+
 // The body is synchronous after the #1624 decomposition, but indexNote stays
 // async: it's part of the graph write API and every call site `await`s it
 // alongside genuinely-async index work (making it sync trips await-thenable at
 // ~360 call/await sites). Hence the scoped require-await suppression.
 // eslint-disable-next-line @typescript-eslint/require-await
-export async function indexNote(
+async function indexNoteImpl(
   ctx: ProjectContext,
   relativePath: string,
   content: string,
@@ -749,6 +765,14 @@ function detectHeadingRename(
 }
 
 export function removeNote(ctx: ProjectContext, relativePath: string): void {
+  try {
+    removeNoteImpl(ctx, relativePath);
+  } finally {
+    emitGraphChanged(ctx.rootPath);
+  }
+}
+
+function removeNoteImpl(ctx: ProjectContext, relativePath: string): void {
   checkLLMWriteGuard('removeNote');
   const state = getState(ctx);
   if (!state) return;

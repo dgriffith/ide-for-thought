@@ -1,11 +1,13 @@
 <script lang="ts">
   import { api } from '../../ipc/client';
   import { getReviewStore } from '../../stores/review.svelte';
+  import { getInspectionsStore } from '../../stores/inspections.svelte';
   import { onMount } from 'svelte';
   import Ribbon from './Ribbon.svelte';
   import type { InspectionFix } from '../../../../shared/types';
 
   const review = getReviewStore();
+  const inspectionsStore = getInspectionsStore();
 
   interface Inspection {
     id: string;
@@ -58,6 +60,10 @@
   onMount(() => { void refresh(); });
 
   $effect(() => { revision; void refresh(); });
+
+  // A run finished somewhere — after a save, on the periodic backstop, or from
+  // another window on this thoughtbase. Re-read the cached results (#1795).
+  $effect(() => { inspectionsStore.revision; void refresh(); });
 
   // Scope to the active note (#1446): in 'note' scope the panel lives in the
   // note-context right sidebar, so it shows only inspections anchored to the

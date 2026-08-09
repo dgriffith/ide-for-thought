@@ -579,6 +579,8 @@ export const Channels = {
   INSPECTIONS_RUN: 'inspections:run',
   INSPECTIONS_GET_SETTINGS: 'inspections:getSettings',
   INSPECTIONS_SET_SETTINGS: 'inspections:setSettings',
+  /** Broadcast: the cached inspection results changed (a run finished). */
+  INSPECTIONS_CHANGED: 'inspections:changed',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',
