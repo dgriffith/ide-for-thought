@@ -6,6 +6,7 @@
   import { getSettingsStore } from '../stores/settings.svelte';
   import { makePatch } from '../make-patch';
   import BehaviorsSettings from './BehaviorsSettings.svelte';
+  import InspectionsSettings from './InspectionsSettings.svelte';
   import EditorSettingsPanel from './EditorSettings.svelte';
   import AppearanceSettings from './AppearanceSettings.svelte';
   import WebSettings from './WebSettings.svelte';
@@ -52,7 +53,7 @@
 
   let { onApplyEditor, onApplyFontSize, onThemeChanged, onClose, initialTab }: Props = $props();
 
-  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'objectTypes' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
+  type TabId = 'editor' | 'appearance' | 'behaviors' | 'notes' | 'formatter' | 'objectTypes' | 'inspections' | 'web' | 'sources' | 'clipper' | 'bibliography' | 'compute' | 'ai' | 'skills';
 
   /** Restructure per IMPLEMENTATION.md §10.4 — 10 flat tabs become 4
    *  semantic groups. Group labels render in mono-uppercase above each
@@ -81,6 +82,7 @@
         { id: 'notes',        label: 'Notes',        sub: 'Refactoring · excerpt destinations' },
         { id: 'formatter',    label: 'Formatter',    sub: 'House style · format rules' },
         { id: 'objectTypes',  label: 'Object Types', sub: 'Create · delete · duplicate types' },
+        { id: 'inspections',  label: 'Inspections',  sub: 'Which health checks run · thresholds' },
         { id: 'bibliography', label: 'Bibliography', sub: 'Citation style · locale' },
       ],
     },
@@ -317,6 +319,9 @@
 
         {:else if activeTab === 'behaviors'}
           <BehaviorsSettings />
+
+        {:else if activeTab === 'inspections'}
+          <InspectionsSettings />
 
         {:else if activeTab === 'notes'}
           <h3 class="settings-subsection">Refactoring</h3>

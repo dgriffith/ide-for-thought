@@ -577,6 +577,8 @@ export const Channels = {
   GRAPH_GROUND_CHECK: 'graph:groundCheck',
   INSPECTIONS_LIST: 'inspections:list',
   INSPECTIONS_RUN: 'inspections:run',
+  INSPECTIONS_GET_SETTINGS: 'inspections:getSettings',
+  INSPECTIONS_SET_SETTINGS: 'inspections:setSettings',
 
   // Bookmarks
   BOOKMARKS_LOAD: 'bookmarks:load',

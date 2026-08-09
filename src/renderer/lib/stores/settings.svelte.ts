@@ -24,6 +24,10 @@ export function getSettingsStore() {
       api.sources.setIngestSettings(settings),
     setExcerptNoteFolder: (folder: string) => api.sources.setExcerptNoteFolder(folder),
 
+    // ── Inspections (#1792) ───────────────────────────────────────────────
+    setInspectionSettings: (settings: Parameters<typeof api.graph.setInspectionSettings>[0]) =>
+      api.graph.setInspectionSettings(settings),
+
     // ── LLM / tools ───────────────────────────────────────────────────────
     setToolSettings: (update: Parameters<typeof api.tools.setSettings>[0]) =>
       api.tools.setSettings(update),

@@ -135,6 +135,9 @@ contextBridge.exposeInMainWorld('api', {
     groundCheck: (claimText: string) => invoke(Channels.GRAPH_GROUND_CHECK, claimText),
     inspections: () => invoke(Channels.INSPECTIONS_LIST),
     runInspections: () => invoke(Channels.INSPECTIONS_RUN),
+    inspectionSettings: () => invoke(Channels.INSPECTIONS_GET_SETTINGS),
+    setInspectionSettings: (settings: Parameters<ChannelMap['inspections:setSettings']>[0]) =>
+      invoke(Channels.INSPECTIONS_SET_SETTINGS, settings),
     export: () => invoke(Channels.GRAPH_EXPORT),
     sourceDetail: (sourceId: string) => invoke(Channels.GRAPH_SOURCE_DETAIL, sourceId),
     excerptSource: (excerptId: string) => invoke(Channels.GRAPH_EXCERPT_SOURCE, excerptId),

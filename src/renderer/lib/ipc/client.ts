@@ -1,5 +1,6 @@
 import type { NoteFile, NotebaseMeta, TagInfo, TaggedNote, TaggedSource, SavedQuery, SavedView, SavedViewInput, SearchResult, OutgoingLink, Backlink, TabSession, LayoutSession, Conversation, ContextBundle, ConversationMessage, BookmarkNode, SourceDetail, SearchInNotesOptions, SearchInNotesFileResult, ReplaceInNotesOptions, ReplaceInNotesResult, HeadingRenameCandidate, MenuEditorState, InspectionFix } from '../../../shared/types';
 import type { ToolExecutionRequest, ToolExecutionResult, ConversationToolPayload } from '../../../shared/tools/types';
+import type { InspectionSettings } from '../../../shared/inspections';
 import type { ClipperState } from '../../../shared/clipper-pairing';
 import type { Proposal } from '../../../shared/proposals';
 import type { ThemeMode } from '../../../shared/theme';
@@ -142,6 +143,11 @@ export interface GraphApi {
   groundCheck(claimText: string): Promise<{ node: string; label: string; type: string }[]>;
   inspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
   runInspections(): Promise<{ id: string; type: string; severity: string; nodeUri: string; nodeLabel: string; message: string; suggestedAction?: string; fix?: InspectionFix; notePath?: string }[]>;
+  /** Which health checks run, and the day thresholds (#1792). Per machine. */
+  inspectionSettings(): Promise<InspectionSettings>;
+  /** Resolves to the settings as SAVED — out-of-range days are clamped and
+   *  unknown check ids dropped, so the panel re-renders from the truth. */
+  setInspectionSettings(settings: InspectionSettings): Promise<InspectionSettings>;
   export(): Promise<void>;
   sourceDetail(sourceId: string): Promise<SourceDetail | null>;
   excerptSource(excerptId: string): Promise<{ sourceId: string } | null>;
