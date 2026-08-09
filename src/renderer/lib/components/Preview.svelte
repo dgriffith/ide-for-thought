@@ -491,6 +491,23 @@ PREFIX prov: <http://www.w3.org/ns/prov#>
         }
     }
 
+    // Open every note at its top (#1718). Unlike the editor — which App.svelte
+    // keys on the note path, so it remounts scrolled to zero — one Preview
+    // element serves every note in the group, and a scroll container keeps its
+    // offset when its contents are replaced. The reader would land partway down
+    // a note they'd never opened, at whatever offset the PREVIOUS note was left
+    // at. Keyed on the path alone, so editing the note you're reading (the
+    // split editor-preview view re-renders on every keystroke) doesn't yank you
+    // back to the top. Runs before the pending-anchor jump below, which scrolls
+    // in a rAF and so still wins for a `[[note#section]]` navigation.
+    let lastScrolledNotePath: string | null | undefined = undefined;
+    $effect(() => {
+        const path = notePath;
+        if (!previewEl || path === lastScrolledNotePath) return;
+        lastScrolledNotePath = path;
+        previewEl.scrollTop = 0;
+    });
+
     // After render, if the caller asked us to jump to a heading or block, do it.
     $effect(() => {
         if (!pendingAnchor || !previewEl) return;
