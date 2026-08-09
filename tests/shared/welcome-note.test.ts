@@ -22,6 +22,17 @@ describe('welcomeNoteContent', () => {
     expect(welcomeNoteContent(false)).not.toContain('⌘N');
   });
 
+  it('names conversation affordances that actually exist (#1569)', () => {
+    const body = welcomeNoteContent(true);
+    // It used to say "Open a conversation", which matches no button, menu item,
+    // or shortcut — a reader went looking for it and filed a bug. Both labels
+    // below are real: the button above the editor (App.svelte) and the
+    // tab / editor / preview context-menu item.
+    expect(body).toContain('New Conversation');
+    expect(body).toContain('Ask About This');
+    expect(body).not.toMatch(/open a conversation/i);
+  });
+
   it('greets the reader', () => {
     expect(welcomeNoteContent(true)).toContain('Welcome to your thoughtbase');
   });
