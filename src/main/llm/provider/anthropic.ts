@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Citation, TurnUsage } from '../../../shared/types';
 import type { ConnectionCheckResult } from '../../../shared/tools/types';
 import { toConnectionResult } from '../connection-error';
+import { withHistoryCacheBreakpoints } from './anthropic-cache';
 import type { Effort } from '../../../shared/tools/effort';
 import type {
   ChatMessage,
@@ -140,6 +141,8 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async runTurn(req: TurnRequest, hooks: TurnHooks): Promise<TurnResult> {
+    // Tools render before system, so this one marker caches BOTH — the tool
+    // schemas and the system prompt — as a single prefix.
     const system: Anthropic.TextBlockParam[] = [
       { type: 'text', text: req.system, cache_control: { type: 'ephemeral' } },
     ];
@@ -148,7 +151,9 @@ export class AnthropicProvider implements LLMProvider {
       max_tokens: req.maxTokens,
       system,
       tools: this.buildTools(req.tools, req.web),
-      messages: req.history as unknown as Anthropic.MessageParam[],
+      // Rolling breakpoints on the history tail so each loop iteration reads
+      // the transcript the previous one wrote instead of re-paying for it.
+      messages: withHistoryCacheBreakpoints(req.history as unknown as Anthropic.MessageParam[]),
       ...outputConfigFor(req.effort),
     };
     if (req.containerId) streamParams.container = req.containerId;
@@ -166,6 +171,17 @@ export class AnthropicProvider implements LLMProvider {
     if (hooks.onTextDelta) stream.on('text', (delta) => hooks.onTextDelta!(delta));
 
     const message = await stream.finalMessage();
+
+    if (process.env.MINERVA_LLM_DEBUG) {
+      // Caching fails silently — a stray timestamp in the system prompt just
+      // means `read` stays 0 forever, with no error. Surface the split so a
+      // regression is visible rather than merely expensive.
+      const u = message.usage;
+      console.log(
+        `[llm] cache read=${u?.cache_read_input_tokens ?? 0} `
+        + `write=${u?.cache_creation_input_tokens ?? 0} uncached=${u?.input_tokens ?? 0}`,
+      );
+    }
 
     // Fallback for any tool-use block the streaming event missed (SDK drift),
     // so the indicator still appears exactly once.
@@ -201,7 +217,16 @@ export class AnthropicProvider implements LLMProvider {
     const messages = req.messages as Anthropic.MessageParam[];
     const base = {
       model: req.model,
-      ...(req.system ? { system: req.system } : {}),
+      // Batch callers (auto-tag, auto-link) re-send an identical system prompt
+      // per note; marking it makes every call after the first a cache read.
+      // Below the model's minimum cacheable prefix this is silently a no-op.
+      ...(req.system
+        ? {
+            system: [
+              { type: 'text', text: req.system, cache_control: { type: 'ephemeral' } },
+            ] satisfies Anthropic.TextBlockParam[],
+          }
+        : {}),
       ...outputConfigFor(req.effort),
       messages,
     };
