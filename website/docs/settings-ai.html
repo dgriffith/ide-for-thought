@@ -93,42 +93,81 @@
     <p class="crumbs"><a href="index.html">Docs</a><span class="sep">/</span><a href="settings.html">Settings</a><span class="sep">/</span>AI</p>
 
     <h1>AI</h1>
-    <p class="lede">This tab sets what every new conversation starts with — which AI model it uses and how hard that model thinks — plus your API key and voice dictation. If you want a particular thinking tool to use a different model, that's set on the <a href="settings-skills.html">Skills</a> tab; here you're just setting the defaults everything else falls back to.</p>
+    <p class="lede">This tab sets what every new conversation starts with — which model it uses and how hard that model thinks — plus the keys for the AI services you want to use, and voice dictation. If you want a particular thinking tool to use a different model, that's set on the <a href="settings-skills.html">Skills</a> tab; here you're setting the defaults everything else falls back to.</p>
 
     <h2 id="model">Default model and effort</h2>
-    <p>Two dropdowns pick the starting point for a fresh conversation. They're only defaults: each conversation has its own model and effort pickers that override them for that conversation, and changing them here never disturbs a conversation you already have open.</p>
+    <p>Two dropdowns pick the starting point for a fresh conversation. They're only defaults: each conversation has <a href="conversations-chatting.html#model">its own model and effort pickers</a> that override them, and changing them here never disturbs a conversation you already have open.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Default model</div>
-        <div class="v">Choose which model new conversations use. Faster models answer quickly and cost less; more capable ones handle harder, more nuanced work.</div>
+        <div class="v">Every model from every service you've set up, grouped by who makes it. Faster models answer quickly and cost less; more capable ones handle harder, more nuanced work.</div>
       </div>
       <div class="row">
         <div class="k">Default reasoning effort</div>
-        <div class="v">How long the model spends thinking before it answers, from Low up to Max — or leave it at the model's own default. More effort can mean better answers on tricky questions at the cost of a little speed. Not every model offers every level; you'll only ever be offered the levels the chosen model actually supports.</div>
+        <div class="v">How long the model spends thinking before it answers, from Low up to Max — or leave it at the model's own default. More effort can mean better answers on tricky questions at the cost of a little speed. Not every model offers every level, and you're only offered the ones the chosen model actually supports.</div>
       </div>
     </div>
 
-    <h2 id="apikey">API key</h2>
-    <p>Minerva's AI features need an API key, which you paste into this field. A line above the field tells you whether a key is already saved. For your privacy the saved key is never shown back to you, and it can't be copied out of the field.</p>
+    <h2 id="providers">Bring your own model</h2>
+    <p>Minerva talks to four kinds of AI service. You only need to set up the ones you intend to use — a key for one is enough to get started, and you can add others later without disturbing anything.</p>
+
+    <div class="deflist">
+      <div class="row">
+        <div class="k">Anthropic</div>
+        <div class="v">The Claude models. Minerva is built around them and they're what the defaults point at.</div>
+      </div>
+      <div class="row">
+        <div class="k">OpenAI</div>
+        <div class="v">GPT-5 and the o-series reasoning models.</div>
+      </div>
+      <div class="row">
+        <div class="k">Google Gemini</div>
+        <div class="v">The Gemini 2.5 models.</div>
+      </div>
+      <div class="row">
+        <div class="k">Local / OpenAI-compatible</div>
+        <div class="v">Anything that speaks the OpenAI protocol at an address you give it — Ollama or LM Studio on your own machine, a vLLM or llama.cpp server, or a gateway like OpenRouter or Together. See <a href="#local">Running models locally</a> below.</div>
+      </div>
+    </div>
+
+    <h2 id="keys">Keys</h2>
+    <p>Each service gets its own section with its own key. A line above the field tells you whether one is saved, and says <b>encrypted at rest</b> when your operating system provides a secure store for it. For your privacy a saved key is never shown back to you and can't be copied out of the field.</p>
 
     <div class="deflist">
       <div class="row">
         <div class="k">Entering a key</div>
-        <div class="v">Paste your key into the field and click <b>Done</b> to save it. If a key is already saved, typing a new one replaces it.</div>
+        <div class="v">Paste it into that service's field and click <b>Done</b>. If a key is already saved, typing a new one replaces it.</div>
       </div>
       <div class="row">
         <div class="k">Clearing a key</div>
-        <div class="v">Once a key is saved, a <b>Clear saved key</b> link lets you remove it. Nothing is deleted until you click Done, and a <b>Cancel clear</b> link lets you change your mind first.</div>
+        <div class="v">A <b>Clear saved key</b> link appears once one is saved. Nothing is removed until you click Done, and <b>Cancel clear</b> lets you change your mind first.</div>
+      </div>
+      <div class="row">
+        <div class="k">Check connection</div>
+        <div class="v">Confirms the service accepts the key before you rely on it — much easier than discovering the problem halfway through a conversation. It tests whatever the app would actually use, so it works on a key you've just typed as well as one already saved.</div>
+      </div>
+      <div class="row">
+        <div class="k">Environment variables</div>
+        <div class="v">If you'd rather not store a key in the app, each service names the environment variable it will fall back to (<code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>GEMINI_API_KEY</code>). A key saved here takes precedence over one in the environment.</div>
       </div>
     </div>
+
+    <div class="box">
+      <span class="label">You choose who sees your notes</span>
+      <p>Everything else in Minerva stays on your machine. A conversation is the exception — the parts of your notes the assistant looks at are sent to whichever service that conversation is set to use. Picking the model is therefore also picking who that is, which is the main reason the choice is per conversation and not buried in a preference.</p>
+    </div>
+
+    <h2 id="local">Running models locally</h2>
+    <p>The <b>Local / OpenAI-compatible</b> section takes a <b>base URL</b> instead of assuming one — <code>http://localhost:11434/v1</code> for a default Ollama install, or wherever your server actually listens. Most local servers don't need a key; leave it blank if yours doesn't.</p>
+    <p>Minerva can't know what your endpoint serves, so you list the models yourself: type the model's id (the name the server knows it by, like <code>llama3.1:70b</code>) and, if you like, a friendlier label to show in the pickers. They then appear alongside the built-in models everywhere a model can be chosen. Remove one and it disappears from the pickers; conversations already using it keep their setting.</p>
 
     <h2 id="voice">Voice dictation</h2>
     <p>Turn on <b>Enable voice dictation</b> to speak instead of type, and pick a voice model from the dropdown beside it. Dictation runs entirely on your own machine — your audio never leaves it. The first time you use it, the voice model downloads once and is then ready to use offline.</p>
 
     <figure class="shot-img">
-      <img src="img/settings-ai.png" alt="The AI settings panel: a default model dropdown and a reasoning effort dropdown, then the API key section showing whether a key is saved, and at the bottom the voice dictation toggle with its model choice." loading="lazy" />
-      <figcaption>Screenshot — the AI settings tab</figcaption>
+      <img src="img/settings-ai.png" alt="The AI settings tab: default model and reasoning effort dropdowns, then a section per service — Anthropic with a key saved and encrypted at rest, OpenAI and Google Gemini with none set — each with its own key field, Check connection button, and the environment variable it falls back to." loading="lazy" />
+      <figcaption>Screenshot — one section per service, each with its own key</figcaption>
     </figure>
 
     <div class="pager">

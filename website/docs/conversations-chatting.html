@@ -147,6 +147,26 @@
     <h2 id="streaming">Watching a reply come in</h2>
     <p>Replies appear a little at a time as the assistant writes, with a small "thinking" indicator that stays put during any pause — including while it's off searching your notes or the web. Formatting shows up as it goes, so nothing jumps around when the reply finishes. While a reply is in progress, the Send button turns into <b>Cancel</b> so you can stop it at any time.</p>
 
+    <h2 id="model">Choosing a model for one conversation</h2>
+    <p>Above each conversation is a model picker. It starts on <b>Default</b> — which names the model your <a href="settings-ai.html#model">AI settings</a> currently point at, so you can see what "default" actually means without going to look — and switching it affects only that conversation. Two conversations open side by side can be running on different models from different companies.</p>
+    <p>The list is grouped by who makes each model: Claude, GPT and the o-series, Gemini, and any local models you've added. You'll only get an answer from a service you've <a href="settings-ai.html#keys">set a key for</a>; pick one you haven't and Minerva says so and offers to open Settings rather than failing quietly.</p>
+    <p>Beside it sits an effort picker, when the chosen model has something to offer there:</p>
+    <div class="deflist">
+      <div class="row">
+        <div class="k">It only appears when it means something</div>
+        <div class="v">Models with no thinking control of their own — the quick, cheap ones — simply don't show the picker rather than showing one that does nothing.</div>
+      </div>
+      <div class="row">
+        <div class="k">The levels follow the model</div>
+        <div class="v">Each model offers what it actually supports. Switch a conversation from a model with five levels to one with three and a setting the new model can't honour drops to the nearest one it can, rather than being silently ignored or erroring at send time.</div>
+      </div>
+      <div class="row">
+        <div class="k">Default names its inheritance</div>
+        <div class="v">Leaving effort on Default shows the level it's inheriting from your settings, so an unset conversation is still a known quantity.</div>
+      </div>
+    </div>
+    <p>Switching mid-conversation is fine and often useful: think something through with a fast model, then hand the hard part to a more capable one with the whole conversation already in front of it.</p>
+
     <h2 id="citations">Citations and references</h2>
     <p>When the assistant uses the web, each source it relied on shows up as a numbered note beneath the reply, with the title, the site, and the exact passage it quoted. Click one to open the page in your browser. A <b>cite</b> action next to it saves the source to your library and drops a citation into whichever note the conversation is tied to — the same way you'd cite a source anywhere else in Minerva.</p>
     <p>When the assistant refers to your own notes, it simply names them in its reply, so you can jump straight to what it was reading.</p>
